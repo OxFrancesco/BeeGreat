@@ -6,9 +6,13 @@
     "packages/*"
   ],
   "scripts": {
-    "mobile": "bun run --cwd apps/mobile start",
+    "mobile": "concurrently -k -n convex,expo -c cyan,yellow --handle-input \"bun run backend\" \"bun run --cwd apps/mobile ios\"",
+    "mobile:android": "concurrently -k -n convex,expo -c cyan,green --handle-input \"bun run backend\" \"bun run --cwd apps/mobile android\"",
     "web": "bun run --cwd apps/web dev",
     "backend": "bun run --cwd packages/backend dev",
     "dev": "bun run --filter '*' dev"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }
