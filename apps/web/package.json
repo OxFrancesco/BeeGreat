@@ -4,13 +4,14 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "convex dev --start 'vite dev'",
+    "dev": "vite dev",
     "build": "vite build && tsc --noEmit",
     "start": "node .output/server/index.mjs",
     "format": "prettier --write .",
     "lint": "tsc && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@beegreat/backend": "workspace:*",
     "@clerk/tanstack-react-start": "^0.29.10",
     "@convex-dev/react-query": "0.1.0",
     "@tanstack/react-query": "^5.99.0",

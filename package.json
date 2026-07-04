@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "mobile": "bun run --cwd apps/mobile start",
-    "web": "bun run --cwd apps/web dev"
+    "web": "bun run --cwd apps/web dev",
+    "backend": "bun run --cwd packages/backend dev",
+    "dev": "bun run --filter '*' dev"
   }
 }

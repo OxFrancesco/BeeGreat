@@ -2,7 +2,7 @@ import { convexQuery } from '@convex-dev/react-query'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { useAction } from 'convex/react'
-import { api } from '../../convex/_generated/api'
+import { api } from '@beegreat/backend/convex/_generated/api'
 
 export const Route = createFileRoute('/posts')({
   loader: async ({ context }) => {

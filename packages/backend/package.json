@@ -1,0 +1,21 @@
+{
+  "name": "@beegreat/backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "convex dev",
+    "setup": "convex dev --until-success"
+  },
+  "exports": {
+    "./convex/_generated/api": {
+      "types": "./convex/_generated/api.d.ts",
+      "default": "./convex/_generated/api.js"
+    },
+    "./convex/_generated/dataModel": {
+      "types": "./convex/_generated/dataModel.d.ts"
+    }
+  },
+  "dependencies": {
+    "convex": "^1.36.1"
+  }
+}
