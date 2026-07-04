@@ -1,0 +1,12 @@
+{
+  "name": "beegreat",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "mobile": "bun run --cwd apps/mobile start",
+    "web": "bun run --cwd apps/web dev"
+  }
+}
