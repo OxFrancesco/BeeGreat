@@ -49,6 +49,45 @@ export const setDue = mutation({
   },
 })
 
+export const update = mutation({
+  args: {
+    projectId: v.id('projects'),
+    title: v.string(),
+  },
+  handler: async (ctx, { projectId, title }) => {
+    const userId = await requireUserId(ctx)
+    const project = await ctx.db.get(projectId)
+    if (!project || project.userId !== userId) {
+      throw new Error('Project not found')
+    }
+    const trimmed = title.trim()
+    if (!trimmed) {
+      throw new Error('A project needs a name')
+    }
+    await ctx.db.patch(projectId, { title: trimmed })
+  },
+})
+
+/** Deletes a project together with all of its tasks. */
+export const remove = mutation({
+  args: { projectId: v.id('projects') },
+  handler: async (ctx, { projectId }) => {
+    const userId = await requireUserId(ctx)
+    const project = await ctx.db.get(projectId)
+    if (!project || project.userId !== userId) {
+      throw new Error('Project not found')
+    }
+    const tasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_project', (q) => q.eq('projectId', projectId))
+      .collect()
+    for (const task of tasks) {
+      await ctx.db.delete(task._id)
+    }
+    await ctx.db.delete(projectId)
+  },
+})
+
 export const create = mutation({
   args: {
     goalId: v.id('goals'),

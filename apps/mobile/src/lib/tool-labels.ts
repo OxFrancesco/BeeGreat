@@ -20,6 +20,36 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     failed: 'Couldn\u2019t create the goal',
     symbol: 'plus.circle',
   },
+  update_goal: {
+    running: 'Updating your goal…',
+    done: 'Updated your goal',
+    failed: 'Couldn\u2019t update the goal',
+    symbol: 'pencil',
+  },
+  delete_goal: {
+    running: 'Deleting the goal…',
+    done: 'Deleted the goal',
+    failed: 'Couldn\u2019t delete the goal',
+    symbol: 'trash',
+  },
+  create_project: {
+    running: 'Creating the project…',
+    done: 'Created the project',
+    failed: 'Couldn\u2019t create the project',
+    symbol: 'plus.circle',
+  },
+  update_project: {
+    running: 'Renaming the project…',
+    done: 'Renamed the project',
+    failed: 'Couldn\u2019t rename the project',
+    symbol: 'pencil',
+  },
+  delete_project: {
+    running: 'Deleting the project…',
+    done: 'Deleted the project',
+    failed: 'Couldn\u2019t delete the project',
+    symbol: 'trash',
+  },
   list_tasks: {
     running: 'Looking through your tasks…',
     done: 'Looked through your tasks',
@@ -37,6 +67,18 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     done: 'Marked it done',
     failed: 'Couldn\u2019t complete the task',
     symbol: 'checkmark.circle',
+  },
+  update_task: {
+    running: 'Updating the task…',
+    done: 'Updated the task',
+    failed: 'Couldn\u2019t update the task',
+    symbol: 'pencil',
+  },
+  delete_task: {
+    running: 'Deleting the task…',
+    done: 'Deleted the task',
+    failed: 'Couldn\u2019t delete the task',
+    symbol: 'trash',
   },
 };
 

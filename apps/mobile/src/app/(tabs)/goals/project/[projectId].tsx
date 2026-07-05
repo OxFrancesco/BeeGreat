@@ -2,7 +2,8 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -65,8 +66,11 @@ export default function ProjectScreen() {
   const createTask = useMutation(api.tasks.create);
   const toggleTask = useMutation(api.tasks.toggle);
   const removeTask = useMutation(api.tasks.remove);
+  const renameTask = useMutation(api.tasks.update);
   const setTaskDueDate = useMutation(api.tasks.setDueDate);
   const setProjectDue = useMutation(api.projects.setDue);
+  const updateProject = useMutation(api.projects.update);
+  const removeProject = useMutation(api.projects.remove);
   const [subtaskTarget, setSubtaskTarget] = useState<string | null>(null);
 
   const tree = useMemo(() => buildTree(tasks ?? []), [tasks]);
@@ -123,11 +127,77 @@ export default function ProjectScreen() {
     ]);
   };
 
-  // Long-press opens the task's actions: due date + delete.
+  // Long-press opens the task's actions: rename + due date + delete.
   const openTaskActions = (task: Task) => {
     Alert.alert(task.title, undefined, [
+      {
+        text: 'Rename',
+        onPress: () =>
+          Alert.prompt(
+            'Rename task',
+            undefined,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Save',
+                onPress: (title?: string) => {
+                  if (title?.trim()) renameTask({ taskId: task.id, title });
+                },
+              },
+            ],
+            'plain-text',
+            task.title,
+          ),
+      },
       { text: 'Set due date…', onPress: () => pickDueDate(task) },
       { text: 'Delete task', style: 'destructive', onPress: () => confirmDelete(task) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  // Gear menu: rename or delete the whole project.
+  const openProjectSettings = () => {
+    if (!project) return;
+    Alert.alert(project.title, undefined, [
+      {
+        text: 'Rename',
+        onPress: () =>
+          Alert.prompt(
+            'Rename project',
+            undefined,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Save',
+                onPress: (title?: string) => {
+                  if (title?.trim()) updateProject({ projectId: id, title });
+                },
+              },
+            ],
+            'plain-text',
+            project.title,
+          ),
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(
+            'Delete project?',
+            `"${project.title}" and all of its tasks will be gone for good.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                  await removeProject({ projectId: id });
+                  router.back();
+                },
+              },
+            ],
+          ),
+      },
       { text: 'Cancel', style: 'cancel' },
     ]);
   };
@@ -179,7 +249,26 @@ export default function ProjectScreen() {
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
             >
-              <ScreenHeader title={project.title} showBack />
+              <ScreenHeader
+                title={project.title}
+                showBack
+                right={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Project settings"
+                    hitSlop={Spacing.two}
+                    onPress={openProjectSettings}
+                    style={({ pressed }) => pressed && styles.duePressed}
+                  >
+                    <SymbolView
+                      name="gearshape"
+                      size={20}
+                      tintColor={theme.textSecondary}
+                      fallback={<ThemedText themeColor="textSecondary">…</ThemedText>}
+                    />
+                  </Pressable>
+                }
+              />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Set project target date"

@@ -34,6 +34,34 @@ export function createBeeTools(userId: string, convexUrl: string) {
     }),
 
     defineTool({
+      name: 'update_goal',
+      description:
+        'Rename a goal or update its final-goal description.',
+      input: v.object({
+        goalId: v.pipe(v.string(), v.description('Goal id from get_goals')),
+        title: v.optional(v.pipe(v.string(), v.description('New goal title'))),
+        finalGoal: v.optional(
+          v.pipe(v.string(), v.description('New description of the deeper outcome behind this goal')),
+        ),
+      }),
+      async run({ input }) {
+        return await convex.mutation(api.agent.updateGoal, { userId, ...input })
+      },
+    }),
+
+    defineTool({
+      name: 'delete_goal',
+      description:
+        'PERMANENTLY delete a goal with ALL of its projects and tasks. Destructive and irreversible: only call after the user has explicitly confirmed the deletion in this conversation.',
+      input: v.object({
+        goalId: v.pipe(v.string(), v.description('Goal id from get_goals')),
+      }),
+      async run({ input }) {
+        return await convex.mutation(api.agent.deleteGoal, { userId, ...input })
+      },
+    }),
+
+    defineTool({
       name: 'create_project',
       description:
         'Create a project under one of the user\u2019s goals. Projects group related tasks (goal \u2192 project \u2192 task).',
@@ -43,6 +71,30 @@ export function createBeeTools(userId: string, convexUrl: string) {
       }),
       async run({ input }) {
         return await convex.mutation(api.agent.createProject, { userId, ...input })
+      },
+    }),
+
+    defineTool({
+      name: 'update_project',
+      description: 'Rename a project.',
+      input: v.object({
+        projectId: v.pipe(v.string(), v.description('Project id from get_goals')),
+        title: v.pipe(v.string(), v.description('New project title')),
+      }),
+      async run({ input }) {
+        return await convex.mutation(api.agent.updateProject, { userId, ...input })
+      },
+    }),
+
+    defineTool({
+      name: 'delete_project',
+      description:
+        'PERMANENTLY delete a project with ALL of its tasks. Destructive and irreversible: only call after the user has explicitly confirmed the deletion in this conversation.',
+      input: v.object({
+        projectId: v.pipe(v.string(), v.description('Project id from get_goals')),
+      }),
+      async run({ input }) {
+        return await convex.mutation(api.agent.deleteProject, { userId, ...input })
       },
     }),
 
@@ -85,6 +137,36 @@ export function createBeeTools(userId: string, convexUrl: string) {
       }),
       async run({ input }) {
         return await convex.mutation(api.agent.completeTask, { userId, ...input })
+      },
+    }),
+
+    defineTool({
+      name: 'update_task',
+      description: 'Rename a task or change its due date.',
+      input: v.object({
+        taskId: v.pipe(v.string(), v.description('Task id from list_tasks')),
+        title: v.optional(v.pipe(v.string(), v.description('New task title'))),
+        dueDate: v.optional(
+          v.pipe(
+            v.union([v.number(), v.null_()]),
+            v.description('New due date as a Unix timestamp in milliseconds, or null to remove it'),
+          ),
+        ),
+      }),
+      async run({ input }) {
+        return await convex.mutation(api.agent.updateTask, { userId, ...input })
+      },
+    }),
+
+    defineTool({
+      name: 'delete_task',
+      description:
+        'PERMANENTLY delete a task (and its subtasks). Destructive and irreversible: only call after the user has explicitly confirmed the deletion in this conversation.',
+      input: v.object({
+        taskId: v.pipe(v.string(), v.description('Task id from list_tasks')),
+      }),
+      async run({ input }) {
+        return await convex.mutation(api.agent.deleteTask, { userId, ...input })
       },
     }),
   ]

@@ -34,6 +34,8 @@ export default function GoalDetailScreen() {
   const createProject = useMutation(api.projects.create);
   const updateGoal = useMutation(api.goals.update);
   const removeGoal = useMutation(api.goals.remove);
+  const updateProject = useMutation(api.projects.update);
+  const removeProject = useMutation(api.projects.remove);
 
   const addProject = async (title: string) => {
     try {
@@ -41,6 +43,49 @@ export default function GoalDetailScreen() {
     } catch (error) {
       Alert.alert('Could not add project', error instanceof Error ? error.message : undefined);
     }
+  };
+
+  // Long-press opens the project's actions: rename + delete.
+  const openProjectActions = (project: ProjectSummary) => {
+    Alert.alert(project.title, undefined, [
+      {
+        text: 'Rename',
+        onPress: () =>
+          Alert.prompt(
+            'Rename project',
+            undefined,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Save',
+                onPress: (title?: string) => {
+                  if (title?.trim()) updateProject({ projectId: project.id, title });
+                },
+              },
+            ],
+            'plain-text',
+            project.title,
+          ),
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(
+            'Delete project?',
+            `"${project.title}" and all of its tasks will be gone for good.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: () => removeProject({ projectId: project.id }),
+              },
+            ],
+          ),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const showSettings = () => {
@@ -136,7 +181,11 @@ export default function GoalDetailScreen() {
                   PROJECTS
                 </ThemedText>
                 {goal.projects.map((project) => (
-                  <ProjectCard key={project.id} project={project} />
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onLongPress={() => openProjectActions(project)}
+                  />
                 ))}
                 <AddRow label="New project" onSubmit={addProject} dashed={goal.projects.length === 0} />
               </View>
@@ -148,7 +197,13 @@ export default function GoalDetailScreen() {
   );
 }
 
-function ProjectCard({ project }: { project: ProjectSummary }) {
+function ProjectCard({
+  project,
+  onLongPress,
+}: {
+  project: ProjectSummary;
+  onLongPress: () => void;
+}) {
   const theme = useTheme();
   const progress = project.totalTasks === 0 ? 0 : project.doneTasks / project.totalTasks;
 
@@ -162,6 +217,7 @@ function ProjectCard({ project }: { project: ProjectSummary }) {
           params: { projectId: project.id },
         })
       }
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: theme.card, borderColor: theme.border },

@@ -62,6 +62,56 @@ export const createGoal = mutation({
   },
 })
 
+export const updateGoal = mutation({
+  args: {
+    userId: v.string(),
+    goalId: v.id('goals'),
+    title: v.optional(v.string()),
+    finalGoal: v.optional(v.string()),
+  },
+  handler: async (ctx, { userId, goalId, title, finalGoal }) => {
+    const goal = await ctx.db.get(goalId)
+    if (!goal || goal.userId !== userId) {
+      throw new Error('Goal not found')
+    }
+    const patch: { title?: string; finalGoal?: string } = {}
+    if (title?.trim()) patch.title = title.trim()
+    if (finalGoal !== undefined) patch.finalGoal = finalGoal
+    await ctx.db.patch(goalId, patch)
+    return { id: goalId, title: patch.title ?? goal.title }
+  },
+})
+
+/** Deletes a goal and everything in it (projects and tasks). */
+export const deleteGoal = mutation({
+  args: {
+    userId: v.string(),
+    goalId: v.id('goals'),
+  },
+  handler: async (ctx, { userId, goalId }) => {
+    const goal = await ctx.db.get(goalId)
+    if (!goal || goal.userId !== userId) {
+      throw new Error('Goal not found')
+    }
+    const tasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_goal', (q) => q.eq('goalId', goalId))
+      .collect()
+    for (const task of tasks) {
+      await ctx.db.delete(task._id)
+    }
+    const projects = await ctx.db
+      .query('projects')
+      .withIndex('by_goal', (q) => q.eq('goalId', goalId))
+      .collect()
+    for (const project of projects) {
+      await ctx.db.delete(project._id)
+    }
+    await ctx.db.delete(goalId)
+    return { id: goalId, title: goal.title, deleted: true }
+  },
+})
+
 export const createProject = mutation({
   args: {
     userId: v.string(),
@@ -75,6 +125,49 @@ export const createProject = mutation({
     }
     const id = await ctx.db.insert('projects', { userId, goalId, title, status: 'active' })
     return { id, title, goal: goal.title }
+  },
+})
+
+export const updateProject = mutation({
+  args: {
+    userId: v.string(),
+    projectId: v.id('projects'),
+    title: v.string(),
+  },
+  handler: async (ctx, { userId, projectId, title }) => {
+    const project = await ctx.db.get(projectId)
+    if (!project || project.userId !== userId) {
+      throw new Error('Project not found')
+    }
+    const trimmed = title.trim()
+    if (!trimmed) {
+      throw new Error('A project needs a name')
+    }
+    await ctx.db.patch(projectId, { title: trimmed })
+    return { id: projectId, title: trimmed }
+  },
+})
+
+/** Deletes a project together with all of its tasks. */
+export const deleteProject = mutation({
+  args: {
+    userId: v.string(),
+    projectId: v.id('projects'),
+  },
+  handler: async (ctx, { userId, projectId }) => {
+    const project = await ctx.db.get(projectId)
+    if (!project || project.userId !== userId) {
+      throw new Error('Project not found')
+    }
+    const tasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_project', (q) => q.eq('projectId', projectId))
+      .collect()
+    for (const task of tasks) {
+      await ctx.db.delete(task._id)
+    }
+    await ctx.db.delete(projectId)
+    return { id: projectId, title: project.title, deleted: true }
   },
 })
 
@@ -170,5 +263,51 @@ export const completeTask = mutation({
     }
     await ctx.db.patch(taskId, { status: 'done', completedAt: Date.now() })
     return { id: taskId, title: task.title, status: 'done' }
+  },
+})
+
+export const updateTask = mutation({
+  args: {
+    userId: v.string(),
+    taskId: v.id('tasks'),
+    title: v.optional(v.string()),
+    // null clears the due date; a number sets it.
+    dueDate: v.optional(v.union(v.null(), v.number())),
+  },
+  handler: async (ctx, { userId, taskId, title, dueDate }) => {
+    const task = await ctx.db.get(taskId)
+    if (!task || task.userId !== userId) {
+      throw new Error('Task not found')
+    }
+    const patch: { title?: string; dueDate?: number | undefined } = {}
+    if (title?.trim()) patch.title = title.trim()
+    if (dueDate !== undefined) patch.dueDate = dueDate ?? undefined
+    await ctx.db.patch(taskId, patch)
+    return { id: taskId, title: patch.title ?? task.title }
+  },
+})
+
+/** Deletes a task and any of its subtasks. */
+export const deleteTask = mutation({
+  args: {
+    userId: v.string(),
+    taskId: v.id('tasks'),
+  },
+  handler: async (ctx, { userId, taskId }) => {
+    const task = await ctx.db.get(taskId)
+    if (!task || task.userId !== userId) {
+      throw new Error('Task not found')
+    }
+    if (!task.parentTaskId && task.projectId) {
+      const siblings = await ctx.db
+        .query('tasks')
+        .withIndex('by_project', (q) => q.eq('projectId', task.projectId))
+        .collect()
+      for (const subtask of siblings.filter((t) => t.parentTaskId === taskId)) {
+        await ctx.db.delete(subtask._id)
+      }
+    }
+    await ctx.db.delete(taskId)
+    return { id: taskId, title: task.title, deleted: true }
   },
 })
