@@ -118,9 +118,9 @@ export default function VoiceAgentScreen() {
             </ThemedText>
           ) : null}
 
-          {agent.voiceError || agent.error ? (
+          {agent.errorMessage ? (
             <ThemedText type="small" themeColor="destructive" style={styles.centered}>
-              {agent.voiceError ?? agent.error?.message}
+              {agent.errorMessage}
             </ThemedText>
           ) : null}
         </View>

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { OrbState } from '@/components/agent/voice-orb';
 import { useBeeLiveActivity } from '@/hooks/use-live-activity';
-import { BEE_AGENT_NAME, flueClient } from '@/lib/flue';
+import { BEE_AGENT_NAME, createBeeFlueClient, flueClient } from '@/lib/flue';
 import {
   getSpeakReplies,
   startNewConversationSession,
@@ -23,6 +23,20 @@ import {
 import { getToolCopy } from '@/lib/tool-labels';
 import { extractBeeUI } from '@/lib/ui-spec';
 import { synthesizeSpeech, transcribeRecording } from '@/lib/voice-api';
+
+function isAuthHiccup(error: Error | undefined) {
+  return Boolean(error && /401|sign in/i.test(error.message));
+}
+
+/** Turns raw transport errors into copy fit for the chat. */
+function friendlyErrorMessage(error: Error | undefined): string | undefined {
+  if (!error) return undefined;
+  if (isAuthHiccup(error)) return 'Reconnecting to Bee\u2026';
+  if (/^HTTP Error \d+/i.test(error.message)) {
+    return 'Bee couldn\u2019t reach the hive \u2014 check your connection.';
+  }
+  return error.message;
+}
 
 export function useVoiceAgent() {
   // This hook only renders behind the signed-in route guard, so userId is always set.
@@ -35,12 +49,27 @@ export function useVoiceAgent() {
       ? `${userId}~${session}`
       : userId
     : 'signed-out';
+  const [client, setClient] = useState(() => flueClient);
   const agent = useFlueAgent({
     name: BEE_AGENT_NAME,
     id: conversationId,
     live: 'long-poll',
-    client: flueClient,
+    client,
   });
+
+  // The SDK treats 401 as fatal and stops polling, but for us it's a transient
+  // auth hiccup (Clerk token not ready right after launch/resume). Swap in a
+  // fresh client to force a full reconnect, backing off between attempts.
+  const reconnectAttempts = useRef(0);
+  useEffect(() => {
+    if (!isAuthHiccup(agent.error)) {
+      if (!agent.error) reconnectAttempts.current = 0;
+      return;
+    }
+    const delay = Math.min(1500 * 2 ** reconnectAttempts.current++, 15000);
+    const timer = setTimeout(() => setClient(createBeeFlueClient()), delay);
+    return () => clearTimeout(timer);
+  }, [agent.error]);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const player = useAudioPlayer();
@@ -226,6 +255,7 @@ export function useVoiceAgent() {
     recording,
     busy,
     voiceError,
+    errorMessage: voiceError ?? friendlyErrorMessage(agent.error),
     sendText,
     toggleRecording,
     resetConversation,
