@@ -49,7 +49,7 @@ export const Route = createRootRouteWithContext<{
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'TanStack Start Starter',
+        title: 'BeeGreat',
       },
     ],
     links: [
@@ -113,15 +113,17 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div className="p-2 flex gap-2 text-lg">
+        <div className="flex items-center gap-4 px-4 py-3 text-lg">
           <Link
             to="/"
+            className="flex items-center gap-2"
             activeProps={{
-              className: 'font-bold',
+              className: 'flex items-center gap-2 font-bold',
             }}
             activeOptions={{ exact: true }}
           >
-            Home
+            <img src="/logo.png" alt="BeeGreat" className="h-10 w-auto" />
+            <span>BeeGreat</span>
           </Link>
           <Link
             to="/posts"
