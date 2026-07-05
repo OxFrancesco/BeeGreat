@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "BeeGreat",
+    "slug": "beegreat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "beegreat",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.beegreat.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +33,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "BeeGreat uses the microphone so you can talk to your agent."
+        }
+      ],
+      "expo-widgets",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

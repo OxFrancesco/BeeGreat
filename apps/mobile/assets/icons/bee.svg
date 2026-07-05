@@ -1,0 +1,22 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- antennae -->
+  <path d="M10.6 3.9 Q9.2 2.2 7.8 1.9" stroke="black" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+  <path d="M13.4 3.9 Q14.8 2.2 16.2 1.9" stroke="black" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+  <!-- head -->
+  <circle cx="12" cy="6.6" r="3" fill="black"/>
+  <!-- wings -->
+  <ellipse cx="6.2" cy="10.6" rx="3.5" ry="2.1" transform="rotate(-32 6.2 10.6)" fill="black"/>
+  <ellipse cx="17.8" cy="10.6" rx="3.5" ry="2.1" transform="rotate(32 17.8 10.6)" fill="black"/>
+  <!-- striped body (stripes cut out with even-odd) -->
+  <path fill-rule="evenodd" clip-rule="evenodd" fill="black" d="
+    M12 9.2
+    C14.43 9.2 16.4 11.8 16.4 15
+    C16.4 18.2 14.43 20.8 12 20.8
+    C9.57 20.8 7.6 18.2 7.6 15
+    C7.6 11.8 9.57 9.2 12 9.2
+    Z
+    M8.3 12.6 H15.7 V13.9 H8.3 Z
+    M8.3 15.8 H15.7 V17.1 H8.3 Z"/>
+  <!-- stinger -->
+  <path d="M10.9 20.4 L12 22.9 L13.1 20.4 Z" fill="black"/>
+</svg>

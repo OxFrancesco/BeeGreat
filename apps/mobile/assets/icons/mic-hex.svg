@@ -1,0 +1,11 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pointy-top hexagon outline -->
+  <path d="M50 5 L88 27.5 V72.5 L50 95 L12 72.5 V27.5 Z" stroke="black" stroke-width="7" stroke-linejoin="round"/>
+  <!-- Mic capsule -->
+  <rect x="42" y="27" width="16" height="26" rx="8" fill="black"/>
+  <!-- Mic cradle -->
+  <path d="M34 44 V46 C34 54.8 41.2 62 50 62 C58.8 62 66 54.8 66 46 V44" stroke="black" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <!-- Stand -->
+  <path d="M50 62 V70" stroke="black" stroke-width="6" stroke-linecap="round"/>
+  <path d="M41 71 H59" stroke="black" stroke-width="6" stroke-linecap="round"/>
+</svg>

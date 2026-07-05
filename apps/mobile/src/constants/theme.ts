@@ -7,20 +7,35 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/** Palette derived from docs/DESIGN_SYSTEM.md */
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#202020',
+    background: '#f9f9f9',
+    backgroundElement: '#efefef',
+    backgroundSelected: '#e8e8e8',
+    textSecondary: '#646464',
+    card: '#fcfcfc',
+    primary: '#644a40',
+    primaryForeground: '#ffffff',
+    secondary: '#ffdfb5',
+    secondaryForeground: '#582d1d',
+    border: '#d8d8d8',
+    destructive: '#e54d2e',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#eeeeee',
+    background: '#111111',
+    backgroundElement: '#222222',
+    backgroundSelected: '#2a2a2a',
+    textSecondary: '#b4b4b4',
+    card: '#191919',
+    primary: '#ffe0c2',
+    primaryForeground: '#081a1b',
+    secondary: '#393028',
+    secondaryForeground: '#ffe0c2',
+    border: '#201e18',
+    destructive: '#e54d2e',
   },
 } as const;
 
@@ -61,5 +76,4 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
