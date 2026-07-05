@@ -98,25 +98,28 @@ function BarChartCard({
       <ThemedText type="smallBold">{title}</ThemedText>
       <View style={styles.chart}>
         {data.map((point) => (
-          <View key={point.label} style={styles.chartRow}>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.chartLabel}>
+          <View key={point.label} style={styles.chartItem}>
+            {/* Label sits above the bar so long goal names never truncate. */}
+            <ThemedText type="small" themeColor="textSecondary">
               {point.label}
             </ThemedText>
-            <View style={[styles.chartTrack, { backgroundColor: theme.backgroundElement }]}>
-              <View
-                style={[
-                  styles.chartFill,
-                  {
-                    backgroundColor: theme.primary,
-                    width: `${Math.max((point.value / max) * 100, 2)}%`,
-                  },
-                ]}
-              />
+            <View style={styles.chartRow}>
+              <View style={[styles.chartTrack, { backgroundColor: theme.backgroundElement }]}>
+                <View
+                  style={[
+                    styles.chartFill,
+                    {
+                      backgroundColor: theme.primary,
+                      width: `${Math.max((point.value / max) * 100, 2)}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <ThemedText type="small" style={styles.chartValue}>
+                {point.value}
+                {unit ? ` ${unit}` : ''}
+              </ThemedText>
             </View>
-            <ThemedText type="small" style={styles.chartValue}>
-              {point.value}
-              {unit ? ` ${unit}` : ''}
-            </ThemedText>
           </View>
         ))}
       </View>
@@ -290,15 +293,15 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   chart: {
-    gap: Spacing.two,
+    gap: Spacing.three,
+  },
+  chartItem: {
+    gap: Spacing.one,
   },
   chartRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.two,
-  },
-  chartLabel: {
-    width: 72,
   },
   chartTrack: {
     flex: 1,
