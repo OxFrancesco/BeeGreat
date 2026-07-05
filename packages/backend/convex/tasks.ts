@@ -27,6 +27,29 @@ export const listByProject = query({
   },
 })
 
+/**
+ * Live status for task ids referenced by agent-generated UI cards. Accepts
+ * raw strings (agent output) and silently drops ids that don't resolve to
+ * one of the caller's tasks.
+ */
+export const statuses = query({
+  args: { taskIds: v.array(v.string()) },
+  handler: async (ctx, { taskIds }) => {
+    const userId = await getUserId(ctx)
+    if (!userId) return []
+    const result: { id: string; status: 'todo' | 'done' }[] = []
+    for (const raw of taskIds) {
+      const taskId = ctx.db.normalizeId('tasks', raw)
+      if (!taskId) continue
+      const task = await ctx.db.get(taskId)
+      if (task && task.userId === userId) {
+        result.push({ id: taskId, status: task.status })
+      }
+    }
+    return result
+  },
+})
+
 export const create = mutation({
   args: {
     projectId: v.id('projects'),

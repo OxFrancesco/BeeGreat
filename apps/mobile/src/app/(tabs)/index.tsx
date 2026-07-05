@@ -73,6 +73,7 @@ export default function VoiceAgentScreen() {
                   message={message}
                   isLast={index === agent.messages.length - 1}
                   isBusy={agent.busy}
+                  onReply={agent.sendText}
                 />
               ))}
               {awaitingReply ? <ThinkingActivity /> : null}
@@ -114,10 +115,12 @@ function AgentMessage({
   message,
   isLast,
   isBusy,
+  onReply,
 }: {
   message: FlueConversationMessage;
   isLast: boolean;
   isBusy: boolean;
+  onReply?: (text: string) => void;
 }) {
   const text = message.parts
     .filter((part) => part.type === 'text')
@@ -177,7 +180,7 @@ function AgentMessage({
           />
         ))}
         {spoken ? <MessageText from="assistant" text={spoken} /> : null}
-        <GeneratedUI components={components} />
+        <GeneratedUI components={components} onReply={onReply} />
       </MessageContent>
     </Message>
   );
