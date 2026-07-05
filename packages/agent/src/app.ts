@@ -62,9 +62,10 @@ app.use('*', async (c, next) => {
     return c.json({ error: 'Session expired. Sign in again.' }, 401)
   }
 
-  // Agent instances are keyed by Clerk user id; users can only reach their own.
+  // Agent instances are keyed by Clerk user id (optionally suffixed with
+  // `~<session>` for restarted conversations); users can only reach their own.
   const match = c.req.path.match(/^\/agents\/[^/]+\/([^/]+)/)
-  if (match && decodeURIComponent(match[1]) !== c.get('userId')) {
+  if (match && decodeURIComponent(match[1]).split('~')[0] !== c.get('userId')) {
     return c.json({ error: "You can't access another user's agent." }, 403)
   }
 
