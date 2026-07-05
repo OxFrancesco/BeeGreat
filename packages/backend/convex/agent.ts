@@ -16,6 +16,10 @@ export const getGoals = query({
       .collect()
     return Promise.all(
       goals.map(async (goal) => {
+        const projects = await ctx.db
+          .query('projects')
+          .withIndex('by_goal', (q) => q.eq('goalId', goal._id).eq('status', 'active'))
+          .collect()
         const open = await ctx.db
           .query('tasks')
           .withIndex('by_goal', (q) => q.eq('goalId', goal._id).eq('status', 'todo'))
@@ -28,6 +32,7 @@ export const getGoals = query({
           id: goal._id,
           title: goal.title,
           finalGoal: goal.finalGoal ?? null,
+          projects: projects.map((project) => ({ id: project._id, title: project.title })),
           openTasks: open.length,
           doneTasks: done.length,
         }
@@ -57,6 +62,22 @@ export const createGoal = mutation({
   },
 })
 
+export const createProject = mutation({
+  args: {
+    userId: v.string(),
+    goalId: v.id('goals'),
+    title: v.string(),
+  },
+  handler: async (ctx, { userId, goalId, title }) => {
+    const goal = await ctx.db.get(goalId)
+    if (!goal || goal.userId !== userId) {
+      throw new Error('Goal not found')
+    }
+    const id = await ctx.db.insert('projects', { userId, goalId, title, status: 'active' })
+    return { id, title, goal: goal.title }
+  },
+})
+
 export const listTasks = query({
   args: {
     userId: v.string(),
@@ -78,6 +99,7 @@ export const listTasks = query({
       .map((task) => ({
         id: task._id,
         goalId: task.goalId,
+        projectId: task.projectId ?? null,
         title: task.title,
         status: task.status,
         dueDate: task.dueDate ?? null,
@@ -89,15 +111,49 @@ export const createTask = mutation({
   args: {
     userId: v.string(),
     goalId: v.id('goals'),
+    projectId: v.optional(v.id('projects')),
     title: v.string(),
     dueDate: v.optional(v.number()),
   },
-  handler: async (ctx, { userId, goalId, title, dueDate }) => {
+  handler: async (ctx, { userId, goalId, projectId, title, dueDate }) => {
     const goal = await ctx.db.get(goalId)
     if (!goal || goal.userId !== userId) {
       throw new Error('Goal not found')
     }
-    const id = await ctx.db.insert('tasks', { userId, goalId, title, status: 'todo', dueDate })
+
+    // The app renders tasks inside projects (goal -> project -> task), so a
+    // task must always land in one. Fall back to a "General" project when the
+    // agent doesn't specify one, creating it on first use.
+    let resolvedProjectId = projectId
+    if (resolvedProjectId) {
+      const project = await ctx.db.get(resolvedProjectId)
+      if (!project || project.userId !== userId || project.goalId !== goalId) {
+        throw new Error('Project not found under this goal')
+      }
+    } else {
+      const projects = await ctx.db
+        .query('projects')
+        .withIndex('by_goal', (q) => q.eq('goalId', goalId).eq('status', 'active'))
+        .collect()
+      const general = projects.find((project) => project.title === 'General')
+      resolvedProjectId =
+        general?._id ??
+        (await ctx.db.insert('projects', {
+          userId,
+          goalId,
+          title: 'General',
+          status: 'active',
+        }))
+    }
+
+    const id = await ctx.db.insert('tasks', {
+      userId,
+      goalId,
+      projectId: resolvedProjectId,
+      title,
+      status: 'todo',
+      dueDate,
+    })
     return { id, title, goal: goal.title }
   },
 })
