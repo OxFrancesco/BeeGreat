@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { InlineComposer } from '@/components/goals/inline-composer';
+import { AddRow } from '@/components/goals/add-row';
 import { ScreenHeader } from '@/components/goals/screen-header';
 import { TaskRow } from '@/components/goals/task-row';
 import { ThemedText } from '@/components/themed-text';
@@ -78,84 +78,78 @@ export default function ProjectScreen() {
               <ThemedText themeColor="textSecondary">This project is gone.</ThemedText>
             </View>
           ) : (
-            <>
-              <ScrollView
-                style={styles.flex}
-                contentContainerStyle={styles.scrollContent}
-                keyboardShouldPersistTaps="handled"
-              >
-                <ScreenHeader
-                  title={project.title}
-                  eyebrow={project.goalTitle ? `Goal · ${project.goalTitle}` : 'Project'}
-                  showBack
-                />
-                {tree.open.length === 0 && tree.done.length === 0 ? (
-                  <ThemedText themeColor="textSecondary">
-                    No tasks yet. Break this project into its first steps.
-                  </ThemedText>
-                ) : null}
-                {tree.open.map(({ task, subtasks }) => (
-                  <View key={task.id}>
+            <ScrollView
+              style={styles.flex}
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              <ScreenHeader title={project.title} showBack />
+              {tree.open.map(({ task, subtasks }) => (
+                <View key={task.id}>
+                  <TaskRow
+                    task={task}
+                    onToggle={() => toggleTask({ taskId: task.id })}
+                    onLongPress={() => confirmDelete(task)}
+                    onAddSubtask={() =>
+                      setSubtaskTarget((current) => (current === task.id ? null : task.id))
+                    }
+                  />
+                  {subtasks.map((subtask) => (
                     <TaskRow
-                      task={task}
-                      onToggle={() => toggleTask({ taskId: task.id })}
-                      onLongPress={() => confirmDelete(task)}
-                      onAddSubtask={() =>
-                        setSubtaskTarget((current) => (current === task.id ? null : task.id))
-                      }
+                      key={subtask.id}
+                      task={subtask}
+                      isSubtask
+                      onToggle={() => toggleTask({ taskId: subtask.id })}
+                      onLongPress={() => confirmDelete(subtask)}
                     />
-                    {subtasks.map((subtask) => (
-                      <TaskRow
-                        key={subtask.id}
-                        task={subtask}
-                        isSubtask
-                        onToggle={() => toggleTask({ taskId: subtask.id })}
-                        onLongPress={() => confirmDelete(subtask)}
+                  ))}
+                  {subtaskTarget === task.id ? (
+                    <View style={styles.subtaskComposer}>
+                      <AddRow
+                        label="New subtask"
+                        onSubmit={(title) => add(title, task.id)}
+                        onDismiss={() => setSubtaskTarget(null)}
+                        startActive
+                        compact
                       />
-                    ))}
-                    {subtaskTarget === task.id ? (
-                      <View style={styles.subtaskComposer}>
-                        <InlineComposer
-                          placeholder="New subtask…"
-                          onSubmit={(title) => add(title, task.id)}
-                          autoFocus
-                          compact
-                        />
-                      </View>
-                    ) : null}
-                  </View>
-                ))}
-                {tree.done.length > 0 ? (
-                  <View style={styles.doneSection}>
-                    <View style={[styles.divider, { backgroundColor: theme.border }]} />
-                    <ThemedText type="smallBold" themeColor="textSecondary">
-                      DONE
-                    </ThemedText>
-                    {tree.done.map(({ task, subtasks }) => (
-                      <View key={task.id}>
-                        <TaskRow
-                          task={task}
-                          onToggle={() => toggleTask({ taskId: task.id })}
-                          onLongPress={() => confirmDelete(task)}
-                        />
-                        {subtasks.map((subtask) => (
-                          <TaskRow
-                            key={subtask.id}
-                            task={subtask}
-                            isSubtask
-                            onToggle={() => toggleTask({ taskId: subtask.id })}
-                            onLongPress={() => confirmDelete(subtask)}
-                          />
-                        ))}
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-              </ScrollView>
-              <View style={styles.composer}>
-                <InlineComposer placeholder="Add a task…" onSubmit={(title) => add(title)} />
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+              <View style={styles.addTask}>
+                <AddRow
+                  label="New task"
+                  onSubmit={(title) => add(title)}
+                  dashed={tree.open.length === 0 && tree.done.length === 0}
+                />
               </View>
-            </>
+              {tree.done.length > 0 ? (
+                <View style={styles.doneSection}>
+                  <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    DONE
+                  </ThemedText>
+                  {tree.done.map(({ task, subtasks }) => (
+                    <View key={task.id}>
+                      <TaskRow
+                        task={task}
+                        onToggle={() => toggleTask({ taskId: task.id })}
+                        onLongPress={() => confirmDelete(task)}
+                      />
+                      {subtasks.map((subtask) => (
+                        <TaskRow
+                          key={subtask.id}
+                          task={subtask}
+                          isSubtask
+                          onToggle={() => toggleTask({ taskId: subtask.id })}
+                          onLongPress={() => confirmDelete(subtask)}
+                        />
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </ScrollView>
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -213,14 +207,14 @@ const styles = StyleSheet.create({
     paddingLeft: Spacing.five,
     paddingVertical: Spacing.one,
   },
+  addTask: {
+    marginTop: Spacing.two,
+  },
   doneSection: {
     gap: Spacing.two,
     marginTop: Spacing.three,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-  },
-  composer: {
-    paddingTop: Spacing.two,
   },
 });

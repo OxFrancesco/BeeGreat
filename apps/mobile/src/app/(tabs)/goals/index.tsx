@@ -3,7 +3,6 @@ import { useMutation, useQuery } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,8 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddRow } from '@/components/goals/add-row';
 import { CombCell } from '@/components/goals/comb-cell';
-import { InlineComposer } from '@/components/goals/inline-composer';
 import { ScreenHeader } from '@/components/goals/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -30,6 +29,15 @@ type GoalSummary = FunctionReturnType<typeof api.goals.list>[number];
 
 export default function GoalsScreen() {
   const goals = useQuery(api.goals.list);
+  const createGoal = useMutation(api.goals.create);
+
+  const addGoal = async (title: string) => {
+    try {
+      await createGoal({ title });
+    } catch (error) {
+      Alert.alert('Could not add goal', error instanceof Error ? error.message : undefined);
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -43,15 +51,7 @@ export default function GoalsScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <ScreenHeader
-              title="Goals"
-              eyebrow={
-                goals ? `${goals.length} of ${MAX_GOALS} combs in use` : 'Loading your combs…'
-              }
-            />
-            <ThemedText themeColor="textSecondary">
-              Pick at most three. Everything else waits outside the hive.
-            </ThemedText>
+            <ScreenHeader title="Goals" />
             {goals === undefined ? (
               <ActivityIndicator style={styles.loading} />
             ) : (
@@ -59,9 +59,9 @@ export default function GoalsScreen() {
                 {goals.map((goal) => (
                   <GoalCard key={goal.id} goal={goal} />
                 ))}
-                {Array.from({ length: Math.max(0, MAX_GOALS - goals.length) }, (_, i) => (
-                  <EmptySlot key={`empty-${i}`} first={i === 0} />
-                ))}
+                {goals.length < MAX_GOALS ? (
+                  <AddRow label="New goal" onSubmit={addGoal} dashed />
+                ) : null}
               </View>
             )}
           </ScrollView>
@@ -73,20 +73,60 @@ export default function GoalsScreen() {
 
 function GoalCard({ goal }: { goal: GoalSummary }) {
   const theme = useTheme();
+  const updateGoal = useMutation(api.goals.update);
+  const removeGoal = useMutation(api.goals.remove);
   const totalTasks = goal.openTasks + goal.doneTasks;
   const progress = totalTasks === 0 ? 0 : goal.doneTasks / totalTasks;
-  const meta = [
-    `${goal.projectCount} ${goal.projectCount === 1 ? 'project' : 'projects'}`,
-    totalTasks === 0 ? 'no tasks yet' : `${goal.openTasks} tasks left`,
-  ].join(' · ');
+  const meta =
+    totalTasks === 0 ? null : goal.openTasks === 0 ? 'All tasks done' : `${goal.openTasks} ${goal.openTasks === 1 ? 'task' : 'tasks'} left`;
+
+  const rename = () => {
+    Alert.prompt(
+      'Rename goal',
+      undefined,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: (title?: string) => {
+            if (title?.trim()) updateGoal({ goalId: goal.id, title });
+          },
+        },
+      ],
+      'plain-text',
+      goal.title,
+    );
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete goal?',
+      `"${goal.title}" and all of its projects and tasks will be gone for good.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => removeGoal({ goalId: goal.id }),
+        },
+      ],
+    );
+  };
+
+  const showOptions = () => {
+    Alert.alert(goal.title, undefined, [
+      { text: 'Rename', onPress: rename },
+      { text: 'Delete', style: 'destructive', onPress: confirmDelete },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Open goal ${goal.title}`}
-      onPress={() =>
-        router.push({ pathname: '/goals/[goalId]', params: { goalId: goal.id } })
-      }
+      onPress={() => router.push({ pathname: '/goals/[goalId]', params: { goalId: goal.id } })}
+      onLongPress={showOptions}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: theme.card, borderColor: theme.border },
@@ -96,57 +136,13 @@ function GoalCard({ goal }: { goal: GoalSummary }) {
       <CombCell size={52} progress={progress} />
       <View style={styles.cardBody}>
         <ThemedText numberOfLines={1}>{goal.title}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {meta}
-        </ThemedText>
+        {meta ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+            {meta}
+          </ThemedText>
+        ) : null}
       </View>
       <SymbolView name="chevron.right" size={14} tintColor={theme.textSecondary} />
-    </Pressable>
-  );
-}
-
-function EmptySlot({ first }: { first: boolean }) {
-  const theme = useTheme();
-  const [composing, setComposing] = useState(false);
-  const createGoal = useMutation(api.goals.create);
-
-  const submit = async (title: string) => {
-    setComposing(false);
-    try {
-      await createGoal({ title });
-    } catch (error) {
-      Alert.alert('Could not add goal', error instanceof Error ? error.message : undefined);
-    }
-  };
-
-  if (composing) {
-    return (
-      <View style={[styles.card, styles.emptyCard, { borderColor: theme.border }]}>
-        <InlineComposer placeholder="Name the goal…" onSubmit={submit} autoFocus />
-      </View>
-    );
-  }
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Add a goal"
-      onPress={() => setComposing(true)}
-      style={({ pressed }) => [
-        styles.card,
-        styles.emptyCard,
-        { borderColor: theme.border },
-        pressed && styles.pressed,
-      ]}
-    >
-      <CombCell size={52} progress={0} />
-      <View style={styles.cardBody}>
-        <ThemedText themeColor="textSecondary">Empty comb</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {first ? 'Add a goal to start filling it' : 'Waiting for a goal'}
-        </ThemedText>
-      </View>
-      <SymbolView name="plus" size={16} tintColor={theme.textSecondary} />
     </Pressable>
   );
 }
@@ -175,7 +171,6 @@ const styles = StyleSheet.create({
   },
   slots: {
     gap: Spacing.three,
-    marginTop: Spacing.two,
   },
   card: {
     flexDirection: 'row',
@@ -185,10 +180,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderCurve: 'continuous',
     padding: Spacing.three,
-  },
-  emptyCard: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
   },
   cardBody: {
     flex: 1,

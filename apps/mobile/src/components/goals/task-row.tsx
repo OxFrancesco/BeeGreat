@@ -1,5 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
+import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -35,8 +36,10 @@ export function TaskRow({
   onAddSubtask?: () => void;
 }) {
   const theme = useTheme();
+  // Snapshot mount time; overdue state only needs day-level accuracy.
+  const [now] = useState(() => Date.now());
   const done = task.status === 'done';
-  const overdue = !done && task.dueDate !== null && task.dueDate < Date.now();
+  const overdue = !done && task.dueDate !== null && task.dueDate < now;
 
   const toggle = () => {
     if (Platform.OS === 'ios') {

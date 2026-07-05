@@ -16,8 +16,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddRow } from '@/components/goals/add-row';
 import { CombCell } from '@/components/goals/comb-cell';
-import { InlineComposer } from '@/components/goals/inline-composer';
 import { ScreenHeader } from '@/components/goals/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -28,9 +28,12 @@ type GoalDetail = NonNullable<FunctionReturnType<typeof api.goals.get>>;
 type ProjectSummary = GoalDetail['projects'][number];
 
 export default function GoalDetailScreen() {
+  const theme = useTheme();
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
   const goal = useQuery(api.goals.get, { goalId: goalId as Id<'goals'> });
   const createProject = useMutation(api.projects.create);
+  const updateGoal = useMutation(api.goals.update);
+  const removeGoal = useMutation(api.goals.remove);
 
   const addProject = async (title: string) => {
     try {
@@ -38,6 +41,52 @@ export default function GoalDetailScreen() {
     } catch (error) {
       Alert.alert('Could not add project', error instanceof Error ? error.message : undefined);
     }
+  };
+
+  const showSettings = () => {
+    if (!goal) return;
+    Alert.alert(goal.title, undefined, [
+      {
+        text: 'Rename',
+        onPress: () =>
+          Alert.prompt(
+            'Rename goal',
+            undefined,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Save',
+                onPress: (title?: string) => {
+                  if (title?.trim()) updateGoal({ goalId: goal.id, title });
+                },
+              },
+            ],
+            'plain-text',
+            goal.title,
+          ),
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(
+            'Delete goal?',
+            `"${goal.title}" and all of its projects and tasks will be gone for good.`,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete',
+                style: 'destructive',
+                onPress: async () => {
+                  await removeGoal({ goalId: goal.id });
+                  router.back();
+                },
+              },
+            ],
+          ),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -59,7 +108,26 @@ export default function GoalDetailScreen() {
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
             >
-              <ScreenHeader title={goal.title} eyebrow="Goal" showBack />
+              <ScreenHeader
+                title={goal.title}
+                showBack
+                right={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Goal settings"
+                    hitSlop={Spacing.two}
+                    onPress={showSettings}
+                    style={({ pressed }) => pressed && styles.pressed}
+                  >
+                    <SymbolView
+                      name="gearshape"
+                      size={20}
+                      tintColor={theme.textSecondary}
+                      fallback={<ThemedText themeColor="textSecondary">…</ThemedText>}
+                    />
+                  </Pressable>
+                }
+              />
               {goal.finalGoal ? (
                 <ThemedText themeColor="textSecondary">{goal.finalGoal}</ThemedText>
               ) : null}
@@ -67,16 +135,10 @@ export default function GoalDetailScreen() {
                 <ThemedText type="smallBold" themeColor="textSecondary">
                   PROJECTS
                 </ThemedText>
-                {goal.projects.length === 0 ? (
-                  <ThemedText themeColor="textSecondary">
-                    No projects yet. Add one — each project gets its own bee.
-                  </ThemedText>
-                ) : (
-                  goal.projects.map((project) => (
-                    <ProjectCard key={project.id} project={project} />
-                  ))
-                )}
-                <InlineComposer placeholder="New project…" onSubmit={addProject} compact />
+                {goal.projects.map((project) => (
+                  <ProjectCard key={project.id} project={project} />
+                ))}
+                <AddRow label="New project" onSubmit={addProject} dashed={goal.projects.length === 0} />
               </View>
             </ScrollView>
           )}
