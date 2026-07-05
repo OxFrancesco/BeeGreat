@@ -6,6 +6,7 @@ import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View, useColorScheme } from 'react-native';
 
+import { VoiceAgentProvider } from '@/components/agent/voice-agent-provider';
 import { Colors } from '@/constants/theme';
 import { flueClient } from '@/lib/flue';
 
@@ -40,24 +41,30 @@ function RootNavigator() {
     );
   }
 
+  const navigator = (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Protected guard={isSignedIn}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="profile"
+          options={{
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.45],
+            sheetGrabberVisible: true,
+          }}
+        />
+      </Stack.Protected>
+      <Stack.Protected guard={!isSignedIn}>
+        <Stack.Screen name="sign-in" />
+      </Stack.Protected>
+    </Stack>
+  );
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Protected guard={isSignedIn}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="profile"
-            options={{
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.45],
-              sheetGrabberVisible: true,
-            }}
-          />
-        </Stack.Protected>
-        <Stack.Protected guard={!isSignedIn}>
-          <Stack.Screen name="sign-in" />
-        </Stack.Protected>
-      </Stack>
+      {/* The voice agent lives above the navigator so mic state, the Live
+          Activity, and the island pill survive tab switches app-wide. */}
+      {isSignedIn ? <VoiceAgentProvider>{navigator}</VoiceAgentProvider> : navigator}
     </ThemeProvider>
   );
 }

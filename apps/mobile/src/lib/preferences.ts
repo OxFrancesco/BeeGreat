@@ -33,3 +33,35 @@ export function subscribeSpeakReplies(listener: () => void) {
 export function useSpeakReplies() {
   return useSyncExternalStore(subscribeSpeakReplies, getSpeakReplies);
 }
+
+const CONVERSATION_SESSION_KEY = 'bee.conversationSession';
+
+let conversationSession = Number(SecureStore.getItem(CONVERSATION_SESSION_KEY) ?? '0') || 0;
+const sessionListeners = new Set<() => void>();
+
+export function getConversationSession() {
+  return conversationSession;
+}
+
+/** Bumps the session counter, which keys a brand-new agent conversation. */
+export function startNewConversationSession() {
+  conversationSession += 1;
+  sessionListeners.forEach((listener) => listener());
+  try {
+    SecureStore.setItem(CONVERSATION_SESSION_KEY, String(conversationSession));
+  } catch {
+    // Persistence is best-effort; the in-memory value still applies.
+  }
+}
+
+export function subscribeConversationSession(listener: () => void) {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+
+/** Monotonic counter identifying the current conversation session. */
+export function useConversationSession() {
+  return useSyncExternalStore(subscribeConversationSession, getConversationSession);
+}

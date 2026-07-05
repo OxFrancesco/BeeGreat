@@ -1,8 +1,14 @@
 import { useUser } from '@clerk/clerk-expo';
 import type { FlueConversationMessage, FlueConversationPart } from '@flue/react';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -13,13 +19,12 @@ import { PromptInput } from '@/components/agent/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/agent/reasoning';
 import { Suggestion, Suggestions } from '@/components/agent/suggestion';
 import { ThinkingActivity, ToolActivity } from '@/components/agent/tool';
+import { useVoiceAgentContext } from '@/components/agent/voice-agent-provider';
 import { FloatingBee } from '@/components/floating-bee';
 import { HexAvatar } from '@/components/hex-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useVoiceAgent } from '@/hooks/use-voice-agent';
-import { onMicPress } from '@/lib/mic-bus';
 import { extractBeeUI } from '@/lib/ui-spec';
 
 const HERO_SUGGESTIONS = [
@@ -28,10 +33,16 @@ const HERO_SUGGESTIONS = [
   'What tasks are still open?',
 ];
 
+/** Threshold at which we offer a fresh start for a snappier conversation. */
+const RESTART_HINT_AFTER_MESSAGES = 6;
+
 export default function VoiceAgentScreen() {
-  const agent = useVoiceAgent();
+  const agent = useVoiceAgentContext();
   const { user } = useUser();
+  const { height } = useWindowDimensions();
   const hasConversation = agent.messages.length > 0;
+  // Keep the hero comfortable on small iPhones (SE) without shrinking it on Pro Max.
+  const compact = height < 700;
 
   // "Thinking…" bridges the gap between sending a message and the first
   // visible output (tool row, reasoning, or text) from the assistant.
@@ -45,10 +56,6 @@ export default function VoiceAgentScreen() {
           part.type === 'reasoning' ||
           (part.type === 'text' && part.text.length > 0),
       ));
-
-  // The mic lives in the tab bar; its trigger emits presses through the bus.
-  const { toggleRecording } = agent;
-  useEffect(() => onMicPress(toggleRecording), [toggleRecording]);
 
   return (
     <ThemedView style={styles.container}>
@@ -79,8 +86,11 @@ export default function VoiceAgentScreen() {
               {awaitingReply ? <ThinkingActivity /> : null}
             </Conversation>
           ) : (
-            <Animated.View entering={FadeIn.duration(400)} style={styles.hero}>
-              <FloatingBee height={120} />
+            <Animated.View
+              entering={FadeIn.duration(400)}
+              style={[styles.hero, compact && styles.heroCompact]}
+            >
+              <FloatingBee height={compact ? 96 : 120} />
               <Suggestions>
                 {HERO_SUGGESTIONS.map((suggestion) => (
                   <Suggestion key={suggestion} suggestion={suggestion} onPress={agent.sendText} />
@@ -88,6 +98,19 @@ export default function VoiceAgentScreen() {
               </Suggestions>
             </Animated.View>
           )}
+
+          {!agent.busy && agent.messages.length >= RESTART_HINT_AFTER_MESSAGES ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Restart the conversation"
+              onPress={agent.resetConversation}
+              style={({ pressed }) => [styles.restart, pressed && styles.topBarPressed]}
+            >
+              <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+                Restart the conversation for a fresh start
+              </ThemedText>
+            </Pressable>
+          ) : null}
 
           {agent.recording ? (
             <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
@@ -215,6 +238,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.five,
+  },
+  heroCompact: {
+    gap: Spacing.four,
+  },
+  restart: {
+    alignSelf: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
   },
   centered: {
     textAlign: 'center',

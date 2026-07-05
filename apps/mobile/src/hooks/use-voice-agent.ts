@@ -13,7 +13,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OrbState } from '@/components/agent/voice-orb';
 import { useBeeLiveActivity } from '@/hooks/use-live-activity';
 import { BEE_AGENT_NAME, flueClient } from '@/lib/flue';
-import { getSpeakReplies, subscribeSpeakReplies, useSpeakReplies } from '@/lib/preferences';
+import {
+  getSpeakReplies,
+  startNewConversationSession,
+  subscribeSpeakReplies,
+  useConversationSession,
+  useSpeakReplies,
+} from '@/lib/preferences';
 import { getToolCopy } from '@/lib/tool-labels';
 import { extractBeeUI } from '@/lib/ui-spec';
 import { synthesizeSpeech, transcribeRecording } from '@/lib/voice-api';
@@ -21,9 +27,17 @@ import { synthesizeSpeech, transcribeRecording } from '@/lib/voice-api';
 export function useVoiceAgent() {
   // This hook only renders behind the signed-in route guard, so userId is always set.
   const { userId } = useAuth();
+  const session = useConversationSession();
+  // Session 0 keeps the original `userId` conversation; later sessions append a
+  // `~N` suffix (the agent strips it to recover the user id for its tools).
+  const conversationId = userId
+    ? session > 0
+      ? `${userId}~${session}`
+      : userId
+    : 'signed-out';
   const agent = useFlueAgent({
     name: BEE_AGENT_NAME,
-    id: userId ?? 'signed-out',
+    id: conversationId,
     live: 'long-poll',
     client: flueClient,
   });
@@ -39,6 +53,12 @@ export function useVoiceAgent() {
 
   const spokenIds = useRef(new Set<string>());
   const seededHistory = useRef(false);
+
+  // A new session is a brand-new conversation: restart speech bookkeeping.
+  useEffect(() => {
+    spokenIds.current.clear();
+    seededHistory.current = false;
+  }, [conversationId]);
 
   // Don't read pre-existing history aloud on launch.
   useEffect(() => {
@@ -108,8 +128,23 @@ export function useVoiceAgent() {
     return () => subscription.remove();
   }, [player]);
 
+  /** Ends the current conversation and starts a fresh one. */
+  const resetConversation = useCallback(() => {
+    setVoiceError(undefined);
+    player.pause();
+    setSpeaking(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    startNewConversationSession();
+  }, [player]);
+
   const sendText = useCallback(
     async (text: string) => {
+      // Slash commands: `/clear` and `/new` restart the conversation.
+      const command = text.trim().toLowerCase();
+      if (command === '/clear' || command === '/new') {
+        resetConversation();
+        return;
+      }
       setVoiceError(undefined);
       if (speaking) {
         player.pause();
@@ -117,7 +152,7 @@ export function useVoiceAgent() {
       }
       await agent.sendMessage(text);
     },
-    [agent, player, speaking],
+    [agent, player, speaking, resetConversation],
   );
 
   const toggleRecording = useCallback(async () => {
@@ -193,5 +228,6 @@ export function useVoiceAgent() {
     voiceError,
     sendText,
     toggleRecording,
+    resetConversation,
   };
 }
