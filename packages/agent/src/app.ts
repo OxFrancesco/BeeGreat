@@ -31,6 +31,13 @@ const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
 
 app.get('/health', (c) => c.json({ ok: true }))
 
+/** Maps an ElevenLabs error body to a message the app can show as-is. */
+function voiceErrorMessage(fallback: string, detail: string) {
+  return detail.includes('quota_exceeded')
+    ? 'ElevenLabs is out of voice credits. Raise the API key limit in the ElevenLabs dashboard.'
+    : fallback
+}
+
 // Every route below requires a valid Clerk session token.
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined
 
@@ -88,8 +95,9 @@ app.post('/voice/transcribe', async (c) => {
     body: upstream,
   })
   if (!response.ok) {
-    console.error('elevenlabs stt failed', response.status, await response.text())
-    return c.json({ error: 'Transcription failed.' }, 502)
+    const detail = await response.text()
+    console.error('elevenlabs stt failed', response.status, detail)
+    return c.json({ error: voiceErrorMessage('Transcription failed.', detail) }, 502)
   }
 
   const result = (await response.json()) as { text: string; language_code?: string }
@@ -120,8 +128,9 @@ app.post('/voice/speak', async (c) => {
     },
   )
   if (!response.ok) {
-    console.error('elevenlabs tts failed', response.status, await response.text())
-    return c.json({ error: 'Speech synthesis failed.' }, 502)
+    const detail = await response.text()
+    console.error('elevenlabs tts failed', response.status, detail)
+    return c.json({ error: voiceErrorMessage('Speech synthesis failed.', detail) }, 502)
   }
 
   return c.json({ audio: toBase64(await response.arrayBuffer()), mimeType: 'audio/mpeg' })

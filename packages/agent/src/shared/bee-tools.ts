@@ -12,7 +12,7 @@ export function createBeeTools(userId: string, convexUrl: string) {
     defineTool({
       name: 'get_goals',
       description:
-        'List the user\u2019s active goals (max 3) with open/done task counts and their final goal, if set.',
+        'List the user\u2019s active goals (max 3) with their projects, open/done task counts, and their final goal, if set.',
       async run() {
         return await convex.query(api.agent.getGoals, { userId })
       },
@@ -34,6 +34,19 @@ export function createBeeTools(userId: string, convexUrl: string) {
     }),
 
     defineTool({
+      name: 'create_project',
+      description:
+        'Create a project under one of the user\u2019s goals. Projects group related tasks (goal \u2192 project \u2192 task).',
+      input: v.object({
+        goalId: v.pipe(v.string(), v.description('Goal id from get_goals')),
+        title: v.pipe(v.string(), v.description('Short project title, e.g. "Training plan"')),
+      }),
+      async run({ input }) {
+        return await convex.mutation(api.agent.createProject, { userId, ...input })
+      },
+    }),
+
+    defineTool({
       name: 'list_tasks',
       description: 'List the user\u2019s tasks, optionally filtered by goal id or status.',
       input: v.object({
@@ -47,9 +60,13 @@ export function createBeeTools(userId: string, convexUrl: string) {
 
     defineTool({
       name: 'create_task',
-      description: 'Create a task under one of the user\u2019s goals.',
+      description:
+        'Create a task under one of the user\u2019s goals. Pass projectId when the user names a project; otherwise the task is filed in that goal\u2019s "General" project.',
       input: v.object({
         goalId: v.pipe(v.string(), v.description('Goal id from get_goals')),
+        projectId: v.optional(
+          v.pipe(v.string(), v.description('Project id from get_goals, when the user names one')),
+        ),
         title: v.string(),
         dueDate: v.optional(
           v.pipe(v.number(), v.description('Due date as a Unix timestamp in milliseconds')),
