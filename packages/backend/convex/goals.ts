@@ -105,3 +105,49 @@ export const create = mutation({
     return await ctx.db.insert('goals', { userId, title: trimmed, finalGoal, status: 'active' })
   },
 })
+
+export const update = mutation({
+  args: {
+    goalId: v.id('goals'),
+    title: v.string(),
+  },
+  handler: async (ctx, { goalId, title }) => {
+    const userId = await requireUserId(ctx)
+    const goal = await ctx.db.get(goalId)
+    if (!goal || goal.userId !== userId) {
+      throw new Error('Goal not found')
+    }
+    const trimmed = title.trim()
+    if (!trimmed) {
+      throw new Error('A goal needs a name')
+    }
+    await ctx.db.patch(goalId, { title: trimmed })
+  },
+})
+
+/** Deletes a goal with everything in it (projects and tasks). */
+export const remove = mutation({
+  args: { goalId: v.id('goals') },
+  handler: async (ctx, { goalId }) => {
+    const userId = await requireUserId(ctx)
+    const goal = await ctx.db.get(goalId)
+    if (!goal || goal.userId !== userId) {
+      throw new Error('Goal not found')
+    }
+    const tasks = await ctx.db
+      .query('tasks')
+      .withIndex('by_goal', (q) => q.eq('goalId', goalId))
+      .collect()
+    for (const task of tasks) {
+      await ctx.db.delete(task._id)
+    }
+    const projects = await ctx.db
+      .query('projects')
+      .withIndex('by_goal', (q) => q.eq('goalId', goalId))
+      .collect()
+    for (const project of projects) {
+      await ctx.db.delete(project._id)
+    }
+    await ctx.db.delete(goalId)
+  },
+})
