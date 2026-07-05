@@ -20,6 +20,13 @@ export default defineSchema({
     goalId: v.id('goals'),
     title: v.string(),
     status: v.union(v.literal('active'), v.literal('completed'), v.literal('archived')),
+    // Coarse target date: a quarter (year + quarter 1-4) or a whole year.
+    due: v.optional(
+      v.object({
+        year: v.number(),
+        quarter: v.optional(v.number()),
+      }),
+    ),
     // Generated bee avatar (FAL -> R2), filled in once bee generation lands.
     beeImageUrl: v.optional(v.string()),
   })

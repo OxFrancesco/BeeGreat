@@ -53,6 +53,14 @@ function RootNavigator() {
             sheetGrabberVisible: true,
           }}
         />
+        <Stack.Screen
+          name="threads"
+          options={{
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.6, 1],
+            sheetGrabberVisible: true,
+          }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="sign-in" />

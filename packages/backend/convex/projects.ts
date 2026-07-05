@@ -16,10 +16,36 @@ export const get = query({
       id: project._id,
       title: project.title,
       status: project.status,
+      due: project.due ?? null,
       beeImageUrl: project.beeImageUrl ?? null,
       goalId: project.goalId,
       goalTitle: goal?.title ?? null,
     }
+  },
+})
+
+/** Sets or clears a project's coarse target date (a quarter or a year). */
+export const setDue = mutation({
+  args: {
+    projectId: v.id('projects'),
+    due: v.union(
+      v.null(),
+      v.object({
+        year: v.number(),
+        quarter: v.optional(v.number()),
+      }),
+    ),
+  },
+  handler: async (ctx, { projectId, due }) => {
+    const userId = await requireUserId(ctx)
+    const project = await ctx.db.get(projectId)
+    if (!project || project.userId !== userId) {
+      throw new Error('Project not found')
+    }
+    if (due && due.quarter !== undefined && (due.quarter < 1 || due.quarter > 4)) {
+      throw new Error('Quarter must be between 1 and 4')
+    }
+    await ctx.db.patch(projectId, { due: due ?? undefined })
   },
 })
 

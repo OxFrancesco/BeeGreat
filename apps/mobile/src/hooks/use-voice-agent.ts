@@ -15,9 +15,10 @@ import { useBeeLiveActivity } from '@/hooks/use-live-activity';
 import { BEE_AGENT_NAME, createBeeFlueClient, flueClient } from '@/lib/flue';
 import {
   getSpeakReplies,
-  startNewConversationSession,
+  setThreadTitle,
+  startNewThread,
   subscribeSpeakReplies,
-  useConversationSession,
+  useActiveThread,
   useSpeakReplies,
 } from '@/lib/preferences';
 import { getToolCopy } from '@/lib/tool-labels';
@@ -41,12 +42,12 @@ function friendlyErrorMessage(error: Error | undefined): string | undefined {
 export function useVoiceAgent() {
   // This hook only renders behind the signed-in route guard, so userId is always set.
   const { userId } = useAuth();
-  const session = useConversationSession();
-  // Session 0 keeps the original `userId` conversation; later sessions append a
+  const thread = useActiveThread();
+  // Thread 0 keeps the original `userId` conversation; later threads append a
   // `~N` suffix (the agent strips it to recover the user id for its tools).
   const conversationId = userId
-    ? session > 0
-      ? `${userId}~${session}`
+    ? thread > 0
+      ? `${userId}~${thread}`
       : userId
     : 'signed-out';
   const [client, setClient] = useState(() => flueClient);
@@ -83,11 +84,22 @@ export function useVoiceAgent() {
   const spokenIds = useRef(new Set<string>());
   const seededHistory = useRef(false);
 
-  // A new session is a brand-new conversation: restart speech bookkeeping.
+  // A new thread is a brand-new conversation: restart speech bookkeeping.
   useEffect(() => {
     spokenIds.current.clear();
     seededHistory.current = false;
   }, [conversationId]);
+
+  // Label the thread with its first user message so the thread list is legible.
+  useEffect(() => {
+    const first = agent.messages.find((message) => message.role === 'user');
+    if (!first) return;
+    const text = first.parts
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join(' ');
+    setThreadTitle(thread, text.slice(0, 64));
+  }, [agent.messages, thread]);
 
   // Don't read pre-existing history aloud on launch.
   useEffect(() => {
@@ -157,13 +169,13 @@ export function useVoiceAgent() {
     return () => subscription.remove();
   }, [player]);
 
-  /** Ends the current conversation and starts a fresh one. */
+  /** Ends the current conversation and starts a fresh thread. */
   const resetConversation = useCallback(() => {
     setVoiceError(undefined);
     player.pause();
     setSpeaking(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    startNewConversationSession();
+    startNewThread();
   }, [player]);
 
   const sendText = useCallback(

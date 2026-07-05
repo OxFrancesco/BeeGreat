@@ -104,6 +104,22 @@ export const toggle = mutation({
   },
 })
 
+/** Sets or clears a task's due date (epoch millis). */
+export const setDueDate = mutation({
+  args: {
+    taskId: v.id('tasks'),
+    dueDate: v.union(v.null(), v.number()),
+  },
+  handler: async (ctx, { taskId, dueDate }) => {
+    const userId = await requireUserId(ctx)
+    const task = await ctx.db.get(taskId)
+    if (!task || task.userId !== userId) {
+      throw new Error('Task not found')
+    }
+    await ctx.db.patch(taskId, { dueDate: dueDate ?? undefined })
+  },
+})
+
 export const remove = mutation({
   args: { taskId: v.id('tasks') },
   handler: async (ctx, { taskId }) => {

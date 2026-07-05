@@ -24,6 +24,7 @@ import { ThinkingActivity, ToolActivity } from '@/components/agent/tool';
 import { useVoiceAgentContext } from '@/components/agent/voice-agent-provider';
 import { FloatingBee } from '@/components/floating-bee';
 import { HexAvatar } from '@/components/hex-avatar';
+import { HexIconButton } from '@/components/hex-icon-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -67,6 +68,13 @@ export default function VoiceAgentScreen() {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.flex}>
             <View style={styles.topBar}>
+              <HexIconButton
+                size={36}
+                icon="line.3.horizontal"
+                fallbackGlyph="≡"
+                accessibilityLabel="Conversations"
+                onPress={() => router.push('/threads')}
+              />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Profile"
@@ -239,7 +247,8 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: Spacing.one,
   },
   topBarPressed: {

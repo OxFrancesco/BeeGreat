@@ -9,6 +9,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -24,6 +25,36 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type Task = FunctionReturnType<typeof api.tasks.listByProject>[number];
+type ProjectDue = { year: number; quarter?: number } | null;
+
+/** End of the given day in local time, as epoch millis. */
+function endOfDayIn(days: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(23, 59, 59, 999);
+  return date.getTime();
+}
+
+function formatProjectDue(due: ProjectDue) {
+  if (!due) return null;
+  return due.quarter ? `Q${due.quarter} ${due.year}` : `${due.year}`;
+}
+
+/** The next four quarters starting from the current one. */
+function upcomingQuarters(): { year: number; quarter: number }[] {
+  const now = new Date();
+  let year = now.getFullYear();
+  let quarter = Math.floor(now.getMonth() / 3) + 1;
+  return Array.from({ length: 4 }, () => {
+    const entry = { year, quarter };
+    quarter += 1;
+    if (quarter > 4) {
+      quarter = 1;
+      year += 1;
+    }
+    return entry;
+  });
+}
 
 export default function ProjectScreen() {
   const theme = useTheme();
@@ -34,6 +65,8 @@ export default function ProjectScreen() {
   const createTask = useMutation(api.tasks.create);
   const toggleTask = useMutation(api.tasks.toggle);
   const removeTask = useMutation(api.tasks.remove);
+  const setTaskDueDate = useMutation(api.tasks.setDueDate);
+  const setProjectDue = useMutation(api.projects.setDue);
   const [subtaskTarget, setSubtaskTarget] = useState<string | null>(null);
 
   const tree = useMemo(() => buildTree(tasks ?? []), [tasks]);
@@ -62,6 +95,69 @@ export default function ProjectScreen() {
     ]);
   };
 
+  const pickDueDate = (task: Task) => {
+    Alert.alert('Due date', `When is "${task.title}" due?`, [
+      { text: 'Today', onPress: () => setTaskDueDate({ taskId: task.id, dueDate: endOfDayIn(0) }) },
+      {
+        text: 'Tomorrow',
+        onPress: () => setTaskDueDate({ taskId: task.id, dueDate: endOfDayIn(1) }),
+      },
+      {
+        text: 'Next week',
+        onPress: () => setTaskDueDate({ taskId: task.id, dueDate: endOfDayIn(7) }),
+      },
+      {
+        text: 'In two weeks',
+        onPress: () => setTaskDueDate({ taskId: task.id, dueDate: endOfDayIn(14) }),
+      },
+      ...(task.dueDate !== null
+        ? [
+            {
+              text: 'Remove due date',
+              style: 'destructive' as const,
+              onPress: () => setTaskDueDate({ taskId: task.id, dueDate: null }),
+            },
+          ]
+        : []),
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  // Long-press opens the task's actions: due date + delete.
+  const openTaskActions = (task: Task) => {
+    Alert.alert(task.title, undefined, [
+      { text: 'Set due date…', onPress: () => pickDueDate(task) },
+      { text: 'Delete task', style: 'destructive', onPress: () => confirmDelete(task) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const pickProjectDue = () => {
+    if (!project) return;
+    const thisYear = new Date().getFullYear();
+    Alert.alert('Target date', 'When should this project land?', [
+      ...upcomingQuarters().map((entry) => ({
+        text: `Q${entry.quarter} ${entry.year}`,
+        onPress: () => setProjectDue({ projectId: id, due: entry }),
+      })),
+      { text: `${thisYear}`, onPress: () => setProjectDue({ projectId: id, due: { year: thisYear } }) },
+      {
+        text: `${thisYear + 1}`,
+        onPress: () => setProjectDue({ projectId: id, due: { year: thisYear + 1 } }),
+      },
+      ...(project.due
+        ? [
+            {
+              text: 'Remove target',
+              style: 'destructive' as const,
+              onPress: () => setProjectDue({ projectId: id, due: null }),
+            },
+          ]
+        : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
+
   const loading = project === undefined || tasks === undefined;
 
   return (
@@ -84,12 +180,28 @@ export default function ProjectScreen() {
               keyboardShouldPersistTaps="handled"
             >
               <ScreenHeader title={project.title} showBack />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Set project target date"
+                onPress={pickProjectDue}
+                style={({ pressed }) => [
+                  styles.dueChip,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                  pressed && styles.duePressed,
+                ]}
+              >
+                <ThemedText type="small" themeColor={project.due ? 'text' : 'textSecondary'}>
+                  {project.due
+                    ? `Target: ${formatProjectDue(project.due)}`
+                    : 'Set a target date (quarter or year)'}
+                </ThemedText>
+              </Pressable>
               {tree.open.map(({ task, subtasks }) => (
                 <View key={task.id}>
                   <TaskRow
                     task={task}
                     onToggle={() => toggleTask({ taskId: task.id })}
-                    onLongPress={() => confirmDelete(task)}
+                    onLongPress={() => openTaskActions(task)}
                     onAddSubtask={() =>
                       setSubtaskTarget((current) => (current === task.id ? null : task.id))
                     }
@@ -100,7 +212,7 @@ export default function ProjectScreen() {
                       task={subtask}
                       isSubtask
                       onToggle={() => toggleTask({ taskId: subtask.id })}
-                      onLongPress={() => confirmDelete(subtask)}
+                      onLongPress={() => openTaskActions(subtask)}
                     />
                   ))}
                   {subtaskTarget === task.id ? (
@@ -134,7 +246,7 @@ export default function ProjectScreen() {
                       <TaskRow
                         task={task}
                         onToggle={() => toggleTask({ taskId: task.id })}
-                        onLongPress={() => confirmDelete(task)}
+                        onLongPress={() => openTaskActions(task)}
                       />
                       {subtasks.map((subtask) => (
                         <TaskRow
@@ -142,7 +254,7 @@ export default function ProjectScreen() {
                           task={subtask}
                           isSubtask
                           onToggle={() => toggleTask({ taskId: subtask.id })}
-                          onLongPress={() => confirmDelete(subtask)}
+                          onLongPress={() => openTaskActions(subtask)}
                         />
                       ))}
                     </View>
@@ -206,6 +318,17 @@ const styles = StyleSheet.create({
   subtaskComposer: {
     paddingLeft: Spacing.five,
     paddingVertical: Spacing.one,
+  },
+  dueChip: {
+    alignSelf: 'flex-start',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.one,
+    marginBottom: Spacing.two,
+  },
+  duePressed: {
+    opacity: 0.7,
   },
   addTask: {
     marginTop: Spacing.two,
