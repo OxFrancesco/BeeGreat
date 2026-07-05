@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "beegreat-agent",
+  "compatibility_date": "2026-06-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "FlueRegistry",
+        "FlueBeeAgent"
+      ]
+    }
+  ],
+  "main": ".flue-vite/_entry.ts",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "FLUE_BEE_AGENT",
+        "class_name": "FlueBeeAgent"
+      },
+      {
+        "name": "FLUE_REGISTRY",
+        "class_name": "FlueRegistry"
+      }
+    ]
+  }
+}
