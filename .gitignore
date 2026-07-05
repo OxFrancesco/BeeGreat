@@ -10,3 +10,4 @@ build/
 
 # codeview reference codebases
 resources/
+.wrangler/
