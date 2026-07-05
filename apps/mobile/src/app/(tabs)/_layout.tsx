@@ -32,6 +32,9 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="mic"
+        // The search role splits this trigger into its own pill on iOS 26,
+        // visually separating Talk from the navigation tabs.
+        role="search"
         // Disabled tabs still emit tabPress but never navigate, which turns
         // this trigger into a plain button for toggling voice recording.
         disabled
@@ -43,8 +46,10 @@ export default function TabLayout() {
       >
         <NativeTabs.Trigger.Label>Talk</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
-          src={require('../../../assets/icons/mic-hex.png')}
-          renderingMode="template"
+          // Original rendering keeps the honey-colored microphone instead of
+          // the system tint, so the Talk button stands out from the other tabs.
+          src={require('../../../assets/icons/mic-honey.png')}
+          renderingMode="original"
         />
       </NativeTabs.Trigger>
     </NativeTabs>

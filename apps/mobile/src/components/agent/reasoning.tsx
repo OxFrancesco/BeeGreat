@@ -87,12 +87,14 @@ export function ReasoningTrigger() {
       style={styles.trigger}
       hitSlop={4}
     >
-      <SymbolView
-        name="brain"
-        size={14}
-        tintColor={theme.textSecondary}
-        fallback={<ThemedText type="small" themeColor="textSecondary">~</ThemedText>}
-      />
+      <View style={[styles.iconBadge, { backgroundColor: theme.secondary }]}>
+        <SymbolView
+          name="brain"
+          size={11}
+          tintColor={theme.secondaryForeground}
+          fallback={<ThemedText type="small" themeColor="secondaryForeground">~</ThemedText>}
+        />
+      </View>
       {isStreaming ? (
         <Shimmer type="small" themeColor="textSecondary">
           {label}
@@ -137,7 +139,14 @@ const styles = StyleSheet.create({
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.one + Spacing.half,
+    gap: Spacing.two,
+  },
+  iconBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     borderLeftWidth: 2,

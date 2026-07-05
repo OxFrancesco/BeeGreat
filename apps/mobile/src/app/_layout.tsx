@@ -49,7 +49,7 @@ function RootNavigator() {
             name="profile"
             options={{
               presentation: 'formSheet',
-              sheetAllowedDetents: [0.4],
+              sheetAllowedDetents: [0.45],
               sheetGrabberVisible: true,
             }}
           />

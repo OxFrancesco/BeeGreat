@@ -1,18 +1,20 @@
 import { useClerk, useUser } from '@clerk/clerk-expo';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { HexAvatar } from '@/components/hex-avatar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { setSpeakReplies, useSpeakReplies } from '@/lib/preferences';
 
 export default function ProfileScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const theme = useTheme();
+  const speakReplies = useSpeakReplies();
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +47,24 @@ export default function ProfileScreen() {
             {email}
           </ThemedText>
         ) : null}
+      </View>
+
+      <View style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View style={styles.settingCopy}>
+          <ThemedText type="default">Speak replies</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {speakReplies ? 'Bee reads answers aloud' : 'Replies stay on screen'}
+          </ThemedText>
+        </View>
+        <Switch
+          accessibilityLabel="Speak replies aloud"
+          value={speakReplies}
+          onValueChange={(enabled) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSpeakReplies(enabled);
+          }}
+          trackColor={{ true: theme.primary }}
+        />
       </View>
 
       <Pressable
@@ -88,6 +108,20 @@ const styles = StyleSheet.create({
   },
   name: {
     fontWeight: '600',
+  },
+  settingRow: {
+    alignSelf: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    padding: Spacing.three,
+  },
+  settingCopy: {
+    gap: Spacing.half,
   },
   signOut: {
     alignSelf: 'stretch',

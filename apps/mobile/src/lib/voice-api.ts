@@ -14,7 +14,7 @@ export async function transcribeRecording(uri: string): Promise<string> {
     body: bytes as unknown as BodyInit,
   });
   if (!response.ok) {
-    throw new Error('Transcription failed. Check that the agent server is running.');
+    throw new Error(await readErrorMessage(response, 'Transcription failed.'));
   }
   const { text } = (await response.json()) as { text: string };
   return text.trim();
@@ -28,7 +28,7 @@ export async function synthesizeSpeech(text: string): Promise<string> {
     body: JSON.stringify({ text }),
   });
   if (!response.ok) {
-    throw new Error('Speech synthesis failed.');
+    throw new Error(await readErrorMessage(response, 'Speech synthesis failed.'));
   }
   const { audio } = (await response.json()) as { audio: string };
 
@@ -36,6 +36,12 @@ export async function synthesizeSpeech(text: string): Promise<string> {
   file.create();
   file.write(base64ToBytes(audio));
   return file.uri;
+}
+
+/** Prefers the worker's `{ error }` message so the UI shows the real cause. */
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  const body = (await response.json().catch(() => null)) as { error?: string } | null;
+  return body?.error ?? `${fallback} (HTTP ${response.status})`;
 }
 
 function base64ToBytes(base64: string): Uint8Array {

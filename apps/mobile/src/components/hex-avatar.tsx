@@ -23,7 +23,7 @@ export function makeRoundedPolygonPath(
   cornerRadius: number,
 ) {
   const count = points.length;
-  const path = Skia.Path.Make();
+  const builder = Skia.PathBuilder.Make();
   points.forEach((vertex, i) => {
     const prev = points[(i + count - 1) % count];
     const next = points[(i + 1) % count];
@@ -36,14 +36,14 @@ export function makeRoundedPolygonPath(
     const entry = { x: vertex.x + toPrev.x * rPrev, y: vertex.y + toPrev.y * rPrev };
     const exit = { x: vertex.x + toNext.x * rNext, y: vertex.y + toNext.y * rNext };
     if (i === 0) {
-      path.moveTo(entry.x, entry.y);
+      builder.moveTo(entry.x, entry.y);
     } else {
-      path.lineTo(entry.x, entry.y);
+      builder.lineTo(entry.x, entry.y);
     }
-    path.quadTo(vertex.x, vertex.y, exit.x, exit.y);
+    builder.quadTo(vertex.x, vertex.y, exit.x, exit.y);
   });
-  path.close();
-  return path;
+  builder.close();
+  return builder.build();
 }
 
 /** Builds a pointy-top hexagon with rounded corners, inset for the stroke. */

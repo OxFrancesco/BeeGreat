@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OrbState } from '@/components/agent/voice-orb';
 import { useBeeLiveActivity } from '@/hooks/use-live-activity';
 import { BEE_AGENT_NAME, flueClient } from '@/lib/flue';
+import { getSpeakReplies, subscribeSpeakReplies, useSpeakReplies } from '@/lib/preferences';
 import { getToolCopy } from '@/lib/tool-labels';
 import { extractBeeUI } from '@/lib/ui-spec';
 import { synthesizeSpeech, transcribeRecording } from '@/lib/voice-api';
@@ -29,6 +30,7 @@ export function useVoiceAgent() {
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const player = useAudioPlayer();
+  const speakReplies = useSpeakReplies();
 
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -54,6 +56,12 @@ export function useVoiceAgent() {
       .reverse()
       .find((message) => message.role === 'assistant');
     if (!latest || spokenIds.current.has(latest.id)) return;
+    if (!speakReplies) {
+      // Voice replies are off: mark as handled so toggling back on later
+      // doesn't read old messages aloud.
+      spokenIds.current.add(latest.id);
+      return;
+    }
     if (latest.parts.some((part) => part.type === 'text' && part.state === 'streaming')) return;
     spokenIds.current.add(latest.id);
 
@@ -80,7 +88,18 @@ export function useVoiceAgent() {
     return () => {
       cancelled = true;
     };
-  }, [agent.status, agent.messages, player]);
+  }, [agent.status, agent.messages, player, speakReplies]);
+
+  // Cut off any in-progress speech when voice replies are turned off.
+  useEffect(
+    () =>
+      subscribeSpeakReplies(() => {
+        if (getSpeakReplies()) return;
+        player.pause();
+        setSpeaking(false);
+      }),
+    [player],
+  );
 
   useEffect(() => {
     const subscription = player.addListener('playbackStatusUpdate', (status) => {

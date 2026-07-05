@@ -7,22 +7,20 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
- * Text fallback + mic entry, ported from the ai-elements PromptInput idea:
- * voice stays primary, typing always works (noisy rooms, accessibility).
+ * Text fallback for the voice agent, ported from the ai-elements PromptInput
+ * idea: voice stays primary (via the Talk tab button), typing always works
+ * (noisy rooms, accessibility).
  */
 export function PromptInput({
   onSubmit,
-  onMicPress,
-  recording,
   disabled,
 }: {
   onSubmit: (text: string) => void;
-  onMicPress: () => void;
-  recording: boolean;
   disabled?: boolean;
 }) {
   const theme = useTheme();
   const [text, setText] = useState('');
+  const canSend = Boolean(text.trim()) && !disabled;
 
   const submit = () => {
     const message = text.trim();
@@ -44,48 +42,28 @@ export function PromptInput({
         returnKeyType="send"
         submitBehavior="submit"
       />
-      {text.trim() ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Send message"
-          onPress={submit}
-          disabled={disabled}
-          style={[styles.action, { backgroundColor: theme.primary }]}
-        >
-          <SymbolView
-            name="arrow.up"
-            size={16}
-            tintColor={theme.primaryForeground}
-            fallback={
-              <ThemedText type="smallBold" style={{ color: theme.primaryForeground }}>
-                Send
-              </ThemedText>
-            }
-          />
-        </Pressable>
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={recording ? 'Stop recording' : 'Start recording'}
-          onPress={onMicPress}
-          disabled={disabled}
-          style={[
-            styles.action,
-            { backgroundColor: recording ? theme.destructive : theme.primary },
-          ]}
-        >
-          <SymbolView
-            name={recording ? 'stop.fill' : 'mic.fill'}
-            size={16}
-            tintColor={theme.primaryForeground}
-            fallback={
-              <ThemedText type="smallBold" style={{ color: theme.primaryForeground }}>
-                {recording ? 'Stop' : 'Mic'}
-              </ThemedText>
-            }
-          />
-        </Pressable>
-      )}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Send message"
+        onPress={submit}
+        disabled={!canSend}
+        style={[
+          styles.action,
+          { backgroundColor: theme.primary },
+          !canSend && styles.actionDisabled,
+        ]}
+      >
+        <SymbolView
+          name="arrow.up"
+          size={16}
+          tintColor={theme.primaryForeground}
+          fallback={
+            <ThemedText type="smallBold" style={{ color: theme.primaryForeground }}>
+              Send
+            </ThemedText>
+          }
+        />
+      </Pressable>
     </View>
   );
 }
@@ -113,5 +91,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionDisabled: {
+    opacity: 0.4,
   },
 });

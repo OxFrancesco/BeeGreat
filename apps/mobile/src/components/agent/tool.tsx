@@ -45,6 +45,34 @@ export function ToolActivity({ name, state }: { name: string; state: ToolActivit
   );
 }
 
+/**
+ * Same quiet activity row, shown while the model is reasoning or composing
+ * a reply before any visible output arrives.
+ */
+export function ThinkingActivity() {
+  const theme = useTheme();
+
+  return (
+    <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.row}>
+      <View style={[styles.iconBadge, { backgroundColor: theme.secondary }]}>
+        <SymbolView
+          name="brain"
+          size={11}
+          tintColor={theme.secondaryForeground}
+          fallback={
+            <ThemedText type="small" themeColor="secondaryForeground">
+              •
+            </ThemedText>
+          }
+        />
+      </View>
+      <Shimmer type="small" themeColor="textSecondary">
+        Thinking…
+      </Shimmer>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',

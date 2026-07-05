@@ -6,8 +6,8 @@
     "packages/*"
   ],
   "scripts": {
-    "mobile": "concurrently -k -n convex,expo -c cyan,yellow --handle-input \"bun run backend\" \"bun run --cwd apps/mobile ios\"",
-    "mobile:android": "concurrently -k -n convex,expo -c cyan,green --handle-input \"bun run backend\" \"bun run --cwd apps/mobile android\"",
+    "mobile": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run agent\" \"bun run --cwd apps/mobile ios\"",
+    "mobile:android": "concurrently -k -n convex,agent,expo -c cyan,magenta,green --handle-input \"bun run backend\" \"bun run agent\" \"bun run --cwd apps/mobile android\"",
     "web": "bun run --cwd apps/web dev",
     "backend": "bun run --cwd packages/backend dev",
     "agent": "bun run --cwd packages/agent dev",

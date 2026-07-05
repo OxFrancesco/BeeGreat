@@ -2,16 +2,17 @@ import { useUser } from '@clerk/clerk-expo';
 import type { FlueConversationMessage, FlueConversationPart } from '@flue/react';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Conversation } from '@/components/agent/conversation';
 import { GeneratedUI } from '@/components/agent/generated-ui';
 import { Message, MessageContent, MessageText } from '@/components/agent/message';
+import { PromptInput } from '@/components/agent/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/agent/reasoning';
 import { Suggestion, Suggestions } from '@/components/agent/suggestion';
-import { ToolActivity } from '@/components/agent/tool';
+import { ThinkingActivity, ToolActivity } from '@/components/agent/tool';
 import { FloatingBee } from '@/components/floating-bee';
 import { HexAvatar } from '@/components/hex-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -31,6 +32,19 @@ export default function VoiceAgentScreen() {
   const agent = useVoiceAgent();
   const { user } = useUser();
   const hasConversation = agent.messages.length > 0;
+
+  // "Thinking…" bridges the gap between sending a message and the first
+  // visible output (tool row, reasoning, or text) from the assistant.
+  const lastMessage = agent.messages.at(-1);
+  const awaitingReply =
+    agent.busy &&
+    (lastMessage?.role !== 'assistant' ||
+      !lastMessage.parts.some(
+        (part) =>
+          part.type === 'dynamic-tool' ||
+          part.type === 'reasoning' ||
+          (part.type === 'text' && part.text.length > 0),
+      ));
 
   // The mic lives in the tab bar; its trigger emits presses through the bus.
   const { toggleRecording } = agent;
@@ -61,6 +75,7 @@ export default function VoiceAgentScreen() {
                   isBusy={agent.busy}
                 />
               ))}
+              {awaitingReply ? <ThinkingActivity /> : null}
             </Conversation>
           ) : (
             <Animated.View entering={FadeIn.duration(400)} style={styles.hero}>
@@ -85,6 +100,9 @@ export default function VoiceAgentScreen() {
             </ThemedText>
           ) : null}
         </View>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <PromptInput onSubmit={agent.sendText} disabled={agent.busy} />
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
   );
