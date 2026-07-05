@@ -16,7 +16,8 @@ BeeGreat/
 │   ├── mobile/            # @beegreat/mobile — Expo SDK 57 (iPhone + iPad), expo-router
 │   └── web/               # @beegreat/web — TanStack Start + Clerk (web twin)
 ├── packages/
-│   └── backend/           # @beegreat/backend — shared Convex backend (schema + functions)
+│   ├── backend/           # @beegreat/backend — shared Convex backend (schema + functions)
+│   └── agent/             # @beegreat/agent — Flue voice agent worker (Cloudflare target)
 └── docs/                  # product & architecture planning docs
 ```
 
@@ -34,6 +35,7 @@ All commands run from the repo root:
 | `bun run mobile:android` | `convex dev` + Expo Android emulator |
 | `bun run web` | Vite dev server only (expects backend running) |
 | `bun run backend` | `convex dev` only (watches/pushes `packages/backend/convex`) |
+| `bun run agent` | `flue dev` — Bee voice agent worker on `http://localhost:3583` |
 | `bun run dev` | `convex dev` + web dev server together |
 
 Notes:
@@ -49,6 +51,8 @@ Notes:
 |---|---|
 | `packages/backend/.env.local` | `CONVEX_DEPLOYMENT` — used by `convex dev` |
 | `apps/web/.env.local` | `VITE_CONVEX_URL`, `VITE_CONVEX_SITE_URL` (+ Clerk keys per template docs) |
+| `packages/agent/.dev.vars` | `ELEVENLABS_API_KEY`, `OPENROUTER_API_KEY`, `CONVEX_URL` (see `.env.example`) |
+| `apps/mobile/.env` | `EXPO_PUBLIC_AGENT_URL` — agent worker URL (LAN IP for physical devices) |
 
 ### Conventions
 

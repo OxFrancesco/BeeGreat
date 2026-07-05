@@ -3,6 +3,10 @@ node_modules/
 .env
 .env.*
 !.env.example
+.dev.vars
 dist/
 build/
 .expo/
+
+# codeview reference codebases
+resources/
