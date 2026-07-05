@@ -2,10 +2,12 @@ import { useUser } from '@clerk/clerk-expo';
 import type { FlueConversationMessage, FlueConversationPart } from '@flue/react';
 import { router } from 'expo-router';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
+  TouchableWithoutFeedback,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -60,70 +62,80 @@ export default function VoiceAgentScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.topBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Profile"
-            hitSlop={Spacing.two}
-            onPress={() => router.push('/profile')}
-            style={({ pressed }) => pressed && styles.topBarPressed}
-          >
-            <HexAvatar size={36} uri={user?.hasImage ? user.imageUrl : null} />
-          </Pressable>
-        </View>
-        <View style={styles.flex}>
-          {hasConversation ? (
-            <Conversation>
-              {agent.messages.map((message, index) => (
-                <AgentMessage
-                  key={message.id}
-                  message={message}
-                  isLast={index === agent.messages.length - 1}
-                  isBusy={agent.busy}
-                  onReply={agent.sendText}
-                />
-              ))}
-              {awaitingReply ? <ThinkingActivity /> : null}
-            </Conversation>
-          ) : (
-            <Animated.View
-              entering={FadeIn.duration(400)}
-              style={[styles.hero, compact && styles.heroCompact]}
-            >
-              <FloatingBee height={compact ? 96 : 120} />
-              <Suggestions>
-                {HERO_SUGGESTIONS.map((suggestion) => (
-                  <Suggestion key={suggestion} suggestion={suggestion} onPress={agent.sendText} />
-                ))}
-              </Suggestions>
-            </Animated.View>
-          )}
+        {/* Tapping any blank space dismisses the keyboard; interactive
+            children (buttons, suggestions, the conversation) still win. */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.flex}>
+            <View style={styles.topBar}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Profile"
+                hitSlop={Spacing.two}
+                onPress={() => router.push('/profile')}
+                style={({ pressed }) => pressed && styles.topBarPressed}
+              >
+                <HexAvatar size={36} uri={user?.hasImage ? user.imageUrl : null} />
+              </Pressable>
+            </View>
+            <View style={styles.flex}>
+              {hasConversation ? (
+                <Conversation>
+                  {agent.messages.map((message, index) => (
+                    <AgentMessage
+                      key={message.id}
+                      message={message}
+                      isLast={index === agent.messages.length - 1}
+                      isBusy={agent.busy}
+                      onReply={agent.sendText}
+                    />
+                  ))}
+                  {awaitingReply ? <ThinkingActivity /> : null}
+                </Conversation>
+              ) : (
+                <Animated.View
+                  entering={FadeIn.duration(400)}
+                  style={[styles.hero, compact && styles.heroCompact]}
+                >
+                  <FloatingBee height={compact ? 96 : 120} />
+                  <Suggestions>
+                    {HERO_SUGGESTIONS.map((suggestion) => (
+                      <Suggestion
+                        key={suggestion}
+                        suggestion={suggestion}
+                        onPress={agent.sendText}
+                      />
+                    ))}
+                  </Suggestions>
+                </Animated.View>
+              )}
 
-          {!agent.busy && agent.messages.length >= RESTART_HINT_AFTER_MESSAGES ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Restart the conversation"
-              onPress={agent.resetConversation}
-              style={({ pressed }) => [styles.restart, pressed && styles.topBarPressed]}
-            >
-              <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-                Restart the conversation for a fresh start
-              </ThemedText>
-            </Pressable>
-          ) : null}
+              {!agent.busy && agent.messages.length >= RESTART_HINT_AFTER_MESSAGES ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Restart the conversation"
+                  onPress={agent.resetConversation}
+                  style={({ pressed }) => [styles.restart, pressed && styles.topBarPressed]}
+                >
+                  <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+                    Restart the conversation for a fresh start
+                  </ThemedText>
+                </Pressable>
+              ) : null}
 
-          {agent.recording ? (
-            <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-              Listening — tap the mic again to send
-            </ThemedText>
-          ) : null}
+              {agent.recording ? (
+                <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
+                  Listening — tap the mic again to send
+                </ThemedText>
+              ) : null}
 
-          {agent.errorMessage ? (
-            <ThemedText type="small" themeColor="destructive" style={styles.centered}>
-              {agent.errorMessage}
-            </ThemedText>
-          ) : null}
-        </View>
+              {agent.errorMessage ? (
+                <ThemedText type="small" themeColor="destructive" style={styles.centered}>
+                  {agent.errorMessage}
+                </ThemedText>
+              ) : null}
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <PromptInput onSubmit={agent.sendText} disabled={agent.busy} />
         </KeyboardAvoidingView>
