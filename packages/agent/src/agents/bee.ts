@@ -16,5 +16,7 @@ export default defineAgent<Env>(({ id, env }) => ({
   model: 'openrouter/openai/gpt-5.5',
   thinkingLevel: 'low',
   instructions,
-  tools: createBeeTools(id, env.CONVEX_URL),
+  // Conversation ids are `<userId>` or `<userId>~<session>` once the user has
+  // restarted the chat; tools always key data by the bare user id.
+  tools: createBeeTools(id.split('~')[0], env.CONVEX_URL),
 }))
