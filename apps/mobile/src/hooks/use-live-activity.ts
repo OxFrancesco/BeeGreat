@@ -37,6 +37,19 @@ const STATUS_LABELS: Record<Exclude<OrbState, 'idle'>, string> = {
 export function useBeeLiveActivity(state: OrbState, detail: string) {
   const instance = useRef<BeeActivityInstance | null>(null);
 
+  // If the app was killed mid-session, its activity lingers in the Dynamic
+  // Island / Lock Screen for hours. Sweep stale instances on launch.
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    try {
+      for (const stale of getFactory()?.getInstances() ?? []) {
+        stale.end('immediate');
+      }
+    } catch {
+      // Best-effort cleanup.
+    }
+  }, []);
+
   useEffect(() => {
     if (Platform.OS !== 'ios') return;
     try {
