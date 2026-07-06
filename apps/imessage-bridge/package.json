@@ -1,0 +1,19 @@
+{
+  "name": "@beegreat/imessage-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "check:types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@flue/sdk": "1.0.0-beta.9",
+    "spectrum-ts": "8.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "~6.0.3"
+  }
+}

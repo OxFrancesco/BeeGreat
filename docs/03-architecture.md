@@ -17,6 +17,7 @@
 | Bee avatar generation | **FAL** | Premade base bee + FAL image model, styled per project/goal (see [04](04-gamification.md)) |
 | Agent memory | **SuperMemory** | Persistent memory layer across threads — see [05](05-voice-agent.md) |
 | Desktop companion | **Native Swift (macOS)** | Menu-bar app; Rize.io parity is the bar — see below |
+| iMessage channel | **Spectrum Cloud** (photon.codes) + `apps/imessage-bridge` | Text Bee from Messages; small Bun bridge hosted on Railway — see below |
 
 ## System overview
 
@@ -72,6 +73,24 @@
 - Deployed to Cloudflare Workers; Durable Objects for per-user session state; R2 for media
 - Agent tools: query Convex (time data, tasks, goals), write mutations (create task, log journal), fetch integrations, generate bee avatars via FAL
 - Memory: every thread stored; **SuperMemory** for long-term memory (user profile, final goal, preferences)
+
+## iMessage bridge (`apps/imessage-bridge`)
+
+- Small always-on Bun process using **spectrum-ts** (Photon's Spectrum Cloud handles the iMessage infrastructure — lines, delivery, blue bubbles)
+- Flow: iMessage → Spectrum Cloud (gRPC) → bridge → agent worker (`x-bridge-secret` + `x-bridge-user` headers, verified against the `BRIDGE_SECRET` Worker secret) → reply as native styled text (markdown), 👀 tapback while thinking, confetti effect when the user reports finishing something
+- Sender allowlist via `IMESSAGE_USER_MAP` (`address=clerkUserId` pairs); everyone else is ignored
+- Conversations live on the `<userId>~imessage` session; tools key data by the bare user id, so iMessage and app share the same goals/tasks
+- **Can't run on Cloudflare Workers**: outbound sends use Node gRPC (`@grpc/grpc-js`), which the Workers runtime doesn't support. Needs a long-lived host.
+
+### Hosting on Railway (decided)
+
+1. `railway init` in the repo root (or connect the GitHub repo in the Railway dashboard)
+2. New service from the repo with:
+   - Root directory: `apps/imessage-bridge` (Railway's Railpack auto-detects Bun)
+   - Custom start command: `bun run src/index.ts`
+3. Set the service variables from `apps/imessage-bridge/.env.example`: `PROJECT_ID`, `PROJECT_SECRET`, `AGENT_URL` (deployed worker URL), `BRIDGE_SECRET` (same value as the Worker secret), `IMESSAGE_USER_MAP`
+4. No public networking needed — the bridge only makes outbound connections (gRPC to Spectrum, HTTPS to the worker). Disable the public domain.
+5. One-off greeting (so a new user learns Bee's number): run the service once with `bun run src/index.ts --greet`, or use `railway run bun run src/index.ts --greet` locally.
 
 ## Security checklist (project-specific)
 

@@ -6,6 +6,8 @@ type Bindings = {
   ELEVENLABS_API_KEY: string
   ELEVENLABS_VOICE_ID?: string
   CLERK_JWT_ISSUER_DOMAIN: string
+  // Shared secret for trusted service bridges (e.g. the iMessage bridge).
+  BRIDGE_SECRET?: string
 }
 
 type Variables = {
@@ -38,28 +40,45 @@ function voiceErrorMessage(fallback: string, detail: string) {
     : fallback
 }
 
-// Every route below requires a valid Clerk session token.
+// Constant-time comparison so the bridge secret can't be probed byte-by-byte.
+function secretsMatch(a: string, b: string) {
+  const encoder = new TextEncoder()
+  const [bytesA, bytesB] = [encoder.encode(a), encoder.encode(b)]
+  if (bytesA.length !== bytesB.length) return false
+  let diff = 0
+  for (let i = 0; i < bytesA.length; i++) diff |= bytesA[i] ^ bytesB[i]
+  return diff === 0
+}
+
+// Every route below requires a valid Clerk session token, or the bridge
+// shared secret plus the user the bridge is acting for.
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined
 
 app.use('*', async (c, next) => {
-  const issuer = c.env.CLERK_JWT_ISSUER_DOMAIN
-  if (!issuer) {
-    console.error('CLERK_JWT_ISSUER_DOMAIN is not configured')
-    return c.json({ error: 'Auth is not configured.' }, 500)
-  }
+  const bridgeSecret = c.req.header('x-bridge-secret')
+  const bridgeUser = c.req.header('x-bridge-user')
+  if (bridgeSecret && bridgeUser && c.env.BRIDGE_SECRET && secretsMatch(bridgeSecret, c.env.BRIDGE_SECRET)) {
+    c.set('userId', bridgeUser)
+  } else {
+    const issuer = c.env.CLERK_JWT_ISSUER_DOMAIN
+    if (!issuer) {
+      console.error('CLERK_JWT_ISSUER_DOMAIN is not configured')
+      return c.json({ error: 'Auth is not configured.' }, 500)
+    }
 
-  const token = c.req.header('authorization')?.replace(/^Bearer /i, '')
-  if (!token) {
-    return c.json({ error: 'Sign in to talk to Bee.' }, 401)
-  }
+    const token = c.req.header('authorization')?.replace(/^Bearer /i, '')
+    if (!token) {
+      return c.json({ error: 'Sign in to talk to Bee.' }, 401)
+    }
 
-  jwks ??= createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`))
-  try {
-    const { payload } = await jwtVerify(token, jwks, { issuer })
-    if (!payload.sub) throw new Error('Token has no subject')
-    c.set('userId', payload.sub)
-  } catch {
-    return c.json({ error: 'Session expired. Sign in again.' }, 401)
+    jwks ??= createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`))
+    try {
+      const { payload } = await jwtVerify(token, jwks, { issuer })
+      if (!payload.sub) throw new Error('Token has no subject')
+      c.set('userId', payload.sub)
+    } catch {
+      return c.json({ error: 'Session expired. Sign in again.' }, 401)
+    }
   }
 
   // Agent instances are keyed by Clerk user id (optionally suffixed with
