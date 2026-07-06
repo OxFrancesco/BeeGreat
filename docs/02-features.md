@@ -71,7 +71,17 @@ See [06 – Social](06-social.md).
 | Google Health API | Same, Android |
 | Device screen time | Time tracking + auto-labeling |
 
-## 10. Platforms (context, not a feature)
+## 10. Calendar view (Should — planned)
+
+A time-based lens over the user's own BeeGreat data — **not** a calendar client (see anti-goals).
+
+- Month/week view plotting **task due dates** and **project target dates** (quarter/year markers)
+- Everything stays scoped to the ≤3 active goals; no arbitrary events, no external calendar sync in v1
+- Overdue tasks and honey-costing postponements visible at a glance (ties into [04 – Gamification](04-gamification.md))
+- Agent-aware: "what's due this week?" can answer with (or deep-link into) the calendar view
+- Candidate entry points: a tab on the Goals page or a `beeui` component the agent renders
+
+## 11. Platforms (context, not a feature)
 
 - Mobile + iPad app (Expo)
 - **Web app twin** (TanStack) sharing the exact same backend
@@ -81,4 +91,4 @@ See [06 – Social](06-social.md).
 
 - A full-blown task manager with unlimited projects/lists
 - Anything that shows the user more than their current highlights by default
-- Calendar/email clients, generic productivity suite features
+- Calendar/email clients, generic productivity suite features (the [calendar view](#10-calendar-view-should--planned) only visualizes BeeGreat's own due/target dates — it never manages external events)
