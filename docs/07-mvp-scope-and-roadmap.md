@@ -34,7 +34,7 @@ Plus the invisible foundations:
 - iOS focus-session fallback (seamless/automatic as possible)
 - Journal (voice-to-text, editable, photos)
 - Achievements v1 + GitHub integration (event details TBD)
-- **Calendar view**: month/week lens over task due dates + project target dates (own data only — never a calendar client; see [02 – Features §10](02-features.md#10-calendar-view-should--planned))
+- **Calendar view**: month/week lens over task due dates + project target dates, with external calendar connections (Google Calendar first, read-only; see [02 – Features §10](02-features.md#10-calendar-view-should--planned))
 
 ## Phase 3 — Social
 
@@ -72,4 +72,5 @@ Plus the invisible foundations:
 | 2026-07-04 | Memory layer | Founder Q&A | **SuperMemory** | Start simple, swap only if it underdelivers |
 | 2026-07-04 | Bee avatars | Founder Q&A | **FAL** generation, one bee per project | Goal-styled bees (e.g. coach bee) are the stake mechanic |
 | 2026-07-04 | Honey formula & party rules | Founder delegation | v1 designed in docs 04/06 | Balance to be tuned in beta |
-| 2026-07-05 | Calendar view of due/target dates | Founder request | Added as planned feature (Phase 2) | Due dates + project targets now exist; view visualizes own data only, anti-goal on calendar clients stands |
+| 2026-07-05 | Calendar view of due/target dates | Founder request | Added as planned feature (Phase 2) | Due dates + project targets now exist |
+| 2026-07-05 | External calendars (Google Calendar etc.) in the calendar view | Founder correction | Approved — read-only display first, write-back later | Seeing real availability around goals beats a BeeGreat-only view; anti-goal narrowed to "not a full calendar client" |
