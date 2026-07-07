@@ -5,7 +5,14 @@ interface ToolCopy {
   done: string;
   failed: string;
   symbol: string;
+  /** Set when the activity belongs to a power-up; the UI styles it distinctly. */
+  powerup?: string;
 }
+
+/** Display names for power-up specialists, keyed by subagent name. */
+const POWERUP_AGENTS: Record<string, string> = {
+  webtree: 'WebTree',
+};
 
 const TOOL_COPY: Record<string, ToolCopy> = {
   get_goals: {
@@ -80,7 +87,65 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     failed: 'Couldn\u2019t delete the task',
     symbol: 'trash',
   },
+  // WebTree power-up (wallet specialist tools).
+  create_wallet: {
+    running: 'Creating your wallet…',
+    done: 'Created your wallet',
+    failed: 'Couldn\u2019t create the wallet',
+    symbol: 'wallet.pass',
+    powerup: 'WebTree',
+  },
+  get_wallet_balance: {
+    running: 'Checking your wallet…',
+    done: 'Checked your wallet',
+    failed: 'Couldn\u2019t read your wallet',
+    symbol: 'wallet.pass',
+    powerup: 'WebTree',
+  },
+  send_tokens: {
+    running: 'Sending tokens…',
+    done: 'Sent the tokens',
+    failed: 'Couldn\u2019t send the tokens',
+    symbol: 'paperplane',
+    powerup: 'WebTree',
+  },
 };
+
+/**
+ * Bee delegates to specialists via the built-in `task` tool; the input's
+ * `agent` field says which one. Power-up specialists get their power-up
+ * branding, the goals specialist stays in the app's plain voice.
+ */
+function taskCopy(input: unknown): ToolCopy {
+  const agent =
+    typeof input === 'object' && input !== null && 'agent' in input
+      ? String((input as { agent?: unknown }).agent ?? '')
+      : '';
+  const powerup = POWERUP_AGENTS[agent];
+  if (powerup) {
+    return {
+      running: `${powerup} power-up at work…`,
+      done: `${powerup} power-up finished`,
+      failed: `${powerup} power-up hit a snag`,
+      symbol: 'bolt.fill',
+      powerup,
+    };
+  }
+  if (agent === 'goals') {
+    return {
+      running: 'Working on your goals…',
+      done: 'Worked on your goals',
+      failed: 'Couldn\u2019t finish the goals work',
+      symbol: 'scope',
+    };
+  }
+  return {
+    running: 'Working on it…',
+    done: 'Finished a side task',
+    failed: 'Couldn\u2019t finish the side task',
+    symbol: 'sparkles',
+  };
+}
 
 function fallbackCopy(name: string): ToolCopy {
   const readable = name.replace(/_/g, ' ');
@@ -94,10 +159,11 @@ function fallbackCopy(name: string): ToolCopy {
 
 export type ToolActivityState = 'running' | 'done' | 'error';
 
-export function getToolCopy(name: string, state: ToolActivityState) {
-  const copy = TOOL_COPY[name] ?? fallbackCopy(name);
+export function getToolCopy(name: string, state: ToolActivityState, input?: unknown) {
+  const copy = name === 'task' ? taskCopy(input) : (TOOL_COPY[name] ?? fallbackCopy(name));
   return {
     label: state === 'running' ? copy.running : state === 'error' ? copy.failed : copy.done,
     symbol: state === 'error' ? 'exclamationmark.triangle' : copy.symbol,
+    powerup: copy.powerup ?? null,
   };
 }

@@ -258,7 +258,9 @@ export function useVoiceAgent() {
           .at(-1)
       : undefined;
   const activityDetail =
-    runningTool?.type === 'dynamic-tool' ? getToolCopy(runningTool.toolName, 'running').label : '';
+    runningTool?.type === 'dynamic-tool'
+      ? getToolCopy(runningTool.toolName, 'running', runningTool.input).label
+      : '';
   useBeeLiveActivity(orbState, activityDetail);
 
   return {

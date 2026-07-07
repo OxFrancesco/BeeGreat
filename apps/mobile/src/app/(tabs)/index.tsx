@@ -213,6 +213,7 @@ function AgentMessage({
           <ToolActivity
             key={part.toolCallId}
             name={part.toolName}
+            input={part.input}
             state={
               part.state === 'input-available'
                 ? 'running'
