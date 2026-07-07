@@ -41,6 +41,7 @@ export function Conversation({
       onContentSizeChange={handleContentSizeChange}
       contentContainerStyle={[styles.content, contentContainerStyle]}
       keyboardDismissMode="interactive"
+      showsVerticalScrollIndicator={false}
       style={styles.scroll}
     >
       {children}

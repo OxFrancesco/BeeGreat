@@ -63,10 +63,11 @@ export default function VoiceAgentScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Tapping any blank space dismisses the keyboard; interactive
-            children (buttons, suggestions, the conversation) still win. */}
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={styles.flex}>
+        {/* Keyboard dismissal: taps inside the conversation dismiss it via the
+            ScrollView's default keyboardShouldPersistTaps, and the hero screen
+            has its own dismiss wrapper below. Never wrap the conversation in a
+            Touchable — it steals the scroll gesture. */}
+        <View style={styles.flex}>
             <View style={styles.topBar}>
               <HexIconButton
                 size={36}
@@ -100,21 +101,23 @@ export default function VoiceAgentScreen() {
                   {awaitingReply ? <ThinkingActivity /> : null}
                 </Conversation>
               ) : (
-                <Animated.View
-                  entering={FadeIn.duration(400)}
-                  style={[styles.hero, compact && styles.heroCompact]}
-                >
-                  <FloatingBee height={compact ? 96 : 120} />
-                  <Suggestions>
-                    {HERO_SUGGESTIONS.map((suggestion) => (
-                      <Suggestion
-                        key={suggestion}
-                        suggestion={suggestion}
-                        onPress={agent.sendText}
-                      />
-                    ))}
-                  </Suggestions>
-                </Animated.View>
+                <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                  <Animated.View
+                    entering={FadeIn.duration(400)}
+                    style={[styles.hero, compact && styles.heroCompact]}
+                  >
+                    <FloatingBee height={compact ? 96 : 120} />
+                    <Suggestions>
+                      {HERO_SUGGESTIONS.map((suggestion) => (
+                        <Suggestion
+                          key={suggestion}
+                          suggestion={suggestion}
+                          onPress={agent.sendText}
+                        />
+                      ))}
+                    </Suggestions>
+                  </Animated.View>
+                </TouchableWithoutFeedback>
               )}
 
               {!agent.busy && agent.messages.length >= RESTART_HINT_AFTER_MESSAGES ? (
@@ -142,8 +145,7 @@ export default function VoiceAgentScreen() {
                 </ThemedText>
               ) : null}
             </View>
-          </View>
-        </TouchableWithoutFeedback>
+        </View>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <PromptInput onSubmit={agent.sendText} disabled={agent.busy} />
         </KeyboardAvoidingView>

@@ -2,6 +2,8 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import { useClerk, useUser } from '@clerk/clerk-expo';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
@@ -43,6 +45,22 @@ export default function ProfileScreen() {
     // collapsable={false} keeps this wrapper in the native tree so the form
     // sheet can find the ScrollView (react-native-screens#2424).
     <ThemedView style={styles.container} collapsable={false}>
+      {/* Drag-to-dismiss can be flaky with a ScrollView inside a formSheet,
+          so the sheet always offers an explicit close button. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close profile"
+        hitSlop={Spacing.two}
+        onPress={() => router.back()}
+        style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+      >
+        <SymbolView
+          name="xmark"
+          size={13}
+          tintColor={theme.textSecondary}
+          fallback={<ThemedText type="small" themeColor="textSecondary">✕</ThemedText>}
+        />
+      </Pressable>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <HexAvatar size={72} uri={user?.hasImage ? user.imageUrl : null} />
         <View style={styles.identity}>
@@ -135,6 +153,17 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  close: {
+    position: 'absolute',
+    top: Spacing.three,
+    right: Spacing.three,
+    zIndex: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     alignItems: 'center',

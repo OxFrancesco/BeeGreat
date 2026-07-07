@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -22,17 +22,12 @@ function formatCreatedAt(createdAt: number) {
   });
 }
 
-/** How many threads fit the sheet; the newest matter most. */
-const MAX_VISIBLE_THREADS = 15;
-
 /** Sheet listing recent conversation threads; tap one to jump back into it. */
 export default function ThreadsScreen() {
   const theme = useTheme();
   const threads = useThreads();
   const active = useActiveThread();
-  // Plain rows instead of a ScrollView: react-native-screens re-anchors
-  // scroll views inside formSheets, which breaks the layout.
-  const newest = [...threads].sort((a, b) => b.id - a.id).slice(0, MAX_VISIBLE_THREADS);
+  const newest = [...threads].sort((a, b) => b.id - a.id);
 
   const open = (id: number) => {
     setActiveThread(id);
@@ -40,11 +35,33 @@ export default function ThreadsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    // collapsable={false} keeps this wrapper in the native tree so the form
+    // sheet can find the ScrollView (react-native-screens#2424).
+    <ThemedView style={styles.container} collapsable={false}>
+      {/* Drag-to-dismiss can be flaky with a ScrollView inside a formSheet,
+          so the sheet always offers an explicit close button. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close conversations"
+        hitSlop={Spacing.two}
+        onPress={() => router.back()}
+        style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+      >
+        <SymbolView
+          name="xmark"
+          size={13}
+          tintColor={theme.textSecondary}
+          fallback={
+            <ThemedText type="small" themeColor="textSecondary">
+              ✕
+            </ThemedText>
+          }
+        />
+      </Pressable>
       <ThemedText type="smallBold" themeColor="textSecondary" style={styles.heading}>
         CONVERSATIONS
       </ThemedText>
-      <View style={styles.list}>
+      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Start a new conversation"
@@ -100,7 +117,7 @@ export default function ThreadsScreen() {
             ) : null}
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -110,6 +127,17 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: Spacing.four,
     paddingHorizontal: Spacing.four,
+  },
+  close: {
+    position: 'absolute',
+    top: Spacing.three,
+    right: Spacing.three,
+    zIndex: 1,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heading: {
     marginBottom: Spacing.two,
