@@ -40,7 +40,9 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    // collapsable={false} keeps this wrapper in the native tree so the form
+    // sheet can find the ScrollView (react-native-screens#2424).
+    <ThemedView style={styles.container} collapsable={false}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <HexAvatar size={72} uri={user?.hasImage ? user.imageUrl : null} />
         <View style={styles.identity}>

@@ -51,6 +51,9 @@ function RootNavigator() {
             presentation: 'formSheet',
             sheetAllowedDetents: [0.45, 1],
             sheetGrabberVisible: true,
+            // formSheet content collapses to zero height without this once it
+            // holds a ScrollView (react-native-screens#2522).
+            contentStyle: { height: '100%' },
           }}
         />
         <Stack.Screen
