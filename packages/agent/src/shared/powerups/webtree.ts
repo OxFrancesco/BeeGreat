@@ -4,7 +4,7 @@ import { anyApi } from 'convex/server'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
 
-// WebTree: per-user web3 wallets via Crossmint (Base Sepolia testnet).
+// WebTree: per-user Web3 wallets via Crossmint (Base Sepolia testnet).
 // Backend lives in packages/backend/convex/webtree.ts.
 
 export const webtree: PowerupDefinition = {
@@ -12,7 +12,7 @@ export const webtree: PowerupDefinition = {
 
   instructions: `## WebTree power-up (enabled)
 
-The user has switched on WebTree, which gives them a personal web3 wallet on the
+The user has switched on WebTree, which gives them a personal Web3 wallet on the
 Base Sepolia testnet. Use \`create_wallet\` the first time they ask for a wallet
 (it is safe to call again — it returns the existing wallet). Read balances with
 \`get_wallet_balance\` before answering questions about funds. Sending tokens
@@ -29,7 +29,7 @@ and last four characters and put the full address in the UI block.`,
       defineTool({
         name: 'create_wallet',
         description:
-          'Create the user\u2019s web3 wallet (Base Sepolia, Crossmint). Idempotent: returns the existing wallet if one was already created. Returns the wallet address.',
+          'Create the user\u2019s Web3 wallet (Base Sepolia, Crossmint). Idempotent: returns the existing wallet if one was already created. Returns the wallet address.',
         async run() {
           return await convex.action(api.webtree.getOrCreateWallet, { userId })
         },

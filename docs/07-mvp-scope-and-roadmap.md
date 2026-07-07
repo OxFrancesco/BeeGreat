@@ -35,6 +35,7 @@ Plus the invisible foundations:
 - Journal (voice-to-text, editable, photos)
 - Achievements v1 + GitHub integration (event details TBD)
 - **Calendar view**: month/week lens over task due dates + project target dates, with external calendar connections (Google Calendar first, read-only; see [02 – Features §10](02-features.md#10-calendar-view-should--planned))
+- **Power-up bees**: a distinct FAL-generated bee design per power-up (e.g. a WebTree bee), so each power-up the user enables has its own visual identity alongside the project bees
 
 ## Phase 3 — Social
 
@@ -74,3 +75,4 @@ Plus the invisible foundations:
 | 2026-07-04 | Honey formula & party rules | Founder delegation | v1 designed in docs 04/06 | Balance to be tuned in beta |
 | 2026-07-05 | Calendar view of due/target dates | Founder request | Added as planned feature (Phase 2) | Due dates + project targets now exist |
 | 2026-07-05 | External calendars (Google Calendar etc.) in the calendar view | Founder correction | Approved — read-only display first, write-back later | Seeing real availability around goals beats a BeeGreat-only view; anti-goal narrowed to "not a full calendar client" |
+| 2026-07-07 | A bee design per power-up | Founder request | Added as planned feature (Phase 2) | Power-up system now exists (WebTree first); reuses the FAL bee pipeline so each power-up feels distinct |

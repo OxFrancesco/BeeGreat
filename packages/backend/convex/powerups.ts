@@ -19,7 +19,7 @@ export const POWERUP_CATALOG = [
     name: 'WebTree',
     tagline: 'Web3 for your hive',
     description:
-      'Gives Bee a personal web3 wallet powered by Crossmint. Create your wallet, check balances, and send tokens on Base Sepolia.',
+      'Gives Bee a personal Web3 wallet powered by Crossmint. Create your wallet, check balances, and send tokens on Base Sepolia.',
   },
 ] as const
 

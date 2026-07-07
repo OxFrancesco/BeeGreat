@@ -7,7 +7,7 @@ import { action } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
 
-// WebTree power-up: per-user web3 wallets via Crossmint.
+// WebTree power-up: per-user Web3 wallets via Crossmint.
 //
 // Every user gets one Crossmint smart wallet per chain, owned by their Clerk
 // id (`userId:<clerk id>`) with a server admin signer: the SDK derives the

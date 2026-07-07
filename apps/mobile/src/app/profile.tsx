@@ -3,7 +3,7 @@ import { useClerk, useUser } from '@clerk/clerk-expo';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { HexAvatar } from '@/components/hex-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -41,89 +41,91 @@ export default function ProfileScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <HexAvatar size={72} uri={user?.hasImage ? user.imageUrl : null} />
-      <View style={styles.identity}>
-        <ThemedText type="default" style={styles.name}>
-          {name}
-        </ThemedText>
-        {email ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {email}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <HexAvatar size={72} uri={user?.hasImage ? user.imageUrl : null} />
+        <View style={styles.identity}>
+          <ThemedText type="default" style={styles.name}>
+            {name}
+          </ThemedText>
+          {email ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              {email}
+            </ThemedText>
+          ) : null}
+        </View>
+
+        <View style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <View style={styles.settingCopy}>
+            <ThemedText type="default">Speak replies</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {speakReplies ? 'Bee reads answers aloud' : 'Replies stay on screen'}
+            </ThemedText>
+          </View>
+          <Switch
+            accessibilityLabel="Speak replies aloud"
+            value={speakReplies}
+            onValueChange={(enabled) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setSpeakReplies(enabled);
+            }}
+            trackColor={{ true: theme.primary }}
+          />
+        </View>
+
+        {powerups && powerups.length > 0 ? (
+          <View style={styles.powerups}>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.sectionLabel}>
+              Power-ups
+            </ThemedText>
+            {powerups.map((powerup) => (
+              <View
+                key={powerup.id}
+                style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}
+              >
+                <View style={styles.settingCopy}>
+                  <ThemedText type="default">{powerup.name}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {powerup.enabled ? powerup.tagline : powerup.description}
+                  </ThemedText>
+                </View>
+                <Switch
+                  accessibilityLabel={`${powerup.name} power-up`}
+                  value={powerup.enabled}
+                  onValueChange={(enabled) => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setPowerupEnabled({ powerupId: powerup.id, enabled });
+                  }}
+                  trackColor={{ true: theme.primary }}
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
+          onPress={handleSignOut}
+          style={({ pressed }) => [
+            styles.signOut,
+            { borderColor: theme.destructive },
+            pressed && styles.pressed,
+          ]}
+        >
+          {signingOut ? (
+            <ActivityIndicator color={theme.destructive} />
+          ) : (
+            <ThemedText type="default" themeColor="destructive">
+              Sign out
+            </ThemedText>
+          )}
+        </Pressable>
+        {error ? (
+          <ThemedText type="small" themeColor="destructive">
+            {error}
           </ThemedText>
         ) : null}
-      </View>
-
-      <View style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <View style={styles.settingCopy}>
-          <ThemedText type="default">Speak replies</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            {speakReplies ? 'Bee reads answers aloud' : 'Replies stay on screen'}
-          </ThemedText>
-        </View>
-        <Switch
-          accessibilityLabel="Speak replies aloud"
-          value={speakReplies}
-          onValueChange={(enabled) => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setSpeakReplies(enabled);
-          }}
-          trackColor={{ true: theme.primary }}
-        />
-      </View>
-
-      {powerups && powerups.length > 0 ? (
-        <View style={styles.powerups}>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.sectionLabel}>
-            Power-ups
-          </ThemedText>
-          {powerups.map((powerup) => (
-            <View
-              key={powerup.id}
-              style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}
-            >
-              <View style={styles.settingCopy}>
-                <ThemedText type="default">{powerup.name}</ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {powerup.enabled ? powerup.tagline : powerup.description}
-                </ThemedText>
-              </View>
-              <Switch
-                accessibilityLabel={`${powerup.name} power-up`}
-                value={powerup.enabled}
-                onValueChange={(enabled) => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setPowerupEnabled({ powerupId: powerup.id, enabled });
-                }}
-                trackColor={{ true: theme.primary }}
-              />
-            </View>
-          ))}
-        </View>
-      ) : null}
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Sign out"
-        onPress={handleSignOut}
-        style={({ pressed }) => [
-          styles.signOut,
-          { borderColor: theme.destructive },
-          pressed && styles.pressed,
-        ]}
-      >
-        {signingOut ? (
-          <ActivityIndicator color={theme.destructive} />
-        ) : (
-          <ThemedText type="default" themeColor="destructive">
-            Sign out
-          </ThemedText>
-        )}
-      </Pressable>
-      {error ? (
-        <ThemedText type="small" themeColor="destructive">
-          {error}
-        </ThemedText>
-      ) : null}
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -131,8 +133,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scrollContent: {
     alignItems: 'center',
     paddingTop: Spacing.five,
+    paddingBottom: Spacing.five,
     paddingHorizontal: Spacing.four,
     gap: Spacing.four,
   },
