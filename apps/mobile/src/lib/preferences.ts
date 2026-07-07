@@ -101,7 +101,10 @@ export function setActiveThread(id: number) {
 
 /** Creates a fresh thread, makes it active, and returns its id. */
 export function startNewThread() {
-  const id = Math.max(...threads.map((thread) => thread.id)) + 1;
+  // Timestamp ids stay unique across devices sharing the same account; a
+  // per-device counter (max + 1) collides with threads created elsewhere,
+  // silently reattaching to that other device's conversation.
+  const id = Math.max(Date.now(), ...threads.map((thread) => thread.id + 1));
   threads = [...threads, { id, createdAt: Date.now() }];
   activeThread = id;
   notifyThreads();
