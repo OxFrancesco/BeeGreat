@@ -1,4 +1,6 @@
+import { api } from '@beegreat/backend/convex/_generated/api';
 import { useClerk, useUser } from '@clerk/clerk-expo';
+import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, View } from 'react-native';
@@ -15,6 +17,8 @@ export default function ProfileScreen() {
   const { signOut } = useClerk();
   const theme = useTheme();
   const speakReplies = useSpeakReplies();
+  const powerups = useQuery(api.powerups.list);
+  const setPowerupEnabled = useMutation(api.powerups.setEnabled);
   const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +70,36 @@ export default function ProfileScreen() {
           trackColor={{ true: theme.primary }}
         />
       </View>
+
+      {powerups && powerups.length > 0 ? (
+        <View style={styles.powerups}>
+          <ThemedText type="small" themeColor="textSecondary" style={styles.sectionLabel}>
+            Power-ups
+          </ThemedText>
+          {powerups.map((powerup) => (
+            <View
+              key={powerup.id}
+              style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}
+            >
+              <View style={styles.settingCopy}>
+                <ThemedText type="default">{powerup.name}</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {powerup.enabled ? powerup.tagline : powerup.description}
+                </ThemedText>
+              </View>
+              <Switch
+                accessibilityLabel={`${powerup.name} power-up`}
+                value={powerup.enabled}
+                onValueChange={(enabled) => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setPowerupEnabled({ powerupId: powerup.id, enabled });
+                }}
+                trackColor={{ true: theme.primary }}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -121,7 +155,16 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
   },
   settingCopy: {
+    flex: 1,
     gap: Spacing.half,
+  },
+  powerups: {
+    alignSelf: 'stretch',
+    gap: Spacing.two,
+  },
+  sectionLabel: {
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   signOut: {
     alignSelf: 'stretch',

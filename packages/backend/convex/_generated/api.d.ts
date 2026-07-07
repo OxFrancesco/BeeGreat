@@ -12,9 +12,12 @@ import type * as agent from "../agent.js";
 import type * as goals from "../goals.js";
 import type * as helpers from "../helpers.js";
 import type * as posts from "../posts.js";
+import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
+import type * as wallets from "../wallets.js";
+import type * as webtree from "../webtree.js";
 
 import type {
   ApiFromModules,
@@ -27,9 +30,12 @@ declare const fullApi: ApiFromModules<{
   goals: typeof goals;
   helpers: typeof helpers;
   posts: typeof posts;
+  powerups: typeof powerups;
   projects: typeof projects;
   tasks: typeof tasks;
   user: typeof user;
+  wallets: typeof wallets;
+  webtree: typeof webtree;
 }>;
 
 /**

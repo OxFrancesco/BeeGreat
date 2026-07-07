@@ -33,6 +33,23 @@ export default defineSchema({
     .index('by_user', ['userId', 'status'])
     .index('by_goal', ['goalId', 'status']),
 
+  // Opt-in capability packs. A row exists once the user has touched the toggle;
+  // absence means the power-up was never enabled. Catalog lives in powerups.ts.
+  powerups: defineTable({
+    userId: v.string(),
+    powerupId: v.string(),
+    enabled: v.boolean(),
+  }).index('by_user', ['userId', 'powerupId']),
+
+  // Crossmint smart wallets created by the WebTree power-up, one per user+chain.
+  // The source of truth is Crossmint (keyed by owner `userId:<clerk id>`); this
+  // table is a cache so queries and the app can show the wallet without an API call.
+  wallets: defineTable({
+    userId: v.string(),
+    chain: v.string(),
+    address: v.string(),
+  }).index('by_user', ['userId', 'chain']),
+
   tasks: defineTable({
     userId: v.string(),
     goalId: v.id('goals'),
