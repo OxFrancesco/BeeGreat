@@ -13,7 +13,11 @@ export const webtree: PowerupDefinition = {
   instructions: `## WebTree power-up (enabled)
 
 The user has switched on WebTree, which gives them a personal Web3 wallet on the
-Base Sepolia testnet. Use \`create_wallet\` the first time they ask for a wallet
+Base Sepolia testnet. Anything about wallets, crypto, tokens, or balances is a
+WebTree matter: answer it with the wallet tools below, NEVER by searching goals
+or tasks (a task named "wallet" is not a wallet). "Do I have a wallet?" means
+call \`get_wallet_balance\` (or \`create_wallet\` if they want one), not
+\`get_goals\`. Use \`create_wallet\` the first time they ask for a wallet
 (it is safe to call again — it returns the existing wallet). Read balances with
 \`get_wallet_balance\` before answering questions about funds. Sending tokens
 moves real (test) assets: always restate the recipient, token, and amount and
