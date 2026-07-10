@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "convex dev",
-    "setup": "convex dev --until-success"
+    "setup": "convex dev --until-success",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "typecheck": "tsc -p convex/tsconfig.json"
   },
   "exports": {
     "./convex/_generated/api": {
@@ -18,5 +21,11 @@
   "dependencies": {
     "@crossmint/wallets-sdk": "1.7.0",
     "convex": "^1.36.1"
+  },
+  "devDependencies": {
+    "@edge-runtime/vm": "5.0.0",
+    "convex-test": "0.0.54",
+    "typescript": "5.9.3",
+    "vitest": "1.6.1"
   }
 }

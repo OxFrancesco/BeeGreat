@@ -41,7 +41,7 @@ Updated 2026-07-04 after founder Q&A. Resolved items moved to the [decision log]
 | iOS screen time | Fallback: Mac tracking + seamless in-app focus sessions |
 | Voice provider | **ElevenLabs** (STT + TTS) |
 | Generative UI protocol | Approved; schema definition still open (above) |
-| Memory layer | **SuperMemory** |
+| Memory layer | **SuperMemory** (2026-07-04 decision; superseded for canonical persistence by FRA-423 on 2026-07-10 — see [09](09-fra-423-memory-architecture.md)) |
 | "Flue" | Real — **Flue agent framework** (flueframework.com, Astro team); main agent framework |
 | Expo version | SDK 57 (latest) |
 | Billing | **RevenueCat** instead of Clerk Billing |

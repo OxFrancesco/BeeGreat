@@ -1,5 +1,10 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import {
+  memoryProvenanceValidator,
+  memoryRetentionValidator,
+  memoryValueValidator,
+} from './memoryValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -68,4 +73,40 @@ export default defineSchema({
     .index('by_user', ['userId', 'status'])
     .index('by_goal', ['goalId', 'status'])
     .index('by_project', ['projectId']),
+
+  memories: defineTable({
+    ownerKey: v.string(),
+    value: memoryValueValidator,
+    provenance: memoryProvenanceValidator,
+    retention: memoryRetentionValidator,
+    currentRevision: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_owner_key', ['ownerKey']),
+
+  memoryRevisions: defineTable({
+    ownerKey: v.string(),
+    memoryId: v.id('memories'),
+    revision: v.number(),
+    value: memoryValueValidator,
+    reason: v.string(),
+    createdAt: v.number(),
+  }).index('by_owner_key_and_memory_id_and_revision', [
+    'ownerKey',
+    'memoryId',
+    'revision',
+  ]),
+
+  memorySourceLinks: defineTable({
+    ownerKey: v.string(),
+    derivedMemoryId: v.id('memories'),
+    sourceMemoryId: v.id('memories'),
+    relationship: v.union(v.literal('supports'), v.literal('summarizes')),
+    createdAt: v.number(),
+  })
+    .index('by_owner_key_and_derived_memory_id', [
+      'ownerKey',
+      'derivedMemoryId',
+    ])
+    .index('by_owner_key_and_source_memory_id', ['ownerKey', 'sourceMemoryId']),
 })

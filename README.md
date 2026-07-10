@@ -72,6 +72,7 @@ Notes:
 | [06 – Social](docs/06-social.md) | Leaderboards, parties, Bee Card, handles |
 | [07 – MVP Scope & Roadmap](docs/07-mvp-scope-and-roadmap.md) | What ships first, what's explicitly deferred |
 | [08 – Open Questions](docs/08-open-questions.md) | Unresolved decisions and research items |
+| [09 – FRA-423 Memory Architecture](docs/09-fra-423-memory-architecture.md) | Canonical memory schema, privacy, retention, deletion, and retrieval evaluation |
 
 ## The pitch in one paragraph
 

@@ -7,9 +7,8 @@ The `resources/` folder contains read-only clones of reference codebases.
 If you need to implement code specific to one of these codebases, read the relevant
 folder to gather information, feedback, patterns, and templates before writing code.
 
-- `resources/flue` — Flue agent harness framework — TypeScript runtime for autonomous agents, sessions, tools, sandbox
-- `resources/react-native-skia` — Shopify React Native Skia — 2D graphics library for React Native (canvas, shaders, animations); reference for orb/hive visuals
-- `resources/spectrum-ts` — Photon Spectrum — multi-channel agent framework (iMessage, SMS, Slack, Telegram providers); reference for the BeeGreat iMessage bridge
-- `resources/crossmint-sdk` — Crossmint SDK monorepo — wallets, auth, payments for web3; reference for the BeeGreat WebTree power-up (per-user wallets)
+- `resources/convex-js` — Official Convex TypeScript client and server SDK; reference for validators, functions, authentication, and generated types
+- `resources/convex-test` — Official Convex test harness; reference for isolated Bun-compatible query and mutation behavior tests
+- `resources/herdr` — Herdr agent multiplexer: persistent terminal workspaces, panes, agent status, and orchestration visibility
 
 <!-- codeview:end -->

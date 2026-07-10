@@ -1,5 +1,10 @@
 # 05 – Voice Agent & Memory
 
+> **Memory decision update (2026-07-10):** FRA-423 selects Convex as the canonical
+> memory store. The SuperMemory section below is retained as the historical
+> 2026-07-04 decision rather than silently rewritten. See
+> [09 – FRA-423 Memory Architecture](09-fra-423-memory-architecture.md).
+
 ## Concept
 
 The agent **is** the home screen. Voice input first; the UI is spawned by the agent in response to what you ask.
@@ -25,7 +30,7 @@ Requirement from braindump: the agent "needs to know everything about the user a
 - User profile: goals (and the *final* goal behind them), habits, schedule, integrations
 - Context includes time-tracking data, task state, honey/score history, journal
 
-## Memory layer (decided: SuperMemory)
+## Memory layer (historical 2026-07-04 decision: SuperMemory)
 
 - **All threads stored** — every question and answer persisted (Convex)
 - Long-term semantic memory: **SuperMemory** (starting choice; swap only if it underdelivers on per-user isolation, latency, or cost)

@@ -1,5 +1,11 @@
 # 03 – Architecture & Infra
 
+> **Memory decision update (2026-07-10):** FRA-423 selects Convex as the canonical
+> memory store. The SuperMemory references below record the earlier 2026-07-04
+> design and are superseded for canonical persistence; an external semantic index
+> may only be reconsidered later as a deletable derived cache. See
+> [09 – FRA-423 Memory Architecture](09-fra-423-memory-architecture.md).
+
 ## Stack (decided)
 
 | Layer | Choice | Notes |

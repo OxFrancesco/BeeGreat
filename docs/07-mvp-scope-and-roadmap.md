@@ -23,7 +23,8 @@ Plus the invisible foundations:
 
 - Expo app + Convex backend + Clerk auth (**free-only at launch** — no billing; RevenueCat wired in later)
 - **Flue agent** on Cloudflare + OpenRouter + **ElevenLabs** voice, text input fallback from day one
-- Thread persistence + **SuperMemory** long-term memory
+- Thread persistence + **Convex canonical memory** (FRA-423; explicitly
+  supersedes the earlier SuperMemory choice—see [09](09-fra-423-memory-architecture.md))
 - Bee-per-project generation via **FAL** (base bee + goal-styled variant)
 - Unique handle at signup (cheap now, painful to retrofit); renames allowed, no reserved names
 
@@ -76,3 +77,4 @@ Plus the invisible foundations:
 | 2026-07-05 | Calendar view of due/target dates | Founder request | Added as planned feature (Phase 2) | Due dates + project targets now exist |
 | 2026-07-05 | External calendars (Google Calendar etc.) in the calendar view | Founder correction | Approved — read-only display first, write-back later | Seeing real availability around goals beats a BeeGreat-only view; anti-goal narrowed to "not a full calendar client" |
 | 2026-07-07 | A bee design per power-up | Founder request | Added as planned feature (Phase 2) | Power-up system now exists (WebTree first); reuses the FAL bee pipeline so each power-up feels distinct |
+| 2026-07-10 | Canonical memory storage | FRA-423 canonical acceptance criteria | **Convex canonical; Git only for non-personal schema/templates/tests** | Inspectable revisions, provenance, owner-scoped access, and hard deletion require one authoritative store; the 2026-07-04 SuperMemory choice is retained as superseded history in [09](09-fra-423-memory-architecture.md) |

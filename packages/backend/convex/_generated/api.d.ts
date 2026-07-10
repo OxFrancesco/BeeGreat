@@ -11,6 +11,9 @@
 import type * as agent from "../agent.js";
 import type * as goals from "../goals.js";
 import type * as helpers from "../helpers.js";
+import type * as memories from "../memories.js";
+import type * as memoryRelevance from "../memoryRelevance.js";
+import type * as memoryValidators from "../memoryValidators.js";
 import type * as posts from "../posts.js";
 import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
@@ -29,6 +32,9 @@ declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   goals: typeof goals;
   helpers: typeof helpers;
+  memories: typeof memories;
+  memoryRelevance: typeof memoryRelevance;
+  memoryValidators: typeof memoryValidators;
   posts: typeof posts;
   powerups: typeof powerups;
   projects: typeof projects;
