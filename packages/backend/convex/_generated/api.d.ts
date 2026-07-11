@@ -9,6 +9,9 @@
  */
 
 import type * as agent from "../agent.js";
+import type * as crons from "../crons.js";
+import type * as economy from "../economy.js";
+import type * as economyPolicy from "../economyPolicy.js";
 import type * as firstFocus from "../firstFocus.js";
 import type * as focusConstants from "../focusConstants.js";
 import type * as focusDeletion from "../focusDeletion.js";
@@ -33,6 +36,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
+  crons: typeof crons;
+  economy: typeof economy;
+  economyPolicy: typeof economyPolicy;
   firstFocus: typeof firstFocus;
   focusConstants: typeof focusConstants;
   focusDeletion: typeof focusDeletion;

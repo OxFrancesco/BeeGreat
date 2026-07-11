@@ -17,7 +17,20 @@ export default defineSchema({
     userId: v.string(),
     title: v.string(),
     finalGoal: v.optional(v.string()),
-    status: v.union(v.literal('active'), v.literal('archived')),
+    status: v.union(
+      v.literal('active'),
+      v.literal('parked'),
+      v.literal('completed'),
+      v.literal('abandoned'),
+      v.literal('archived'),
+    ),
+    // Optional migration fields. Activation time is the stable tie-breaker for
+    // Brain Fatigue ranks; legacy rows fall back to `_creationTime`.
+    activatedAt: v.optional(v.number()),
+    lifecycleUpdatedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    abandonedAt: v.optional(v.number()),
+    resurrectedAt: v.optional(v.number()),
   }).index('by_user', ['userId', 'status']),
 
   // One global economy balance per authenticated Hive. These fields remain
@@ -28,6 +41,12 @@ export default defineSchema({
     userId: v.string(),
     honeyBalance: v.number(),
     honeycombScore: v.number(),
+    royalJellyBalance: v.optional(v.number()),
+    fatigueSettledAt: v.optional(v.number()),
+    geniusActivatedAt: v.optional(v.number()),
+    lastRoyalJellyEarnedAt: v.optional(v.number()),
+    // Bounded denormalization for the exact rolling Task reward cap.
+    rewardedTaskTimestamps: v.optional(v.array(v.number())),
   })
     .index('by_owner_key', ['ownerKey'])
     .index('by_user_id', ['userId']),
@@ -42,9 +61,14 @@ export default defineSchema({
     // creation paths persist a stable seed; readers fall back to the row id.
     seed: v.optional(v.string()),
     variant: v.literal('mvp-default'),
-    status: v.literal('active'),
+    status: v.union(
+      v.literal('active'),
+      v.literal('hall-of-fame'),
+      v.literal('ghosty'),
+    ),
   })
     .index('by_owner_key_and_goal_id', ['ownerKey', 'goalId'])
+    .index('by_owner_key_and_status', ['ownerKey', 'status'])
     .index('by_goal_id', ['goalId']),
 
   highlights: defineTable({
@@ -68,16 +92,27 @@ export default defineSchema({
     userId: v.string(),
     requestId: v.string(),
     goalId: v.id('goals'),
-    projectId: v.id('projects'),
+    projectId: v.optional(v.id('projects')),
     taskId: v.id('tasks'),
     kind: v.literal('task-completed'),
     honeyDelta: v.number(),
     scoreDelta: v.number(),
     occurredAt: v.number(),
+    rewardEligible: v.optional(v.boolean()),
+    rewardReason: v.optional(
+      v.union(
+        v.literal('awarded'),
+        v.literal('rolling-cap'),
+        v.literal('exhausted'),
+      ),
+    ),
+    geniusActivated: v.optional(v.boolean()),
+    achievementBackfilledAt: v.optional(v.number()),
   })
     .index('by_owner_key_and_request_id', ['ownerKey', 'requestId'])
     .index('by_owner_key_and_task_id', ['ownerKey', 'taskId'])
-    .index('by_owner_key_and_occurred_at', ['ownerKey', 'occurredAt']),
+    .index('by_owner_key_and_occurred_at', ['ownerKey', 'occurredAt'])
+    .index('by_owner_key_and_goal_id', ['ownerKey', 'goalId']),
 
   honeyLedgerEntries: defineTable({
     ownerKey: v.string(),
@@ -107,11 +142,167 @@ export default defineSchema({
     .index('by_owner_key_and_project_id', ['ownerKey', 'projectId'])
     .index('by_owner_key_and_task_id', ['ownerKey', 'taskId']),
 
+  // Per-Goal counters keep abandonment and continuous fatigue bounded and
+  // deterministic without replaying an unbounded ledger.
+  goalEconomyStats: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    goalId: v.id('goals'),
+    honeyEarned: v.number(),
+    honeyFatigueRemoved: v.number(),
+    honeyAbandonmentRemoved: v.number(),
+    lastAbandonmentRemoved: v.optional(v.number()),
+    honeyResurrectionRefunded: v.number(),
+    fatigueRemainderMs: v.number(),
+    taskProgressCount: v.number(),
+    backfilledProgressCount: v.optional(v.number()),
+    lastVerifiedProgressAt: v.optional(v.number()),
+    resurrectionRefundClaimed: v.optional(v.boolean()),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key_and_goal_id', ['ownerKey', 'goalId'])
+    .index('by_goal_id', ['goalId']),
+
+  // General Honey ledger for non-VPE economy changes. The receipt key makes
+  // every externally-triggered effect idempotent.
+  honeyEconomyEntries: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    receiptKey: v.string(),
+    goalId: v.optional(v.id('goals')),
+    kind: v.union(
+      v.literal('fatigue'),
+      v.literal('cosmetic-spend'),
+      v.literal('abandonment'),
+      v.literal('resurrection-refund'),
+    ),
+    delta: v.number(),
+    balanceAfter: v.number(),
+    occurredAt: v.number(),
+  })
+    .index('by_owner_key_and_receipt_key', ['ownerKey', 'receiptKey'])
+    .index('by_owner_key_and_goal_id', ['ownerKey', 'goalId'])
+    .index('by_owner_key_and_occurred_at', ['ownerKey', 'occurredAt']),
+
+  royalJellyLedgerEntries: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    receiptKey: v.string(),
+    kind: v.union(
+      v.literal('weekly-progress'),
+      v.literal('focus-shield'),
+      v.literal('resurrection'),
+    ),
+    delta: v.number(),
+    balanceAfter: v.number(),
+    occurredAt: v.number(),
+  })
+    .index('by_owner_key_and_receipt_key', ['ownerKey', 'receiptKey'])
+    .index('by_owner_key_and_occurred_at', ['ownerKey', 'occurredAt']),
+
+  economyCommandReceipts: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    requestId: v.string(),
+    kind: v.union(
+      v.literal('cosmetic-spend'),
+      v.literal('focus-shield'),
+      v.literal('abandonment'),
+      v.literal('resurrection'),
+      v.literal('goal-completion'),
+    ),
+    fingerprint: v.string(),
+    goalId: v.optional(v.id('goals')),
+    honeyDelta: v.number(),
+    honeyBalance: v.number(),
+    royalJellyBalance: v.number(),
+    expiresAt: v.optional(v.number()),
+    completed: v.optional(v.boolean()),
+    occurredAt: v.number(),
+  })
+    .index('by_owner_key_and_request_id', ['ownerKey', 'requestId'])
+    .index('by_owner_key_and_goal_id', ['ownerKey', 'goalId']),
+
+  weeklyProgressRosters: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    startedAt: v.number(),
+    endsAt: v.number(),
+    goalIds: v.array(v.id('goals')),
+    satisfiedGoalIds: v.array(v.id('goals')),
+    // Privacy deletion converts removed Goal references into anonymous slots
+    // without shrinking or retroactively satisfying the fixed weekly roster.
+    anonymousRequiredCount: v.optional(v.number()),
+    anonymousSatisfiedCount: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    royalJellyAwarded: v.optional(v.number()),
+  }).index('by_owner_key_and_started_at', ['ownerKey', 'startedAt']),
+
+  achievementUnlocks: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    achievementKey: v.string(),
+    scope: v.union(v.literal('goal'), v.literal('hive')),
+    goalId: v.optional(v.id('goals')),
+    scoreAwarded: v.number(),
+    unlockedAt: v.number(),
+  })
+    .index('by_owner_key_and_achievement_key', ['ownerKey', 'achievementKey'])
+    .index('by_owner_key_and_goal_id', ['ownerKey', 'goalId'])
+    .index('by_owner_key_and_unlocked_at', ['ownerKey', 'unlockedAt']),
+
+  achievementBackfillStates: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    cursor: v.union(v.string(), v.null()),
+    recentGoalProgress: v.array(
+      v.object({ goalId: v.id('goals'), occurredAt: v.number() }),
+    ),
+    geniusDetected: v.boolean(),
+    completedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index('by_owner_key', ['ownerKey']),
+
+  boosterActivations: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    goalId: v.id('goals'),
+    kind: v.literal('focus-shield'),
+    activatedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_owner_key_and_kind_and_expires_at', [
+      'ownerKey',
+      'kind',
+      'expiresAt',
+    ])
+    .index('by_owner_key_and_goal_id', ['ownerKey', 'goalId']),
+
+  // Goal deletion copies economy history here before removing content-linked
+  // identifiers. Hive totals and Hive-scoped badges remain intact.
+  anonymizedEconomyEvents: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    kind: v.union(
+      v.literal('verified-progress'),
+      v.literal('honey-ledger'),
+      v.literal('honey-economy'),
+      v.literal('achievement'),
+    ),
+    honeyDelta: v.number(),
+    scoreDelta: v.number(),
+    occurredAt: v.number(),
+  }).index('by_owner_key_and_occurred_at', ['ownerKey', 'occurredAt']),
+
   projects: defineTable({
     userId: v.string(),
     goalId: v.id('goals'),
     title: v.string(),
-    status: v.union(v.literal('active'), v.literal('completed'), v.literal('archived')),
+    status: v.union(
+      v.literal('active'),
+      v.literal('completed'),
+      v.literal('archived'),
+    ),
     // Coarse target date: a quarter (year + quarter 1-4) or a whole year.
     due: v.optional(
       v.object({
@@ -178,7 +369,11 @@ export default defineSchema({
     value: memoryValueValidator,
     reason: v.string(),
     createdAt: v.number(),
-  }).index('by_owner_key_and_memory_id_and_revision', ['ownerKey', 'memoryId', 'revision']),
+  }).index('by_owner_key_and_memory_id_and_revision', [
+    'ownerKey',
+    'memoryId',
+    'revision',
+  ]),
 
   memorySourceLinks: defineTable({
     ownerKey: v.string(),
@@ -187,6 +382,9 @@ export default defineSchema({
     relationship: v.union(v.literal('supports'), v.literal('summarizes')),
     createdAt: v.number(),
   })
-    .index('by_owner_key_and_derived_memory_id', ['ownerKey', 'derivedMemoryId'])
+    .index('by_owner_key_and_derived_memory_id', [
+      'ownerKey',
+      'derivedMemoryId',
+    ])
     .index('by_owner_key_and_source_memory_id', ['ownerKey', 'sourceMemoryId']),
 })

@@ -2,9 +2,9 @@
 
 Full catalog from the braindump, organized and prioritized with MoSCoW. Build order lives in [07 – MVP Scope & Roadmap](07-mvp-scope-and-roadmap.md).
 
-Feature bullets describe intended product behavior, not verified runtime status. The selected first-focus loop is currently in progress; use [10 – Linear, Docs, and Implementation Crosswalk](10-linear-docs-implementation-crosswalk.md) for evidence on `main`.
+Feature bullets describe intended product behavior, not verified runtime status. The first-focus baseline is implemented and the FRA-463 focus economy is active work; use [10 – Linear, Docs, and Implementation Crosswalk](10-linear-docs-implementation-crosswalk.md) for evidence on `main`. User testing is deferred to the final validation phase.
 
-## 1. First-focus loop (Must — active implementation)
+## 1. First-focus loop (Must — implemented baseline)
 
 The first end-to-end proof begins with a new user and an empty Hive:
 
@@ -15,16 +15,16 @@ The first end-to-end proof begins with a new user and an empty Hive:
 5. The highlighted Task can be completed by voice or tap.
 6. Completion clears the Highlight and immediately updates the GolieBee, Hive, attributed Honey, and Honeycomb Score.
 
-The proof uses a polished preset GolieBee with deterministic customization. Generated artwork and exact economy amounts are deferred.
+The loop uses a polished preset GolieBee with deterministic customization. Generated artwork remains deferred; the exact economy baseline is now specified in FRA-463.
 
 ## 2. Goals, projects & tasks (Must)
 
-- Three Active Goals is healthy; seven is the server-enforced hard maximum. Goals four through seven are allowed in the current proof without a Brain Fatigue penalty; FRA-463 owns the deferred settlement rules.
+- Three Active Goals is healthy; seven is the server-enforced hard maximum. Activation ranks four through seven accrue the FRA-463 Brain Fatigue rates unless Genius State removes them.
 - A Goal is a meaningful outcome containing finite Projects; Projects organize Tasks; Tasks may have one Subtask level.
 - Every Goal gets exactly one **GolieBee**. Editing wording preserves it; replacing the outcome creates a new Goal.
 - Project page: tasks, subtasks, labels, tree view, to-do list — "all the usual shenanigans"
 - Goal completion is explicit: finishing every Project/Task is evidence, but the user confirms that the outcome was achieved.
-- Park, abandon, delete, and Royal-Jelly-powered Resurrection are distinct lifecycle actions; only the first-focus creation/completion slice is in the current MVP proof.
+- Park, abandon, delete, and Royal-Jelly-powered Resurrection are distinct lifecycle actions. Their economy behavior is specified in FRA-463 and is part of the active implementation slice.
 
 ## 3. Daily summary / Hive page (Must)
 
@@ -46,9 +46,10 @@ The proof uses a polished preset GolieBee with deterministic customization. Gene
 - Photo uploads
 - Can surface achievements (e.g. "connected GitHub, committed X times today")
 
-## 6. Achievements (Should)
+## 6. Achievements (Must at economy depth)
 
-- Achievement system tied to goals, streaks, and integrations
+- Starter GolieBee Task badges at 1/5/25 completions, Hive completed-Goal badges at 1/2/3, and a first-Genius-State badge
+- Every starter badge is permanent, separate from other ranks, retroactive, and worth +5 Honeycomb Score once
 - GitHub connection: commit counts as achievements
 - Health goals via Apple Health / Google Health (a highlight can be "improve my health")
 
@@ -58,9 +59,10 @@ See [04 – Gamification](04-gamification.md). Summary:
 
 - **Honey** is the global, non-negative, spendable cosmetic currency of one Hive.
 - **Honeycomb Score** permanently records verified progress and Achievements; spending Honey never reduces it.
-- The intended Brain Fatigue economy affects Honey production beyond three Active Goals but never erases Honeycomb Score. It is not applied in the current proof; FRA-463 owns settlement and tuning.
-- **Royal Jelly** powers boosters and advantages; how it is acquired is intentionally undecided and outside the proof.
-- The proof needs visible, attributed feedback; exact amounts, shops, boosters, achievements, and the full economy remain deferred.
+- Brain Fatigue drains 1/2/1/1 Honey per day at activation ranks 4/5/6/7, continuously in server time; Genius State removes the drain.
+- The first lifetime completion of an eligible Task awards +5 Honey and +1 Honeycomb Score, capped at eight rewarded Tasks per rolling 24 hours.
+- **Royal Jelly** is earned through a fixed-roster rolling weekly progress quest and powers temporary Boosters and Resurrection.
+- Retained Power-ups summon their PowerBees freely; Boosters such as Focus Shield are temporary Royal Jelly effects.
 
 ## 8. Bee Greater with Friends (Should — post-MVP)
 

@@ -1,0 +1,3 @@
+# Server-authoritative focus economy
+
+BeeGreat keeps Honey, Honeycomb Score, Royal Jelly, Brain Fatigue, Achievements, and Goal-lifecycle settlement authoritative in Convex, with append-only reasoned ledgers and idempotent command boundaries. Clients submit user intent and render projections instead of calculating balances; this preserves one consistent economy across voice, app, agent, and future clients, prevents replay or clock manipulation, and keeps non-negative currency and permanent verified history enforceable even though it makes offline economy writes and local optimistic settlement inappropriate.

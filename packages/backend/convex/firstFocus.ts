@@ -3,11 +3,12 @@ import type { Doc, Id } from './_generated/dataModel'
 import { mutation, query } from './_generated/server'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import { countAccessibleActiveGoals } from './focusDeletion'
+import { MAX_ACTIVE_GOALS } from './focusConstants'
 import {
-  FIRST_FOCUS_HONEY_AWARD,
-  FIRST_FOCUS_SCORE_AWARD,
-  MAX_ACTIVE_GOALS,
-} from './focusConstants'
+  completeTaskWithEconomy,
+  economySummary,
+  settleFatigueForOwner,
+} from './economy'
 
 const bundleValidator = v.object({
   goalId: v.id('goals'),
@@ -27,6 +28,7 @@ const currentHiveValidator = v.object({
   hive: v.object({
     honeyBalance: v.number(),
     honeycombScore: v.number(),
+    royalJellyBalance: v.number(),
   }),
   activeGoals: v.array(
     v.object({
@@ -63,6 +65,46 @@ const currentHiveValidator = v.object({
     }),
     v.null(),
   ),
+  economy: v.object({
+    royalJellyBalance: v.number(),
+    brainFatigue: v.object({
+      isActive: v.boolean(),
+      dailyHoneyDrain: v.number(),
+      rank: v.number(),
+      affectedGoalCount: v.number(),
+    }),
+    geniusState: v.object({
+      isActive: v.boolean(),
+      verifiedGoalCount: v.number(),
+      requiredGoalCount: v.number(),
+    }),
+    activeFocusShield: v.union(
+      v.object({
+        goalId: v.id('goals'),
+        goalTitle: v.string(),
+        expiresAt: v.number(),
+      }),
+      v.null(),
+    ),
+    weeklyProgress: v.union(
+      v.object({
+        startedAt: v.number(),
+        endsAt: v.number(),
+        completedGoals: v.number(),
+        requiredGoals: v.number(),
+        completed: v.boolean(),
+      }),
+      v.null(),
+    ),
+    achievements: v.array(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        rank: v.optional(v.number()),
+        kind: v.union(v.literal('goliebee'), v.literal('hive')),
+      }),
+    ),
+  }),
 })
 
 const completeHighlightResultValidator = v.object({
@@ -79,7 +121,9 @@ type IdentityKeys = {
   userId: string
 }
 
-async function requireIdentity(ctx: QueryCtx | MutationCtx): Promise<IdentityKeys> {
+async function requireIdentity(
+  ctx: QueryCtx | MutationCtx,
+): Promise<IdentityKeys> {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
     throw new ConvexError({
@@ -124,38 +168,50 @@ async function findHive(ctx: QueryCtx | MutationCtx, ownerKey: string) {
 async function findGolieBees(ctx: QueryCtx, ownerKey: string) {
   return await ctx.db
     .query('golieBees')
-    .withIndex('by_owner_key_and_goal_id', (q) => q.eq('ownerKey', ownerKey))
+    .withIndex('by_owner_key_and_status', (q) =>
+      q.eq('ownerKey', ownerKey).eq('status', 'active'),
+    )
     .take(MAX_ACTIVE_GOALS)
 }
 
 async function findActiveHighlights(ctx: QueryCtx, ownerKey: string) {
   return await ctx.db
     .query('highlights')
-    .withIndex('by_owner_key_and_status', (q) => q.eq('ownerKey', ownerKey).eq('status', 'active'))
+    .withIndex('by_owner_key_and_status', (q) =>
+      q.eq('ownerKey', ownerKey).eq('status', 'active'),
+    )
     .take(2)
 }
 
 async function findLatestProgress(ctx: QueryCtx, ownerKey: string) {
   const events = await ctx.db
     .query('verifiedProgressEvents')
-    .withIndex('by_owner_key_and_occurred_at', (q) => q.eq('ownerKey', ownerKey))
+    .withIndex('by_owner_key_and_occurred_at', (q) =>
+      q.eq('ownerKey', ownerKey),
+    )
     .order('desc')
     .take(1)
   return events[0] ?? null
 }
 
 async function currentHive(ctx: QueryCtx, ownerKey: string) {
-  const [hive, golieBees, activeHighlights, latestProgress] = await Promise.all([
-    findHive(ctx, ownerKey),
-    findGolieBees(ctx, ownerKey),
-    findActiveHighlights(ctx, ownerKey),
-    findLatestProgress(ctx, ownerKey),
-  ])
+  const identity = await ctx.auth.getUserIdentity()
+  if (!identity) throw new Error('Authentication required')
+  const keys = { ownerKey, userId: identity.subject }
+  const [hive, golieBees, activeHighlights, latestProgress, economy] =
+    await Promise.all([
+      findHive(ctx, ownerKey),
+      findGolieBees(ctx, ownerKey),
+      findActiveHighlights(ctx, ownerKey),
+      findLatestProgress(ctx, ownerKey),
+      economySummary(ctx, keys),
+    ])
 
   const activeGoals = []
   for (const golieBee of golieBees) {
     const goal = await ctx.db.get('goals', golieBee.goalId)
-    if (!goal || goal.status !== 'active') continue
+    if (!goal || goal.status !== 'active' || golieBee.status !== 'active')
+      continue
     activeGoals.push({
       goalId: goal._id,
       title: goal.title,
@@ -171,12 +227,15 @@ async function currentHive(ctx: QueryCtx, ownerKey: string) {
 
   const now = Date.now()
   const highlight = activeHighlights.find((entry) => entry.expiresAt > now)
-  const highlightedTask = highlight ? await ctx.db.get('tasks', highlight.taskId) : null
+  const highlightedTask = highlight
+    ? await ctx.db.get('tasks', highlight.taskId)
+    : null
 
   return {
     hive: {
       honeyBalance: hive?.honeyBalance ?? 0,
       honeycombScore: hive?.honeycombScore ?? 0,
+      royalJellyBalance: hive?.royalJellyBalance ?? 0,
     },
     activeGoals,
     activeHighlight:
@@ -200,6 +259,7 @@ async function currentHive(ctx: QueryCtx, ownerKey: string) {
           scoreDelta: latestProgress.scoreDelta,
         }
       : null,
+    economy,
   }
 }
 
@@ -299,11 +359,16 @@ export const confirmPlan = mutation({
     }
     if (!hive) throw new Error('Failed to create Hive')
 
+    // Settle the prior activation roster before adding a new Brain Fatigue rank.
+    await settleFatigueForOwner(ctx, identity, now)
+
     const goalId = await ctx.db.insert('goals', {
       userId: identity.userId,
       title: goalTitle,
       finalGoal: goalOutcome,
       status: 'active',
+      activatedAt: now,
+      lifecycleUpdatedAt: now,
     })
     const projectId = await ctx.db.insert('projects', {
       userId: identity.userId,
@@ -349,7 +414,11 @@ export const confirmPlan = mutation({
   },
 })
 
-async function findProgressByRequest(ctx: MutationCtx, ownerKey: string, requestId: string) {
+async function findProgressByRequest(
+  ctx: MutationCtx,
+  ownerKey: string,
+  requestId: string,
+) {
   return await ctx.db
     .query('verifiedProgressEvents')
     .withIndex('by_owner_key_and_request_id', (q) =>
@@ -358,17 +427,29 @@ async function findProgressByRequest(ctx: MutationCtx, ownerKey: string, request
     .unique()
 }
 
-async function findProgressByTask(ctx: MutationCtx, ownerKey: string, taskId: Id<'tasks'>) {
+async function findProgressByTask(
+  ctx: MutationCtx,
+  ownerKey: string,
+  taskId: Id<'tasks'>,
+) {
   return await ctx.db
     .query('verifiedProgressEvents')
-    .withIndex('by_owner_key_and_task_id', (q) => q.eq('ownerKey', ownerKey).eq('taskId', taskId))
+    .withIndex('by_owner_key_and_task_id', (q) =>
+      q.eq('ownerKey', ownerKey).eq('taskId', taskId),
+    )
     .unique()
 }
 
-async function findHighlightByTask(ctx: MutationCtx, ownerKey: string, taskId: Id<'tasks'>) {
+async function findHighlightByTask(
+  ctx: MutationCtx,
+  ownerKey: string,
+  taskId: Id<'tasks'>,
+) {
   return await ctx.db
     .query('highlights')
-    .withIndex('by_owner_key_and_task_id', (q) => q.eq('ownerKey', ownerKey).eq('taskId', taskId))
+    .withIndex('by_owner_key_and_task_id', (q) =>
+      q.eq('ownerKey', ownerKey).eq('taskId', taskId),
+    )
     .unique()
 }
 
@@ -378,7 +459,11 @@ async function completeHighlightedTask(
   args: { requestId: string; taskId: Id<'tasks'> },
 ) {
   const requestId = requiredText(args.requestId, 'Request id')
-  const priorRequest = await findProgressByRequest(ctx, keys.ownerKey, requestId)
+  const priorRequest = await findProgressByRequest(
+    ctx,
+    keys.ownerKey,
+    requestId,
+  )
   if (priorRequest) {
     if (priorRequest.taskId !== args.taskId) {
       throw new ConvexError({
@@ -397,7 +482,11 @@ async function completeHighlightedTask(
     }
   }
 
-  const priorTaskProgress = await findProgressByTask(ctx, keys.ownerKey, args.taskId)
+  const priorTaskProgress = await findProgressByTask(
+    ctx,
+    keys.ownerKey,
+    args.taskId,
+  )
   if (priorTaskProgress) {
     const hive = await findHive(ctx, keys.ownerKey)
     return {
@@ -412,7 +501,11 @@ async function completeHighlightedTask(
 
   const highlight = await findHighlightByTask(ctx, keys.ownerKey, args.taskId)
   const now = Date.now()
-  if (!highlight || highlight.status !== 'active' || highlight.expiresAt <= now) {
+  if (
+    !highlight ||
+    highlight.status !== 'active' ||
+    highlight.expiresAt <= now
+  ) {
     throw new ConvexError({
       code: 'HIGHLIGHT_NOT_ACTIVE',
       message: 'Active Highlight not found for this Task',
@@ -442,48 +535,16 @@ async function completeHighlightedTask(
     }
   }
 
-  const hive = await findHive(ctx, keys.ownerKey)
-  if (!hive) throw new Error('Hive not found')
-  const honeyBalance = Math.max(0, hive.honeyBalance + FIRST_FOCUS_HONEY_AWARD)
-  const honeycombScore = Math.max(0, hive.honeycombScore + FIRST_FOCUS_SCORE_AWARD)
-
-  await ctx.db.patch('tasks', task._id, {
-    status: 'done',
-    completedAt: now,
-  })
   await ctx.db.patch('highlights', highlight._id, {
     status: 'expired',
     expiredAt: now,
   })
-  const progressEventId = await ctx.db.insert('verifiedProgressEvents', {
-    ...keys,
+  return await completeTaskWithEconomy(ctx, keys, {
     requestId,
-    goalId: task.goalId,
+    task,
     projectId: highlight.projectId,
-    taskId: task._id,
-    kind: 'task-completed',
-    honeyDelta: FIRST_FOCUS_HONEY_AWARD,
-    scoreDelta: FIRST_FOCUS_SCORE_AWARD,
-    occurredAt: now,
+    now,
   })
-  await ctx.db.patch('hives', hive._id, { honeyBalance, honeycombScore })
-  await ctx.db.insert('honeyLedgerEntries', {
-    ...keys,
-    goalId: task.goalId,
-    progressEventId,
-    delta: FIRST_FOCUS_HONEY_AWARD,
-    balanceAfter: honeyBalance,
-    occurredAt: now,
-  })
-
-  return {
-    status: 'completed' as const,
-    taskId: task._id,
-    honeyAwarded: FIRST_FOCUS_HONEY_AWARD,
-    scoreAwarded: FIRST_FOCUS_SCORE_AWARD,
-    honeyBalance,
-    honeycombScore,
-  }
 }
 
 /** Completes only the caller's current highlighted Task, exactly once. */
@@ -516,7 +577,11 @@ export async function settleActiveHighlightForAuthenticatedTask(
       message: 'Highlighted Task not found',
     })
   }
-  if (!highlight || highlight.status !== 'active' || highlight.expiresAt <= Date.now()) {
+  if (
+    !highlight ||
+    highlight.status !== 'active' ||
+    highlight.expiresAt <= Date.now()
+  ) {
     return null
   }
   return await completeHighlightedTask(ctx, keys, {

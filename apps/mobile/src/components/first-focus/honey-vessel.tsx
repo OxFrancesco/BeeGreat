@@ -1,20 +1,20 @@
-import { Image } from 'expo-image';
-import { useEffect } from 'react';
-import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image } from "expo-image";
+import { useEffect } from "react";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withTiming,
-} from 'react-native-reanimated';
+} from "react-native-reanimated";
 
-import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+import { ThemedText } from "@/components/themed-text";
+import { Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
 
 export const MVP_HONEY_CAPACITY = 100;
 
-const VESSEL_SOURCE = require('../../../assets/images/hive-vessel.png');
+const VESSEL_SOURCE = require("../../../assets/images/hive-vessel.png");
 const MAX_VESSEL_SIZE = 340;
 
 export function HoneyVessel({ balance }: { balance: number }) {
@@ -24,13 +24,16 @@ export function HoneyVessel({ balance }: { balance: number }) {
   const vesselSize = Math.min(width - Spacing.three * 2, MAX_VESSEL_SIZE);
   const cavityHeight = vesselSize * 0.52;
   const clampedBalance = Math.min(Math.max(balance, 0), MVP_HONEY_CAPACITY);
+  const overflow = Math.max(balance - MVP_HONEY_CAPACITY, 0);
   const fillRatio = clampedBalance / MVP_HONEY_CAPACITY;
   const percentage = Math.round(fillRatio * 100);
   const fillHeight = useSharedValue(cavityHeight * fillRatio);
 
   useEffect(() => {
     const nextHeight = cavityHeight * fillRatio;
-    fillHeight.value = reducedMotion ? nextHeight : withTiming(nextHeight, { duration: 520 });
+    fillHeight.value = reducedMotion
+      ? nextHeight
+      : withTiming(nextHeight, { duration: 520 });
   }, [cavityHeight, fillHeight, fillRatio, reducedMotion]);
 
   const animatedFill = useAnimatedStyle(() => ({ height: fillHeight.value }));
@@ -44,7 +47,10 @@ export function HoneyVessel({ balance }: { balance: number }) {
         min: 0,
         max: MVP_HONEY_CAPACITY,
         now: clampedBalance,
-        text: `${balance} of ${MVP_HONEY_CAPACITY} Honey, ${percentage}% full`,
+        text:
+          overflow > 0
+            ? `${balance} Honey, vessel full with ${overflow} Honey in overflow`
+            : `${balance} of ${MVP_HONEY_CAPACITY} Honey, ${percentage}% full`,
       }}
       style={styles.container}
     >
@@ -74,12 +80,21 @@ export function HoneyVessel({ balance }: { balance: number }) {
           accessibilityIgnoresInvertColors
         />
       </View>
-      <View style={[styles.readout, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <View
+        style={[
+          styles.readout,
+          { backgroundColor: theme.card, borderColor: theme.border },
+        ]}
+      >
         <ThemedText type="smallBold" selectable>
-          {balance} / {MVP_HONEY_CAPACITY} Honey
+          {overflow > 0
+            ? `${balance} Honey`
+            : `${balance} / ${MVP_HONEY_CAPACITY} Honey`}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" selectable>
-          {percentage}% full
+          {overflow > 0
+            ? `Vessel full · +${overflow} overflow`
+            : `${percentage}% full`}
         </ThemedText>
       </View>
     </View>
@@ -88,43 +103,43 @@ export function HoneyVessel({ balance }: { balance: number }) {
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: Spacing.two,
   },
   vessel: {
-    position: 'relative',
+    position: "relative",
   },
   cavity: {
-    position: 'absolute',
-    overflow: 'hidden',
+    position: "absolute",
+    overflow: "hidden",
   },
   honey: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    overflow: 'hidden',
-    backgroundColor: '#D88608',
+    overflow: "hidden",
+    backgroundColor: "#D88608",
   },
   honeySurface: {
     height: 7,
     borderRadius: 999,
-    backgroundColor: '#FFC33D',
+    backgroundColor: "#FFC33D",
   },
   honeyGlow: {
-    position: 'absolute',
+    position: "absolute",
     top: 8,
-    left: '16%',
-    width: '22%',
-    height: '72%',
+    left: "16%",
+    width: "22%",
+    height: "72%",
     borderRadius: 999,
-    backgroundColor: 'rgba(255, 222, 121, 0.28)',
+    backgroundColor: "rgba(255, 222, 121, 0.28)",
   },
   readout: {
     minWidth: 220,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "space-between",
     gap: Spacing.three,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 999,

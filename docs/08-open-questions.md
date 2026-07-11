@@ -1,6 +1,6 @@
 # 08 – Open Questions & Research Items
 
-Updated 2026-07-11 after FRA-453 and FRA-459. The 2026-07-04 decisions remain below as a historical log; entries that conflict with the canonical domain are explicitly superseded rather than rewritten.
+Updated 2026-07-11 after FRA-453, FRA-459, and the FRA-463 economy decisions. The 2026-07-04 decisions remain below as a historical log; entries that conflict with the canonical domain are explicitly superseded rather than rewritten.
 
 ## Still open
 
@@ -8,8 +8,8 @@ Updated 2026-07-11 after FRA-453 and FRA-459. The 2026-07-04 decisions remain be
 
 - [ ] **Free vs paid split**: launch is free-only; decide RevenueCat tiers later (voice minutes? integrations? social?) → Phase 4
 - [ ] **GitHub achievements**: which events count (commits, PRs, streaks?) and OAuth app vs GitHub App → decide in Phase 2
-- [ ] **Focus economy tuning**: choose Honey/Honeycomb Score event values, Brain Fatigue's bell curve, and settlement schedule after the first-focus loop produces evidence
-- [ ] **Royal Jelly sourcing**: decide whether it is earned, purchased, or both; keep gameplay advantages from directly buying Goal completion, Achievement ranks, or Honeycomb Score
+- [ ] **Post-launch economy tuning**: validate the FRA-463 baseline during the final user-testing phase before changing reward values, fatigue rates, caps, or Booster prices
+- [ ] **Future Royal Jelly sales**: the baseline earns Royal Jelly through balanced weekly progress; decide later whether purchasing it is acceptable without letting advantages directly buy Goal completion, Achievement ranks, Honey, or Honeycomb Score
 - [ ] **Memorial and Resurrection UX**: choose a playful/emotional tone for GhostyBees and explain the half-Honey Resurrection refund clearly
 - [ ] **Competitive score periods**: determine whether all-time/monthly/friends views remain the right framing now that Honeycomb Score is separate from spendable Honey
 
@@ -52,16 +52,22 @@ Updated 2026-07-11 after FRA-453 and FRA-459. The 2026-07-04 decisions remain be
 
 ## Decision log (resolved 2026-07-10–11)
 
-| Question           | Decision                                                                                                                                                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Active Goal limits | Three is healthy; seven is the hard maximum. Goals four through seven are allowed in the current proof with no Brain Fatigue penalty. FRA-463 owns the intended Brain Fatigue settlement and Genius State rules. |
-| Goal character     | One permanent **GolieBee per Goal**, not per Project.                                                                                                                                                            |
-| Highlight          | One current, time-boxed pointer to actionable work; defaults to the end of the user's local day and owns no work.                                                                                                |
-| Goal completion    | Explicitly confirmed by the user; completing the plan never auto-completes the outcome.                                                                                                                          |
-| Hive economy       | Honey is global, non-negative, spendable cosmetics; Honeycomb Score permanently records verified progress; Royal Jelly powers advantages, with sourcing deferred.                                                |
-| First MVP proof    | A new user speaks an outcome, edits and confirms one Goal/Project/Task/Highlight plan, completes the highlighted Task, and sees immediate GolieBee/Hive feedback.                                                |
-| MVP character art  | One polished preset GolieBee with deterministic customization; generated FAL/3D art is deferred.                                                                                                                 |
-| MVP evidence       | 4/5 complete unassisted in five minutes, 4/5 understand Goal vs Highlight, and after 25 activations at least 40% repeat the loop on three days in week one.                                                      |
+| Question           | Decision                                                                                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Active Goal limits | Three is healthy; seven is the hard maximum. Activation ranks four through seven accrue 1/2/1/1 Honey per day until the seven-Goal Hive qualifies for Genius State.                                                |
+| Goal character     | One permanent **GolieBee per Goal**, not per Project.                                                                                                                                                              |
+| Highlight          | One current, time-boxed pointer to actionable work; defaults to the end of the user's local day and owns no work.                                                                                                  |
+| Goal completion    | Explicitly confirmed by the user; completing the plan never auto-completes the outcome.                                                                                                                            |
+| Hive economy       | Honey is global, non-negative, spendable cosmetics; Honeycomb Score permanently records verified progress; Royal Jelly is earned by a rolling weekly fixed-roster progress quest and powers advantages.            |
+| First MVP proof    | A new user speaks an outcome, edits and confirms one Goal/Project/Task/Highlight plan, completes the highlighted Task, and sees immediate GolieBee/Hive feedback.                                                  |
+| MVP character art  | One polished preset GolieBee with deterministic customization; generated FAL/3D art is deferred.                                                                                                                   |
+| MVP evidence       | 4/5 complete unassisted in five minutes, 4/5 understand Goal vs Highlight, and after 25 activations at least 40% repeat the loop on three days in week one.                                                        |
+| Economy rewards    | A Task's first server-confirmed completion awards +5 Honey/+1 Score, capped at eight rewarded Tasks per rolling 24 hours; every input channel follows the same rule.                                               |
+| Genius State       | Uses an inclusive rolling 168-hour window; the seventh qualifying event activates Genius before its reward is calculated.                                                                                          |
+| Royal Jelly uses   | Resurrection costs 3; Focus Shield costs 1, protects one Goal for 24 hours, and is limited to one active Shield per Hive.                                                                                          |
+| Goal lifecycle     | Explicit completion gives no Honey; abandonment removes the Goal's available net contribution; Resurrection refunds floor(half removed); privacy deletion anonymizes economy history without changing Hive totals. |
+| Starter badges     | Goal Task thresholds 1/5/25, completed-Goal thresholds 1/2/3, and first Genius State are separate retroactive badges worth +5 Score each.                                                                          |
+| Validation timing  | Founder-directed user testing and success-bar measurement move to the final phase after the economy is integrated.                                                                                                 |
 
 ### Superseded entries in the 2026-07-04 table
 

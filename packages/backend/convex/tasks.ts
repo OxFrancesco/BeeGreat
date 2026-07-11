@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { settleActiveHighlightForAuthenticatedTask } from './firstFocus'
+import { completeTaskWithEconomy } from './economy'
 import {
   canAccessGoalFocusLineage,
   deleteTaskFocusState,
@@ -17,7 +18,11 @@ export const listByProject = query({
       !identity ||
       !project ||
       project.userId !== identity.subject ||
-      !(await canAccessGoalFocusLineage(ctx, identity.tokenIdentifier, project.goalId))
+      !(await canAccessGoalFocusLineage(
+        ctx,
+        identity.tokenIdentifier,
+        project.goalId,
+      ))
     ) {
       return []
     }
@@ -90,7 +95,12 @@ export const create = mutation({
     if (!project || project.userId !== userId) {
       throw new Error('Project not found')
     }
-    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, project.goalId, 'Project not found')
+    await requireGoalFocusOwner(
+      ctx,
+      identity.tokenIdentifier,
+      project.goalId,
+      'Project not found',
+    )
     if (parentTaskId) {
       const parent = await ctx.db.get(parentTaskId)
       if (!parent || parent.projectId !== projectId) {
@@ -121,11 +131,27 @@ export const toggle = mutation({
     if (!task || task.userId !== identity.subject) {
       throw new Error('Task not found')
     }
-    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
+    await requireGoalFocusOwner(
+      ctx,
+      identity.tokenIdentifier,
+      task.goalId,
+      'Task not found',
+    )
     if (task.status === 'todo') {
-      const settlement = await settleActiveHighlightForAuthenticatedTask(ctx, taskId)
+      const settlement = await settleActiveHighlightForAuthenticatedTask(
+        ctx,
+        taskId,
+      )
       if (settlement) return
-      await ctx.db.patch(taskId, { status: 'done', completedAt: Date.now() })
+      await completeTaskWithEconomy(
+        ctx,
+        { ownerKey: identity.tokenIdentifier, userId: identity.subject },
+        {
+          requestId: `authenticated-task-completion:${taskId}`,
+          task,
+          projectId: task.projectId,
+        },
+      )
     } else {
       await ctx.db.patch(taskId, { status: 'todo', completedAt: undefined })
     }
@@ -144,7 +170,12 @@ export const update = mutation({
     if (!task || task.userId !== identity.subject) {
       throw new Error('Task not found')
     }
-    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
+    await requireGoalFocusOwner(
+      ctx,
+      identity.tokenIdentifier,
+      task.goalId,
+      'Task not found',
+    )
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A task needs a name')
@@ -166,7 +197,12 @@ export const setDueDate = mutation({
     if (!task || task.userId !== identity.subject) {
       throw new Error('Task not found')
     }
-    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
+    await requireGoalFocusOwner(
+      ctx,
+      identity.tokenIdentifier,
+      task.goalId,
+      'Task not found',
+    )
     await ctx.db.patch(taskId, { dueDate: dueDate ?? undefined })
   },
 })
@@ -181,7 +217,12 @@ export const remove = mutation({
     if (!task || task.userId !== userId) {
       throw new Error('Task not found')
     }
-    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
+    await requireGoalFocusOwner(
+      ctx,
+      identity.tokenIdentifier,
+      task.goalId,
+      'Task not found',
+    )
     const taskIds = [taskId]
     // Delete subtasks first so none are orphaned.
     if (!task.parentTaskId && task.projectId) {

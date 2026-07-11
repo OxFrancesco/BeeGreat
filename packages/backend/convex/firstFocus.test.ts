@@ -14,7 +14,8 @@ type Bundle = {
 }
 
 type ConfirmPlanResult =
-  { status: 'cancelled'; bundle: null } | { status: 'created' | 'existing'; bundle: Bundle }
+  | { status: 'cancelled'; bundle: null }
+  | { status: 'created' | 'existing'; bundle: Bundle }
 
 const confirmPlan = makeFunctionReference<
   'mutation',
@@ -31,7 +32,11 @@ const confirmPlan = makeFunctionReference<
 >('firstFocus:confirmPlan')
 
 type CurrentHive = {
-  hive: { honeyBalance: number; honeycombScore: number }
+  hive: {
+    honeyBalance: number
+    honeycombScore: number
+    royalJellyBalance: number
+  }
   activeGoals: Array<{
     goalId: Id<'goals'>
     title: string
@@ -59,6 +64,28 @@ type CurrentHive = {
     honeyDelta: number
     scoreDelta: number
   } | null
+  economy: {
+    royalJellyBalance: number
+    brainFatigue: {
+      isActive: boolean
+      dailyHoneyDrain: number
+      rank: number
+      affectedGoalCount: number
+    }
+    geniusState: {
+      isActive: boolean
+      verifiedGoalCount: number
+      requiredGoalCount: number
+    }
+    activeFocusShield: unknown | null
+    weeklyProgress: unknown | null
+    achievements: Array<{
+      id: string
+      title: string
+      rank?: number
+      kind: string
+    }>
+  }
 }
 
 type CompleteHighlightResult = {
@@ -70,15 +97,21 @@ type CompleteHighlightResult = {
   honeycombScore: number
 }
 
-const getCurrent = makeFunctionReference<'query', Record<string, never>, CurrentHive>(
-  'firstFocus:getCurrent',
-)
+const getCurrent = makeFunctionReference<
+  'query',
+  Record<string, never>,
+  CurrentHive
+>('firstFocus:getCurrent')
 const completeHighlight = makeFunctionReference<
   'mutation',
   { requestId: string; taskId: Id<'tasks'> },
   CompleteHighlightResult
 >('firstFocus:completeHighlight')
-const toggleTask = makeFunctionReference<'mutation', { taskId: Id<'tasks'> }, null>('tasks:toggle')
+const toggleTask = makeFunctionReference<
+  'mutation',
+  { taskId: Id<'tasks'> },
+  null
+>('tasks:toggle')
 const completeAgentTask = makeFunctionReference<
   'mutation',
   { userId: string; taskId: Id<'tasks'> },
@@ -157,7 +190,12 @@ const createAgentTask = makeFunctionReference<
 >('agent:createTask')
 const updateAgentTask = makeFunctionReference<
   'mutation',
-  { userId: string; taskId: Id<'tasks'>; title?: string; dueDate?: number | null },
+  {
+    userId: string
+    taskId: Id<'tasks'>
+    title?: string
+    dueDate?: number | null
+  },
   { id: Id<'tasks'>; title: string }
 >('agent:updateTask')
 const listGoals = makeFunctionReference<
@@ -202,7 +240,12 @@ const setProjectDue = makeFunctionReference<
 >('projects:setDue')
 const createTask = makeFunctionReference<
   'mutation',
-  { projectId: Id<'projects'>; title: string; parentTaskId?: Id<'tasks'>; dueDate?: number },
+  {
+    projectId: Id<'projects'>
+    title: string
+    parentTaskId?: Id<'tasks'>
+    dueDate?: number
+  },
   Id<'tasks'>
 >('tasks:create')
 const updateTask = makeFunctionReference<
@@ -256,7 +299,9 @@ test('confirmed first-focus plan creates its complete bundle atomically', async 
       golieBeeId: expect.any(String),
     },
   })
-  expect((await owner.query(getCurrent, {})).activeGoals[0]?.golieBee.seed).toBe('first-plan-1')
+  expect(
+    (await owner.query(getCurrent, {})).activeGoals[0]?.golieBee.seed,
+  ).toBe('first-plan-1')
 })
 
 test('cancellation and invalid confirmation leave the Hive unchanged', async () => {
@@ -265,8 +310,15 @@ test('cancellation and invalid confirmation leave the Hive unchanged', async () 
     tokenIdentifier: 'https://issuer.example.test|cancel-owner',
   })
 
-  await expect(t.query(getCurrent, {})).rejects.toThrow('Authentication required')
-  expect(await owner.mutation(confirmPlan, plan('cancelled-plan', { confirmed: false }))).toEqual({
+  await expect(t.query(getCurrent, {})).rejects.toThrow(
+    'Authentication required',
+  )
+  expect(
+    await owner.mutation(
+      confirmPlan,
+      plan('cancelled-plan', { confirmed: false }),
+    ),
+  ).toEqual({
     status: 'cancelled',
     bundle: null,
   })
@@ -275,10 +327,27 @@ test('cancellation and invalid confirmation leave the Hive unchanged', async () 
   ).rejects.toThrow('Task title cannot be empty')
 
   expect(await owner.query(getCurrent, {})).toEqual({
-    hive: { honeyBalance: 0, honeycombScore: 0 },
+    hive: { honeyBalance: 0, honeycombScore: 0, royalJellyBalance: 0 },
     activeGoals: [],
     activeHighlight: null,
     latestVerifiedProgress: null,
+    economy: {
+      royalJellyBalance: 0,
+      brainFatigue: {
+        isActive: false,
+        dailyHoneyDrain: 0,
+        rank: 0,
+        affectedGoalCount: 0,
+      },
+      geniusState: {
+        isActive: false,
+        verifiedGoalCount: 0,
+        requiredGoalCount: 7,
+      },
+      activeFocusShield: null,
+      weeklyProgress: null,
+      achievements: [],
+    },
   })
 })
 
@@ -321,10 +390,12 @@ test('authenticated identities can see and complete only their own Highlight', a
       taskId: created.bundle.taskId,
     }),
   ).rejects.toThrow('Active Highlight not found')
-  await expect(otherOwner.mutation(toggleTask, { taskId: created.bundle.taskId })).rejects.toThrow(
-    'Task not found',
+  await expect(
+    otherOwner.mutation(toggleTask, { taskId: created.bundle.taskId }),
+  ).rejects.toThrow('Task not found')
+  expect((await owner.query(getCurrent, {})).activeHighlight?.taskId).toBe(
+    created.bundle.taskId,
   )
-  expect((await owner.query(getCurrent, {})).activeHighlight?.taskId).toBe(created.bundle.taskId)
 })
 
 test('same Clerk subject from another issuer cannot update or delete a focus-owned Goal', async () => {
@@ -350,8 +421,12 @@ test('same Clerk subject from another issuer cannot update or delete a focus-own
     otherIssuer.mutation(removeGoal, { goalId: created.bundle.goalId }),
   ).rejects.toThrow('Goal not found')
 
-  expect((await owner.query(getCurrent, {})).activeGoals[0]?.title).toBe('Launch BeeGreat')
-  expect((await owner.query(getCurrent, {})).activeHighlight?.taskId).toBe(created.bundle.taskId)
+  expect((await owner.query(getCurrent, {})).activeGoals[0]?.title).toBe(
+    'Launch BeeGreat',
+  )
+  expect((await owner.query(getCurrent, {})).activeHighlight?.taskId).toBe(
+    created.bundle.taskId,
+  )
 })
 
 test('app reads and descendant mutations isolate focus-owned lineages by Clerk issuer', async () => {
@@ -369,13 +444,23 @@ test('app reads and descendant mutations isolate focus-owned lineages by Clerk i
   if (!created.bundle) throw new Error('Expected a confirmed bundle')
 
   expect(await otherIssuer.query(listGoals, {})).toEqual([])
-  expect(await otherIssuer.query(getGoal, { goalId: created.bundle.goalId })).toBeNull()
-  expect(await otherIssuer.query(getProject, { projectId: created.bundle.projectId })).toBeNull()
   expect(
-    await otherIssuer.query(listTasksByProject, { projectId: created.bundle.projectId }),
+    await otherIssuer.query(getGoal, { goalId: created.bundle.goalId }),
+  ).toBeNull()
+  expect(
+    await otherIssuer.query(getProject, {
+      projectId: created.bundle.projectId,
+    }),
+  ).toBeNull()
+  expect(
+    await otherIssuer.query(listTasksByProject, {
+      projectId: created.bundle.projectId,
+    }),
   ).toEqual([])
   expect(
-    await otherIssuer.query(getTaskStatuses, { taskIds: [created.bundle.taskId] }),
+    await otherIssuer.query(getTaskStatuses, {
+      taskIds: [created.bundle.taskId],
+    }),
   ).toEqual([])
 
   await expect(
@@ -397,7 +482,9 @@ test('app reads and descendant mutations isolate focus-owned lineages by Clerk i
     }),
   ).rejects.toThrow('Project not found')
   await expect(
-    otherIssuer.mutation(removeProject, { projectId: created.bundle.projectId }),
+    otherIssuer.mutation(removeProject, {
+      projectId: created.bundle.projectId,
+    }),
   ).rejects.toThrow('Project not found')
   await expect(
     otherIssuer.mutation(createTask, {
@@ -425,9 +512,11 @@ test('app reads and descendant mutations isolate focus-owned lineages by Clerk i
   ).rejects.toThrow('Task not found')
 
   expect(await owner.query(listGoals, {})).toHaveLength(1)
-  expect(await owner.query(listTasksByProject, { projectId: created.bundle.projectId })).toHaveLength(
-    1,
-  )
+  expect(
+    await owner.query(listTasksByProject, {
+      projectId: created.bundle.projectId,
+    }),
+  ).toHaveLength(1)
 })
 
 test('highlight completion records progress and advances the live Hive once', async () => {
@@ -464,18 +553,22 @@ test('highlight completion records progress and advances the live Hive once', as
     honeyAwarded: 0,
     scoreAwarded: 0,
     honeyBalance: 5,
-    honeycombScore: 1,
+    honeycombScore: 6,
   })
   expect(secondRequest).toMatchObject({
     status: 'already_completed',
     honeyAwarded: 0,
     scoreAwarded: 0,
     honeyBalance: 5,
-    honeycombScore: 1,
+    honeycombScore: 6,
   })
 
   const current = await owner.query(getCurrent, {})
-  expect(current.hive).toEqual({ honeyBalance: 5, honeycombScore: 1 })
+  expect(current.hive).toEqual({
+    honeyBalance: 5,
+    honeycombScore: 6,
+    royalJellyBalance: 1,
+  })
   expect(current.activeHighlight).toBeNull()
   expect(current.latestVerifiedProgress).toMatchObject({
     goalId: created.bundle.goalId,
@@ -497,7 +590,11 @@ test('authenticated legacy task completion settles an active Highlight', async (
 
   const current = await owner.query(getCurrent, {})
   expect(current.activeHighlight).toBeNull()
-  expect(current.hive).toEqual({ honeyBalance: 5, honeycombScore: 1 })
+  expect(current.hive).toEqual({
+    honeyBalance: 5,
+    honeycombScore: 6,
+    royalJellyBalance: 1,
+  })
   expect(current.latestVerifiedProgress).toMatchObject({
     taskId: created.bundle.taskId,
     honeyDelta: 5,
@@ -521,7 +618,9 @@ test('authenticated Goal deletion removes its GolieBee and active Highlight atom
   })
   await t.run(async (ctx) => {
     expect(await ctx.db.get('golieBees', created.bundle!.golieBeeId)).toBeNull()
-    expect(await ctx.db.get('highlights', created.bundle!.highlightId)).toBeNull()
+    expect(
+      await ctx.db.get('highlights', created.bundle!.highlightId),
+    ).toBeNull()
   })
 
   const recreated = await owner.mutation(confirmPlan, plan('delete-focus-plan'))
@@ -544,7 +643,9 @@ test('authenticated Project deletion removes its Highlight and first-focus recei
     activeHighlight: null,
   })
   await t.run(async (ctx) => {
-    expect(await ctx.db.get('highlights', created.bundle!.highlightId)).toBeNull()
+    expect(
+      await ctx.db.get('highlights', created.bundle!.highlightId),
+    ).toBeNull()
     expect(
       await ctx.db
         .query('firstFocusBundles')
@@ -570,7 +671,9 @@ test('authenticated Task deletion removes its Highlight and first-focus receipt 
     activeHighlight: null,
   })
   await t.run(async (ctx) => {
-    expect(await ctx.db.get('highlights', created.bundle!.highlightId)).toBeNull()
+    expect(
+      await ctx.db.get('highlights', created.bundle!.highlightId),
+    ).toBeNull()
     expect(
       await ctx.db
         .query('firstFocusBundles')
@@ -616,7 +719,9 @@ test('legacy agent Goal deletion requires the matching Clerk identity for focus-
   ).resolves.toMatchObject({ deleted: true })
   await t.run(async (ctx) => {
     expect(await ctx.db.get('golieBees', created.bundle!.golieBeeId)).toBeNull()
-    expect(await ctx.db.get('highlights', created.bundle!.highlightId)).toBeNull()
+    expect(
+      await ctx.db.get('highlights', created.bundle!.highlightId),
+    ).toBeNull()
   })
 })
 
@@ -626,7 +731,10 @@ test('legacy agent Project and Task deletion require Clerk identity only for foc
   const ownerKey = `https://issuer.example.test|${userId}`
   const owner = t.withIdentity({ subject: userId, tokenIdentifier: ownerKey })
 
-  const projectPlan = await owner.mutation(confirmPlan, plan('agent-project-delete-plan'))
+  const projectPlan = await owner.mutation(
+    confirmPlan,
+    plan('agent-project-delete-plan'),
+  )
   if (!projectPlan.bundle) throw new Error('Expected a confirmed bundle')
   await expect(
     t.mutation(deleteAgentProject, {
@@ -639,7 +747,10 @@ test('legacy agent Project and Task deletion require Clerk identity only for foc
     projectId: projectPlan.bundle.projectId,
   })
 
-  const taskPlan = await owner.mutation(confirmPlan, plan('agent-task-delete-plan'))
+  const taskPlan = await owner.mutation(
+    confirmPlan,
+    plan('agent-task-delete-plan'),
+  )
   if (!taskPlan.bundle) throw new Error('Expected a confirmed bundle')
   await expect(
     t.mutation(deleteAgentTask, {
@@ -653,13 +764,19 @@ test('legacy agent Project and Task deletion require Clerk identity only for foc
   })
 
   await t.run(async (ctx) => {
-    expect(await ctx.db.get('highlights', projectPlan.bundle!.highlightId)).toBeNull()
-    expect(await ctx.db.get('highlights', taskPlan.bundle!.highlightId)).toBeNull()
+    expect(
+      await ctx.db.get('highlights', projectPlan.bundle!.highlightId),
+    ).toBeNull()
+    expect(
+      await ctx.db.get('highlights', taskPlan.bundle!.highlightId),
+    ).toBeNull()
     expect(
       await ctx.db
         .query('firstFocusBundles')
         .withIndex('by_owner_key_and_request_id', (q) =>
-          q.eq('ownerKey', ownerKey).eq('requestId', 'agent-project-delete-plan'),
+          q
+            .eq('ownerKey', ownerKey)
+            .eq('requestId', 'agent-project-delete-plan'),
         )
         .unique(),
     ).toBeNull()
@@ -695,7 +812,9 @@ test('legacy agent cannot use caller-supplied userId to inspect or bypass an act
       taskId: created.bundle.taskId,
     }),
   ).rejects.toThrow('authenticated client')
-  expect((await owner.query(getCurrent, {})).activeHighlight?.taskId).toBe(created.bundle.taskId)
+  expect((await owner.query(getCurrent, {})).activeHighlight?.taskId).toBe(
+    created.bundle.taskId,
+  )
 })
 
 test('agent reads and every descendant mutation isolate focus-owned lineages by Clerk issuer', async () => {
@@ -774,7 +893,9 @@ test('agent reads and every descendant mutation isolate focus-owned lineages by 
     }),
   ).rejects.toThrow('Project not found')
 
-  expect((await owner.query(getAgentGoals, { userId }))[0]?.title).toBe('Launch BeeGreat')
+  expect((await owner.query(getAgentGoals, { userId }))[0]?.title).toBe(
+    'Launch BeeGreat',
+  )
   expect((await owner.query(listAgentTasks, { userId }))[0]?.title).toBe(
     'Record the first plan',
   )
@@ -792,14 +913,20 @@ test('all Goal creation paths allow seven Active Goals but reject an eighth', as
   >('goals:create')
   const authenticatedGoalIds: Id<'goals'>[] = []
   for (let goal = 1; goal <= 7; goal += 1) {
-    authenticatedGoalIds.push(await owner.mutation(createGoal, { title: `Goal ${goal}` }))
+    authenticatedGoalIds.push(
+      await owner.mutation(createGoal, { title: `Goal ${goal}` }),
+    )
   }
   const authenticatedGoals = (await owner.query(getCurrent, {})).activeGoals
   expect(authenticatedGoals).toHaveLength(7)
   for (const goalId of authenticatedGoalIds) {
-    expect(authenticatedGoals.find((goal) => goal.goalId === goalId)?.golieBee.seed).toBe(goalId)
+    expect(
+      authenticatedGoals.find((goal) => goal.goalId === goalId)?.golieBee.seed,
+    ).toBe(goalId)
   }
-  await expect(owner.mutation(createGoal, { title: 'Goal 8' })).rejects.toThrow('at most 7')
+  await expect(owner.mutation(createGoal, { title: 'Goal 8' })).rejects.toThrow(
+    'at most 7',
+  )
 
   await expect(
     t.mutation(createAgentGoal, {
@@ -826,11 +953,13 @@ test('all Goal creation paths allow seven Active Goals but reject an eighth', as
   }
   const agentGoals = (await agentOwner.query(getCurrent, {})).activeGoals
   expect(agentGoals).toHaveLength(7)
-  expect(agentGoals.find((goal) => goal.title === 'Launch BeeGreat')?.golieBee.seed).toBe(
-    'agent-hive-setup',
-  )
+  expect(
+    agentGoals.find((goal) => goal.title === 'Launch BeeGreat')?.golieBee.seed,
+  ).toBe('agent-hive-setup')
   for (const goalId of agentGoalIds) {
-    expect(agentGoals.find((goal) => goal.goalId === goalId)?.golieBee.seed).toBe(goalId)
+    expect(
+      agentGoals.find((goal) => goal.goalId === goalId)?.golieBee.seed,
+    ).toBe(goalId)
   }
   await expect(
     agentOwner.mutation(createAgentGoal, {
@@ -858,7 +987,9 @@ test('Active Goal limits are isolated by Clerk issuer for a shared subject', asy
   >('goals:create')
 
   for (let goal = 1; goal <= 7; goal += 1) {
-    await firstIssuer.mutation(createGoal, { title: `First issuer Goal ${goal}` })
+    await firstIssuer.mutation(createGoal, {
+      title: `First issuer Goal ${goal}`,
+    })
   }
   await expect(
     secondIssuer.mutation(confirmPlan, plan('second-issuer-first-focus')),

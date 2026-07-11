@@ -78,15 +78,21 @@ The selected MVP proof has one authoritative mutation boundary:
 4. Cancel creates nothing; a retried confirmation returns the original result instead of duplicating work.
 5. Voice or tap completes the highlighted Task, expires the Highlight, and records attributed Hive feedback in one server-authoritative operation.
 
-This is the target contract while FRA-461 is in progress. Existing app capabilities are tracked separately in [10 – Linear, Docs, and Implementation Crosswalk](10-linear-docs-implementation-crosswalk.md); this section must not be read as a claim that every step is already implemented.
+This transaction is the implemented foundation being extended by FRA-463. Existing app capabilities are tracked separately in [10 – Linear, Docs, and Implementation Crosswalk](10-linear-docs-implementation-crosswalk.md).
+
+## Focus-economy write boundary
+
+Convex is the authority for economy policy, clocks, ledgers, and projected balances. Clients submit intent-level commands; the backend validates identity and eligibility, settles accrued Brain Fatigue, records immutable reasoned ledger entries, updates Hive projections, and unlocks Achievements atomically. See [ADR 0001 – Server-authoritative focus economy](adr/0001-server-authoritative-focus-economy.md) and [04 – Gamification](04-gamification.md).
+
+Continuous fatigue retains fractional accrual server-side and materializes only whole Honey. Rolling 24-hour and 168-hour windows use server timestamps. Idempotency records protect Task rewards, quest awards, purchases, lifecycle settlement, and Resurrection refunds. Retroactive Achievement reconciliation walks retained progress in cursor-based scheduled batches, marks each imported event once, and resumes until the owner's full history is covered.
 
 ## Backend (Convex)
 
-- Single source of truth for one Hive per user, Goals (healthy threshold three, hard maximum seven), GolieBees, Projects, Tasks, one expiring Highlight, Honey ledger, Honeycomb Score, and later Achievements/journal/time/social records
+- Single source of truth for one Hive per user, Goals (healthy threshold three, hard maximum seven), GolieBees, Projects, Tasks, one expiring Highlight, Honey and Royal Jelly ledgers, Honeycomb Score, Achievements, Boosters, and later journal/time/social records
 - Realtime subscriptions power live UI everywhere
 - Economy rules must be **server-authoritative**: global cosmetic Honey cannot go negative, and permanent Honeycomb Score cannot be purchased or reduced by spending Honey
-- The proof permits Goals four through seven but applies no Brain Fatigue penalty. FRA-463 owns Brain Fatigue settlement and tuning.
-- Brain Fatigue, Genius State, Royal Jelly, lifecycle settlement, and leaderboard rollups are later slices and must not be coupled to the first-focus transaction
+- FRA-463 defines Brain Fatigue, Genius State, Royal Jelly quests, lifecycle settlement, Achievements, and Boosters as the active economy slice. Exact values live in [04 – Gamification](04-gamification.md), not client code.
+- Economy effects caused by a Task completion share its atomic write boundary; unrelated lifecycle and timed settlement commands remain independently idempotent.
 
 ## Agent runtime (Flue on Cloudflare)
 
@@ -128,3 +134,5 @@ This is the target contract while FRA-461 is in progress. Existing app capabilit
 - The complete editable preview appears within **8 seconds p95**.
 - Confirmed changes become visible within **2 seconds p95**.
 - Text fallback, microphone denial, failed transcription, malformed generated UI, lost connectivity, reduced motion, and screen readers must not lose or duplicate confirmed work.
+
+These gates and the product success bars remain required, but founder-directed user testing is scheduled for the final validation phase after the economy slice is integrated.

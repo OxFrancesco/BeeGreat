@@ -9,6 +9,7 @@ import {
   getGoalFocusOwner,
 } from './focusDeletion'
 import { MAX_ACTIVE_GOALS } from './focusConstants'
+import { completeTaskWithEconomy, settleFatigueForOwner } from './economy'
 
 // Agent-facing surface, called by the Flue worker (packages/agent). Legacy-only
 // operations still use userId; any path touching the new Hive world also
@@ -46,7 +47,11 @@ async function requireFocusOwnerIfPresent(
   return focusOwner
 }
 
-async function canReadFocusGoal(ctx: QueryCtx, userId: string, goalId: Parameters<typeof getGoalFocusOwner>[1]) {
+async function canReadFocusGoal(
+  ctx: QueryCtx,
+  userId: string,
+  goalId: Parameters<typeof getGoalFocusOwner>[1],
+) {
   const focusOwner = await getGoalFocusOwner(ctx, goalId)
   if (!focusOwner) return true
   const identity = await ctx.auth.getUserIdentity()
@@ -58,7 +63,9 @@ export const getGoals = query({
   handler: async (ctx, { userId }) => {
     const goals = await ctx.db
       .query('goals')
-      .withIndex('by_user', (q) => q.eq('userId', userId).eq('status', 'active'))
+      .withIndex('by_user', (q) =>
+        q.eq('userId', userId).eq('status', 'active'),
+      )
       .collect()
     const visibleGoals = []
     for (const goal of goals) {
@@ -68,15 +75,21 @@ export const getGoals = query({
       visibleGoals.map(async (goal) => {
         const projects = await ctx.db
           .query('projects')
-          .withIndex('by_goal', (q) => q.eq('goalId', goal._id).eq('status', 'active'))
+          .withIndex('by_goal', (q) =>
+            q.eq('goalId', goal._id).eq('status', 'active'),
+          )
           .collect()
         const open = await ctx.db
           .query('tasks')
-          .withIndex('by_goal', (q) => q.eq('goalId', goal._id).eq('status', 'todo'))
+          .withIndex('by_goal', (q) =>
+            q.eq('goalId', goal._id).eq('status', 'todo'),
+          )
           .collect()
         const done = await ctx.db
           .query('tasks')
-          .withIndex('by_goal', (q) => q.eq('goalId', goal._id).eq('status', 'done'))
+          .withIndex('by_goal', (q) =>
+            q.eq('goalId', goal._id).eq('status', 'done'),
+          )
           .collect()
         return {
           id: goal._id,
@@ -104,10 +117,14 @@ export const createGoal = mutation({
     const identity = await requireMatchingClerkIdentity(ctx, userId)
     const hive = await ctx.db
       .query('hives')
-      .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.tokenIdentifier))
+      .withIndex('by_owner_key', (q) =>
+        q.eq('ownerKey', identity.tokenIdentifier),
+      )
       .unique()
     if (!hive) {
-      throw new Error('Hive setup is required before the agent can create a Goal')
+      throw new Error(
+        'Hive setup is required before the agent can create a Goal',
+      )
     }
     const activeGoalCount = await countAccessibleActiveGoals(
       ctx,
@@ -119,11 +136,19 @@ export const createGoal = mutation({
         `A Hive can have at most ${MAX_ACTIVE_GOALS} Active Goals. Complete or archive one before adding another.`,
       )
     }
+    const now = Date.now()
+    await settleFatigueForOwner(
+      ctx,
+      { ownerKey: identity.tokenIdentifier, userId },
+      now,
+    )
     const id = await ctx.db.insert('goals', {
       userId,
       title,
       finalGoal,
       status: 'active',
+      activatedAt: now,
+      lifecycleUpdatedAt: now,
     })
     await ctx.db.insert('golieBees', {
       ownerKey: identity.tokenIdentifier,
@@ -169,7 +194,15 @@ export const deleteGoal = mutation({
     if (!goal || goal.userId !== userId) {
       throw new Error('Goal not found')
     }
-    const focusOwner = await requireFocusOwnerIfPresent(ctx, userId, goalId, 'Goal not found')
+    const focusOwner = await requireFocusOwnerIfPresent(
+      ctx,
+      userId,
+      goalId,
+      'Goal not found',
+    )
+    if (focusOwner) {
+      await settleFatigueForOwner(ctx, { ownerKey: focusOwner, userId })
+    }
     const tasks = await ctx.db
       .query('tasks')
       .withIndex('by_goal', (q) => q.eq('goalId', goalId))
@@ -225,7 +258,12 @@ export const updateProject = mutation({
     if (!project || project.userId !== userId) {
       throw new Error('Project not found')
     }
-    await requireFocusOwnerIfPresent(ctx, userId, project.goalId, 'Project not found')
+    await requireFocusOwnerIfPresent(
+      ctx,
+      userId,
+      project.goalId,
+      'Project not found',
+    )
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A project needs a name')
@@ -277,26 +315,33 @@ export const listTasks = query({
     const tasks = goalId
       ? await ctx.db
           .query('tasks')
-          .withIndex('by_goal', (q) => q.eq('goalId', goalId).eq('status', status ?? 'todo'))
+          .withIndex('by_goal', (q) =>
+            q.eq('goalId', goalId).eq('status', status ?? 'todo'),
+          )
           .collect()
       : await ctx.db
           .query('tasks')
-          .withIndex('by_user', (q) => q.eq('userId', userId).eq('status', status ?? 'todo'))
+          .withIndex('by_user', (q) =>
+            q.eq('userId', userId).eq('status', status ?? 'todo'),
+          )
           .collect()
     const visibleTasks = []
     for (const task of tasks) {
-      if (task.userId === userId && (await canReadFocusGoal(ctx, userId, task.goalId))) {
+      if (
+        task.userId === userId &&
+        (await canReadFocusGoal(ctx, userId, task.goalId))
+      ) {
         visibleTasks.push(task)
       }
     }
     return visibleTasks.map((task) => ({
-        id: task._id,
-        goalId: task.goalId,
-        projectId: task.projectId ?? null,
-        title: task.title,
-        status: task.status,
-        dueDate: task.dueDate ?? null,
-      }))
+      id: task._id,
+      goalId: task.goalId,
+      projectId: task.projectId ?? null,
+      title: task.title,
+      status: task.status,
+      dueDate: task.dueDate ?? null,
+    }))
   },
 })
 
@@ -327,7 +372,9 @@ export const createTask = mutation({
     } else {
       const projects = await ctx.db
         .query('projects')
-        .withIndex('by_goal', (q) => q.eq('goalId', goalId).eq('status', 'active'))
+        .withIndex('by_goal', (q) =>
+          q.eq('goalId', goalId).eq('status', 'active'),
+        )
         .collect()
       const general = projects.find((project) => project.title === 'General')
       resolvedProjectId =
@@ -362,7 +409,12 @@ export const completeTask = mutation({
     if (!task || task.userId !== userId) {
       throw new Error('Task not found')
     }
-    await requireFocusOwnerIfPresent(ctx, userId, task.goalId, 'Task not found')
+    const focusOwner = await requireFocusOwnerIfPresent(
+      ctx,
+      userId,
+      task.goalId,
+      'Task not found',
+    )
     const highlight = await ctx.db
       .query('highlights')
       .withIndex('by_task_id', (q) => q.eq('taskId', taskId))
@@ -380,9 +432,23 @@ export const completeTask = mutation({
           message: 'Highlighted Task belongs to another authenticated user',
         })
       }
-      throw new Error('Active Highlights must be completed through an authenticated client')
+      throw new Error(
+        'Active Highlights must be completed through an authenticated client',
+      )
     }
-    await ctx.db.patch(taskId, { status: 'done', completedAt: Date.now() })
+    if (focusOwner) {
+      await completeTaskWithEconomy(
+        ctx,
+        { ownerKey: focusOwner, userId },
+        {
+          requestId: `agent-task-completion:${taskId}`,
+          task,
+          projectId: task.projectId,
+        },
+      )
+    } else {
+      await ctx.db.patch(taskId, { status: 'done', completedAt: Date.now() })
+    }
     return { id: taskId, title: task.title, status: 'done' }
   },
 })
@@ -420,7 +486,12 @@ export const deleteTask = mutation({
     if (!task || task.userId !== userId) {
       throw new Error('Task not found')
     }
-    const focusOwner = await requireFocusOwnerIfPresent(ctx, userId, task.goalId, 'Task not found')
+    const focusOwner = await requireFocusOwnerIfPresent(
+      ctx,
+      userId,
+      task.goalId,
+      'Task not found',
+    )
     const taskIds = [taskId]
     if (!task.parentTaskId && task.projectId) {
       const siblings = await ctx.db

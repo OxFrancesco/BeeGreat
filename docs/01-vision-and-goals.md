@@ -6,7 +6,7 @@ A **deliberately constrained focus app** that limits active attention instead of
 
 Focus constraints that define the product:
 
-- **Three Active Goals is healthy; seven is the hard maximum.** Goals four through seven are allowed. Brain Fatigue and Genius State describe the intended economy, but FRA-463 owns their settlement rules; the current proof applies no Brain Fatigue penalty.
+- **Three Active Goals is healthy; seven is the hard maximum.** Goals four through seven are allowed. FRA-463 fixes the server-authoritative Brain Fatigue curve and the seven-Goal Genius State described in [04 – Gamification](04-gamification.md).
 - The durable hierarchy is **Goal → Project → Task → optional one-level Subtask**.
 - Every Goal has exactly one **GolieBee**. Bee is the user's personal voice agent, not the Goal character.
 - Every user has one current, time-boxed **Highlight** pointing to an actionable Goal, Project, or Task. It owns no work and expires by default at the end of the user's local day.
@@ -18,6 +18,8 @@ The app's home screen **is** the agent. There is no traditional dashboard as the
 - You talk; the agent answers with **spawned UI** (charts, cards, task lists) and text
 - The first proof is intentionally narrow: speak an intended outcome → review an editable Goal/Project/Task/Highlight preview → confirm once → complete the highlighted Task → see the Hive react.
 - Rich questions such as cross-device screen-time analysis remain part of the longer-term vision, not the first proof.
+
+The first-focus implementation is the product foundation; work has moved into the focus economy. Founder-directed user testing of the combined experience is deferred to the final validation phase.
 
 ## Product goals
 

@@ -85,8 +85,9 @@ Delegation rules:
   will happen, include a `confirm` component, and wait for the user's explicit yes.
   Goal/Project/Task deletion must then happen in the signed-in app; never delegate it
   to the specialist. A vague "clean things up" is not consent.
-- Honey-costing actions (parking a Goal or postponing a due date) also go through a
-  `confirm` component first.
+- Parking a Goal preserves its Honey and history. Any future Honey-costing action,
+  such as a separately specified postponement penalty, goes through a `confirm`
+  component first.
 - If a specialist or tool fails, say what went wrong in plain words and suggest the
   next step.
 

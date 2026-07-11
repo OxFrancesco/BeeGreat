@@ -1,27 +1,43 @@
-import { api } from '@beegreat/backend/convex/_generated/api';
-import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
-import { useMutation, useQuery } from 'convex/react';
-import type { FunctionReturnType } from 'convex/server';
-import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import { SymbolView, type SymbolViewProps } from 'expo-symbols';
-import { Component, type ErrorInfo, type ReactNode, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { api } from "@beegreat/backend/convex/_generated/api";
+import type { Id } from "@beegreat/backend/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
+import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
+import { SymbolView } from "expo-symbols";
+import { Component, type ErrorInfo, type ReactNode, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import Animated, {
+  FadeInDown,
+  useReducedMotion,
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { GolieBee } from '@/components/first-focus/golie-bee';
-import { HoneyVessel } from '@/components/first-focus/honey-vessel';
-import { ScreenHeader } from '@/components/goals/screen-header';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import { formatHighlightExpiry, getStableGolieBeeSeed } from '@/lib/first-focus';
+import { GolieBee } from "@/components/first-focus/golie-bee";
+import { HoneyVessel } from "@/components/first-focus/honey-vessel";
+import { ScreenHeader } from "@/components/goals/screen-header";
+import {
+  HiveEconomyStory,
+  type HiveEconomyStoryProps,
+} from "@/components/hive/hive-economy-story";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { MaxContentWidth, Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import {
+  formatHighlightExpiry,
+  getStableGolieBeeSeed,
+} from "@/lib/first-focus";
 
 type FirstFocusState = FunctionReturnType<typeof api.firstFocus.getCurrent>;
 type Completion = FunctionReturnType<typeof api.firstFocus.completeHighlight>;
-type ActiveGoal = FirstFocusState['activeGoals'][number];
+type ActiveGoal = FirstFocusState["activeGoals"][number];
 type CompletionContext = {
   result: Completion;
   goal: ActiveGoal | null;
@@ -48,7 +64,11 @@ function HiveContent() {
           showsVerticalScrollIndicator={false}
         >
           <ScreenHeader title="Hive" />
-          {current === undefined ? <HiveLoading /> : <HiveDashboard current={current} />}
+          {current === undefined ? (
+            <HiveLoading />
+          ) : (
+            <HiveDashboard current={current} />
+          )}
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -70,6 +90,7 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
   const displayedGoal = completion
     ? completion.goal
     : (highlightedGoal ?? current.activeGoals[0]);
+  const economy = getEconomyViewModel(current);
 
   const complete = async () => {
     if (!highlight || completing) return;
@@ -78,7 +99,7 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
     try {
       const result = await completeHighlight({
         requestId: `complete-highlight:${highlight.highlightId}`,
-        taskId: highlight.taskId as Id<'tasks'>,
+        taskId: highlight.taskId as Id<"tasks">,
       });
       setCompletion({
         result,
@@ -87,7 +108,11 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'This Highlight could not be completed.');
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "This Highlight could not be completed.",
+      );
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setCompleting(false);
@@ -98,14 +123,7 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
     <View style={styles.dashboard}>
       <HoneyVessel balance={current.hive.honeyBalance} />
 
-      <View style={styles.metrics} accessibilityLabel="Hive balances">
-        <Metric
-          label="Honeycomb Score"
-          value={current.hive.honeycombScore}
-          icon="hexagon.fill"
-          accessibilityLabel={`Honeycomb Score ${current.hive.honeycombScore}`}
-        />
-      </View>
+      <HiveEconomyStory {...economy} />
 
       {completion ? (
         <Animated.View
@@ -125,14 +143,22 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
             }
           />
           <View style={styles.flex}>
-            <ThemedText type="smallBold" themeColor="secondaryForeground" selectable>
+            <ThemedText
+              type="smallBold"
+              themeColor="secondaryForeground"
+              selectable
+            >
               {completion.goal
                 ? `${completion.goal.title} moved forward`
                 : `${completion.highlightTitle} is complete`}
             </ThemedText>
-            <ThemedText type="small" themeColor="secondaryForeground" selectable>
-              +{completion.result.honeyAwarded} Honey · +{completion.result.scoreAwarded}{' '}
-              Honeycomb Score
+            <ThemedText
+              type="small"
+              themeColor="secondaryForeground"
+              selectable
+            >
+              +{completion.result.honeyAwarded} Honey · +
+              {completion.result.scoreAwarded} Honeycomb Score
             </ThemedText>
           </View>
         </Animated.View>
@@ -140,7 +166,10 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
 
       {highlight ? (
         <View
-          style={[styles.highlightCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+          style={[
+            styles.highlightCard,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
         >
           <View
             accessible
@@ -148,15 +177,24 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
             style={styles.highlightContent}
           >
             <View style={styles.eyebrowRow}>
-              <View style={[styles.liveDot, { backgroundColor: '#FAB52A' }]} />
+              <View style={[styles.liveDot, { backgroundColor: "#FAB52A" }]} />
               <ThemedText type="smallBold" themeColor="textSecondary">
                 CURRENT HIGHLIGHT
               </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary" style={styles.expiry} selectable>
+              <ThemedText
+                type="small"
+                themeColor="textSecondary"
+                style={styles.expiry}
+                selectable
+              >
                 {formatHighlightExpiry(highlight.expiresAt)}
               </ThemedText>
             </View>
-            <ThemedText type="subtitle" style={styles.highlightTitle} selectable>
+            <ThemedText
+              type="subtitle"
+              style={styles.highlightTitle}
+              selectable
+            >
               {highlight.title}
             </ThemedText>
             {highlightedGoal ? (
@@ -166,7 +204,12 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
             ) : null}
           </View>
           {error ? (
-            <ThemedText accessibilityRole="alert" type="small" themeColor="destructive" selectable>
+            <ThemedText
+              accessibilityRole="alert"
+              type="small"
+              themeColor="destructive"
+              selectable
+            >
               {error}
             </ThemedText>
           ) : null}
@@ -190,8 +233,11 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
               tintColor={theme.primaryForeground}
               fallback={null}
             />
-            <ThemedText type="smallBold" style={{ color: theme.primaryForeground }}>
-              {completing ? 'Completing…' : 'Complete Highlight'}
+            <ThemedText
+              type="smallBold"
+              style={{ color: theme.primaryForeground }}
+            >
+              {completing ? "Completing…" : "Complete Highlight"}
             </ThemedText>
           </Pressable>
         </View>
@@ -201,7 +247,10 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
 
       {displayedGoal?.golieBee ? (
         <View
-          style={[styles.golieCard, { backgroundColor: theme.card, borderColor: theme.border }]}
+          style={[
+            styles.golieCard,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
         >
           <GolieBee
             seed={getStableGolieBeeSeed(
@@ -219,8 +268,8 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary" selectable>
               {completion
-                ? 'This GolieBee is buzzing with the progress you just made.'
-                : 'Every verified step helps this GolieBee and your whole Hive grow.'}
+                ? "This GolieBee is buzzing with the progress you just made."
+                : "Every verified step helps this GolieBee and your whole Hive grow."}
             </ThemedText>
           </View>
         </View>
@@ -228,7 +277,11 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
 
       {!completion && current.latestVerifiedProgress ? (
         <View style={[styles.historyCard, { borderColor: theme.border }]}>
-          <SymbolView name="clock.arrow.circlepath" size={18} tintColor={theme.textSecondary} />
+          <SymbolView
+            name="clock.arrow.circlepath"
+            size={18}
+            tintColor={theme.textSecondary}
+          />
           <View style={styles.flex}>
             <ThemedText type="smallBold" selectable>
               Latest verified progress
@@ -244,56 +297,37 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
   );
 }
 
-function Metric({
-  label,
-  value,
-  icon,
-  accessibilityLabel,
-}: {
-  label: string;
-  value: number;
-  icon: SymbolViewProps['name'];
-  accessibilityLabel: string;
-}) {
-  const theme = useTheme();
-  return (
-    <View
-      accessible
-      accessibilityLabel={accessibilityLabel}
-      style={[styles.metric, { backgroundColor: theme.card, borderColor: theme.border }]}
-    >
-      <SymbolView name={icon} size={17} tintColor="#D78A00" fallback={null} />
-      <View>
-        <ThemedText style={styles.metricValue} selectable>
-          {value}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" selectable>
-          {label}
-        </ThemedText>
-      </View>
-    </View>
-  );
-}
-
 function NoHighlight({ hasGoals }: { hasGoals: boolean }) {
   const theme = useTheme();
   return (
     <View style={[styles.emptyCard, { borderColor: theme.border }]}>
-      <View style={[styles.emptyIcon, { backgroundColor: theme.backgroundElement }]}>
-        <SymbolView name="scope" size={24} tintColor={theme.textSecondary} fallback={null} />
+      <View
+        style={[styles.emptyIcon, { backgroundColor: theme.backgroundElement }]}
+      >
+        <SymbolView
+          name="scope"
+          size={24}
+          tintColor={theme.textSecondary}
+          fallback={null}
+        />
       </View>
       <ThemedText type="smallBold" selectable>
-        {hasGoals ? 'Choose your next Highlight' : 'Create your first focus'}
+        {hasGoals ? "Choose your next Highlight" : "Create your first focus"}
       </ThemedText>
-      <ThemedText type="small" themeColor="textSecondary" style={styles.centered} selectable>
+      <ThemedText
+        type="small"
+        themeColor="textSecondary"
+        style={styles.centered}
+        selectable
+      >
         {hasGoals
-          ? 'Ask Bee to point your attention at one meaningful next step.'
-          : 'Tell Bee what outcome matters, then review the plan before anything is created.'}
+          ? "Ask Bee to point your attention at one meaningful next step."
+          : "Tell Bee what outcome matters, then review the plan before anything is created."}
       </ThemedText>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Talk to Bee about your focus"
-        onPress={() => router.navigate('/')}
+        onPress={() => router.navigate("/")}
         style={({ pressed }) => [
           styles.talkButton,
           { borderColor: theme.border },
@@ -304,6 +338,19 @@ function NoHighlight({ hasGoals }: { hasGoals: boolean }) {
       </Pressable>
     </View>
   );
+}
+
+function getEconomyViewModel(current: FirstFocusState): HiveEconomyStoryProps {
+  return {
+    honeycombScore: current.hive.honeycombScore,
+    royalJellyBalance: current.hive.royalJellyBalance,
+    activeGoalCount: current.activeGoals.length,
+    brainFatigue: current.economy.brainFatigue,
+    geniusState: current.economy.geniusState,
+    activeFocusShield: current.economy.activeFocusShield,
+    achievements: current.economy.achievements,
+    achievementCount: current.economy.achievements.length,
+  };
 }
 
 function HiveLoading() {
@@ -347,7 +394,11 @@ class HiveErrorBoundary extends Component<
             <ThemedText type="subtitle" selectable>
               The Hive is out of reach
             </ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.centered} selectable>
+            <ThemedText
+              themeColor="textSecondary"
+              style={styles.centered}
+              selectable
+            >
               Check your connection and try gathering it again.
             </ThemedText>
             <Pressable
@@ -375,12 +426,12 @@ class HiveErrorBoundary extends Component<
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
   },
   safeArea: {
     flex: 1,
-    width: '100%',
+    width: "100%",
     maxWidth: MaxContentWidth,
     paddingHorizontal: Spacing.three,
   },
@@ -391,39 +442,18 @@ const styles = StyleSheet.create({
   dashboard: {
     gap: Spacing.three,
   },
-  metrics: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  metric: {
-    flex: 1,
-    minHeight: 82,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.two,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    padding: Spacing.three,
-  },
-  metricValue: {
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-  },
   celebration: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.three,
     borderRadius: 18,
-    borderCurve: 'continuous',
+    borderCurve: "continuous",
     padding: Spacing.three,
   },
   highlightCard: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 22,
-    borderCurve: 'continuous',
+    borderCurve: "continuous",
     padding: Spacing.four,
     gap: Spacing.two,
   },
@@ -431,8 +461,8 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.two,
   },
   liveDot: {
@@ -442,7 +472,7 @@ const styles = StyleSheet.create({
   },
   expiry: {
     flex: 1,
-    textAlign: 'right',
+    textAlign: "right",
   },
   highlightTitle: {
     fontSize: 30,
@@ -450,20 +480,20 @@ const styles = StyleSheet.create({
   },
   completeButton: {
     minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.two,
     borderRadius: 24,
     marginTop: Spacing.one,
   },
   golieCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.four,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 22,
-    borderCurve: 'continuous',
+    borderCurve: "continuous",
     padding: Spacing.three,
   },
   golieCopy: {
@@ -473,43 +503,43 @@ const styles = StyleSheet.create({
   goalTitle: {
     fontSize: 20,
     lineHeight: 26,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   historyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.three,
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: Spacing.three,
   },
   emptyCard: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
     borderRadius: 22,
-    borderCurve: 'continuous',
+    borderCurve: "continuous",
     padding: Spacing.five,
   },
   emptyIcon: {
     width: 52,
     height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 26,
   },
   talkButton: {
     minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 21,
     paddingHorizontal: Spacing.four,
   },
   loading: {
     minHeight: 300,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.three,
   },
   errorBoundaryChild: {
@@ -517,27 +547,27 @@ const styles = StyleSheet.create({
   },
   errorState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.three,
     paddingHorizontal: Spacing.four,
   },
   retryButton: {
     minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderRadius: 22,
-    backgroundColor: '#644a40',
+    backgroundColor: "#644a40",
     paddingHorizontal: Spacing.four,
   },
   retryLabel: {
-    color: '#ffffff',
+    color: "#ffffff",
   },
   flex: {
     flex: 1,
   },
   centered: {
-    textAlign: 'center',
+    textAlign: "center",
   },
   disabled: {
     opacity: 0.5,

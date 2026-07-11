@@ -70,6 +70,10 @@ _Avoid_: Goal, permanent Hive member, GolieBee
 The non-permanent specialist bee summoned into a Hive by an active Power-up.
 _Avoid_: Bee, GolieBee, permanent Hive member
 
+**Booster**:
+A temporary gameplay advantage purchased with Royal Jelly. A Booster may summon a PowerBee while its effect lasts, but it is not a retained Power-up.
+_Avoid_: Power-up, cosmetic, permanent capability
+
 **Hall of Fame**:
 The permanent area of a Hive that preserves GolieBees whose Goals were completed, together with the history of what they achieved.
 _Avoid_: Archive, graveyard, deleted goals
@@ -103,16 +107,24 @@ _Avoid_: GolieBee Achievement, goal badge
 ## Focus Economy
 
 **Honey**:
-The global, spendable, non-negative cosmetic currency belonging to a user's Hive. Every change is attributed to the Goal that caused it; Honey loss stops at zero and never creates debt. Honey can unlock expressive Hive and bee customizations but cannot buy gameplay advantages.
+The global, spendable, non-negative cosmetic currency belonging to a user's Hive. Progress gains and focus-economy losses are attributed to the Goal that caused them, while cosmetic spending is global and unallocated; Honey loss stops at zero and never creates debt. Honey can unlock expressive Hive and bee customizations but cannot buy gameplay advantages.
 _Avoid_: Per-Goal balance, experience points
 
 **Royal Jelly**:
-The separate, spendable, non-negative gameplay currency used for boosters, Resurrection, and other in-game advantages. Royal Jelly cannot unlock Goal completion, Achievement ranks, or Honeycomb Score directly.
+The separate, spendable, non-negative gameplay currency used for boosters, Resurrection, and other in-game advantages. Royal Jelly cannot unlock Goal completion, Achievement ranks, Honey, or Honeycomb Score directly.
 _Avoid_: Honey, cosmetic currency, progress score
+
+**Royal Jelly Quest**:
+A rolling weekly challenge whose roster is the user's Active Goals when the challenge begins. It rewards balanced verified progress across that fixed roster rather than raw activity volume.
+_Avoid_: Login streak, task quota, Genius State
 
 **Resurrection**:
 A Royal-Jelly-powered action that restores the original Abandoned Goal directly to Active, transforms its GhostyBee back into a GolieBee, and refunds half the Honey actually removed when the Goal was abandoned. Its full ledger and Achievements remain intact, and Resurrection can immediately affect Brain Fatigue like any other Goal activation.
 _Avoid_: Reactivation, recreation, deletion recovery
+
+**Focus Shield**:
+A temporary Royal-Jelly Booster that protects one Active Goal from Brain Fatigue while the shield lasts.
+_Avoid_: Genius State, permanent protection, cosmetic shield
 
 **Honey Ledger**:
 The permanent history of Honey gains and losses, including the Goal responsible for each change.
