@@ -1,79 +1,105 @@
 # 04 – Gamification: Hive, Honey, Bees & Achievements
 
-The bee theme is the emotional core of the app. Bees are collaborative and hard-working — "Bee the best version of yourself."
+The bee theme is the emotional core of the app. Bees are collaborative and hard-working — “Bee the best version of yourself.” Canonical terms and invariants live in [`CONTEXT.md`](../CONTEXT.md).
 
-## Core loop
+## Canonical world
 
-1. Pick up to **3 goals** (a goal is a macro-project, e.g. "get healthier"), each with projects and tasks
-2. Each **project gets its own bee** (see below)
-3. Work on projects → your **honeycomb fills with honey**
-4. Neglect, overcommit, or abandon → you **lose honey** (or a bee)
-5. Honey feeds your **honeycomb score** — the public number on leaderboards and your Bee Card
+- Every user has exactly one **Hive**.
+- **Bee** is the user's personal voice agent and coordinator.
+- Every Goal has exactly one **GolieBee**. Renaming or clarifying the Goal preserves it; replacing the intended outcome creates a new Goal and GolieBee.
+- A completed Goal sends its GolieBee to the **Hall of Fame**. A parked Goal puts it to sleep. An abandoned Goal transforms it into a **GhostyBee** in the Memorial. Deletion is true erasure.
+- An active Power-up temporarily summons a specialist **PowerBee**. Power-ups and PowerBees are outside the first MVP proof.
 
-## Bees (decided)
+The proof uses one polished preset GolieBee with deterministic customization. FAL-generated Goal characters, 3D characters, and unique PowerBee art are deferred until the loop itself is proven.
 
-- **One bee per project**, generated at project creation:
-  - Premade base bee + **FAL image model**, styled relative to the goal/project
-  - Example: goal "I want to get fit" → a **coach bee** (whistle, headband); "ship my app" → a builder bee, etc.
-  - Generated once, stored in R2, shown on the project page and in the hive
-- Bees are the stake:
-  - **Changing or deleting a goal kills its bees** — permanent, shown in a "memorial" so it stings
-  - Changing a goal also **wipes all honey earned from it**
+## First-focus feedback loop
 
-## Honey economy v1 (designed per delegation — tune with real data)
+1. The user confirms one proposed Goal, Project, Task, and time-boxed Highlight.
+2. Completing the highlighted Task is a Verified Progress Event.
+3. The Highlight clears immediately.
+4. The Goal's GolieBee and the user's Hive visibly react.
+5. The backend attributes the resulting cosmetic Honey and permanent Honeycomb Score progress to that Goal.
 
-Currency: **honey drops**. All values server-authoritative.
+The proof requires understandable feedback, not a final economy. Exact amounts remain configurable while the focus economy is designed and tested.
 
-### Earning
+## Honey
 
-| Event | Honey |
-|---|---|
-| Complete a task | +5 |
-| Complete a subtask | +2 |
-| Complete a task **on or before its due date** | +5 bonus (total +10) |
-| Complete a project | +50 |
-| Complete a goal | +200 |
-| Daily focus: ≥2h auto-tracked time labeled as work on an active goal | +10/day |
-| Focus session completed (in-app, iOS fallback) | +1 per 15 min, max +8/day |
-| Streak bonus: activity on a goal N days in a row | +N/day, capped at +7 |
-| Achievement unlocked | +10 to +50 depending on tier |
+**Honey** is one global, spendable, non-negative cosmetic balance belonging to the Hive.
 
-### Losing
+- Every gain and loss is attributed to the Goal that caused it in the permanent Honey Ledger.
+- Honey can unlock expressive Hive and bee customization only.
+- Honey cannot buy Goal completion, verified progress, Achievement ranks, Honeycomb Score, Brain Fatigue relief, or gameplay advantages.
+- Loss stops at zero; there is no Honey debt.
 
-| Event | Honey |
-|---|---|
-| Postpone / change a due date | **−10 per postponement** (doubles per repeat on the same task: −10, −20, −40…) |
-| Miss a due date entirely (no reschedule) | −25 |
-| Miss a project deadline | −75 |
-| Each active goal beyond 3 ("brain fatigue") | −15/day per extra goal |
-| Change or delete a goal | **all honey from that goal wiped + its bees die** |
-| 7 days of zero activity on an active goal | −5/day until touched (bees are hungry) |
+The Hive screen presents that balance first as a tactile 3D honey vessel, filled
+from bottom to top like a honey jar. The MVP vessel displays progress toward a
+provisional 100-Honey visual capacity; this is presentation, not a second balance
+or a spending rule. Full-vessel overflow and later vessel upgrades remain economy
+and cosmetic decisions.
 
-### Balance targets (why these numbers)
+## Honeycomb Score
 
-- A focused day (2-3 tasks + tracked focus time + streak) ≈ **+30 to +50/day** — steady, satisfying
-- One postponement ≈ one lost task reward — it stings but is recoverable
-- Chronic postponing compounds (doubling) — the mechanic that actually enforces commitment
-- Goal completion (+200) is a jackpot moment; goal abandonment is a total loss — asymmetric on purpose
-- Numbers are v1; instrument everything and rebalance after beta
+**Honeycomb Score** is the non-spendable record of verified progress and Achievements across the user's BeeGreat history.
 
-## Honeycomb score & leaderboards (decided)
+- Spending Honey never reduces it.
+- Brain Fatigue never reduces it.
+- Abandoning or resurrecting a Goal does not erase historical score.
+- Future competition and Bee Cards use Honeycomb Score, not the user's spendable Honey balance.
 
-- **All-time leaderboard**: never resets — lifetime honey earned (losses subtract)
-- **Monthly leaderboard**: resets on the 1st of each month — keeps things contestable
-- **Friends leaderboard**: can be reset only if **every friend in the group agrees**
-- Score must be server-computed (anti-cheat) — see [03 – Architecture](03-architecture.md)
+The score formula and competitive periods remain later product decisions. It must be server-computed before any social comparison ships.
+
+## Active Goals and Brain Fatigue
+
+- **Three Active Goals** is the healthy focus threshold.
+- **Seven Active Goals** is the hard maximum.
+- Goals four through seven are allowed. In the intended economy, Goals four through six cause Goal-scoped Brain Fatigue following a bell-shaped curve, and a seventh Goal keeps the six-Goal penalty until Genius State is earned.
+- **Genius State** requires at least one Verified Progress Event on every one of seven Active Goals within a rolling seven-day window. While maintained, Brain Fatigue disappears completely.
+- At zero Honey, an affected GolieBee becomes Exhausted and cannot produce new Honey until the fatigue clears or Genius State is earned.
+
+The current first-focus proof enforces the hard maximum of seven and treats three as the healthy threshold, but it does **not** apply Brain Fatigue or settle any associated Honey penalty for Goals four through seven. FRA-463 owns the precise bell curve, event weighting, and settlement schedule.
+
+## Royal Jelly and Resurrection
+
+**Royal Jelly** is a separate gameplay currency for boosters, Resurrection, and other in-game advantages. It cannot directly unlock Goal completion, Achievement ranks, or Honeycomb Score.
+
+- How Royal Jelly is earned or purchased is intentionally undecided.
+- Resurrection returns the original Abandoned Goal directly to Active and turns its GhostyBee back into a GolieBee.
+- It refunds half the Honey actually removed at abandonment while preserving the original ledger and Achievements.
+- Resurrection can immediately affect Brain Fatigue like any other Goal activation.
+
+Royal Jelly, boosters, abandonment, and Resurrection are explicitly deferred from the first MVP proof.
 
 ## Achievements
 
-- Tied to streaks, goal completion, focus sessions
-- **Integration-based achievements**: e.g. GitHub connected → "committed X times" (details deferred)
-- Health achievements via Apple Health / Google Health when a highlight is health-related
-- Surfaced in the journal and on the Bee Card
+- Achievements are permanent, one-time recognition of meaningful milestones.
+- Ranked series use a separate permanent badge at each threshold; a higher rank never replaces a lower one.
+- A **GolieBee Achievement** belongs to one Goal's GolieBee.
+- A **Hive Achievement** belongs to the user's overall BeeGreat journey.
+
+Achievements are deferred from the first-focus proof.
 
 ## Design principles
 
-- Penalties should sting but never feel punitive enough to cause app abandonment (Forest's lesson: losing a tree hurts *just enough*)
-- The one exception is goal abandonment — that is *supposed* to hurt (bee death + honey wipe), because choosing your 3 goals carefully is the whole product
-- The hive visual doubles as the **daily summary page** — progress readable at a glance
-- Keep the metaphor consistent: goals = combs, projects = bees, work = foraging, score = honey stored
+- Progress feedback should feel immediate and celebratory without becoming pay-to-win.
+- Cosmetic expression uses Honey; gameplay advantages use Royal Jelly; permanent progress uses Honeycomb Score.
+- Penalties may slow future Honey production but never erase verified history or create debt.
+- Keep the metaphor consistent: the Hive belongs to the user, a GolieBee belongs to a Goal, and work produces verified progress.
+
+## Historical economy proposal (superseded, retained for context)
+
+On 2026-07-04, before FRA-453 established the canonical domain, the project delegated a numerical “Honey economy v1.” It proposed a bee per Project, treated lifetime Honey as competitive score, wiped Goal Honey on changes, and used a flat per-Goal penalty beyond three. Those assumptions are superseded; the values below are research inputs only, not current requirements.
+
+| Historical event                       |                Proposed Honey |
+| -------------------------------------- | ----------------------------: |
+| Complete a task                        |                            +5 |
+| Complete a subtask                     |                            +2 |
+| Complete a task on/before its due date |                      +5 bonus |
+| Complete a project                     |                           +50 |
+| Complete a goal                        |                          +200 |
+| Daily tracked focus                    |                       +10/day |
+| Focus session                          | +1 per 15 minutes, max +8/day |
+| Postpone a due date                    |      −10, doubling per repeat |
+| Miss a task/project deadline           |                     −25 / −75 |
+| Seven days of no Goal activity         |                        −5/day |
+
+These values have not been validated. Any future economy specification must start from the canonical Honey/Honeycomb Score/Royal Jelly separation above rather than tuning this table in place.

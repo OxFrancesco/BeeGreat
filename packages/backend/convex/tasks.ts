@@ -1,14 +1,24 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
-import { getUserId, requireUserId } from './helpers'
+import { settleActiveHighlightForAuthenticatedTask } from './firstFocus'
+import {
+  canAccessGoalFocusLineage,
+  deleteTaskFocusState,
+  requireGoalFocusOwner,
+} from './focusDeletion'
 
 /** All tasks in a project (todo + done), flat; the client builds the tree. */
 export const listByProject = query({
   args: { projectId: v.id('projects') },
   handler: async (ctx, { projectId }) => {
-    const userId = await getUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
     const project = await ctx.db.get(projectId)
-    if (!userId || !project || project.userId !== userId) {
+    if (
+      !identity ||
+      !project ||
+      project.userId !== identity.subject ||
+      !(await canAccessGoalFocusLineage(ctx, identity.tokenIdentifier, project.goalId))
+    ) {
       return []
     }
     const tasks = await ctx.db
@@ -35,14 +45,25 @@ export const listByProject = query({
 export const statuses = query({
   args: { taskIds: v.array(v.string()) },
   handler: async (ctx, { taskIds }) => {
-    const userId = await getUserId(ctx)
-    if (!userId) return []
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
     const result: { id: string; status: 'todo' | 'done' }[] = []
+    const focusAccessByGoal = new Map<string, boolean>()
     for (const raw of taskIds) {
       const taskId = ctx.db.normalizeId('tasks', raw)
       if (!taskId) continue
       const task = await ctx.db.get(taskId)
-      if (task && task.userId === userId) {
+      if (!task || task.userId !== identity.subject) continue
+      let canAccess = focusAccessByGoal.get(task.goalId)
+      if (canAccess === undefined) {
+        canAccess = await canAccessGoalFocusLineage(
+          ctx,
+          identity.tokenIdentifier,
+          task.goalId,
+        )
+        focusAccessByGoal.set(task.goalId, canAccess)
+      }
+      if (canAccess) {
         result.push({ id: taskId, status: task.status })
       }
     }
@@ -58,7 +79,9 @@ export const create = mutation({
     dueDate: v.optional(v.number()),
   },
   handler: async (ctx, { projectId, title, parentTaskId, dueDate }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    const userId = identity.subject
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A task needs a name')
@@ -67,6 +90,7 @@ export const create = mutation({
     if (!project || project.userId !== userId) {
       throw new Error('Project not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, project.goalId, 'Project not found')
     if (parentTaskId) {
       const parent = await ctx.db.get(parentTaskId)
       if (!parent || parent.projectId !== projectId) {
@@ -91,12 +115,16 @@ export const create = mutation({
 export const toggle = mutation({
   args: { taskId: v.id('tasks') },
   handler: async (ctx, { taskId }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
     const task = await ctx.db.get(taskId)
-    if (!task || task.userId !== userId) {
+    if (!task || task.userId !== identity.subject) {
       throw new Error('Task not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
     if (task.status === 'todo') {
+      const settlement = await settleActiveHighlightForAuthenticatedTask(ctx, taskId)
+      if (settlement) return
       await ctx.db.patch(taskId, { status: 'done', completedAt: Date.now() })
     } else {
       await ctx.db.patch(taskId, { status: 'todo', completedAt: undefined })
@@ -110,11 +138,13 @@ export const update = mutation({
     title: v.string(),
   },
   handler: async (ctx, { taskId, title }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
     const task = await ctx.db.get(taskId)
-    if (!task || task.userId !== userId) {
+    if (!task || task.userId !== identity.subject) {
       throw new Error('Task not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A task needs a name')
@@ -130,11 +160,13 @@ export const setDueDate = mutation({
     dueDate: v.union(v.null(), v.number()),
   },
   handler: async (ctx, { taskId, dueDate }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
     const task = await ctx.db.get(taskId)
-    if (!task || task.userId !== userId) {
+    if (!task || task.userId !== identity.subject) {
       throw new Error('Task not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
     await ctx.db.patch(taskId, { dueDate: dueDate ?? undefined })
   },
 })
@@ -142,11 +174,15 @@ export const setDueDate = mutation({
 export const remove = mutation({
   args: { taskId: v.id('tasks') },
   handler: async (ctx, { taskId }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    const userId = identity.subject
     const task = await ctx.db.get(taskId)
     if (!task || task.userId !== userId) {
       throw new Error('Task not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, task.goalId, 'Task not found')
+    const taskIds = [taskId]
     // Delete subtasks first so none are orphaned.
     if (!task.parentTaskId && task.projectId) {
       const siblings = await ctx.db
@@ -154,9 +190,11 @@ export const remove = mutation({
         .withIndex('by_project', (q) => q.eq('projectId', task.projectId))
         .collect()
       for (const subtask of siblings.filter((t) => t.parentTaskId === taskId)) {
+        taskIds.push(subtask._id)
         await ctx.db.delete(subtask._id)
       }
     }
+    await deleteTaskFocusState(ctx, identity.tokenIdentifier, taskIds)
     await ctx.db.delete(taskId)
   },
 })

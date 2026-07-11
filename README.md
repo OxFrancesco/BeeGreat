@@ -2,7 +2,7 @@
 
 > "Bee the best version of yourself."
 
-A deliberately constrained, voice-first focus app. Instead of becoming another giant task manager, Bee Great limits your active attention to a few things that matter now (up to 3 goals), keeps everything else out of view, and wraps your progress in a bee/hive gamification layer.
+A deliberately constrained, voice-first focus app. Instead of becoming another giant task manager, Bee Great treats three Active Goals as healthy and allows up to a hard maximum of seven. In the current proof, Goals four through seven are allowed without a Brain Fatigue penalty; FRA-463 owns that deferred settlement. Every user has one Hive, every Goal has one GolieBee, and one expiring Highlight identifies what matters now.
 
 Working title history: originally "Highlight", renamed **Bee Great**.
 
@@ -14,7 +14,7 @@ Bun workspace monorepo:
 BeeGreat/
 ├── apps/
 │   ├── mobile/            # @beegreat/mobile — Expo SDK 57 (iPhone + iPad), expo-router
-│   └── web/               # @beegreat/web — TanStack Start + Clerk (web twin)
+│   └── web/               # @beegreat/web — TanStack Start + Clerk shell (future twin)
 ├── packages/
 │   ├── backend/           # @beegreat/backend — shared Convex backend (schema + functions)
 │   └── agent/             # @beegreat/agent — Flue voice agent worker (Cloudflare target)
@@ -29,14 +29,14 @@ BeeGreat/
 
 All commands run from the repo root:
 
-| Command | What it runs |
-|---|---|
-| `bun run mobile` | `convex dev` + Expo **iOS simulator** |
-| `bun run mobile:android` | `convex dev` + Expo Android emulator |
-| `bun run web` | Vite dev server only (expects backend running) |
-| `bun run backend` | `convex dev` only (watches/pushes `packages/backend/convex`) |
-| `bun run agent` | `flue dev` — Bee voice agent worker on `http://localhost:3583` |
-| `bun run dev` | `convex dev` + web dev server together |
+| Command                  | What it runs                                                   |
+| ------------------------ | -------------------------------------------------------------- |
+| `bun run mobile`         | Convex + Bee agent + Expo **iOS simulator**                    |
+| `bun run mobile:android` | Convex + Bee agent + Expo Android emulator                     |
+| `bun run web`            | Vite dev server only (expects backend running)                 |
+| `bun run backend`        | `convex dev` only (watches/pushes `packages/backend/convex`)   |
+| `bun run agent`          | `flue dev` — Bee voice agent worker on `http://localhost:3583` |
+| `bun run dev`            | Every workspace package's `dev` script                         |
 
 Notes:
 
@@ -47,12 +47,12 @@ Notes:
 
 ### Environment files (not committed)
 
-| File | Contents |
-|---|---|
-| `packages/backend/.env.local` | `CONVEX_DEPLOYMENT` — used by `convex dev` |
-| `apps/web/.env.local` | `VITE_CONVEX_URL`, `VITE_CONVEX_SITE_URL` (+ Clerk keys per template docs) |
-| `packages/agent/.dev.vars` | `ELEVENLABS_API_KEY`, `OPENROUTER_API_KEY`, `CONVEX_URL` (see `.env.example`) |
-| `apps/mobile/.env` | `EXPO_PUBLIC_AGENT_URL` — agent worker URL (LAN IP for physical devices) |
+| File                          | Contents                                                                   |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `packages/backend/.env.local` | `CONVEX_DEPLOYMENT` — used by `convex dev`                                 |
+| `apps/web/.env.local`         | `VITE_CONVEX_URL`, `VITE_CONVEX_SITE_URL` (+ Clerk keys per template docs) |
+| `packages/agent/.dev.vars`    | Bee provider keys and `CONVEX_URL` (see `.env.example`)                    |
+| `apps/mobile/.env`            | `EXPO_PUBLIC_AGENT_URL` — agent worker URL (LAN IP for physical devices)   |
 
 ### Conventions
 
@@ -62,18 +62,19 @@ Notes:
 
 ## Documentation
 
-| Doc | Contents |
-|-----|----------|
-| [01 – Vision & Goals](docs/01-vision-and-goals.md) | Core concept, product goals, inspirations, naming |
-| [02 – Features](docs/02-features.md) | Full feature catalog, prioritized (MoSCoW) |
-| [03 – Architecture & Infra](docs/03-architecture.md) | Tech stack, platforms, services, data flow |
-| [04 – Gamification](docs/04-gamification.md) | Hive, honey, honeycomb score, achievements |
-| [05 – Voice Agent & Memory](docs/05-voice-agent.md) | Voice-first UX, generative UI, agent memory |
-| [06 – Social](docs/06-social.md) | Leaderboards, parties, Bee Card, handles |
-| [07 – MVP Scope & Roadmap](docs/07-mvp-scope-and-roadmap.md) | What ships first, what's explicitly deferred |
-| [08 – Open Questions](docs/08-open-questions.md) | Unresolved decisions and research items |
-| [09 – FRA-423 Memory Architecture](docs/09-fra-423-memory-architecture.md) | Canonical memory schema, privacy, retention, deletion, and retrieval evaluation |
+| Doc                                                                                          | Contents                                                                        |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [01 – Vision & Goals](docs/01-vision-and-goals.md)                                           | Core concept, product goals, inspirations, naming                               |
+| [02 – Features](docs/02-features.md)                                                         | Full feature catalog, prioritized (MoSCoW)                                      |
+| [03 – Architecture & Infra](docs/03-architecture.md)                                         | Tech stack, platforms, services, data flow                                      |
+| [04 – Gamification](docs/04-gamification.md)                                                 | Hive, honey, honeycomb score, achievements                                      |
+| [05 – Voice Agent & Memory](docs/05-voice-agent.md)                                          | Voice-first UX, generative UI, agent memory                                     |
+| [06 – Social](docs/06-social.md)                                                             | Leaderboards, parties, Bee Card, handles                                        |
+| [07 – MVP Scope & Roadmap](docs/07-mvp-scope-and-roadmap.md)                                 | What ships first, what's explicitly deferred                                    |
+| [08 – Open Questions](docs/08-open-questions.md)                                             | Unresolved decisions and research items                                         |
+| [09 – FRA-423 Memory Architecture](docs/09-fra-423-memory-architecture.md)                   | Canonical memory schema, privacy, retention, deletion, and retrieval evaluation |
+| [10 – Linear/Docs/Implementation Crosswalk](docs/10-linear-docs-implementation-crosswalk.md) | Current implementation evidence, planning decisions, and remaining gaps         |
 
 ## The pitch in one paragraph
 
-You open the app and talk to it. The agent knows your goals, spawns UI on demand (charts of your screen time, task lists, summaries), and auto-labels how you spend your time. You can hold at most 3 active goals; staying focused fills your honeycomb with honey, overcommitting or postponing deadlines drains it. Friends can join parties and compete on goals, and your Bee Card (unique handle + honeycomb score + socials) is shareable for networking.
+You open an empty Hive and tell Bee what you want to accomplish. Bee turns that intention into one editable Goal → Project → Task plan, proposes one time-boxed Highlight, and creates nothing until you confirm. Completing the highlighted Task clears the Highlight and gives immediate GolieBee/Hive feedback: cosmetic Honey plus permanent Honeycomb Score progress. This first-focus loop is the active MVP proof; advanced economy, generated bees, time tracking, integrations, social features, Royal Jelly, and multi-Goal Brain Fatigue remain later work.

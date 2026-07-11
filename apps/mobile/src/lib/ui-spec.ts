@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { firstFocusPreviewSchema } from '@/lib/first-focus';
+
 /**
  * The generative UI vocabulary shared with the Bee agent
  * (see packages/agent/src/agents/bee.md).
@@ -31,7 +33,12 @@ export const uiComponentSchema = z.discriminatedUnion('type', [
       }),
     ),
   }),
-  z.object({ type: z.literal('highlight'), title: z.string(), body: z.string() }),
+  z.object({
+    type: z.literal('highlight'),
+    title: z.string(),
+    body: z.string(),
+  }),
+  firstFocusPreviewSchema,
   z.object({
     type: z.literal('confirm'),
     summary: z.string(),
@@ -47,7 +54,10 @@ const uiSpecSchema = z.object({ components: z.array(uiComponentSchema) });
 const BEEUI_BLOCK = /```beeui\s*([\s\S]*?)```/g;
 
 /** Splits agent text into the spoken/displayed sentence and validated UI components. */
-export function extractBeeUI(text: string): { spoken: string; components: UIComponent[] } {
+export function extractBeeUI(text: string): {
+  spoken: string;
+  components: UIComponent[];
+} {
   const components: UIComponent[] = [];
   const spoken = text
     .replace(BEEUI_BLOCK, (_match, json: string) => {

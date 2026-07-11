@@ -9,25 +9,29 @@
 
 The agent **is** the home screen. Voice input first; the UI is spawned by the agent in response to what you ask.
 
-### Interaction flow
+### Selected MVP interaction (FRA-459)
 
-1. App opens on the agent (mic-first)
-2. User speaks: e.g. "How much time did I spend on my iPhone, Mac, and iPad today?"
-3. Agent collapses into a **Dynamic Island**-style pill at the top
-4. Below it, generated content streams in: a chart of screen time across the three devices, auto-labeled (Linear = work, YouTube/Instagram = doomscrolling), plus text commentary
-5. A **Highlight view** is always available: super concise, information-dense snapshot of today's highlights
+1. A first-time user opens an empty Hive and speaks an intended outcome (text is always available).
+2. Bee asks at most one clarifying question when the outcome is too vague.
+3. Bee returns one editable preview containing a Goal, Project, Task, and time-boxed Highlight.
+4. Explicit confirmation persists the complete plan atomically. Cancel creates nothing; retry never duplicates the plan.
+5. The user completes the highlighted Task by voice or tap.
+6. The Highlight clears and the GolieBee/Hive immediately react with Goal-attributed Honey and Honeycomb Score progress.
+
+Cross-device time questions, charts, broad agent actions, and open-ended generated UI remain part of the longer-term concept but are not required to prove this loop.
 
 ### Generative UI
 
 - Agent responses are structured (JSON UI spec), rendered natively by each client (Expo + TanStack web from a shared component vocabulary)
-- Component vocabulary (initial): text block, metric card, bar/pie chart, task list, goal/highlight card, journal entry, confirmation prompt
-- Agent can also **act**: create tasks, log journal entries, adjust goals (with confirmation for destructive actions)
+- The first vocabulary must support an editable plan preview, confirmation/cancel, Task completion, Highlight state, and Hive feedback. Existing text/metric/chart/task components remain useful evidence but are not the proof boundary.
+- User-facing writes require explicit confirmation; the backend owns idempotency and atomicity.
+- Malformed generated UI falls back to an accessible textual preview without losing or creating work.
 
 ## The agent knows the user
 
 Requirement from braindump: the agent "needs to know everything about the user and what their final goal is and how to help him with the goal."
 
-- User profile: goals (and the *final* goal behind them), habits, schedule, integrations
+- User profile: goals (and the _final_ goal behind them), habits, schedule, integrations
 - Context includes time-tracking data, task state, honey/score history, journal
 
 ## Memory layer (historical 2026-07-04 decision: SuperMemory)
@@ -43,7 +47,7 @@ Requirement from braindump: the agent "needs to know everything about the user a
 ```
 mic → ElevenLabs STT
     → Flue agent (defineAgent) on Cloudflare Workers (Durable Object per user)
-    → tools: Convex queries/mutations, integrations, SuperMemory, FAL (bee avatars)
+    → tools: Convex queries/mutations and canonical Convex memory
     → LLM via OpenRouter (GPT 5.5 low for simple, Fable 5 for orchestration)
     → response: text + ElevenLabs TTS + UI spec → client renders
 ```
@@ -54,3 +58,11 @@ mic → ElevenLabs STT
 - Rate limiting per user/session
 - Zod-validate every tool call input/output
 - Fallback to text input everywhere (accessibility + noisy environments)
+- Support microphone denial, failed transcription, lost connectivity, malformed UI, reduced motion, and screen-reader labels without losing or duplicating confirmed work
+- Performance targets: useful spoken response starts within 4 seconds p95; complete preview within 8 seconds p95; confirmed state visible within 2 seconds p95
+
+## Proof success bar
+
+- At least **4 of 5** first-time users finish the loop unassisted within five minutes.
+- At least **4 of 5** correctly explain the distinction between a Goal and a Highlight.
+- After at least **25 users activate** by confirming a first plan and completing its highlighted Task, at least **40%** repeat the Highlight → Verified Progress loop on three distinct days in their first week.

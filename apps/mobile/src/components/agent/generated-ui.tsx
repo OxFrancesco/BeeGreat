@@ -4,8 +4,9 @@ import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
+import { FirstFocusPreviewCard } from '@/components/first-focus/first-focus-preview-card';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,11 +21,21 @@ export function GeneratedUI({
   /** Sends a message back to the agent (used by interactive cards). */
   onReply?: (text: string) => void;
 }) {
+  const reducedMotion = useReducedMotion();
   if (components.length === 0) return null;
   return (
     <View style={styles.stack}>
       {components.map((component, index) => (
-        <Animated.View key={index} entering={FadeInDown.delay(index * 80).springify().damping(18)}>
+        <Animated.View
+          key={index}
+          entering={
+            reducedMotion
+              ? undefined
+              : FadeInDown.delay(index * 80)
+                  .springify()
+                  .damping(18)
+          }
+        >
           <UIComponentView component={component} onReply={onReply} />
         </Animated.View>
       ))}
@@ -50,6 +61,8 @@ function UIComponentView({
       return <TaskListCard {...component} />;
     case 'highlight':
       return <HighlightCard {...component} />;
+    case 'first_focus':
+      return <FirstFocusPreviewCard preview={component} />;
     case 'confirm':
       return <ConfirmCard {...component} onReply={onReply} />;
   }
@@ -137,7 +150,9 @@ function TaskListCard({
   const theme = useTheme();
   // The card is a snapshot from the agent; overlay live Convex state so rows
   // stay in sync with the Goals pages and stay tappable to complete tasks.
-  const live = useQuery(api.tasks.statuses, { taskIds: items.map((item) => item.id) });
+  const live = useQuery(api.tasks.statuses, {
+    taskIds: items.map((item) => item.id),
+  });
   const toggle = useMutation(api.tasks.toggle);
   const liveById = new Map(live?.map((task) => [task.id, task.status]));
 

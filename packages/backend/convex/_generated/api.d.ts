@@ -9,6 +9,9 @@
  */
 
 import type * as agent from "../agent.js";
+import type * as firstFocus from "../firstFocus.js";
+import type * as focusConstants from "../focusConstants.js";
+import type * as focusDeletion from "../focusDeletion.js";
 import type * as goals from "../goals.js";
 import type * as helpers from "../helpers.js";
 import type * as memories from "../memories.js";
@@ -30,6 +33,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
+  firstFocus: typeof firstFocus;
+  focusConstants: typeof focusConstants;
+  focusDeletion: typeof focusDeletion;
   goals: typeof goals;
   helpers: typeof helpers;
   memories: typeof memories;

@@ -1,14 +1,23 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
-import { getUserId, requireUserId } from './helpers'
+import {
+  canAccessGoalFocusLineage,
+  deleteProjectFocusState,
+  requireGoalFocusOwner,
+} from './focusDeletion'
 
 /** One project with its parent goal, for the project page header. */
 export const get = query({
   args: { projectId: v.id('projects') },
   handler: async (ctx, { projectId }) => {
-    const userId = await getUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
     const project = await ctx.db.get(projectId)
-    if (!userId || !project || project.userId !== userId) {
+    if (
+      !identity ||
+      !project ||
+      project.userId !== identity.subject ||
+      !(await canAccessGoalFocusLineage(ctx, identity.tokenIdentifier, project.goalId))
+    ) {
       return null
     }
     const goal = await ctx.db.get(project.goalId)
@@ -37,11 +46,13 @@ export const setDue = mutation({
     ),
   },
   handler: async (ctx, { projectId, due }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
     const project = await ctx.db.get(projectId)
-    if (!project || project.userId !== userId) {
+    if (!project || project.userId !== identity.subject) {
       throw new Error('Project not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, project.goalId, 'Project not found')
     if (due && due.quarter !== undefined && (due.quarter < 1 || due.quarter > 4)) {
       throw new Error('Quarter must be between 1 and 4')
     }
@@ -55,11 +66,13 @@ export const update = mutation({
     title: v.string(),
   },
   handler: async (ctx, { projectId, title }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
     const project = await ctx.db.get(projectId)
-    if (!project || project.userId !== userId) {
+    if (!project || project.userId !== identity.subject) {
       throw new Error('Project not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, project.goalId, 'Project not found')
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A project needs a name')
@@ -72,11 +85,14 @@ export const update = mutation({
 export const remove = mutation({
   args: { projectId: v.id('projects') },
   handler: async (ctx, { projectId }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    const userId = identity.subject
     const project = await ctx.db.get(projectId)
     if (!project || project.userId !== userId) {
       throw new Error('Project not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, project.goalId, 'Project not found')
     const tasks = await ctx.db
       .query('tasks')
       .withIndex('by_project', (q) => q.eq('projectId', projectId))
@@ -84,6 +100,7 @@ export const remove = mutation({
     for (const task of tasks) {
       await ctx.db.delete(task._id)
     }
+    await deleteProjectFocusState(ctx, identity.tokenIdentifier, projectId)
     await ctx.db.delete(projectId)
   },
 })
@@ -94,7 +111,9 @@ export const create = mutation({
     title: v.string(),
   },
   handler: async (ctx, { goalId, title }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    const userId = identity.subject
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A project needs a name')
@@ -103,6 +122,7 @@ export const create = mutation({
     if (!goal || goal.userId !== userId) {
       throw new Error('Goal not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, goalId)
     return await ctx.db.insert('projects', {
       userId,
       goalId,

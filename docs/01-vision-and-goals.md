@@ -2,27 +2,28 @@
 
 ## Core concept
 
-A **deliberately constrained focus app** that limits active attention instead of becoming a giant task manager. The product helps the user pick the few things that matter *now* and keeps everything else out of view.
+A **deliberately constrained focus app** that limits active attention instead of becoming a giant task manager. The product helps the user pick the few things that matter _now_ and keeps everything else out of view.
 
-Hard constraint that defines the product:
+Focus constraints that define the product:
 
-- Max **3 active goals** at a time (each goal has projects, projects have tasks/subtasks)
-- Originally framed as "3 habits + 3 projects" (Highlight concept); evolved into goals → projects → tasks
-- Exceeding 3 goals has an in-app cost ("brain fatigue" drains honey — see [04 – Gamification](04-gamification.md))
+- **Three Active Goals is healthy; seven is the hard maximum.** Goals four through seven are allowed. Brain Fatigue and Genius State describe the intended economy, but FRA-463 owns their settlement rules; the current proof applies no Brain Fatigue penalty.
+- The durable hierarchy is **Goal → Project → Task → optional one-level Subtask**.
+- Every Goal has exactly one **GolieBee**. Bee is the user's personal voice agent, not the Goal character.
+- Every user has one current, time-boxed **Highlight** pointing to an actionable Goal, Project, or Task. It owns no work and expires by default at the end of the user's local day.
 
 ## Why voice-first
 
 The app's home screen **is** the agent. There is no traditional dashboard as the entry point:
 
 - You talk; the agent answers with **spawned UI** (charts, cards, task lists) and text
-- Example: "How much time did I spend on my iPhone, Mac, and iPad?" → agent renders a chart of screen time across devices, auto-labeled (Linear = work, YouTube/Instagram = doomscrolling, etc.)
-- A **Highlight view** stays always concise and information-dense
+- The first proof is intentionally narrow: speak an intended outcome → review an editable Goal/Project/Task/Highlight preview → confirm once → complete the highlighted Task → see the Hive react.
+- Rich questions such as cross-device screen-time analysis remain part of the longer-term vision, not the first proof.
 
 ## Product goals
 
-1. **Focus**: keep the user's attention on ≤3 goals; everything else is hidden
+1. **Focus**: make three Active Goals the healthy state, permit deliberate overcommitment up to seven, and surface one current Highlight
 2. **Awareness**: automatic time tracking + auto-labeling shows where attention actually goes
-3. **Motivation**: gamification (hive/honey/achievements) makes consistency rewarding and postponing costly
+3. **Motivation**: GolieBee/Hive feedback, cosmetic Honey, and permanent Honeycomb Score make verified progress tangible
 4. **Personal agent**: one agent that knows everything about the user, their final goal, and how to help them get there (persistent memory)
 5. **Accountability with friends**: leaderboards, parties, shared goals ("Bee Greater with Friends")
 
@@ -39,7 +40,8 @@ The app's home screen **is** the agent. There is no traditional dashboard as the
 - **Forest** — the "keep a thing alive" mechanic (we do it with bees/hive instead of trees)
 - Dima Groshev's concept posts on X (generative-UI agent apps)
 
-## Early open decisions (from the original braindump)
+## Historical framing
 
-- Habits/projects: fixed slots vs rotating slots vs time-boxed highlights → current direction: **3 goal slots**, details TBD
-- Standalone app vs OpenClaw workflow vs Linear/Notion companion → current direction: **standalone app** (mobile + iPad + web twin + desktop companion)
+The original braindump described three fixed goal slots, a bee per Project, and a Highlight as a possible hierarchy level. FRA-453 superseded those assumptions on 2026-07-10 with the canonical model above. This history is retained so older implementation choices remain understandable.
+
+The standalone product direction remains: mobile first, with iPad, web, and desktop capabilities introduced only when the core focus loop justifies them.

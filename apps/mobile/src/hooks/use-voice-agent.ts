@@ -1,5 +1,8 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { useFlueAgent } from '@flue/react';
+import { api } from '@beegreat/backend/convex/_generated/api';
+import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
+import { useMutation, useQuery } from 'convex/react';
 import {
   AudioModule,
   RecordingPresets,
@@ -13,6 +16,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OrbState } from '@/components/agent/voice-orb';
 import { useBeeLiveActivity } from '@/hooks/use-live-activity';
 import { BEE_AGENT_NAME, createBeeFlueClient, flueClient } from '@/lib/flue';
+import {
+  confirmPendingFirstFocus,
+  isFirstFocusConfirmation,
+  isHighlightCompletion,
+} from '@/lib/first-focus-confirmation';
 import {
   getSpeakReplies,
   setThreadTitle,
@@ -45,11 +53,7 @@ export function useVoiceAgent() {
   const thread = useActiveThread();
   // Thread 0 keeps the original `userId` conversation; later threads append a
   // `~N` suffix (the agent strips it to recover the user id for its tools).
-  const conversationId = userId
-    ? thread > 0
-      ? `${userId}~${thread}`
-      : userId
-    : 'signed-out';
+  const conversationId = userId ? (thread > 0 ? `${userId}~${thread}` : userId) : 'signed-out';
   const [client, setClient] = useState(() => flueClient);
   const agent = useFlueAgent({
     name: BEE_AGENT_NAME,
@@ -57,6 +61,9 @@ export function useVoiceAgent() {
     live: 'long-poll',
     client,
   });
+  const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {});
+  const completeHighlight = useMutation(api.firstFocus.completeHighlight);
+  const activeHighlight = currentFirstFocus?.activeHighlight;
 
   // The SDK treats 401 as fatal and stops polling, but for us it's a transient
   // auth hiccup (Clerk token not ready right after launch/resume). Swap in a
@@ -113,9 +120,7 @@ export function useVoiceAgent() {
   // Speak each assistant reply once it has fully streamed in.
   useEffect(() => {
     if (!seededHistory.current || agent.status !== 'idle') return;
-    const latest = [...agent.messages]
-      .reverse()
-      .find((message) => message.role === 'assistant');
+    const latest = [...agent.messages].reverse().find((message) => message.role === 'assistant');
     if (!latest || spokenIds.current.has(latest.id)) return;
     if (!speakReplies) {
       // Voice replies are off: mark as handled so toggling back on later
@@ -138,7 +143,10 @@ export function useVoiceAgent() {
       try {
         const uri = await synthesizeSpeech(spoken);
         if (cancelled) return;
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        await setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+        });
         player.replace(uri);
         player.play();
         setSpeaking(true);
@@ -191,9 +199,51 @@ export function useVoiceAgent() {
         player.pause();
         setSpeaking(false);
       }
+      // A visible first-focus preview is authoritative. Voice transcripts and
+      // typed confirmations take the same authenticated client mutation path
+      // as tapping the card, avoiding a second server-side interpretation.
+      if (isFirstFocusConfirmation(text)) {
+        const confirmation = await confirmPendingFirstFocus();
+        if (confirmation === 'confirmed') {
+          await agent.sendMessage(
+            '[BeeGreat app event] The first-focus plan was confirmed and persisted successfully. Acknowledge it; do not create or mutate the plan again.',
+          );
+          return;
+        }
+        if (confirmation === 'failed') return;
+      }
+      // Completion stays in the authenticated client just like the Hive tap.
+      // Explicit voice transcripts and typed commands share the same stable
+      // idempotency key, so a retry can never award progress twice.
+      if (isHighlightCompletion(text) && activeHighlight) {
+        const highlight = activeHighlight;
+        try {
+          const result = await completeHighlight({
+            requestId: `complete-highlight:${highlight.highlightId}`,
+            taskId: highlight.taskId as Id<'tasks'>,
+          });
+          await agent.sendMessage(
+            `[BeeGreat app event] Highlight "${highlight.title}" was completed successfully. The verified award was ${result.honeyAwarded} Honey and ${result.scoreAwarded} Honeycomb Score. Acknowledge this completion and reward only; do not call a completion tool or create, update, or mutate any data again.`,
+          );
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } catch (cause) {
+          setVoiceError(
+            cause instanceof Error ? cause.message : 'This Highlight could not be completed.',
+          );
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+        return;
+      }
       await agent.sendMessage(text);
     },
-    [agent, player, speaking, resetConversation],
+    [
+      agent,
+      completeHighlight,
+      activeHighlight,
+      player,
+      resetConversation,
+      speaking,
+    ],
   );
 
   const toggleRecording = useCallback(async () => {
@@ -228,7 +278,10 @@ export function useVoiceAgent() {
         player.pause();
         setSpeaking(false);
       }
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      });
       await recorder.prepareToRecordAsync();
       recorder.record();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

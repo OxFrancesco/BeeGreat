@@ -2,9 +2,13 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
 import type { QueryCtx } from './_generated/server'
-import { getUserId, requireUserId } from './helpers'
-
-export const MAX_ACTIVE_GOALS = 3
+import {
+  canAccessGoalFocusLineage,
+  countAccessibleActiveGoals,
+  deleteGoalFocusState,
+  requireGoalFocusOwner,
+} from './focusDeletion'
+import { MAX_ACTIVE_GOALS } from './focusConstants'
 
 async function projectSummary(ctx: QueryCtx, project: Doc<'projects'>) {
   const tasks = await ctx.db
@@ -26,14 +30,20 @@ async function projectSummary(ctx: QueryCtx, project: Doc<'projects'>) {
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await getUserId(ctx)
-    if (!userId) return []
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) return []
     const goals = await ctx.db
       .query('goals')
-      .withIndex('by_user', (q) => q.eq('userId', userId).eq('status', 'active'))
+      .withIndex('by_user', (q) => q.eq('userId', identity.subject).eq('status', 'active'))
       .collect()
+    const visibleGoals: Doc<'goals'>[] = []
+    for (const goal of goals) {
+      if (await canAccessGoalFocusLineage(ctx, identity.tokenIdentifier, goal._id)) {
+        visibleGoals.push(goal)
+      }
+    }
     return Promise.all(
-      goals.map(async (goal) => {
+      visibleGoals.map(async (goal) => {
         const projects = await ctx.db
           .query('projects')
           .withIndex('by_goal', (q) => q.eq('goalId', goal._id).eq('status', 'active'))
@@ -63,9 +73,14 @@ export const list = query({
 export const get = query({
   args: { goalId: v.id('goals') },
   handler: async (ctx, { goalId }) => {
-    const userId = await getUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
     const goal = await ctx.db.get(goalId)
-    if (!userId || !goal || goal.userId !== userId) {
+    if (
+      !identity ||
+      !goal ||
+      goal.userId !== identity.subject ||
+      !(await canAccessGoalFocusLineage(ctx, identity.tokenIdentifier, goalId))
+    ) {
       return null
     }
     const projects = await ctx.db
@@ -88,21 +103,53 @@ export const create = mutation({
     finalGoal: v.optional(v.string()),
   },
   handler: async (ctx, { title, finalGoal }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    const userId = identity.subject
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A goal needs a name')
     }
-    const active = await ctx.db
-      .query('goals')
-      .withIndex('by_user', (q) => q.eq('userId', userId).eq('status', 'active'))
-      .collect()
-    if (active.length >= MAX_ACTIVE_GOALS) {
+    const accessibleActiveCount = await countAccessibleActiveGoals(
+      ctx,
+      identity.tokenIdentifier,
+      userId,
+    )
+    if (accessibleActiveCount >= MAX_ACTIVE_GOALS) {
       throw new Error(
-        `All ${MAX_ACTIVE_GOALS} combs are full. Complete or archive a goal to free one up.`,
+        `A Hive can have at most ${MAX_ACTIVE_GOALS} Active Goals. Complete or archive one before adding another.`,
       )
     }
-    return await ctx.db.insert('goals', { userId, title: trimmed, finalGoal, status: 'active' })
+    let hive = await ctx.db
+      .query('hives')
+      .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.tokenIdentifier))
+      .unique()
+    if (!hive) {
+      const hiveId = await ctx.db.insert('hives', {
+        ownerKey: identity.tokenIdentifier,
+        userId,
+        honeyBalance: 0,
+        honeycombScore: 0,
+      })
+      hive = await ctx.db.get('hives', hiveId)
+    }
+    if (!hive) throw new Error('Failed to create Hive')
+
+    const goalId = await ctx.db.insert('goals', {
+      userId,
+      title: trimmed,
+      finalGoal,
+      status: 'active',
+    })
+    await ctx.db.insert('golieBees', {
+      ownerKey: identity.tokenIdentifier,
+      userId,
+      goalId,
+      seed: goalId,
+      variant: 'mvp-default',
+      status: 'active',
+    })
+    return goalId
   },
 })
 
@@ -112,11 +159,14 @@ export const update = mutation({
     title: v.string(),
   },
   handler: async (ctx, { goalId, title }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    const userId = identity.subject
     const goal = await ctx.db.get(goalId)
     if (!goal || goal.userId !== userId) {
       throw new Error('Goal not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, goalId)
     const trimmed = title.trim()
     if (!trimmed) {
       throw new Error('A goal needs a name')
@@ -129,11 +179,14 @@ export const update = mutation({
 export const remove = mutation({
   args: { goalId: v.id('goals') },
   handler: async (ctx, { goalId }) => {
-    const userId = await requireUserId(ctx)
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    const userId = identity.subject
     const goal = await ctx.db.get(goalId)
     if (!goal || goal.userId !== userId) {
       throw new Error('Goal not found')
     }
+    await requireGoalFocusOwner(ctx, identity.tokenIdentifier, goalId)
     const tasks = await ctx.db
       .query('tasks')
       .withIndex('by_goal', (q) => q.eq('goalId', goalId))
@@ -148,6 +201,7 @@ export const remove = mutation({
     for (const project of projects) {
       await ctx.db.delete(project._id)
     }
+    await deleteGoalFocusState(ctx, identity.tokenIdentifier, goalId)
     await ctx.db.delete(goalId)
   },
 })
