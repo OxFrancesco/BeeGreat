@@ -9,6 +9,7 @@
  */
 
 import type * as agent from "../agent.js";
+import type * as chat from "../chat.js";
 import type * as chatgptAuth from "../chatgptAuth.js";
 import type * as chatgptAuthActions from "../chatgptAuthActions.js";
 import type * as chatgptAuthValidators from "../chatgptAuthValidators.js";
@@ -48,6 +49,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
+  chat: typeof chat;
   chatgptAuth: typeof chatgptAuth;
   chatgptAuthActions: typeof chatgptAuthActions;
   chatgptAuthValidators: typeof chatgptAuthValidators;

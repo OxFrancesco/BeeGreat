@@ -53,6 +53,50 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
 
+  // Convex is the account-wide source of truth for Bee conversations. Flue
+  // still executes agent turns, while these rows make thread navigation and
+  // transcripts reactive across every signed-in device.
+  chatThreads: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    threadId: v.number(),
+    title: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key_and_thread_id', ['ownerKey', 'threadId'])
+    .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt']),
+
+  chatPreferences: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    activeThreadId: v.number(),
+    updatedAt: v.number(),
+  }).index('by_owner_key', ['ownerKey']),
+
+  chatMessages: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    threadId: v.number(),
+    messageId: v.string(),
+    role: v.union(v.literal('user'), v.literal('assistant')),
+    // Flue message parts are versioned by Flue. Keeping their JSON envelope
+    // intact preserves tool/reasoning parts without weakening our schema.
+    contentJson: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key_and_thread_id_and_created_at', [
+      'ownerKey',
+      'threadId',
+      'createdAt',
+    ])
+    .index('by_owner_key_and_thread_id_and_message_id', [
+      'ownerKey',
+      'threadId',
+      'messageId',
+    ]),
+
   // Short-lived PKCE state for the Google Health consent redirect. The state
   // is hashed for lookup and the verifier is encrypted at rest.
   googleHealthAuthSessions: defineTable({

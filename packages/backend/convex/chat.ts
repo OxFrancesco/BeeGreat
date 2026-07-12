@@ -1,0 +1,261 @@
+import { ConvexError, v } from 'convex/values'
+import type { MutationCtx, QueryCtx } from './_generated/server'
+import { mutation, query } from './_generated/server'
+
+const MAX_MESSAGES_PER_SYNC = 200
+const MAX_MESSAGE_JSON_BYTES = 512_000
+
+const threadValidator = v.object({
+  id: v.number(),
+  createdAt: v.number(),
+  title: v.optional(v.string()),
+})
+
+const messageValidator = v.object({
+  id: v.string(),
+  role: v.union(v.literal('user'), v.literal('assistant')),
+  contentJson: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+})
+
+async function requireIdentity(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity()
+  if (!identity) {
+    throw new ConvexError({ code: 'UNAUTHENTICATED', message: 'Authentication required' })
+  }
+  return {
+    ownerKey: identity.tokenIdentifier,
+    userId: identity.subject,
+  }
+}
+
+async function findThread(
+  ctx: QueryCtx | MutationCtx,
+  ownerKey: string,
+  threadId: number,
+) {
+  return await ctx.db
+    .query('chatThreads')
+    .withIndex('by_owner_key_and_thread_id', (q) =>
+      q.eq('ownerKey', ownerKey).eq('threadId', threadId),
+    )
+    .unique()
+}
+
+async function requireThread(
+  ctx: QueryCtx | MutationCtx,
+  ownerKey: string,
+  threadId: number,
+) {
+  if (threadId === 0) return
+  if (!(await findThread(ctx, ownerKey, threadId))) {
+    throw new ConvexError({ code: 'NOT_FOUND', message: 'Conversation not found' })
+  }
+}
+
+export const listThreads = query({
+  args: {},
+  returns: v.array(threadValidator),
+  handler: async (ctx) => {
+    const { ownerKey } = await requireIdentity(ctx)
+    const rows = await ctx.db
+      .query('chatThreads')
+      .withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))
+      .order('asc')
+      .collect()
+    if (rows.length === 0) return [{ id: 0, createdAt: 0 }]
+    return rows.map((row) => ({
+      id: row.threadId,
+      createdAt: row.createdAt,
+      ...(row.title ? { title: row.title } : {}),
+    }))
+  },
+})
+
+export const getActiveThread = query({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const { ownerKey } = await requireIdentity(ctx)
+    const preferences = await ctx.db
+      .query('chatPreferences')
+      .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
+      .unique()
+    return preferences?.activeThreadId ?? 0
+  },
+})
+
+export const createThread = mutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const identity = await requireIdentity(ctx)
+    const newest = await ctx.db
+      .query('chatThreads')
+      .withIndex('by_owner_key_and_created_at', (q) =>
+        q.eq('ownerKey', identity.ownerKey),
+      )
+      .order('desc')
+      .first()
+    const now = Date.now()
+    const threadId = Math.max(now, (newest?.threadId ?? 0) + 1)
+    await ctx.db.insert('chatThreads', {
+      ...identity,
+      threadId,
+      createdAt: now,
+      updatedAt: now,
+    })
+    const preferences = await ctx.db
+      .query('chatPreferences')
+      .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
+      .unique()
+    if (preferences) {
+      await ctx.db.patch('chatPreferences', preferences._id, {
+        activeThreadId: threadId,
+        updatedAt: now,
+      })
+    } else {
+      await ctx.db.insert('chatPreferences', {
+        ...identity,
+        activeThreadId: threadId,
+        updatedAt: now,
+      })
+    }
+    return threadId
+  },
+})
+
+export const setActiveThread = mutation({
+  args: { threadId: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    await requireThread(ctx, identity.ownerKey, args.threadId)
+    const now = Date.now()
+    const preferences = await ctx.db
+      .query('chatPreferences')
+      .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
+      .unique()
+    if (preferences) {
+      await ctx.db.patch('chatPreferences', preferences._id, {
+        activeThreadId: args.threadId,
+        updatedAt: now,
+      })
+    } else {
+      await ctx.db.insert('chatPreferences', {
+        ...identity,
+        activeThreadId: args.threadId,
+        updatedAt: now,
+      })
+    }
+    return null
+  },
+})
+
+export const setThreadTitle = mutation({
+  args: { threadId: v.number(), title: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const title = args.title.trim().slice(0, 64)
+    if (!title) return null
+    const existing = await findThread(ctx, identity.ownerKey, args.threadId)
+    if (existing) {
+      if (!existing.title) {
+        await ctx.db.patch('chatThreads', existing._id, { title, updatedAt: Date.now() })
+      }
+    } else if (args.threadId === 0) {
+      const now = Date.now()
+      await ctx.db.insert('chatThreads', {
+        ...identity,
+        threadId: 0,
+        title,
+        createdAt: now,
+        updatedAt: now,
+      })
+    } else {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Conversation not found' })
+    }
+    return null
+  },
+})
+
+export const listMessages = query({
+  args: { threadId: v.number() },
+  returns: v.array(messageValidator),
+  handler: async (ctx, args) => {
+    const { ownerKey } = await requireIdentity(ctx)
+    await requireThread(ctx, ownerKey, args.threadId)
+    const rows = await ctx.db
+      .query('chatMessages')
+      .withIndex('by_owner_key_and_thread_id_and_created_at', (q) =>
+        q.eq('ownerKey', ownerKey).eq('threadId', args.threadId),
+      )
+      .order('asc')
+      .collect()
+    return rows.map((row) => ({
+      id: row.messageId,
+      role: row.role,
+      contentJson: row.contentJson,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }))
+  },
+})
+
+export const syncMessages = mutation({
+  args: {
+    threadId: v.number(),
+    messages: v.array(
+      v.object({
+        id: v.string(),
+        role: v.union(v.literal('user'), v.literal('assistant')),
+        contentJson: v.string(),
+        createdAt: v.number(),
+      }),
+    ),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    await requireThread(ctx, identity.ownerKey, args.threadId)
+    if (args.messages.length > MAX_MESSAGES_PER_SYNC) {
+      throw new ConvexError({ code: 'TOO_LARGE', message: 'Too many messages to sync' })
+    }
+    const now = Date.now()
+    for (const message of args.messages) {
+      if (!message.id || new TextEncoder().encode(message.contentJson).length > MAX_MESSAGE_JSON_BYTES) {
+        throw new ConvexError({ code: 'TOO_LARGE', message: 'Message is too large to sync' })
+      }
+      const existing = await ctx.db
+        .query('chatMessages')
+        .withIndex('by_owner_key_and_thread_id_and_message_id', (q) =>
+          q
+            .eq('ownerKey', identity.ownerKey)
+            .eq('threadId', args.threadId)
+            .eq('messageId', message.id),
+        )
+        .unique()
+      if (existing) {
+        if (existing.contentJson !== message.contentJson) {
+          await ctx.db.patch('chatMessages', existing._id, {
+            contentJson: message.contentJson,
+            updatedAt: now,
+          })
+        }
+      } else {
+        await ctx.db.insert('chatMessages', {
+          ...identity,
+          threadId: args.threadId,
+          messageId: message.id,
+          role: message.role,
+          contentJson: message.contentJson,
+          createdAt: message.createdAt,
+          updatedAt: now,
+        })
+      }
+    }
+    return null
+  },
+})

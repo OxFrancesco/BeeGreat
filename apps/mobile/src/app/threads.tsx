@@ -7,11 +7,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import {
-  setActiveThread,
-  startNewThread,
-  useActiveThread,
-  useThreads,
-} from '@/lib/preferences';
+  useActiveChatThread,
+  useChatThreadActions,
+  useChatThreads,
+} from '@/hooks/use-convex-chat';
 
 const HONEY = '#FAB52A';
 
@@ -25,12 +24,13 @@ function formatCreatedAt(createdAt: number) {
 /** Sheet listing recent conversation threads; tap one to jump back into it. */
 export default function ThreadsScreen() {
   const theme = useTheme();
-  const threads = useThreads();
-  const active = useActiveThread();
+  const threads = useChatThreads();
+  const active = useActiveChatThread();
+  const { activateThread, createThread } = useChatThreadActions();
   const newest = [...threads].sort((a, b) => b.id - a.id);
 
-  const open = (id: number) => {
-    setActiveThread(id);
+  const open = async (id: number) => {
+    await activateThread(id);
     router.back();
   };
 
@@ -65,8 +65,8 @@ export default function ThreadsScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Start a new conversation"
-          onPress={() => {
-            startNewThread();
+          onPress={async () => {
+            await createThread();
             router.back();
           }}
           style={({ pressed }) => [styles.row, pressed && styles.pressed]}

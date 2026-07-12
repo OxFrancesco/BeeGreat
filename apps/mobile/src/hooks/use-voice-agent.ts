@@ -15,6 +15,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { OrbState } from '@/components/agent/voice-orb';
 import { useBeeLiveActivity } from '@/hooks/use-live-activity';
+import {
+  useActiveChatThread,
+  useChatThreadActions,
+  useConvexMessages,
+} from '@/hooks/use-convex-chat';
 import { BEE_AGENT_NAME, createBeeFlueClient, flueClient } from '@/lib/flue';
 import {
   confirmPendingFirstFocus,
@@ -23,10 +28,7 @@ import {
 } from '@/lib/first-focus-confirmation';
 import {
   getSpeakReplies,
-  setThreadTitle,
-  startNewThread,
   subscribeSpeakReplies,
-  useActiveThread,
   useSpeakReplies,
 } from '@/lib/preferences';
 import { getToolCopy } from '@/lib/tool-labels';
@@ -50,7 +52,8 @@ function friendlyErrorMessage(error: Error | undefined): string | undefined {
 export function useVoiceAgent() {
   // This hook only renders behind the signed-in route guard, so userId is always set.
   const { userId } = useAuth();
-  const thread = useActiveThread();
+  const thread = useActiveChatThread();
+  const { createThread, titleThread } = useChatThreadActions();
   // Thread 0 keeps the original `userId` conversation; later threads append a
   // `~N` suffix (the agent strips it to recover the user id for its tools).
   const conversationId = userId ? (thread > 0 ? `${userId}~${thread}` : userId) : 'signed-out';
@@ -61,6 +64,7 @@ export function useVoiceAgent() {
     live: 'long-poll',
     client,
   });
+  const syncedMessages = useConvexMessages(thread, agent.messages);
   const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {});
   const completeHighlight = useMutation(api.firstFocus.completeHighlight);
   const activeHighlight = currentFirstFocus?.activeHighlight;
@@ -105,8 +109,8 @@ export function useVoiceAgent() {
       .filter((part) => part.type === 'text')
       .map((part) => part.text)
       .join(' ');
-    setThreadTitle(thread, text.slice(0, 64));
-  }, [agent.messages, thread]);
+    void titleThread(thread, text.slice(0, 64));
+  }, [agent.messages, thread, titleThread]);
 
   // Don't read pre-existing history aloud on launch.
   useEffect(() => {
@@ -178,20 +182,20 @@ export function useVoiceAgent() {
   }, [player]);
 
   /** Ends the current conversation and starts a fresh thread. */
-  const resetConversation = useCallback(() => {
+  const resetConversation = useCallback(async () => {
     setVoiceError(undefined);
     player.pause();
     setSpeaking(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    startNewThread();
-  }, [player]);
+    await createThread();
+  }, [createThread, player]);
 
   const sendText = useCallback(
     async (text: string) => {
       // Slash commands: `/clear` and `/new` restart the conversation.
       const command = text.trim().toLowerCase();
       if (command === '/clear' || command === '/new') {
-        resetConversation();
+        await resetConversation();
         return;
       }
       setVoiceError(undefined);
@@ -318,6 +322,7 @@ export function useVoiceAgent() {
 
   return {
     ...agent,
+    messages: syncedMessages,
     orbState,
     recording,
     busy,
