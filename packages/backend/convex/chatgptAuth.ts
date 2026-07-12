@@ -36,17 +36,25 @@ export const status = query({
   returns: chatgptAuthStatusValidator,
   handler: async (ctx) => {
     const userId = await requireUserId(ctx)
-    const credential = await ctx.db
-      .query('chatgptCredentials')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .unique()
+    const [credential, preference] = await Promise.all([
+      ctx.db
+        .query('chatgptCredentials')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique(),
+      ctx.db
+        .query('chatgptGatePreferences')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .unique(),
+    ])
+    const skipped = preference ? true : undefined
 
     if (credential?.status === 'connected') {
-      return { state: 'connected' as const }
+      return { state: 'connected' as const, skipped }
     }
     if (credential?.status === 'needs_reauth') {
       return {
         state: 'needs_reauth' as const,
+        skipped,
         message: 'Your ChatGPT session expired. Connect it again.',
       }
     }
@@ -57,10 +65,11 @@ export const status = query({
       .order('desc')
       .first()
 
-    if (!session) return { state: 'disconnected' as const }
+    if (!session) return { state: 'disconnected' as const, skipped }
     if (session.status === 'starting') {
       return {
         state: 'starting' as const,
+        skipped,
         sessionId: session._id,
         expiresAt: session.expiresAt,
       }
@@ -68,6 +77,7 @@ export const status = query({
     if (session.status === 'pending') {
       return {
         state: 'pending' as const,
+        skipped,
         sessionId: session._id,
         userCode: session.userCode,
         verificationUri: session.verificationUri,
@@ -77,11 +87,40 @@ export const status = query({
     if (session.status === 'failed' || session.status === 'expired') {
       return {
         state: 'failed' as const,
+        skipped,
         sessionId: session._id,
         message: messageForSessionError(session.errorCode),
       }
     }
-    return { state: 'disconnected' as const }
+    return { state: 'disconnected' as const, skipped }
+  },
+})
+
+// Skipping is durable and cross-device: the user keeps using BeeGreat on the
+// default OpenRouter model and can still connect ChatGPT later from settings.
+export const skip = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const userId = await requireUserId(ctx)
+    const existing = await ctx.db
+      .query('chatgptGatePreferences')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .unique()
+    const now = Date.now()
+    if (existing) {
+      await ctx.db.patch('chatgptGatePreferences', existing._id, {
+        skippedAt: now,
+        updatedAt: now,
+      })
+    } else {
+      await ctx.db.insert('chatgptGatePreferences', {
+        userId,
+        skippedAt: now,
+        updatedAt: now,
+      })
+    }
+    return null
   },
 })
 

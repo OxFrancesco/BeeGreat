@@ -117,6 +117,27 @@ test('credential refresh claims are serialized with a lease', async () => {
   expect(second).toMatchObject({ status: 'busy' })
 })
 
+test('skipping the gate is durable, idempotent, and per-user', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_skipper')
+  const other = authenticated(t, 'user_not_skipper')
+
+  expect(await owner.query(api.chatgptAuth.status, {})).toEqual({
+    state: 'disconnected',
+  })
+
+  await owner.mutation(api.chatgptAuth.skip, {})
+  await owner.mutation(api.chatgptAuth.skip, {})
+
+  expect(await owner.query(api.chatgptAuth.status, {})).toEqual({
+    state: 'disconnected',
+    skipped: true,
+  })
+  expect(await other.query(api.chatgptAuth.status, {})).toEqual({
+    state: 'disconnected',
+  })
+})
+
 test('disconnect removes credentials and cancels an active device flow', async () => {
   const t = convexTest(schema, modules)
   const owner = authenticated(t, 'user_disconnect')

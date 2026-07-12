@@ -53,6 +53,14 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
 
+  // ChatGPT connection is optional. A row here means the user skipped the
+  // connect gate; the agent then bills through the default OpenRouter model.
+  chatgptGatePreferences: defineTable({
+    userId: v.string(),
+    skippedAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
   // Convex is the account-wide source of truth for Bee conversations. Flue
   // still executes agent turns, while these rows make thread navigation and
   // transcripts reactive across every signed-in device.
@@ -73,6 +81,15 @@ export default defineSchema({
     activeThreadId: v.number(),
     updatedAt: v.number(),
   }).index('by_owner_key', ['ownerKey']),
+
+  userPreferences: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    timeZone: v.string(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_user_id', ['userId']),
 
   chatMessages: defineTable({
     ownerKey: v.string(),
@@ -423,9 +440,39 @@ export default defineSchema({
     ),
     // Generated bee avatar (FAL -> R2), filled in once bee generation lands.
     beeImageUrl: v.optional(v.string()),
+    recurrenceScheduleId: v.optional(v.id('recurrenceSchedules')),
+    recurrenceOccurrenceAt: v.optional(v.number()),
   })
     .index('by_user', ['userId', 'status'])
-    .index('by_goal', ['goalId', 'status']),
+    .index('by_goal', ['goalId', 'status'])
+    .index('by_recurrence_schedule_id_and_recurrence_occurrence_at', [
+      'recurrenceScheduleId',
+      'recurrenceOccurrenceAt',
+    ]),
+
+  recurrenceSchedules: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    kind: v.union(v.literal('task'), v.literal('project')),
+    goalId: v.id('goals'),
+    projectId: v.optional(v.id('projects')),
+    title: v.string(),
+    frequency: v.union(
+      v.literal('daily'),
+      v.literal('weekly'),
+      v.literal('monthly'),
+      v.literal('yearly'),
+    ),
+    interval: v.number(),
+    timeZone: v.string(),
+    firstOccurrenceAt: v.number(),
+    nextRunAt: v.number(),
+    lastRunAt: v.optional(v.number()),
+    active: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index('by_owner_key_and_active', ['ownerKey', 'active'])
+    .index('by_user_id_and_active', ['userId', 'active']),
 
   // Opt-in capability packs. A row exists once the user has touched the toggle;
   // absence means the power-up was never enabled. Catalog lives in powerups.ts.
@@ -458,10 +505,16 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
     // How many times the due date was pushed back (honey penalty input).
     postponeCount: v.optional(v.number()),
+    recurrenceScheduleId: v.optional(v.id('recurrenceSchedules')),
+    recurrenceOccurrenceAt: v.optional(v.number()),
   })
     .index('by_user', ['userId', 'status'])
     .index('by_goal', ['goalId', 'status'])
-    .index('by_project', ['projectId']),
+    .index('by_project', ['projectId'])
+    .index('by_recurrence_schedule_id_and_recurrence_occurrence_at', [
+      'recurrenceScheduleId',
+      'recurrenceOccurrenceAt',
+    ]),
 
   memories: defineTable({
     ownerKey: v.string(),

@@ -67,7 +67,17 @@ export function useVoiceAgent() {
   const syncedMessages = useConvexMessages(thread, agent.messages);
   const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {});
   const completeHighlight = useMutation(api.firstFocus.completeHighlight);
+  const syncTimeZone = useMutation(api.user.syncTimeZone);
   const activeHighlight = currentFirstFocus?.activeHighlight;
+
+  useEffect(() => {
+    if (!userId) return;
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timeZone) return;
+    void syncTimeZone({ timeZone }).catch(() => {
+      // Scheduling falls back to UTC if preferences are temporarily offline.
+    });
+  }, [syncTimeZone, userId]);
 
   // The SDK treats 401 as fatal and stops polling, but for us it's a transient
   // auth hiccup (Clerk token not ready right after launch/resume). Swap in a

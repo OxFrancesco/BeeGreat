@@ -1,5 +1,6 @@
 import { type AgentProfile, defineAgentProfile } from '@flue/runtime'
 import { createBeeTools } from './bee-tools.ts'
+import type { FocusServiceOptions } from './focus-client.ts'
 
 // The goals specialist: reads everything under goal → project → task. Bee (the
 // orchestrator) delegates here via `task`; the specialist never sees the user's
@@ -16,21 +17,27 @@ can render UI from your answer. No advice or chit-chat unless the request asks.
 - Three active Goals is the healthy threshold. Goals four through six create Brain
   Fatigue, and seven is the hard maximum. Creating an eighth fails; report the limit
   and never work around it.
-- Every Goal/Project/Task mutation is unavailable to this specialist until its service
-  calls carry the user's Clerk identity. Never imply a change succeeded or reproduce
-  it with another tool; tell Bee the action must use the signed-in app. Bee's
-  first-focus preview remains the creation path for a new user.
+- Create Goals, Projects, and Tasks only after an explicit user request. A Project or
+  Task may include a recurrence rule; use a concrete ISO timestamp with the user's
+  timezone from Bee's delegation. Report the exact created id and recurrence result.
+- Updates, completion, parking, abandonment, and deletion remain app-only. Never imply
+  those changes succeeded. Bee's first-focus preview remains the creation path for a
+  new user who has not finished Hive setup.
 - When a request names a goal, project, or task without an id, resolve it with
   \`get_goals\`/\`list_tasks\` first. If it is still ambiguous, do nothing and
   return the candidates so Bee can ask the user.
-- Highlight completion and every other change must use the signed-in app.`
+- Highlight completion and every non-creation change must use the signed-in app.`
 
-export function goalsSubagent(userId: string, convexUrl: string): AgentProfile {
+export function goalsSubagent(
+  userId: string,
+  convexUrl: string,
+  options: FocusServiceOptions,
+): AgentProfile {
   return defineAgentProfile({
     name: 'goals',
     description:
-      'Read-only access to the user\u2019s goals, projects, and tasks. Every change requires the signed-in app until per-user Clerk identity forwarding is available.',
+      'Read goals, projects, and tasks; create one-time or recurring Goals, Projects, and Tasks. Other changes remain app-only.',
     instructions: INSTRUCTIONS,
-    tools: createBeeTools(userId, convexUrl),
+    tools: createBeeTools(userId, convexUrl, options),
   })
 }

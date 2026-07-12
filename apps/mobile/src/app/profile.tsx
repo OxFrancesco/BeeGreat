@@ -1,10 +1,11 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { useClerk, useUser } from '@clerk/clerk-expo';
+import { Canvas, Path } from '@shopify/react-native-skia';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { type PropsWithChildren, useState } from 'react';
+import { type PropsWithChildren, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -14,13 +15,16 @@ import {
   View,
 } from 'react-native';
 
-import { HexAvatar } from '@/components/hex-avatar';
+import { HexAvatar, makeHexPath } from '@/components/hex-avatar';
+import { Hive } from '@/components/hex-button';
+import { InfoButton } from '@/components/info-button';
 import { ChatGptAuthSettings } from '@/components/chatgpt/chatgpt-auth';
-import { GoogleHealthAuthSettings } from '@/components/google-health/google-health-auth';
+import { useGoogleHealthAuth } from '@/components/google-health/google-health-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { updateGoogleHealthPowerup } from '@/lib/google-health-powerup';
 import { setSpeakReplies, useSpeakReplies } from '@/lib/preferences';
 
 /** Icon per power-up id; the glyph is the SymbolView fallback. */
@@ -29,6 +33,44 @@ const POWERUP_ICONS: Record<string, { symbol: string; glyph: string }> = {
   'google-health': { symbol: 'heart.fill', glyph: '♥' },
 };
 const DEFAULT_POWERUP_ICON = { symbol: 'puzzlepiece.extension.fill', glyph: '⌁' };
+
+const CLOSE_HEX_SIZE = 34;
+const CLOSE_HEX_STROKE = 2;
+
+/** Honeycomb-cell close button matching the HexAvatar/HexButton style. */
+function HexCloseButton({ onPress }: { onPress: () => void }) {
+  const path = useMemo(
+    () => makeHexPath(CLOSE_HEX_SIZE, CLOSE_HEX_STROKE / 2, CLOSE_HEX_SIZE / 8),
+    [],
+  );
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Close profile"
+      hitSlop={Spacing.two}
+      onPress={onPress}
+      style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+    >
+      <Canvas style={{ width: CLOSE_HEX_SIZE, height: CLOSE_HEX_SIZE }}>
+        <Path path={path} color={Hive.comb} />
+        <Path path={path} style="stroke" strokeWidth={CLOSE_HEX_STROKE} color={Hive.honey} />
+      </Canvas>
+      <View style={styles.closeGlyph} pointerEvents="none">
+        <SymbolView
+          name="xmark"
+          size={12}
+          weight="bold"
+          tintColor={Hive.cacao}
+          fallback={
+            <ThemedText type="small" style={{ color: Hive.cacao, fontWeight: '700' }}>
+              ✕
+            </ThemedText>
+          }
+        />
+      </View>
+    </Pressable>
+  );
+}
 
 function Section({ label, children }: PropsWithChildren<{ label: string }>) {
   return (
@@ -48,8 +90,12 @@ export default function ProfileScreen() {
   const speakReplies = useSpeakReplies();
   const powerups = useQuery(api.powerups.list);
   const setPowerupEnabled = useMutation(api.powerups.setEnabled);
+  const googleHealth = useGoogleHealthAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [googleHealthWorking, setGoogleHealthWorking] = useState(false);
+  const [googleHealthError, setGoogleHealthError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [openInfoId, setOpenInfoId] = useState<string | null>(null);
 
   const name = user?.fullName ?? user?.username ?? 'Beekeeper';
   const email = user?.primaryEmailAddress?.emailAddress;
@@ -68,30 +114,40 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleGoogleHealthToggle = async (enabled: boolean) => {
+    if (googleHealthWorking) return;
+    setGoogleHealthWorking(true);
+    setGoogleHealthError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      await updateGoogleHealthPowerup(enabled, {
+        connect: googleHealth.connect,
+        disconnect: googleHealth.disconnect,
+        setEnabled: (nextEnabled) =>
+          setPowerupEnabled({
+            powerupId: 'google-health',
+            enabled: nextEnabled,
+          }),
+      });
+    } catch (cause) {
+      setGoogleHealthError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not connect Google Health. Try again.',
+      );
+    } finally {
+      setGoogleHealthWorking(false);
+    }
+  };
+
   return (
     // collapsable={false} keeps this wrapper in the native tree so the form
     // sheet can find the ScrollView (react-native-screens#2424).
     <ThemedView style={styles.container} collapsable={false}>
       {/* Drag-to-dismiss can be flaky with a ScrollView inside a formSheet,
           so the sheet always offers an explicit close button. */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close profile"
-        hitSlop={Spacing.two}
-        onPress={() => router.back()}
-        style={({ pressed }) => [styles.close, pressed && styles.pressed]}
-      >
-        <SymbolView
-          name="xmark"
-          size={13}
-          tintColor={theme.textSecondary}
-          fallback={
-            <ThemedText type="small" themeColor="textSecondary">
-              ✕
-            </ThemedText>
-          }
-        />
-      </Pressable>
+      <HexCloseButton onPress={() => router.back()} />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -148,6 +204,13 @@ export default function ProfileScreen() {
           <Section label="Power-ups">
             {powerups.map((powerup) => {
               const icon = POWERUP_ICONS[powerup.id] ?? DEFAULT_POWERUP_ICON;
+              const isGoogleHealth = powerup.id === 'google-health';
+              const googleHealthConnected =
+                googleHealth.status?.state === 'connected';
+              const switchEnabled = isGoogleHealth
+                ? googleHealthWorking ||
+                  (powerup.enabled && googleHealthConnected)
+                : powerup.enabled;
               return (
                 <View
                   key={powerup.id}
@@ -169,26 +232,44 @@ export default function ProfileScreen() {
                         }
                       />
                     </View>
-                    <View style={styles.settingCopy}>
+                    <View style={styles.powerupTitleRow}>
                       <ThemedText type="default" style={styles.powerupName}>
                         {powerup.name}
                       </ThemedText>
-                      <ThemedText type="small" themeColor="textSecondary">
-                        {powerup.enabled ? powerup.tagline : powerup.description}
-                      </ThemedText>
+                      <InfoButton
+                        active={openInfoId === powerup.id}
+                        label={`About the ${powerup.name} power-up`}
+                        onPress={() =>
+                          setOpenInfoId(openInfoId === powerup.id ? null : powerup.id)
+                        }
+                      />
                     </View>
                     <Switch
                       accessibilityLabel={`${powerup.name} power-up`}
-                      value={powerup.enabled}
+                      disabled={isGoogleHealth && googleHealthWorking}
+                      value={switchEnabled}
                       onValueChange={(enabled) => {
+                        if (isGoogleHealth) {
+                          void handleGoogleHealthToggle(enabled);
+                          return;
+                        }
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        setPowerupEnabled({ powerupId: powerup.id, enabled });
+                        void setPowerupEnabled({ powerupId: powerup.id, enabled });
                       }}
                       trackColor={{ true: theme.primary }}
                     />
                   </View>
-                  {powerup.id === 'google-health' && powerup.enabled ? (
-                    <GoogleHealthAuthSettings />
+                  {openInfoId === powerup.id ? (
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {powerup.description}
+                    </ThemedText>
+                  ) : null}
+                  {isGoogleHealth && !googleHealthWorking &&
+                  (googleHealthError ||
+                    (powerup.enabled && googleHealth.status?.message)) ? (
+                    <ThemedText type="small" themeColor="destructive">
+                      {googleHealthError ?? googleHealth.status?.message}
+                    </ThemedText>
                   ) : null}
                 </View>
               );
@@ -231,11 +312,19 @@ const styles = StyleSheet.create({
   close: {
     position: 'absolute',
     top: Spacing.three,
-    right: Spacing.three,
+    right: Spacing.four,
     zIndex: 1,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: CLOSE_HEX_SIZE,
+    height: CLOSE_HEX_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeGlyph: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -314,6 +403,12 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  powerupTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
   },
   powerupName: {
     fontWeight: '600',

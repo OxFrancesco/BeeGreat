@@ -18,13 +18,15 @@ export const POWERUP_CATALOG = [
     id: 'web3',
     name: 'Web3',
     tagline: 'A wallet for your hive',
-    description: 'Give your Bee all the Web3 tools he needs!',
+    description:
+      'Gives your Bee a secure wallet. Ask it to check balances or send tokens, right from the chat.',
   },
   {
     id: 'google-health',
     name: 'Google Health',
     tagline: 'Your health, understood',
-    description: 'Connect your Bee to Google Health.',
+    description:
+      'Lets your Bee read your steps, sleep, workouts, and heart data to answer health questions. Read-only.',
   },
 ] as const
 

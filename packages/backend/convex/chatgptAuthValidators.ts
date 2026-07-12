@@ -33,6 +33,9 @@ export const chatgptAuthStateValidator = v.union(
 
 export const chatgptAuthStatusValidator = v.object({
   state: chatgptAuthStateValidator,
+  // True when the user chose to skip the connect gate. Skipped users run on
+  // the default OpenRouter model until they connect ChatGPT from settings.
+  skipped: v.optional(v.boolean()),
   sessionId: v.optional(v.id('chatgptAuthSessions')),
   userCode: v.optional(v.string()),
   verificationUri: v.optional(v.string()),

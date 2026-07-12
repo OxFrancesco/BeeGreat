@@ -47,7 +47,7 @@ export function makeRoundedPolygonPath(
 }
 
 /** Builds a pointy-top hexagon with rounded corners, inset for the stroke. */
-function makeHexPath(size: number, inset: number, cornerRadius: number) {
+export function makeHexPath(size: number, inset: number, cornerRadius: number) {
   const c = size / 2;
   const radius = c - inset;
   const points = Array.from({ length: 6 }, (_, i) => {

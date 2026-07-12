@@ -9,6 +9,7 @@
  */
 
 import type * as agent from "../agent.js";
+import type * as agentFocus from "../agentFocus.js";
 import type * as chat from "../chat.js";
 import type * as chatgptAuth from "../chatgptAuth.js";
 import type * as chatgptAuthActions from "../chatgptAuthActions.js";
@@ -36,6 +37,8 @@ import type * as memoryValidators from "../memoryValidators.js";
 import type * as posts from "../posts.js";
 import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
+import type * as recurrence from "../recurrence.js";
+import type * as recurrenceValidators from "../recurrenceValidators.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
 import type * as wallets from "../wallets.js";
@@ -49,6 +52,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
+  agentFocus: typeof agentFocus;
   chat: typeof chat;
   chatgptAuth: typeof chatgptAuth;
   chatgptAuthActions: typeof chatgptAuthActions;
@@ -76,6 +80,8 @@ declare const fullApi: ApiFromModules<{
   posts: typeof posts;
   powerups: typeof powerups;
   projects: typeof projects;
+  recurrence: typeof recurrence;
+  recurrenceValidators: typeof recurrenceValidators;
   tasks: typeof tasks;
   user: typeof user;
   wallets: typeof wallets;

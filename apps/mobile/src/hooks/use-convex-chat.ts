@@ -3,6 +3,8 @@ import type { FlueConversationMessage } from '@flue/sdk';
 import { useMutation, useQuery } from 'convex/react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { mergeConvexMessages } from '@/lib/merge-convex-messages';
+
 export type ChatThread = {
   id: number;
   createdAt: number;
@@ -90,34 +92,6 @@ export function useConvexMessages(
   }, [fingerprint, flueMessages, sync, threadId]);
 
   return useMemo(() => {
-    if (!rows?.length) return flueMessages;
-    const ordered = rows.flatMap((row) => {
-      try {
-        return [
-          {
-            message: JSON.parse(row.contentJson) as FlueConversationMessage,
-            createdAt: row.createdAt,
-          },
-        ];
-      } catch {
-        return [];
-      }
-    });
-    const position = new Map(ordered.map((entry, index) => [entry.message.id, index]));
-    const fallbackTimestamp =
-      ordered.reduce((latest, entry) => Math.max(latest, entry.createdAt), 0) + 1;
-    for (const [index, message] of flueMessages.entries()) {
-      const existing = position.get(message.id);
-      if (existing === undefined) {
-        position.set(message.id, ordered.length);
-        ordered.push({
-          message,
-          createdAt: messageTimestamp(message, fallbackTimestamp + index),
-        });
-      } else {
-        ordered[existing] = { ...ordered[existing], message };
-      }
-    }
-    return ordered.sort((left, right) => left.createdAt - right.createdAt).map(({ message }) => message);
+    return mergeConvexMessages(rows, flueMessages);
   }, [flueMessages, rows]);
 }

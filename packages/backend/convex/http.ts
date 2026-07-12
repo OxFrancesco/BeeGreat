@@ -1,5 +1,6 @@
 import { httpRouter } from 'convex/server'
 import { internal } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 import { httpAction } from './_generated/server'
 
 const http = httpRouter()
@@ -31,6 +32,148 @@ type BrokerResult =
   | { status: 'ok'; accessToken: string; expiresAt: number }
   | { status: 'missing' | 'reauth' }
   | { status: 'busy' | 'unavailable'; retryAfterMs: number }
+
+type FocusRecurrence = {
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
+  interval: number
+  firstOccurrenceAt: number
+}
+
+function focusRecurrence(value: unknown): FocusRecurrence | undefined | null {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object') return null
+  const record = value as Record<string, unknown>
+  if (
+    (record.frequency !== 'daily' &&
+      record.frequency !== 'weekly' &&
+      record.frequency !== 'monthly' &&
+      record.frequency !== 'yearly') ||
+    typeof record.interval !== 'number' ||
+    typeof record.firstOccurrenceAt !== 'number'
+  ) {
+    return null
+  }
+  return {
+    frequency: record.frequency,
+    interval: record.interval,
+    firstOccurrenceAt: record.firstOccurrenceAt,
+  }
+}
+
+http.route({
+  path: '/internal/focus',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = process.env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    if (
+      !body ||
+      typeof body.userId !== 'string' ||
+      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+      typeof body.operation !== 'string'
+    ) {
+      return jsonResponse({ error: 'Invalid focus request' }, 400)
+    }
+
+    try {
+      let result: unknown
+      if (body.operation === 'get_context') {
+        result = await ctx.runQuery(internal.agentFocus.getContext, {
+          userId: body.userId,
+        })
+      } else if (body.operation === 'get_goals') {
+        result = await ctx.runQuery(internal.agentFocus.getGoals, {
+          userId: body.userId,
+        })
+      } else if (body.operation === 'list_tasks') {
+        if (
+          body.goalId !== undefined &&
+          typeof body.goalId !== 'string'
+        ) {
+          return jsonResponse({ error: 'Invalid Goal id' }, 400)
+        }
+        if (
+          body.status !== undefined &&
+          body.status !== 'todo' &&
+          body.status !== 'done'
+        ) {
+          return jsonResponse({ error: 'Invalid Task status' }, 400)
+        }
+        result = await ctx.runQuery(internal.agentFocus.listTasks, {
+          userId: body.userId,
+          goalId: body.goalId as Id<'goals'> | undefined,
+          status: body.status as 'todo' | 'done' | undefined,
+        })
+      } else if (body.operation === 'create_goal') {
+        if (
+          typeof body.title !== 'string' ||
+          (body.finalGoal !== undefined && typeof body.finalGoal !== 'string')
+        ) {
+          return jsonResponse({ error: 'Invalid Goal' }, 400)
+        }
+        result = await ctx.runMutation(internal.agentFocus.createGoal, {
+          userId: body.userId,
+          title: body.title,
+          finalGoal: body.finalGoal as string | undefined,
+        })
+      } else if (body.operation === 'create_project') {
+        const recurrence = focusRecurrence(body.recurrence)
+        if (
+          typeof body.goalId !== 'string' ||
+          typeof body.title !== 'string' ||
+          recurrence === null
+        ) {
+          return jsonResponse({ error: 'Invalid Project' }, 400)
+        }
+        result = await ctx.runMutation(internal.agentFocus.createProject, {
+          userId: body.userId,
+          goalId: body.goalId as Id<'goals'>,
+          title: body.title,
+          recurrence,
+        })
+      } else if (body.operation === 'create_task') {
+        const recurrence = focusRecurrence(body.recurrence)
+        if (
+          typeof body.goalId !== 'string' ||
+          typeof body.title !== 'string' ||
+          (body.projectId !== undefined && typeof body.projectId !== 'string') ||
+          (body.dueDate !== undefined && typeof body.dueDate !== 'number') ||
+          recurrence === null
+        ) {
+          return jsonResponse({ error: 'Invalid Task' }, 400)
+        }
+        result = await ctx.runMutation(internal.agentFocus.createTask, {
+          userId: body.userId,
+          goalId: body.goalId as Id<'goals'>,
+          projectId: body.projectId as Id<'projects'> | undefined,
+          title: body.title,
+          dueDate: body.dueDate as number | undefined,
+          recurrence,
+        })
+      } else {
+        return jsonResponse({ error: 'Unknown focus operation' }, 400)
+      }
+      return jsonResponse(result, 200)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Focus request failed'
+      return jsonResponse({ error: message }, 400)
+    }
+  }),
+})
 
 http.route({
   path: '/internal/chatgpt/token',

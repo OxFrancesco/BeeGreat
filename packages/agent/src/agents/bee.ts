@@ -5,6 +5,7 @@ import {
 } from '../providers/pi-chatgpt.ts'
 import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import { goalsSubagent } from '../shared/goals-subagent.ts'
+import { callFocusService } from '../shared/focus-client.ts'
 import { loadPowerups } from '../shared/powerups/index.ts'
 import instructions from './bee.md' with { type: 'markdown' }
 
@@ -32,6 +33,18 @@ export default defineAgent<Env>(async ({ id, env }) => {
   // Conversation ids are `<userId>` or `<userId>~<session>` once the user has
   // restarted the chat; specialists always key data by the bare user id.
   const userId = id.split('~')[0]
+  const focusOptions = {
+    convexSiteUrl: env.CONVEX_SITE_URL,
+    brokerSecret:
+      env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+  }
+  const focusContext = await callFocusService<{
+    timeZone: string
+    currentTime: number
+  }>(userId, env.CONVEX_URL, focusOptions, 'get_context').catch(() => ({
+    timeZone: 'UTC',
+    currentTime: Date.now(),
+  }))
   // Opt-in power-ups: one specialist subagent each, loaded per user per message.
   const powerups = await loadPowerups(userId, env.CONVEX_URL, {
     convexSiteUrl: env.CONVEX_SITE_URL,
@@ -58,7 +71,10 @@ export default defineAgent<Env>(async ({ id, env }) => {
   return {
     model,
     thinkingLevel: 'low',
-    instructions,
-    subagents: [goalsSubagent(userId, env.CONVEX_URL), ...powerups],
+    instructions: `${instructions}\n\n## User time context\nThe user's IANA timezone is ${focusContext.timeZone}. The current time is ${new Date(focusContext.currentTime).toISOString()}. Use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`,
+    subagents: [
+      goalsSubagent(userId, env.CONVEX_URL, focusOptions),
+      ...powerups,
+    ],
   }
 })
