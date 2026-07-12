@@ -9,6 +9,11 @@ const API = 'openai-codex-responses'
 const BASE_URL = 'https://chatgpt.com/backend-api'
 let apiRegistered = false
 
+const streamSse: typeof stream = (model, context, options) =>
+  stream(model, context, { ...options, transport: 'sse' })
+const streamSimpleSse: typeof streamSimple = (model, context, options) =>
+  streamSimple(model, context, { ...options, transport: 'sse' })
+
 /**
  * Flue still uses pi-ai's compatibility registry, which does not load Pi's
  * OAuth credential store. Re-registering Pi's own Codex transport keeps the
@@ -17,6 +22,7 @@ let apiRegistered = false
 export function registerFlueCodexProvider(
   provider: string,
   accessToken: string,
+  transport?: { baseUrl?: string; adapterSecret?: string },
 ): void {
   if (!accessToken.trim()) {
     throw new Error('OPENAI_CODEX_ACCESS_TOKEN is empty.')
@@ -27,7 +33,11 @@ export function registerFlueCodexProvider(
 
   if (!apiRegistered) {
     registerApiProvider(
-      { api: API, stream, streamSimple } as unknown as Parameters<
+      {
+        api: API,
+        stream: streamSse,
+        streamSimple: streamSimpleSse,
+      } as unknown as Parameters<
         typeof registerApiProvider
       >[0],
     )
@@ -35,8 +45,11 @@ export function registerFlueCodexProvider(
   }
   registerProvider(provider, {
     api: API,
-    baseUrl: BASE_URL,
+    baseUrl: transport?.baseUrl?.replace(/\/$/, '') ?? BASE_URL,
     apiKey: accessToken,
+    headers: transport?.adapterSecret
+      ? { 'x-flue-codex-adapter-secret': transport.adapterSecret }
+      : undefined,
   })
 }
 

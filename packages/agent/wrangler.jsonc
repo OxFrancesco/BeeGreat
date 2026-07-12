@@ -3,6 +3,9 @@
   "name": "beegreat-agent",
   "compatibility_date": "2026-06-01",
   "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "CODEX_ADAPTER_URL": "https://codex-adapter.vercel.app/api"
+  },
   "migrations": [
     {
       "tag": "v1",

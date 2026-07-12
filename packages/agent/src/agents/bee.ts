@@ -1,9 +1,9 @@
 import { type AgentRouteHandler, defineAgent } from '@flue/runtime'
-import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import {
   codexProviderIdForUser,
   registerFlueCodexProvider,
 } from '../providers/pi-chatgpt.ts'
+import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { loadPowerups } from '../shared/powerups/index.ts'
 import instructions from './bee.md' with { type: 'markdown' }
@@ -14,6 +14,8 @@ interface Env {
   AGENT_CREDENTIAL_BROKER_SECRET?: string
   BRIDGE_SECRET?: string
   OPENAI_CODEX_ACCESS_TOKEN?: string
+  CODEX_ADAPTER_URL?: string
+  CODEX_ADAPTER_SECRET?: string
 }
 
 export const description =
@@ -36,19 +38,22 @@ export default defineAgent<Env>(async ({ id, env }) => {
     credentialBrokerSecret:
       env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
   })
-  const durableCredential = env.OPENAI_CODEX_ACCESS_TOKEN
-    ? null
-    : await resolveChatGptCredential(userId, env)
-  const codexAccessToken =
-    env.OPENAI_CODEX_ACCESS_TOKEN ??
-    (durableCredential?.status === 'connected'
-      ? durableCredential.accessToken
-      : undefined)
-  let model = 'openrouter/openai/gpt-5.5'
-  if (codexAccessToken) {
+  let model = 'openrouter/openai/gpt-5.6-sol'
+  const localCodexAccessToken = env.OPENAI_CODEX_ACCESS_TOKEN?.trim()
+  if (localCodexAccessToken) {
     const providerId = await codexProviderIdForUser(userId)
-    registerFlueCodexProvider(providerId, codexAccessToken)
-    model = `${providerId}/gpt-5.5`
+    registerFlueCodexProvider(providerId, localCodexAccessToken)
+    model = `${providerId}/gpt-5.6-sol`
+  } else if (env.CODEX_ADAPTER_URL && env.CODEX_ADAPTER_SECRET) {
+    const credential = await resolveChatGptCredential(userId, env)
+    if (credential.status === 'connected') {
+      const providerId = await codexProviderIdForUser(userId)
+      registerFlueCodexProvider(providerId, credential.accessToken, {
+        baseUrl: env.CODEX_ADAPTER_URL,
+        adapterSecret: env.CODEX_ADAPTER_SECRET,
+      })
+      model = `${providerId}/gpt-5.6-sol`
+    }
   }
   return {
     model,
