@@ -15,18 +15,16 @@ import { requireUserId } from './helpers'
 
 export const POWERUP_CATALOG = [
   {
-    id: 'webtree',
-    name: 'WebTree',
-    tagline: 'Web3 for your hive',
-    description:
-      'Gives Bee a personal Web3 wallet powered by Crossmint. Create your wallet, check balances, and send tokens on Base Sepolia.',
+    id: 'web3',
+    name: 'Web3',
+    tagline: 'A wallet for your hive',
+    description: 'Give your Bee all the Web3 tools he needs!',
   },
   {
     id: 'google-health',
     name: 'Google Health',
     tagline: 'Your health, understood',
-    description:
-      'Lets Bee read your Google Health data—steps, sleep, workouts, heart rate, weight, and more—with your permission.',
+    description: 'Connect your Bee to Google Health.',
   },
 ] as const
 

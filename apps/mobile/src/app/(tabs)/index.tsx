@@ -25,6 +25,7 @@ import { useVoiceAgentContext } from '@/components/agent/voice-agent-provider';
 import { FloatingBee } from '@/components/floating-bee';
 import { HexAvatar } from '@/components/hex-avatar';
 import { HexIconButton } from '@/components/hex-icon-button';
+import { CurrencyBar } from '@/components/hive/currency-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -76,6 +77,7 @@ export default function VoiceAgentScreen() {
                 accessibilityLabel="Conversations"
                 onPress={() => router.push('/threads')}
               />
+              <CurrencyBar />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Profile"

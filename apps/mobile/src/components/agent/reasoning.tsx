@@ -1,6 +1,5 @@
 import { createContext, type PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SymbolView } from 'expo-symbols';
 
 import { Shimmer } from '@/components/agent/shimmer';
@@ -119,15 +118,11 @@ export function ReasoningContent({ children }: { children: string }) {
   const theme = useTheme();
   if (!isOpen) return null;
   return (
-    <Animated.View
-      entering={FadeIn.duration(180)}
-      exiting={FadeOut.duration(150)}
-      style={[styles.content, { borderLeftColor: theme.border }]}
-    >
+    <View style={[styles.content, { borderLeftColor: theme.border }]}>
       <ThemedText type="small" themeColor="textSecondary">
         {children}
       </ThemedText>
-    </Animated.View>
+    </View>
   );
 }
 

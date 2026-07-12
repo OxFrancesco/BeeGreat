@@ -1,7 +1,15 @@
 import { Canvas, Group, Path, Rect } from '@shopify/react-native-skia';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import {
+  cancelAnimation,
+  useDerivedValue,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { makeRoundedPolygonPath } from '@/components/hex-avatar';
+import { MotionDuration, MotionEasing } from '@/constants/motion';
 
 /** Honeycomb palette shared with the hex avatar and sign-in scene. */
 const Comb = {
@@ -28,13 +36,31 @@ export function CombCell({ size, progress }: { size: number; progress: number })
   const strokeWidth = Math.max(1.5, size / 24);
   const path = useMemo(() => makeHexPath(size, strokeWidth / 2, size / 8), [size, strokeWidth]);
   const clamped = Math.min(1, Math.max(0, progress));
-  const fillHeight = size * clamped;
+  const reducedMotion = useReducedMotion();
+  const animatedProgress = useSharedValue(clamped);
+
+  useEffect(() => {
+    cancelAnimation(animatedProgress);
+    animatedProgress.value = reducedMotion
+      ? clamped
+      : withTiming(clamped, {
+          duration: MotionDuration.progress,
+          easing: MotionEasing.out,
+        });
+    return () => cancelAnimation(animatedProgress);
+  }, [animatedProgress, clamped, reducedMotion]);
+
+  const honeyTransform = useDerivedValue(() => [
+    { translateY: size * (1 - animatedProgress.value) },
+  ]);
 
   return (
     <Canvas style={{ width: size, height: size }}>
       <Path path={path} color={Comb.wax} />
       <Group clip={path}>
-        <Rect x={0} y={size - fillHeight} width={size} height={fillHeight} color={Comb.honey} />
+        <Group transform={honeyTransform}>
+          <Rect x={0} y={0} width={size} height={size} color={Comb.honey} />
+        </Group>
       </Group>
       <Path path={path} style="stroke" strokeWidth={strokeWidth} color={Comb.stroke} />
     </Canvas>

@@ -3,13 +3,13 @@ import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import type { PowerupDefinition, PowerupRuntime } from './types.ts'
 import { googleHealth } from './google-health.ts'
-import { webtree } from './webtree.ts'
+import { web3 } from './web3.ts'
 
 export type { PowerupDefinition } from './types.ts'
 
 /** Every power-up the agent knows how to load, keyed by catalog id. */
 const REGISTRY: Record<string, PowerupDefinition> = {
-  [webtree.id]: webtree,
+  [web3.id]: web3,
   [googleHealth.id]: googleHealth,
 }
 

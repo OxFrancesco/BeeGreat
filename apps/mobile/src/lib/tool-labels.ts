@@ -11,7 +11,7 @@ interface ToolCopy {
 
 /** Display names for power-up specialists, keyed by subagent name. */
 const POWERUP_AGENTS: Record<string, string> = {
-  webtree: 'WebTree',
+  web3: 'Web3',
   'google-health': 'Google Health',
 };
 
@@ -88,27 +88,27 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     failed: 'Couldn\u2019t delete the task',
     symbol: 'trash',
   },
-  // WebTree power-up (wallet specialist tools).
+  // Web3 power-up (wallet specialist tools).
   create_wallet: {
     running: 'Creating your wallet…',
     done: 'Created your wallet',
     failed: 'Couldn\u2019t create the wallet',
     symbol: 'wallet.pass',
-    powerup: 'WebTree',
+    powerup: 'Web3',
   },
   get_wallet_balance: {
     running: 'Checking your wallet…',
     done: 'Checked your wallet',
     failed: 'Couldn\u2019t read your wallet',
     symbol: 'wallet.pass',
-    powerup: 'WebTree',
+    powerup: 'Web3',
   },
   send_tokens: {
     running: 'Sending tokens…',
     done: 'Sent the tokens',
     failed: 'Couldn\u2019t send the tokens',
     symbol: 'paperplane',
-    powerup: 'WebTree',
+    powerup: 'Web3',
   },
   // Google Health power-up (read-only health specialist tools).
   get_health_context: {

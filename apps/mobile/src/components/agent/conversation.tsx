@@ -29,7 +29,7 @@ export function Conversation({
 
   const handleContentSizeChange = useCallback(() => {
     if (following) {
-      scrollRef.current?.scrollToEnd({ animated: true });
+      scrollRef.current?.scrollToEnd({ animated: false });
     }
   }, [following]);
 

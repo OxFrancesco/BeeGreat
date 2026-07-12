@@ -4,10 +4,11 @@ import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { FirstFocusPreviewCard } from '@/components/first-focus/first-focus-preview-card';
 import { ThemedText } from '@/components/themed-text';
+import { MotionDuration } from '@/constants/motion';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { UIComponent } from '@/lib/ui-spec';
@@ -30,7 +31,7 @@ export function GeneratedUI({
           key={index}
           entering={
             reducedMotion
-              ? undefined
+              ? FadeIn.duration(MotionDuration.enter)
               : FadeInDown.delay(index * 80)
                   .springify()
                   .damping(18)

@@ -6,12 +6,15 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { type PropsWithChildren, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { FloatingBee } from '@/components/floating-bee';
+import { HexButton, Hive } from '@/components/hex-button';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { MotionDuration } from '@/constants/motion';
+import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 type ChatGptAuthStatus = FunctionReturnType<typeof api.chatgptAuth.status>;
@@ -23,14 +26,8 @@ function errorMessage(error: unknown) {
   return 'Could not update the ChatGPT connection. Try again.';
 }
 
-function ChatGptAuthPanel({
-  status,
-  compact = false,
-}: {
-  status: ChatGptAuthStatus;
-  compact?: boolean;
-}) {
-  const theme = useTheme();
+/** Shared connect/disconnect/copy actions for the gate and settings surfaces. */
+function useChatGptAuthActions() {
   const start = useMutation(api.chatgptAuth.start);
   const disconnect = useMutation(api.chatgptAuth.disconnect);
   const [working, setWorking] = useState(false);
@@ -53,7 +50,12 @@ function ChatGptAuthPanel({
 
   const connect = () => run(() => start({}));
   const removeConnection = () => run(() => disconnect({}));
-  const copyAndOpen = () =>
+  const copyCode = async (userCode: string) => {
+    await Clipboard.setStringAsync(userCode);
+    setCopied(true);
+    Haptics.selectionAsync();
+  };
+  const copyAndOpen = (status: ChatGptAuthStatus) =>
     run(async () => {
       if (!status.userCode || !status.verificationUri) return;
       await Clipboard.setStringAsync(status.userCode);
@@ -63,6 +65,15 @@ function ChatGptAuthPanel({
       });
     });
 
+  return { working, copied, error, connect, removeConnection, copyCode, copyAndOpen };
+}
+
+/** Compact themed panel for the settings screen. */
+function ChatGptAuthPanel({ status }: { status: ChatGptAuthStatus }) {
+  const theme = useTheme();
+  const { working, copied, error, connect, removeConnection, copyCode, copyAndOpen } =
+    useChatGptAuthActions();
+
   const isPending = status.state === 'starting' || status.state === 'pending';
   const needsConnection =
     status.state === 'disconnected' ||
@@ -70,19 +81,13 @@ function ChatGptAuthPanel({
     status.state === 'needs_reauth';
 
   return (
-    <View
-      style={[
-        styles.panel,
-        compact && styles.panelCompact,
-        { backgroundColor: theme.card, borderColor: theme.border },
-      ]}
-    >
+    <View style={[styles.panel, { backgroundColor: theme.card, borderColor: theme.border }]}>
       <View style={styles.headingRow}>
         <View style={[styles.mark, { backgroundColor: theme.primary }]}>
           <ThemedText style={{ color: theme.primaryForeground }}>⌁</ThemedText>
         </View>
         <View style={styles.headingCopy}>
-          <ThemedText type={compact ? 'default' : 'subtitle'}>
+          <ThemedText>
             {status.state === 'connected' ? 'ChatGPT connected' : 'Connect ChatGPT'}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
@@ -113,11 +118,7 @@ function ChatGptAuthPanel({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Copy ChatGPT device code"
-            onPress={async () => {
-              await Clipboard.setStringAsync(status.userCode!);
-              setCopied(true);
-              Haptics.selectionAsync();
-            }}
+            onPress={() => copyCode(status.userCode!)}
             style={({ pressed }) => [
               styles.codeBox,
               { backgroundColor: theme.backgroundElement },
@@ -173,7 +174,7 @@ function ChatGptAuthPanel({
             accessibilityRole="button"
             accessibilityLabel="Open ChatGPT authentication"
             disabled={working}
-            onPress={copyAndOpen}
+            onPress={() => copyAndOpen(status)}
             style={({ pressed }) => [
               styles.primaryButton,
               { backgroundColor: theme.primary },
@@ -208,12 +209,6 @@ function ChatGptAuthPanel({
           </Pressable>
         ) : null}
       </View>
-
-      {!compact ? (
-        <ThemedText type="small" themeColor="textSecondary" style={styles.footnote}>
-          Experimental Codex connection. OAuth credentials are encrypted server-side and never stored in the app.
-        </ThemedText>
-      ) : null}
     </View>
   );
 }
@@ -223,63 +218,249 @@ export function ChatGptAuthSettings() {
   if (!status) {
     return <ActivityIndicator />;
   }
-  return <ChatGptAuthPanel status={status} compact />;
+  return <ChatGptAuthPanel status={status} />;
 }
 
+/**
+ * Full-screen gate styled to match the sign-in scene: cream hive backdrop,
+ * the floating bee, rounded cacao display type, and the honeycomb button.
+ */
 export function ChatGptAuthGate({ children }: PropsWithChildren) {
-  const theme = useTheme();
   const { signOut } = useClerk();
   const status = useQuery(api.chatgptAuth.status);
+  const reducedMotion = useReducedMotion();
+  const { working, copied, error, connect, removeConnection, copyAndOpen } =
+    useChatGptAuthActions();
+
   if (!status) {
     return (
-      <ThemedView style={styles.loading}>
-        <ActivityIndicator color={theme.primary} />
-      </ThemedView>
+      <View style={[gate.screen, gate.loading]}>
+        <ActivityIndicator color={Hive.cacao} />
+      </View>
     );
   }
   if (status.state === 'connected') return children;
 
+  const isPending = status.state === 'pending' && !!status.userCode;
+  const isStarting = status.state === 'starting';
+
   return (
-    <ThemedView style={styles.screen}>
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.hero}>
-          <ThemedText type="title">Bee, meet ChatGPT.</ThemedText>
-          <ThemedText themeColor="textSecondary">
-            Connect once. BeeGreat securely refreshes your Codex session whenever it needs to.
-          </ThemedText>
-        </View>
-        <ChatGptAuthPanel status={status} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Sign out of BeeGreat"
-          onPress={() => signOut()}
-          style={({ pressed }) => [styles.signOut, pressed && styles.pressed]}
+    <View style={gate.screen}>
+      <SafeAreaView style={gate.safeArea}>
+        <Animated.View
+          entering={
+            reducedMotion
+              ? FadeIn.duration(MotionDuration.enter)
+              : FadeInDown.springify().damping(16)
+          }
+          style={gate.copy}
         >
-          <ThemedText type="small" themeColor="textSecondary">Sign out of BeeGreat</ThemedText>
-        </Pressable>
+          <FloatingBee style={gate.bee} />
+          <Text style={gate.title}>Bee, meet ChatGPT.</Text>
+          <Text style={gate.tagline}>
+            Connect once. BeeGreat securely refreshes{'\n'}your Codex session whenever it needs to.
+          </Text>
+
+          {isStarting ? (
+            <View style={gate.progressRow}>
+              <ActivityIndicator color={Hive.cacao} />
+              <Text style={gate.progressLabel}>Creating a secure device code…</Text>
+            </View>
+          ) : null}
+
+          {isPending ? (
+            <View style={gate.codeCell}>
+              <Text style={gate.codeLabel}>Your one-time code</Text>
+              <Text style={gate.code} selectable>
+                {status.userCode}
+              </Text>
+              <Text style={gate.codeHint}>
+                {copied
+                  ? 'Copied. Paste it in ChatGPT and return here.'
+                  : 'Paste it in ChatGPT and return here.'}
+              </Text>
+            </View>
+          ) : null}
+
+          {status.message ? <Text style={gate.error}>{status.message}</Text> : null}
+          {error ? <Text style={gate.error}>{error}</Text> : null}
+        </Animated.View>
+
+        <Animated.View
+          entering={
+            reducedMotion
+              ? FadeIn.duration(MotionDuration.enter)
+              : FadeIn.delay(350).duration(500)
+          }
+          style={gate.actions}
+        >
+          {isPending ? (
+            <HexButton
+              label="Copy code and open ChatGPT"
+              busy={working}
+              onPress={() => copyAndOpen(status)}
+            />
+          ) : (
+            <HexButton
+              label="Connect ChatGPT"
+              busy={working || isStarting}
+              onPress={connect}
+            />
+          )}
+          {isPending || isStarting ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel ChatGPT connection"
+              disabled={working}
+              onPress={removeConnection}
+              style={({ pressed }) => [gate.textButton, pressed && styles.pressed]}
+            >
+              <Text style={gate.textButtonLabel}>Cancel</Text>
+            </Pressable>
+          ) : null}
+          <Text style={gate.legal}>
+            Experimental Codex connection. OAuth credentials are encrypted server-side and never
+            stored in the app.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign out of BeeGreat"
+            onPress={() => signOut()}
+            style={({ pressed }) => [gate.textButton, pressed && styles.pressed]}
+          >
+            <Text style={gate.textButtonLabel}>Sign out of BeeGreat</Text>
+          </Pressable>
+        </Animated.View>
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
+/** Gate styles mirror app/sign-in.tsx so both entry screens read as one scene. */
+const gate = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Hive.cream,
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  loading: { alignItems: 'center' },
   safeArea: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    maxWidth: MaxContentWidth,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: Spacing.four,
   },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  hero: { gap: Spacing.two },
+  copy: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.five,
+  },
+  bee: {
+    marginBottom: Spacing.three,
+  },
+  title: {
+    fontFamily: Fonts?.rounded,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+    color: Hive.cacao,
+  },
+  tagline: {
+    fontFamily: Fonts?.sans,
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+    color: Hive.bark,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    marginTop: Spacing.four,
+  },
+  progressLabel: {
+    fontFamily: Fonts?.sans,
+    fontSize: 14,
+    color: Hive.bark,
+  },
+  codeCell: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: Spacing.one,
+    marginTop: Spacing.four,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
+    borderRadius: 20,
+    borderCurve: 'continuous',
+    borderWidth: 1.5,
+    borderColor: Hive.honey,
+    backgroundColor: Hive.comb,
+  },
+  codeLabel: {
+    fontFamily: Fonts?.sans,
+    fontSize: 13,
+    color: Hive.bark,
+  },
+  code: {
+    fontFamily: Fonts?.mono,
+    fontSize: 26,
+    fontWeight: '600',
+    letterSpacing: 2.5,
+    color: Hive.cacao,
+  },
+  codeHint: {
+    fontFamily: Fonts?.sans,
+    fontSize: 13,
+    textAlign: 'center',
+    color: Hive.bark,
+  },
+  error: {
+    fontFamily: Fonts?.sans,
+    fontSize: 13,
+    textAlign: 'center',
+    color: Hive.destructive,
+    marginTop: Spacing.two,
+  },
+  actions: {
+    alignSelf: 'stretch',
+    alignItems: 'stretch',
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.four,
+  },
+  textButton: {
+    alignSelf: 'center',
+    padding: Spacing.two,
+  },
+  textButtonLabel: {
+    fontFamily: Fonts?.sans,
+    fontSize: 13,
+    color: Hive.bark,
+  },
+  legal: {
+    fontFamily: Fonts?.sans,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    color: Hive.bark,
+    opacity: 0.7,
+    paddingHorizontal: Spacing.four,
+  },
+});
+
+const styles = StyleSheet.create({
   panel: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 24,
+    borderRadius: 16,
     borderCurve: 'continuous',
-    padding: Spacing.four,
+    padding: Spacing.three,
     gap: Spacing.three,
+    alignSelf: 'stretch',
   },
-  panelCompact: { alignSelf: 'stretch', borderRadius: 16, padding: Spacing.three },
   headingRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   headingCopy: { flex: 1, gap: Spacing.half },
   mark: {
@@ -318,7 +499,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.three,
   },
-  footnote: { textAlign: 'center' },
-  signOut: { alignSelf: 'center', padding: Spacing.two },
   pressed: { opacity: 0.7 },
 });

@@ -435,7 +435,7 @@ export default defineSchema({
     enabled: v.boolean(),
   }).index('by_user', ['userId', 'powerupId']),
 
-  // Crossmint smart wallets created by the WebTree power-up, one per user+chain.
+  // Crossmint smart wallets created by the Web3 power-up, one per user+chain.
   // The source of truth is Crossmint (keyed by owner `userId:<clerk id>`); this
   // table is a cache so queries and the app can show the wallet without an API call.
   wallets: defineTable({

@@ -1,6 +1,5 @@
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Shimmer } from '@/components/agent/shimmer';
 import { ThemedText } from '@/components/themed-text';
@@ -29,7 +28,7 @@ export function ToolActivity({
   const error = state === 'error';
 
   return (
-    <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.row}>
+    <View style={styles.row}>
       <View
         style={[styles.iconBadge, { backgroundColor: powerup ? theme.primary : theme.secondary }]}
       >
@@ -66,7 +65,7 @@ export function ToolActivity({
           </ThemedText>
         </View>
       ) : null}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -78,7 +77,7 @@ export function ThinkingActivity() {
   const theme = useTheme();
 
   return (
-    <Animated.View entering={FadeInDown.springify().damping(18)} style={styles.row}>
+    <View style={styles.row}>
       <View style={[styles.iconBadge, { backgroundColor: theme.secondary }]}>
         <SymbolView
           name="brain"
@@ -94,7 +93,7 @@ export function ThinkingActivity() {
       <Shimmer type="small" themeColor="textSecondary">
         Thinking…
       </Shimmer>
-    </Animated.View>
+    </View>
   );
 }
 

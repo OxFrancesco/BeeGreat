@@ -1,8 +1,17 @@
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, { ZoomIn, useReducedMotion } from 'react-native-reanimated';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { FloatingBee } from '@/components/floating-bee';
 import { ThemedText } from '@/components/themed-text';
+import { MotionDuration, MotionEasing, MotionScale } from '@/constants/motion';
 import { Spacing } from '@/constants/theme';
 import { getGolieBeeName } from '@/lib/first-focus';
 
@@ -17,6 +26,40 @@ export function GolieBee({
 }) {
   const name = getGolieBeeName(seed);
   const reducedMotion = useReducedMotion();
+  const previousCelebrating = useRef(celebrating);
+  const celebrationScale = useSharedValue(celebrating ? 1.06 : 1);
+
+  useEffect(() => {
+    const wasCelebrating = previousCelebrating.current;
+    previousCelebrating.current = celebrating;
+    cancelAnimation(celebrationScale);
+
+    if (celebrating) {
+      if (!wasCelebrating && !reducedMotion) {
+        celebrationScale.value = MotionScale.enter;
+        celebrationScale.value = withSpring(1.06, {
+          mass: 1,
+          stiffness: 100,
+          damping: 10,
+        });
+      } else {
+        celebrationScale.value = 1.06;
+      }
+    } else if (wasCelebrating && !reducedMotion) {
+      celebrationScale.value = withTiming(1, {
+        duration: MotionDuration.pressOut,
+        easing: MotionEasing.out,
+      });
+    } else {
+      celebrationScale.value = 1;
+    }
+
+    return () => cancelAnimation(celebrationScale);
+  }, [celebrating, celebrationScale, reducedMotion]);
+
+  const celebrationStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: celebrationScale.value }],
+  }));
 
   return (
     <View
@@ -29,10 +72,7 @@ export function GolieBee({
       }
       style={[styles.container, compact && styles.compact]}
     >
-      <Animated.View
-        entering={celebrating && !reducedMotion ? ZoomIn.springify().damping(12) : undefined}
-        style={[styles.beeFrame, celebrating && styles.celebratingFrame]}
-      >
+      <Animated.View style={[styles.beeFrame, celebrationStyle]}>
         <FloatingBee height={compact ? 70 : 102} />
         {celebrating ? (
           <ThemedText style={styles.sparkles} accessibilityElementsHidden>
@@ -65,9 +105,6 @@ const styles = StyleSheet.create({
   beeFrame: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  celebratingFrame: {
-    transform: [{ scale: 1.06 }],
   },
   sparkles: {
     position: 'absolute',

@@ -6,7 +6,6 @@ import type { MutationCtx, QueryCtx } from './_generated/server'
 import {
   ACHIEVEMENT_SCORE_AWARD,
   COMPLETED_GOAL_ACHIEVEMENT_RANKS,
-  DAY_MS,
   FOCUS_SHIELD_COST,
   FOCUS_SHIELD_DURATION_MS,
   GENIUS_WINDOW_MS,

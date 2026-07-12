@@ -7,7 +7,7 @@ import { action } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
 
-// WebTree power-up: per-user Web3 wallets via Crossmint.
+// Web3 power-up: per-user Web3 wallets via Crossmint.
 //
 // Every user gets one Crossmint smart wallet per chain, owned by their Clerk
 // id (`userId:<clerk id>`) with a server admin signer: the SDK derives the
@@ -17,7 +17,7 @@ import type { Doc } from './_generated/dataModel'
 // api-key and MPC wallet flavors both need per-project support enablement,
 // so the server signer is the one that works out of the box.)
 //
-// All entry points are gated on the `webtree` power-up server-side, so a
+// All entry points are gated on the `web3` power-up server-side, so a
 // stale agent session that still has the tools loaded cannot act after the
 // user switches the power-up off. DB cache lives in wallets.ts.
 //
@@ -27,7 +27,7 @@ import type { Doc } from './_generated/dataModel'
 //                           every wallet's admin signing key
 
 // Keep in sync with DEFAULT_CHAIN in wallets.ts.
-const WEBTREE_CHAIN = 'base-sepolia' as const
+const WEB3_CHAIN = 'base-sepolia' as const
 
 function requireEnv(name: 'CROSSMINT_API_KEY' | 'CROSSMINT_SIGNER_SECRET') {
   const value = process.env[name]
@@ -37,13 +37,13 @@ function requireEnv(name: 'CROSSMINT_API_KEY' | 'CROSSMINT_SIGNER_SECRET') {
   return value
 }
 
-async function requireWebtree(ctx: ActionCtx, userId: string) {
+async function requireWeb3(ctx: ActionCtx, userId: string) {
   const enabled = await ctx.runQuery(internal.powerups.checkEnabled, {
     userId,
-    powerupId: 'webtree',
+    powerupId: 'web3',
   })
   if (!enabled) {
-    throw new Error('The WebTree power-up is not enabled. Turn it on from the profile screen first.')
+    throw new Error('The Web3 power-up is not enabled. Turn it on from the profile screen first.')
   }
 }
 
@@ -57,7 +57,7 @@ async function walletForUser(userId: string) {
   const wallets = CrossmintWallets.from(crossmint)
   const secret = requireEnv('CROSSMINT_SIGNER_SECRET')
   const wallet = await wallets.createWallet({
-    chain: WEBTREE_CHAIN,
+    chain: WEB3_CHAIN,
     owner: `userId:${userId}`,
     recovery: { type: 'server', secret },
   })
@@ -69,15 +69,15 @@ async function walletForUser(userId: string) {
 export const getOrCreateWallet = action({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
-    await requireWebtree(ctx, userId)
+    await requireWeb3(ctx, userId)
 
     const wallet = await walletForUser(userId)
     await ctx.runMutation(internal.wallets.cacheWallet, {
       userId,
-      chain: WEBTREE_CHAIN,
+      chain: WEB3_CHAIN,
       address: wallet.address,
     })
-    return { address: wallet.address, chain: WEBTREE_CHAIN, owner: `userId:${userId}` }
+    return { address: wallet.address, chain: WEB3_CHAIN, owner: `userId:${userId}` }
   },
 })
 
@@ -97,11 +97,11 @@ export const getBalances = action({
     usdc: string
     otherTokens: Array<{ symbol: string; amount: string }>
   }> => {
-    await requireWebtree(ctx, userId)
+    await requireWeb3(ctx, userId)
 
     const cached: Doc<'wallets'> | null = await ctx.runQuery(internal.wallets.getCachedWallet, {
       userId,
-      chain: WEBTREE_CHAIN,
+      chain: WEB3_CHAIN,
     })
     if (!cached) {
       throw new Error('No wallet yet — create one first with the create wallet tool.')
@@ -111,7 +111,7 @@ export const getBalances = action({
     const balances = await wallet.balances(['usdxm'])
     return {
       address: wallet.address,
-      chain: WEBTREE_CHAIN,
+      chain: WEB3_CHAIN,
       eth: balances.nativeToken.amount,
       usdc: balances.usdc.amount,
       otherTokens: balances.tokens.map((token) => ({
@@ -134,11 +134,11 @@ export const sendTokens = action({
     amount: v.string(),
   },
   handler: async (ctx, { userId, recipient, token, amount }) => {
-    await requireWebtree(ctx, userId)
+    await requireWeb3(ctx, userId)
 
     const cached: Doc<'wallets'> | null = await ctx.runQuery(internal.wallets.getCachedWallet, {
       userId,
-      chain: WEBTREE_CHAIN,
+      chain: WEB3_CHAIN,
     })
     if (!cached) {
       throw new Error('No wallet yet — create one first with the create wallet tool.')

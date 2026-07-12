@@ -1,11 +1,10 @@
 import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet } from 'react-native';
 import Animated, {
-  Easing,
-  FadeInUp,
-  FadeOutUp,
+  cancelAnimation,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withTiming,
@@ -14,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { OrbState } from '@/components/agent/voice-orb';
 import { ThemedText } from '@/components/themed-text';
+import { MotionDuration, MotionEasing } from '@/constants/motion';
 import { Spacing } from '@/constants/theme';
 
 const AMBER = '#FAB52A';
@@ -35,37 +35,64 @@ export function ListeningIsland({ state }: { state: OrbState }) {
   const insets = useSafeAreaInsets();
   const pulse = useSharedValue(1);
   const active = state !== 'idle';
+  const reducedMotion = useReducedMotion();
+  const visibility = useSharedValue(active ? 1 : 0);
+  const [lastActiveState, setLastActiveState] = useState<Exclude<OrbState, 'idle'>>(
+    state === 'idle' ? 'listening' : state,
+  );
+  const [previousState, setPreviousState] = useState(state);
+  if (state !== previousState) {
+    setPreviousState(state);
+    if (state !== 'idle') setLastActiveState(state);
+  }
 
   useEffect(() => {
-    if (!active) return;
+    cancelAnimation(visibility);
+    visibility.value = withTiming(active ? 1 : 0, {
+      duration: active ? MotionDuration.enter : MotionDuration.exit,
+      easing: MotionEasing.out,
+    });
+    return () => cancelAnimation(visibility);
+  }, [active, visibility]);
+
+  useEffect(() => {
+    cancelAnimation(pulse);
+    if (!active || reducedMotion) {
+      pulse.value = 1;
+      return () => cancelAnimation(pulse);
+    }
     pulse.value = 1;
     pulse.value = withRepeat(
-      withTiming(0.35, { duration: 700, easing: Easing.inOut(Easing.ease) }),
+      withTiming(0.35, { duration: 700, easing: MotionEasing.inOut }),
       -1,
       true,
     );
-  }, [active, pulse]);
+    return () => cancelAnimation(pulse);
+  }, [active, pulse, reducedMotion]);
 
   const dotStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
-
-  if (!active) return null;
+  const visibilityStyle = useAnimatedStyle(() => ({
+    opacity: visibility.value,
+    transform: [{ translateY: reducedMotion ? 0 : (1 - visibility.value) * -8 }],
+  }));
 
   // Dynamic Island devices report a top inset of 59pt; the island itself sits
   // at 11pt and is ~37pt tall, so the pill visually extends it. Everything
   // else (notch or classic status bar) gets the pill just below the inset.
   const hasIsland = Platform.OS === 'ios' && insets.top >= 59;
   const top = hasIsland ? 11 : Math.max(insets.top, Spacing.two) + Spacing.one;
+  const label = LABELS[lastActiveState];
 
   return (
     <Animated.View
-      entering={FadeInUp.duration(220)}
-      exiting={FadeOutUp.duration(180)}
-      style={[styles.wrap, { top }]}
-      pointerEvents="box-none"
+      style={[styles.wrap, { top }, visibilityStyle]}
+      pointerEvents={active ? 'box-none' : 'none'}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Bee is ${LABELS[state].toLowerCase()}. Go to chat.`}
+        accessibilityLabel={`Bee is ${label.toLowerCase()}. Go to chat.`}
         onPress={() => router.navigate('/')}
         style={({ pressed }) => [
           styles.pill,
@@ -75,7 +102,7 @@ export function ListeningIsland({ state }: { state: OrbState }) {
       >
         <Animated.View style={[styles.dot, dotStyle]} />
         <ThemedText type="smallBold" style={styles.label}>
-          {LABELS[state]}
+          {label}
         </ThemedText>
       </Pressable>
     </Animated.View>

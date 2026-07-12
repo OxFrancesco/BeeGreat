@@ -39,7 +39,7 @@ import type * as projects from "../projects.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
 import type * as wallets from "../wallets.js";
-import type * as webtree from "../webtree.js";
+import type * as web3 from "../web3.js";
 
 import type {
   ApiFromModules,
@@ -79,7 +79,7 @@ declare const fullApi: ApiFromModules<{
   tasks: typeof tasks;
   user: typeof user;
   wallets: typeof wallets;
-  webtree: typeof webtree;
+  web3: typeof web3;
 }>;
 
 /**

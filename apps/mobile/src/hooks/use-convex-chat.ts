@@ -104,11 +104,16 @@ export function useConvexMessages(
       }
     });
     const position = new Map(ordered.map((entry, index) => [entry.message.id, index]));
+    const fallbackTimestamp =
+      ordered.reduce((latest, entry) => Math.max(latest, entry.createdAt), 0) + 1;
     for (const [index, message] of flueMessages.entries()) {
       const existing = position.get(message.id);
       if (existing === undefined) {
         position.set(message.id, ordered.length);
-        ordered.push({ message, createdAt: messageTimestamp(message, Date.now() + index) });
+        ordered.push({
+          message,
+          createdAt: messageTimestamp(message, fallbackTimestamp + index),
+        });
       } else {
         ordered[existing] = { ...ordered[existing], message };
       }

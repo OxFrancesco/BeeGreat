@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  FadeIn,
   FadeInDown,
   useReducedMotion,
 } from "react-native-reanimated";
@@ -22,12 +23,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { GolieBee } from "@/components/first-focus/golie-bee";
 import { HoneyVessel } from "@/components/first-focus/honey-vessel";
 import { ScreenHeader } from "@/components/goals/screen-header";
-import {
-  HiveEconomyStory,
-  type HiveEconomyStoryProps,
-} from "@/components/hive/hive-economy-story";
+import { CurrencyBar } from "@/components/hive/currency-bar";
+import { HiveAchievements } from "@/components/hive/hive-achievements";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import { MotionDuration } from "@/constants/motion";
 import { MaxContentWidth, Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
 import {
@@ -63,7 +63,10 @@ function HiveContent() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <ScreenHeader title="Hive" />
+          <View style={styles.headerRow}>
+            <ScreenHeader title="Hive" />
+            <CurrencyBar />
+          </View>
           {current === undefined ? (
             <HiveLoading />
           ) : (
@@ -90,7 +93,6 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
   const displayedGoal = completion
     ? completion.goal
     : (highlightedGoal ?? current.activeGoals[0]);
-  const economy = getEconomyViewModel(current);
 
   const complete = async () => {
     if (!highlight || completing) return;
@@ -123,40 +125,33 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
     <View style={styles.dashboard}>
       <HoneyVessel balance={current.hive.honeyBalance} />
 
-      <HiveEconomyStory {...economy} />
-
       {completion ? (
         <Animated.View
-          entering={reducedMotion ? undefined : FadeInDown.duration(240)}
+          entering={
+            reducedMotion
+              ? FadeIn.duration(MotionDuration.enter)
+              : FadeInDown.duration(MotionDuration.progress)
+          }
           accessibilityRole="summary"
           accessibilityLiveRegion="polite"
-          style={[styles.celebration, { backgroundColor: theme.secondary }]}
+          style={[
+            styles.celebration,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
         >
           <SymbolView
             name="sparkles"
             size={28}
-            tintColor={theme.secondaryForeground}
-            fallback={
-              <ThemedText type="subtitle" themeColor="secondaryForeground">
-                ✦
-              </ThemedText>
-            }
+            tintColor="#D78A00"
+            fallback={<ThemedText type="subtitle">✦</ThemedText>}
           />
           <View style={styles.flex}>
-            <ThemedText
-              type="smallBold"
-              themeColor="secondaryForeground"
-              selectable
-            >
+            <ThemedText type="smallBold" selectable>
               {completion.goal
                 ? `${completion.goal.title} moved forward`
                 : `${completion.highlightTitle} is complete`}
             </ThemedText>
-            <ThemedText
-              type="small"
-              themeColor="secondaryForeground"
-              selectable
-            >
+            <ThemedText type="small" themeColor="textSecondary" selectable>
               +{completion.result.honeyAwarded} Honey · +
               {completion.result.scoreAwarded} Honeycomb Score
             </ThemedText>
@@ -166,41 +161,50 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
 
       {highlight ? (
         <View
-          style={[
-            styles.highlightCard,
-            { backgroundColor: theme.card, borderColor: theme.border },
-          ]}
+          style={[styles.highlightCard, { backgroundColor: theme.secondary }]}
         >
           <View
             accessible
             accessibilityLabel={`Current Highlight: ${highlight.title}, expires ${formatHighlightExpiry(highlight.expiresAt)}`}
-            style={styles.highlightContent}
+            style={styles.highlightRow}
           >
-            <View style={styles.eyebrowRow}>
-              <View style={[styles.liveDot, { backgroundColor: "#FAB52A" }]} />
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                CURRENT HIGHLIGHT
-              </ThemedText>
+            <View style={styles.highlightContent}>
               <ThemedText
                 type="small"
-                themeColor="textSecondary"
-                style={styles.expiry}
+                themeColor="secondaryForeground"
+                style={styles.highlightMeta}
                 selectable
               >
-                {formatHighlightExpiry(highlight.expiresAt)}
+                Highlight · until {formatHighlightExpiry(highlight.expiresAt)}
               </ThemedText>
+              <ThemedText
+                type="subtitle"
+                themeColor="secondaryForeground"
+                style={styles.highlightTitle}
+                selectable
+              >
+                {highlight.title}
+              </ThemedText>
+              {highlightedGoal ? (
+                <ThemedText
+                  type="small"
+                  themeColor="secondaryForeground"
+                  style={styles.highlightMeta}
+                  selectable
+                >
+                  For {highlightedGoal.title}
+                </ThemedText>
+              ) : null}
             </View>
-            <ThemedText
-              type="subtitle"
-              style={styles.highlightTitle}
-              selectable
-            >
-              {highlight.title}
-            </ThemedText>
-            {highlightedGoal ? (
-              <ThemedText type="small" themeColor="textSecondary" selectable>
-                For {highlightedGoal.title}
-              </ThemedText>
+            {displayedGoal?.golieBee ? (
+              <GolieBee
+                compact
+                seed={getStableGolieBeeSeed(
+                  displayedGoal.golieBee,
+                  displayedGoal.golieBee.golieBeeId,
+                )}
+                celebrating={Boolean(completion)}
+              />
             ) : null}
           </View>
           {error ? (
@@ -245,54 +249,7 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
         <NoHighlight hasGoals={current.activeGoals.length > 0} />
       )}
 
-      {displayedGoal?.golieBee ? (
-        <View
-          style={[
-            styles.golieCard,
-            { backgroundColor: theme.card, borderColor: theme.border },
-          ]}
-        >
-          <GolieBee
-            seed={getStableGolieBeeSeed(
-              displayedGoal.golieBee,
-              displayedGoal.golieBee.golieBeeId,
-            )}
-            celebrating={Boolean(completion)}
-          />
-          <View style={styles.golieCopy}>
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              GROWING WITH
-            </ThemedText>
-            <ThemedText style={styles.goalTitle} selectable>
-              {displayedGoal.title}
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" selectable>
-              {completion
-                ? "This GolieBee is buzzing with the progress you just made."
-                : "Every verified step helps this GolieBee and your whole Hive grow."}
-            </ThemedText>
-          </View>
-        </View>
-      ) : null}
-
-      {!completion && current.latestVerifiedProgress ? (
-        <View style={[styles.historyCard, { borderColor: theme.border }]}>
-          <SymbolView
-            name="clock.arrow.circlepath"
-            size={18}
-            tintColor={theme.textSecondary}
-          />
-          <View style={styles.flex}>
-            <ThemedText type="smallBold" selectable>
-              Latest verified progress
-            </ThemedText>
-            <ThemedText type="small" themeColor="textSecondary" selectable>
-              +{current.latestVerifiedProgress.honeyDelta} Honey · +
-              {current.latestVerifiedProgress.scoreDelta} score
-            </ThemedText>
-          </View>
-        </View>
-      ) : null}
+      <HiveAchievements achievements={current.economy.achievements} />
     </View>
   );
 }
@@ -338,19 +295,6 @@ function NoHighlight({ hasGoals }: { hasGoals: boolean }) {
       </Pressable>
     </View>
   );
-}
-
-function getEconomyViewModel(current: FirstFocusState): HiveEconomyStoryProps {
-  return {
-    honeycombScore: current.hive.honeycombScore,
-    royalJellyBalance: current.hive.royalJellyBalance,
-    activeGoalCount: current.activeGoals.length,
-    brainFatigue: current.economy.brainFatigue,
-    geniusState: current.economy.geniusState,
-    activeFocusShield: current.economy.activeFocusShield,
-    achievements: current.economy.achievements,
-    achievementCount: current.economy.achievements.length,
-  };
 }
 
 function HiveLoading() {
@@ -440,43 +384,44 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.six,
   },
   dashboard: {
-    gap: Spacing.three,
+    gap: Spacing.four,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.two,
   },
   celebration: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 18,
     borderCurve: "continuous",
     padding: Spacing.three,
   },
   highlightCard: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 22,
+    borderRadius: 24,
     borderCurve: "continuous",
     padding: Spacing.four,
-    gap: Spacing.two,
+    gap: Spacing.three,
   },
-  highlightContent: {
-    gap: Spacing.two,
-  },
-  eyebrowRow: {
+  highlightRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Spacing.three,
+  },
+  highlightContent: {
+    flex: 1,
     gap: Spacing.two,
   },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  expiry: {
-    flex: 1,
-    textAlign: "right",
+  highlightMeta: {
+    opacity: 0.8,
   },
   highlightTitle: {
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
   },
   completeButton: {
     minHeight: 48,
@@ -485,32 +430,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.two,
     borderRadius: 24,
-    marginTop: Spacing.one,
-  },
-  golieCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.four,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 22,
-    borderCurve: "continuous",
-    padding: Spacing.three,
-  },
-  golieCopy: {
-    flex: 1,
-    gap: Spacing.one,
-  },
-  goalTitle: {
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "700",
-  },
-  historyCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.three,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: Spacing.three,
   },
   emptyCard: {
     alignItems: "center",

@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddRow } from '@/components/goals/add-row';
 import { CombCell } from '@/components/goals/comb-cell';
 import { ScreenHeader } from '@/components/goals/screen-header';
+import { CurrencyBar } from '@/components/hive/currency-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
@@ -51,7 +52,10 @@ export default function GoalsScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            <ScreenHeader title="Goals" />
+            <View style={styles.headerRow}>
+              <ScreenHeader title="Goals" />
+              <CurrencyBar />
+            </View>
             {goals === undefined ? (
               <ActivityIndicator style={styles.loading} />
             ) : (
@@ -165,6 +169,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     gap: Spacing.three,
     paddingBottom: Spacing.five,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
   },
   loading: {
     marginTop: Spacing.six,

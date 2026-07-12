@@ -2,16 +2,20 @@ import {
   BlurMask,
   Canvas,
   Circle,
+  Group,
   RadialGradient,
   vec,
 } from '@shopify/react-native-skia';
 import { SymbolView } from 'expo-symbols';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
-import {
+import Animated, {
   Easing,
+  ReduceMotion,
   cancelAnimation,
+  useAnimatedStyle,
   useDerivedValue,
+  useReducedMotion,
   useSharedValue,
   withRepeat,
   withSequence,
@@ -19,6 +23,7 @@ import {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
+import { MotionDuration, MotionEasing, MotionScale } from '@/constants/motion';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -58,47 +63,87 @@ export function VoiceOrb({
 }) {
   const theme = useTheme();
   const scheme = useColorScheme();
+  const reducedMotion = useReducedMotion();
   const honey = HONEY[scheme === 'dark' ? 'dark' : 'light'];
 
   const breathe = useSharedValue(1);
   const glow = useSharedValue(1);
   const ripple = useSharedValue(0);
+  const pressScale = useSharedValue(1);
 
   useEffect(() => {
     cancelAnimation(breathe);
     cancelAnimation(glow);
     cancelAnimation(ripple);
+    if (reducedMotion) {
+      breathe.value = 1;
+      glow.value =
+        state === 'listening'
+          ? 1.12
+          : state === 'thinking'
+            ? 1.15
+            : state === 'speaking'
+              ? 1.25
+              : 1;
+      ripple.value = 0;
+      return () => {
+        cancelAnimation(breathe);
+        cancelAnimation(glow);
+        cancelAnimation(ripple);
+      };
+    }
     if (state === 'listening') {
       breathe.value = withRepeat(
-        withSequence(
-          withTiming(1.08, { duration: 420, easing: Easing.out(Easing.quad) }),
-          withTiming(1, { duration: 420, easing: Easing.in(Easing.quad) }),
-        ),
+        withTiming(1.08, { duration: 420, easing: MotionEasing.inOut }),
         -1,
+        true,
+        undefined,
+        ReduceMotion.System,
       );
-      glow.value = withTiming(1.12, { duration: 300 });
+      glow.value = withTiming(1.12, {
+        duration: MotionDuration.progress,
+        easing: MotionEasing.out,
+      });
       ripple.value = 0;
-      ripple.value = withRepeat(withTiming(1, { duration: 1100, easing: Easing.out(Easing.quad) }), -1);
+      ripple.value = withRepeat(
+        withTiming(1, { duration: 1100, easing: MotionEasing.out }),
+        -1,
+        false,
+        undefined,
+        ReduceMotion.System,
+      );
     } else if (state === 'thinking') {
       breathe.value = withRepeat(
         withSequence(withTiming(1.03, { duration: 260 }), withTiming(0.99, { duration: 260 })),
         -1,
+        false,
+        undefined,
+        ReduceMotion.System,
       );
       glow.value = withRepeat(
         withSequence(withTiming(1.15, { duration: 520 }), withTiming(0.95, { duration: 520 })),
         -1,
+        false,
+        undefined,
+        ReduceMotion.System,
       );
-      ripple.value = withTiming(0, { duration: 200 });
+      ripple.value = withTiming(0, { duration: MotionDuration.enter });
     } else if (state === 'speaking') {
       breathe.value = withRepeat(
         withSequence(withTiming(1.06, { duration: 300 }), withTiming(1, { duration: 300 })),
         -1,
+        false,
+        undefined,
+        ReduceMotion.System,
       );
       glow.value = withRepeat(
         withSequence(withTiming(1.25, { duration: 300 }), withTiming(1.05, { duration: 300 })),
         -1,
+        false,
+        undefined,
+        ReduceMotion.System,
       );
-      ripple.value = withTiming(0, { duration: 200 });
+      ripple.value = withTiming(0, { duration: MotionDuration.enter });
     } else {
       breathe.value = withRepeat(
         withSequence(
@@ -106,78 +151,137 @@ export function VoiceOrb({
           withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
         ),
         -1,
+        false,
+        undefined,
+        ReduceMotion.System,
       );
-      glow.value = withTiming(1, { duration: 400 });
-      ripple.value = withTiming(0, { duration: 200 });
+      glow.value = withTiming(1, {
+        duration: MotionDuration.progress,
+        easing: MotionEasing.out,
+      });
+      ripple.value = withTiming(0, { duration: MotionDuration.enter });
     }
-  }, [state, breathe, glow, ripple]);
+    return () => {
+      cancelAnimation(breathe);
+      cancelAnimation(glow);
+      cancelAnimation(ripple);
+    };
+  }, [state, breathe, glow, reducedMotion, ripple]);
 
-  const coreRadius = useDerivedValue(() => CORE_RADIUS * breathe.value);
-  const glowRadius = useDerivedValue(() => (CORE_RADIUS + 26) * glow.value);
-  const rippleRadius = useDerivedValue(() => CORE_RADIUS + 6 + ripple.value * 34);
+  useEffect(
+    () => () => {
+      cancelAnimation(pressScale);
+    },
+    [pressScale],
+  );
+
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
+  }));
+
+  const handlePressIn = () => {
+    if (reducedMotion) {
+      pressScale.set(1);
+      return;
+    }
+    pressScale.set(
+      withTiming(MotionScale.pressed, {
+        duration: MotionDuration.pressIn,
+        easing: MotionEasing.out,
+      }),
+    );
+  };
+
+  const handlePressOut = () => {
+    if (reducedMotion) {
+      pressScale.set(1);
+      return;
+    }
+    pressScale.set(
+      withTiming(1, {
+        duration: MotionDuration.pressOut,
+        easing: MotionEasing.out,
+      }),
+    );
+  };
+
+  const coreTransform = useDerivedValue(() => [{ scale: breathe.value }]);
+  const glowTransform = useDerivedValue(() => [{ scale: glow.value }]);
+  const rippleTransform = useDerivedValue(() => [
+    { scale: 1 + ripple.value * (34 / (CORE_RADIUS + 6)) },
+  ]);
   const rippleOpacity = useDerivedValue(() => (ripple.value === 0 ? 0 : 0.6 * (1 - ripple.value)));
-  const rimRadius = useDerivedValue(() => coreRadius.value + 1);
 
   const listening = state === 'listening';
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={listening ? 'Stop and send' : 'Talk to Bee'}
-      onPress={onPress}
-      disabled={disabled}
-      style={styles.container}
-    >
-      <Canvas style={styles.canvas}>
-        <Circle cx={CENTER} cy={CENTER} r={glowRadius}>
-          <RadialGradient
-            c={vec(CENTER, CENTER)}
-            r={CORE_RADIUS + 26}
-            colors={[honey.glow, 'transparent']}
-          />
-          <BlurMask blur={18} style="normal" />
-        </Circle>
+    <Animated.View style={pressStyle}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={listening ? 'Stop and send' : 'Talk to Bee'}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled}
+        style={({ pressed }) => [styles.container, pressed && styles.pressed]}
+      >
+        <Canvas style={styles.canvas}>
+          <Group origin={vec(CENTER, CENTER)} transform={glowTransform}>
+            <Circle cx={CENTER} cy={CENTER} r={CORE_RADIUS + 26}>
+              <RadialGradient
+                c={vec(CENTER, CENTER)}
+                r={CORE_RADIUS + 26}
+                colors={[honey.glow, 'transparent']}
+              />
+              <BlurMask blur={18} style="normal" />
+            </Circle>
+          </Group>
 
-        <Circle
-          cx={CENTER}
-          cy={CENTER}
-          r={rippleRadius}
-          style="stroke"
-          strokeWidth={2}
-          color={honey.ripple}
-          opacity={rippleOpacity}
+          <Group origin={vec(CENTER, CENTER)} transform={rippleTransform}>
+            <Circle
+              cx={CENTER}
+              cy={CENTER}
+              r={CORE_RADIUS + 6}
+              style="stroke"
+              strokeWidth={2}
+              color={honey.ripple}
+              opacity={rippleOpacity}
+            />
+          </Group>
+
+          <Group origin={vec(CENTER, CENTER)} transform={coreTransform}>
+            <Circle cx={CENTER} cy={CENTER} r={CORE_RADIUS}>
+              <RadialGradient
+                c={vec(CENTER - 18, CENTER - 24)}
+                r={CORE_RADIUS * 1.9}
+                colors={[...honey.core]}
+              />
+            </Circle>
+
+            <Circle
+              cx={CENTER}
+              cy={CENTER}
+              r={CORE_RADIUS + 1}
+              style="stroke"
+              strokeWidth={1.5}
+              color={honey.rim}
+            />
+          </Group>
+        </Canvas>
+
+        <SymbolView
+          name={listening ? 'waveform' : 'mic.fill'}
+          size={40}
+          tintColor={scheme === 'dark' ? '#2A1C0E' : theme.secondaryForeground}
+          style={styles.icon}
+          fallback={
+            <ThemedText type="subtitle" themeColor="secondaryForeground" style={styles.icon}>
+              {listening ? '||' : 'rec'}
+            </ThemedText>
+          }
         />
-
-        <Circle cx={CENTER} cy={CENTER} r={coreRadius}>
-          <RadialGradient
-            c={vec(CENTER - 18, CENTER - 24)}
-            r={CORE_RADIUS * 1.9}
-            colors={[...honey.core]}
-          />
-        </Circle>
-
-        <Circle
-          cx={CENTER}
-          cy={CENTER}
-          r={rimRadius}
-          style="stroke"
-          strokeWidth={1.5}
-          color={honey.rim}
-        />
-      </Canvas>
-
-      <SymbolView
-        name={listening ? 'waveform' : 'mic.fill'}
-        size={40}
-        tintColor={scheme === 'dark' ? '#2A1C0E' : theme.secondaryForeground}
-        style={styles.icon}
-        fallback={
-          <ThemedText type="subtitle" themeColor="secondaryForeground" style={styles.icon}>
-            {listening ? '||' : 'rec'}
-          </ThemedText>
-        }
-      />
-    </Pressable>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -187,6 +291,9 @@ const styles = StyleSheet.create({
     height: SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.85,
   },
   canvas: {
     position: 'absolute',

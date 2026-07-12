@@ -1,11 +1,11 @@
 import { v } from 'convex/values'
 import { internalMutation, internalQuery, query } from './_generated/server'
 
-// DB surface for WebTree wallets (cache of Crossmint-created wallets).
-// The Crossmint calls live in webtree.ts (Node actions); this file stays in
+// DB surface for Web3 wallets (cache of Crossmint-created wallets).
+// The Crossmint calls live in web3.ts (Node actions); this file stays in
 // the default runtime so queries/mutations can be used by the app directly.
 
-// Keep in sync with WEBTREE_CHAIN in webtree.ts.
+// Keep in sync with WEB3_CHAIN in web3.ts.
 const DEFAULT_CHAIN = 'base-sepolia'
 
 /** App-facing: the signed-in user's cached wallet, or null before creation. */

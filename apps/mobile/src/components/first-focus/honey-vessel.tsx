@@ -2,15 +2,15 @@ import { Image } from "expo-image";
 import { useEffect } from "react";
 import { StyleSheet, useWindowDimensions, View } from "react-native";
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
 
-import { ThemedText } from "@/components/themed-text";
+import { MotionDuration, MotionEasing } from "@/constants/motion";
 import { Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
 
 export const MVP_HONEY_CAPACITY = 100;
 
@@ -18,7 +18,6 @@ const VESSEL_SOURCE = require("../../../assets/images/hive-vessel.png");
 const MAX_VESSEL_SIZE = 340;
 
 export function HoneyVessel({ balance }: { balance: number }) {
-  const theme = useTheme();
   const reducedMotion = useReducedMotion();
   const { width } = useWindowDimensions();
   const vesselSize = Math.min(width - Spacing.three * 2, MAX_VESSEL_SIZE);
@@ -27,16 +26,23 @@ export function HoneyVessel({ balance }: { balance: number }) {
   const overflow = Math.max(balance - MVP_HONEY_CAPACITY, 0);
   const fillRatio = clampedBalance / MVP_HONEY_CAPACITY;
   const percentage = Math.round(fillRatio * 100);
-  const fillHeight = useSharedValue(cavityHeight * fillRatio);
+  const fillTranslateY = useSharedValue(cavityHeight * (1 - fillRatio));
 
   useEffect(() => {
-    const nextHeight = cavityHeight * fillRatio;
-    fillHeight.value = reducedMotion
-      ? nextHeight
-      : withTiming(nextHeight, { duration: 520 });
-  }, [cavityHeight, fillHeight, fillRatio, reducedMotion]);
+    const nextTranslateY = cavityHeight * (1 - fillRatio);
+    cancelAnimation(fillTranslateY);
+    fillTranslateY.value = reducedMotion
+      ? nextTranslateY
+      : withTiming(nextTranslateY, {
+          duration: MotionDuration.progress,
+          easing: MotionEasing.out,
+        });
+    return () => cancelAnimation(fillTranslateY);
+  }, [cavityHeight, fillRatio, fillTranslateY, reducedMotion]);
 
-  const animatedFill = useAnimatedStyle(() => ({ height: fillHeight.value }));
+  const animatedFill = useAnimatedStyle(() => ({
+    transform: [{ translateY: fillTranslateY.value }],
+  }));
 
   return (
     <View
@@ -68,7 +74,7 @@ export function HoneyVessel({ balance }: { balance: number }) {
             },
           ]}
         >
-          <Animated.View style={[styles.honey, animatedFill]}>
+          <Animated.View style={[styles.honey, { height: cavityHeight }, animatedFill]}>
             <View style={styles.honeySurface} />
             <View style={styles.honeyGlow} />
           </Animated.View>
@@ -79,23 +85,6 @@ export function HoneyVessel({ balance }: { balance: number }) {
           contentFit="contain"
           accessibilityIgnoresInvertColors
         />
-      </View>
-      <View
-        style={[
-          styles.readout,
-          { backgroundColor: theme.card, borderColor: theme.border },
-        ]}
-      >
-        <ThemedText type="smallBold" selectable>
-          {overflow > 0
-            ? `${balance} Honey`
-            : `${balance} / ${MVP_HONEY_CAPACITY} Honey`}
-        </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" selectable>
-          {overflow > 0
-            ? `Vessel full · +${overflow} overflow`
-            : `${percentage}% full`}
-        </ThemedText>
       </View>
     </View>
   );
@@ -134,16 +123,5 @@ const styles = StyleSheet.create({
     height: "72%",
     borderRadius: 999,
     backgroundColor: "rgba(255, 222, 121, 0.28)",
-  },
-  readout: {
-    minWidth: 220,
-    flexDirection: "row",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: Spacing.three,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
   },
 });

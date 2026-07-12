@@ -1,9 +1,17 @@
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
+import { MotionEasing, MotionScale } from '@/constants/motion';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -40,6 +48,29 @@ export function TaskRow({
   const [now] = useState(() => Date.now());
   const done = task.status === 'done';
   const overdue = !done && task.dueDate !== null && task.dueDate < now;
+  const reducedMotion = useReducedMotion();
+  const iconProgress = useSharedValue(done ? 1 : 0);
+
+  useEffect(() => {
+    iconProgress.value = withTiming(done ? 1 : 0, {
+      duration: 120,
+      easing: MotionEasing.out,
+    });
+    return () => cancelAnimation(iconProgress);
+  }, [done, iconProgress]);
+
+  const todoIconStyle = useAnimatedStyle(() => ({
+    opacity: 1 - iconProgress.value,
+    transform: [
+      { scale: reducedMotion ? 1 : MotionScale.pressed + 0.03 * (1 - iconProgress.value) },
+    ],
+  }));
+  const doneIconStyle = useAnimatedStyle(() => ({
+    opacity: iconProgress.value,
+    transform: [
+      { scale: reducedMotion ? 1 : MotionScale.pressed + 0.03 * iconProgress.value },
+    ],
+  }));
 
   const toggle = () => {
     if (Platform.OS === 'ios') {
@@ -56,16 +87,32 @@ export function TaskRow({
       onLongPress={onLongPress}
       style={({ pressed }) => [styles.row, isSubtask && styles.subtaskRow, pressed && styles.pressed]}
     >
-      <SymbolView
-        name={done ? 'checkmark.circle.fill' : 'circle'}
-        size={isSubtask ? 18 : 22}
-        tintColor={done ? Honey : theme.textSecondary}
-        fallback={
-          <ThemedText type="smallBold" themeColor={done ? undefined : 'textSecondary'}>
-            {done ? '☑' : '☐'}
-          </ThemedText>
-        }
-      />
+      <View
+        accessibilityElementsHidden
+        pointerEvents="none"
+        style={{ width: isSubtask ? 18 : 22, height: isSubtask ? 18 : 22 }}
+      >
+        <Animated.View style={[styles.iconLayer, todoIconStyle]}>
+          <SymbolView
+            name="circle"
+            size={isSubtask ? 18 : 22}
+            tintColor={theme.textSecondary}
+            fallback={
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                ☐
+              </ThemedText>
+            }
+          />
+        </Animated.View>
+        <Animated.View style={[styles.iconLayer, doneIconStyle]}>
+          <SymbolView
+            name="checkmark.circle.fill"
+            size={isSubtask ? 18 : 22}
+            tintColor={Honey}
+            fallback={<ThemedText type="smallBold">☑</ThemedText>}
+          />
+        </Animated.View>
+      </View>
       <View style={styles.body}>
         <ThemedText
           type={isSubtask ? 'small' : 'default'}
@@ -116,6 +163,15 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     gap: Spacing.half,
+  },
+  iconLayer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   done: {
     textDecorationLine: 'line-through',
