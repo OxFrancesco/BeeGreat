@@ -5,19 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "flue dev",
+    "dev:chatgpt": "bun run scripts/dev-with-pi-chatgpt.ts",
     "build": "flue build",
     "deploy": "flue build && wrangler deploy"
   },
   "dependencies": {
+    "@earendil-works/pi-ai": "^0.80.2",
     "@flue/runtime": "1.0.0-beta.9",
     "agents": "^0.14.2",
     "convex": "^1.36.1",
     "hono": "^4.6.0",
     "jose": "^6.2.3",
+    "proper-lockfile": "4.1.2",
     "valibot": "^1.0.0"
   },
   "devDependencies": {
     "@flue/cli": "1.0.0-beta.9",
+    "@types/proper-lockfile": "4.1.4",
     "typescript": "~6.0.3",
     "wrangler": "^4.0.0"
   }

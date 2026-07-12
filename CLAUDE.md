@@ -7,8 +7,8 @@ The `resources/` folder contains read-only clones of reference codebases.
 If you need to implement code specific to one of these codebases, read the relevant
 folder to gather information, feedback, patterns, and templates before writing code.
 
-- `resources/convex-js` — Official Convex TypeScript client and server SDK; reference for validators, functions, authentication, and generated types
-- `resources/convex-test` — Official Convex test harness; reference for isolated Bun-compatible query and mutation behavior tests
-- `resources/herdr` — Herdr agent multiplexer: persistent terminal workspaces, panes, agent status, and orchestration visibility
+- `resources/codex` — Official Codex implementation — app-server protocol, generated schemas, authentication, and client examples
+- `resources/pi` — Pi agent stack used by Flue — native ChatGPT subscription OAuth, Codex provider, credential storage, and model runtime
+- `resources/google-health-cli` — Official Google Health API CLI reference for OAuth, Health API discovery, and health data operations
 
 <!-- codeview:end -->

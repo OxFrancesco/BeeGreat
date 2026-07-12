@@ -5,9 +5,18 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from 'react-native';
 
 import { HexAvatar } from '@/components/hex-avatar';
+import { ChatGptAuthSettings } from '@/components/chatgpt/chatgpt-auth';
+import { GoogleHealthAuthSettings } from '@/components/google-health/google-health-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -58,10 +67,17 @@ export default function ProfileScreen() {
           name="xmark"
           size={13}
           tintColor={theme.textSecondary}
-          fallback={<ThemedText type="small" themeColor="textSecondary">✕</ThemedText>}
+          fallback={
+            <ThemedText type="small" themeColor="textSecondary">
+              ✕
+            </ThemedText>
+          }
         />
       </Pressable>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <HexAvatar size={72} uri={user?.hasImage ? user.imageUrl : null} />
         <View style={styles.identity}>
           <ThemedText type="default" style={styles.name}>
@@ -74,11 +90,18 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        <View style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.settingRow,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
           <View style={styles.settingCopy}>
             <ThemedText type="default">Speak replies</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {speakReplies ? 'Bee reads answers aloud' : 'Replies stay on screen'}
+              {speakReplies
+                ? 'Bee reads answers aloud'
+                : 'Replies stay on screen'}
             </ThemedText>
           </View>
           <Switch
@@ -92,31 +115,44 @@ export default function ProfileScreen() {
           />
         </View>
 
+        <ChatGptAuthSettings />
+
         {powerups && powerups.length > 0 ? (
           <View style={styles.powerups}>
-            <ThemedText type="small" themeColor="textSecondary" style={styles.sectionLabel}>
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              style={styles.sectionLabel}
+            >
               Power-ups
             </ThemedText>
             {powerups.map((powerup) => (
-              <View
-                key={powerup.id}
-                style={[styles.settingRow, { backgroundColor: theme.card, borderColor: theme.border }]}
-              >
-                <View style={styles.settingCopy}>
-                  <ThemedText type="default">{powerup.name}</ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    {powerup.enabled ? powerup.tagline : powerup.description}
-                  </ThemedText>
+              <View key={powerup.id} style={styles.powerupCard}>
+                <View
+                  style={[
+                    styles.settingRow,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                  ]}
+                >
+                  <View style={styles.settingCopy}>
+                    <ThemedText type="default">{powerup.name}</ThemedText>
+                    <ThemedText type="small" themeColor="textSecondary">
+                      {powerup.enabled ? powerup.tagline : powerup.description}
+                    </ThemedText>
+                  </View>
+                  <Switch
+                    accessibilityLabel={`${powerup.name} power-up`}
+                    value={powerup.enabled}
+                    onValueChange={(enabled) => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      setPowerupEnabled({ powerupId: powerup.id, enabled });
+                    }}
+                    trackColor={{ true: theme.primary }}
+                  />
                 </View>
-                <Switch
-                  accessibilityLabel={`${powerup.name} power-up`}
-                  value={powerup.enabled}
-                  onValueChange={(enabled) => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setPowerupEnabled({ powerupId: powerup.id, enabled });
-                  }}
-                  trackColor={{ true: theme.primary }}
-                />
+                {powerup.id === 'google-health' && powerup.enabled ? (
+                  <GoogleHealthAuthSettings />
+                ) : null}
               </View>
             ))}
           </View>
@@ -197,6 +233,9 @@ const styles = StyleSheet.create({
   powerups: {
     alignSelf: 'stretch',
     gap: Spacing.two,
+  },
+  powerupCard: {
+    gap: Spacing.one,
   },
   sectionLabel: {
     textTransform: 'uppercase',

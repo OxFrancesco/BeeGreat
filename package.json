@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "mobile": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run agent\" \"bun run --cwd apps/mobile ios\"",
+    "mobile:chatgpt": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run agent\" \"EXPO_PUBLIC_AGENT_URL=http://localhost:3583 bun run --cwd apps/mobile ios\"",
+    "mobile:chatgpt:pi": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run --cwd packages/agent dev:chatgpt\" \"EXPO_PUBLIC_AGENT_URL=http://localhost:3583 bun run --cwd apps/mobile ios\"",
     "mobile:android": "concurrently -k -n convex,agent,expo -c cyan,magenta,green --handle-input \"bun run backend\" \"bun run agent\" \"bun run --cwd apps/mobile android\"",
     "web": "bun run --cwd apps/web dev",
     "backend": "bun run --cwd packages/backend dev",

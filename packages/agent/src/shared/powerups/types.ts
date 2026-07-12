@@ -16,5 +16,14 @@ import type { AgentProfile } from '@flue/runtime'
  */
 export interface PowerupDefinition {
   id: string
-  profile: (userId: string, convexUrl: string) => AgentProfile
+  profile: (
+    userId: string,
+    convexUrl: string,
+    runtime: PowerupRuntime,
+  ) => AgentProfile
+}
+
+export interface PowerupRuntime {
+  convexSiteUrl?: string
+  credentialBrokerSecret?: string
 }

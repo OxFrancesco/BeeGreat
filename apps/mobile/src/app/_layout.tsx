@@ -7,6 +7,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { ActivityIndicator, StyleSheet, View, useColorScheme } from 'react-native';
 
 import { VoiceAgentProvider } from '@/components/agent/voice-agent-provider';
+import { ChatGptAuthGate } from '@/components/chatgpt/chatgpt-auth';
 import { Colors } from '@/constants/theme';
 import { flueClient } from '@/lib/flue';
 
@@ -78,7 +79,11 @@ function RootNavigator() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       {/* The voice agent lives above the navigator so mic state, the Live
           Activity, and the island pill survive tab switches app-wide. */}
-      {isSignedIn ? <VoiceAgentProvider>{navigator}</VoiceAgentProvider> : navigator}
+      {isSignedIn ? (
+        <ChatGptAuthGate>
+          <VoiceAgentProvider>{navigator}</VoiceAgentProvider>
+        </ChatGptAuthGate>
+      ) : navigator}
     </ThemeProvider>
   );
 }

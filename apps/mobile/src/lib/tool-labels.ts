@@ -12,6 +12,7 @@ interface ToolCopy {
 /** Display names for power-up specialists, keyed by subagent name. */
 const POWERUP_AGENTS: Record<string, string> = {
   webtree: 'WebTree',
+  'google-health': 'Google Health',
 };
 
 const TOOL_COPY: Record<string, ToolCopy> = {
@@ -109,6 +110,21 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     symbol: 'paperplane',
     powerup: 'WebTree',
   },
+  // Google Health power-up (read-only health specialist tools).
+  get_health_context: {
+    running: 'Checking your health profile…',
+    done: 'Checked your health profile',
+    failed: 'Couldn’t read your health profile',
+    symbol: 'heart.text.square',
+    powerup: 'Google Health',
+  },
+  query_health_data: {
+    running: 'Reading your health data…',
+    done: 'Read your health data',
+    failed: 'Couldn’t read your health data',
+    symbol: 'heart.text.square',
+    powerup: 'Google Health',
+  },
 };
 
 /**
@@ -159,10 +175,20 @@ function fallbackCopy(name: string): ToolCopy {
 
 export type ToolActivityState = 'running' | 'done' | 'error';
 
-export function getToolCopy(name: string, state: ToolActivityState, input?: unknown) {
-  const copy = name === 'task' ? taskCopy(input) : (TOOL_COPY[name] ?? fallbackCopy(name));
+export function getToolCopy(
+  name: string,
+  state: ToolActivityState,
+  input?: unknown,
+) {
+  const copy =
+    name === 'task' ? taskCopy(input) : (TOOL_COPY[name] ?? fallbackCopy(name));
   return {
-    label: state === 'running' ? copy.running : state === 'error' ? copy.failed : copy.done,
+    label:
+      state === 'running'
+        ? copy.running
+        : state === 'error'
+          ? copy.failed
+          : copy.done,
     symbol: state === 'error' ? 'exclamationmark.triangle' : copy.symbol,
     powerup: copy.powerup ?? null,
   };

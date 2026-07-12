@@ -21,6 +21,13 @@ export const POWERUP_CATALOG = [
     description:
       'Gives Bee a personal Web3 wallet powered by Crossmint. Create your wallet, check balances, and send tokens on Base Sepolia.',
   },
+  {
+    id: 'google-health',
+    name: 'Google Health',
+    tagline: 'Your health, understood',
+    description:
+      'Lets Bee read your Google Health data—steps, sleep, workouts, heart rate, weight, and more—with your permission.',
+  },
 ] as const
 
 export type PowerupId = (typeof POWERUP_CATALOG)[number]['id']

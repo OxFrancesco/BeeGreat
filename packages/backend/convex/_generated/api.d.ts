@@ -9,6 +9,11 @@
  */
 
 import type * as agent from "../agent.js";
+import type * as chatgptAuth from "../chatgptAuth.js";
+import type * as chatgptAuthActions from "../chatgptAuthActions.js";
+import type * as chatgptAuthValidators from "../chatgptAuthValidators.js";
+import type * as chatgptCrypto from "../chatgptCrypto.js";
+import type * as chatgptOpenAi from "../chatgptOpenAi.js";
 import type * as crons from "../crons.js";
 import type * as economy from "../economy.js";
 import type * as economyPolicy from "../economyPolicy.js";
@@ -16,7 +21,14 @@ import type * as firstFocus from "../firstFocus.js";
 import type * as focusConstants from "../focusConstants.js";
 import type * as focusDeletion from "../focusDeletion.js";
 import type * as goals from "../goals.js";
+import type * as googleHealth from "../googleHealth.js";
+import type * as googleHealthAuth from "../googleHealthAuth.js";
+import type * as googleHealthAuthActions from "../googleHealthAuthActions.js";
+import type * as googleHealthCrypto from "../googleHealthCrypto.js";
+import type * as googleHealthOAuth from "../googleHealthOAuth.js";
+import type * as googleHealthValidators from "../googleHealthValidators.js";
 import type * as helpers from "../helpers.js";
+import type * as http from "../http.js";
 import type * as memories from "../memories.js";
 import type * as memoryRelevance from "../memoryRelevance.js";
 import type * as memoryValidators from "../memoryValidators.js";
@@ -36,6 +48,11 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
+  chatgptAuth: typeof chatgptAuth;
+  chatgptAuthActions: typeof chatgptAuthActions;
+  chatgptAuthValidators: typeof chatgptAuthValidators;
+  chatgptCrypto: typeof chatgptCrypto;
+  chatgptOpenAi: typeof chatgptOpenAi;
   crons: typeof crons;
   economy: typeof economy;
   economyPolicy: typeof economyPolicy;
@@ -43,7 +60,14 @@ declare const fullApi: ApiFromModules<{
   focusConstants: typeof focusConstants;
   focusDeletion: typeof focusDeletion;
   goals: typeof goals;
+  googleHealth: typeof googleHealth;
+  googleHealthAuth: typeof googleHealthAuth;
+  googleHealthAuthActions: typeof googleHealthAuthActions;
+  googleHealthCrypto: typeof googleHealthCrypto;
+  googleHealthOAuth: typeof googleHealthOAuth;
+  googleHealthValidators: typeof googleHealthValidators;
   helpers: typeof helpers;
+  http: typeof http;
   memories: typeof memories;
   memoryRelevance: typeof memoryRelevance;
   memoryValidators: typeof memoryValidators;

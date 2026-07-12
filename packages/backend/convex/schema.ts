@@ -5,6 +5,15 @@ import {
   memoryRetentionValidator,
   memoryValueValidator,
 } from './memoryValidators'
+import {
+  chatgptAuthSessionStatusValidator,
+  chatgptCredentialStatusValidator,
+  encryptedSecretValidator,
+} from './chatgptAuthValidators'
+import {
+  googleHealthCredentialStatusValidator,
+  googleHealthSessionStatusValidator,
+} from './googleHealthValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -12,6 +21,64 @@ export default defineSchema({
     title: v.string(),
     body: v.string(),
   }).index('id', ['id']),
+
+  // Short-lived, durable device-authorization state. The device auth id is
+  // encrypted because possession is sufficient to poll the upstream flow.
+  chatgptAuthSessions: defineTable({
+    userId: v.string(),
+    status: chatgptAuthSessionStatusValidator,
+    encryptedDeviceAuthId: v.optional(encryptedSecretValidator),
+    userCode: v.optional(v.string()),
+    verificationUri: v.optional(v.string()),
+    intervalMs: v.optional(v.number()),
+    nextPollAt: v.optional(v.number()),
+    expiresAt: v.number(),
+    attemptCount: v.number(),
+    errorCode: v.optional(v.string()),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
+  // One encrypted ChatGPT OAuth credential per Clerk user. Access and refresh
+  // tokens never leave trusted backend/agent boundaries or reach app clients.
+  chatgptCredentials: defineTable({
+    userId: v.string(),
+    status: chatgptCredentialStatusValidator,
+    encryptedAccess: v.optional(encryptedSecretValidator),
+    encryptedRefresh: v.optional(encryptedSecretValidator),
+    expiresAt: v.optional(v.number()),
+    accountIdHash: v.optional(v.string()),
+    refreshLeaseId: v.optional(v.string()),
+    refreshLeaseExpiresAt: v.optional(v.number()),
+    lastRefreshAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
+  // Short-lived PKCE state for the Google Health consent redirect. The state
+  // is hashed for lookup and the verifier is encrypted at rest.
+  googleHealthAuthSessions: defineTable({
+    userId: v.string(),
+    stateHash: v.string(),
+    status: googleHealthSessionStatusValidator,
+    encryptedCodeVerifier: v.optional(encryptedSecretValidator),
+    expiresAt: v.number(),
+    errorCode: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index('by_user', ['userId'])
+    .index('by_state_hash', ['stateHash']),
+
+  // One encrypted, read-only Google Health credential per Clerk user.
+  googleHealthCredentials: defineTable({
+    userId: v.string(),
+    status: googleHealthCredentialStatusValidator,
+    encryptedAccess: v.optional(encryptedSecretValidator),
+    encryptedRefresh: v.optional(encryptedSecretValidator),
+    expiresAt: v.optional(v.number()),
+    scopes: v.array(v.string()),
+    refreshLeaseId: v.optional(v.string()),
+    refreshLeaseExpiresAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
 
   goals: defineTable({
     userId: v.string(),

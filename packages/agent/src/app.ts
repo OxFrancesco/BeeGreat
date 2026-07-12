@@ -14,6 +14,16 @@ type Variables = {
   userId: string
 }
 
+function binding<K extends keyof Bindings>(env: Bindings, name: K): Bindings[K] | undefined {
+  const configured = env[name]
+  if (configured !== undefined) return configured
+  return (
+    globalThis as unknown as {
+      process?: { env?: Partial<Record<keyof Bindings, string>> }
+    }
+  ).process?.env?.[name] as Bindings[K] | undefined
+}
+
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1'
 // "Rachel" premade voice; override per-deployment with ELEVENLABS_VOICE_ID.
 const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'
@@ -57,10 +67,16 @@ let jwks: ReturnType<typeof createRemoteJWKSet> | undefined
 app.use('*', async (c, next) => {
   const bridgeSecret = c.req.header('x-bridge-secret')
   const bridgeUser = c.req.header('x-bridge-user')
-  if (bridgeSecret && bridgeUser && c.env.BRIDGE_SECRET && secretsMatch(bridgeSecret, c.env.BRIDGE_SECRET)) {
+  const configuredBridgeSecret = binding(c.env, 'BRIDGE_SECRET')
+  if (
+    bridgeSecret &&
+    bridgeUser &&
+    configuredBridgeSecret &&
+    secretsMatch(bridgeSecret, configuredBridgeSecret)
+  ) {
     c.set('userId', bridgeUser)
   } else {
-    const issuer = c.env.CLERK_JWT_ISSUER_DOMAIN
+    const issuer = binding(c.env, 'CLERK_JWT_ISSUER_DOMAIN')
     if (!issuer) {
       console.error('CLERK_JWT_ISSUER_DOMAIN is not configured')
       return c.json({ error: 'Auth is not configured.' }, 500)
@@ -101,6 +117,8 @@ app.post('/voice/transcribe', async (c) => {
   }
   const mimeType = c.req.header('content-type') ?? 'audio/m4a'
   const extension = mimeType.split('/')[1]?.split(';')[0] ?? 'm4a'
+  const apiKey = binding(c.env, 'ELEVENLABS_API_KEY')
+  if (!apiKey) return c.json({ error: 'Voice transcription is not configured.' }, 500)
 
   const upstream = new FormData()
   upstream.append(
@@ -111,7 +129,7 @@ app.post('/voice/transcribe', async (c) => {
 
   const response = await fetch(`${ELEVENLABS_BASE}/speech-to-text`, {
     method: 'POST',
-    headers: { 'xi-api-key': c.env.ELEVENLABS_API_KEY },
+    headers: { 'xi-api-key': apiKey },
     body: upstream,
   })
   if (!response.ok) {
@@ -132,13 +150,15 @@ app.post('/voice/speak', async (c) => {
     return c.json({ error: 'Send `text` to speak.' }, 400)
   }
 
-  const voiceId = c.env.ELEVENLABS_VOICE_ID ?? DEFAULT_VOICE_ID
+  const apiKey = binding(c.env, 'ELEVENLABS_API_KEY')
+  if (!apiKey) return c.json({ error: 'Voice synthesis is not configured.' }, 500)
+  const voiceId = binding(c.env, 'ELEVENLABS_VOICE_ID') ?? DEFAULT_VOICE_ID
   const response = await fetch(
     `${ELEVENLABS_BASE}/text-to-speech/${voiceId}?output_format=mp3_44100_64`,
     {
       method: 'POST',
       headers: {
-        'xi-api-key': c.env.ELEVENLABS_API_KEY,
+        'xi-api-key': apiKey,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
