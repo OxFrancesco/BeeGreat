@@ -3,7 +3,7 @@ import { useAuth } from '@clerk/tanstack-react-start'
 import { useFlueAgent } from '@flue/react'
 import { createFlueClient } from '@flue/sdk'
 import { useMutation, useQuery } from 'convex/react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import {
   confirmPendingFirstFocus,
@@ -15,10 +15,10 @@ import {
   useChatThreadActions,
   useConvexMessages,
 } from './use-convex-chat'
+import { useBrowserVoice } from './use-browser-voice'
+import { AGENT_URL } from './voice-api'
 
 const BEE_AGENT_NAME = 'bee'
-const AGENT_URL = import.meta.env.VITE_AGENT_URL ?? 'http://localhost:3583'
-
 function isAuthHiccup(error: Error | undefined) {
   return Boolean(error && /401|sign in|session expired/i.test(error.message))
 }
@@ -66,6 +66,7 @@ export function useBeeAgent() {
   const completeHighlight = useMutation(api.firstFocus.completeHighlight)
   const syncTimeZone = useMutation(api.user.syncTimeZone)
   const [actionError, setActionError] = useState<string>()
+  const stopSpeakingRef = useRef<() => void>(() => undefined)
 
   useEffect(() => {
     setClient(createClient())
@@ -96,6 +97,7 @@ export function useBeeAgent() {
 
   const resetConversation = useCallback(async () => {
     setActionError(undefined)
+    stopSpeakingRef.current()
     await createThread()
   }, [createThread])
 
@@ -110,6 +112,7 @@ export function useBeeAgent() {
       }
 
       setActionError(undefined)
+      stopSpeakingRef.current()
       if (isFirstFocusConfirmation(text)) {
         const confirmation = await confirmPendingFirstFocus()
         if (confirmation === 'confirmed') {
@@ -160,6 +163,18 @@ export function useBeeAgent() {
   )
 
   const busy = agent.status === 'submitted' || agent.status === 'streaming'
+  const voice = useBrowserVoice({
+    messages: agent.messages,
+    historyReady: agent.historyReady,
+    status: agent.status,
+    conversationId,
+    getToken,
+    sendText,
+  })
+
+  useEffect(() => {
+    stopSpeakingRef.current = voice.stopSpeaking
+  }, [voice.stopSpeaking])
 
   return useMemo(
     () => ({
@@ -168,7 +183,14 @@ export function useBeeAgent() {
       busy,
       thread,
       currentFirstFocus,
-      errorMessage: actionError ?? friendlyErrorMessage(agent.error),
+      errorMessage:
+        voice.voiceError ?? actionError ?? friendlyErrorMessage(agent.error),
+      recording: voice.recording,
+      transcribing: voice.transcribing,
+      speaking: voice.speaking,
+      speechBlocked: voice.speechBlocked,
+      replaySpeech: voice.replaySpeech,
+      toggleRecording: voice.toggleRecording,
       resetConversation,
       sendText,
     }),
@@ -181,6 +203,13 @@ export function useBeeAgent() {
       resetConversation,
       sendText,
       thread,
+      voice.recording,
+      voice.replaySpeech,
+      voice.speechBlocked,
+      voice.speaking,
+      voice.toggleRecording,
+      voice.transcribing,
+      voice.voiceError,
     ],
   )
 }

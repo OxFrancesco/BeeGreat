@@ -1,4 +1,8 @@
 @import 'tailwindcss';
+@import './app-shell.css';
+@import './focus.css';
+@import './hive.css';
+@import './settings.css';
 
 :root {
   color-scheme: light;
@@ -1104,11 +1108,25 @@ h3 {
 }
 
 .composer-error {
+  display: flex;
   width: min(820px, 100%);
+  align-items: center;
+  justify-content: center;
   margin: 0 auto 8px;
   color: var(--danger);
   font-size: 0.72rem;
+  gap: 8px;
   text-align: center;
+}
+
+.composer-error button {
+  padding: 4px 9px;
+  border: 1px solid currentcolor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 750;
 }
 
 .prompt-composer {

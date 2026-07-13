@@ -1,7 +1,6 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Navigate, createFileRoute } from '@tanstack/react-router'
 import { SignedIn, SignedOut } from '@clerk/tanstack-react-start'
 
-import { BeeWorkspace } from '~/features/bee/bee-workspace'
 import { Landing } from '~/features/bee/landing'
 
 export const Route = createFileRoute('/')({
@@ -12,7 +11,7 @@ function Home() {
   return (
     <>
       <SignedIn>
-        <BeeWorkspace />
+        <Navigate to="/bee" replace />
       </SignedIn>
       <SignedOut>
         <Landing />

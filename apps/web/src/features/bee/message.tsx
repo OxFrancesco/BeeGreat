@@ -1,5 +1,6 @@
 import { extractBeeUI } from './bee-ui'
 import { GeneratedUI } from './generated-ui'
+import { getToolCopy } from './tool-labels'
 import type { FlueConversationMessage, FlueConversationPart } from '@flue/react'
 
 export function AgentMessage({
@@ -92,12 +93,26 @@ function ToolActivity({
 }) {
   const running = part.state === 'input-available'
   const failed = part.state === 'output-error'
-  const label = humanizeToolName(part.toolName)
+  const state = running ? 'running' : failed ? 'error' : 'done'
+  const { label, powerup } = getToolCopy(part.toolName, state, part.input)
+  const powerupClass = powerup
+    ? ` is-powerup is-${powerup.toLowerCase().replace(/\s+/g, '-')}`
+    : ''
   return (
-    <details className={`tool-activity${failed ? ' is-error' : ''}`}>
+    <details
+      className={`tool-activity${failed ? ' is-error' : ''}${powerupClass}`}
+    >
       <summary>
         <span className={running ? 'activity-pulse' : ''} />
-        {running ? `${label}…` : failed ? `${label} failed` : label}
+        {powerup ? (
+          <span className="tool-powerup">
+            <strong>{powerup}</strong>
+            <small>{label}</small>
+          </span>
+        ) : (
+          label
+        )}
+        {powerup ? <em>Power-up</em> : null}
         {!running ? (
           <span className="tool-status">{failed ? '!' : '✓'}</span>
         ) : null}
@@ -115,12 +130,6 @@ function ToolActivity({
       </pre>
     </details>
   )
-}
-
-function humanizeToolName(name: string) {
-  return name
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase())
 }
 
 export function ThinkingActivity() {

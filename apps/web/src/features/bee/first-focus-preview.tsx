@@ -1,4 +1,5 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
+import { Link } from '@tanstack/react-router'
 import { useMutation } from 'convex/react'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -115,6 +116,9 @@ export function FirstFocusPreviewCard({
           <h3>Your first focus is live</h3>
           <p>The Goal, Project, Task, and Highlight were created together.</p>
         </div>
+        <Link className="button button--primary" to="/hive">
+          Meet your GolieBee
+        </Link>
       </section>
     )
   }
@@ -197,7 +201,7 @@ export function FirstFocusPreviewCard({
           {status === 'saving' ? 'Creating…' : 'Create my focus'}
         </button>
       </div>
-      <p className="first-focus__hint">You can also type “Yes”.</p>
+      <p className="first-focus__hint">You can also say or type “Yes”.</p>
     </section>
   )
 }

@@ -1,10 +1,10 @@
-import { UserButton, useUser } from '@clerk/tanstack-react-start'
+import { useUser } from '@clerk/tanstack-react-start'
 import { useEffect, useRef, useState } from 'react'
 
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
+import { useBeeAgentContext } from './bee-agent-context'
 import { AgentMessage, ThinkingActivity } from './message'
 import { PromptComposer } from './prompt-composer'
-import { useBeeAgent } from './use-bee-agent'
 import { useChatThreadActions, useChatThreads } from './use-convex-chat'
 import type { ChatThread } from './use-convex-chat'
 
@@ -15,7 +15,7 @@ const HERO_SUGGESTIONS = [
 ]
 
 export function BeeWorkspace() {
-  const agent = useBeeAgent()
+  const agent = useBeeAgentContext()
   const threads = useChatThreads()
   const { activateThread } = useChatThreadActions()
   const { user } = useUser()
@@ -26,13 +26,10 @@ export function BeeWorkspace() {
   return (
     <main className="workspace-shell">
       <aside className={`conversation-rail${railOpen ? ' is-open' : ''}`}>
-        <div className="rail-brand">
-          <div className="rail-brand__mark" aria-hidden="true">
-            <img src="/logo.png" alt="" />
-          </div>
+        <div className="rail-heading">
           <div>
-            <strong>BeeGreat</strong>
-            <span>One clear next focus</span>
+            <p className="rail-label">Bee</p>
+            <strong>Conversations</strong>
           </div>
           <button
             type="button"
@@ -57,7 +54,6 @@ export function BeeWorkspace() {
         </button>
 
         <nav className="thread-nav" aria-label="Conversations">
-          <p className="rail-label">Conversations</p>
           <div className="thread-list">
             {[...threads]
               .sort((left, right) => right.createdAt - left.createdAt)
@@ -78,16 +74,8 @@ export function BeeWorkspace() {
         <div className="rail-sync-card">
           <span className="sync-dot" aria-hidden="true" />
           <div>
-            <strong>Synced with your Hive</strong>
-            <span>Same goals, history, and Bee as mobile.</span>
-          </div>
-        </div>
-
-        <div className="rail-profile">
-          <UserButton />
-          <div>
-            <strong>{user?.firstName ?? 'Your Hive'}</strong>
-            <span>{user?.primaryEmailAddress?.emailAddress}</span>
+            <strong>Synced across devices</strong>
+            <span>Same Convex history and Bee as mobile.</span>
           </div>
         </div>
       </aside>
@@ -130,9 +118,6 @@ export function BeeWorkspace() {
               label="Royal Jelly"
               value={hive?.royalJellyBalance}
             />
-          </div>
-          <div className="mobile-profile">
-            <UserButton />
           </div>
         </header>
 
@@ -204,7 +189,7 @@ function Balance({
   )
 }
 
-type BeeAgent = ReturnType<typeof useBeeAgent>
+type BeeAgent = ReturnType<typeof useBeeAgentContext>
 
 function Conversation({
   agent,
@@ -270,9 +255,14 @@ function Conversation({
 
       <div className="composer-dock">
         {agent.errorMessage ? (
-          <p className="composer-error" role="alert">
-            {agent.errorMessage}
-          </p>
+          <div className="composer-error" role="alert">
+            <span>{agent.errorMessage}</span>
+            {agent.speechBlocked ? (
+              <button type="button" onClick={() => void agent.replaySpeech()}>
+                Play reply
+              </button>
+            ) : null}
+          </div>
         ) : null}
         <PromptComposer onSubmit={agent.sendText} disabled={agent.busy} />
         <p className="composer-note">

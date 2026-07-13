@@ -1,7 +1,8 @@
 # BeeGreat web
 
-The TanStack web twin uses the same Clerk application, Convex deployment, and
-Flue Bee agent as the mobile app. Copy `.env.example` to `.env.local`, then set:
+The TanStack web twin uses the same Clerk application, Convex deployment, Flue
+Bee agent, conversation IDs, and generated-UI contract as the mobile app. Copy
+`.env.example` to `.env.local`, then set:
 
 - `VITE_CONVEX_URL` to the shared Convex deployment
 - `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` from the shared Clerk app
@@ -16,6 +17,27 @@ bun run agent
 bun run web
 ```
 
-The web app deliberately does not proxy or duplicate backend functionality.
-Conversation history is mirrored into Convex and uses the same thread IDs as
-mobile, while live responses stream from the same authenticated Flue agent.
+The authenticated product routes are:
+
+- `/bee` — streaming Bee chat, conversation history, generated UI, voice input,
+  and spoken replies
+- `/goals`, `/goals/:goalId`, `/projects/:projectId` — the complete Goal,
+  Project, Task, Subtask, due-date, and target-date workflow
+- `/hive` — balances, Honey vessel, current Highlight, GolieBee, completion
+  feedback, and Achievements
+- `/settings` — profile, ChatGPT, power-ups, Google Health, spoken replies, and
+  sign-out
+
+The web app does not proxy or fork backend functionality. Every mobile Convex
+operation is called directly by the web client, conversation history uses the
+same thread IDs, and live responses stream from the same authenticated `bee`
+agent. See [PARITY.md](PARITY.md) for the audited feature map and platform
+adaptations.
+
+Verify the web twin with:
+
+```sh
+bun run --cwd apps/web lint
+bun run --cwd apps/web test
+bun run --cwd apps/web build
+```
