@@ -78,12 +78,12 @@ The reusable adapter, security boundary, implementation notes, and BeeGreat case
 
 ### Environment files (not committed)
 
-| File                          | Contents                                                                   |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| `packages/backend/.env.local` | `CONVEX_DEPLOYMENT` — used by `convex dev`                                 |
-| `apps/web/.env.local`         | `VITE_CONVEX_URL`, `VITE_CONVEX_SITE_URL` (+ Clerk keys per template docs) |
-| `packages/agent/.dev.vars`    | Bee provider keys and `CONVEX_URL` (see `.env.example`)                    |
-| `apps/mobile/.env`            | `EXPO_PUBLIC_AGENT_URL` — agent worker URL (LAN IP for physical devices)   |
+| File                          | Contents                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------- |
+| `packages/backend/.env.local` | `CONVEX_DEPLOYMENT` — used by `convex dev`                                            |
+| `apps/web/.env.local`         | `VITE_CONVEX_URL`, `VITE_AGENT_URL`, `VITE_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` |
+| `packages/agent/.dev.vars`    | Bee provider keys and `CONVEX_URL` (see `.env.example`)                               |
+| `apps/mobile/.env`            | `EXPO_PUBLIC_AGENT_URL` — agent worker URL (LAN IP for physical devices)              |
 
 ### Conventions
 

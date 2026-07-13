@@ -1,0 +1,186 @@
+import { api } from '@beegreat/backend/convex/_generated/api'
+import { useAuth } from '@clerk/tanstack-react-start'
+import { useFlueAgent } from '@flue/react'
+import { createFlueClient } from '@flue/sdk'
+import { useMutation, useQuery } from 'convex/react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+import {
+  confirmPendingFirstFocus,
+  isFirstFocusConfirmation,
+  isHighlightCompletion,
+} from './first-focus-confirmation'
+import {
+  useActiveChatThread,
+  useChatThreadActions,
+  useConvexMessages,
+} from './use-convex-chat'
+
+const BEE_AGENT_NAME = 'bee'
+const AGENT_URL = import.meta.env.VITE_AGENT_URL ?? 'http://localhost:3583'
+
+function isAuthHiccup(error: Error | undefined) {
+  return Boolean(error && /401|sign in|session expired/i.test(error.message))
+}
+
+function friendlyErrorMessage(error: Error | undefined) {
+  if (!error) return undefined
+  if (isAuthHiccup(error)) return 'Reconnecting to Bee…'
+  if (/Flue API error|HTTP Error \d+/i.test(error.message)) {
+    return 'Bee couldn’t reach the hive. Check your connection and try again.'
+  }
+  return error.message
+}
+
+export function useBeeAgent() {
+  const { getToken, userId } = useAuth()
+  const thread = useActiveChatThread()
+  const { createThread, titleThread } = useChatThreadActions()
+  const conversationId = userId
+    ? thread > 0
+      ? `${userId}~${thread}`
+      : userId
+    : undefined
+  const createClient = useCallback(
+    () =>
+      createFlueClient({
+        baseUrl: AGENT_URL,
+        headers: async () => {
+          const token = await getToken()
+          const headers: Record<string, string> = {}
+          if (token) headers.authorization = `Bearer ${token}`
+          return headers
+        },
+      }),
+    [getToken],
+  )
+  const [client, setClient] = useState(createClient)
+  const agent = useFlueAgent({
+    name: BEE_AGENT_NAME,
+    id: conversationId,
+    live: 'long-poll',
+    client,
+  })
+  const messages = useConvexMessages(thread, agent.messages)
+  const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {})
+  const completeHighlight = useMutation(api.firstFocus.completeHighlight)
+  const syncTimeZone = useMutation(api.user.syncTimeZone)
+  const [actionError, setActionError] = useState<string>()
+
+  useEffect(() => {
+    setClient(createClient())
+  }, [createClient])
+
+  useEffect(() => {
+    if (!isAuthHiccup(agent.error)) return
+    const timer = window.setTimeout(() => setClient(createClient()), 1500)
+    return () => window.clearTimeout(timer)
+  }, [agent.error, createClient])
+
+  useEffect(() => {
+    if (!userId) return
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (timeZone) void syncTimeZone({ timeZone }).catch(() => undefined)
+  }, [syncTimeZone, userId])
+
+  useEffect(() => {
+    const first = agent.messages.find((message) => message.role === 'user')
+    if (!first) return
+    const title = first.parts
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join(' ')
+      .slice(0, 64)
+    if (title) void titleThread(thread, title)
+  }, [agent.messages, thread, titleThread])
+
+  const resetConversation = useCallback(async () => {
+    setActionError(undefined)
+    await createThread()
+  }, [createThread])
+
+  const sendText = useCallback(
+    async (rawText: string) => {
+      const text = rawText.trim()
+      if (!text) return
+      const command = text.toLowerCase()
+      if (command === '/clear' || command === '/new') {
+        await resetConversation()
+        return
+      }
+
+      setActionError(undefined)
+      if (isFirstFocusConfirmation(text)) {
+        const confirmation = await confirmPendingFirstFocus()
+        if (confirmation === 'confirmed') {
+          await agent.sendMessage(
+            '[BeeGreat app event] The first-focus plan was confirmed and persisted successfully. Acknowledge it; do not create or mutate the plan again.',
+          )
+          return
+        }
+        if (confirmation === 'failed') return
+      }
+
+      const activeHighlight = currentFirstFocus?.activeHighlight
+      if (isHighlightCompletion(text) && activeHighlight) {
+        try {
+          const result = await completeHighlight({
+            requestId: `complete-highlight:${activeHighlight.highlightId}`,
+            taskId: activeHighlight.taskId,
+          })
+          await agent.sendMessage(
+            `[BeeGreat app event] Highlight "${activeHighlight.title}" was completed successfully. The verified award was ${result.honeyAwarded} Honey and ${result.scoreAwarded} Honeycomb Score. Acknowledge this completion and reward only; do not call a completion tool or create, update, or mutate any data again.`,
+          )
+          return
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'This Highlight could not be completed.'
+          setActionError(message)
+          throw error
+        }
+      }
+
+      try {
+        await agent.sendMessage(text)
+      } catch (error) {
+        setActionError(
+          'Your message wasn’t sent. Check your connection and try again.',
+        )
+        throw error
+      }
+    },
+    [
+      agent,
+      completeHighlight,
+      currentFirstFocus?.activeHighlight,
+      resetConversation,
+    ],
+  )
+
+  const busy = agent.status === 'submitted' || agent.status === 'streaming'
+
+  return useMemo(
+    () => ({
+      ...agent,
+      messages,
+      busy,
+      thread,
+      currentFirstFocus,
+      errorMessage: actionError ?? friendlyErrorMessage(agent.error),
+      resetConversation,
+      sendText,
+    }),
+    [
+      actionError,
+      agent,
+      busy,
+      currentFirstFocus,
+      messages,
+      resetConversation,
+      sendText,
+      thread,
+    ],
+  )
+}

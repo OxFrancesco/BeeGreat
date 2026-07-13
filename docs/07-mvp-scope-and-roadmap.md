@@ -43,7 +43,7 @@ Text fallback, microphone denial, failed transcription, malformed generated UI, 
 
 ## Implementation status
 
-The first-focus baseline is implemented under FRA-461. Work has moved to the FRA-463 focus economy: server-authoritative Brain Fatigue, Genius State, Royal Jelly, Goal lifecycle settlement, starter Achievements, and temporary Boosters. Automated verification remains part of implementation; user testing begins in the final phase. See [10 – Crosswalk](10-linear-docs-implementation-crosswalk.md).
+The first-focus baseline is implemented under FRA-461. Work has moved to the FRA-463 focus economy: server-authoritative Brain Fatigue, Genius State, Royal Jelly, Goal lifecycle settlement, starter Achievements, and temporary Boosters. The TanStack web twin now begins with the authenticated Bee conversation and first-focus proof, sharing Clerk, Convex, and Flue with mobile. Automated verification remains part of implementation; user testing begins in the final phase. See [10 – Crosswalk](10-linear-docs-implementation-crosswalk.md).
 
 ## Active focus-economy slice
 
@@ -63,7 +63,7 @@ The first-focus baseline is implemented under FRA-461. Work has moved to the FRA
 - Personal-memory retrieval in the loop
 - Automatic time tracking, focus sessions, journal, and calendar
 - Integrations, social, leaderboards, parties, handles, Bee Card, and billing
-- Web/iPad/Android parity and iMessage generated UI
+- iPad/Android parity and iMessage generated UI
 
 ## Later roadmap
 
@@ -85,7 +85,6 @@ The first-focus baseline is implemented under FRA-461. Work has moved to the FRA
 
 ### Phase 4 — Expansion
 
-- TanStack web twin (could move earlier if dev speed is fine — same backend makes it cheap)
 - Apple Health / Google Health integrations + health goals
 - iPad-optimized layouts
 - Monetization: RevenueCat subscription tiers (free/paid split decided here)
@@ -123,3 +122,4 @@ The first-focus baseline is implemented under FRA-461. Work has moved to the FRA
 | 2026-07-11 | Hive hero                                                      | Founder request                       | **3D honey vessel is the first Hive object and fills like a jar**                                                                               | Makes the global cosmetic Honey balance tangible without changing permanent Honeycomb Score                                                                                                                               |
 | 2026-07-11 | Focus economy baseline                                         | FRA-463 founder Q&A                   | **Server-authoritative Honey/Score rewards, bell-shaped Brain Fatigue, earned Royal Jelly, lifecycle settlement, starter badges, and Boosters** | Turns the canonical currency boundaries into an implementable, auditable policy while preserving no-debt and no-pay-to-win invariants                                                                                     |
 | 2026-07-11 | Validation sequencing                                          | Founder direction                     | **Defer user testing to the final phase**                                                                                                       | Integrate the focus economy before measuring the complete experience; automated implementation checks continue throughout                                                                                                 |
+| 2026-07-13 | TanStack web parity                                            | Founder direction                     | **Begin with the authenticated Bee conversation and first-focus proof**                                                                         | Reusing Clerk, Convex, Flue, thread identity, and generated UI establishes a shared cross-device product path before broader Goals and Hive views                                                                         |

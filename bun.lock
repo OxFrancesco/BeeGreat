@@ -90,6 +90,8 @@
         "@beegreat/backend": "workspace:*",
         "@clerk/tanstack-react-start": "^0.29.10",
         "@convex-dev/react-query": "0.1.0",
+        "@flue/react": "1.0.0-beta.9",
+        "@flue/sdk": "1.0.0-beta.9",
         "@tanstack/react-query": "^5.99.0",
         "@tanstack/react-router": "^1.168.22",
         "@tanstack/react-router-devtools": "^1.166.13",
@@ -99,6 +101,7 @@
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
         "redaxios": "^0.5.1",
+        "zod": "^4.4.3",
       },
       "devDependencies": {
         "@convex-dev/eslint-plugin": "^2.0.0",
