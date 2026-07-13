@@ -19,27 +19,47 @@ function messageTimestamp(message: FlueConversationMessage, fallback: number) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/** Gives admitted user turns a stable key even while Flue preserves a local display id. */
+export function messagesForConvexSync(messages: FlueConversationMessage[]) {
+  return messages.flatMap((message) => {
+    if (message.role === 'user' && message.submissionId) {
+      return [{ ...message, id: `submission:${message.submissionId}` }];
+    }
+    return message.id.startsWith('local:') ? [] : [message];
+  });
+}
+
 /** Combines Convex's durable transcript with Flue's live streaming envelope. */
 export function mergeConvexMessages(
   rows: StoredChatMessage[] | undefined,
   flueMessages: FlueConversationMessage[],
 ) {
   if (!rows?.length) return flueMessages;
-  const ordered = rows.flatMap((row) => {
-    try {
-      return [
-        {
-          message: JSON.parse(row.contentJson) as FlueConversationMessage,
-          createdAt: row.createdAt,
-        },
-      ];
-    } catch {
-      return [];
-    }
-  });
+  const ordered: { message: FlueConversationMessage; createdAt: number }[] = [];
   const position = new Map<string, number>();
-  for (const [index, entry] of ordered.entries()) {
-    for (const key of messageKeys(entry.message)) position.set(key, index);
+  for (const row of rows) {
+    try {
+      const message = JSON.parse(row.contentJson) as FlueConversationMessage;
+      const existing = messageKeys(message)
+        .map((key) => position.get(key))
+        .find((value) => value !== undefined);
+      if (existing === undefined) {
+        const nextIndex = ordered.length;
+        ordered.push({ message, createdAt: row.createdAt });
+        for (const key of messageKeys(message)) position.set(key, nextIndex);
+      } else {
+        const previous = ordered[existing];
+        ordered[existing] = {
+          message,
+          createdAt: Math.min(previous.createdAt, row.createdAt),
+        };
+        for (const key of [...messageKeys(previous.message), ...messageKeys(message)]) {
+          position.set(key, existing);
+        }
+      }
+    } catch {
+      // A malformed stored envelope should not hide the rest of the transcript.
+    }
   }
   const fallbackTimestamp =
     ordered.reduce((latest, entry) => Math.max(latest, entry.createdAt), 0) + 1;

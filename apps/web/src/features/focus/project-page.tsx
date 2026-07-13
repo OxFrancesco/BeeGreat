@@ -23,6 +23,7 @@ import { MissingFocus } from './goal-page'
 import { FocusLoading } from './goals-page'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { FunctionReturnType } from 'convex/server'
+import { captureWebFailure } from '~/lib/sentry'
 
 type Task = FunctionReturnType<typeof api.tasks.listByProject>[number]
 
@@ -382,6 +383,7 @@ function AsyncChoiceModal<T>({
       await onSave(value)
       onClose()
     } catch (cause) {
+      captureWebFailure(cause, 'project.update_due_date')
       setError(
         cause instanceof Error
           ? cause.message

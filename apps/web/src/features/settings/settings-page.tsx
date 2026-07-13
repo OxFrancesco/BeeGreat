@@ -8,6 +8,7 @@ import { setSpeakReplies, useSpeakReplies } from '../preferences/speak-replies'
 import { useGoogleHealth } from './use-google-health'
 
 import type { ReactNode } from 'react'
+import { captureWebFailure } from '~/lib/sentry'
 
 const POWERUP_SYMBOLS: Record<string, string> = {
   web3: '⌬',
@@ -65,6 +66,7 @@ export function SettingsPage() {
         throw cause
       }
     } catch (cause) {
+      captureWebFailure(cause, 'powerup.set_enabled', { powerupId: id })
       googleHealth.cancelPopup()
       setError(
         cause instanceof Error
@@ -180,7 +182,8 @@ export function SettingsPage() {
         disabled={signingOut}
         onClick={() => {
           setSigningOut(true)
-          void signOut().catch(() => {
+          void signOut().catch((cause) => {
+            captureWebFailure(cause, 'auth.sign_out')
             setSigningOut(false)
             setError('Could not sign you out. Try again.')
           })

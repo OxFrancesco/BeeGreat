@@ -26,6 +26,7 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { updateGoogleHealthPowerup } from '@/lib/google-health-powerup';
 import { setSpeakReplies, useSpeakReplies } from '@/lib/preferences';
+import { captureMobileFailure } from '@/lib/sentry';
 
 /** Icon per power-up id; the glyph is the SymbolView fallback. */
 const POWERUP_ICONS: Record<string, { symbol: string; glyph: string }> = {
@@ -108,7 +109,8 @@ export default function ProfileScreen() {
     try {
       await signOut();
       // The auth guard unmounts this sheet and shows the sign-in screen.
-    } catch {
+    } catch (cause) {
+      captureMobileFailure(cause, 'auth.sign_out');
       setError("Couldn't sign you out. Try again.");
       setSigningOut(false);
     }
@@ -131,6 +133,7 @@ export default function ProfileScreen() {
           }),
       });
     } catch (cause) {
+      captureMobileFailure(cause, 'google_health.toggle', { enabled });
       setGoogleHealthError(
         cause instanceof Error
           ? cause.message

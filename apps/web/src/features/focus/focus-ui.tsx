@@ -6,6 +6,7 @@ import type {
   PropsWithChildren,
   ReactNode,
 } from 'react'
+import { captureWebFailure } from '~/lib/sentry'
 
 export function FocusPage({ children }: PropsWithChildren) {
   return <main className="product-page focus-page">{children}</main>
@@ -76,6 +77,7 @@ export function InlineCreate({
       setOpen(false)
       onCancel?.()
     } catch (cause) {
+      captureWebFailure(cause, 'focus.create', { entity: label })
       setError(
         cause instanceof Error ? cause.message : `Could not add ${label}.`,
       )
@@ -253,6 +255,7 @@ export function RenameModal({
           void onSave(value.trim())
             .then(onClose)
             .catch((cause: unknown) => {
+              captureWebFailure(cause, 'focus.rename', { entity: noun })
               setError(
                 cause instanceof Error
                   ? cause.message
@@ -329,6 +332,7 @@ export function DeleteModal({
             void onDelete()
               .then(onClose)
               .catch((cause: unknown) => {
+                captureWebFailure(cause, 'focus.delete', { entity: noun })
                 setError(
                   cause instanceof Error
                     ? cause.message

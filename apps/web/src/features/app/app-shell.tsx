@@ -65,7 +65,10 @@ export function AppShell() {
         <button
           className={`spine-talk${agent.recording ? ' is-recording' : ''}`}
           type="button"
-          onClick={() => void agent.toggleRecording()}
+          onClick={() => {
+            void navigate({ to: '/bee' })
+            void agent.toggleRecording()
+          }}
         >
           <img src={micIcon} alt="" />
           <span>{agent.recording ? 'Send voice' : 'Talk'}</span>

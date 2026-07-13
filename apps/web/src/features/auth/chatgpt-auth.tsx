@@ -6,6 +6,7 @@ import { useState } from 'react'
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import type { FunctionReturnType } from 'convex/server'
 import type { PropsWithChildren } from 'react'
+import { captureWebFailure } from '~/lib/sentry'
 
 type ChatGptStatus = FunctionReturnType<typeof api.chatgptAuth.status>
 
@@ -46,6 +47,7 @@ function useChatGptActions() {
     try {
       await operation()
     } catch (cause) {
+      captureWebFailure(cause, 'chatgpt.connection')
       setError(authError(cause))
     } finally {
       setWorking(false)

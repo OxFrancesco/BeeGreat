@@ -31,6 +31,7 @@ import {
   subscribeSpeakReplies,
   useSpeakReplies,
 } from '@/lib/preferences';
+import { captureMobileFailure } from '@/lib/sentry';
 import { getToolCopy } from '@/lib/tool-labels';
 import { extractBeeUI } from '@/lib/ui-spec';
 import { synthesizeSpeech, transcribeRecording } from '@/lib/voice-api';
@@ -164,7 +165,8 @@ export function useVoiceAgent() {
         player.replace(uri);
         player.play();
         setSpeaking(true);
-      } catch {
+      } catch (cause) {
+        captureMobileFailure(cause, 'voice.synthesize_or_play');
         // Voice output failed; the reply is still on screen.
       }
     })();
@@ -241,6 +243,7 @@ export function useVoiceAgent() {
           );
           await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (cause) {
+          captureMobileFailure(cause, 'highlight.complete');
           setVoiceError(
             cause instanceof Error ? cause.message : 'This Highlight could not be completed.',
           );
@@ -248,7 +251,13 @@ export function useVoiceAgent() {
         }
         return;
       }
-      await agent.sendMessage(text);
+      try {
+        await agent.sendMessage(text);
+      } catch (cause) {
+        captureMobileFailure(cause, 'agent.send_message');
+        setVoiceError('Your message wasn’t sent. Check your connection and try again.');
+        throw cause;
+      }
     },
     [
       agent,
@@ -301,6 +310,7 @@ export function useVoiceAgent() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setRecording(true);
     } catch (error) {
+      captureMobileFailure(error, recording ? 'voice.transcribe' : 'voice.record');
       setRecording(false);
       setTranscribing(false);
       setVoiceError(error instanceof Error ? error.message : 'Something went wrong.');

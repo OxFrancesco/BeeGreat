@@ -1,4 +1,4 @@
-import { type PropsWithChildren, useCallback, useRef, useState } from 'react';
+import { type PropsWithChildren, useCallback, useRef } from 'react';
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -19,28 +19,43 @@ export function Conversation({
   contentContainerStyle,
 }: PropsWithChildren<{ contentContainerStyle?: ViewStyle }>) {
   const scrollRef = useRef<ScrollView>(null);
-  const [following, setFollowing] = useState(true);
+  const following = useRef(true);
+  const userIsDragging = useRef(false);
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (!userIsDragging.current) return;
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
-    setFollowing(distanceFromBottom < 80);
+    following.current = distanceFromBottom < 80;
   }, []);
 
   const handleContentSizeChange = useCallback(() => {
-    if (following) {
-      scrollRef.current?.scrollToEnd({ animated: false });
-    }
-  }, [following]);
+    if (!following.current) return;
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: false }));
+  }, []);
 
   return (
     <ScrollView
       ref={scrollRef}
       onScroll={handleScroll}
-      scrollEventThrottle={64}
+      onScrollBeginDrag={() => {
+        userIsDragging.current = true;
+      }}
+      onScrollEndDrag={(event) => {
+        handleScroll(event);
+        userIsDragging.current = false;
+      }}
+      onMomentumScrollEnd={(event) => {
+        userIsDragging.current = true;
+        handleScroll(event);
+        userIsDragging.current = false;
+      }}
+      scrollEventThrottle={32}
       onContentSizeChange={handleContentSizeChange}
       contentContainerStyle={[styles.content, contentContainerStyle]}
+      contentInsetAdjustmentBehavior="automatic"
       keyboardDismissMode="interactive"
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       style={styles.scroll}
     >
@@ -56,6 +71,7 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: Spacing.three,
-    paddingVertical: Spacing.three,
+    paddingTop: Spacing.two,
+    paddingBottom: Spacing.three,
   },
 });

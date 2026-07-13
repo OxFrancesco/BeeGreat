@@ -5,8 +5,11 @@ Bee agent, conversation IDs, and generated-UI contract as the mobile app. Copy
 `.env.example` to `.env.local`, then set:
 
 - `VITE_CONVEX_URL` to the shared Convex deployment
-- `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` from the shared Clerk app
+- `VITE_CONVEX_SITE_URL` to that deployment's HTTP actions origin
+- `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` from the shared Clerk app
 - `VITE_AGENT_URL` to the Bee worker (`http://localhost:3583` for local work)
+- the Sentry variables described in
+  [`docs/13-sentry-observability.md`](../../docs/13-sentry-observability.md)
 
 From the repository root, start the existing services and web app in separate
 terminals:

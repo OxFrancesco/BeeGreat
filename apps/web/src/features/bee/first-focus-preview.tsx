@@ -10,6 +10,7 @@ import {
   registerPendingFirstFocus,
 } from './first-focus-confirmation'
 import type { FirstFocusPreview } from './bee-ui'
+import { captureWebFailure } from '~/lib/sentry'
 
 type PreviewStatus = 'editing' | 'saving' | 'saved' | 'cancelling' | 'cancelled'
 
@@ -59,6 +60,7 @@ export function FirstFocusPreviewCard({
       setStatus('saved')
       return true
     } catch (cause) {
+      captureWebFailure(cause, 'first_focus.confirm_plan')
       setStatus('editing')
       setError(
         cause instanceof Error ? cause.message : 'The plan could not be saved.',
@@ -97,6 +99,7 @@ export function FirstFocusPreviewCard({
       clearPendingFirstFocus(preview.requestId)
       setStatus('cancelled')
     } catch (cause) {
+      captureWebFailure(cause, 'first_focus.cancel_plan')
       setStatus('editing')
       setError(
         cause instanceof Error

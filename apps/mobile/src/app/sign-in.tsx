@@ -12,6 +12,7 @@ import { FloatingBee } from '@/components/floating-bee';
 import { HexButton, Hive } from '@/components/hex-button';
 import { MotionDuration } from '@/constants/motion';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { captureMobileFailure } from '@/lib/sentry';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -48,7 +49,8 @@ export default function SignInScreen() {
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
       }
-    } catch {
+    } catch (caught) {
+      captureMobileFailure(caught, 'auth.sign_in');
       setError("Couldn't sign you in. Try again.");
     } finally {
       setPending(false);

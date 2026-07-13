@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { FloatingBee } from '@/components/floating-bee';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -19,19 +20,61 @@ export function Message({ from, children }: PropsWithChildren<{ from: MessageRol
   );
 }
 
-export function MessageContent({ from, children }: PropsWithChildren<{ from: MessageRole }>) {
+export function MessageContent({
+  from,
+  showSpeaker = true,
+  children,
+}: PropsWithChildren<{ from: MessageRole; showSpeaker?: boolean }>) {
   const theme = useTheme();
   if (from === 'user') {
     return (
-      <View style={[styles.bubble, { backgroundColor: theme.secondary }]}>{children}</View>
+      <View style={styles.userStack}>
+        {showSpeaker ? (
+          <ThemedText type="small" themeColor="textSecondary" style={styles.userLabel}>
+            You
+          </ThemedText>
+        ) : null}
+        <View
+          style={[
+            styles.bubble,
+            { backgroundColor: theme.secondary, borderColor: theme.border },
+          ]}
+        >
+          {children}
+        </View>
+      </View>
     );
   }
-  return <View style={styles.assistantContent}>{children}</View>;
+  return (
+    <View style={styles.assistantRow}>
+      {showSpeaker ? (
+        <View
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel="Bee"
+          style={styles.assistantAvatar}
+        >
+          <FloatingBee height={36} />
+        </View>
+      ) : (
+        <View style={styles.assistantAvatarSpacer} />
+      )}
+      <View style={styles.assistantStack}>
+        <View style={styles.assistantContent}>{children}</View>
+      </View>
+    </View>
+  );
 }
 
 export function MessageText({ from, text }: { from: MessageRole; text: string }) {
   return (
-    <ThemedText themeColor={from === 'user' ? 'secondaryForeground' : 'text'}>{text}</ThemedText>
+    <ThemedText
+      selectable
+      themeColor={from === 'user' ? 'secondaryForeground' : 'text'}
+      style={from === 'assistant' ? styles.assistantText : styles.userText}
+    >
+      {text}
+    </ThemedText>
   );
 }
 
@@ -41,20 +84,62 @@ const styles = StyleSheet.create({
   },
   rowUser: {
     justifyContent: 'flex-end',
-    paddingLeft: Spacing.six,
+    paddingLeft: Spacing.five,
   },
   rowAssistant: {
     justifyContent: 'flex-start',
+  },
+  userStack: {
+    maxWidth: '88%',
+    alignItems: 'flex-end',
+    gap: Spacing.one,
+  },
+  userLabel: {
+    paddingRight: Spacing.one,
+    fontSize: 12,
+    lineHeight: 14,
   },
   bubble: {
     paddingHorizontal: Spacing.three,
     paddingVertical: Spacing.two + Spacing.half,
     borderRadius: Spacing.three,
+    borderCurve: 'continuous',
     borderBottomRightRadius: Spacing.one,
+    borderWidth: StyleSheet.hairlineWidth,
     maxWidth: '100%',
+  },
+  assistantRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    minWidth: 0,
+  },
+  assistantAvatar: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assistantAvatarSpacer: {
+    width: 36,
+  },
+  assistantStack: {
+    flex: 1,
+    minWidth: 0,
   },
   assistantContent: {
     flex: 1,
     gap: Spacing.two,
+    minWidth: 0,
+  },
+  assistantText: {
+    fontSize: 17,
+    lineHeight: 26,
+    fontWeight: '400',
+  },
+  userText: {
+    fontSize: 16,
+    lineHeight: 23,
   },
 });

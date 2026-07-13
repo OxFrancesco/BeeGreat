@@ -16,6 +16,7 @@ import {
   GoogleHealthOAuthError,
   refreshGoogleHealthToken,
 } from './googleHealthOAuth'
+import { captureHandledConvexException } from './sentryNode'
 
 const SESSION_TTL_MS = 10 * 60 * 1000
 const MIN_ACCESS_VALIDITY_MS = 5 * 60 * 1000
@@ -136,6 +137,18 @@ export const completeAuthorization = internalAction({
         error instanceof GoogleHealthOAuthError
           ? error.code
           : 'unexpected_error'
+      if (
+        errorCode === 'configuration_error' ||
+        errorCode === 'invalid_client' ||
+        errorCode === 'unexpected_error' ||
+        (error instanceof GoogleHealthOAuthError && error.retryable)
+      ) {
+        await captureHandledConvexException(
+          error,
+          'google_health.complete_authorization',
+          { userId: session.userId, extra: { errorCode } },
+        )
+      }
       await ctx.runMutation(internal.googleHealthAuth.failSession, {
         stateHash,
         errorCode,

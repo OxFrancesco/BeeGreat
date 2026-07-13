@@ -1,4 +1,6 @@
 import { createFlueClient, type FlueClient } from '@flue/sdk'
+import { toError } from '@beegreat/observability'
+import * as Sentry from '@sentry/bun'
 import { markdown, Spectrum, text } from 'spectrum-ts'
 import { effect, imessage } from 'spectrum-ts/providers/imessage'
 
@@ -10,11 +12,30 @@ const BEE_AGENT_NAME = 'bee'
 // bare user id (see packages/agent/src/agents/bee.ts).
 const SESSION_SUFFIX = 'imessage'
 
+function captureBridgeFailure(
+  error: unknown,
+  operation: string,
+  userId?: string,
+) {
+  Sentry.withScope((scope) => {
+    scope.setTag('service', 'imessage-bridge')
+    scope.setTag('operation', operation)
+    scope.setTag('handled', 'true')
+    if (userId) scope.setUser({ id: userId })
+    Sentry.captureException(toError(error))
+  })
+}
+
 const REQUIRED_ENV = ['PROJECT_ID', 'PROJECT_SECRET', 'AGENT_URL', 'BRIDGE_SECRET', 'IMESSAGE_USER_MAP']
 const missing = REQUIRED_ENV.filter((name) => !process.env[name])
 if (missing.length > 0) {
   console.warn(`imessage-bridge: not configured (missing ${missing.join(', ')}); see .env.example`)
-  process.exit(0)
+  captureBridgeFailure(
+    new Error(`iMessage bridge configuration is incomplete: ${missing.join(', ')}`),
+    'startup.configuration',
+  )
+  await Sentry.flush(2_000)
+  process.exit(1)
 }
 
 const AGENT_URL = process.env.AGENT_URL!
@@ -38,7 +59,12 @@ function parseUserMap(raw: string) {
 const userMap = parseUserMap(process.env.IMESSAGE_USER_MAP!)
 if (userMap.size === 0) {
   console.warn('imessage-bridge: IMESSAGE_USER_MAP has no valid `sender=clerkUserId` pairs')
-  process.exit(0)
+  captureBridgeFailure(
+    new Error('IMESSAGE_USER_MAP has no valid entries'),
+    'startup.user_map',
+  )
+  await Sentry.flush(2_000)
+  process.exit(1)
 }
 
 // The worker authorizes the bridge via shared secret and scopes every request
@@ -90,6 +116,7 @@ if (process.argv.includes('--greet')) {
       greeted.add(userId)
       console.log(`imessage-bridge: greeted ${address}`)
     } catch (error) {
+      captureBridgeFailure(error, 'greeting.send', userId)
       console.error(`imessage-bridge: greeting ${address} failed`, error)
     }
   }
@@ -117,6 +144,7 @@ for await (const [space, message] of app.messages) {
       celebrate ? effect(markdown(reply), imessage.effect.message.confetti) : markdown(reply),
     )
   } catch (error) {
+    captureBridgeFailure(error, 'prompt.handle', userId)
     console.error('imessage-bridge: prompt failed', error)
     await space.send(text('Something went wrong reaching Bee. Try again in a moment.'))
   }

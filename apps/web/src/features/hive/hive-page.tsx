@@ -8,6 +8,7 @@ import vesselUrl from '../../../../mobile/assets/images/hive-vessel.png?url'
 import { Achievements } from './achievements'
 import { formatHighlightExpiry, getGolieBeeName } from './hive-utils'
 import type { FunctionReturnType } from 'convex/server'
+import { captureWebFailure } from '~/lib/sentry'
 
 const HONEY_CAPACITY = 100
 type CurrentHive = FunctionReturnType<typeof api.firstFocus.getCurrent>
@@ -50,6 +51,7 @@ export function HivePage() {
         highlightTitle: highlight.title,
       })
     } catch (cause) {
+      captureWebFailure(cause, 'highlight.complete')
       setError(
         cause instanceof Error
           ? cause.message

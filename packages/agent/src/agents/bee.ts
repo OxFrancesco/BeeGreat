@@ -1,4 +1,5 @@
 import { type AgentRouteHandler, defineAgent } from '@flue/runtime'
+import * as Sentry from '@sentry/cloudflare'
 import {
   codexProviderIdForUser,
   registerFlueCodexProvider,
@@ -41,10 +42,19 @@ export default defineAgent<Env>(async ({ id, env }) => {
   const focusContext = await callFocusService<{
     timeZone: string
     currentTime: number
-  }>(userId, env.CONVEX_URL, focusOptions, 'get_context').catch(() => ({
-    timeZone: 'UTC',
-    currentTime: Date.now(),
-  }))
+  }>(userId, env.CONVEX_URL, focusOptions, 'get_context').catch((error) => {
+    Sentry.captureException(error, {
+      tags: {
+        service: 'agent-worker',
+        operation: 'focus.get_context',
+        handled: 'true',
+      },
+    })
+    return {
+      timeZone: 'UTC',
+      currentTime: Date.now(),
+    }
+  })
   // Opt-in power-ups: one specialist subagent each, loaded per user per message.
   const powerups = await loadPowerups(userId, env.CONVEX_URL, {
     convexSiteUrl: env.CONVEX_SITE_URL,

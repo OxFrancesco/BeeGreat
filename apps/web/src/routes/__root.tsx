@@ -11,6 +11,7 @@ import { createServerFn } from '@tanstack/react-start'
 import * as React from 'react'
 import { auth } from '@clerk/tanstack-react-start/server'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
+import * as Sentry from '@sentry/tanstackstart-react'
 import type { ConvexQueryClient } from '@convex-dev/react-query'
 import type { ConvexReactClient } from 'convex/react'
 import type { QueryClient } from '@tanstack/react-query'
@@ -94,6 +95,7 @@ function RootComponent() {
 
   return (
     <ClerkProvider>
+      <SentryUserContext userId={context.userId} />
       <ConvexProviderWithClerk client={context.convexClient} useAuth={useAuth}>
         <RootDocument>
           <Outlet />
@@ -101,6 +103,14 @@ function RootComponent() {
       </ConvexProviderWithClerk>
     </ClerkProvider>
   )
+}
+
+function SentryUserContext({ userId }: { userId: string | null }) {
+  React.useEffect(() => {
+    Sentry.setUser(userId ? { id: userId } : null)
+  }, [userId])
+
+  return null
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {

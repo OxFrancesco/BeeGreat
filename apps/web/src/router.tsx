@@ -4,6 +4,7 @@ import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import { ConvexQueryClient } from '@convex-dev/react-query'
 import { QueryClient } from '@tanstack/react-query'
 import { routeTree } from './routeTree.gen'
+import { SentryErrorComponent } from './components/sentry-error'
 
 export function getRouter() {
   const CONVEX_URL = (import.meta as any).env.VITE_CONVEX_URL!
@@ -33,7 +34,7 @@ export function getRouter() {
       defaultPreload: 'intent',
       scrollRestoration: true,
       defaultPreloadStaleTime: 0, // Let React Query handle all caching
-      defaultErrorComponent: (err) => <p>{err.error.stack}</p>,
+      defaultErrorComponent: SentryErrorComponent,
       defaultNotFoundComponent: () => <p>not found</p>,
       context: { queryClient, convexClient: convex, convexQueryClient },
       Wrap: ({ children }) => (

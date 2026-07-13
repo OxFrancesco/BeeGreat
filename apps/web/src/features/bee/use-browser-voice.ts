@@ -4,6 +4,7 @@ import { useSpeakReplies } from '../preferences/speak-replies'
 import { extractBeeUI } from './bee-ui'
 import { synthesizeSpeech, transcribeBlob } from './voice-api'
 import type { FlueConversationMessage } from '@flue/sdk'
+import { captureWebFailure } from '~/lib/sentry'
 
 type GetToken = () => Promise<string | null>
 
@@ -136,7 +137,8 @@ export function useBrowserVoice({
           )
         })
       })
-      .catch(() => {
+      .catch((error) => {
+        captureWebFailure(error, 'voice.synthesize')
         setSpeaking(false)
         showSpeechError('Bee’s spoken reply could not be prepared.')
       })
@@ -203,6 +205,7 @@ export function useBrowserVoice({
             return sendText(transcript)
           })
           .catch((cause) => {
+            captureWebFailure(cause, 'voice.transcribe')
             setVoiceError(
               cause instanceof Error ? cause.message : 'Transcription failed.',
             )
@@ -212,6 +215,7 @@ export function useBrowserVoice({
       recorder.start()
       setRecording(true)
     } catch (cause) {
+      captureWebFailure(cause, 'voice.start_recording')
       stopTracks()
       setRecording(false)
       setVoiceError(

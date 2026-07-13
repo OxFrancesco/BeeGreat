@@ -2,7 +2,10 @@
 import { describe, expect, test } from 'bun:test';
 import type { FlueConversationMessage } from '@flue/sdk';
 
-import { mergeConvexMessages } from './merge-convex-messages';
+import {
+  mergeConvexMessages,
+  messagesForConvexSync,
+} from './merge-convex-messages';
 
 function userMessage(id: string, submissionId: string): FlueConversationMessage {
   return {
@@ -26,5 +29,43 @@ describe('mergeConvexMessages', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe(optimistic.id);
+  });
+
+  test('keeps an admitted optimistic user message durable across a live-session remount', () => {
+    const admitted = userMessage('local:bee:user_1:1', 'submission-1');
+    const syncable = messagesForConvexSync([admitted]);
+
+    expect(syncable).toHaveLength(1);
+    expect(syncable[0]?.id).toBe('submission:submission-1');
+
+    const result = mergeConvexMessages(
+      syncable.map((message) => ({
+        id: message.id,
+        contentJson: JSON.stringify(message),
+        createdAt: 1,
+      })),
+      [],
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.parts[0]).toMatchObject({
+      type: 'text',
+      text: 'Create a weekly planning task',
+    });
+  });
+
+  test('collapses legacy id-keyed and submission-keyed copies of the same user turn', () => {
+    const legacy = userMessage('message:durable-1', 'submission-1');
+    const stable = userMessage('submission:submission-1', 'submission-1');
+
+    const result = mergeConvexMessages(
+      [
+        { id: legacy.id, contentJson: JSON.stringify(legacy), createdAt: 1 },
+        { id: stable.id, contentJson: JSON.stringify(stable), createdAt: 1 },
+      ],
+      [legacy],
+    );
+
+    expect(result).toHaveLength(1);
   });
 });

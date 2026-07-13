@@ -1,4 +1,10 @@
 import { flue } from '@flue/runtime/routing'
+import {
+  sanitizeSentryBreadcrumb,
+  sanitizeSentryEvent,
+  toError,
+} from '@beegreat/observability'
+import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 
@@ -8,6 +14,9 @@ type Bindings = {
   CLERK_JWT_ISSUER_DOMAIN: string
   // Shared secret for trusted service bridges (e.g. the iMessage bridge).
   BRIDGE_SECRET?: string
+  SENTRY_DSN?: string
+  SENTRY_ENVIRONMENT?: string
+  SENTRY_RELEASE?: string
 }
 
 type Variables = {
@@ -40,6 +49,17 @@ function toBase64(buffer: ArrayBuffer) {
 }
 
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+
+function captureWorkerFailure(
+  error: unknown,
+  operation: string,
+  extra?: Record<string, unknown>,
+) {
+  Sentry.captureException(toError(error), {
+    tags: { service: 'agent-worker', operation, handled: 'true' },
+    extra,
+  })
+}
 
 app.get('/health', (c) => c.json({ ok: true }))
 
@@ -79,6 +99,10 @@ app.use('*', async (c, next) => {
     const issuer = binding(c.env, 'CLERK_JWT_ISSUER_DOMAIN')
     if (!issuer) {
       console.error('CLERK_JWT_ISSUER_DOMAIN is not configured')
+      captureWorkerFailure(
+        new Error('CLERK_JWT_ISSUER_DOMAIN is not configured'),
+        'auth.configuration',
+      )
       return c.json({ error: 'Auth is not configured.' }, 500)
     }
 
@@ -104,6 +128,8 @@ app.use('*', async (c, next) => {
     return c.json({ error: "You can't access another user's agent." }, 403)
   }
 
+  Sentry.setUser({ id: c.get('userId') })
+
   await next()
 })
 
@@ -118,7 +144,13 @@ app.post('/voice/transcribe', async (c) => {
   const mimeType = c.req.header('content-type') ?? 'audio/m4a'
   const extension = mimeType.split('/')[1]?.split(';')[0] ?? 'm4a'
   const apiKey = binding(c.env, 'ELEVENLABS_API_KEY')
-  if (!apiKey) return c.json({ error: 'Voice transcription is not configured.' }, 500)
+  if (!apiKey) {
+    captureWorkerFailure(
+      new Error('ELEVENLABS_API_KEY is not configured'),
+      'voice.transcribe.configuration',
+    )
+    return c.json({ error: 'Voice transcription is not configured.' }, 500)
+  }
 
   const upstream = new FormData()
   upstream.append(
@@ -135,6 +167,17 @@ app.post('/voice/transcribe', async (c) => {
   if (!response.ok) {
     const detail = await response.text()
     console.error('elevenlabs stt failed', response.status, detail)
+    captureWorkerFailure(
+      new Error(`ElevenLabs transcription returned HTTP ${response.status}`),
+      'voice.transcribe.upstream',
+      {
+        status: response.status,
+        upstreamRequestId:
+          response.headers.get('request-id') ??
+          response.headers.get('x-request-id') ??
+          undefined,
+      },
+    )
     return c.json({ error: voiceErrorMessage('Transcription failed.', detail) }, 502)
   }
 
@@ -151,7 +194,13 @@ app.post('/voice/speak', async (c) => {
   }
 
   const apiKey = binding(c.env, 'ELEVENLABS_API_KEY')
-  if (!apiKey) return c.json({ error: 'Voice synthesis is not configured.' }, 500)
+  if (!apiKey) {
+    captureWorkerFailure(
+      new Error('ELEVENLABS_API_KEY is not configured'),
+      'voice.speak.configuration',
+    )
+    return c.json({ error: 'Voice synthesis is not configured.' }, 500)
+  }
   const voiceId = binding(c.env, 'ELEVENLABS_VOICE_ID') ?? DEFAULT_VOICE_ID
   const response = await fetch(
     `${ELEVENLABS_BASE}/text-to-speech/${voiceId}?output_format=mp3_44100_64`,
@@ -170,6 +219,17 @@ app.post('/voice/speak', async (c) => {
   if (!response.ok) {
     const detail = await response.text()
     console.error('elevenlabs tts failed', response.status, detail)
+    captureWorkerFailure(
+      new Error(`ElevenLabs synthesis returned HTTP ${response.status}`),
+      'voice.speak.upstream',
+      {
+        status: response.status,
+        upstreamRequestId:
+          response.headers.get('request-id') ??
+          response.headers.get('x-request-id') ??
+          undefined,
+      },
+    )
     return c.json({ error: voiceErrorMessage('Speech synthesis failed.', detail) }, 502)
   }
 
@@ -178,4 +238,20 @@ app.post('/voice/speak', async (c) => {
 
 app.route('/', flue())
 
-export default app
+export default Sentry.withSentry<Bindings>(
+  (env) => {
+    const dsn = binding(env, 'SENTRY_DSN')?.trim()
+    return {
+      dsn,
+      enabled: Boolean(dsn),
+      environment: binding(env, 'SENTRY_ENVIRONMENT') ?? 'production',
+      release: binding(env, 'SENTRY_RELEASE'),
+      sendDefaultPii: false,
+      beforeSend: sanitizeSentryEvent,
+      beforeBreadcrumb: sanitizeSentryBreadcrumb,
+      initialScope: { tags: { service: 'agent-worker' } },
+      tracesSampleRate: 0.2,
+    }
+  },
+  app,
+)

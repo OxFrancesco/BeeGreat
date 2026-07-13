@@ -17,6 +17,7 @@ import {
 } from './use-convex-chat'
 import { useBrowserVoice } from './use-browser-voice'
 import { AGENT_URL } from './voice-api'
+import { captureWebFailure } from '~/lib/sentry'
 
 const BEE_AGENT_NAME = 'bee'
 function isAuthHiccup(error: Error | undefined) {
@@ -81,7 +82,11 @@ export function useBeeAgent() {
   useEffect(() => {
     if (!userId) return
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-    if (timeZone) void syncTimeZone({ timeZone }).catch(() => undefined)
+    if (timeZone) {
+      void syncTimeZone({ timeZone }).catch((error) => {
+        captureWebFailure(error, 'user.sync_time_zone')
+      })
+    }
   }, [syncTimeZone, userId])
 
   useEffect(() => {
@@ -136,6 +141,7 @@ export function useBeeAgent() {
           )
           return
         } catch (error) {
+          captureWebFailure(error, 'highlight.complete')
           const message =
             error instanceof Error
               ? error.message
@@ -148,6 +154,7 @@ export function useBeeAgent() {
       try {
         await agent.sendMessage(text)
       } catch (error) {
+        captureWebFailure(error, 'bee.send_message')
         setActionError(
           'Your message wasn’t sent. Check your connection and try again.',
         )

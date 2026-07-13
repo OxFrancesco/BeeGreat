@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@beegreat/observability": "workspace:*",
+    "@sentry/nextjs": "^10.65.0",
     "next": "latest",
     "react": "19.2.3",
     "react-dom": "19.2.3"

@@ -21,18 +21,28 @@ export function PromptInput({
   onSubmit,
   disabled,
 }: {
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string) => void | Promise<void>;
   disabled?: boolean;
 }) {
   const theme = useTheme();
   const [text, setText] = useState('');
-  const canSend = Boolean(text.trim()) && !disabled;
+  const [submitting, setSubmitting] = useState(false);
+  const canSend = Boolean(text.trim()) && !disabled && !submitting;
 
-  const submit = () => {
+  const submit = async () => {
     const message = text.trim();
-    if (!message) return;
+    if (!message || disabled || submitting) return;
     setText('');
-    onSubmit(message);
+    setSubmitting(true);
+    try {
+      await onSubmit(message);
+    } catch {
+      // A failed send must never eat the user's draft. Preserve anything they
+      // typed while the request was in flight, otherwise restore the message.
+      setText((current) => current || message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const typed = text.trim().toLowerCase();
@@ -40,9 +50,16 @@ export function PromptInput({
     ? COMMANDS.filter((item) => item.command.startsWith(typed))
     : [];
 
-  const runCommand = (command: string) => {
+  const runCommand = async (command: string) => {
     setText('');
-    onSubmit(command);
+    setSubmitting(true);
+    try {
+      await onSubmit(command);
+    } catch {
+      setText(command);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -72,18 +89,21 @@ export function PromptInput({
         <TextInput
           value={text}
           onChangeText={setText}
-          onSubmitEditing={submit}
+          onSubmitEditing={() => void submit()}
           placeholder="Ask Bee anything…"
           placeholderTextColor={theme.textSecondary}
           style={[styles.input, { color: theme.text, fontFamily: Fonts.sans }]}
-          editable={!disabled}
+          accessibilityLabel="Message Bee"
+          editable
+          multiline
+          maxLength={4000}
           returnKeyType="send"
           submitBehavior="submit"
         />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Send message"
-          onPress={submit}
+          onPress={() => void submit()}
           disabled={!canSend}
           style={[
             styles.action,
@@ -127,7 +147,7 @@ const styles = StyleSheet.create({
   },
   bar: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     alignSelf: 'stretch',
     gap: Spacing.two,
     borderWidth: StyleSheet.hairlineWidth,
@@ -135,11 +155,16 @@ const styles = StyleSheet.create({
     paddingLeft: Spacing.three,
     paddingRight: Spacing.one,
     paddingVertical: Spacing.one,
+    borderCurve: 'continuous',
   },
   input: {
     flex: 1,
     fontSize: 16,
-    paddingVertical: Spacing.two,
+    lineHeight: 22,
+    minHeight: 36,
+    maxHeight: 108,
+    paddingTop: 7,
+    paddingBottom: 7,
   },
   action: {
     width: 36,

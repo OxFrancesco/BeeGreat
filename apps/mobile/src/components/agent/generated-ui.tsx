@@ -1,17 +1,21 @@
-import { api } from '@beegreat/backend/convex/_generated/api';
-import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
-import { useMutation, useQuery } from 'convex/react';
-import * as Haptics from 'expo-haptics';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
+import { api } from "@beegreat/backend/convex/_generated/api";
+import type { Id } from "@beegreat/backend/convex/_generated/dataModel";
+import { useMutation, useQuery } from "convex/react";
+import * as Haptics from "expo-haptics";
+import { SymbolView } from "expo-symbols";
+import { Pressable, StyleSheet, View } from "react-native";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  useReducedMotion,
+} from "react-native-reanimated";
 
-import { FirstFocusPreviewCard } from '@/components/first-focus/first-focus-preview-card';
-import { ThemedText } from '@/components/themed-text';
-import { MotionDuration } from '@/constants/motion';
-import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
-import type { UIComponent } from '@/lib/ui-spec';
+import { FirstFocusPreviewCard } from "@/components/first-focus/first-focus-preview-card";
+import { ThemedText } from "@/components/themed-text";
+import { MotionDuration } from "@/constants/motion";
+import { Spacing } from "@/constants/theme";
+import { useTheme } from "@/hooks/use-theme";
+import type { UIComponent } from "@/lib/ui-spec";
 
 /** Renders the agent's `beeui` spec as native cards streaming in below the pill. */
 export function GeneratedUI({
@@ -52,19 +56,19 @@ function UIComponentView({
   onReply?: (text: string) => void;
 }) {
   switch (component.type) {
-    case 'text':
+    case "text":
       return <ThemedText>{component.body}</ThemedText>;
-    case 'metric':
+    case "metric":
       return <MetricCard {...component} />;
-    case 'chart':
+    case "chart":
       return <BarChartCard {...component} />;
-    case 'tasks':
+    case "tasks":
       return <TaskListCard {...component} />;
-    case 'highlight':
+    case "highlight":
       return <HighlightCard {...component} />;
-    case 'first_focus':
+    case "first_focus":
       return <FirstFocusPreviewCard preview={component} />;
-    case 'confirm':
+    case "confirm":
       return <ConfirmCard {...component} onReply={onReply} />;
   }
 }
@@ -72,22 +76,37 @@ function UIComponentView({
 function Card({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.card, borderColor: theme.border },
+      ]}
+    >
       {children}
     </View>
   );
 }
 
-function MetricCard({ label, value, delta }: { label: string; value: string; delta?: string }) {
+function MetricCard({
+  label,
+  value,
+  delta,
+}: {
+  label: string;
+  value: string;
+  delta?: string;
+}) {
   return (
     <Card>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText selectable type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
       <View style={styles.metricRow}>
-        <ThemedText type="subtitle">{value}</ThemedText>
+        <ThemedText selectable type="subtitle" style={styles.metricValue}>
+          {value}
+        </ThemedText>
         {delta ? (
-          <ThemedText type="smallBold" themeColor="textSecondary">
+          <ThemedText selectable type="smallBold" themeColor="textSecondary">
             {delta}
           </ThemedText>
         ) : null}
@@ -118,7 +137,12 @@ function BarChartCard({
               {point.label}
             </ThemedText>
             <View style={styles.chartRow}>
-              <View style={[styles.chartTrack, { backgroundColor: theme.backgroundElement }]}>
+              <View
+                style={[
+                  styles.chartTrack,
+                  { backgroundColor: theme.backgroundElement },
+                ]}
+              >
                 <View
                   style={[
                     styles.chartFill,
@@ -129,9 +153,9 @@ function BarChartCard({
                   ]}
                 />
               </View>
-              <ThemedText type="small" style={styles.chartValue}>
+              <ThemedText selectable type="small" style={styles.chartValue}>
                 {point.value}
-                {unit ? ` ${unit}` : ''}
+                {unit ? ` ${unit}` : ""}
               </ThemedText>
             </View>
           </View>
@@ -152,7 +176,7 @@ function TaskListCard({
   // The card is a snapshot from the agent; overlay live Convex state so rows
   // stay in sync with the Goals pages and stay tappable to complete tasks.
   const live = useQuery(api.tasks.statuses, {
-    taskIds: items.map((item) => item.id),
+    taskIds: items.map((item) => item.id as Id<"tasks">),
   });
   const toggle = useMutation(api.tasks.toggle);
   const liveById = new Map(live?.map((task) => [task.id, task.status]));
@@ -160,7 +184,7 @@ function TaskListCard({
   const onToggle = async (taskId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await toggle({ taskId: taskId as Id<'tasks'> });
+      await toggle({ taskId: taskId as Id<"tasks"> });
     } catch {
       // Row simply stays as-is; the live query is the source of truth.
     }
@@ -171,8 +195,8 @@ function TaskListCard({
       <ThemedText type="smallBold">{title}</ThemedText>
       <View style={styles.taskList}>
         {items.map((item) => {
-          const liveStatus = liveById.get(item.id);
-          const done = liveStatus ? liveStatus === 'done' : item.done;
+          const liveStatus = liveById.get(item.id as Id<"tasks">);
+          const done = liveStatus ? liveStatus === "done" : item.done;
           // Only rows backed by a real task are interactive.
           const interactive = liveStatus !== undefined;
           return (
@@ -183,29 +207,38 @@ function TaskListCard({
               accessibilityLabel={item.title}
               disabled={!interactive}
               onPress={() => onToggle(item.id)}
-              style={({ pressed }) => [styles.taskRow, pressed && styles.taskRowPressed]}
+              style={({ pressed }) => [
+                styles.taskRow,
+                pressed && styles.taskRowPressed,
+              ]}
             >
               <SymbolView
-                name={done ? 'checkmark.circle.fill' : 'circle'}
+                name={done ? "checkmark.circle.fill" : "circle"}
                 size={18}
                 tintColor={done ? theme.primary : theme.textSecondary}
                 fallback={
                   <ThemedText type="small" themeColor="textSecondary">
-                    {done ? '[x]' : '[ ]'}
+                    {done ? "[x]" : "[ ]"}
                   </ThemedText>
                 }
               />
-              <ThemedText
-                style={[styles.taskTitle, done && styles.taskDone]}
-                themeColor={done ? 'textSecondary' : 'text'}
-              >
-                {item.title}
-              </ThemedText>
-              {item.due ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {item.due}
+              <View style={styles.taskBody}>
+                <ThemedText
+                  style={[styles.taskTitle, done && styles.taskDone]}
+                  themeColor={done ? "textSecondary" : "text"}
+                >
+                  {item.title}
                 </ThemedText>
-              ) : null}
+                {item.due ? (
+                  <ThemedText
+                    selectable
+                    type="small"
+                    themeColor="textSecondary"
+                  >
+                    {item.due}
+                  </ThemedText>
+                ) : null}
+              </View>
             </Pressable>
           );
         })}
@@ -248,7 +281,12 @@ function ConfirmCard({
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.destructive }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.card, borderColor: theme.destructive },
+      ]}
+    >
       <ThemedText type="smallBold" themeColor="destructive">
         Needs your confirmation
       </ThemedText>
@@ -258,21 +296,24 @@ function ConfirmCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Confirm"
-            onPress={() => reply('Yes')}
+            onPress={() => reply("Yes")}
             style={({ pressed }) => [
               styles.confirmButton,
               { backgroundColor: theme.primary },
               pressed && styles.taskRowPressed,
             ]}
           >
-            <ThemedText type="smallBold" style={{ color: theme.primaryForeground }}>
+            <ThemedText
+              type="smallBold"
+              style={{ color: theme.primaryForeground }}
+            >
               Yes
             </ThemedText>
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Decline"
-            onPress={() => reply('No')}
+            onPress={() => reply("No")}
             style={({ pressed }) => [
               styles.confirmButton,
               styles.confirmButtonOutline,
@@ -295,18 +336,24 @@ function ConfirmCard({
 const styles = StyleSheet.create({
   stack: {
     gap: Spacing.two,
-    alignSelf: 'stretch',
+    alignSelf: "stretch",
   },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Spacing.three,
+    borderCurve: "continuous",
     padding: Spacing.three,
     gap: Spacing.two,
+    minWidth: 0,
   },
   metricRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
+    flexWrap: "wrap",
     gap: Spacing.two,
+  },
+  metricValue: {
+    flexShrink: 1,
   },
   chart: {
     gap: Spacing.three,
@@ -315,54 +362,59 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   chartRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.two,
   },
   chartTrack: {
     flex: 1,
     height: 12,
     borderRadius: 6,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   chartFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: 6,
   },
   chartValue: {
     minWidth: 48,
-    textAlign: 'right',
+    textAlign: "right",
   },
   taskList: {
     gap: Spacing.two,
   },
   taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: Spacing.two,
   },
   taskRowPressed: {
     opacity: 0.6,
   },
   confirmRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.two,
   },
   confirmButton: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     height: 40,
     borderRadius: 20,
   },
   confirmButtonOutline: {
     borderWidth: StyleSheet.hairlineWidth,
   },
-  taskTitle: {
+  taskBody: {
     flex: 1,
+    minWidth: 0,
+    gap: Spacing.half,
+  },
+  taskTitle: {
+    flexShrink: 1,
   },
   taskDone: {
-    textDecorationLine: 'line-through',
+    textDecorationLine: "line-through",
   },
   highlight: {
     borderWidth: 0,

@@ -8,6 +8,7 @@ import {
   messagesForConvexSync,
 } from './chat-history'
 import type { FlueConversationMessage } from '@flue/sdk'
+import { captureWebFailure } from '~/lib/sentry'
 
 export type ChatThread = {
   id: number
@@ -88,7 +89,8 @@ export function useConvexMessages(
         lastSynced.current = fingerprint
       }
 
-      void run().catch(() => {
+      void run().catch((error) => {
+        captureWebFailure(error, 'chat.sync_transcript', { threadId })
         // Flue stays readable offline; the next transcript update retries.
       })
     }, 120)
