@@ -1,9 +1,14 @@
 'use node'
 
 import { CrossmintWallets, createCrossmint } from '@crossmint/wallets-sdk'
+import {
+  SUGAR_ACTIONS,
+  validateSugarRequest,
+  type SugarAction,
+} from '@beegreat/sugar'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
-import { action } from './_generated/server'
+import { action, env, internalAction } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
 
@@ -21,10 +26,12 @@ import type { Doc } from './_generated/dataModel'
 // stale agent session that still has the tools loaded cannot act after the
 // user switches the power-up off. DB cache lives in wallets.ts.
 //
-// Required env (npx convex env set ...):
+// Required env (bunx convex env set ...):
 //   CROSSMINT_API_KEY       server key with wallets scopes
 //   CROSSMINT_SIGNER_SECRET long random string; DO NOT rotate — it derives
 //                           every wallet's admin signing key
+//   SUGAR_BRIDGE_URL        deployed apps/sugar-bridge origin
+//   SUGAR_BRIDGE_SECRET     shared bearer secret for that bridge
 
 // Keep in sync with DEFAULT_CHAIN in wallets.ts.
 const WEB3_CHAIN = 'base-sepolia' as const
@@ -32,7 +39,17 @@ const WEB3_CHAIN = 'base-sepolia' as const
 function requireEnv(name: 'CROSSMINT_API_KEY' | 'CROSSMINT_SIGNER_SECRET') {
   const value = process.env[name]
   if (!value) {
-    throw new Error(`${name} is not configured. Set it with \`npx convex env set ${name} ...\`.`)
+    throw new Error(
+      `${name} is not configured. Set it with \`bunx convex env set ${name} ...\`.`,
+    )
+  }
+  return value
+}
+
+function requireSugarEnv(name: 'SUGAR_BRIDGE_SECRET' | 'SUGAR_BRIDGE_URL') {
+  const value = env[name]
+  if (!value) {
+    throw new Error(`${name} is not configured for the Web3 power-up.`)
   }
   return value
 }
@@ -43,7 +60,9 @@ async function requireWeb3(ctx: ActionCtx, userId: string) {
     powerupId: 'web3',
   })
   if (!enabled) {
-    throw new Error('The Web3 power-up is not enabled. Turn it on from the profile screen first.')
+    throw new Error(
+      'The Web3 power-up is not enabled. Turn it on from the profile screen first.',
+    )
   }
 }
 
@@ -53,7 +72,9 @@ async function requireWeb3(ctx: ActionCtx, userId: string) {
  * same address every time.
  */
 async function walletForUser(userId: string) {
-  const crossmint = createCrossmint({ apiKey: requireEnv('CROSSMINT_API_KEY') })
+  const crossmint = createCrossmint({
+    apiKey: requireEnv('CROSSMINT_API_KEY'),
+  })
   const wallets = CrossmintWallets.from(crossmint)
   const secret = requireEnv('CROSSMINT_SIGNER_SECRET')
   const wallet = await wallets.createWallet({
@@ -77,7 +98,11 @@ export const getOrCreateWallet = action({
       chain: WEB3_CHAIN,
       address: wallet.address,
     })
-    return { address: wallet.address, chain: WEB3_CHAIN, owner: `userId:${userId}` }
+    return {
+      address: wallet.address,
+      chain: WEB3_CHAIN,
+      owner: `userId:${userId}`,
+    }
   },
 })
 
@@ -99,12 +124,17 @@ export const getBalances = action({
   }> => {
     await requireWeb3(ctx, userId)
 
-    const cached: Doc<'wallets'> | null = await ctx.runQuery(internal.wallets.getCachedWallet, {
-      userId,
-      chain: WEB3_CHAIN,
-    })
+    const cached: Doc<'wallets'> | null = await ctx.runQuery(
+      internal.wallets.getCachedWallet,
+      {
+        userId,
+        chain: WEB3_CHAIN,
+      },
+    )
     if (!cached) {
-      throw new Error('No wallet yet — create one first with the create wallet tool.')
+      throw new Error(
+        'No wallet yet — create one first with the create wallet tool.',
+      )
     }
 
     const wallet = await walletForUser(userId)
@@ -136,19 +166,81 @@ export const sendTokens = action({
   handler: async (ctx, { userId, recipient, token, amount }) => {
     await requireWeb3(ctx, userId)
 
-    const cached: Doc<'wallets'> | null = await ctx.runQuery(internal.wallets.getCachedWallet, {
-      userId,
-      chain: WEB3_CHAIN,
-    })
+    const cached: Doc<'wallets'> | null = await ctx.runQuery(
+      internal.wallets.getCachedWallet,
+      {
+        userId,
+        chain: WEB3_CHAIN,
+      },
+    )
     if (!cached) {
-      throw new Error('No wallet yet — create one first with the create wallet tool.')
+      throw new Error(
+        'No wallet yet — create one first with the create wallet tool.',
+      )
     }
 
     const wallet = await walletForUser(userId)
-    const transaction = await wallet.send(recipient, token.toLowerCase(), amount)
+    const transaction = await wallet.send(
+      recipient,
+      token.toLowerCase(),
+      amount,
+    )
     return {
       hash: transaction.hash ?? null,
       explorerLink: transaction.explorerLink ?? null,
+    }
+  },
+})
+
+/**
+ * Run one allowlisted Sugar CLI action through the authenticated bridge.
+ * Sugar transaction actions only build unsigned transaction JSON; this action
+ * never signs or broadcasts those transactions.
+ */
+export const runSugar = internalAction({
+  args: {
+    userId: v.string(),
+    sugarAction: v.union(...SUGAR_ACTIONS.map((name) => v.literal(name))),
+    parameters: v.record(
+      v.string(),
+      v.union(v.string(), v.number(), v.boolean()),
+    ),
+  },
+  returns: v.string(),
+  handler: async (ctx, { userId, sugarAction, parameters }) => {
+    await requireWeb3(ctx, userId)
+
+    const normalized = validateSugarRequest(
+      sugarAction as SugarAction,
+      parameters,
+    )
+    const baseUrl = requireSugarEnv('SUGAR_BRIDGE_URL').replace(/\/$/, '')
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 130_000)
+    try {
+      const response = await fetch(`${baseUrl}/v1/execute`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${requireSugarEnv('SUGAR_BRIDGE_SECRET')}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ action: sugarAction, parameters: normalized }),
+        signal: controller.signal,
+      })
+      const body = (await response.json()) as {
+        error?: unknown
+        output?: unknown
+      }
+      if (!response.ok || typeof body.output !== 'string') {
+        throw new Error(
+          typeof body.error === 'string'
+            ? body.error
+            : 'The Sugar bridge request failed.',
+        )
+      }
+      return body.output
+    } finally {
+      clearTimeout(timeout)
     }
   },
 })

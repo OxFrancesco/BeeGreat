@@ -90,6 +90,17 @@
         "typescript": "~6.0.3",
       },
     },
+    "apps/sugar-bridge": {
+      "name": "@beegreat/sugar-bridge",
+      "version": "0.1.0",
+      "dependencies": {
+        "@beegreat/sugar": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.2.0",
+        "typescript": "~6.0.3",
+      },
+    },
     "apps/web": {
       "name": "@beegreat/web",
       "dependencies": {
@@ -152,6 +163,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@beegreat/observability": "workspace:*",
+        "@beegreat/sugar": "workspace:*",
         "@crossmint/wallets-sdk": "1.7.0",
         "@sentry/node": "^10.65.0",
         "convex": "^1.36.1",
@@ -165,6 +177,14 @@
     },
     "packages/observability": {
       "name": "@beegreat/observability",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/bun": "^1.2.0",
+        "typescript": "~6.0.3",
+      },
+    },
+    "packages/sugar": {
+      "name": "@beegreat/sugar",
       "version": "0.1.0",
       "devDependencies": {
         "@types/bun": "^1.2.0",
@@ -402,6 +422,10 @@
     "@beegreat/mobile": ["@beegreat/mobile@workspace:apps/mobile"],
 
     "@beegreat/observability": ["@beegreat/observability@workspace:packages/observability"],
+
+    "@beegreat/sugar": ["@beegreat/sugar@workspace:packages/sugar"],
+
+    "@beegreat/sugar-bridge": ["@beegreat/sugar-bridge@workspace:apps/sugar-bridge"],
 
     "@beegreat/web": ["@beegreat/web@workspace:apps/web"],
 

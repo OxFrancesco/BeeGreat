@@ -1,7 +1,8 @@
 import { httpRouter } from 'convex/server'
+import { SUGAR_ACTIONS, type SugarAction } from '@beegreat/sugar'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
-import { httpAction } from './_generated/server'
+import { env, httpAction } from './_generated/server'
 
 const http = httpRouter()
 
@@ -64,7 +65,7 @@ http.route({
   path: '/internal/focus',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const configuredSecret = process.env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
     const suppliedSecret = request.headers
       .get('authorization')
       ?.match(/^Bearer ([^\s]+)$/i)?.[1]
@@ -179,7 +180,7 @@ http.route({
   path: '/internal/chatgpt/token',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const configuredSecret = process.env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
     const authorization = request.headers.get('authorization')
     const suppliedSecret = authorization?.match(/^Bearer ([^\s]+)$/i)?.[1]
     if (
@@ -274,7 +275,7 @@ http.route({
   path: '/internal/google-health/context',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const configuredSecret = process.env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
     const suppliedSecret = request.headers
       .get('authorization')
       ?.match(/^Bearer ([^\s]+)$/i)?.[1]
@@ -318,7 +319,7 @@ http.route({
   path: '/internal/google-health/query',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    const configuredSecret = process.env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
     const suppliedSecret = request.headers
       .get('authorization')
       ?.match(/^Bearer ([^\s]+)$/i)?.[1]
@@ -371,6 +372,66 @@ http.route({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Google Health request failed'
+      return jsonResponse({ error: message }, 400)
+    }
+  }),
+})
+
+http.route({
+  path: '/internal/web3/sugar',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    const parameters = body?.parameters
+    if (
+      typeof body?.userId !== 'string' ||
+      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+      typeof body.sugarAction !== 'string' ||
+      !SUGAR_ACTIONS.includes(body.sugarAction as SugarAction) ||
+      !parameters ||
+      typeof parameters !== 'object' ||
+      Array.isArray(parameters) ||
+      Object.values(parameters).some(
+        (value) =>
+          typeof value !== 'string' &&
+          typeof value !== 'number' &&
+          typeof value !== 'boolean',
+      )
+    ) {
+      return jsonResponse({ error: 'Invalid Sugar request' }, 400)
+    }
+
+    try {
+      const result: string = await ctx.runAction(internal.web3.runSugar, {
+        userId: body.userId,
+        sugarAction: body.sugarAction as SugarAction,
+        parameters: parameters as Record<string, string | number | boolean>,
+      })
+      return new Response(result, {
+        status: 200,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+        },
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Sugar request failed'
       return jsonResponse({ error: message }, 400)
     }
   }),
