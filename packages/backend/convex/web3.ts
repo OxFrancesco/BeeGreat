@@ -2,13 +2,13 @@
 
 import { CrossmintWallets, createCrossmint } from '@crossmint/wallets-sdk'
 import {
+  executeSugarActionJson,
   SUGAR_ACTIONS,
-  validateSugarRequest,
   type SugarAction,
 } from '@beegreat/sugar'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
-import { action, env, internalAction } from './_generated/server'
+import { action, internalAction } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
 
@@ -30,8 +30,6 @@ import type { Doc } from './_generated/dataModel'
 //   CROSSMINT_API_KEY       server key with wallets scopes
 //   CROSSMINT_SIGNER_SECRET long random string; DO NOT rotate — it derives
 //                           every wallet's admin signing key
-//   SUGAR_BRIDGE_URL        deployed apps/sugar-bridge origin
-//   SUGAR_BRIDGE_SECRET     shared bearer secret for that bridge
 
 // Keep in sync with DEFAULT_CHAIN in wallets.ts.
 const WEB3_CHAIN = 'base-sepolia' as const
@@ -42,14 +40,6 @@ function requireEnv(name: 'CROSSMINT_API_KEY' | 'CROSSMINT_SIGNER_SECRET') {
     throw new Error(
       `${name} is not configured. Set it with \`bunx convex env set ${name} ...\`.`,
     )
-  }
-  return value
-}
-
-function requireSugarEnv(name: 'SUGAR_BRIDGE_SECRET' | 'SUGAR_BRIDGE_URL') {
-  const value = env[name]
-  if (!value) {
-    throw new Error(`${name} is not configured for the Web3 power-up.`)
   }
   return value
 }
@@ -193,9 +183,8 @@ export const sendTokens = action({
 })
 
 /**
- * Run one allowlisted Sugar CLI action through the authenticated bridge.
- * Sugar transaction actions only build unsigned transaction JSON; this action
- * never signs or broadcasts those transactions.
+ * Run one allowlisted Sugar action using the native TypeScript SDK. Transaction
+ * actions only build unsigned JSON; this action never signs or broadcasts.
  */
 export const runSugar = internalAction({
   args: {
@@ -210,37 +199,10 @@ export const runSugar = internalAction({
   handler: async (ctx, { userId, sugarAction, parameters }) => {
     await requireWeb3(ctx, userId)
 
-    const normalized = validateSugarRequest(
-      sugarAction as SugarAction,
-      parameters,
-    )
-    const baseUrl = requireSugarEnv('SUGAR_BRIDGE_URL').replace(/\/$/, '')
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 130_000)
-    try {
-      const response = await fetch(`${baseUrl}/v1/execute`, {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${requireSugarEnv('SUGAR_BRIDGE_SECRET')}`,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ action: sugarAction, parameters: normalized }),
-        signal: controller.signal,
-      })
-      const body = (await response.json()) as {
-        error?: unknown
-        output?: unknown
-      }
-      if (!response.ok || typeof body.output !== 'string') {
-        throw new Error(
-          typeof body.error === 'string'
-            ? body.error
-            : 'The Sugar bridge request failed.',
-        )
-      }
-      return body.output
-    } finally {
-      clearTimeout(timeout)
-    }
+    // Convex app configuration is typed explicitly. Keep the portable SDK
+    // from inspecting Node's ambient process.env inside this action.
+    return executeSugarActionJson(sugarAction as SugarAction, parameters, {
+      env: {},
+    })
   },
 })

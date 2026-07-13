@@ -3,12 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "sugar-ts": "./src/cli.ts"
+  },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
   },
   "scripts": {
+    "cli": "bun run src/cli.ts",
     "test": "bun test",
+    "test:headless": "bun run scripts/headless.ts",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "viem": "2.33.1"
   },
   "devDependencies": {
     "@types/bun": "^1.2.0",

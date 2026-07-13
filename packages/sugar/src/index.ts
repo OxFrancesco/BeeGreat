@@ -1,3 +1,5 @@
+import { isSupportedChainId } from './config'
+
 export const SUGAR_ACTIONS = [
   'deposit',
   'positions',
@@ -18,7 +20,7 @@ export type SugarParameter = string | number | boolean
 export type SugarParameters = Record<string, SugarParameter>
 
 type ParameterKind =
-  'address' | 'boolean' | 'integer_string' | 'number' | 'string'
+  'address' | 'boolean' | 'decimal_string' | 'integer_string' | 'number' | 'string'
 type ActionSpec = {
   allowed: Readonly<Record<string, ParameterKind>>
   required: readonly string[]
@@ -87,7 +89,7 @@ const ACTION_SPECS: Record<SugarAction, ActionSpec> = {
     required: ['chain', 'wallet'],
     allowed: {
       ...COMMON_POSITION,
-      fraction: 'number',
+      fraction: 'decimal_string',
       burn: 'boolean',
       collect: 'boolean',
       unwrap_native: 'boolean',
@@ -133,9 +135,6 @@ const ACTION_SPECS: Record<SugarAction, ActionSpec> = {
   },
 }
 
-const SUPPORTED_CHAINS = new Set([
-  10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220, 57073,
-])
 const POOL_TYPES = new Set(['cl', 'stable', 'volatile'])
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/
 const PRIVATE_KEY_SHAPED = /^0x[0-9a-fA-F]{64}$/
@@ -180,6 +179,15 @@ function validateParameter(
     }
     return value
   }
+  if (kind === 'decimal_string') {
+    const text = typeof value === 'number' ? String(value) : value
+    if (typeof text !== 'string' || text.length > 1_024 || !/^\d+(?:\.\d*)?(?:e[+-]?\d+)?$/i.test(text)) {
+      throw new Error(`${name} must be a decimal number`)
+    }
+    const number = Number(text)
+    if (!Number.isFinite(number)) throw new Error(`${name} must be a finite decimal number`)
+    return text
+  }
   if (kind === 'integer_string') {
     if (typeof value !== 'string' || !/^\d+$/.test(value)) {
       throw new Error(`${name} must be a non-negative decimal integer string`)
@@ -218,7 +226,7 @@ export function validateSugarRequest(
     if (!(name in output)) throw new Error(`${action} requires ${name}`)
   }
 
-  if (!SUPPORTED_CHAINS.has(output.chain as number)) {
+  if (!isSupportedChainId(output.chain as number)) {
     throw new Error(
       'chain must be one of 10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220, or 57073',
     )
@@ -244,11 +252,9 @@ export function validateSugarRequest(
   ) {
     throw new Error('slippage must be between 0 and 1')
   }
-  if (
-    typeof output.fraction === 'number' &&
-    (output.fraction <= 0 || output.fraction > 1)
-  ) {
-    throw new Error('fraction must be greater than 0 and at most 1')
+  if (output.fraction !== undefined) {
+    const fraction = Number(output.fraction)
+    if (fraction <= 0 || fraction > 1) throw new Error('fraction must be greater than 0 and at most 1')
   }
   if (
     typeof output.deadline_minutes === 'number' &&
@@ -274,10 +280,27 @@ export function validateSugarRequest(
   ) {
     throw new Error(`${action} requires pool or position`)
   }
+  if (action === 'deposit') {
+    const creationFields = ['token0', 'token1', 'pool_type', 'tick_spacing']
+    if (output.pool !== undefined && creationFields.some((name) => output[name] !== undefined)) {
+      throw new Error('deposit pool cannot be combined with token0, token1, pool_type, or tick_spacing')
+    }
+    if (output.pool === undefined) {
+      if (output.token0 === undefined || output.token1 === undefined || output.pool_type === undefined) {
+        throw new Error('new deposit pool requires token0, token1, and pool_type')
+      }
+      if (output.pool_type === 'cl' && output.tick_spacing === undefined) {
+        throw new Error('CL deposit pool requires tick_spacing')
+      }
+      if (output.pool_type !== 'cl' && output.tick_spacing !== undefined) {
+        throw new Error('tick_spacing is CL-only')
+      }
+    }
+  }
   return output
 }
 
-/** Convert validated parameters to a shell-free argv array for Python Fire. */
+/** @deprecated Compatibility helper for callers migrating from the former Python bridge. */
 export function buildSugarArgv(
   executable: string,
   action: SugarAction,
@@ -289,3 +312,15 @@ export function buildSugarArgv(
   )
   return [executable, command, ...flags]
 }
+
+export { SugarClient, createSugarClient } from './client'
+export { executeSugarAction, executeSugarActionJson, type SugarExecutionOptions } from './actions'
+export { abis } from './abis'
+export * from './config'
+export * from './chains'
+export * from './helpers'
+export * from './models'
+export * from './known-tokens'
+export * from './planner'
+export * from './superswap'
+export * from './types'

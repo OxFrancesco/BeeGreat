@@ -417,6 +417,8 @@ http.route({
     }
 
     try {
+      // The Node action runs the native TypeScript Sugar SDK directly. This
+      // HTTP route remains the authenticated boundary used by the agent.
       const result: string = await ctx.runAction(internal.web3.runSugar, {
         userId: body.userId,
         sugarAction: body.sugarAction as SugarAction,

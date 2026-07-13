@@ -26,8 +26,6 @@ import type { DataModel } from "./dataModel.js";
  */
 type Env = {
   readonly AGENT_CREDENTIAL_BROKER_SECRET: string | undefined;
-  readonly SUGAR_BRIDGE_SECRET: string | undefined;
-  readonly SUGAR_BRIDGE_URL: string | undefined;
 };
 
 /**

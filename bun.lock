@@ -90,17 +90,6 @@
         "typescript": "~6.0.3",
       },
     },
-    "apps/sugar-bridge": {
-      "name": "@beegreat/sugar-bridge",
-      "version": "0.1.0",
-      "dependencies": {
-        "@beegreat/sugar": "workspace:*",
-      },
-      "devDependencies": {
-        "@types/bun": "^1.2.0",
-        "typescript": "~6.0.3",
-      },
-    },
     "apps/web": {
       "name": "@beegreat/web",
       "dependencies": {
@@ -186,6 +175,9 @@
     "packages/sugar": {
       "name": "@beegreat/sugar",
       "version": "0.1.0",
+      "dependencies": {
+        "viem": "2.33.1",
+      },
       "devDependencies": {
         "@types/bun": "^1.2.0",
         "typescript": "~6.0.3",
@@ -424,8 +416,6 @@
     "@beegreat/observability": ["@beegreat/observability@workspace:packages/observability"],
 
     "@beegreat/sugar": ["@beegreat/sugar@workspace:packages/sugar"],
-
-    "@beegreat/sugar-bridge": ["@beegreat/sugar-bridge@workspace:apps/sugar-bridge"],
 
     "@beegreat/web": ["@beegreat/web@workspace:apps/web"],
 

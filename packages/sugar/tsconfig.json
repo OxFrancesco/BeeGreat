@@ -3,6 +3,7 @@
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "resolveJsonModule": true,
     "lib": ["ES2023", "DOM"],
     "types": ["bun"],
     "strict": true,
@@ -11,5 +12,5 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src"]
+  "include": ["src", "scripts"]
 }
