@@ -16,6 +16,7 @@ import {
   startDeviceAuthorization,
 } from './chatgptOpenAi'
 import { agentCredentialResultValidator } from './chatgptAuthValidators'
+import { captureHandledConvexException } from './sentryNode'
 
 const MIN_ACCESS_VALIDITY_MS = 5 * 60 * 1000
 const SLOW_DOWN_INCREMENT_MS = 5_000
@@ -95,10 +96,17 @@ export const beginDeviceAuthorization = internalAction({
         expiresAt: device.expiresAt,
       })
     } catch (error) {
+      const code = errorCode(error)
+      if (code === 'configuration_error' || code === 'unexpected_error') {
+        await captureHandledConvexException(
+          error,
+          'chatgpt.begin_device_authorization',
+        )
+      }
       await ctx.runMutation(internal.chatgptAuth.markSessionFailure, {
         sessionId: args.sessionId,
         status: 'failed',
-        errorCode: errorCode(error),
+        errorCode: code,
       })
     }
     return null
@@ -176,10 +184,18 @@ export const pollDeviceAuthorization = internalAction({
           delayMs: exponentialDelay,
         })
       } else {
+        const code = errorCode(error)
+        if (code === 'configuration_error' || code === 'unexpected_error') {
+          await captureHandledConvexException(
+            error,
+            'chatgpt.poll_device_authorization',
+            { userId: session.userId },
+          )
+        }
         await ctx.runMutation(internal.chatgptAuth.markSessionFailure, {
           sessionId: args.sessionId,
           status: 'failed',
-          errorCode: errorCode(error),
+          errorCode: code,
         })
       }
     }
@@ -218,7 +234,12 @@ export const resolveForAgent = internalAction({
           ),
           expiresAt: claim.expiresAt,
         }
-      } catch {
+      } catch (error) {
+        await captureHandledConvexException(
+          error,
+          'chatgpt.decrypt_access_credential',
+          { userId: args.userId },
+        )
         return { status: 'reauth' as const }
       }
     }
@@ -250,6 +271,13 @@ export const resolveForAgent = internalAction({
         expiresAt: credentials.expiresAt,
       }
     } catch (error) {
+      if (!(error instanceof OpenAiCodexAuthError)) {
+        await captureHandledConvexException(
+          error,
+          'chatgpt.refresh_credential',
+          { userId: args.userId },
+        )
+      }
       const permanent =
         error instanceof OpenAiCodexAuthError ? !error.retryable : true
       await ctx.runMutation(internal.chatgptAuth.failRefresh, {

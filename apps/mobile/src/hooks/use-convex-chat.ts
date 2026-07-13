@@ -3,7 +3,11 @@ import type { FlueConversationMessage } from '@flue/sdk';
 import { useMutation, useQuery } from 'convex/react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { mergeConvexMessages } from '@/lib/merge-convex-messages';
+import {
+  mergeConvexMessages,
+  messagesForConvexSync,
+} from '@/lib/merge-convex-messages';
+import { captureMobileFailure } from '@/lib/sentry';
 
 export type ChatThread = {
   id: number;
@@ -59,9 +63,7 @@ export function useConvexMessages(
   const fingerprint = useMemo(
     () =>
       JSON.stringify(
-        flueMessages
-          .filter((message) => !message.id.startsWith('local:'))
-          .map((message) => [message.id, message]),
+        messagesForConvexSync(flueMessages).map((message) => [message.id, message]),
       ),
     [flueMessages],
   );
@@ -70,7 +72,7 @@ export function useConvexMessages(
   useEffect(() => {
     if (!fingerprint || fingerprint === '[]' || fingerprint === lastSynced.current) return;
     const timer = setTimeout(() => {
-      const canonical = flueMessages.filter((message) => !message.id.startsWith('local:'));
+      const canonical = messagesForConvexSync(flueMessages);
       const run = async () => {
         for (let offset = 0; offset < canonical.length; offset += 200) {
           const chunk = canonical.slice(offset, offset + 200).map((message, index) => ({
@@ -83,7 +85,8 @@ export function useConvexMessages(
         }
         lastSynced.current = fingerprint;
       };
-      void run().catch(() => {
+      void run().catch((error) => {
+        captureMobileFailure(error, 'chat.sync_transcript', { threadId });
         // Flue remains readable if Convex is temporarily offline; its next
         // transcript update retries the idempotent sync.
       });

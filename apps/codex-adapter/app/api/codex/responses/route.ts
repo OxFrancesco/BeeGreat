@@ -1,5 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { zstdDecompressSync } from 'node:zlib'
+import { toError } from '@beegreat/observability'
+import * as Sentry from '@sentry/nextjs'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -37,6 +39,30 @@ export interface CodexAdapterOptions {
     input: string | URL | Request,
     init?: RequestInit,
   ) => Promise<Response>
+  captureException?: (
+    error: Error,
+    context: {
+      tags: Record<string, string>
+      extra?: Record<string, unknown>
+    },
+  ) => unknown
+}
+
+function captureAdapterFailure(
+  options: CodexAdapterOptions,
+  error: unknown,
+  operation: string,
+  extra?: Record<string, unknown>,
+) {
+  const captureException = options.captureException ?? Sentry.captureException
+  captureException(toError(error), {
+    tags: {
+      service: 'codex-adapter',
+      operation,
+      handled: 'true',
+    },
+    extra,
+  })
 }
 
 function secretsMatch(left: string, right: string) {
@@ -111,12 +137,24 @@ export async function proxyCodexRequest(
         signal: request.signal,
       },
     )
+    if (upstream.status === 429 || upstream.status >= 500) {
+      captureAdapterFailure(
+        options,
+        new Error(`Codex upstream returned HTTP ${upstream.status}`),
+        'codex.upstream_response',
+        {
+          status: upstream.status,
+          upstreamRequestId: upstream.headers.get('x-request-id') ?? undefined,
+        },
+      )
+    }
     return new Response(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,
       headers: allowedHeaders(upstream.headers, RESPONSE_HEADER_ALLOWLIST),
     })
-  } catch {
+  } catch (error) {
+    captureAdapterFailure(options, error, 'codex.proxy')
     return jsonError('Codex upstream unavailable', 502)
   }
 }

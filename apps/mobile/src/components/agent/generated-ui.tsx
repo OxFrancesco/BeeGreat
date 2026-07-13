@@ -81,13 +81,15 @@ function Card({ children }: { children: React.ReactNode }) {
 function MetricCard({ label, value, delta }: { label: string; value: string; delta?: string }) {
   return (
     <Card>
-      <ThemedText type="small" themeColor="textSecondary">
+      <ThemedText selectable type="small" themeColor="textSecondary">
         {label}
       </ThemedText>
       <View style={styles.metricRow}>
-        <ThemedText type="subtitle">{value}</ThemedText>
+        <ThemedText selectable type="subtitle" style={styles.metricValue}>
+          {value}
+        </ThemedText>
         {delta ? (
-          <ThemedText type="smallBold" themeColor="textSecondary">
+          <ThemedText selectable type="smallBold" themeColor="textSecondary">
             {delta}
           </ThemedText>
         ) : null}
@@ -129,7 +131,7 @@ function BarChartCard({
                   ]}
                 />
               </View>
-              <ThemedText type="small" style={styles.chartValue}>
+              <ThemedText selectable type="small" style={styles.chartValue}>
                 {point.value}
                 {unit ? ` ${unit}` : ''}
               </ThemedText>
@@ -195,17 +197,19 @@ function TaskListCard({
                   </ThemedText>
                 }
               />
-              <ThemedText
-                style={[styles.taskTitle, done && styles.taskDone]}
-                themeColor={done ? 'textSecondary' : 'text'}
-              >
-                {item.title}
-              </ThemedText>
-              {item.due ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {item.due}
+              <View style={styles.taskBody}>
+                <ThemedText
+                  style={[styles.taskTitle, done && styles.taskDone]}
+                  themeColor={done ? 'textSecondary' : 'text'}
+                >
+                  {item.title}
                 </ThemedText>
-              ) : null}
+                {item.due ? (
+                  <ThemedText selectable type="small" themeColor="textSecondary">
+                    {item.due}
+                  </ThemedText>
+                ) : null}
+              </View>
             </Pressable>
           );
         })}
@@ -300,13 +304,19 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Spacing.three,
+    borderCurve: 'continuous',
     padding: Spacing.three,
     gap: Spacing.two,
+    minWidth: 0,
   },
   metricRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  metricValue: {
+    flexShrink: 1,
   },
   chart: {
     gap: Spacing.three,
@@ -338,7 +348,7 @@ const styles = StyleSheet.create({
   },
   taskRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: Spacing.two,
   },
   taskRowPressed: {
@@ -358,8 +368,13 @@ const styles = StyleSheet.create({
   confirmButtonOutline: {
     borderWidth: StyleSheet.hairlineWidth,
   },
-  taskTitle: {
+  taskBody: {
     flex: 1,
+    minWidth: 0,
+    gap: Spacing.half,
+  },
+  taskTitle: {
+    flexShrink: 1,
   },
   taskDone: {
     textDecorationLine: 'line-through',

@@ -1,3 +1,6 @@
+import { toError } from '@beegreat/observability'
+import * as Sentry from '@sentry/cloudflare'
+
 export interface ChatGptCredentialEnv {
   CONVEX_URL: string
   CONVEX_SITE_URL?: string
@@ -48,8 +51,16 @@ export async function resolveChatGptCredential(
         body: JSON.stringify({ userId }),
         signal: controller.signal,
       })
-    } catch {
+    } catch (error) {
       clearTimeout(timeout)
+      Sentry.captureException(toError(error, 'Credential broker request failed'), {
+        tags: {
+          service: 'agent-worker',
+          operation: 'chatgpt.credentials.network',
+          handled: 'true',
+        },
+        extra: { attempt: attempt + 1 },
+      })
       return { status: 'unavailable' }
     }
     clearTimeout(timeout)
@@ -74,6 +85,19 @@ export async function resolveChatGptCredential(
     if (response.status === 404) return { status: 'disconnected' }
     if (response.status === 401) return { status: 'needs_reauth' }
     if (response.status !== 503 || attempt === 2) {
+      if (response.status >= 500) {
+        Sentry.captureException(
+          new Error(`Credential broker returned HTTP ${response.status}`),
+          {
+            tags: {
+              service: 'agent-worker',
+              operation: 'chatgpt.credentials.upstream',
+              handled: 'true',
+            },
+            extra: { status: response.status, attempt: attempt + 1 },
+          },
+        )
+      }
       return { status: 'unavailable' }
     }
     const retryAfter = Number(response.headers.get('retry-after') ?? '1')

@@ -1,4 +1,5 @@
 import type { AgentProfile } from '@flue/runtime'
+import * as Sentry from '@sentry/cloudflare'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
 import type { PowerupDefinition, PowerupRuntime } from './types.ts'
@@ -34,6 +35,13 @@ export async function loadPowerups(
     const convex = new ConvexHttpClient(convexUrl)
     enabledIds = await convex.query(anyApi.powerups.getEnabledIds, { userId })
   } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        service: 'agent-worker',
+        operation: 'powerups.load',
+        handled: 'true',
+      },
+    })
     console.error(
       'powerups: failed to load enabled ids, continuing without',
       error,

@@ -140,9 +140,9 @@ function taskCopy(input: unknown): ToolCopy {
   const powerup = POWERUP_AGENTS[agent];
   if (powerup) {
     return {
-      running: `${powerup} power-up at work…`,
-      done: `${powerup} power-up finished`,
-      failed: `${powerup} power-up hit a snag`,
+      running: 'At work…',
+      done: 'Finished',
+      failed: 'Hit a snag',
       symbol: 'bolt.fill',
       powerup,
     };

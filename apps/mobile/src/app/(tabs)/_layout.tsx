@@ -8,7 +8,7 @@ const tint =
 
 export default function TabLayout() {
   return (
-    <NativeTabs tintColor={tint}>
+    <NativeTabs tintColor={tint} minimizeBehavior="onScrollDown">
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Bee</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon

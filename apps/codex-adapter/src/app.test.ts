@@ -101,4 +101,66 @@ describe('Flue-Codex adapter', () => {
     expect(forwardedRequest?.headers.get('content-encoding')).toBeNull()
     expect(await forwardedRequest?.text()).toBe(json)
   })
+
+  test('reports upstream server failures without exposing the request body', async () => {
+    const captured: Array<{
+      error: Error
+      context: { tags: Record<string, string>; extra?: Record<string, unknown> }
+    }> = []
+    const response = await proxyCodexRequest(
+      new Request('https://adapter.test/api/codex/responses', {
+        method: 'POST',
+        headers: { 'x-flue-codex-adapter-secret': 'correct-secret' },
+        body: '{"prompt":"private"}',
+      }),
+      {
+        adapterSecret: 'correct-secret',
+        upstreamFetch: async () =>
+          new Response('unavailable', {
+            status: 503,
+            headers: { 'x-request-id': 'upstream-1' },
+          }),
+        captureException: (error, context) => {
+          captured.push({ error, context })
+        },
+      },
+    )
+
+    expect(response.status).toBe(503)
+    expect(captured).toHaveLength(1)
+    expect(captured[0]?.context).toEqual({
+      tags: {
+        service: 'codex-adapter',
+        operation: 'codex.upstream_response',
+        handled: 'true',
+      },
+      extra: { status: 503, upstreamRequestId: 'upstream-1' },
+    })
+    expect(JSON.stringify(captured)).not.toContain('private')
+  })
+
+  test('reports thrown proxy failures before returning a safe response', async () => {
+    const captured: Error[] = []
+    const response = await proxyCodexRequest(
+      new Request('https://adapter.test/api/codex/responses', {
+        method: 'POST',
+        headers: { 'x-flue-codex-adapter-secret': 'correct-secret' },
+        body: '{}',
+      }),
+      {
+        adapterSecret: 'correct-secret',
+        upstreamFetch: async () => {
+          throw new Error('network offline')
+        },
+        captureException: (error) => {
+          captured.push(error)
+        },
+      },
+    )
+
+    expect(response.status).toBe(502)
+    expect(captured.map((error) => error.message)).toEqual([
+      'network offline',
+    ])
+  })
 })

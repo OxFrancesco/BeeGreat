@@ -18,6 +18,7 @@ import { ThemedText } from '@/components/themed-text';
 import { MotionDuration } from '@/constants/motion';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { captureMobileFailure } from '@/lib/sentry';
 
 type ChatGptAuthStatus = FunctionReturnType<typeof api.chatgptAuth.status>;
 
@@ -52,7 +53,7 @@ function useChatGptAuthActions() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (operation: () => Promise<unknown>) => {
+  const run = async (operationName: string, operation: () => Promise<unknown>) => {
     if (working) return;
     setWorking(true);
     setError(null);
@@ -60,22 +61,23 @@ function useChatGptAuthActions() {
     try {
       await operation();
     } catch (caught) {
+      captureMobileFailure(caught, `chatgpt_auth.${operationName}`);
       setError(errorMessage(caught));
     } finally {
       setWorking(false);
     }
   };
 
-  const connect = () => run(() => start({}));
-  const removeConnection = () => run(() => disconnect({}));
-  const skipConnection = () => run(() => skip({}));
+  const connect = () => run('connect', () => start({}));
+  const removeConnection = () => run('disconnect', () => disconnect({}));
+  const skipConnection = () => run('skip', () => skip({}));
   const copyCode = async (userCode: string) => {
     await Clipboard.setStringAsync(userCode);
     setCopied(true);
     Haptics.selectionAsync();
   };
   const copyAndOpen = (status: ChatGptAuthStatus) =>
-    run(async () => {
+    run('open_verification', async () => {
       if (!status.userCode || !status.verificationUri) return;
       await Clipboard.setStringAsync(status.userCode);
       setCopied(true);

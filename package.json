@@ -20,6 +20,7 @@
     "concurrently": "^10.0.3"
   },
   "trustedDependencies": [
+    "@sentry/cli",
     "@shopify/react-native-skia"
   ]
 }
