@@ -1,29 +1,21 @@
 import {
   HeadContent,
-  Link,
   Outlet,
   Scripts,
   createRootRouteWithContext,
   useRouteContext,
 } from '@tanstack/react-router'
-import {
-  ClerkProvider,
-  SignInButton,
-  SignedIn,
-  SignedOut,
-  UserButton,
-  useAuth,
-} from '@clerk/tanstack-react-start'
+import { ClerkProvider, useAuth } from '@clerk/tanstack-react-start'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import { createServerFn } from '@tanstack/react-start'
 import * as React from 'react'
 import { auth } from '@clerk/tanstack-react-start/server'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
+import * as Sentry from '@sentry/tanstackstart-react'
 import type { ConvexQueryClient } from '@convex-dev/react-query'
 import type { ConvexReactClient } from 'convex/react'
 import type { QueryClient } from '@tanstack/react-query'
 import appCss from '~/styles/app.css?url'
-import * as Sentry from '@sentry/tanstackstart-react'
 
 const fetchClerkAuth = createServerFn({ method: 'GET' }).handler(async () => {
   const { getToken, userId } = await auth()
@@ -50,7 +42,12 @@ export const Route = createRootRouteWithContext<{
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'BeeGreat',
+        title: 'BeeGreat — One clear next focus',
+      },
+      {
+        name: 'description',
+        content:
+          'Talk to Bee, choose one clear next focus, and move your goals forward.',
       },
     ],
     links: [
@@ -118,51 +115,15 @@ function SentryUserContext({ userId }: { userId: string | null }) {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html>
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <div className="flex items-center gap-4 px-4 py-3 text-lg">
-          <Link
-            to="/"
-            className="flex items-center gap-2"
-            activeProps={{
-              className: 'flex items-center gap-2 font-bold',
-            }}
-            activeOptions={{ exact: true }}
-          >
-            <img src="/logo.png" alt="BeeGreat" className="h-10 w-auto" />
-            <span>BeeGreat</span>
-          </Link>
-          <Link
-            to="/posts"
-            activeProps={{
-              className: 'font-bold',
-            }}
-          >
-            Posts
-          </Link>
-          <Link
-            to="/user"
-            activeProps={{
-              className: 'font-bold',
-            }}
-          >
-            User
-          </Link>
-          <div className="ml-auto">
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal" />
-            </SignedOut>
-          </div>
-        </div>
-        <hr />
         {children}
-        <TanStackRouterDevtools position="bottom-right" />
+        {import.meta.env.DEV ? (
+          <TanStackRouterDevtools position="bottom-right" />
+        ) : null}
         <Scripts />
       </body>
     </html>

@@ -7,6 +7,7 @@ import {
   deleteTaskFocusState,
   requireGoalFocusOwner,
 } from './focusDeletion'
+import type { Id } from './_generated/dataModel'
 
 /** All tasks in a project (todo + done), flat; the client builds the tree. */
 export const listByProject = query({
@@ -52,7 +53,7 @@ export const statuses = query({
   handler: async (ctx, { taskIds }) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return []
-    const result: { id: string; status: 'todo' | 'done' }[] = []
+    const result: { id: Id<'tasks'>; status: 'todo' | 'done' }[] = []
     const focusAccessByGoal = new Map<string, boolean>()
     for (const raw of taskIds) {
       const taskId = ctx.db.normalizeId('tasks', raw)

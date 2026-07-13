@@ -5,6 +5,7 @@
   "dependencies": {
     "@beegreat/backend": "workspace:*",
     "@beegreat/observability": "workspace:*",
+    "@beegreat/tool-presentation": "workspace:*",
     "@clerk/clerk-expo": "^2.19.31",
     "@expo/ui": "~57.0.4",
     "@flue/react": "1.0.0-beta.9",

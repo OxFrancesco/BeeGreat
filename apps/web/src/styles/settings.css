@@ -1,0 +1,217 @@
+.settings-page {
+  width: min(820px, 100%);
+  margin: 0 auto;
+}
+.identity-card {
+  display: flex;
+  align-items: center;
+  margin-bottom: 38px;
+  padding: 26px;
+  border-radius: 26px;
+  background: var(--honey);
+  color: var(--honey-ink);
+  gap: 18px;
+}
+.identity-avatar {
+  display: grid;
+  width: 72px;
+  height: 66px;
+  overflow: hidden;
+  background: #fff3dc;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  place-items: center;
+}
+.identity-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.identity-card > div:last-child {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.identity-card h2 {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  letter-spacing: -0.035em;
+}
+.identity-card p {
+  overflow: hidden;
+  font-size: 0.76rem;
+  opacity: 0.75;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-section {
+  display: grid;
+  margin-bottom: 32px;
+  gap: 10px;
+}
+.settings-section > .utility-label {
+  padding-left: 8px;
+}
+.settings-section > div {
+  display: grid;
+  gap: 10px;
+}
+.setting-row,
+.powerup-card,
+.connection-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.setting-row > div {
+  display: grid;
+  gap: 4px;
+}
+.setting-row h3,
+.powerup-card h3 {
+  font-size: 0.86rem;
+}
+.setting-row p,
+.powerup-card__row p {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+.switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex: 0 0 auto;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--surface-selected);
+  transition: background 160ms ease;
+}
+.switch span {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-raised);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 18%);
+  transition: transform 160ms ease;
+}
+.switch.is-on {
+  background: var(--brown);
+}
+.switch.is-on span {
+  transform: translateX(20px);
+}
+
+.connection-card {
+  display: grid;
+  gap: 14px;
+}
+.connection-card.is-active {
+  border-color: var(--honey-strong);
+  border-width: 1.5px;
+}
+.connection-card__heading,
+.powerup-card__row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.connection-card__heading > div,
+.powerup-card__row > div {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+.connection-card__heading span:not(.connection-mark) {
+  color: var(--ink-soft);
+  font-size: 0.67rem;
+}
+.connection-mark,
+.powerup-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  background: var(--brown);
+  color: var(--brown-ink);
+  font-size: 1.2rem;
+  place-items: center;
+}
+.connection-card__actions {
+  display: grid;
+  gap: 8px;
+}
+.info-toggle {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-utility);
+  font-size: 0.67rem;
+  place-items: center;
+}
+.info-toggle:hover {
+  border-color: var(--ink-soft);
+  color: var(--ink);
+}
+.settings-help {
+  padding: 12px;
+  border-radius: 13px;
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+.settings-skeleton {
+  padding: 24px;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+.sign-out-button {
+  width: 100%;
+  min-height: 50px;
+  border: 1.5px solid var(--danger);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--danger);
+  font-weight: 750;
+}
+.sign-out-button:hover {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+@media (max-width: 620px) {
+  .identity-card {
+    padding: 20px;
+  }
+  .setting-row,
+  .powerup-card,
+  .connection-card {
+    border-radius: 17px;
+  }
+  .powerup-card__row {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch span {
+    transition: none;
+  }
+}

@@ -251,12 +251,13 @@ http.route({
     const code = url.searchParams.get('code')
     const oauthError = url.searchParams.get('error')
     let connected = false
-    if (state && code && !oauthError) {
+    if (state) {
       const result = await ctx.runAction(
         internal.googleHealthAuthActions.completeAuthorization,
         {
           state,
-          code,
+          ...(code ? { code } : {}),
+          ...(oauthError ? { errorCode: oauthError } : {}),
         },
       )
       connected = result.ok

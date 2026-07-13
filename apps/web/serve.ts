@@ -1,5 +1,5 @@
 type FetchHandler = {
-  fetch(request: Request): Response | Promise<Response>
+  fetch: (request: Request) => Response | Promise<Response>
 }
 
 const entryUrl = new URL('./dist/server/server.js', import.meta.url)

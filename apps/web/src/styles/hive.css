@@ -1,0 +1,425 @@
+.hive-page {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.hive-error {
+  display: grid;
+  height: 100%;
+  justify-items: center;
+  align-content: center;
+  padding: 28px;
+  gap: 13px;
+  text-align: center;
+}
+
+.hive-error > span {
+  color: var(--honey-strong);
+  font-size: 3.2rem;
+}
+
+.hive-error h1 {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+}
+
+.hive-error p {
+  color: var(--ink-soft);
+}
+.hive-header {
+  margin-bottom: 18px;
+}
+.hive-page-balances {
+  display: flex;
+  gap: 7px;
+}
+.hive-page-balances > div {
+  display: grid;
+  min-width: 78px;
+  justify-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--surface);
+  grid-template-columns: auto auto;
+  gap: 2px 7px;
+}
+.hive-page-balances span {
+  color: var(--honey-strong);
+}
+.hive-page-balances strong {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.hive-page-balances small {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: 0.55rem;
+  text-transform: uppercase;
+}
+
+.hive-dashboard {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(340px, 1.15fr);
+  gap: clamp(26px, 5vw, 72px);
+}
+.honey-vessel-card {
+  display: grid;
+  justify-items: center;
+}
+.honey-vessel {
+  position: relative;
+  width: min(100%, 390px);
+  aspect-ratio: 1;
+}
+.honey-vessel > img {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.honey-vessel__cavity {
+  position: absolute;
+  z-index: 1;
+  top: 31.5%;
+  left: 23.5%;
+  width: 53%;
+  height: 52%;
+  overflow: hidden;
+  border-radius: 25% 25% 28% 28%;
+}
+.honey-vessel__fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 2px;
+  overflow: hidden;
+  background: #d88608;
+  transition: height 900ms cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+.honey-vessel__fill::before {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+  background: #ffc33d;
+  content: '';
+}
+.honey-vessel__fill span {
+  position: absolute;
+  top: 12px;
+  bottom: 8%;
+  left: 16%;
+  width: 22%;
+  border-radius: 999px;
+  background: rgb(255 222 121 / 28%);
+}
+.honey-vessel__legend {
+  display: grid;
+  justify-items: center;
+  margin-top: -22px;
+  gap: 3px;
+}
+.honey-vessel__legend strong {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  letter-spacing: -0.06em;
+}
+.honey-vessel__legend > span {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+}
+
+.hive-focus-column {
+  display: grid;
+  gap: 14px;
+}
+.hive-celebration {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--honey-strong) 55%, var(--line));
+  border-radius: 18px;
+  background: var(--surface);
+  gap: 13px;
+}
+.hive-celebration > span {
+  color: #d78a00;
+  font-size: 1.8rem;
+}
+.hive-celebration div {
+  display: grid;
+  gap: 3px;
+}
+.hive-celebration strong {
+  font-size: 0.84rem;
+}
+.hive-celebration p {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+.highlight-focus-card {
+  display: grid;
+  padding: clamp(24px, 4vw, 38px);
+  border-radius: 28px;
+  background: var(--honey);
+  color: var(--honey-ink);
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 22px;
+}
+.highlight-focus-card__copy {
+  display: grid;
+  align-content: center;
+  gap: 9px;
+}
+.highlight-focus-card__copy .utility-label {
+  color: inherit;
+  opacity: 0.72;
+}
+.highlight-focus-card__copy h2 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+.highlight-focus-card__copy > p:last-child {
+  font-size: 0.78rem;
+  opacity: 0.78;
+}
+.highlight-focus-card .inline-error,
+.complete-highlight {
+  grid-column: 1 / -1;
+}
+.complete-highlight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.goliebee {
+  display: grid;
+  min-width: 125px;
+  justify-items: center;
+  align-content: center;
+  gap: 4px;
+}
+.goliebee > div {
+  position: relative;
+}
+.goliebee img {
+  width: 112px;
+  height: 104px;
+  object-fit: contain;
+  animation: bee-hover 3.4s ease-in-out infinite;
+}
+.goliebee > div > span {
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: #d78a00;
+  font-size: 1.7rem;
+}
+.goliebee p {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+.goliebee strong {
+  font-size: 0.76rem;
+}
+.goliebee small {
+  font-size: 0.62rem;
+  opacity: 0.72;
+}
+.goliebee.is-celebrating img {
+  transform: scale(1.06);
+}
+
+.no-highlight {
+  display: grid;
+  min-height: 300px;
+  justify-items: center;
+  align-content: center;
+  padding: 36px;
+  border: 1px dashed var(--line);
+  border-radius: 26px;
+  gap: 12px;
+  text-align: center;
+}
+.no-highlight > div {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-size: 1.5rem;
+  place-items: center;
+}
+.no-highlight h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+.no-highlight p {
+  max-width: 430px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.achievement-case {
+  display: grid;
+  margin-top: 46px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background: var(--surface);
+  gap: 24px;
+}
+.achievement-case > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.achievement-case header > div {
+  display: grid;
+  gap: 5px;
+}
+.achievement-case h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+}
+.achievement-case header > strong {
+  color: var(--ink-soft);
+  font-family: var(--font-utility);
+  font-size: 0.75rem;
+}
+.achievement-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(90px, 1fr));
+  gap: 14px;
+}
+.achievement {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  text-align: center;
+}
+.achievement__medallion {
+  display: grid;
+  width: 68px;
+  height: 62px;
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  place-items: center;
+}
+.achievement__medallion::before {
+  width: 56px;
+  height: 50px;
+  border: 1px solid var(--line);
+  clip-path: inherit;
+  content: '';
+  grid-area: 1 / 1;
+}
+.achievement__medallion span {
+  grid-area: 1 / 1;
+  font-size: 1.3rem;
+}
+.achievement.is-comb .achievement__medallion {
+  background: #ffdfb5;
+  color: #482401;
+}
+.achievement.is-honey .achievement__medallion {
+  background: #fab52a;
+  color: #482401;
+}
+.achievement.is-gold .achievement__medallion {
+  background: #d88909;
+  color: #fff3dc;
+}
+.achievement > strong {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.achievement > small {
+  color: var(--ink-soft);
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+@keyframes bee-hover {
+  50% {
+    transform: translateY(-5px) rotate(1deg);
+  }
+}
+
+@media (max-width: 1000px) {
+  .achievement-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .hive-page-balances {
+    gap: 4px;
+  }
+  .hive-page-balances > div {
+    min-width: 55px;
+    padding: 6px;
+  }
+  .hive-page-balances small {
+    display: none;
+  }
+  .hive-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .honey-vessel-card {
+    width: min(100%, 360px);
+  }
+  .hive-focus-column {
+    width: 100%;
+  }
+  .highlight-focus-card {
+    grid-template-columns: 1fr;
+  }
+  .goliebee {
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+  }
+  .goliebee img {
+    width: 88px;
+    height: 80px;
+  }
+  .achievement-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .hive-page-balances > div:nth-child(3) {
+    display: none;
+  }
+  .achievement-case {
+    padding-inline: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .honey-vessel__fill {
+    transition: none;
+  }
+  .goliebee img {
+    animation: none;
+  }
+}

@@ -25,12 +25,6 @@ export const status = query({
       .unique()
     if (credential?.status === 'connected')
       return { state: 'connected' as const }
-    if (credential?.status === 'needs_reauth') {
-      return {
-        state: 'needs_reauth' as const,
-        message: 'Google Health needs to be connected again.',
-      }
-    }
     const sessions = await ctx.db
       .query('googleHealthAuthSessions')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -44,6 +38,12 @@ export const status = query({
       return {
         state: 'failed' as const,
         message: 'Google Health could not be connected. Try again.',
+      }
+    }
+    if (credential?.status === 'needs_reauth') {
+      return {
+        state: 'needs_reauth' as const,
+        message: 'Google Health needs to be connected again.',
       }
     }
     return { state: 'disconnected' as const }
