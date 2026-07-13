@@ -1,7 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { buildSugarArgv, validateSugarRequest } from './index'
+import { buildSugarArgv, normalizeAddress, validateSugarRequest } from './index'
+import { parseSugarCliArgs } from './cli'
 
 describe('Sugar command boundary', () => {
+  test('normalizes upstream addresses even when their mixed-case checksum is stale', () => {
+    expect(normalizeAddress('0x1217BfE6c773EEC6cc4A38B5Dc45B92292B6E189')).toBe('0x1217BfE6c773EEC6cc4A38b5Dc45B92292B6E189')
+  })
   test('accepts every chain implemented by the pinned Sugar SDK', () => {
     for (const chain of [
       10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220, 57073,
@@ -28,6 +32,22 @@ describe('Sugar command boundary', () => {
       '--amount=0.5',
       '--use-decimals=true',
     ])
+  })
+
+  test('parses the TypeScript CLI syntax including boolean negation', () => {
+    expect(parseSugarCliArgs([
+      'withdraw', '--chain=1135', '--wallet=0x1111111111111111111111111111111111111111',
+      '--pool=0x2222222222222222222222222222222222222222', '--fraction', '0.5', '--no-collect',
+    ])).toEqual({
+      action: 'withdraw',
+      parameters: {
+        chain: 1135,
+        wallet: '0x1111111111111111111111111111111111111111',
+        pool: '0x2222222222222222222222222222222222222222',
+        fraction: '0.5',
+        collect: false,
+      },
+    })
   })
 
   test('rejects unknown flags before invoking the CLI', () => {
@@ -88,5 +108,19 @@ describe('Sugar command boundary', () => {
     expect(buildSugarArgv('sugar', 'claim_fees', parameters)).toContain(
       '--position=900719925474099312345',
     )
+  })
+
+  test('enforces the existing-pool XOR new-pool deposit contract', () => {
+    expect(() => validateSugarRequest('deposit', {
+      chain: 8453,
+      wallet: '0x1111111111111111111111111111111111111111',
+      pool: '0x2222222222222222222222222222222222222222',
+      token0: 'ETH',
+    })).toThrow('cannot be combined')
+    expect(() => validateSugarRequest('deposit', {
+      chain: 8453,
+      wallet: '0x1111111111111111111111111111111111111111',
+      token0: 'ETH', token1: 'USDC', pool_type: 'cl',
+    })).toThrow('requires tick_spacing')
   })
 })
