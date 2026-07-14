@@ -1,23 +1,18 @@
 import { isSupportedChainId } from './config'
+import {
+  SUGAR_ACTIONS,
+  type SugarAction,
+  type SugarParameter,
+  type SugarParameters,
+} from './contracts'
 
-export const SUGAR_ACTIONS = [
-  'deposit',
-  'positions',
-  'pools',
-  'epochs_latest',
-  'epochs',
-  'withdraw',
-  'stake',
-  'unstake',
-  'claim_emissions',
-  'claim_fees',
-  'quote',
-  'swap',
-] as const
-
-export type SugarAction = (typeof SUGAR_ACTIONS)[number]
-export type SugarParameter = string | number | boolean
-export type SugarParameters = Record<string, SugarParameter>
+export {
+  isSugarAction,
+  SUGAR_ACTIONS,
+  type SugarAction,
+  type SugarParameter,
+  type SugarParameters,
+} from './contracts'
 
 type ParameterKind =
   'address' | 'boolean' | 'decimal_string' | 'integer_string' | 'number' | 'string'
@@ -314,6 +309,7 @@ export function buildSugarArgv(
 }
 
 export { SugarClient, createSugarClient } from './client'
+export { SugarRpcError, type SugarRpcErrorCode } from './errors'
 export { executeSugarAction, executeSugarActionJson, type SugarExecutionOptions } from './actions'
 export { abis } from './abis'
 export * from './config'

@@ -14,7 +14,6 @@ import {
   type Hex,
 } from 'viem'
 import {
-  ADDRESS_ZERO,
   MAX_ABS_TICK,
   NEW_SLIPSTREAM_FACTORY_BITMASK,
   OLD_SLIPSTREAM_FACTORY_BITMASK,

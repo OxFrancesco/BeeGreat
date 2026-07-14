@@ -88,6 +88,40 @@ Supported chain IDs: 10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220,
 and 57073. Local Supersim settings are available for Uni (130, port 4446) and
 Lisk (1135, port 4445).
 
+### RPC resilience
+
+Sugar keeps its public interface Promise-based while using Effect internally
+for RPC deadlines, retry classification, and bounded read concurrency. The
+SDK-owned HTTP transport disables Viem retries so one policy owns all attempts.
+By default, idempotent reads receive up to three retries with 150ms exponential
+backoff inside a 120-second total deadline. Numeric and HTTP-date `Retry-After`
+headers are honored without extending that deadline. Multi-stage reads share one
+budget across pagination count/pages and quote multicall/fallback work; exhausted
+rate limits and transport failures are not amplified through the quote fallback.
+
+Callers can tune this with plain TypeScript options (no Effect types cross the
+SDK interface):
+
+```ts
+const sugar = new SugarClient(8453, {
+  rpcPolicy: {
+    maxRetries: 2,
+    baseDelayMs: 250,
+    deadlineMs: 60_000,
+  },
+})
+```
+
+Expected RPC failures reject with `SugarRpcError`, whose `code` is one of
+`RPC_TIMEOUT`, `RPC_RATE_LIMITED`, `RPC_UNAVAILABLE`, or `RPC_READ_FAILED`.
+The original Viem error remains available as `cause`.
+
+When injecting a custom `transport` or `publicClient`, configure its own retry
+count to zero if Sugar should remain the sole retry owner. Effect can interrupt
+its wait and sibling retry fibers at the deadline, but the underlying transport
+may continue until its own timeout. An injected client is responsible for
+physically aborting its network request when it supports cancellation.
+
 ## Headless verification
 
 ```sh

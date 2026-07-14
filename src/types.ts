@@ -59,12 +59,19 @@ export type ChainSettings = {
   requestConcurrency: number
 }
 
+export type SugarRpcPolicyOptions = {
+  baseDelayMs?: number
+  deadlineMs?: number
+  maxRetries?: number
+}
+
 export type SugarClientOptions = {
   account?: Address
   rpcUrl?: string
   transport?: Transport
   publicClient?: PublicClient
   env?: Record<string, string | undefined>
+  rpcPolicy?: SugarRpcPolicyOptions
   settings?: Partial<ChainSettings>
 }
 

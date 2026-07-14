@@ -11,12 +11,17 @@ import {
 import { abis } from './abis'
 import { getChainSettings } from './config'
 import {
+  makeRpcReadExecutor,
+  type RpcDeadline,
+  type RpcReadExecutor,
+  type RpcReadTask,
+} from './internal/rpc-executor'
+import {
   addressKey,
   applySlippage,
   chunk,
   findAllPaths,
   futureTimestamp,
-  mapConcurrent,
   nearestTick,
   normalizeAddress,
   packPath,
@@ -59,11 +64,13 @@ import {
 
 type ReadArgs = readonly unknown[] | undefined
 const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11' as Address
+const MAX_PAGINATION_REQUESTS = 10_000
 
 export class SugarClient {
   readonly settings: ChainSettings
   readonly account?: Address
   readonly publicClient: PublicClient
+  private readonly rpc: RpcReadExecutor
   private tokenCache?: Promise<Token[]>
   private poolCountCache?: Promise<number>
   private rawPoolCache = new Map<boolean, Promise<unknown[]>>()
@@ -72,17 +79,31 @@ export class SugarClient {
   constructor(chainId: ChainId | number, options: SugarClientOptions = {}) {
     this.settings = getChainSettings(chainId, { env: options.env, overrides: { ...options.settings, rpcUrl: options.rpcUrl ?? options.settings?.rpcUrl } })
     this.account = options.account ? normalizeAddress(options.account) : undefined
+    this.rpc = makeRpcReadExecutor(options.rpcPolicy)
     this.publicClient = options.publicClient ?? createPublicClient({
       // Several upstream public RPCs (notably Lisk dRPC) reject JSON-RPC batch
       // bodies with HTTP 500. Contract-level Multicall3 is used where batching
       // matters, while the base transport stays universally compatible.
-      transport: options.transport ?? http(this.settings.rpcUrl, { timeout: 120_000 }),
+      transport: options.transport ?? http(this.settings.rpcUrl, {
+        retryCount: 0,
+        timeout: Math.min(30_000, this.rpc.policy.deadlineMs),
+      }),
       batch: { multicall: true },
     })
   }
 
-  private async read<T>(address: Address, abi: Abi, functionName: string, args?: ReadArgs): Promise<T> {
-    return await this.publicClient.readContract({ address, abi, functionName, args } as never) as T
+  private readTask<T>(address: Address, abi: Abi, functionName: string, args?: ReadArgs): RpcReadTask<T> {
+    return () => this.publicClient.readContract({ address, abi, functionName, args } as never) as Promise<T>
+  }
+
+  private async read<T>(
+    address: Address,
+    abi: Abi,
+    functionName: string,
+    args?: ReadArgs,
+    deadline?: RpcDeadline,
+  ): Promise<T> {
+    return this.rpc.read(functionName, this.readTask(address, abi, functionName, args), deadline)
   }
 
   private signer(): Address {
@@ -103,7 +124,19 @@ export class SugarClient {
   }
 
   private pageSize(poolCount: number): number {
-    return Math.max(this.settings.poolPaginationMinSize, Math.min(Math.floor(poolCount / this.settings.poolPaginationTargetCalls), this.settings.poolPaginationMaxSize))
+    if (!Number.isSafeInteger(poolCount) || poolCount < 0) {
+      throw new RangeError('Sugar pool count must be a safe non-negative integer')
+    }
+    const minimum = this.settings.poolPaginationMinSize
+    const maximum = this.settings.poolPaginationMaxSize
+    const targetCalls = this.settings.poolPaginationTargetCalls
+    if (![minimum, maximum, targetCalls].every((value) => Number.isSafeInteger(value) && value > 0)) {
+      throw new RangeError('Sugar pagination settings must be positive safe integers')
+    }
+    if (minimum > maximum) {
+      throw new RangeError('Sugar pagination minimum cannot exceed maximum')
+    }
+    return Math.max(minimum, Math.min(Math.floor(poolCount / targetCalls), maximum))
   }
 
   calculateOptimalBatchSize(poolCount: number): number {
@@ -111,22 +144,60 @@ export class SugarClient {
   }
 
   getPoolPaginator(poolCount: number): Array<{ offset: number; limit: number }> {
-    const limit = this.pageSize(poolCount)
-    const pages: Array<{ offset: number; limit: number }> = []
-    for (let offset = 0; offset < poolCount + 10; offset += limit) pages.push({ offset, limit })
-    return pages
+    return [...this.poolPageRequests(poolCount)]
   }
 
-  private async paginate<T>(reader: (limit: number, offset: number) => Promise<T[]>): Promise<T[]> {
-    const count = await this.getPoolCount()
+  private *poolPageRequests(poolCount: number): Generator<{ offset: number; limit: number }> {
+    const limit = this.pageSize(poolCount)
+    const pageCount = Math.ceil((poolCount + 10) / limit)
+    if (!Number.isSafeInteger(pageCount) || pageCount > MAX_PAGINATION_REQUESTS) {
+      throw new RangeError(`Sugar pagination allows at most ${MAX_PAGINATION_REQUESTS} requests`)
+    }
+    for (let page = 0; page < pageCount; page++) yield { offset: page * limit, limit }
+  }
+
+  private async paginate<T>(
+    operation: string,
+    reader: (limit: number, offset: number) => RpcReadTask<T[]>,
+    deadline = this.rpc.deadline(operation),
+  ): Promise<T[]> {
+    const count = await this.getPoolCountWithin(deadline)
     const requests = this.getPoolPaginator(count)
-    const pages = await mapConcurrent(requests, this.settings.requestConcurrency, ({ limit, offset }) => reader(limit, offset))
+    const pages = await this.rpc.forEachRead(
+      operation,
+      requests,
+      ({ limit, offset }, _index, signal) => reader(limit, offset)(signal),
+      this.settings.requestConcurrency,
+      deadline,
+    )
     return pages.flat()
   }
 
-  getPoolCount(): Promise<number> {
-    this.poolCountCache ??= this.read<bigint>(this.settings.sugarContractAddress, abis.sugar, 'count').then(Number)
+  private getPoolCountWithin(deadline: RpcDeadline): Promise<number> {
+    if (!this.poolCountCache) {
+      const promise = this.read<bigint>(
+        this.settings.sugarContractAddress,
+        abis.sugar,
+        'count',
+        undefined,
+        deadline,
+      ).then((rawCount) => {
+        const count = Number(rawCount)
+        if (rawCount < 0n || !Number.isSafeInteger(count)) {
+          throw new RangeError('Sugar pool count must be a safe non-negative integer')
+        }
+        return count
+      })
+      this.poolCountCache = promise
+      void promise.catch(() => {
+        if (this.poolCountCache === promise) this.poolCountCache = undefined
+      })
+    }
     return this.poolCountCache
+  }
+
+  getPoolCount(): Promise<number> {
+    return this.getPoolCountWithin(this.rpc.deadline('count'))
   }
 
   async getBridgeFee(domain: number): Promise<bigint> {
@@ -156,7 +227,7 @@ export class SugarClient {
   async getTokenBalance(token: Token, ownerAddress = this.account): Promise<bigint> {
     if (!ownerAddress) throw new Error('Owner address is required to get token balance')
     return token.wrappedTokenAddress
-      ? this.publicClient.getBalance({ address: ownerAddress })
+      ? this.rpc.read('getBalance', () => this.publicClient.getBalance({ address: ownerAddress }))
       : this.balanceOf(normalizeAddress(token.tokenAddress), ownerAddress)
   }
 
@@ -165,12 +236,18 @@ export class SugarClient {
   }
 
   getAllTokens(listedOnly = false): Promise<Token[]> {
-    this.tokenCache ??= this.paginate((limit, offset) => this.read<unknown[]>(
-      this.settings.sugarContractAddress,
-      abis.sugar,
-      'tokens',
-      [limit, offset, ADDRESS_ZERO, []],
-    )).then((raw) => prepareTokens(raw, this.settings))
+    if (!this.tokenCache) {
+      const promise = this.paginate('tokens', (limit, offset) => this.readTask<unknown[]>(
+        this.settings.sugarContractAddress,
+        abis.sugar,
+        'tokens',
+        [limit, offset, ADDRESS_ZERO, []],
+      )).then((raw) => prepareTokens(raw, this.settings))
+      this.tokenCache = promise
+      void promise.catch(() => {
+        if (this.tokenCache === promise) this.tokenCache = undefined
+      })
+    }
     return this.tokenCache.then((tokens) => listedOnly ? tokens.filter((token, index) => index === 0 || token.listed) : tokens)
   }
 
@@ -194,17 +271,17 @@ export class SugarClient {
     const requestTokens = this.getPriceRequestTokens(tokens)
     const batches = chunk(requestTokens, this.settings.priceBatchSize)
     const connectors = this.getPriceConnectors()
-    const results = await mapConcurrent(batches, this.settings.requestConcurrency, async (batch) => {
-      let error: unknown
-      for (let attempt = 0; attempt < 4; attempt++) {
-        try {
-          return await this.read<bigint[]>(this.settings.priceOracleContractAddress, abis.priceOracle, 'getManyRatesToEthWithCustomConnectors', [
-            batch.map(tokenContractAddress), false, connectors, this.settings.priceThresholdFilter,
-          ])
-        } catch (caught) { error = caught }
-      }
-      throw new Error('price oracle batch failed after 3 retries', { cause: error })
-    })
+    const results = await this.rpc.forEachRead(
+      'getManyRatesToEthWithCustomConnectors',
+      batches,
+      (batch) => this.publicClient.readContract({
+        address: this.settings.priceOracleContractAddress,
+        abi: abis.priceOracle,
+        functionName: 'getManyRatesToEthWithCustomConnectors',
+        args: [batch.map(tokenContractAddress), false, connectors, this.settings.priceThresholdFilter],
+      } as never) as Promise<bigint[]>,
+      this.settings.requestConcurrency,
+    )
     const rateMap = new Map<string, bigint>()
     batches.forEach((batch, index) => batch.forEach((token, tokenIndex) => rateMap.set(token.tokenAddress, results[index][tokenIndex])))
     return preparePrices(tokens, tokens.map((token) => rateMap.get(token.tokenAddress) ?? 0n), this.settings)
@@ -213,13 +290,17 @@ export class SugarClient {
   getRawPools(forSwaps = false): Promise<unknown[]> {
     let promise = this.rawPoolCache.get(forSwaps)
     if (!promise) {
-      promise = this.paginate((limit, offset) => this.read<unknown[]>(
+      const operation = forSwaps ? 'forSwaps' : 'all'
+      promise = this.paginate(operation, (limit, offset) => this.readTask<unknown[]>(
         this.settings.sugarContractAddress,
         abis.sugar,
         forSwaps ? 'forSwaps' : 'all',
         forSwaps ? [limit, offset] : [limit, offset, 0],
       ))
       this.rawPoolCache.set(forSwaps, promise)
+      void promise.catch(() => {
+        if (this.rawPoolCache.get(forSwaps) === promise) this.rawPoolCache.delete(forSwaps)
+      })
     }
     return promise
   }
@@ -237,6 +318,9 @@ export class SugarClient {
         return preparePools(raw, tokens, await this.getPrices(tokens), this.settings)
       })()
       this.poolCache.set(forSwaps, promise)
+      void promise.catch(() => {
+        if (this.poolCache.get(forSwaps) === promise) this.poolCache.delete(forSwaps)
+      })
     }
     return promise
   }
@@ -268,7 +352,7 @@ export class SugarClient {
   }
 
   async getLatestPoolEpochs(): Promise<LiquidityPoolEpoch[]> {
-    const rawEpochs = await this.paginate((limit, offset) => this.read<unknown[]>(this.settings.sugarRewardsContractAddress, abis.sugarRewards, 'epochsLatest', [limit, offset]))
+    const rawEpochs = await this.paginate('epochsLatest', (limit, offset) => this.readTask<unknown[]>(this.settings.sugarRewardsContractAddress, abis.sugarRewards, 'epochsLatest', [limit, offset]))
     if (rawEpochs.length === 0) return []
     const tokens = await this.getAllTokens()
     const poolAddresses = new Set(rawEpochs.map((epoch) => addressKey(String(tupleValues(epoch)[1]))))
@@ -292,7 +376,7 @@ export class SugarClient {
   async getPositions(owner = this.account): Promise<Position[]> {
     if (!owner) throw new Error('Owner address is required to list positions')
     const [raw, pools] = await Promise.all([
-      this.paginate((limit, offset) => this.read<unknown[]>(this.settings.sugarContractAddress, abis.sugar, 'positions', [limit, offset, owner])),
+      this.paginate('positions', (limit, offset) => this.readTask<unknown[]>(this.settings.sugarContractAddress, abis.sugar, 'positions', [limit, offset, owner])),
       this.getPools(),
     ])
     const poolMap = new Map(pools.map((pool) => [addressKey(pool.lp), pool]))
@@ -320,40 +404,84 @@ export class SugarClient {
       path,
       encoded: packPath(path, { newFactory: this.settings.slipstreamFactoryAddress, oldFactory: this.settings.oldSlipstreamFactoryAddress }).encoded,
     }))
-    const batches = chunk(inputs, 250)
-    const quoteBatches = await mapConcurrent(batches, Math.min(4, batches.length), async (batch) => {
-      try {
-        const results = await this.publicClient.multicall({
-          allowFailure: true,
-          multicallAddress: MULTICALL3,
-          contracts: batch.map(({ encoded }) => ({
-            address: this.settings.quoterContractAddress,
-            abi: abis.quoter,
-            functionName: 'quoteExactInput',
-            args: [encoded, amount],
-          })),
-        } as never) as Array<{ status: 'success'; result: unknown } | { status: 'failure' }>
-        return batch.map(({ path }, index): Quote | undefined => {
-          const response = results[index]
-          if (!response || response.status !== 'success') return undefined
-          const result = response.result
-          const amountOut = Array.isArray(result) || (result && typeof result === 'object') ? BigInt(tupleValues(result)[0] as bigint) : BigInt(result as bigint)
-          return { input: { fromToken, toToken, path, amountIn: amount, slipstreamFactoryAddress: this.settings.slipstreamFactoryAddress, oldSlipstreamFactoryAddress: this.settings.oldSlipstreamFactoryAddress }, amountOut }
-        })
-      } catch {
-        // Some private/test networks do not deploy Multicall3. Preserve the
-        // SDK surface with a bounded direct-call fallback.
-        return mapConcurrent(batch, this.settings.requestConcurrency, async ({ path, encoded }): Promise<Quote | undefined> => {
-          try {
-            const result = await this.read<unknown>(this.settings.quoterContractAddress, abis.quoter, 'quoteExactInput', [encoded, amount])
-            const amountOut = Array.isArray(result) || (result && typeof result === 'object') ? BigInt(tupleValues(result)[0] as bigint) : BigInt(result as bigint)
-            return { input: { fromToken, toToken, path, amountIn: amount, slipstreamFactoryAddress: this.settings.slipstreamFactoryAddress, oldSlipstreamFactoryAddress: this.settings.oldSlipstreamFactoryAddress }, amountOut }
-          } catch { return undefined }
-        })
+    const quoteFromResult = ({ path }: (typeof inputs)[number], result: unknown): Quote => {
+      const amountOut = Array.isArray(result) || (result && typeof result === 'object')
+        ? BigInt(tupleValues(result)[0] as bigint)
+        : BigInt(result as bigint)
+      return {
+        input: {
+          fromToken,
+          toToken,
+          path,
+          amountIn: amount,
+          slipstreamFactoryAddress: this.settings.slipstreamFactoryAddress,
+          oldSlipstreamFactoryAddress: this.settings.oldSlipstreamFactoryAddress,
+        },
+        amountOut,
       }
+    }
+    const batches = chunk(inputs, 250)
+    const deadline = this.rpc.deadline('quoteExactInput')
+    const multicallBatches = await this.rpc.forEachReadResult(
+      'quoteExactInput.multicall',
+      batches,
+      (batch) => this.publicClient.multicall({
+        allowFailure: true,
+        multicallAddress: MULTICALL3,
+        contracts: batch.map(({ encoded }) => ({
+          address: this.settings.quoterContractAddress,
+          abi: abis.quoter,
+          functionName: 'quoteExactInput',
+          args: [encoded, amount],
+        })),
+      } as never) as Promise<Array<{ status: 'success'; result: unknown } | { status: 'failure' }>>,
+      Math.max(1, Math.min(4, batches.length)),
+      deadline,
+    )
+    const quotes: Quote[] = []
+    const fallbackInputs: typeof inputs = []
+    multicallBatches.forEach((batchResult, batchIndex) => {
+      const batch = batches[batchIndex]
+      if (!batchResult.ok) {
+        fallbackInputs.push(...batch)
+        return
+      }
+      batch.forEach((input, index) => {
+        const response = batchResult.value[index]
+        if (response?.status !== 'success') return
+        try {
+          quotes.push(quoteFromResult(input, response.result))
+        } catch {
+          fallbackInputs.push(input)
+        }
+      })
     })
-    const quotes = quoteBatches.flat()
-    const valid = quotes.filter((quote): quote is Quote => quote !== undefined && (!filter || filter(quote)))
+
+    // Some private/test networks do not deploy Multicall3. Preserve the SDK
+    // surface with one bounded, fail-fast direct-call fallback phase.
+    if (fallbackInputs.length > 0) {
+      const directResults = await this.rpc.forEachReadResult(
+        'quoteExactInput.direct',
+        fallbackInputs,
+        ({ encoded }) => this.publicClient.readContract({
+          address: this.settings.quoterContractAddress,
+          abi: abis.quoter,
+          functionName: 'quoteExactInput',
+          args: [encoded, amount],
+        } as never) as Promise<unknown>,
+        this.settings.requestConcurrency,
+        deadline,
+      )
+      directResults.forEach((result, index) => {
+        if (!result.ok) return
+        try {
+          quotes.push(quoteFromResult(fallbackInputs[index], result.value))
+        } catch {
+          // A malformed per-path quote is unusable; other paths remain valid.
+        }
+      })
+    }
+    const valid = quotes.filter((quote) => !filter || filter(quote))
     return valid.reduce<Quote | undefined>((best, quote) => !best || quote.amountOut > best.amountOut ? quote : best, undefined)
   }
 
