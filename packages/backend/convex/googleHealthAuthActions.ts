@@ -61,10 +61,22 @@ export const beginAuthorization = action({
 })
 
 export const completeAuthorization = internalAction({
-  args: { code: v.string(), state: v.string() },
+  args: {
+    code: v.optional(v.string()),
+    state: v.string(),
+    errorCode: v.optional(v.string()),
+  },
   returns: v.object({ ok: v.boolean(), errorCode: v.optional(v.string()) }),
   handler: async (ctx, args): Promise<{ ok: boolean; errorCode?: string }> => {
     const stateHash = hashHealthValue(args.state)
+    if (!args.code || args.errorCode) {
+      const errorCode = args.errorCode ?? 'missing_authorization_code'
+      await ctx.runMutation(internal.googleHealthAuth.failSession, {
+        stateHash,
+        errorCode,
+      })
+      return { ok: false, errorCode }
+    }
     const session: {
       sessionId: Id<'googleHealthAuthSessions'>
       userId: string

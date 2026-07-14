@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/tanstackstart-react'
-import type { ErrorComponentProps } from '@tanstack/react-router'
 import { useEffect } from 'react'
+import type { ErrorComponentProps } from '@tanstack/react-router'
 
 export function SentryErrorComponent({ error, reset }: ErrorComponentProps) {
   useEffect(() => {

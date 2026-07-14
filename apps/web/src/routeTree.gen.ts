@@ -9,18 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as PostsRouteImport } from './routes/posts'
-import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthedUserRouteImport } from './routes/_authed/user'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppHiveRouteImport } from './routes/_app/hive'
+import { Route as AppBeeRouteImport } from './routes/_app/bee'
+import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
+import { Route as AppProjectsProjectIdRouteImport } from './routes/_app/projects/$projectId'
+import { Route as AppGoalsGoalIdRouteImport } from './routes/_app/goals/$goalId'
 
-const PostsRoute = PostsRouteImport.update({
-  id: '/posts',
-  path: '/posts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthedRoute = AuthedRouteImport.update({
-  id: '/_authed',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -28,57 +27,109 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthedUserRoute = AuthedUserRouteImport.update({
-  id: '/user',
-  path: '/user',
-  getParentRoute: () => AuthedRoute,
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHiveRoute = AppHiveRouteImport.update({
+  id: '/hive',
+  path: '/hive',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBeeRoute = AppBeeRouteImport.update({
+  id: '/bee',
+  path: '/bee',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGoalsIndexRoute = AppGoalsIndexRouteImport.update({
+  id: '/goals/',
+  path: '/goals/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppProjectsProjectIdRoute = AppProjectsProjectIdRouteImport.update({
+  id: '/projects/$projectId',
+  path: '/projects/$projectId',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppGoalsGoalIdRoute = AppGoalsGoalIdRouteImport.update({
+  id: '/goals/$goalId',
+  path: '/goals/$goalId',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/posts': typeof PostsRoute
-  '/user': typeof AuthedUserRoute
+  '/bee': typeof AppBeeRoute
+  '/hive': typeof AppHiveRoute
+  '/settings': typeof AppSettingsRoute
+  '/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/goals/': typeof AppGoalsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/posts': typeof PostsRoute
-  '/user': typeof AuthedUserRoute
+  '/bee': typeof AppBeeRoute
+  '/hive': typeof AppHiveRoute
+  '/settings': typeof AppSettingsRoute
+  '/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/goals': typeof AppGoalsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_authed': typeof AuthedRouteWithChildren
-  '/posts': typeof PostsRoute
-  '/_authed/user': typeof AuthedUserRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_app/bee': typeof AppBeeRoute
+  '/_app/hive': typeof AppHiveRoute
+  '/_app/settings': typeof AppSettingsRoute
+  '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
+  '/_app/goals/': typeof AppGoalsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/posts' | '/user'
+  fullPaths:
+    | '/'
+    | '/bee'
+    | '/hive'
+    | '/settings'
+    | '/goals/$goalId'
+    | '/projects/$projectId'
+    | '/goals/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/posts' | '/user'
-  id: '__root__' | '/' | '/_authed' | '/posts' | '/_authed/user'
+  to:
+    | '/'
+    | '/bee'
+    | '/hive'
+    | '/settings'
+    | '/goals/$goalId'
+    | '/projects/$projectId'
+    | '/goals'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/_app/bee'
+    | '/_app/hive'
+    | '/_app/settings'
+    | '/_app/goals/$goalId'
+    | '/_app/projects/$projectId'
+    | '/_app/goals/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthedRoute: typeof AuthedRouteWithChildren
-  PostsRoute: typeof PostsRoute
+  AppRoute: typeof AppRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/posts': {
-      id: '/posts'
-      path: '/posts'
-      fullPath: '/posts'
-      preLoaderRoute: typeof PostsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authed': {
-      id: '/_authed'
+    '/_app': {
+      id: '/_app'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthedRouteImport
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -88,31 +139,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authed/user': {
-      id: '/_authed/user'
-      path: '/user'
-      fullPath: '/user'
-      preLoaderRoute: typeof AuthedUserRouteImport
-      parentRoute: typeof AuthedRoute
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/hive': {
+      id: '/_app/hive'
+      path: '/hive'
+      fullPath: '/hive'
+      preLoaderRoute: typeof AppHiveRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/bee': {
+      id: '/_app/bee'
+      path: '/bee'
+      fullPath: '/bee'
+      preLoaderRoute: typeof AppBeeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/goals/': {
+      id: '/_app/goals/'
+      path: '/goals'
+      fullPath: '/goals/'
+      preLoaderRoute: typeof AppGoalsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/projects/$projectId': {
+      id: '/_app/projects/$projectId'
+      path: '/projects/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AppProjectsProjectIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/goals/$goalId': {
+      id: '/_app/goals/$goalId'
+      path: '/goals/$goalId'
+      fullPath: '/goals/$goalId'
+      preLoaderRoute: typeof AppGoalsGoalIdRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
-interface AuthedRouteChildren {
-  AuthedUserRoute: typeof AuthedUserRoute
+interface AppRouteChildren {
+  AppBeeRoute: typeof AppBeeRoute
+  AppHiveRoute: typeof AppHiveRoute
+  AppSettingsRoute: typeof AppSettingsRoute
+  AppGoalsGoalIdRoute: typeof AppGoalsGoalIdRoute
+  AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
+  AppGoalsIndexRoute: typeof AppGoalsIndexRoute
 }
 
-const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedUserRoute: AuthedUserRoute,
+const AppRouteChildren: AppRouteChildren = {
+  AppBeeRoute: AppBeeRoute,
+  AppHiveRoute: AppHiveRoute,
+  AppSettingsRoute: AppSettingsRoute,
+  AppGoalsGoalIdRoute: AppGoalsGoalIdRoute,
+  AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
+  AppGoalsIndexRoute: AppGoalsIndexRoute,
 }
 
-const AuthedRouteWithChildren =
-  AuthedRoute._addFileChildren(AuthedRouteChildren)
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthedRoute: AuthedRouteWithChildren,
-  PostsRoute: PostsRoute,
+  AppRoute: AppRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
