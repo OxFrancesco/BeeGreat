@@ -1,7 +1,9 @@
 import { useUser } from '@clerk/tanstack-react-start'
+import { Link } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
+import historyIcon from '../../../../mobile/assets/icons/honeycomb.svg?url'
 import { useBeeAgentContext } from './bee-agent-context'
 import { AgentMessage, ThinkingActivity } from './message'
 import { PromptComposer } from './prompt-composer'
@@ -20,22 +22,66 @@ export function BeeWorkspace() {
   const { activateThread } = useChatThreadActions()
   const { user } = useUser()
   const [railOpen, setRailOpen] = useState(false)
+  const [compactShell, setCompactShell] = useState(false)
+  const historyButtonRef = useRef<HTMLButtonElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const hive = agent.currentFirstFocus?.hive
   const highlight = agent.currentFirstFocus?.activeHighlight
 
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1120px)')
+    const update = () => setCompactShell(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    if (!compactShell || !railOpen) return
+    const frame = window.requestAnimationFrame(() =>
+      closeButtonRef.current?.focus(),
+    )
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeRail()
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [compactShell, railOpen])
+
+  function openRail() {
+    setRailOpen(true)
+  }
+
+  function closeRail() {
+    setRailOpen(false)
+    if (compactShell) {
+      window.requestAnimationFrame(() => historyButtonRef.current?.focus())
+    }
+  }
+
   return (
     <main className="workspace-shell">
-      <aside className={`conversation-rail${railOpen ? ' is-open' : ''}`}>
+      <aside
+        id="conversation-history"
+        className={`conversation-rail${railOpen ? ' is-open' : ''}`}
+        aria-label="Conversation history"
+        aria-hidden={compactShell && !railOpen}
+        inert={compactShell && !railOpen}
+      >
         <div className="rail-heading">
           <div>
             <p className="rail-label">Bee</p>
             <strong>Conversations</strong>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             className="icon-button rail-close"
             aria-label="Close conversations"
-            onClick={() => setRailOpen(false)}
+            onClick={closeRail}
           >
             ×
           </button>
@@ -46,7 +92,7 @@ export function BeeWorkspace() {
           className="new-thread-button"
           onClick={() => {
             void agent.resetConversation()
-            setRailOpen(false)
+            closeRail()
           }}
         >
           <span aria-hidden="true">＋</span>
@@ -64,20 +110,12 @@ export function BeeWorkspace() {
                   active={thread.id === agent.thread}
                   onSelect={() => {
                     void activateThread(thread.id)
-                    setRailOpen(false)
+                    closeRail()
                   }}
                 />
               ))}
           </div>
         </nav>
-
-        <div className="rail-sync-card">
-          <span className="sync-dot" aria-hidden="true" />
-          <div>
-            <strong>Synced across devices</strong>
-            <span>Same Convex history and Bee as mobile.</span>
-          </div>
-        </div>
       </aside>
 
       {railOpen ? (
@@ -85,19 +123,22 @@ export function BeeWorkspace() {
           className="rail-scrim"
           type="button"
           aria-label="Close conversations"
-          onClick={() => setRailOpen(false)}
+          onClick={closeRail}
         />
       ) : null}
 
       <section className="bee-panel">
         <header className="bee-topbar">
           <button
+            ref={historyButtonRef}
             className="icon-button mobile-menu"
             type="button"
             aria-label="Open conversations"
-            onClick={() => setRailOpen(true)}
+            aria-controls="conversation-history"
+            aria-expanded={compactShell ? railOpen : true}
+            onClick={openRail}
           >
-            <MenuIcon />
+            <img src={historyIcon} alt="" />
           </button>
           <div className="bee-topbar__title">
             <span className={`presence-dot${agent.busy ? ' is-busy' : ''}`} />
@@ -107,18 +148,31 @@ export function BeeWorkspace() {
             </div>
           </div>
           <div className="hive-balances" aria-label="Hive balances">
-            <Balance icon="◇" label="Honey" value={hive?.honeyBalance} />
+            <Balance kind="honey" label="Honey" value={hive?.honeyBalance} />
             <Balance
-              icon="⬡"
+              kind="score"
               label="Honeycomb Score"
               value={hive?.honeycombScore}
             />
             <Balance
-              icon="◆"
+              kind="jelly"
               label="Royal Jelly"
               value={hive?.royalJellyBalance}
             />
           </div>
+          <Link
+            className="bee-profile"
+            to="/settings"
+            aria-label="Open profile and settings"
+          >
+            {user?.hasImage ? (
+              <img src={user.imageUrl} alt="" />
+            ) : (
+              <span aria-hidden="true">
+                {(user?.firstName ?? 'B').slice(0, 1).toUpperCase()}
+              </span>
+            )}
+          </Link>
         </header>
 
         {highlight ? (
@@ -172,17 +226,20 @@ function formatThreadDate(timestamp: number) {
 }
 
 function Balance({
-  icon,
+  kind,
   label,
   value,
 }: {
-  icon: string
+  kind: 'honey' | 'score' | 'jelly'
   label: string
   value: number | undefined
 }) {
   return (
     <div className="balance" title={label}>
-      <span aria-hidden="true">{icon}</span>
+      <span
+        className={`currency-icon currency-icon--${kind}`}
+        aria-hidden="true"
+      />
       <strong>{value ?? '–'}</strong>
       <span className="sr-only">{label}</span>
     </div>
@@ -265,9 +322,6 @@ function Conversation({
           </div>
         ) : null}
         <PromptComposer onSubmit={agent.sendText} disabled={agent.busy} />
-        <p className="composer-note">
-          Bee can make mistakes. Confirm important changes before they’re saved.
-        </p>
       </div>
     </div>
   )
@@ -287,16 +341,11 @@ function EmptyConversation({
         <img src={beeUrl} alt="" className="hero-bee" />
       </div>
       <div className="conversation-hero__copy">
-        <p className="utility-label">Your focus companion</p>
         <h1>
           {firstName
             ? `What matters today, ${firstName}?`
             : 'What matters today?'}
         </h1>
-        <p>
-          Tell Bee what you want to move forward. Your mobile goals and Hive are
-          already here.
-        </p>
       </div>
       <div className="suggestion-list" aria-label="Suggestions">
         {HERO_SUGGESTIONS.map((suggestion) => (
@@ -311,14 +360,6 @@ function EmptyConversation({
         ))}
       </div>
     </div>
-  )
-}
-
-function MenuIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 7h16M4 12h16M4 17h16" />
-    </svg>
   )
 }
 

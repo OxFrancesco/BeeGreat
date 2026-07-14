@@ -1,3 +1,4 @@
+import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { extractBeeUI } from './bee-ui'
 import { GeneratedUI } from './generated-ui'
 import { getToolCopy } from './tool-labels'
@@ -54,7 +55,7 @@ export function AgentMessage({
   return (
     <article className="message-row message-row--assistant">
       <div className="assistant-mark" aria-hidden="true">
-        <img src="/logo.png" alt="" />
+        <img src={beeUrl} alt="" />
       </div>
       <div className="assistant-turn">
         {hasActivity ? (
@@ -136,7 +137,7 @@ export function ThinkingActivity() {
   return (
     <div className="thinking-row" aria-label="Bee is thinking">
       <div className="assistant-mark" aria-hidden="true">
-        <img src="/logo.png" alt="" />
+        <img src={beeUrl} alt="" />
       </div>
       <div className="thinking-dots" aria-hidden="true">
         <span />

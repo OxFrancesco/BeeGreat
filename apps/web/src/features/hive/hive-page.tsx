@@ -66,7 +66,6 @@ export function HivePage() {
     <main className="product-page hive-page">
       <header className="product-header hive-header">
         <div>
-          <p className="utility-label">Your living progress</p>
           <h1>Hive</h1>
         </div>
         <HiveBalances hive={current.hive} />

@@ -1,25 +1,24 @@
-# @beegreat/mobile
+# BeeGreat mobile
 
-Expo (SDK 57) app for BeeGreat. The home screen **is** the voice agent: a Skia-drawn
-honey orb you talk to, which collapses into a Dynamic Island-style pill while the agent
-thinks, calls tools, and streams generated UI cards.
+The Expo app is BeeGreat’s canonical interaction and visual reference. Bee chat, Goals, Hive, profile, and voice all use the shared Clerk identity, Convex backend, and Flue agent.
 
-## Run it
+## Run
 
-From the repo root:
+From the repository root:
 
-```bash
-bun run agent    # Flue voice agent worker on :3583
-bun run mobile   # convex dev + iOS simulator
+```sh
+cp apps/mobile/.env.example apps/mobile/.env
+bun run mobile
 ```
 
-Set `EXPO_PUBLIC_AGENT_URL` in `.env` (LAN IP instead of localhost for physical devices).
+Use a LAN agent URL in `.env` when testing on a physical device.
 
-## Layout
+## Code map
 
-- `src/app/` — expo-router screens (`index.tsx` is the voice agent home)
-- `src/components/agent/` — agent UI kit (ai-elements ports for RN: conversation,
-  message, attachments, reasoning, tool, suggestion, shimmer + voice orb, agent pill,
-  generated-ui renderer)
-- `src/hooks/use-voice-agent.ts` — record → transcribe → agent → speak orchestration
-- `src/lib/` — Flue client, `beeui` spec schema, voice API helpers
+- `src/app/` routes and screens
+- `src/components/agent/` Bee conversation and generated UI
+- `src/components/goals/` Goal, Project, and Task UI
+- `src/components/hive/` currency and achievement UI
+- `src/constants/theme.ts` visual tokens
+- `src/constants/motion.ts` motion tokens
+- `assets/` shared BeeGreat artwork used by mobile and web
