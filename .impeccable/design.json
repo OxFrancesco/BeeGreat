@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-13T12:00:00.000Z",
+  "title": "Design System: BeeGreat",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Hive Brown" },
+      "honey": { "role": "secondary", "displayName": "Warm Honey" },
+      "canvas": { "role": "neutral", "displayName": "Soft Canvas" },
+      "surface": { "role": "neutral", "displayName": "Paper Surface" },
+      "ink": { "role": "neutral", "displayName": "Charcoal Ink" }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Rounded Headline",
+        "purpose": "Screen and empty-state titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Messages, instructions, and prose."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Controls, navigation, and status."
+      }
+    },
+    "shadows": [
+      {
+        "name": "floating-layer",
+        "value": "0 18px 50px rgb(62 46 38 / 8%)",
+        "purpose": "Menus, drawers, and floating voice state only."
+      }
+    ],
+    "motion": [
+      { "name": "quick", "value": "100ms", "purpose": "Press feedback." },
+      {
+        "name": "state",
+        "value": "160ms",
+        "purpose": "Hover, focus, and selection."
+      },
+      { "name": "enter", "value": "200ms", "purpose": "Stateful reveals." },
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Default UI transition easing."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "720px" },
+      { "name": "desktop", "value": "1080px" }
+    ],
+    "northStar": "The Calm Hive",
+    "rules": [
+      "Keep one centered working column.",
+      "Use honey for progress, voice, or selection.",
+      "Earn every container and every shadow.",
+      "Reuse mobile assets instead of redrawing them."
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The decisive action in a region.",
+      "html": "<button class=\"bee-primary\">Continue</button>",
+      "css": ".bee-primary { min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: #644a40; color: #fff; font: 600 14px/1.25 system-ui, sans-serif; } .bee-primary:hover { background: #4f3931; }"
+    },
+    {
+      "name": "Suggestion Chip",
+      "kind": "chip",
+      "refersTo": "chip-action",
+      "description": "A short suggested action for Bee.",
+      "html": "<button class=\"bee-chip\">What should I focus on today?</button>",
+      "css": ".bee-chip { min-height: 44px; padding: 12px 16px; border: 1px solid #d8d8d8; border-radius: 16px; background: #fcfcfc; color: #202020; font: 600 14px/1.3 system-ui, sans-serif; text-align: left; } .bee-chip:hover { background: #efefef; }"
+    },
+    {
+      "name": "Prompt Composer",
+      "kind": "input",
+      "refersTo": "input-composer",
+      "description": "Typed fallback and primary text input for Bee.",
+      "html": "<label class=\"bee-composer\"><span class=\"sr-only\">Message Bee</span><input placeholder=\"Message Bee\"></label>",
+      "css": ".bee-composer { display: flex; min-height: 48px; padding: 6px 8px 6px 16px; border: 1px solid #d8d8d8; border-radius: 16px; background: #fcfcfc; } .bee-composer input { width: 100%; border: 0; outline: 0; background: transparent; color: #202020; font: 400 16px/1.5 system-ui, sans-serif; }"
+    }
+  ]
+}

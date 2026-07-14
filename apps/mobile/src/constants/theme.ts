@@ -7,7 +7,7 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-/** Palette derived from docs/DESIGN_SYSTEM.md */
+/** Canonical BeeGreat palette, documented in the root DESIGN.md. */
 export const Colors = {
   light: {
     text: '#202020',
