@@ -39,6 +39,7 @@ import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
 import type * as recurrence from "../recurrence.js";
 import type * as recurrenceValidators from "../recurrenceValidators.js";
+import type * as sentryNode from "../sentryNode.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
 import type * as wallets from "../wallets.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   recurrence: typeof recurrence;
   recurrenceValidators: typeof recurrenceValidators;
+  sentryNode: typeof sentryNode;
   tasks: typeof tasks;
   user: typeof user;
   wallets: typeof wallets;
