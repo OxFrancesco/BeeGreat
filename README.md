@@ -14,7 +14,8 @@ Bun workspace monorepo:
 BeeGreat/
 ├── apps/
 │   ├── mobile/            # @beegreat/mobile — Expo SDK 57 (iPhone + iPad), expo-router
-│   └── web/               # @beegreat/web — TanStack Start + Clerk shell (future twin)
+│   ├── web/               # @beegreat/web — TanStack Start + Clerk shell (future twin)
+│   └── beedocs/           # @beegreat/beedocs — Astro user and developer documentation
 ├── packages/
 │   ├── backend/           # @beegreat/backend — shared Convex backend (schema + functions)
 │   └── agent/             # @beegreat/agent — Flue voice agent worker (Cloudflare target)
@@ -36,6 +37,8 @@ All commands run from the repo root:
 | `bun run mobile:chatgpt:pi` | Local-only fallback using the current machine's Pi login  |
 | `bun run mobile:android` | Convex + Bee agent + Expo Android emulator                     |
 | `bun run web`            | Vite dev server only (expects backend running)                 |
+| `bun run docs`           | BeeDocs Astro development server                               |
+| `bun run docs:deploy`    | Build and publish BeeDocs to Cloudflare Pages                   |
 | `bun run backend`        | `convex dev` only (watches/pushes `packages/backend/convex`)   |
 | `bun run agent`          | `flue dev` — Bee voice agent worker on `http://localhost:3583` |
 | `bun run dev`            | Every workspace package's `dev` script                         |

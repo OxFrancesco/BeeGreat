@@ -1,0 +1,23 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Convex backend" description="Use the shared backend package for schema, functions, authentication checks, and server-owned domain rules." section="developers" prev={{ href: '/developers/architecture/', label: 'Architecture' }} next={{ href: '/developers/agent/', label: 'Bee agent' }}>
+  <h2 id="before-you-edit">Before you edit</h2>
+  <p>Read <code>packages/backend/AGENTS.md</code> and <code>packages/backend/convex/_generated/ai/guidelines.md</code>. The generated guidance overrides generic Convex patterns.</p>
+
+  <h2 id="shared-api">Use the shared API</h2>
+  <p>Functions live in <code>packages/backend/convex</code>. Clients import the generated API instead of copying schema or backend code.</p>
+  <pre><code>import &#123; api &#125; from '@beegreat/backend/convex/_generated/api'</code></pre>
+
+  <h2 id="required-boundaries">Required boundaries</h2>
+  <ul>
+    <li>Verify Clerk identity and row ownership for user-scoped operations.</li>
+    <li>Validate every client and agent-tool input.</li>
+    <li>Keep limits, economy rules, clocks, and ledgers on the server.</li>
+    <li>Use idempotency for confirmations, rewards, purchases, and lifecycle commands.</li>
+  </ul>
+
+  <h2 id="verify">Verify changes</h2>
+  <pre><code>bun run --cwd packages/backend typecheck
+bun run --cwd packages/backend test:run</code></pre>
+</DocsLayout>

@@ -1,0 +1,9 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- stacked hive bands, entrance cut out with even-odd -->
+  <rect x="9" y="1.6" width="6" height="3.4" rx="1.7" fill="black"/>
+  <rect x="6.4" y="5.8" width="11.2" height="4" rx="2" fill="black"/>
+  <rect x="4.4" y="10.6" width="15.2" height="4" rx="2" fill="black"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" fill="black" d="
+    M5.6 15.4 H18.4 C19.83 15.4 21 16.57 21 18 V19.8 C21 21.23 19.83 22.4 18.4 22.4 H5.6 C4.17 22.4 3 21.23 3 19.8 V18 C3 16.57 4.17 15.4 5.6 15.4 Z
+    M12 16.8 C13.1 16.8 14 17.7 14 18.8 C14 19.9 13.1 20.8 12 20.8 C10.9 20.8 10 19.9 10 18.8 C10 17.7 10.9 16.8 12 16.8 Z"/>
+</svg>

@@ -1,0 +1,35 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Architecture" description="Convex owns product state. The Bee agent coordinates conversation and tools. Clients render confirmed state and generated UI." section="developers" prev={{ href: '/developers/local-development/', label: 'Run locally' }} next={{ href: '/developers/backend/', label: 'Convex backend' }}>
+  <h2 id="current-system">Current system</h2>
+  <pre><code>Expo mobile ── Clerk identity ── Convex
+     │                              ▲
+     └── text / voice ── Flue agent ┘
+                           │
+                           ├── ElevenLabs
+                           └── model provider</code></pre>
+  <ul>
+    <li><strong>Expo mobile</strong> is the primary product client.</li>
+    <li><strong>Convex</strong> owns plans, Highlights, economy state, and canonical memory.</li>
+    <li><strong>Flue</strong> manages Bee sessions, tools, voice flow, and generated UI.</li>
+    <li><strong>TanStack web</strong> is currently an auth and sample shell. Feature parity is planned.</li>
+  </ul>
+
+  <h2 id="first-focus-write">First-focus write boundary</h2>
+  <ol>
+    <li>Conversation produces an unpersisted Goal, Project, Task, and Highlight preview.</li>
+    <li>The user edits, cancels, or confirms it.</li>
+    <li>Convex validates identity, ownership, and domain limits.</li>
+    <li>Confirmation creates the records atomically with idempotency protection.</li>
+  </ol>
+
+  <h2 id="release-targets">Release targets</h2>
+  <p>These are quality targets, not measured production guarantees:</p>
+  <ul>
+    <li>Useful spoken response within 4 seconds p95.</li>
+    <li>Complete editable preview within 8 seconds p95.</li>
+    <li>Confirmed state visible within 2 seconds p95.</li>
+  </ul>
+  <p>See <code>docs/07-mvp-scope-and-roadmap.md</code> for current scope.</p>
+</DocsLayout>

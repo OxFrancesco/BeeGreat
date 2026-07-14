@@ -1,0 +1,18 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+---
+<BaseLayout>
+  <main class="home" id="main-content">
+    <section class="home-hero">
+      <p class="home-kicker">BeeGreat documentation</p>
+      <h1>What do you want to do?</h1>
+      <p class="home-lead">Learn BeeGreat or work on the codebase. Pick a guide and get straight to the steps.</p>
+      <div class="bee-stage"><picture><source media="(prefers-reduced-motion: reduce)" srcset="/assets/bee-static.png" /><img class="pixel-bee" src="/assets/bee.webp" width="168" height="168" alt="Bee, the BeeGreat assistant" /></picture></div>
+      <div class="hex-paths">
+        <a class="hex-cta primary" href="/users/">I use BeeGreat</a>
+        <a class="hex-cta" href="/developers/"><img class="nav-asset" src="/assets/hive-icon.svg" alt="" />I build BeeGreat</a>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer">BeeGreat · Bee the best version of yourself.</footer>
+</BaseLayout>

@@ -1,0 +1,32 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Run BeeGreat locally" description="Set up the Bun workspace, Convex deployment, mobile app, and Bee agent in dependency order." section="developers" prev={{ href: '/developers/', label: 'Developer guide' }} next={{ href: '/developers/architecture/', label: 'Architecture' }}>
+  <h2 id="requirements">Requirements</h2>
+  <ul>
+    <li>Bun</li>
+    <li>Xcode and an iOS Simulator for mobile work</li>
+    <li>Clerk, Convex, model-provider, and ElevenLabs credentials</li>
+  </ul>
+
+  <h2 id="first-time-setup">First-time setup</h2>
+  <div class="steps">
+    <div class="step"><h3>Install the workspace</h3><p>From the repository root, run <code>bun install</code>.</p></div>
+    <div class="step"><h3>Create local environment files</h3><p>Copy <code>apps/mobile/.env.example</code> to <code>apps/mobile/.env</code> and <code>packages/agent/.env.example</code> to <code>packages/agent/.dev.vars</code>.</p></div>
+    <div class="step"><h3>Configure Convex</h3><p>Run <code>bun run backend</code>. Sign in when prompted and select or create the development deployment.</p></div>
+    <div class="step"><h3>Fill the client values</h3><p>Set the Clerk publishable key, Convex URL, agent URL, and optional Sentry values in <code>apps/mobile/.env</code>.</p></div>
+    <div class="step"><h3>Fill the agent values</h3><p>Set Convex, Clerk issuer, ElevenLabs, model-provider, and credential-broker values in <code>packages/agent/.dev.vars</code>.</p></div>
+  </div>
+  <div class="callout"><strong>Keep secrets server-side</strong><p>Never put provider keys or the credential-broker secret in an <code>EXPO_PUBLIC_*</code> variable.</p></div>
+
+  <h2 id="run-mobile">Run the mobile stack</h2>
+  <pre><code>bun run mobile</code></pre>
+  <p>This starts Convex, the Bee agent, and the Expo iOS app together. Bee’s local worker listens on <code>http://localhost:3583</code>.</p>
+
+  <h2 id="run-one-service">Run one service</h2>
+  <pre><code>bun run backend   # Convex
+bun run agent     # Flue worker
+bun run web       # TanStack shell
+bun run docs      # BeeDocs</code></pre>
+  <p>Use separate terminals only when you need to isolate a service.</p>
+</DocsLayout>

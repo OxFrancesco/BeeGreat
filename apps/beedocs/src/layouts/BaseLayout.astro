@@ -1,0 +1,71 @@
+---
+import '../styles/global.css'
+
+interface Props {
+  title?: string
+  description?: string
+  section?: 'users' | 'developers'
+}
+
+const { title = 'BeeDocs', description = 'Learn BeeGreat or work on the codebase.', section } = Astro.props
+const pageTitle = title === 'BeeDocs' ? 'BeeDocs — BeeGreat documentation' : `${title} — BeeDocs`
+const current = section ?? 'home'
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/assets/bee-icon.svg" />
+    <title>{pageTitle}</title>
+    <script is:inline>
+      const savedTheme = localStorage.getItem('beedocs-theme')
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) document.documentElement.dataset.theme = 'dark'
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="BeeDocs home">
+        <span class="hex-button"><img src="/assets/bee-icon.svg" alt="" /></span>
+        <span>BeeDocs</span>
+        <small>by BeeGreat</small>
+      </a>
+      <nav class="section-switcher" aria-label="Documentation section">
+        <a href="/users/" aria-current={section === 'users' ? 'page' : undefined}>Users</a>
+        <a href="/developers/" aria-current={section === 'developers' ? 'page' : undefined}>Developers</a>
+      </nav>
+      <div class="header-actions">
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle color theme">
+          <svg class="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.6 6.6 0 0 0 21 12.8Z"></path></svg>
+          <svg class="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3.5"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg>
+        </button>
+      </div>
+    </header>
+    <slot />
+    <nav class="mobile-tabbar" aria-label="Main navigation">
+      <a href="/" aria-current={current === 'home' ? 'page' : undefined}><img class="nav-asset" src="/assets/bee-icon.svg" alt="" /><span>Home</span></a>
+      <a href="/users/" aria-current={current === 'users' ? 'page' : undefined}><img class="nav-asset" src="/assets/honeycomb-icon.svg" alt="" /><span>Users</span></a>
+      <a href="/developers/" aria-current={current === 'developers' ? 'page' : undefined}><img class="nav-asset" src="/assets/hive-icon.svg" alt="" /><span>Developers</span></a>
+    </nav>
+    <script is:inline>
+      const themeToggle = document.querySelector('#theme-toggle')
+      const syncThemeLabel = () => {
+        const dark = document.documentElement.dataset.theme === 'dark'
+        themeToggle?.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme')
+        themeToggle?.setAttribute('aria-pressed', String(dark))
+      }
+      syncThemeLabel()
+      themeToggle?.addEventListener('click', () => {
+        const root = document.documentElement
+        const next = root.dataset.theme === 'dark' ? 'light' : 'dark'
+        root.dataset.theme = next
+        localStorage.setItem('beedocs-theme', next)
+        syncThemeLabel()
+      })
+    </script>
+  </body>
+</html>

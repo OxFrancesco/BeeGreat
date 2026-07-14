@@ -1,0 +1,22 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Manage Goals and Tasks" description="Use the Goals tab to organize work and the Highlight to keep one next action visible." section="users" prev={{ href: '/users/', label: 'Create your first focus' }} next={{ href: '/users/talk-to-bee/', label: 'Talk to Bee' }}>
+  <h2 id="how-work-is-organized">How work is organized</h2>
+  <p>A <strong>Goal</strong> is the outcome. A Goal contains finite <strong>Projects</strong>, and Projects contain completable <strong>Tasks</strong>. Tasks can have one level of Subtasks.</p>
+
+  <h2 id="use-the-goals-tab">Use the Goals tab</h2>
+  <ul>
+    <li>Open a Goal to view its Projects and Tasks.</li>
+    <li>Use <strong>New project</strong>, <strong>New task</strong>, or <strong>New subtask</strong> to add work.</li>
+    <li>Tap a Task or Subtask to complete it.</li>
+    <li>Long-press an item to rename it, set a due date where available, or delete it.</li>
+  </ul>
+
+  <h2 id="active-goals">Active Goals</h2>
+  <p>The Goals tab exposes three direct Goal slots. Bee can create more on an explicit request, up to the server limit of seven Active Goals.</p>
+  <div class="callout"><strong>Three is the healthy range</strong><p>Goals beyond three can add Brain Fatigue to the Hive economy.</p></div>
+
+  <h2 id="highlight">Highlight</h2>
+  <p>Your Highlight is one time-boxed pointer to the work that matters now. The editable Highlight preview is part of first-time Hive setup. It clears when completed or when its time window ends.</p>
+</DocsLayout>

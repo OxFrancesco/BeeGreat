@@ -1,0 +1,21 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Talk to Bee" description="Use voice or text to ask about your plan, create work, or report that your Highlight is complete." section="users" prev={{ href: '/users/goals-and-highlights/', label: 'Manage Goals and Tasks' }} next={{ href: '/users/hive-and-honey/', label: 'Read your Hive' }}>
+  <h2 id="voice-and-text">Voice and text</h2>
+  <p>Tap Talk once to start recording and again to send. Use the text field when speaking is not convenient.</p>
+
+  <h2 id="supported-requests">Supported requests</h2>
+  <ul>
+    <li>Read or summarize your Goals, Projects, and Tasks.</li>
+    <li>Create a Goal, Project, or Task after an explicit request.</li>
+    <li>Complete the current Highlight when you report it finished.</li>
+  </ul>
+  <pre><code>“Show my goals.”
+“Add a task to prepare three interview questions.”
+“I finished my Highlight.”</code></pre>
+
+  <h2 id="current-limits">Current limits</h2>
+  <p>The editable Goal, Project, Task, and Highlight preview is for first-time Hive setup. Use the Goals tab for rename, due-date, and delete actions.</p>
+  <div class="callout"><strong>You approve writes</strong><p>Bee asks for confirmation before creating the first focus. Canceling the preview creates nothing.</p></div>
+</DocsLayout>

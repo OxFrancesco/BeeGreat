@@ -1,0 +1,26 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Bee agent" description="The Flue worker turns text or voice into validated tool calls, responses, and structured UI." section="developers" prev={{ href: '/developers/backend/', label: 'Convex backend' }}>
+  <h2 id="request-flow">Request flow</h2>
+  <ol>
+    <li>The client sends text or transcribed speech to the user’s session.</li>
+    <li>Bee interprets the request with current Goal and Highlight context.</li>
+    <li>Validated tools query Convex or submit an intent-level command.</li>
+    <li>The client receives text, optional speech, and structured UI.</li>
+  </ol>
+
+  <h2 id="rules">Rules</h2>
+  <ul>
+    <li>Keep business invariants in Convex, not model instructions.</li>
+    <li>Validate tool inputs before calling backend functions.</li>
+    <li>Keep first-focus previews unpersisted until confirmation.</li>
+    <li>Fall back to text when generated UI is malformed.</li>
+  </ul>
+
+  <h2 id="run-and-build">Run and build</h2>
+  <pre><code>bun run agent
+bun run --cwd packages/agent build
+bun run --cwd packages/agent deploy</code></pre>
+  <p>The local worker listens on <code>http://localhost:3583</code>. Production deploys to Cloudflare Workers.</p>
+</DocsLayout>

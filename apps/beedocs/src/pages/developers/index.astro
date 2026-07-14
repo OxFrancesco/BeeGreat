@@ -1,0 +1,30 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Developer guide" description="Start the workspace, find the system you need, and follow the project’s server-authoritative boundaries." section="developers" next={{ href: '/developers/local-development/', label: 'Run locally' }}>
+  <h2 id="start-here">Start here</h2>
+  <div class="link-rows">
+    <a class="link-row" href="/developers/local-development/"><strong>Run locally</strong><span>Install dependencies, configure environment files, and start the mobile stack.</span><b>→</b></a>
+    <a class="link-row" href="/developers/architecture/"><strong>Architecture</strong><span>See what ships today and how client, backend, and agent requests flow.</span><b>→</b></a>
+    <a class="link-row" href="/developers/backend/"><strong>Convex backend</strong><span>Work on shared state, validation, and domain rules.</span><b>→</b></a>
+    <a class="link-row" href="/developers/agent/"><strong>Bee agent</strong><span>Work on Flue sessions, tools, voice, and generated UI.</span><b>→</b></a>
+  </div>
+
+  <h2 id="workspace-rules">Workspace rules</h2>
+  <ul>
+    <li>Use Bun and the root <code>bun.lock</code>.</li>
+    <li>Keep Convex functions in <code>packages/backend</code>.</li>
+    <li>Validate identity, ownership, limits, and economy rules on the server.</li>
+    <li>Keep first-focus proposals unpersisted until the user confirms.</li>
+  </ul>
+
+  <h2 id="system-guides">Canonical system guides</h2>
+  <p>Use the repository guides for deeper operational detail:</p>
+  <ul>
+    <li><code>docs/11-chatgpt-authentication.md</code></li>
+    <li><code>docs/12-google-health-powerup.md</code></li>
+    <li><code>docs/13-sentry-observability.md</code></li>
+    <li><code>docs/14-sugar-web3-powerup.md</code></li>
+    <li><code>docs/03-architecture.md</code> for iMessage and deployment decisions</li>
+  </ul>
+</DocsLayout>

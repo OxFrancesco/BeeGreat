@@ -1,0 +1,17 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro'
+---
+<DocsLayout title="Read your Hive" description="The Hive shows your current Highlight, balances, Goal companion, and earned achievements." section="users" prev={{ href: '/users/talk-to-bee/', label: 'Talk to Bee' }}>
+  <h2 id="current-highlight">Current Highlight</h2>
+  <p>The Highlight card shows the current action, its Goal, and when it expires. Use <strong>Complete Highlight</strong> to record the result.</p>
+
+  <h2 id="balances">Balances</h2>
+  <ul>
+    <li><strong>Honey</strong> is the non-negative cosmetic balance. Cosmetic spending is not yet available in the mobile UI.</li>
+    <li><strong>Honeycomb Score</strong> is permanent verified progress. Spending Honey never reduces it.</li>
+    <li><strong>Royal Jelly</strong> is a separate gameplay balance for Boosters and Resurrection. Those actions are not yet exposed in the mobile UI.</li>
+  </ul>
+
+  <h2 id="goliebee-and-achievements">GolieBee and Achievements</h2>
+  <p>Each Goal has one GolieBee. Completing eligible work moves that Goal forward. Achievement badges record one-time milestones across a Goal or the whole Hive.</p>
+</DocsLayout>

@@ -1,0 +1,79 @@
+---
+import BaseLayout from './BaseLayout.astro'
+
+interface Props {
+  title: string
+  description: string
+  section: 'users' | 'developers'
+  prev?: { href: string; label: string }
+  next?: { href: string; label: string }
+}
+
+const { title, description, section, prev, next } = Astro.props
+const path = Astro.url.pathname
+const nav = {
+  users: [
+    { group: 'Start', items: [
+      { href: '/users/', label: 'Create your first focus' },
+    ]},
+    { group: 'Use BeeGreat', items: [
+      { href: '/users/goals-and-highlights/', label: 'Manage Goals and Tasks' },
+      { href: '/users/talk-to-bee/', label: 'Talk to Bee' },
+      { href: '/users/hive-and-honey/', label: 'Read your Hive' },
+    ]},
+  ],
+  developers: [
+    { group: 'Start', items: [
+      { href: '/developers/', label: 'Overview' },
+      { href: '/developers/local-development/', label: 'Run locally' },
+      { href: '/developers/architecture/', label: 'Architecture' },
+    ]},
+    { group: 'Core systems', items: [
+      { href: '/developers/backend/', label: 'Convex backend' },
+      { href: '/developers/agent/', label: 'Bee agent' },
+    ]},
+  ],
+}[section]
+const flatNav = nav.flatMap(({ items }) => items)
+const isCurrent = (href: string) => path === href
+const icon = section === 'users' ? '/assets/honeycomb-icon.svg' : '/assets/hive-icon.svg'
+const currentLabel = flatNav.find((item) => isCurrent(item.href))?.label ?? 'Overview'
+---
+<BaseLayout title={title} description={description} section={section}>
+  <details class="mobile-page-nav">
+    <summary><span>{currentLabel}</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></summary>
+    <nav class="side-nav">
+      {flatNav.map((item) => <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>)}
+    </nav>
+  </details>
+  <div class="docs-shell">
+    <aside class="sidebar">
+      <div class="sidebar-inner">
+        <a class="sidebar-start" href={section === 'users' ? '/users/' : '/developers/local-development/'}>
+          <img class={section === 'users' ? 'nav-asset-color' : 'nav-asset'} src={section === 'users' ? '/assets/mic-honey.svg' : '/assets/hive-icon.svg'} alt="" />
+          <span>{section === 'users' ? 'Create your first plan' : 'Run BeeGreat locally'}</span>
+        </a>
+        {nav.map((group) => (
+          <section class="nav-group">
+            <p class="nav-title">{group.group}</p>
+            <nav class="side-nav">
+              {group.items.map((item) => <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a>)}
+            </nav>
+          </section>
+        ))}
+      </div>
+    </aside>
+    <main class="doc-main" id="main-content">
+      <div class="doc-route"><img class="nav-asset" src={icon} alt="" /><a href={section === 'users' ? '/users/' : '/developers/'}>{section === 'users' ? 'User guide' : 'Developer guide'}</a></div>
+      <h1>{title}</h1>
+      <p class="doc-lead">{description}</p>
+      <slot />
+      {(prev || next) && (
+        <nav class="page-footer-nav" aria-label="Page navigation">
+          <span>{prev && <a href={prev.href}>← {prev.label}</a>}</span>
+          <span>{next && <a href={next.href}>{next.label} →</a>}</span>
+        </nav>
+      )}
+    </main>
+  </div>
+</BaseLayout>
