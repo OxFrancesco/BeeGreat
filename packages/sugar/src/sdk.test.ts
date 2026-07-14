@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
-import { executeSugarAction } from './actions'
+import { executeSugarAction, executeSugarActionJson } from './actions'
 import { getChainSettings } from './config'
 import { applySlippage, floatToUint256, getSalt, getUniqueString, nearestTick, parseEther, sqrtRatioX96FromPrice } from './helpers'
 import { BaseChain, getChain, getSimnetChain } from './chains'
@@ -59,11 +59,15 @@ describe('native action seam', () => {
     const result = await executeSugarAction('pools', { chain: 8453, limit: 1 }, {
       clientFactory: () => fake,
     })
-    expect(result).toEqual([{
+    const expected = [{
       chain_id: 8453, chain_name: 'Base', lp: pool.lp, type: -1,
       token0_address: pool.token0Address, token1_address: pool.token1Address,
       factory: null, is_cl: false, is_stable: false, type_label: 'volatile',
-    }])
+    }]
+    expect(result).toEqual(expected)
+    await expect(executeSugarActionJson('pools', { chain: 8453, limit: 1 }, {
+      clientFactory: () => fake,
+    })).resolves.toBe(JSON.stringify(expected, null, 2))
   })
 
   test('rejects concentrated-liquidity flags for basic deposits', async () => {

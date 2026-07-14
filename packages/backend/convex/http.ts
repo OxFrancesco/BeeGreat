@@ -1,5 +1,5 @@
 import { httpRouter } from 'convex/server'
-import { SUGAR_ACTIONS, type SugarAction } from '@beegreat/sugar'
+import { isSugarAction, type SugarAction } from '@beegreat/sugar/contracts'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { env, httpAction } from './_generated/server'
@@ -401,8 +401,7 @@ http.route({
     if (
       typeof body?.userId !== 'string' ||
       !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-      typeof body.sugarAction !== 'string' ||
-      !SUGAR_ACTIONS.includes(body.sugarAction as SugarAction) ||
+      !isSugarAction(body.sugarAction) ||
       !parameters ||
       typeof parameters !== 'object' ||
       Array.isArray(parameters) ||

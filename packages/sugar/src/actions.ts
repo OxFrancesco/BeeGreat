@@ -1,8 +1,8 @@
 import type { Address } from 'viem'
 import { SugarClient } from './client'
+import type { SugarAction, SugarParameters } from './contracts'
 import { parseTokenUnits, poolTypeLabel, toSugarJson, tokenToNumber } from './helpers'
 import { withdrawalFromPosition } from './models'
-import type { SugarAction, SugarParameters } from './index'
 import { validateSugarRequest } from './index'
 import { ADDRESS_ZERO, type Amount, type LiquidityPool, type LiquidityPoolEpoch, type Position, type Quote, type SugarClientOptions, type SugarJson, type Token } from './types'
 

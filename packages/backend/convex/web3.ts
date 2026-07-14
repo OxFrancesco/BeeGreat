@@ -1,11 +1,8 @@
 'use node'
 
 import { CrossmintWallets, createCrossmint } from '@crossmint/wallets-sdk'
-import {
-  executeSugarActionJson,
-  SUGAR_ACTIONS,
-  type SugarAction,
-} from '@beegreat/sugar'
+import { executeSugarActionJson } from '@beegreat/sugar'
+import { SUGAR_ACTIONS, type SugarAction } from '@beegreat/sugar/contracts'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { action, internalAction } from './_generated/server'

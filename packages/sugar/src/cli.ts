@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { executeSugarActionJson, type SugarExecutionOptions } from './actions'
-import { SUGAR_ACTIONS, type SugarAction, type SugarParameter, type SugarParameters } from './index'
+import { isSugarAction, SUGAR_ACTIONS, type SugarAction, type SugarParameter, type SugarParameters } from './contracts'
 
 const BOOLEAN_FLAGS = new Set(['burn', 'collect', 'full', 'unwrap_native', 'use_decimals'])
 const NUMBER_FLAGS = new Set([
@@ -35,7 +35,7 @@ export function parseSugarCliArgs(argv: string[]): { action: SugarAction; parame
   const [rawAction, ...flags] = argv
   if (!rawAction || rawAction === '--help' || rawAction === '-h') throw new Error(SUGAR_CLI_HELP)
   const action = rawAction.replaceAll('-', '_')
-  if (!SUGAR_ACTIONS.includes(action as SugarAction)) throw new Error(`Unknown Sugar action: ${rawAction}\n\n${SUGAR_CLI_HELP}`)
+  if (!isSugarAction(action)) throw new Error(`Unknown Sugar action: ${rawAction}\n\n${SUGAR_CLI_HELP}`)
   const parameters: SugarParameters = {}
   for (let index = 0; index < flags.length; index++) {
     const flag = flags[index]
@@ -60,7 +60,7 @@ export function parseSugarCliArgs(argv: string[]): { action: SugarAction; parame
     }
     parameters[name] = coerceFlag(name, value)
   }
-  return { action: action as SugarAction, parameters }
+  return { action, parameters }
 }
 
 export async function runSugarCli(
