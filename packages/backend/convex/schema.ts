@@ -516,6 +516,65 @@ export default defineSchema({
       'recurrenceOccurrenceAt',
     ]),
 
+  bookmarks: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    url: v.string(),
+    normalizedUrl: v.string(),
+    kind: v.union(
+      v.literal('website'),
+      v.literal('tweet'),
+      v.literal('youtube'),
+    ),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('processing'),
+      v.literal('ready'),
+      v.literal('failed'),
+    ),
+    title: v.optional(v.string()),
+    summary: v.optional(v.string()),
+    labels: v.array(v.string()),
+    note: v.optional(v.string()),
+    content: v.optional(v.string()),
+    searchText: v.string(),
+    meta: v.optional(
+      v.object({
+        siteName: v.optional(v.string()),
+        author: v.optional(v.string()),
+        handle: v.optional(v.string()),
+        imageUrl: v.optional(v.string()),
+        faviconUrl: v.optional(v.string()),
+        publishedAt: v.optional(v.number()),
+        tweetId: v.optional(v.string()),
+        videoId: v.optional(v.string()),
+        durationSeconds: v.optional(v.number()),
+      }),
+    ),
+    transcriptSource: v.optional(
+      v.union(v.literal('captions'), v.literal('scribe')),
+    ),
+    errorCode: v.optional(v.string()),
+    errorMessage: v.optional(v.string()),
+    retryCount: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
+    .index('by_owner_key_and_normalized_url', [
+      'ownerKey',
+      'normalizedUrl',
+    ])
+    .index('by_owner_key_and_kind_and_created_at', [
+      'ownerKey',
+      'kind',
+      'createdAt',
+    ])
+    .searchIndex('search_text', {
+      searchField: 'searchText',
+      filterFields: ['ownerKey', 'kind'],
+    }),
+
   memories: defineTable({
     ownerKey: v.string(),
     value: memoryValueValidator,

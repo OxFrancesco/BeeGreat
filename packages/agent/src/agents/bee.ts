@@ -7,6 +7,7 @@ import {
 import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
+import { createMindTools } from '../shared/mind-tools.ts'
 import { loadPowerups } from '../shared/powerups/index.ts'
 import instructions from './bee.md' with { type: 'markdown' }
 
@@ -82,6 +83,7 @@ export default defineAgent<Env>(async ({ id, env }) => {
     model,
     thinkingLevel: 'low',
     instructions: `${instructions}\n\n## User time context\nThe user's IANA timezone is ${focusContext.timeZone}. The current time is ${new Date(focusContext.currentTime).toISOString()}. Use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`,
+    tools: createMindTools(userId, env.CONVEX_URL, focusOptions),
     subagents: [
       goalsSubagent(userId, env.CONVEX_URL, focusOptions),
       ...powerups,

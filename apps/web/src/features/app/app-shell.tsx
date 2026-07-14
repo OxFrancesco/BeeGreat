@@ -12,6 +12,7 @@ const NAVIGATION = [
   { to: '/bee', label: 'Bee', icon: beeIcon },
   { to: '/goals', label: 'Goals', icon: goalsIcon },
   { to: '/hive', label: 'Hive', icon: hiveIcon },
+  { to: '/mind', label: 'Mind', icon: goalsIcon },
 ] as const
 
 export function AppShell() {

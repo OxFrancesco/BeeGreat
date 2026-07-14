@@ -19,6 +19,8 @@ services; it does not maintain a second product backend.
 | Tasks, Subtasks, due dates, Project targets        | `/projects/:projectId`                                       | Same `tasks.*` and `projects.setDue` operations                              |
 | Hive balances and Honey vessel                     | `/hive`                                                      | Same `firstFocus.getCurrent` state                                           |
 | Highlight rewards, GolieBee, Achievements          | `/hive`                                                      | Same idempotent completion and economy state                                 |
+| Mind library: honeycomb, cards, and list views     | `/mind`, `features/mind/mind-page.tsx`                       | Same reactive `bookmarks.list/search/labels` queries                         |
+| Mind capture, detail, editing, retry, and delete   | `/mind` add dialog and detail panel                          | Same `bookmarks.add/get/update/retry/remove` mutations                       |
 | Profile and spoken-reply preference                | `/settings`                                                  | Same Clerk identity; local device preference, as on mobile                   |
 | Power-ups and Google Health                        | `/settings`                                                  | Same registry, enablement, OAuth action, status, and disconnect mutation     |
 | Loading, failure, empty, and missing-entity states | All product routes                                           | Reactive Convex state with retry/rollback where the mobile flow has it       |

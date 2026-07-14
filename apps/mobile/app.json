@@ -15,6 +15,7 @@
       }
     },
     "android": {
+      "package": "com.beegreat.app",
       "adaptiveIcon": {
         "backgroundColor": "#FEF6E5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -50,6 +51,26 @@
         }
       ],
       "expo-widgets",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsText": true,
+              "supportsWebPageWithMaxCount": 1,
+              "supportsWebUrlWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "text/plain"
+            ],
+            "multipleShareMimeTypes": []
+          }
+        }
+      ],
       "expo-secure-store",
       "@sentry/react-native"
     ],

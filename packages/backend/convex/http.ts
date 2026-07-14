@@ -177,6 +177,102 @@ http.route({
 })
 
 http.route({
+  path: '/internal/mind',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+    }
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    if (
+      !body ||
+      typeof body.userId !== 'string' ||
+      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+      typeof body.operation !== 'string'
+    ) {
+      return jsonResponse({ error: 'Invalid Mind request' }, 400)
+    }
+    const kind = body.kind
+    if (
+      kind !== undefined &&
+      kind !== 'website' &&
+      kind !== 'tweet' &&
+      kind !== 'youtube'
+    ) {
+      return jsonResponse({ error: 'Invalid bookmark kind' }, 400)
+    }
+
+    try {
+      let result: unknown
+      if (body.operation === 'search') {
+        if (typeof body.query !== 'string') {
+          return jsonResponse({ error: 'Search query is required' }, 400)
+        }
+        result = await ctx.runQuery(internal.agentMind.searchBookmarks, {
+          userId: body.userId,
+          query: body.query,
+          kind,
+        })
+      } else if (body.operation === 'list') {
+        if (
+          (body.label !== undefined && typeof body.label !== 'string') ||
+          (body.limit !== undefined && typeof body.limit !== 'number')
+        ) {
+          return jsonResponse({ error: 'Invalid bookmark filters' }, 400)
+        }
+        result = await ctx.runQuery(internal.agentMind.listBookmarks, {
+          userId: body.userId,
+          kind,
+          label: body.label as string | undefined,
+          limit: body.limit as number | undefined,
+        })
+      } else if (body.operation === 'get') {
+        if (typeof body.bookmarkId !== 'string') {
+          return jsonResponse({ error: 'Bookmark id is required' }, 400)
+        }
+        result = await ctx.runQuery(internal.agentMind.getBookmark, {
+          userId: body.userId,
+          bookmarkId: body.bookmarkId as Id<'bookmarks'>,
+        })
+      } else if (body.operation === 'save') {
+        if (
+          typeof body.url !== 'string' ||
+          (body.note !== undefined && typeof body.note !== 'string')
+        ) {
+          return jsonResponse({ error: 'A valid bookmark URL is required' }, 400)
+        }
+        result = await ctx.runMutation(internal.agentMind.saveBookmark, {
+          userId: body.userId,
+          url: body.url,
+          note: body.note as string | undefined,
+        })
+      } else {
+        return jsonResponse({ error: 'Unknown Mind operation' }, 400)
+      }
+      return jsonResponse(result, 200)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Mind request failed'
+      return jsonResponse({ error: message }, 400)
+    }
+  }),
+})
+
+http.route({
   path: '/internal/chatgpt/token',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {

@@ -10,6 +10,9 @@
 
 import type * as agent from "../agent.js";
 import type * as agentFocus from "../agentFocus.js";
+import type * as agentMind from "../agentMind.js";
+import type * as bookmarkValidators from "../bookmarkValidators.js";
+import type * as bookmarks from "../bookmarks.js";
 import type * as chat from "../chat.js";
 import type * as chatgptAuth from "../chatgptAuth.js";
 import type * as chatgptAuthActions from "../chatgptAuthActions.js";
@@ -39,6 +42,9 @@ import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
 import type * as recurrence from "../recurrence.js";
 import type * as recurrenceValidators from "../recurrenceValidators.js";
+import type * as scraper from "../scraper.js";
+import type * as scraperEffect from "../scraperEffect.js";
+import type * as scraperShared from "../scraperShared.js";
 import type * as sentryNode from "../sentryNode.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
@@ -54,6 +60,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   agent: typeof agent;
   agentFocus: typeof agentFocus;
+  agentMind: typeof agentMind;
+  bookmarkValidators: typeof bookmarkValidators;
+  bookmarks: typeof bookmarks;
   chat: typeof chat;
   chatgptAuth: typeof chatgptAuth;
   chatgptAuthActions: typeof chatgptAuthActions;
@@ -83,6 +92,9 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   recurrence: typeof recurrence;
   recurrenceValidators: typeof recurrenceValidators;
+  scraper: typeof scraper;
+  scraperEffect: typeof scraperEffect;
+  scraperShared: typeof scraperShared;
   sentryNode: typeof sentryNode;
   tasks: typeof tasks;
   user: typeof user;

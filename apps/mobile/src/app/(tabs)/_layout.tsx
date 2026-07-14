@@ -30,6 +30,13 @@ export default function TabLayout() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="mind">
+        <NativeTabs.Trigger.Label>Mind</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'bookmark', selected: 'bookmark.fill' }}
+          md={{ default: 'bookmark_border', selected: 'bookmark' }}
+        />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="mic"
         // The search role splits this trigger into its own pill on iOS 26,

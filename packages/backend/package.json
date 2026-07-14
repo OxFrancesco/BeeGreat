@@ -23,7 +23,9 @@
     "@beegreat/sugar": "workspace:*",
     "@crossmint/wallets-sdk": "1.7.0",
     "@sentry/node": "^10.65.0",
-    "convex": "^1.36.1"
+    "convex": "^1.36.1",
+    "effect": "3.21.4",
+    "youtubei.js": "^17.2.0"
   },
   "devDependencies": {
     "@edge-runtime/vm": "5.0.0",

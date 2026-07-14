@@ -33,3 +33,32 @@ export function subscribeSpeakReplies(listener: () => void) {
 export function useSpeakReplies() {
   return useSyncExternalStore(subscribeSpeakReplies, getSpeakReplies);
 }
+
+export type MindView = 'hex' | 'cards' | 'list';
+
+const MIND_VIEW_KEY = 'bee.mindView';
+const storedMindView = SecureStore.getItem(MIND_VIEW_KEY);
+let mindView: MindView =
+  storedMindView === 'cards' || storedMindView === 'list' ? storedMindView : 'hex';
+const mindViewListeners = new Set<() => void>();
+
+export function setMindView(view: MindView) {
+  mindView = view;
+  mindViewListeners.forEach((listener) => listener());
+  try {
+    SecureStore.setItem(MIND_VIEW_KEY, view);
+  } catch {
+    // Persistence is best-effort; the selected view still changes immediately.
+  }
+}
+
+function subscribeMindView(listener: () => void) {
+  mindViewListeners.add(listener);
+  return () => {
+    mindViewListeners.delete(listener);
+  };
+}
+
+export function useMindView() {
+  return useSyncExternalStore(subscribeMindView, () => mindView);
+}

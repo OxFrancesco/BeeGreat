@@ -536,7 +536,7 @@
     border-right: 0;
     background: color-mix(in srgb, var(--canvas-warm) 94%, transparent);
     backdrop-filter: blur(18px);
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
   }
   .spine-brand,
   .spine-balances {
@@ -574,11 +574,11 @@
     height: 23px;
   }
   .spine-talk {
-    grid-column: 4;
+    grid-column: 5;
     grid-row: 1;
   }
   .spine-profile {
-    grid-column: 5;
+    grid-column: 6;
     grid-row: 1;
   }
   .spine-profile img,

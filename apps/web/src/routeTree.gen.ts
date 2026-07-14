@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppMindRouteImport } from './routes/_app/mind'
 import { Route as AppHiveRouteImport } from './routes/_app/hive'
 import { Route as AppBeeRouteImport } from './routes/_app/bee'
 import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMindRoute = AppMindRouteImport.update({
+  id: '/mind',
+  path: '/mind',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHiveRoute = AppHiveRouteImport.update({
@@ -62,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bee': typeof AppBeeRoute
   '/hive': typeof AppHiveRoute
+  '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bee': typeof AppBeeRoute
   '/hive': typeof AppHiveRoute
+  '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -82,6 +90,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_app/bee': typeof AppBeeRoute
   '/_app/hive': typeof AppHiveRoute
+  '/_app/mind': typeof AppMindRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
     | '/'
     | '/bee'
     | '/hive'
+    | '/mind'
     | '/settings'
     | '/goals/$goalId'
     | '/projects/$projectId'
@@ -102,6 +112,7 @@ export interface FileRouteTypes {
     | '/'
     | '/bee'
     | '/hive'
+    | '/mind'
     | '/settings'
     | '/goals/$goalId'
     | '/projects/$projectId'
@@ -112,6 +123,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_app/bee'
     | '/_app/hive'
+    | '/_app/mind'
     | '/_app/settings'
     | '/_app/goals/$goalId'
     | '/_app/projects/$projectId'
@@ -144,6 +156,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/mind': {
+      id: '/_app/mind'
+      path: '/mind'
+      fullPath: '/mind'
+      preLoaderRoute: typeof AppMindRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/hive': {
@@ -187,6 +206,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppBeeRoute: typeof AppBeeRoute
   AppHiveRoute: typeof AppHiveRoute
+  AppMindRoute: typeof AppMindRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppGoalsGoalIdRoute: typeof AppGoalsGoalIdRoute
   AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
@@ -196,6 +216,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppBeeRoute: AppBeeRoute,
   AppHiveRoute: AppHiveRoute,
+  AppMindRoute: AppMindRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppGoalsGoalIdRoute: AppGoalsGoalIdRoute,
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,

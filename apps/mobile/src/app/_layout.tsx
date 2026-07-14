@@ -122,6 +122,7 @@ function RootNavigator() {
             contentStyle: { height: '100%' },
           }}
         />
+        <Stack.Screen name="share" />
       </Stack.Protected>
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="sign-in" />
