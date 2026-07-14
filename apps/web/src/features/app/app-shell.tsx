@@ -19,7 +19,6 @@ export function AppShell() {
   const { user } = useUser()
   const navigate = useNavigate()
   const wasRecording = useRef(false)
-  const hive = agent.currentFirstFocus?.hive
   const voiceState = agent.recording
     ? 'Listening'
     : agent.transcribing || agent.busy
@@ -41,11 +40,8 @@ export function AppShell() {
     <div className="app-shell">
       <aside className="hive-spine">
         <Link className="spine-brand" to="/bee" aria-label="BeeGreat home">
-          <img src="/logo.png" alt="" />
-          <span>
-            <strong>BeeGreat</strong>
-            <small>One clear next focus</small>
-          </span>
+          <img src={beeIcon} alt="" />
+          <span>BeeGreat</span>
         </Link>
 
         <nav className="spine-nav" aria-label="Main navigation">
@@ -65,6 +61,10 @@ export function AppShell() {
         <button
           className={`spine-talk${agent.recording ? ' is-recording' : ''}`}
           type="button"
+          aria-label={
+            agent.recording ? 'Stop recording and send voice' : 'Talk to Bee'
+          }
+          aria-pressed={agent.recording}
           onClick={() => {
             void navigate({ to: '/bee' })
             void agent.toggleRecording()
@@ -73,12 +73,6 @@ export function AppShell() {
           <img src={micIcon} alt="" />
           <span>{agent.recording ? 'Send voice' : 'Talk'}</span>
         </button>
-
-        <div className="spine-balances" aria-label="Hive balances">
-          <Balance label="Honey" value={hive?.honeyBalance} symbol="◇" />
-          <Balance label="Score" value={hive?.honeycombScore} symbol="⬡" />
-          <Balance label="Jelly" value={hive?.royalJellyBalance} symbol="◆" />
-        </div>
 
         <Link
           className="spine-profile"
@@ -111,30 +105,14 @@ export function AppShell() {
         <button
           className="voice-island"
           type="button"
+          aria-live="polite"
+          aria-label={`Bee voice status: ${voiceState}. Open Bee.`}
           onClick={() => void navigate({ to: '/bee' })}
         >
           <span className="voice-island__dot" />
           {voiceState}
         </button>
       ) : null}
-    </div>
-  )
-}
-
-function Balance({
-  label,
-  value,
-  symbol,
-}: {
-  label: string
-  value: number | undefined
-  symbol: string
-}) {
-  return (
-    <div title={label}>
-      <span aria-hidden="true">{symbol}</span>
-      <strong>{value ?? '–'}</strong>
-      <small>{label}</small>
     </div>
   )
 }

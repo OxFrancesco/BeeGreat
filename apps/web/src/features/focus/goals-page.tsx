@@ -32,7 +32,6 @@ export function GoalsPage() {
     <FocusPage>
       <PageHeader
         title="Goals"
-        eyebrow="Your active comb"
         actions={
           <div className="goals-header-actions">
             <div className="page-currency" aria-label="Hive balances">

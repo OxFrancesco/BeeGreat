@@ -82,7 +82,6 @@ export function SettingsPage() {
     <main className="product-page settings-page">
       <header className="product-header">
         <div>
-          <p className="utility-label">Your BeeGreat</p>
           <h1>Profile & settings</h1>
         </div>
       </header>
