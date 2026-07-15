@@ -1,3 +1,5 @@
+![BeeGreat cover](docs/design/BeeGreat-cover.png)
+
 # BeeGreat
 
 BeeGreat helps you turn a goal into one clear next focus. Mobile and web share the same Clerk identity, Convex data, Bee agent, conversations, and Hive.
