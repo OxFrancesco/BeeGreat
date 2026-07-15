@@ -3,7 +3,7 @@ import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -40,27 +40,23 @@ export function AddBookmarkSheet({
   const addBookmark = useMutation(api.bookmarks.add);
   const [url, setUrl] = useState(initialUrl);
   const [note, setNote] = useState('');
-  const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const normalizedUrl = useMemo(() => normalizeHttpUrl(url), [url]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      const hasText = await Clipboard.hasStringAsync();
-      if (!hasText) return;
+  const pasteLink = async () => {
+    try {
       const candidate = normalizeHttpUrl(await Clipboard.getStringAsync());
-      if (!cancelled && candidate && candidate !== normalizeHttpUrl(initialUrl)) {
-        setClipboardUrl(candidate);
+      if (!candidate) {
+        setError('Your clipboard does not contain a complete http or https link.');
+        return;
       }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [initialUrl]);
+      setUrl(candidate);
+      setError(null);
+    } catch {
+      setError('Bee could not read the link from your clipboard.');
+    }
+  };
 
   const save = async () => {
     if (!normalizedUrl || isSaving) {
@@ -114,33 +110,21 @@ export function AddBookmarkSheet({
           </View>
         </View>
 
-        {clipboardUrl ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Use link from clipboard"
-            onPress={() => {
-              setUrl(clipboardUrl);
-              setClipboardUrl(null);
-              setError(null);
-            }}
-            style={({ pressed }) => [
-              styles.clipboard,
-              { backgroundColor: theme.secondary },
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={styles.clipboardCopy}>
-              <ThemedText type="smallBold">Link on your clipboard</ThemedText>
-              <ThemedText type="small" numberOfLines={1} themeColor="textSecondary">
-                {clipboardUrl}
-              </ThemedText>
-            </View>
-            <ThemedText type="smallBold">Use</ThemedText>
-          </Pressable>
-        ) : null}
-
         <View style={styles.fieldGroup}>
-          <ThemedText type="smallBold">URL</ThemedText>
+          <View style={styles.fieldLabelRow}>
+            <ThemedText type="smallBold">URL</ThemedText>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Paste link from clipboard"
+              hitSlop={8}
+              onPress={() => void pasteLink()}
+              style={({ pressed }) => pressed && styles.pressed}
+            >
+              <ThemedText type="smallBold" style={{ color: theme.primary }}>
+                Paste
+              </ThemedText>
+            </Pressable>
+          </View>
           <TextInput
             accessibilityLabel="Bookmark URL"
             autoCapitalize="none"
@@ -230,18 +214,12 @@ const styles = StyleSheet.create({
     borderCurve: 'continuous',
   },
   markText: { color: '#A86A16', fontSize: 26 },
-  clipboard: {
-    minHeight: 60,
+  fieldGroup: { gap: 8 },
+  fieldLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    borderCurve: 'continuous',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    justifyContent: 'space-between',
   },
-  clipboardCopy: { flex: 1 },
-  fieldGroup: { gap: 8 },
   input: {
     minHeight: 52,
     borderWidth: StyleSheet.hairlineWidth,
