@@ -9,13 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.beegreat.app",
-      "buildNumber": "12",
+      "buildNumber": "19",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.beegreat.app",
+      "versionCode": 19,
       "adaptiveIcon": {
         "backgroundColor": "#FEF6E5",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -72,7 +73,11 @@
         }
       ],
       "expo-secure-store",
-      "@sentry/react-native"
+      "@sentry/react-native",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
