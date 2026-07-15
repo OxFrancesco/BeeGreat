@@ -2,6 +2,26 @@
 
 BeeGreat helps you turn a goal into one clear next focus. Mobile and web share the same Clerk identity, Convex data, Bee agent, conversations, and Hive.
 
+## GPT-5.6 in BeeGreat
+
+BeeGreat uses GPT-5.6 in two focused roles:
+
+- **Bee runs on GPT-5.6 Sol.** The Flue agent receives typed input or ElevenLabs transcripts, keeps the conversation and generated `beeui` contract, searches the user's Mind, and delegates goal or power-up work to specialist subagents. It uses low reasoning for responsive everyday interactions.
+- **Mind uses GPT-5.6 Luna.** After BeeGreat extracts a saved website, post, or video, Luna returns a strict JSON title, a short summary, and topical labels so the item is immediately useful and searchable.
+
+Bee defaults to `openrouter/openai/gpt-5.6-sol`. A user who connects ChatGPT can instead run the same model through Pi's native Codex Responses transport and BeeGreat's private, stateless Vercel adapter. Convex stores the encrypted credentials and refreshes short-lived tokens; the adapter never persists them or logs request bodies. OpenRouter remains the fallback when the optional experimental ChatGPT connection is unavailable.
+
+Mind follows the same resilient pattern with `gpt-5.6-luna`: it tries the connected ChatGPT path first and falls back to `openai/gpt-5.6-luna` on OpenRouter. Without a connected ChatGPT account, it uses OpenRouter directly.
+
+The Git history captures how this evolved:
+
+| Commit | Change |
+| ------ | ------ |
+| `b1e11d2` | Introduced Bee as a GPT-5.5 agent on OpenRouter. |
+| `d9f861d` | Added encrypted, per-user ChatGPT authentication and dynamic provider registration. |
+| `fd2455b` | Upgraded Bee to GPT-5.6 Sol and added the private streaming Codex adapter with an OpenRouter fallback. |
+| `e66f881` | Added GPT-5.6 Luna summaries and labels for the Mind bookmark library. |
+
 ## Quick start
 
 You need [Bun](https://bun.sh), a Convex deployment, a Clerk application, and model/voice credentials for the Bee agent.
