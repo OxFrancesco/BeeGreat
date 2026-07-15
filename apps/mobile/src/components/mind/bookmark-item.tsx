@@ -157,7 +157,7 @@ function HexBookmark({ bookmark, size }: { bookmark: BookmarkItem; size: number 
           path={arc.textPath}
           text={arc.label}
           initialOffset={arc.offset}
-          color={image ? '#FFE9BE' : '#FF0000'}
+          color={image ? '#FFE9BE' : Comb.arcText}
         />
       </Canvas>
       <View style={styles.hexOverlay}>
