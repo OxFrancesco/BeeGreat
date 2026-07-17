@@ -2,6 +2,11 @@ import { z } from 'zod';
 
 import { firstFocusPreviewSchema } from '@/lib/first-focus';
 
+const httpsUrlSchema = z
+  .string()
+  .url()
+  .refine((url) => url.startsWith('https://'), 'Expected an HTTPS URL');
+
 /**
  * The generative UI vocabulary shared with the Bee agent
  * (see packages/agent/src/agents/bee.md).
@@ -37,6 +42,18 @@ export const uiComponentSchema = z.discriminatedUnion('type', [
     type: z.literal('highlight'),
     title: z.string(),
     body: z.string(),
+  }),
+  z.object({
+    type: z.literal('devin'),
+    title: z.string(),
+    status: z.string(),
+    statusDetail: z.string().optional(),
+    sessionId: z.string().regex(/^devin-[A-Za-z0-9_-]+$/),
+    sessionUrl: httpsUrlSchema,
+    summary: z.string().optional(),
+    pullRequests: z
+      .array(z.object({ url: httpsUrlSchema, state: z.string().optional() }))
+      .max(20),
   }),
   firstFocusPreviewSchema,
   z.object({

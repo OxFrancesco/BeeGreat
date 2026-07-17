@@ -5,11 +5,13 @@ import { anyApi } from 'convex/server'
 import type { PowerupDefinition, PowerupRuntime } from './types.ts'
 import { googleHealth } from './google-health.ts'
 import { web3 } from './web3.ts'
+import { devin } from './devin.ts'
 
 export type { PowerupDefinition } from './types.ts'
 
 /** Every power-up the agent knows how to load, keyed by catalog id. */
 const REGISTRY: Record<string, PowerupDefinition> = {
+  [devin.id]: devin,
   [web3.id]: web3,
   [googleHealth.id]: googleHealth,
 }

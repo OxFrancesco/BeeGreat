@@ -15,4 +15,12 @@ describe('tool labels', () => {
       'Creating your goal…',
     )
   })
+
+  test('identifies Devin task activity as a Power-up', () => {
+    expect(getToolCopy('task', 'running', { agent: 'devin' })).toEqual({
+      label: 'At work…',
+      powerup: 'Devin',
+    })
+    expect(getToolCopy('inspect_devin_task', 'done').powerup).toBe('Devin')
+  })
 })

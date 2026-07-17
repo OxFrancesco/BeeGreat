@@ -1376,6 +1376,119 @@ h3 {
   flex: 1;
 }
 
+.devin-card {
+  display: grid;
+  overflow: hidden;
+  padding: 18px;
+  border: 1px solid rgb(216 82 56 / 35%);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(242 118 90 / 13%), transparent 42%),
+    var(--surface);
+  gap: 14px;
+}
+
+.devin-card__header {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.devin-card__mark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #d85238;
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  place-items: center;
+}
+
+.devin-card__header > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.devin-card__header h3 {
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.devin-card__header code {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+}
+
+.devin-card__status {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: rgb(242 118 90 / 13%);
+  color: #b43d28;
+  font-size: 0.62rem;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.devin-card > p {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.devin-card__prs {
+  display: grid;
+  gap: 6px;
+}
+
+.devin-card__prs a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 700;
+  gap: 10px;
+}
+
+.devin-card__prs a:hover {
+  color: #b43d28;
+}
+
+.devin-card__prs small {
+  color: var(--ink-soft);
+  font-weight: 550;
+}
+
+.devin-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.devin-card__actions .button {
+  flex: 1;
+}
+
+.devin-card__open {
+  background: #d85238;
+  color: #fff;
+}
+
+.devin-card__open:hover {
+  background: #b43d28;
+}
+
 .first-focus {
   padding: 19px;
   border-color: color-mix(in srgb, var(--honey-strong) 30%, var(--line));

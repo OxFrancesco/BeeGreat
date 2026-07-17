@@ -21,6 +21,10 @@ const TOOL_SYMBOLS: Record<string, string> = {
   send_tokens: "paperplane",
   get_health_context: "heart.text.square",
   query_health_data: "heart.text.square",
+  start_devin_task: "cloud.fill",
+  list_devin_tasks: "cloud.fill",
+  inspect_devin_task: "cloud.fill",
+  follow_up_devin_task: "paperplane",
 };
 
 function taskSymbol(input: unknown) {
@@ -29,7 +33,7 @@ function taskSymbol(input: unknown) {
       ? String((input as { agent?: unknown }).agent ?? "")
       : "";
   if (agent === "goals") return "scope";
-  if (agent === "web3" || agent === "google-health") return "bolt.fill";
+  if (agent === "web3" || agent === "google-health" || agent === "devin") return "bolt.fill";
   return "sparkles";
 }
 

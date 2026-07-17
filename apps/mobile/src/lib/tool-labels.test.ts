@@ -17,5 +17,13 @@ describe('power-up tool labels', () => {
       'Google Health',
     );
     expect(getToolCopy('task', 'running', { agent: 'web3' }).powerup).toBe('Web3');
+    expect(getToolCopy('task', 'running', { agent: 'devin' }).powerup).toBe('Devin');
+  });
+
+  test('labels Devin session activity', () => {
+    expect(getToolCopy('start_devin_task', 'running').powerup).toBe('Devin');
+    expect(getToolCopy('follow_up_devin_task', 'done').label).toBe(
+      'Sent Devin the follow-up',
+    );
   });
 });

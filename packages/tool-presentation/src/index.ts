@@ -8,6 +8,7 @@ type ToolCopy = {
 };
 
 const POWERUP_AGENTS: Record<string, string> = {
+  devin: "Devin",
   web3: "Web3",
   "google-health": "Google Health",
 };
@@ -102,6 +103,30 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     done: "Read your health data",
     failed: "Couldn’t read your health data",
     powerup: "Google Health",
+  },
+  start_devin_task: {
+    running: "Starting Devin in the cloud…",
+    done: "Started the Devin task",
+    failed: "Couldn’t start the Devin task",
+    powerup: "Devin",
+  },
+  list_devin_tasks: {
+    running: "Checking Devin’s cloud tasks…",
+    done: "Checked Devin’s cloud tasks",
+    failed: "Couldn’t check Devin’s tasks",
+    powerup: "Devin",
+  },
+  inspect_devin_task: {
+    running: "Reading Devin’s latest update…",
+    done: "Read Devin’s latest update",
+    failed: "Couldn’t read Devin’s update",
+    powerup: "Devin",
+  },
+  follow_up_devin_task: {
+    running: "Sending Devin a follow-up…",
+    done: "Sent Devin the follow-up",
+    failed: "Couldn’t send Devin the follow-up",
+    powerup: "Devin",
   },
 };
 

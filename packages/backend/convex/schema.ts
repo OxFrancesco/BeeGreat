@@ -504,6 +504,34 @@ export default defineSchema({
     enabled: v.boolean(),
   }).index('by_user', ['userId', 'powerupId']),
 
+  // Devin sessions launched through Bee. The upstream session remains the
+  // source of truth; this bounded cache establishes BeeGreat ownership and
+  // gives the agent a safe list of sessions it may inspect or follow up on.
+  devinSessions: defineTable({
+    userId: v.string(),
+    sessionId: v.string(),
+    title: v.optional(v.string()),
+    url: v.string(),
+    status: v.union(
+      v.literal('new'),
+      v.literal('claimed'),
+      v.literal('running'),
+      v.literal('exit'),
+      v.literal('error'),
+      v.literal('suspended'),
+      v.literal('resuming'),
+    ),
+    statusDetail: v.optional(v.string()),
+    pullRequests: v.array(
+      v.object({ url: v.string(), state: v.optional(v.string()) }),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    lastSyncedAt: v.number(),
+  })
+    .index('by_user_and_updated_at', ['userId', 'updatedAt'])
+    .index('by_session_id', ['sessionId']),
+
   // Crossmint smart wallets created by the Web3 power-up, one per user+chain.
   // The source of truth is Crossmint (keyed by owner `userId:<clerk id>`); this
   // table is a cache so queries and the app can show the wallet without an API call.

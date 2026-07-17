@@ -289,6 +289,14 @@
   background: rgb(128 102 232 / 10%);
 }
 
+.tool-activity.is-devin {
+  border-color: rgb(216 82 56 / 40%);
+}
+
+.tool-activity.is-devin summary {
+  background: rgb(242 118 90 / 10%);
+}
+
 .tool-powerup {
   display: grid;
   min-width: 0;
@@ -307,6 +315,10 @@
 
 .tool-activity.is-web3 .tool-powerup strong {
   color: #8066e8;
+}
+
+.tool-activity.is-devin .tool-powerup strong {
+  color: #b43d28;
 }
 
 .tool-powerup small {
