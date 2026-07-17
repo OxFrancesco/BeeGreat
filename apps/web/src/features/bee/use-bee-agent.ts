@@ -17,21 +17,15 @@ import {
 } from './use-convex-chat'
 import { useBrowserVoice } from './use-browser-voice'
 import { AGENT_URL } from './voice-api'
+import {
+  beeSendFailureMessage,
+  friendlyBeeErrorMessage,
+  isAuthHiccup,
+} from './agent-error'
+import { BEE_AGENT_LIVE_MODE } from './flue-transport'
 import { captureWebFailure } from '~/lib/sentry'
 
 const BEE_AGENT_NAME = 'bee'
-function isAuthHiccup(error: Error | undefined) {
-  return Boolean(error && /401|sign in|session expired/i.test(error.message))
-}
-
-function friendlyErrorMessage(error: Error | undefined) {
-  if (!error) return undefined
-  if (isAuthHiccup(error)) return 'Reconnecting to Bee…'
-  if (/Flue API error|HTTP Error \d+/i.test(error.message)) {
-    return 'Bee couldn’t reach the hive. Check your connection and try again.'
-  }
-  return error.message
-}
 
 export function useBeeAgent() {
   const { getToken, userId } = useAuth()
@@ -59,10 +53,10 @@ export function useBeeAgent() {
   const agent = useFlueAgent({
     name: BEE_AGENT_NAME,
     id: conversationId,
-    live: 'long-poll',
+    live: BEE_AGENT_LIVE_MODE,
     client,
   })
-  const messages = useConvexMessages(thread, agent.messages)
+  const chatHistory = useConvexMessages(thread, agent.messages)
   const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {})
   const completeHighlight = useMutation(api.firstFocus.completeHighlight)
   const syncTimeZone = useMutation(api.user.syncTimeZone)
@@ -155,9 +149,7 @@ export function useBeeAgent() {
         await agent.sendMessage(text)
       } catch (error) {
         captureWebFailure(error, 'bee.send_message')
-        setActionError(
-          'Your message wasn’t sent. Check your connection and try again.',
-        )
+        setActionError(beeSendFailureMessage(error))
         throw error
       }
     },
@@ -186,12 +178,15 @@ export function useBeeAgent() {
   return useMemo(
     () => ({
       ...agent,
-      messages,
+      messages: chatHistory.messages,
+      canLoadOlder: chatHistory.canLoadOlder,
+      loadingOlder: chatHistory.loadingOlder,
+      loadOlder: chatHistory.loadOlder,
       busy,
       thread,
       currentFirstFocus,
       errorMessage:
-        voice.voiceError ?? actionError ?? friendlyErrorMessage(agent.error),
+        voice.voiceError ?? actionError ?? friendlyBeeErrorMessage(agent.error),
       recording: voice.recording,
       transcribing: voice.transcribing,
       speaking: voice.speaking,
@@ -206,7 +201,7 @@ export function useBeeAgent() {
       agent,
       busy,
       currentFirstFocus,
-      messages,
+      chatHistory,
       resetConversation,
       sendText,
       thread,

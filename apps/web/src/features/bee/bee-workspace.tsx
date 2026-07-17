@@ -182,7 +182,11 @@ export function BeeWorkspace() {
           </div>
         ) : null}
 
-        <Conversation agent={agent} firstName={user?.firstName ?? undefined} />
+        <Conversation
+          key={`thread:${agent.thread}`}
+          agent={agent}
+          firstName={user?.firstName ?? undefined}
+        />
       </section>
     </main>
   )
@@ -269,6 +273,13 @@ function Conversation({
           (part.type === 'text' && part.text.length > 0),
       ))
 
+  const sendAndFollow = async (text: string) => {
+    // Sending is an explicit request to return to the live edge. Passive
+    // incoming updates still respect a reader who has scrolled into history.
+    following.current = true
+    await agent.sendText(text)
+  }
+
   useEffect(() => {
     if (!following.current) return
     const frame = window.requestAnimationFrame(() => {
@@ -291,13 +302,23 @@ function Conversation({
       >
         {hasConversation ? (
           <div className="message-list" aria-live="polite">
+            {agent.canLoadOlder || agent.loadingOlder ? (
+              <button
+                className="button button--quiet load-earlier-messages"
+                type="button"
+                disabled={agent.loadingOlder}
+                onClick={agent.loadOlder}
+              >
+                {agent.loadingOlder ? 'Loading earlier messages…' : 'Load earlier messages'}
+              </button>
+            ) : null}
             {agent.messages.map((message, index) => (
               <AgentMessage
                 key={message.id}
                 message={message}
                 isLast={index === agent.messages.length - 1}
                 busy={agent.busy}
-                onReply={agent.sendText}
+                onReply={sendAndFollow}
               />
             ))}
             {awaitingReply ? <ThinkingActivity /> : null}
@@ -305,7 +326,7 @@ function Conversation({
         ) : (
           <EmptyConversation
             firstName={firstName}
-            onSuggestion={agent.sendText}
+            onSuggestion={sendAndFollow}
           />
         )}
       </div>
@@ -321,7 +342,7 @@ function Conversation({
             ) : null}
           </div>
         ) : null}
-        <PromptComposer onSubmit={agent.sendText} disabled={agent.busy} />
+        <PromptComposer onSubmit={sendAndFollow} disabled={agent.busy} />
       </div>
     </div>
   )

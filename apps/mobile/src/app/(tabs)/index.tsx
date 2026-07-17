@@ -1,23 +1,40 @@
 import { useUser } from '@clerk/clerk-expo';
-import type { FlueConversationMessage, FlueConversationPart } from '@flue/react';
+import type {
+  FlueConversationMessage,
+  FlueConversationPart,
+} from '@flue/react';
+import type { LegendListRenderItemProps } from '@legendapp/list/react-native';
 import { router } from 'expo-router';
+import { useCallback } from 'react';
 import {
+  ActivityIndicator,
   Keyboard,
-  KeyboardAvoidingView,
   Pressable,
   StyleSheet,
   TouchableWithoutFeedback,
   useWindowDimensions,
   View,
 } from 'react-native';
+import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { Conversation } from '@/components/agent/conversation';
 import { GeneratedUI } from '@/components/agent/generated-ui';
-import { Message, MessageContent, MessageText } from '@/components/agent/message';
+import {
+  Message,
+  MessageContent,
+  MessageText,
+} from '@/components/agent/message';
 import { PromptInput } from '@/components/agent/prompt-input';
-import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/agent/reasoning';
+import {
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+} from '@/components/agent/reasoning';
 import { Suggestion, Suggestions } from '@/components/agent/suggestion';
 import { ThinkingActivity, ToolActivity } from '@/components/agent/tool';
 import { useVoiceAgentContext } from '@/components/agent/voice-agent-provider';
@@ -36,10 +53,14 @@ const HERO_SUGGESTIONS = [
   'What tasks are still open?',
 ];
 
+const messageKeyExtractor = (message: FlueConversationMessage) => message.id;
+const getMessageType = (message: FlueConversationMessage) => message.role;
+
 export default function VoiceAgentScreen() {
   const agent = useVoiceAgentContext();
   const { user } = useUser();
   const { height, width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const hasConversation = agent.messages.length > 0;
   // Keep the hero comfortable on small iPhones (SE) without shrinking it on Pro Max.
   const compact = height < 700;
@@ -57,101 +78,165 @@ export default function VoiceAgentScreen() {
           (part.type === 'text' && part.text.length > 0),
       ));
 
+  const renderMessage = useCallback(
+    ({
+      item,
+      index,
+      data,
+    }: LegendListRenderItemProps<FlueConversationMessage>) => (
+      <AgentMessage
+        message={item}
+        showSpeaker={index === 0 || data[index - 1]?.role !== item.role}
+        isLast={index === data.length - 1}
+        isBusy={agent.busy}
+        onReply={agent.sendText}
+      />
+    ),
+    [agent.busy, agent.sendText],
+  );
+
+  const renderComposer = useCallback(
+    (onSubmit: (text: string) => void | Promise<void>) => (
+      <AgentComposer
+        busy={agent.busy}
+        errorMessage={agent.errorMessage}
+        onSubmit={onSubmit}
+        recording={agent.recording}
+      />
+    ),
+    [agent.busy, agent.errorMessage, agent.recording],
+  );
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView
         style={[styles.safeArea, width < 380 && styles.safeAreaCompact]}
       >
-        <KeyboardAvoidingView
-          style={styles.flex}
-          behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
-        >
-        {/* Keyboard dismissal: taps inside the conversation dismiss it via the
-            ScrollView's default keyboardShouldPersistTaps, and the hero screen
+        <View style={styles.flex}>
+          {/* Keyboard dismissal: taps inside the conversation dismiss it via the
+            list's keyboardShouldPersistTaps, and the hero screen
             has its own dismiss wrapper below. Never wrap the conversation in a
             Touchable — it steals the scroll gesture. */}
-        <View style={styles.topBar}>
-          <HexIconButton
-            size={36}
-            icon="line.3.horizontal"
-            fallbackGlyph="≡"
-            accessibilityLabel="Conversations"
-            onPress={() => router.push('/threads')}
-          />
-          <CurrencyBar />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Profile"
-            hitSlop={Spacing.two}
-            onPress={() => router.push('/profile')}
-            style={({ pressed }) => pressed && styles.topBarPressed}
-          >
-            <HexAvatar size={36} uri={user?.hasImage ? user.imageUrl : null} />
-          </Pressable>
-        </View>
-
-        {hasConversation ? (
-          <Conversation>
-            {agent.messages.map((message, index) => (
-              <AgentMessage
-                key={message.id}
-                message={message}
-                showSpeaker={
-                  index === 0 || agent.messages[index - 1]?.role !== message.role
-                }
-                isLast={index === agent.messages.length - 1}
-                isBusy={agent.busy}
-                onReply={agent.sendText}
-              />
-            ))}
-            {awaitingReply ? <ThinkingActivity /> : null}
-          </Conversation>
-        ) : (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <Animated.View
-              entering={FadeIn.duration(400)}
-              style={[styles.hero, compact && styles.heroCompact]}
+          <View style={styles.topBar}>
+            <HexIconButton
+              size={36}
+              icon="line.3.horizontal"
+              fallbackGlyph="≡"
+              accessibilityLabel="Conversations"
+              onPress={() => router.push('/threads')}
+            />
+            <CurrencyBar />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Profile"
+              hitSlop={Spacing.two}
+              onPress={() => router.push('/profile')}
+              style={({ pressed }) => pressed && styles.topBarPressed}
             >
-              <FloatingBee height={compact ? 96 : 120} />
-              <Suggestions>
-                {HERO_SUGGESTIONS.map((suggestion) => (
-                  <Suggestion
-                    key={suggestion}
-                    suggestion={suggestion}
-                    onPress={agent.sendText}
-                  />
-                ))}
-              </Suggestions>
-            </Animated.View>
-          </TouchableWithoutFeedback>
-        )}
-
-        {agent.recording || agent.errorMessage ? (
-          <View style={styles.status}>
-            {agent.recording ? (
-              <ThemedText type="small" themeColor="textSecondary" style={styles.centered}>
-                Listening — tap Talk again to send
-              </ThemedText>
-            ) : null}
-            {agent.errorMessage ? (
-              <ThemedText
-                selectable
-                type="small"
-                themeColor="destructive"
-                style={styles.centered}
-              >
-                {agent.errorMessage}
-              </ThemedText>
-            ) : null}
+              <HexAvatar
+                size={36}
+                uri={user?.hasImage ? user.imageUrl : null}
+              />
+            </Pressable>
           </View>
-        ) : null}
 
-        <View style={styles.composer}>
-          <PromptInput onSubmit={agent.sendText} disabled={agent.busy} />
+          {hasConversation ? (
+            <Conversation
+              key={`thread:${agent.thread}`}
+              canLoadOlder={agent.canLoadOlder}
+              data={agent.messages}
+              dataKey={agent.thread}
+              footer={awaitingReply ? <ThinkingActivity /> : null}
+              getItemType={getMessageType}
+              header={
+                agent.loadingOlder ? (
+                  <View
+                    accessibilityLabel="Loading earlier messages"
+                    accessibilityRole="progressbar"
+                    style={styles.historyLoader}
+                  >
+                    <ActivityIndicator size="small" />
+                  </View>
+                ) : null
+              }
+              keyExtractor={messageKeyExtractor}
+              loadingOlder={agent.loadingOlder}
+              onLoadOlder={agent.loadOlder}
+              onSubmit={agent.sendText}
+              renderComposer={renderComposer}
+              renderItem={renderMessage}
+            />
+          ) : (
+            <>
+              <TouchableWithoutFeedback
+                onPress={Keyboard.dismiss}
+                accessible={false}
+              >
+                <Animated.View
+                  entering={FadeIn.duration(400)}
+                  style={[styles.hero, compact && styles.heroCompact]}
+                >
+                  <FloatingBee height={compact ? 96 : 120} />
+                  <Suggestions>
+                    {HERO_SUGGESTIONS.map((suggestion) => (
+                      <Suggestion
+                        key={suggestion}
+                        suggestion={suggestion}
+                        onPress={agent.sendText}
+                      />
+                    ))}
+                  </Suggestions>
+                </Animated.View>
+              </TouchableWithoutFeedback>
+              <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
+                {renderComposer(agent.sendText)}
+              </KeyboardStickyView>
+            </>
+          )}
         </View>
-        </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function AgentComposer({
+  busy,
+  errorMessage,
+  onSubmit,
+  recording,
+}: {
+  busy: boolean;
+  errorMessage?: string;
+  onSubmit: (text: string) => void | Promise<void>;
+  recording: boolean;
+}) {
+  return (
+    <View style={styles.composer}>
+      {recording || errorMessage ? (
+        <View style={styles.status}>
+          {recording ? (
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              style={styles.centered}
+            >
+              Listening — tap Talk again to send
+            </ThemedText>
+          ) : null}
+          {errorMessage ? (
+            <ThemedText
+              selectable
+              type="small"
+              themeColor="destructive"
+              style={styles.centered}
+            >
+              {errorMessage}
+            </ThemedText>
+          ) : null}
+        </View>
+      ) : null}
+      <PromptInput onSubmit={onSubmit} disabled={busy} />
+    </View>
   );
 }
 
@@ -191,8 +276,13 @@ function AgentMessage({
     .join('\n\n');
   const lastPart = message.parts.at(-1);
   const reasoningStreaming =
-    isLast && isBusy && lastPart?.type === 'reasoning' && lastPart.state === 'streaming';
-  const toolParts = message.parts.filter((part): part is ToolPart => part.type === 'dynamic-tool');
+    isLast &&
+    isBusy &&
+    lastPart?.type === 'reasoning' &&
+    lastPart.state === 'streaming';
+  const toolParts = message.parts.filter(
+    (part): part is ToolPart => part.type === 'dynamic-tool',
+  );
 
   const textStreaming = message.parts.some(
     (part) => part.type === 'text' && part.state === 'streaming',
@@ -285,12 +375,16 @@ const styles = StyleSheet.create({
   heroCompact: {
     gap: Spacing.four,
   },
+  historyLoader: {
+    alignItems: 'center',
+    paddingVertical: Spacing.two,
+  },
   status: {
     alignItems: 'center',
     paddingHorizontal: Spacing.two,
-    paddingBottom: Spacing.one,
   },
   composer: {
+    gap: Spacing.one,
     paddingTop: Spacing.one,
   },
   centered: {

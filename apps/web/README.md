@@ -8,8 +8,15 @@ Bee agent, conversation IDs, and generated-UI contract as the mobile app. Copy
 - `VITE_CONVEX_SITE_URL` to that deployment's HTTP actions origin
 - `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` from the shared Clerk app
 - `VITE_AGENT_URL` to the Bee worker (`http://localhost:3583` for local work)
+- `VITE_FLUE_LIVE_MODE` to `sse` (the default); `long-poll` is reserved for an
+  emergency rollback
 - the Sentry variables described in
   [`docs/13-sentry-observability.md`](../../docs/13-sentry-observability.md)
+
+For production browser streaming, set the worker's comma-separated
+`WEB_ALLOWED_ORIGINS` binding to the web app's exact HTTPS origin. The worker
+answers Clerk-authenticated Flue preflights and exposes the Durable Stream
+offset headers only to those origins.
 
 From the repository root, start the existing services and web app in separate
 terminals:

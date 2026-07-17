@@ -20,6 +20,7 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { VoiceAgentProvider } from '@/components/agent/voice-agent-provider';
 import { ChatGptAuthGate } from '@/components/chatgpt/chatgpt-auth';
@@ -33,17 +34,19 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 
 function RootLayout() {
   return (
-    <ClerkProvider
-      publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-      tokenCache={tokenCache}
-    >
-      <SentryUserContext />
-      <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <FlueProvider client={flueClient}>
-          <RootNavigator />
-        </FlueProvider>
-      </ConvexProviderWithClerk>
-    </ClerkProvider>
+    <KeyboardProvider>
+      <ClerkProvider
+        publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+        tokenCache={tokenCache}
+      >
+        <SentryUserContext />
+        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+          <FlueProvider client={flueClient}>
+            <RootNavigator />
+          </FlueProvider>
+        </ConvexProviderWithClerk>
+      </ClerkProvider>
+    </KeyboardProvider>
   );
 }
 

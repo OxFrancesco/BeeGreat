@@ -62,12 +62,22 @@ test('threads, active selection, and transcripts sync per authenticated account'
   await expect(other.query(api.chat.listMessages, { threadId })).rejects.toThrow(
     'Conversation not found',
   )
+  await expect(
+    other.query(api.chat.listMessagesPage, {
+      threadId,
+      paginationOpts: { cursor: null, numItems: 20 },
+    }),
+  ).rejects.toThrow('Conversation not found')
 })
 
 test('message synchronization is idempotent and updates streaming envelopes', async () => {
   const t = convexTest(schema, modules)
   const owner = authenticated(t, 'user_chat_stream')
-  const first = JSON.stringify({ id: 'assistant-stream', role: 'assistant', parts: [] })
+  const first = JSON.stringify({
+    id: 'assistant-stream',
+    role: 'assistant',
+    parts: [{ type: 'text', text: 'Do', state: 'streaming' }],
+  })
   const complete = JSON.stringify({
     id: 'assistant-stream',
     role: 'assistant',
@@ -90,4 +100,166 @@ test('message synchronization is idempotent and updates streaming envelopes', as
   const messages = await owner.query(api.chat.listMessages, { threadId: 0 })
   expect(messages).toHaveLength(1)
   expect(messages[0].contentJson).toBe(complete)
+
+  const page = await owner.query(api.chat.listMessagesPage, {
+    threadId: 0,
+    paginationOpts: { cursor: null, numItems: 20 },
+  })
+  expect(page.page).toHaveLength(1)
+  expect(page.page[0].contentJson).toBe(complete)
+})
+
+test('a stale streaming envelope cannot replace a completed assistant message', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_complete_monotonic')
+  const complete = JSON.stringify({
+    id: 'assistant-stream',
+    role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
+    parts: [{ type: 'text', text: 'Finished answer', state: 'done' }],
+    metadata: {
+      timestamp: '2026-07-17T10:00:00.000Z',
+      usage: { input: 10, output: 2, cacheRead: 0 },
+    },
+  })
+  const stale = JSON.stringify({
+    id: 'assistant-stream',
+    role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
+    parts: [{ type: 'text', text: 'Finished', state: 'streaming' }],
+    metadata: { timestamp: '2026-07-17T10:00:00.000Z' },
+  })
+
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: [
+      { id: 'assistant-stream', role: 'assistant', contentJson: complete, createdAt: 100 },
+    ],
+  })
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: [
+      { id: 'assistant-stream', role: 'assistant', contentJson: stale, createdAt: 100 },
+    ],
+  })
+
+  const messages = await owner.query(api.chat.listMessages, { threadId: 0 })
+  expect(messages[0].contentJson).toBe(complete)
+})
+
+test('a shorter streaming envelope cannot replace newer assistant progress', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_partial_monotonic')
+  const newer = JSON.stringify({
+    id: 'assistant-stream',
+    role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
+    parts: [{ type: 'text', text: 'Still streaming', state: 'streaming' }],
+  })
+  const older = JSON.stringify({
+    id: 'assistant-stream',
+    role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
+    parts: [{ type: 'text', text: 'Still', state: 'streaming' }],
+  })
+
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: [
+      { id: 'assistant-stream', role: 'assistant', contentJson: newer, createdAt: 100 },
+    ],
+  })
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: [
+      { id: 'assistant-stream', role: 'assistant', contentJson: older, createdAt: 100 },
+    ],
+  })
+
+  const messages = await owner.query(api.chat.listMessages, { threadId: 0 })
+  expect(messages[0].contentJson).toBe(newer)
+})
+
+test('message pages traverse a transcript from newest to oldest without overlap', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_pages')
+
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: [100, 200, 300, 400, 500].map((createdAt, index) => ({
+      id: `message-${index + 1}`,
+      role: index % 2 === 0 ? ('user' as const) : ('assistant' as const),
+      contentJson: JSON.stringify({ id: `message-${index + 1}`, parts: [] }),
+      createdAt,
+    })),
+  })
+
+  const first = await owner.query(api.chat.listMessagesPage, {
+    threadId: 0,
+    paginationOpts: { cursor: null, numItems: 2 },
+  })
+  expect(first.page.map((message) => message.id)).toEqual(['message-5', 'message-4'])
+  expect(first.isDone).toBe(false)
+
+  const second = await owner.query(api.chat.listMessagesPage, {
+    threadId: 0,
+    paginationOpts: { cursor: first.continueCursor, numItems: 2 },
+  })
+  expect(second.page.map((message) => message.id)).toEqual(['message-3', 'message-2'])
+  expect(second.isDone).toBe(false)
+
+  const third = await owner.query(api.chat.listMessagesPage, {
+    threadId: 0,
+    paginationOpts: { cursor: second.continueCursor, numItems: 2 },
+  })
+  expect(third.page.map((message) => message.id)).toEqual(['message-1'])
+  expect(third.isDone).toBe(true)
+})
+
+test('legacy transcript snapshots stay bounded to the newest 100 messages in chronological order', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_legacy_bound')
+
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: Array.from({ length: 105 }, (_, index) => ({
+      id: `message-${index + 1}`,
+      role: 'user' as const,
+      contentJson: JSON.stringify({ id: `message-${index + 1}`, parts: [] }),
+      createdAt: index + 1,
+    })),
+  })
+
+  const messages = await owner.query(api.chat.listMessages, { threadId: 0 })
+  expect(messages).toHaveLength(100)
+  expect(messages[0].id).toBe('message-6')
+  expect(messages[99].id).toBe('message-105')
+})
+
+test('message pages cap caller-requested batches at 100 messages', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_page_bound')
+
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: Array.from({ length: 105 }, (_, index) => ({
+      id: `message-${index + 1}`,
+      role: 'user' as const,
+      contentJson: JSON.stringify({ id: `message-${index + 1}`, parts: [] }),
+      createdAt: index + 1,
+    })),
+  })
+
+  const page = await owner.query(api.chat.listMessagesPage, {
+    threadId: 0,
+    paginationOpts: { cursor: null, numItems: 500 },
+  })
+  expect(page.page).toHaveLength(100)
+  expect(page.page[0].id).toBe('message-105')
+  expect(page.page[99].id).toBe('message-6')
+  expect(page.isDone).toBe(false)
 })
