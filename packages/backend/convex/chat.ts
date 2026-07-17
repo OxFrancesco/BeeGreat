@@ -1,9 +1,12 @@
+import { paginationOptsValidator } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import { mutation, query } from './_generated/server'
 
 const MAX_MESSAGES_PER_SYNC = 200
 const MAX_MESSAGE_JSON_BYTES = 512_000
+const LEGACY_MESSAGE_LIMIT = 100
+const MAX_MESSAGES_PER_PAGE = 100
 
 const threadValidator = v.object({
   id: v.number(),
@@ -18,6 +21,138 @@ const messageValidator = v.object({
   createdAt: v.number(),
   updatedAt: v.number(),
 })
+
+type JsonObject = Record<string, unknown>
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function withoutKeys(value: JsonObject, keys: ReadonlySet<string>): JsonObject {
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => !keys.has(key)),
+  )
+}
+
+/** True when `next` retains every value already present in `previous`. */
+function isJsonExtension(previous: unknown, next: unknown): boolean {
+  if (Object.is(previous, next)) return true
+  if (Array.isArray(previous)) {
+    return (
+      Array.isArray(next) &&
+      next.length >= previous.length &&
+      previous.every((value, index) => isJsonExtension(value, next[index]))
+    )
+  }
+  if (!isJsonObject(previous) || !isJsonObject(next)) return false
+  return Object.entries(previous).every(
+    ([key, value]) =>
+      Object.prototype.hasOwnProperty.call(next, key) &&
+      isJsonExtension(value, next[key]),
+  )
+}
+
+const TEXT_PROGRESS_KEYS = new Set(['text', 'state'])
+const TOOL_PROGRESS_KEYS = new Set(['state'])
+
+function isAssistantPartProgression(previous: unknown, next: unknown): boolean {
+  if (!isJsonObject(previous) || !isJsonObject(next)) return false
+  if (previous.type !== next.type || typeof previous.type !== 'string') return false
+
+  if (previous.type === 'text' || previous.type === 'reasoning') {
+    if (
+      typeof previous.text !== 'string' ||
+      typeof next.text !== 'string' ||
+      (previous.state !== 'streaming' && previous.state !== 'done') ||
+      (next.state !== 'streaming' && next.state !== 'done')
+    ) {
+      return false
+    }
+    const contentProgresses =
+      previous.state === 'done'
+        ? next.state === 'done' && next.text === previous.text
+        : next.text.startsWith(previous.text)
+    return (
+      contentProgresses &&
+      isJsonExtension(
+        withoutKeys(previous, TEXT_PROGRESS_KEYS),
+        withoutKeys(next, TEXT_PROGRESS_KEYS),
+      )
+    )
+  }
+
+  if (previous.type === 'dynamic-tool') {
+    const previousState = previous.state
+    const nextState = next.state
+    const sameState = previousState === nextState
+    const reachesTerminalState =
+      previousState === 'input-available' &&
+      (nextState === 'output-available' || nextState === 'output-error')
+    return (
+      (sameState || reachesTerminalState) &&
+      isJsonExtension(
+        withoutKeys(previous, TOOL_PROGRESS_KEYS),
+        withoutKeys(next, TOOL_PROGRESS_KEYS),
+      )
+    )
+  }
+
+  // File parts are immutable, but a later canonical snapshot may add optional
+  // metadata such as a durable URL or byte size.
+  return isJsonExtension(previous, next)
+}
+
+function parseAssistantEnvelope(
+  contentJson: string,
+  messageId: string,
+): JsonObject | undefined {
+  try {
+    const value: unknown = JSON.parse(contentJson)
+    if (
+      !isJsonObject(value) ||
+      value.id !== messageId ||
+      value.role !== 'assistant' ||
+      !Array.isArray(value.parts)
+    ) {
+      return undefined
+    }
+    return value
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Flue assistant envelopes advance append-only: text grows, streaming parts
+ * become done, tool calls acquire outcomes, and metadata may be added. Comparing
+ * that structure gives every client/reconnect the same server-enforced order,
+ * without relying on process-local counters or wall-clock arrival order.
+ */
+function isAssistantEnvelopeProgression(
+  previousJson: string,
+  nextJson: string,
+  messageId: string,
+): boolean {
+  const previous = parseAssistantEnvelope(previousJson, messageId)
+  const next = parseAssistantEnvelope(nextJson, messageId)
+  if (!previous || !next) return false
+
+  const previousParts = previous.parts as unknown[]
+  const nextParts = next.parts as unknown[]
+  if (
+    nextParts.length < previousParts.length ||
+    !previousParts.every((part, index) =>
+      isAssistantPartProgression(part, nextParts[index]),
+    )
+  ) {
+    return false
+  }
+
+  return isJsonExtension(
+    withoutKeys(previous, new Set(['parts'])),
+    withoutKeys(next, new Set(['parts'])),
+  )
+}
 
 async function requireIdentity(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity()
@@ -192,15 +327,52 @@ export const listMessages = query({
       .withIndex('by_owner_key_and_thread_id_and_created_at', (q) =>
         q.eq('ownerKey', ownerKey).eq('threadId', args.threadId),
       )
-      .order('asc')
-      .collect()
-    return rows.map((row) => ({
+      .order('desc')
+      .take(LEGACY_MESSAGE_LIMIT)
+    return rows.reverse().map((row) => ({
       id: row.messageId,
       role: row.role,
       contentJson: row.contentJson,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     }))
+  },
+})
+
+export const listMessagesPage = query({
+  args: {
+    threadId: v.number(),
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: v.object({
+    page: v.array(messageValidator),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+  }),
+  handler: async (ctx, args) => {
+    const { ownerKey } = await requireIdentity(ctx)
+    await requireThread(ctx, ownerKey, args.threadId)
+    const result = await ctx.db
+      .query('chatMessages')
+      .withIndex('by_owner_key_and_thread_id_and_created_at', (q) =>
+        q.eq('ownerKey', ownerKey).eq('threadId', args.threadId),
+      )
+      .order('desc')
+      .paginate({
+        ...args.paginationOpts,
+        numItems: Math.min(args.paginationOpts.numItems, MAX_MESSAGES_PER_PAGE),
+      })
+    return {
+      page: result.page.map((row) => ({
+        id: row.messageId,
+        role: row.role,
+        contentJson: row.contentJson,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      })),
+      isDone: result.isDone,
+      continueCursor: result.continueCursor,
+    }
   },
 })
 
@@ -239,6 +411,17 @@ export const syncMessages = mutation({
         .unique()
       if (existing) {
         if (existing.contentJson !== message.contentJson) {
+          if (
+            existing.role !== message.role ||
+            (existing.role === 'assistant' &&
+              !isAssistantEnvelopeProgression(
+                existing.contentJson,
+                message.contentJson,
+                message.id,
+              ))
+          ) {
+            continue
+          }
           await ctx.db.patch('chatMessages', existing._id, {
             contentJson: message.contentJson,
             updatedAt: now,

@@ -823,6 +823,14 @@ h3 {
   gap: 24px;
 }
 
+.load-earlier-messages {
+  min-height: 36px;
+  align-self: center;
+  padding-inline: 16px;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
 .message-row {
   display: flex;
   min-width: 0;

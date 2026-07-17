@@ -1,14 +1,12 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
-import { useMutation, useQuery } from 'convex/react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { TranscriptSyncQueue, mergeConvexMessages } from '@beegreat/chat-sync'
+import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
+import { useCallback, useEffect, useMemo } from 'react'
 
-import {
-  mergeConvexMessages,
-  messageTimestamp,
-  messagesForConvexSync,
-} from './chat-history'
 import type { FlueConversationMessage } from '@flue/sdk'
 import { captureWebFailure } from '~/lib/sentry'
+
+const CHAT_HISTORY_PAGE_SIZE = 100
 
 export type ChatThread = {
   id: number
@@ -45,61 +43,50 @@ export function useChatThreadActions() {
   }
 }
 
+function useTranscriptSync(
+  threadId: number,
+  flueMessages: Array<FlueConversationMessage>,
+) {
+  const sync = useMutation(api.chat.syncMessages)
+  const queue = useMemo(
+    () =>
+      new TranscriptSyncQueue(
+        (messages) => sync({ threadId, messages }),
+        (error) => captureWebFailure(error, 'chat.sync_delta', { threadId }),
+      ),
+    [sync, threadId],
+  )
+
+  useEffect(() => {
+    queue.activate()
+    return () => queue.dispose()
+  }, [queue])
+
+  useEffect(() => queue.enqueue(flueMessages), [flueMessages, queue])
+}
+
 export function useConvexMessages(
   threadId: number,
   flueMessages: Array<FlueConversationMessage>,
 ) {
-  const rows = useQuery(api.chat.listMessages, { threadId })
-  const sync = useMutation(api.chat.syncMessages)
-  const fingerprint = useMemo(
-    () =>
-      JSON.stringify(
-        messagesForConvexSync(flueMessages).map((message) => [
-          message.id,
-          message,
-        ]),
-      ),
-    [flueMessages],
+  const history = usePaginatedQuery(
+    api.chat.listMessagesPage,
+    { threadId },
+    { initialNumItems: CHAT_HISTORY_PAGE_SIZE },
   )
-  const lastSynced = useRef('')
-
-  useEffect(() => {
-    if (
-      !fingerprint ||
-      fingerprint === '[]' ||
-      fingerprint === lastSynced.current
-    ) {
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      const canonical = messagesForConvexSync(flueMessages)
-      const run = async () => {
-        for (let offset = 0; offset < canonical.length; offset += 200) {
-          const chunk = canonical
-            .slice(offset, offset + 200)
-            .map((message, index) => ({
-              id: message.id,
-              role: message.role,
-              contentJson: JSON.stringify(message),
-              createdAt: messageTimestamp(message, offset + index),
-            }))
-          await sync({ threadId, messages: chunk })
-        }
-        lastSynced.current = fingerprint
-      }
-
-      void run().catch((error) => {
-        captureWebFailure(error, 'chat.sync_transcript', { threadId })
-        // Flue stays readable offline; the next transcript update retries.
-      })
-    }, 120)
-
-    return () => window.clearTimeout(timer)
-  }, [fingerprint, flueMessages, sync, threadId])
-
-  return useMemo(
+  useTranscriptSync(threadId, flueMessages)
+  const rows = useMemo(() => [...history.results].reverse(), [history.results])
+  const messages = useMemo(
     () => mergeConvexMessages(rows, flueMessages),
     [flueMessages, rows],
   )
+  const canLoadOlder = history.status === 'CanLoadMore'
+  const loadingOlder = history.status === 'LoadingMore'
+  const loadOlder = useCallback(() => {
+    if (history.status === 'CanLoadMore') {
+      history.loadMore(CHAT_HISTORY_PAGE_SIZE)
+    }
+  }, [history])
+
+  return { messages, canLoadOlder, loadingOlder, loadOlder }
 }

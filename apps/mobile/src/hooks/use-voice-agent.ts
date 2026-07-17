@@ -31,6 +31,7 @@ import {
   subscribeSpeakReplies,
   useSpeakReplies,
 } from '@/lib/preferences';
+import { BEE_AGENT_LIVE_MODE } from '@/lib/flue-transport';
 import { captureMobileFailure } from '@/lib/sentry';
 import { getToolCopy } from '@/lib/tool-labels';
 import { extractBeeUI } from '@/lib/ui-spec';
@@ -62,10 +63,10 @@ export function useVoiceAgent() {
   const agent = useFlueAgent({
     name: BEE_AGENT_NAME,
     id: conversationId,
-    live: 'long-poll',
+    live: BEE_AGENT_LIVE_MODE,
     client,
   });
-  const syncedMessages = useConvexMessages(thread, agent.messages);
+  const chatHistory = useConvexMessages(thread, agent.messages);
   const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {});
   const completeHighlight = useMutation(api.firstFocus.completeHighlight);
   const syncTimeZone = useMutation(api.user.syncTimeZone);
@@ -342,7 +343,11 @@ export function useVoiceAgent() {
 
   return {
     ...agent,
-    messages: syncedMessages,
+    thread,
+    messages: chatHistory.messages,
+    canLoadOlder: chatHistory.canLoadOlder,
+    loadingOlder: chatHistory.loadingOlder,
+    loadOlder: chatHistory.loadOlder,
     orbState,
     recording,
     busy,

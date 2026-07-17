@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@beegreat/backend": "workspace:*",
+    "@beegreat/chat-sync": "workspace:*",
     "@beegreat/observability": "workspace:*",
     "@beegreat/tool-presentation": "workspace:*",
     "@clerk/tanstack-react-start": "^0.29.10",
