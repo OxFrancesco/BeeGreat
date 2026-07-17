@@ -11,6 +11,7 @@ import type { ReactNode } from 'react'
 import { captureWebFailure } from '~/lib/sentry'
 
 const POWERUP_SYMBOLS: Record<string, string> = {
+  devin: 'D',
   web3: '⌬',
   'google-health': '♥',
 }

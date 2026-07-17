@@ -12,6 +12,12 @@ const POWERUP_PALETTES: Record<
   string,
   { accent: string; solid: string; surface: string; border: string }
 > = {
+  Devin: {
+    accent: '#F2765A',
+    solid: '#D85238',
+    surface: '#F2765A1A',
+    border: '#F2765A66',
+  },
   'Google Health': {
     accent: '#39C9AA',
     solid: '#08745F',

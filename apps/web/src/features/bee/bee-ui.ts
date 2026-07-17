@@ -1,5 +1,10 @@
 import { z } from 'zod'
 
+const httpsUrlSchema = z
+  .string()
+  .url()
+  .refine((url) => url.startsWith('https://'), 'Expected an HTTPS URL')
+
 export const firstFocusPreviewSchema = z.object({
   type: z.literal('first_focus'),
   requestId: z.string().min(1),
@@ -43,6 +48,18 @@ export const uiComponentSchema = z.discriminatedUnion('type', [
     type: z.literal('highlight'),
     title: z.string(),
     body: z.string(),
+  }),
+  z.object({
+    type: z.literal('devin'),
+    title: z.string(),
+    status: z.string(),
+    statusDetail: z.string().optional(),
+    sessionId: z.string().regex(/^devin-[A-Za-z0-9_-]+$/),
+    sessionUrl: httpsUrlSchema,
+    summary: z.string().optional(),
+    pullRequests: z
+      .array(z.object({ url: httpsUrlSchema, state: z.string().optional() }))
+      .max(20),
   }),
   firstFocusPreviewSchema,
   z.object({

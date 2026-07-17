@@ -413,6 +413,77 @@ http.route({
 })
 
 http.route({
+  path: '/internal/devin',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+    }
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    const operation = body?.operation
+    if (
+      typeof body?.userId !== 'string' ||
+      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+      (operation !== 'start' &&
+        operation !== 'list' &&
+        operation !== 'inspect' &&
+        operation !== 'follow_up') ||
+      (body.prompt !== undefined && typeof body.prompt !== 'string') ||
+      (body.title !== undefined && typeof body.title !== 'string') ||
+      (body.repos !== undefined &&
+        (!Array.isArray(body.repos) ||
+          body.repos.some((repo) => typeof repo !== 'string'))) ||
+      (body.mode !== undefined && body.mode !== 'normal' && body.mode !== 'fast') ||
+      (body.maxAcuLimit !== undefined && typeof body.maxAcuLimit !== 'number') ||
+      (body.sessionId !== undefined && typeof body.sessionId !== 'string') ||
+      (body.message !== undefined && typeof body.message !== 'string') ||
+      (body.limit !== undefined && typeof body.limit !== 'number')
+    ) {
+      return jsonResponse({ error: 'Invalid Devin request' }, 400)
+    }
+    try {
+      const result: string = await ctx.runAction(internal.devin.execute, {
+        userId: body.userId,
+        operation,
+        prompt: body.prompt as string | undefined,
+        title: body.title as string | undefined,
+        repos: body.repos as string[] | undefined,
+        mode: body.mode as 'normal' | 'fast' | undefined,
+        maxAcuLimit: body.maxAcuLimit as number | undefined,
+        sessionId: body.sessionId as string | undefined,
+        message: body.message as string | undefined,
+        limit: body.limit as number | undefined,
+      })
+      return new Response(result, {
+        status: 200,
+        headers: {
+          'content-type': 'application/json; charset=utf-8',
+          'cache-control': 'no-store',
+        },
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Devin request failed'
+      return jsonResponse({ error: message }, 400)
+    }
+  }),
+})
+
+http.route({
   path: '/internal/google-health/query',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {

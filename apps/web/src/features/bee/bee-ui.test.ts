@@ -24,4 +24,25 @@ describe('extractBeeUI', () => {
 
     expect(result).toEqual({ spoken: 'Keep going.', components: [] })
   })
+
+  test('accepts a Devin session card with follow-up and PR links', () => {
+    const result = extractBeeUI(`Devin is working on it.
+\`\`\`beeui
+{"components":[{"type":"devin","title":"Repair login","status":"running","statusDetail":"working","sessionId":"devin-abc123","sessionUrl":"https://app.devin.ai/sessions/devin-abc123","pullRequests":[{"url":"https://github.com/acme/app/pull/42","state":"open"}]}]}
+\`\`\``)
+
+    expect(result.components).toEqual([
+      {
+        type: 'devin',
+        title: 'Repair login',
+        status: 'running',
+        statusDetail: 'working',
+        sessionId: 'devin-abc123',
+        sessionUrl: 'https://app.devin.ai/sessions/devin-abc123',
+        pullRequests: [
+          { url: 'https://github.com/acme/app/pull/42', state: 'open' },
+        ],
+      },
+    ])
+  })
 })

@@ -30,6 +30,7 @@ import { captureMobileFailure } from '@/lib/sentry';
 
 /** Icon per power-up id; the glyph is the SymbolView fallback. */
 const POWERUP_ICONS: Record<string, { symbol: string; glyph: string }> = {
+  devin: { symbol: 'cloud.fill', glyph: 'D' },
   web3: { symbol: 'tree.fill', glyph: '⌬' },
   'google-health': { symbol: 'heart.fill', glyph: '♥' },
 };

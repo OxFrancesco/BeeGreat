@@ -15,6 +15,13 @@ import { requireUserId } from './helpers'
 
 export const POWERUP_CATALOG = [
   {
+    id: 'devin',
+    name: 'Devin',
+    tagline: 'Cloud coding, from the Hive',
+    description:
+      'Lets your Bee launch Devin cloud tasks, check live progress and pull requests, and send follow-up instructions.',
+  },
+  {
     id: 'web3',
     name: 'Web3',
     tagline: 'A wallet for your hive',

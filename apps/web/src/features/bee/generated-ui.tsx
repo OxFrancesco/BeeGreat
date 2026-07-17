@@ -57,6 +57,8 @@ function UIComponentView({
           <p>{component.body}</p>
         </section>
       )
+    case 'devin':
+      return <DevinCard {...component} onReply={onReply} />
     case 'first_focus':
       return <FirstFocusPreviewCard preview={component} />
     case 'confirm':
@@ -85,6 +87,80 @@ function UIComponentView({
         </Card>
       )
   }
+}
+
+function DevinCard({
+  title,
+  status,
+  statusDetail,
+  sessionId,
+  sessionUrl,
+  summary,
+  pullRequests,
+  onReply,
+}: Extract<UIComponent, { type: 'devin' }> & {
+  onReply?: (text: string) => void | Promise<void>
+}) {
+  const live = useQuery(api.devinData.get, { sessionId })
+  const currentStatus = live?.status ?? status
+  const currentDetail = live?.statusDetail ?? statusDetail
+  const currentPullRequests = live?.pullRequests ?? pullRequests
+  const detail = (currentDetail ?? currentStatus).replaceAll('_', ' ')
+  return (
+    <section className="devin-card">
+      <header className="devin-card__header">
+        <span className="devin-card__mark" aria-hidden="true">
+          D
+        </span>
+        <div>
+          <h3>{title}</h3>
+          <code>{sessionId}</code>
+        </div>
+        <span className="devin-card__status">{detail}</span>
+      </header>
+      {summary ? <p>{summary}</p> : null}
+      {currentPullRequests.length ? (
+        <div className="devin-card__prs">
+          <span className="utility-label">Pull requests</span>
+          {currentPullRequests.map((pullRequest, index) => (
+            <a
+              href={pullRequest.url}
+              key={pullRequest.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span>Pull request {index + 1}</span>
+              {pullRequest.state ? <small>{pullRequest.state}</small> : null}
+              <b aria-hidden="true">↗</b>
+            </a>
+          ))}
+        </div>
+      ) : null}
+      <footer className="devin-card__actions">
+        <a
+          className="button devin-card__open"
+          href={sessionUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open in Devin <span aria-hidden="true">↗</span>
+        </a>
+        {onReply ? (
+          <button
+            className="button button--quiet"
+            type="button"
+            onClick={() =>
+              void onReply(
+                `Check Devin session ${sessionId} and show me the latest update and pull requests.`,
+              )
+            }
+          >
+            Refresh
+          </button>
+        ) : null}
+      </footer>
+    </section>
+  )
 }
 
 function Card({

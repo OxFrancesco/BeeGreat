@@ -27,6 +27,8 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly AGENT_CREDENTIAL_BROKER_SECRET: string | undefined;
   readonly ELEVENLABS_API_KEY: string | undefined;
+  readonly DEVIN_API_KEY: string | undefined;
+  readonly DEVIN_ORG_ID: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly OPENROUTER_API_KEY: string | undefined;
   readonly TWITTERAPI_IO_API_KEY: string | undefined;

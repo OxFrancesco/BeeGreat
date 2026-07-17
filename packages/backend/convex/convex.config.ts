@@ -8,6 +8,8 @@ const app = defineApp({
     TWITTERAPI_IO_API_KEY: v.optional(v.string()),
     ELEVENLABS_API_KEY: v.optional(v.string()),
     OPENROUTER_API_KEY: v.optional(v.string()),
+    DEVIN_API_KEY: v.optional(v.string()),
+    DEVIN_ORG_ID: v.optional(v.string()),
   },
 })
 
