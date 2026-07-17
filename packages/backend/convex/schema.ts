@@ -91,6 +91,28 @@ export default defineSchema({
     .index('by_owner_key', ['ownerKey'])
     .index('by_user_id', ['userId']),
 
+  // One Bee Healthy journal row per authenticated owner and local calendar day.
+  // Mood and journal remain optional so hydration-only check-ins stay lightweight.
+  healthJournalEntries: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    localDate: v.string(),
+    mood: v.optional(
+      v.union(
+        v.literal('awful'),
+        v.literal('bad'),
+        v.literal('okay'),
+        v.literal('good'),
+        v.literal('great'),
+      ),
+    ),
+    hydrationMl: v.number(),
+    journal: v.optional(v.string()),
+    timeZone: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_owner_key_and_local_date', ['ownerKey', 'localDate']),
+
   chatMessages: defineTable({
     ownerKey: v.string(),
     userId: v.string(),

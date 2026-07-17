@@ -32,6 +32,7 @@ import type * as googleHealthAuthActions from "../googleHealthAuthActions.js";
 import type * as googleHealthCrypto from "../googleHealthCrypto.js";
 import type * as googleHealthOAuth from "../googleHealthOAuth.js";
 import type * as googleHealthValidators from "../googleHealthValidators.js";
+import type * as healthJournal from "../healthJournal.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as memories from "../memories.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   googleHealthCrypto: typeof googleHealthCrypto;
   googleHealthOAuth: typeof googleHealthOAuth;
   googleHealthValidators: typeof googleHealthValidators;
+  healthJournal: typeof healthJournal;
   helpers: typeof helpers;
   http: typeof http;
   memories: typeof memories;

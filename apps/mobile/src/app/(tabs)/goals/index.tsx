@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BeeHealthyCard } from '@/components/bee-healthy/bee-healthy-card';
 import { AddRow } from '@/components/goals/add-row';
 import { CombCell } from '@/components/goals/comb-cell';
 import { ScreenHeader } from '@/components/goals/screen-header';
@@ -56,16 +57,27 @@ export default function GoalsScreen() {
               <ScreenHeader title="Goals" />
               <CurrencyBar />
             </View>
+            <View style={styles.section}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Bee Healthy
+              </ThemedText>
+              <BeeHealthyCard />
+            </View>
             {goals === undefined ? (
               <ActivityIndicator style={styles.loading} />
             ) : (
-              <View style={styles.slots}>
-                {goals.map((goal) => (
-                  <GoalCard key={goal.id} goal={goal} />
-                ))}
-                {goals.length < MAX_GOALS ? (
-                  <AddRow label="New goal" onSubmit={addGoal} dashed />
-                ) : null}
+              <View style={styles.section}>
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  Active goals
+                </ThemedText>
+                <View style={styles.slots}>
+                  {goals.map((goal) => (
+                    <GoalCard key={goal.id} goal={goal} />
+                  ))}
+                  {goals.length < MAX_GOALS ? (
+                    <AddRow label="New goal" onSubmit={addGoal} dashed />
+                  ) : null}
+                </View>
               </View>
             )}
           </ScrollView>
@@ -181,6 +193,9 @@ const styles = StyleSheet.create({
   },
   slots: {
     gap: Spacing.three,
+  },
+  section: {
+    gap: Spacing.two,
   },
   card: {
     flexDirection: 'row',
