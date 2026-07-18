@@ -16,18 +16,7 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
-
-function normalizeHttpUrl(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  try {
-    const parsed = new URL(trimmed);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
-}
+import { normalizeBookmarkInputUrl } from '@/lib/bookmark-url';
 
 export function AddBookmarkSheet({
   initialUrl = '',
@@ -42,13 +31,13 @@ export function AddBookmarkSheet({
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const normalizedUrl = useMemo(() => normalizeHttpUrl(url), [url]);
+  const normalizedUrl = useMemo(() => normalizeBookmarkInputUrl(url), [url]);
 
   const pasteLink = async () => {
     try {
-      const candidate = normalizeHttpUrl(await Clipboard.getStringAsync());
+      const candidate = normalizeBookmarkInputUrl(await Clipboard.getStringAsync());
       if (!candidate) {
-        setError('Your clipboard does not contain a complete http or https link.');
+        setError('Your clipboard does not contain a valid domain or link.');
         return;
       }
       setUrl(candidate);
@@ -60,7 +49,7 @@ export function AddBookmarkSheet({
 
   const save = async () => {
     if (!normalizedUrl || isSaving) {
-      setError('Enter a complete http or https link.');
+      setError('Enter a valid domain or link.');
       return;
     }
 
@@ -90,7 +79,7 @@ export function AddBookmarkSheet({
     // sheet can find the ScrollView (react-native-screens#2424).
     <KeyboardAvoidingView
       collapsable={false}
-      style={[styles.flex, { backgroundColor: theme.background }]}
+      style={{ backgroundColor: theme.background }}
       behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -99,15 +88,12 @@ export function AddBookmarkSheet({
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.intro}>
-          <View style={[styles.mark, { backgroundColor: theme.secondary }]}>
-            <ThemedText style={styles.markText}>✦</ThemedText>
-          </View>
-          <View style={styles.introCopy}>
-            <ThemedText type="subtitle">Keep it in Mind</ThemedText>
-            <ThemedText themeColor="textSecondary">
-              Bee will read the page, pull out the good parts, and make it easy to find later.
-            </ThemedText>
-          </View>
+          <ThemedText type="subtitle" style={styles.introTitle}>
+            Keep it in Mind
+          </ThemedText>
+          <ThemedText themeColor="textSecondary" style={styles.introDescription}>
+            Bee will read the page, pull out the good parts, and make it easy to find later.
+          </ThemedText>
         </View>
 
         <View style={styles.fieldGroup}>
@@ -135,11 +121,12 @@ export function AddBookmarkSheet({
               setError(null);
             }}
             onSubmitEditing={() => void save()}
-            placeholder="https://example.com"
+            placeholder="example.com"
             placeholderTextColor={theme.textSecondary}
             returnKeyType="next"
             style={[
               styles.input,
+              styles.urlInput,
               {
                 backgroundColor: theme.card,
                 borderColor: error && !normalizedUrl ? theme.destructive : theme.border,
@@ -201,19 +188,15 @@ export function AddBookmarkSheet({
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  content: { gap: 22, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 40 },
-  intro: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  introCopy: { flex: 1, gap: 3 },
-  mark: {
-    width: 54,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 18,
-    borderCurve: 'continuous',
+  content: {
+    gap: 18,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
-  markText: { color: '#A86A16', fontSize: 26 },
+  intro: { gap: 4, paddingBottom: 2 },
+  introTitle: { fontSize: 27, lineHeight: 32 },
+  introDescription: { fontSize: 16, lineHeight: 22, maxWidth: 520 },
   fieldGroup: { gap: 8 },
   fieldLabelRow: {
     flexDirection: 'row',
@@ -221,15 +204,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   input: {
-    minHeight: 52,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
     borderCurve: 'continuous',
     paddingHorizontal: 14,
-    paddingVertical: 12,
     fontSize: 16,
   },
-  note: { minHeight: 108 },
+  // A fixed height with no vertical padding vertically centers single-line text.
+  urlInput: { height: 52, paddingVertical: 0 },
+  note: { minHeight: 92, paddingVertical: 12 },
   save: {
     minHeight: 52,
     alignItems: 'center',

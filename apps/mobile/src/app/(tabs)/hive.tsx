@@ -1,7 +1,7 @@
 import { api } from "@beegreat/backend/convex/_generated/api";
 import type { Id } from "@beegreat/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import type { FunctionReturnType } from "convex/server";
+import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { SymbolView } from "expo-symbols";
@@ -34,27 +34,59 @@ import {
   formatHighlightExpiry,
   getStableGolieBeeSeed,
 } from "@/lib/first-focus";
+import { useScreenshotFixture } from "@/lib/screenshot-fixture";
 
-type FirstFocusState = FunctionReturnType<typeof api.firstFocus.getCurrent>;
+export type FirstFocusState = FunctionReturnType<typeof api.firstFocus.getCurrent>;
 type Completion = FunctionReturnType<typeof api.firstFocus.completeHighlight>;
 type ActiveGoal = FirstFocusState["activeGoals"][number];
-type CompletionContext = {
+export type CompletionContext = {
   result: Completion;
   goal: ActiveGoal | null;
   highlightTitle: string;
 };
+type CompleteHighlight = (
+  args: FunctionArgs<typeof api.firstFocus.completeHighlight>,
+) => Promise<Completion>;
 
 export default function HiveScreen() {
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return (
+      <HiveScreenView
+        current={fixture.hive}
+        onCompleteHighlight={async () => fixture.hiveCompletion.result}
+      />
+    );
+  }
+
   return (
     <HiveErrorBoundary>
-      <HiveContent />
+      <LiveHiveContent />
     </HiveErrorBoundary>
   );
 }
 
-function HiveContent() {
+function LiveHiveContent() {
   const current = useQuery(api.firstFocus.getCurrent, {});
+  const completeHighlight = useMutation(api.firstFocus.completeHighlight);
 
+  return (
+    <HiveScreenView
+      current={current}
+      onCompleteHighlight={completeHighlight}
+    />
+  );
+}
+
+export function HiveScreenView({
+  current,
+  initialCompletion,
+  onCompleteHighlight,
+}: {
+  current: FirstFocusState | undefined;
+  initialCompletion?: CompletionContext;
+  onCompleteHighlight: CompleteHighlight;
+}) {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -70,7 +102,11 @@ function HiveContent() {
           {current === undefined ? (
             <HiveLoading />
           ) : (
-            <HiveDashboard current={current} />
+            <HiveDashboard
+              current={current}
+              initialCompletion={initialCompletion}
+              onCompleteHighlight={onCompleteHighlight}
+            />
           )}
         </ScrollView>
       </SafeAreaView>
@@ -78,11 +114,20 @@ function HiveContent() {
   );
 }
 
-function HiveDashboard({ current }: { current: FirstFocusState }) {
+function HiveDashboard({
+  current,
+  initialCompletion,
+  onCompleteHighlight,
+}: {
+  current: FirstFocusState;
+  initialCompletion?: CompletionContext;
+  onCompleteHighlight: CompleteHighlight;
+}) {
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
-  const completeHighlight = useMutation(api.firstFocus.completeHighlight);
-  const [completion, setCompletion] = useState<CompletionContext | null>(null);
+  const [completion, setCompletion] = useState<CompletionContext | null>(
+    initialCompletion ?? null,
+  );
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,7 +144,7 @@ function HiveDashboard({ current }: { current: FirstFocusState }) {
     setCompleting(true);
     setError(null);
     try {
-      const result = await completeHighlight({
+      const result = await onCompleteHighlight({
         requestId: `complete-highlight:${highlight.highlightId}`,
         taskId: highlight.taskId as Id<"tasks">,
       });

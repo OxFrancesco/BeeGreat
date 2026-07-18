@@ -15,13 +15,18 @@ import {
 } from 'react-native';
 
 import { ScreenHeader } from '@/components/goals/screen-header';
-import { BookmarkCell, type BookmarkItem } from '@/components/mind/bookmark-item';
+import {
+  BookmarkCell,
+  hexCellHeight,
+  type BookmarkItem,
+} from '@/components/mind/bookmark-item';
 import { ViewSwitcher } from '@/components/mind/view-switcher';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { useMindView } from '@/lib/preferences';
+import { type MindView, useMindView } from '@/lib/preferences';
+import { useScreenshotFixture } from '@/lib/screenshot-fixture';
 
 type Kind = 'website' | 'tweet' | 'youtube';
 
@@ -33,9 +38,30 @@ const KINDS: { value?: Kind; label: string }[] = [
 ];
 
 export default function MindScreen() {
-  const theme = useTheme();
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return (
+      <MindScreenView
+        items={fixture.bookmarks}
+        labels={fixture.bookmarkLabels}
+        view={fixture.mindView}
+        search=""
+        firstLoad={false}
+        loadingMore={false}
+        canLoadMore={false}
+        onKind={() => {}}
+        onLabel={() => {}}
+        onSearch={() => {}}
+        onLoadMore={() => {}}
+      />
+    );
+  }
+
+  return <LiveMindScreen />;
+}
+
+function LiveMindScreen() {
   const view = useMindView();
-  const { width } = useWindowDimensions();
   const [kind, setKind] = useState<Kind>();
   const [label, setLabel] = useState<string>();
   const [search, setSearch] = useState('');
@@ -58,17 +84,79 @@ export default function MindScreen() {
       : source;
   }, [label, paginated.results, query, searchResults]);
 
-  const contentWidth = Math.min(width, MaxContentWidth) - Spacing.three * 2;
-  const columns = view === 'list' ? 1 : width >= 760 ? 3 : 2;
-  const gap = view === 'hex' ? 2 : 12;
-  const itemWidth =
-    view === 'list'
-      ? contentWidth
-      : Math.floor((contentWidth - gap * (columns - 1)) / columns);
   const firstLoad =
     query && searchResults === undefined
       ? true
       : !query && paginated.status === 'LoadingFirstPage';
+
+  return (
+    <MindScreenView
+      items={items as BookmarkItem[]}
+      labels={labels ?? []}
+      view={view}
+      kind={kind}
+      label={label}
+      search={search}
+      firstLoad={firstLoad}
+      loadingMore={paginated.status === 'LoadingMore'}
+      canLoadMore={!query && paginated.status === 'CanLoadMore'}
+      onKind={setKind}
+      onLabel={setLabel}
+      onSearch={setSearch}
+      onLoadMore={() => paginated.loadMore(24)}
+    />
+  );
+}
+
+export function MindScreenView({
+  items,
+  labels,
+  view,
+  kind,
+  label,
+  search,
+  firstLoad,
+  loadingMore,
+  canLoadMore,
+  onKind,
+  onLabel,
+  onSearch,
+  onLoadMore,
+}: {
+  items: BookmarkItem[];
+  labels: { label: string; count: number }[];
+  view: MindView;
+  kind?: Kind;
+  label?: string;
+  search: string;
+  firstLoad: boolean;
+  loadingMore: boolean;
+  canLoadMore: boolean;
+  onKind: (kind?: Kind) => void;
+  onLabel: (label?: string) => void;
+  onSearch: (search: string) => void;
+  onLoadMore: () => void;
+}) {
+  const theme = useTheme();
+  const { width } = useWindowDimensions();
+  const query = search.trim();
+  const contentWidth = Math.min(width, MaxContentWidth) - Spacing.three * 2;
+  const columns =
+    view === 'list' ? 1 : view === 'hex' ? (width >= 760 ? 7 : 4) : width >= 760 ? 3 : 2;
+  const gap = view === 'hex' ? 0 : 12;
+  // Honeycomb columns overlap by half a hex, so n columns span (n + 1) / 2 hexes.
+  const itemWidth =
+    view === 'list'
+      ? contentWidth
+      : view === 'hex'
+        ? Math.floor((contentWidth * 2) / (columns + 1))
+        : Math.floor((contentWidth - gap * (columns - 1)) / columns);
+  // When the comb has a single partial row, center it instead of leaving the
+  // right side of the grid empty.
+  const hexCenterInset =
+    view === 'hex' && items.length > 0 && items.length < columns
+      ? (contentWidth - itemWidth * (1 + (items.length - 1) / 2)) / 2
+      : 0;
 
   return (
     <ThemedView style={styles.screen}>
@@ -86,11 +174,12 @@ export default function MindScreen() {
           <MindControls
             kind={kind}
             label={label}
-            labels={labels ?? []}
+            labels={labels}
             search={search}
-            onKind={setKind}
-            onLabel={setLabel}
-            onSearch={setSearch}
+            view={view}
+            onKind={onKind}
+            onLabel={onLabel}
+            onSearch={onSearch}
           />
         }
         ListEmptyComponent={
@@ -101,7 +190,7 @@ export default function MindScreen() {
           )
         }
         ListFooterComponent={
-          paginated.status === 'LoadingMore' ? (
+          loadingMore ? (
             <ActivityIndicator style={styles.footer} color={theme.primary} />
           ) : null
         }
@@ -111,8 +200,16 @@ export default function MindScreen() {
               view === 'hex'
                 ? {
                     width: itemWidth,
-                    marginTop: index % columns === 0 ? 0 : itemWidth * 0.42,
-                    marginBottom: -itemWidth * 0.18,
+                    // Pointy-top honeycomb: columns overlap by half a hex,
+                    // odd columns drop 3/4 of the cell height, and rows pull
+                    // up 1/4 so walls interlock exactly.
+                    marginLeft:
+                      index % columns === 0 ? hexCenterInset : -itemWidth / 2,
+                    marginTop:
+                      (index % columns) % 2 === 1
+                        ? hexCellHeight(itemWidth) * 0.75
+                        : 0,
+                    marginBottom: -hexCellHeight(itemWidth) * 0.25,
                   }
                 : view === 'cards'
                   ? { width: itemWidth, paddingBottom: gap }
@@ -123,7 +220,7 @@ export default function MindScreen() {
           </View>
         )}
         onEndReached={() => {
-          if (!query && paginated.status === 'CanLoadMore') paginated.loadMore(24);
+          if (canLoadMore) onLoadMore();
         }}
         onEndReachedThreshold={0.5}
       />
@@ -136,6 +233,7 @@ function MindControls({
   label,
   labels,
   search,
+  view,
   onKind,
   onLabel,
   onSearch,
@@ -144,12 +242,12 @@ function MindControls({
   label?: string;
   labels: { label: string; count: number }[];
   search: string;
+  view: MindView;
   onKind: (kind?: Kind) => void;
   onLabel: (label?: string) => void;
   onSearch: (search: string) => void;
 }) {
   const theme = useTheme();
-  const view = useMindView();
   return (
     <View style={styles.controls}>
       <View style={styles.headerRow}>

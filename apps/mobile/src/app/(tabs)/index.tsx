@@ -46,6 +46,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { extractBeeUI } from '@/lib/ui-spec';
+import {
+  useScreenshotFixture,
+  type ScreenshotAgentState,
+} from '@/lib/screenshot-fixture';
 
 const HERO_SUGGESTIONS = [
   'What should I focus on today?',
@@ -56,9 +60,40 @@ const HERO_SUGGESTIONS = [
 const messageKeyExtractor = (message: FlueConversationMessage) => message.id;
 const getMessageType = (message: FlueConversationMessage) => message.role;
 
+type VoiceAgentScreenState = ScreenshotAgentState & {
+  thread?: number;
+  canLoadOlder?: boolean;
+  loadingOlder?: boolean;
+  loadOlder?: () => void | Promise<void>;
+};
+
 export default function VoiceAgentScreen() {
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return <VoiceAgentScreenView agent={fixture.agent} avatarUri={null} />;
+  }
+
+  return <LiveVoiceAgentScreen />;
+}
+
+function LiveVoiceAgentScreen() {
   const agent = useVoiceAgentContext();
   const { user } = useUser();
+  return (
+    <VoiceAgentScreenView
+      agent={agent}
+      avatarUri={user?.hasImage ? user.imageUrl : null}
+    />
+  );
+}
+
+export function VoiceAgentScreenView({
+  agent,
+  avatarUri,
+}: {
+  agent: VoiceAgentScreenState;
+  avatarUri: string | null;
+}) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const hasConversation = agent.messages.length > 0;
@@ -133,19 +168,16 @@ export default function VoiceAgentScreen() {
               onPress={() => router.push('/profile')}
               style={({ pressed }) => pressed && styles.topBarPressed}
             >
-              <HexAvatar
-                size={36}
-                uri={user?.hasImage ? user.imageUrl : null}
-              />
+              <HexAvatar size={36} uri={avatarUri} />
             </Pressable>
           </View>
 
           {hasConversation ? (
             <Conversation
-              key={`thread:${agent.thread}`}
+              key={`thread:${agent.thread ?? 'fixture'}`}
               canLoadOlder={agent.canLoadOlder}
               data={agent.messages}
-              dataKey={agent.thread}
+              dataKey={agent.thread ?? 'fixture'}
               footer={awaitingReply ? <ThinkingActivity /> : null}
               getItemType={getMessageType}
               header={

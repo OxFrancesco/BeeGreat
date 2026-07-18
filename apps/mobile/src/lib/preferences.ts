@@ -34,6 +34,33 @@ export function useSpeakReplies() {
   return useSyncExternalStore(subscribeSpeakReplies, getSpeakReplies);
 }
 
+const PAYWALL_SEEN_KEY = 'bee.paywallSeen';
+
+let paywallSeen = SecureStore.getItem(PAYWALL_SEEN_KEY) === 'yes';
+const paywallSeenListeners = new Set<() => void>();
+
+export function markPaywallSeen() {
+  paywallSeen = true;
+  paywallSeenListeners.forEach((listener) => listener());
+  try {
+    SecureStore.setItem(PAYWALL_SEEN_KEY, 'yes');
+  } catch {
+    // Persistence is best-effort; the paywall stays dismissed this session.
+  }
+}
+
+function subscribePaywallSeen(listener: () => void) {
+  paywallSeenListeners.add(listener);
+  return () => {
+    paywallSeenListeners.delete(listener);
+  };
+}
+
+/** Whether the launch paywall was already shown once (it only appears once). */
+export function usePaywallSeen() {
+  return useSyncExternalStore(subscribePaywallSeen, () => paywallSeen);
+}
+
 export type MindView = 'hex' | 'cards' | 'list';
 
 const MIND_VIEW_KEY = 'bee.mindView';

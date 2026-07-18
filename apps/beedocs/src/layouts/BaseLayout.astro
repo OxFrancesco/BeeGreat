@@ -4,7 +4,7 @@ import '../styles/global.css'
 interface Props {
   title?: string
   description?: string
-  section?: 'users' | 'developers'
+  section?: 'users' | 'developers' | 'legal'
 }
 
 const { title = 'BeeDocs', description = 'Learn BeeGreat or work on the codebase.', section } = Astro.props
@@ -46,6 +46,14 @@ const current = section ?? 'home'
       </div>
     </header>
     <slot />
+    <footer class="site-footer">
+      <p>BeeGreat · Bee the best version of yourself.</p>
+      <nav aria-label="Legal and support">
+        <a href="/support/">Support</a>
+        <a href="/terms/">Terms</a>
+        <a href="/privacy/">Privacy</a>
+      </nav>
+    </footer>
     <nav class="mobile-tabbar" aria-label="Main navigation">
       <a href="/" aria-current={current === 'home' ? 'page' : undefined}><img class="nav-asset" src="/assets/bee-icon.svg" alt="" /><span>Home</span></a>
       <a href="/users/" aria-current={current === 'users' ? 'page' : undefined}><img class="nav-asset" src="/assets/honeycomb-icon.svg" alt="" /><span>Users</span></a>

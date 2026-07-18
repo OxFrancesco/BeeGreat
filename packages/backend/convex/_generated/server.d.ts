@@ -26,11 +26,21 @@ import type { DataModel } from "./dataModel.js";
  */
 type Env = {
   readonly AGENT_CREDENTIAL_BROKER_SECRET: string | undefined;
-  readonly ELEVENLABS_API_KEY: string | undefined;
+  readonly AGENT_URL: string | undefined;
+  readonly APPLE_SIGN_IN_CLIENT_ID: string | undefined;
+  readonly APPLE_SIGN_IN_KEY_ID: string | undefined;
+  readonly APPLE_SIGN_IN_PRIVATE_KEY: string | undefined;
+  readonly APPLE_SIGN_IN_TEAM_ID: string | undefined;
+  readonly CLERK_SECRET_KEY: string | undefined;
+  readonly CLERK_WEBHOOK_SIGNING_SECRET: string | undefined;
   readonly DEVIN_API_KEY: string | undefined;
   readonly DEVIN_ORG_ID: string | undefined;
+  readonly ELEVENLABS_API_KEY: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly OPENROUTER_API_KEY: string | undefined;
+  readonly REVENUECAT_APP_ID: string | undefined;
+  readonly REVENUECAT_SECRET_API_KEY: string | undefined;
+  readonly REVENUECAT_WEBHOOK_SECRET: string | undefined;
   readonly TWITTERAPI_IO_API_KEY: string | undefined;
 };
 

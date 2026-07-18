@@ -1,5 +1,6 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { useMutation } from 'convex/react';
+import type { FunctionArgs, FunctionReturnType } from 'convex/server';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
@@ -13,13 +14,43 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { clearPendingFirstFocus, registerPendingFirstFocus } from '@/lib/first-focus-confirmation';
 import { endOfLocalDay, type FirstFocusPreview, formatHighlightExpiry } from '@/lib/first-focus';
+import { useScreenshotFixture } from '@/lib/screenshot-fixture';
 
 type PreviewStatus = 'editing' | 'saving' | 'saved' | 'cancelling' | 'cancelled';
+type ConfirmPlan = (
+  args: FunctionArgs<typeof api.firstFocus.confirmPlan>,
+) => Promise<FunctionReturnType<typeof api.firstFocus.confirmPlan>>;
 
 export function FirstFocusPreviewCard({ preview }: { preview: FirstFocusPreview }) {
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return (
+      <FirstFocusPreviewCardView
+        preview={preview}
+        confirmPlan={fixture.confirmFirstFocus}
+      />
+    );
+  }
+
+  return <LiveFirstFocusPreviewCard preview={preview} />;
+}
+
+function LiveFirstFocusPreviewCard({ preview }: { preview: FirstFocusPreview }) {
+  const confirmPlan = useMutation(api.firstFocus.confirmPlan);
+  return (
+    <FirstFocusPreviewCardView preview={preview} confirmPlan={confirmPlan} />
+  );
+}
+
+export function FirstFocusPreviewCardView({
+  preview,
+  confirmPlan,
+}: {
+  preview: FirstFocusPreview;
+  confirmPlan: ConfirmPlan;
+}) {
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
-  const confirmPlan = useMutation(api.firstFocus.confirmPlan);
   const [goalTitle, setGoalTitle] = useState(preview.goalTitle);
   const [projectTitle, setProjectTitle] = useState(preview.projectTitle);
   const [taskTitle, setTaskTitle] = useState(preview.taskTitle);

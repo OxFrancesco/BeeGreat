@@ -27,3 +27,16 @@ describe('power-up tool labels', () => {
     );
   });
 });
+
+describe('Mind tool labels', () => {
+  test('presents bookmark mutations as first-class Bee activity', () => {
+    expect(getToolCopy('update_bookmark', 'done')).toMatchObject({
+      label: 'Updated the bookmark',
+      symbol: 'pencil',
+    });
+    expect(getToolCopy('delete_bookmark', 'running')).toMatchObject({
+      label: 'Deleting the bookmark…',
+      symbol: 'trash',
+    });
+  });
+});

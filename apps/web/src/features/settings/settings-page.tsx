@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { ChatGptSettings } from '../auth/chatgpt-auth'
 import { setSpeakReplies, useSpeakReplies } from '../preferences/speak-replies'
 import { useGoogleHealth } from './use-google-health'
+import { BeennectorsSettings } from './beennectors-settings'
 
 import type { ReactNode } from 'react'
 import { captureWebFailure } from '~/lib/sentry'
@@ -119,6 +120,14 @@ export function SettingsPage() {
 
       <SettingsSection label="Connections">
         <ChatGptSettings />
+      </SettingsSection>
+
+      <SettingsSection label="Beennectors">
+        <p className="beennector-intro">
+          Bring your work into the Hive. These are secure connections—not
+          Power-ups—and Bee only uses them when they help with your request.
+        </p>
+        <BeennectorsSettings />
       </SettingsSection>
 
       {powerups?.length ? (

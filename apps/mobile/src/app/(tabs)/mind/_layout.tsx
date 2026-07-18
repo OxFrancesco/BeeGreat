@@ -23,9 +23,8 @@ export default function MindLayout() {
           title: 'Save to Mind',
           headerLargeTitle: false,
           presentation: 'formSheet',
-          sheetAllowedDetents: [0.5, 0.9],
+          sheetAllowedDetents: 'fitToContents',
           sheetGrabberVisible: true,
-          contentStyle: { height: '100%' },
         }}
       />
     </Stack>

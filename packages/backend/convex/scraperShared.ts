@@ -35,9 +35,15 @@ export class BookmarkUrlError extends Error {
 
 function parsedHttpUrl(value: string) {
   const trimmed = value.trim()
+  const hasScheme = /^[a-z][a-z\d+.-]*:/i.test(trimmed)
+  const candidate = trimmed.startsWith('//')
+    ? `https:${trimmed}`
+    : hasScheme
+      ? trimmed
+      : `https://${trimmed}`
   let url: URL
   try {
-    url = new URL(trimmed)
+    url = new URL(candidate)
   } catch {
     throw new BookmarkUrlError('Enter a valid website URL')
   }
@@ -45,6 +51,11 @@ function parsedHttpUrl(value: string) {
     throw new BookmarkUrlError('Mind only accepts http or https links')
   }
   return url
+}
+
+/** Adds HTTPS when the user supplies a bare domain or domain/path. */
+export function completeBookmarkUrl(value: string) {
+  return parsedHttpUrl(value).toString()
 }
 
 function normalizedHost(url: URL) {

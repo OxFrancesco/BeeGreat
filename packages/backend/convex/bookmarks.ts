@@ -23,6 +23,7 @@ import {
 import {
   BookmarkUrlError,
   buildSearchText,
+  completeBookmarkUrl,
   detectBookmarkKind,
   MAX_CONTENT_BYTES,
   normalizeBookmarkUrl,
@@ -95,11 +96,13 @@ export async function insertBookmarkForOwner(
       message: 'Bookmark URL is too long',
     })
   }
+  let completedUrl: string
   let normalizedUrl: string
   let detected: ReturnType<typeof detectBookmarkKind>
   try {
-    normalizedUrl = normalizeBookmarkUrl(input.url)
-    detected = detectBookmarkKind(input.url)
+    completedUrl = completeBookmarkUrl(input.url)
+    normalizedUrl = normalizeBookmarkUrl(completedUrl)
+    detected = detectBookmarkKind(completedUrl)
   } catch (error) {
     if (error instanceof BookmarkUrlError) {
       throw new ConvexError({ code: 'INVALID_URL', message: error.message })
@@ -119,7 +122,7 @@ export async function insertBookmarkForOwner(
   const bookmarkId = await ctx.db.insert('bookmarks', {
     ownerKey: input.ownerKey,
     userId: input.userId,
-    url: input.url.trim(),
+    url: completedUrl,
     normalizedUrl,
     kind: detected.kind,
     status: 'pending',
@@ -140,6 +143,50 @@ export async function insertBookmarkForOwner(
   const bookmark = await ctx.db.get('bookmarks', bookmarkId)
   if (!bookmark) bookmarkNotFound()
   return bookmark
+}
+
+export async function updateBookmarkForOwner(
+  ctx: MutationCtx,
+  input: {
+    ownerKey: string
+    bookmarkId: Id<'bookmarks'>
+    title?: string
+    labels?: string[]
+    note?: string
+  },
+) {
+  const bookmark = await ownedBookmark(ctx, input.ownerKey, input.bookmarkId)
+  const title =
+    input.title === undefined
+      ? bookmark.title
+      : truncateContent(input.title.trim(), MAX_TITLE_BYTES) || undefined
+  const labels =
+    input.labels === undefined ? bookmark.labels : normalizeLabels(input.labels)
+  const note =
+    input.note === undefined ? bookmark.note : normalizeNote(input.note)
+  await ctx.db.patch('bookmarks', bookmark._id, {
+    title,
+    labels,
+    note,
+    searchText: buildSearchText({
+      title,
+      labels,
+      summary: bookmark.summary,
+      content: bookmark.content,
+    }),
+    updatedAt: Date.now(),
+  })
+  const updated = await ctx.db.get('bookmarks', bookmark._id)
+  if (!updated) bookmarkNotFound()
+  return updated
+}
+
+export async function removeBookmarkForOwner(
+  ctx: MutationCtx,
+  input: { ownerKey: string; bookmarkId: Id<'bookmarks'> },
+) {
+  const bookmark = await ownedBookmark(ctx, input.ownerKey, input.bookmarkId)
+  await ctx.db.delete('bookmarks', bookmark._id)
 }
 
 export const list = query({
@@ -245,30 +292,7 @@ export const update = mutation({
   returns: bookmarkValidator,
   handler: async (ctx, args) => {
     const { ownerKey } = await requireIdentity(ctx)
-    const bookmark = await ownedBookmark(ctx, ownerKey, args.bookmarkId)
-    const title =
-      args.title === undefined
-        ? bookmark.title
-        : truncateContent(args.title.trim(), MAX_TITLE_BYTES) || undefined
-    const labels =
-      args.labels === undefined ? bookmark.labels : normalizeLabels(args.labels)
-    const note =
-      args.note === undefined ? bookmark.note : normalizeNote(args.note)
-    await ctx.db.patch('bookmarks', bookmark._id, {
-      title,
-      labels,
-      note,
-      searchText: buildSearchText({
-        title,
-        labels,
-        summary: bookmark.summary,
-        content: bookmark.content,
-      }),
-      updatedAt: Date.now(),
-    })
-    const updated = await ctx.db.get('bookmarks', bookmark._id)
-    if (!updated) bookmarkNotFound()
-    return updated
+    return await updateBookmarkForOwner(ctx, { ownerKey, ...args })
   },
 })
 
@@ -277,8 +301,7 @@ export const remove = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const { ownerKey } = await requireIdentity(ctx)
-    const bookmark = await ownedBookmark(ctx, ownerKey, args.bookmarkId)
-    await ctx.db.delete('bookmarks', bookmark._id)
+    await removeBookmarkForOwner(ctx, { ownerKey, ...args })
     return null
   },
 })

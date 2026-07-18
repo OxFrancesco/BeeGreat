@@ -1,0 +1,65 @@
+{
+  "sets": [
+    {
+      "key": "iphone-69",
+      "label": "iPhone 6.9-inch",
+      "width": 1320,
+      "height": 2868
+    },
+    {
+      "key": "ipad-13",
+      "label": "iPad 13-inch",
+      "width": 2064,
+      "height": 2752
+    }
+  ],
+  "shots": [
+    {
+      "order": 1,
+      "slug": "bee-focus",
+      "headline": "Turn goals into your next step",
+      "state": "Bee conversation with a realistic request and an editable Goal, Project, Tasks, and Highlight preview."
+    },
+    {
+      "order": 2,
+      "slug": "goals-plan",
+      "headline": "Know exactly what to do next",
+      "state": "Goals detail with one Project, a short Task list, and a clearly marked next Highlight."
+    },
+    {
+      "order": 3,
+      "slug": "hive-progress",
+      "headline": "Make focused progress visible",
+      "state": "Hive showing Honey, Honeycomb Score, the vessel, and earned progress after a completed Task."
+    },
+    {
+      "order": 4,
+      "slug": "voice-with-bee",
+      "headline": "Talk it through with Bee",
+      "state": "Voice-ready Bee screen with a short, readable assistant response and no permission dialog."
+    },
+    {
+      "order": 5,
+      "slug": "mind-bookmarks",
+      "headline": "Keep useful ideas close",
+      "state": "Mind with fictional saved resources, concise summaries, and topic labels."
+    },
+    {
+      "order": 6,
+      "slug": "beegreat-pro",
+      "headline": "One plan. Full BeeGreat access.",
+      "state": "BeeGreat Pro paywall showing BeeGreat Pro Monthly, Apple's live localized monthly price, Subscribe, Restore Purchases, Terms, and Privacy."
+    }
+  ],
+  "subscriptionReview": {
+    "setKey": "iphone-69",
+    "filename": "subscription-review/beegreat-pro-monthly-1320x2868.png",
+    "requirements": [
+      "Raw in-app paywall without a marketing frame",
+      "Product name and one-month period visible",
+      "Apple's live localized price visible",
+      "Subscribe and Restore Purchases visible",
+      "Terms and Privacy links visible"
+    ]
+  }
+}

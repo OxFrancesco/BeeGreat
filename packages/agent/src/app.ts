@@ -8,17 +8,24 @@ import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import { checkPaidSubscription } from './subscription-gate'
 
 type Bindings = {
   ELEVENLABS_API_KEY: string
   ELEVENLABS_VOICE_ID?: string
   CLERK_JWT_ISSUER_DOMAIN: string
+  CONVEX_URL?: string
+  CONVEX_SITE_URL?: string
+  AGENT_CREDENTIAL_BROKER_SECRET?: string
   // Shared secret for trusted service bridges (e.g. the iMessage bridge).
   BRIDGE_SECRET?: string
   SENTRY_DSN?: string
   SENTRY_ENVIRONMENT?: string
   SENTRY_RELEASE?: string
   WEB_ALLOWED_ORIGINS?: string
+  FLUE_BEE_AGENT: {
+    getByName(name: string): { deleteAccountData(): Promise<void> }
+  }
 }
 
 type Variables = {
@@ -130,6 +137,22 @@ function secretsMatch(a: string, b: string) {
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined
 
 app.use('*', async (c, next) => {
+  // Provider webhook routes authenticate with the exact-body signature checks
+  // in @flue/github, @flue/linear, and @flue/notion. They must reach Flue
+  // without a Clerk token; no other channel route receives this exception.
+  if (
+    /^\/channels\/(github|linear|notion)\/webhook$/.test(c.req.path)
+  ) {
+    await next()
+    return
+  }
+  // This route authenticates its Convex caller with the same server-only
+  // broker secret in its own handler. It must remain reachable after Clerk
+  // has deleted the user's identity and session.
+  if (c.req.path === '/internal/account-deletion') {
+    await next()
+    return
+  }
   const bridgeSecret = c.req.header('x-bridge-secret')
   const bridgeUser = c.req.header('x-bridge-user')
   const configuredBridgeSecret = binding(c.env, 'BRIDGE_SECRET')
@@ -175,7 +198,94 @@ app.use('*', async (c, next) => {
 
   Sentry.setUser({ id: c.get('userId') })
 
+  // BeeGreat Pro is optional: the hard gate only engages when a deployment
+  // explicitly opts in with REQUIRE_SUBSCRIPTION=true.
+  const requireSubscription =
+    binding(c.env, 'REQUIRE_SUBSCRIPTION')?.trim().toLowerCase() === 'true'
+  if (
+    requireSubscription &&
+    /^\/(?:agents(?:\/|$)|voice(?:\/|$))/.test(c.req.path)
+  ) {
+    const subscription = await checkPaidSubscription(c.get('userId'), {
+      CONVEX_URL: binding(c.env, 'CONVEX_URL'),
+      CONVEX_SITE_URL: binding(c.env, 'CONVEX_SITE_URL'),
+      AGENT_CREDENTIAL_BROKER_SECRET: binding(
+        c.env,
+        'AGENT_CREDENTIAL_BROKER_SECRET',
+      ),
+    })
+    if (subscription.status === 'inactive') {
+      return c.json(
+        {
+          error:
+            'BeeGreat Pro is required. Subscribe or restore in the signed-in BeeGreat iOS app, then try again.',
+          code: 'SUBSCRIPTION_REQUIRED',
+          recovery: {
+            action: 'subscribe_or_restore',
+            platform: 'ios',
+          },
+        },
+        402,
+      )
+    }
+    if (subscription.status === 'unavailable') {
+      captureWorkerFailure(
+        new Error('Subscription verification is unavailable'),
+        'subscription.verify',
+        { reason: subscription.reason },
+      )
+      c.header('retry-after', '5')
+      return c.json(
+        {
+          error: 'Subscription verification is temporarily unavailable.',
+          code: 'SUBSCRIPTION_UNAVAILABLE',
+        },
+        503,
+      )
+    }
+  }
+
   await next()
+})
+
+app.post('/internal/account-deletion', async (c) => {
+  const configuredSecret = binding(c.env, 'AGENT_CREDENTIAL_BROKER_SECRET')
+  const suppliedSecret = c.req.header('authorization')?.match(/^Bearer ([^\s]+)$/i)?.[1]
+  if (
+    !configuredSecret ||
+    !suppliedSecret ||
+    !secretsMatch(configuredSecret, suppliedSecret)
+  ) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  const body = (await c.req.json().catch(() => null)) as {
+    userId?: unknown
+    conversationIds?: unknown
+  } | null
+  if (
+    !body ||
+    typeof body.userId !== 'string' ||
+    !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+    !Array.isArray(body.conversationIds) ||
+    body.conversationIds.length > 250 ||
+    body.conversationIds.some(
+      (id) =>
+        typeof id !== 'string' ||
+        (id !== body.userId && !new RegExp(`^${body.userId}~[0-9]+$`).test(id)),
+    )
+  ) {
+    return c.json({ error: 'Invalid deletion request' }, 400)
+  }
+
+  const conversationIds = [...new Set(body.conversationIds)]
+  for (let index = 0; index < conversationIds.length; index += 20) {
+    await Promise.all(
+      conversationIds
+        .slice(index, index + 20)
+        .map((id) => c.env.FLUE_BEE_AGENT.getByName(id).deleteAccountData()),
+    )
+  }
+  return c.json({ deleted: conversationIds.length })
 })
 
 // Speech-to-text: raw audio bytes in, proxied to ElevenLabs Scribe.

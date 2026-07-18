@@ -114,7 +114,6 @@ function DevinCard({
         </span>
         <div>
           <h3>{title}</h3>
-          <code>{sessionId}</code>
         </div>
         <span className="devin-card__status">{detail}</span>
       </header>

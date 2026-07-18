@@ -3,6 +3,7 @@ import { useClerk, useUser } from '@clerk/clerk-expo';
 import { Canvas, Path } from '@shopify/react-native-skia';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { type PropsWithChildren, useMemo, useState } from 'react';
@@ -19,10 +20,13 @@ import { HexAvatar, makeHexPath } from '@/components/hex-avatar';
 import { Hive } from '@/components/hex-button';
 import { InfoButton } from '@/components/info-button';
 import { ChatGptAuthSettings } from '@/components/chatgpt/chatgpt-auth';
+import { BeennectorsSettings } from '@/components/beennectors/beennectors-settings';
 import { useGoogleHealthAuth } from '@/components/google-health/google-health-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useSubscription } from '@/components/subscription/subscription-provider';
 import { Fonts, Spacing } from '@/constants/theme';
+import { useAccountDeletion } from '@/hooks/use-account-deletion';
 import { useTheme } from '@/hooks/use-theme';
 import { updateGoogleHealthPowerup } from '@/lib/google-health-powerup';
 import { setSpeakReplies, useSpeakReplies } from '@/lib/preferences';
@@ -38,6 +42,9 @@ const DEFAULT_POWERUP_ICON = { symbol: 'puzzlepiece.extension.fill', glyph: '⌁
 
 const CLOSE_HEX_SIZE = 34;
 const CLOSE_HEX_STROKE = 2;
+const PRIVACY_URL = 'https://beedocs.pages.dev/privacy';
+const SUPPORT_URL = 'https://beedocs.pages.dev/support';
+const TERMS_URL = 'https://beedocs.pages.dev/terms';
 
 /** Honeycomb-cell close button matching the HexAvatar/HexButton style. */
 function HexCloseButton({ onPress }: { onPress: () => void }) {
@@ -89,6 +96,8 @@ export default function ProfileScreen() {
   const { user } = useUser();
   const { signOut } = useClerk();
   const theme = useTheme();
+  const subscription = useSubscription();
+  const accountDeletion = useAccountDeletion();
   const speakReplies = useSpeakReplies();
   const powerups = useQuery(api.powerups.list);
   const setPowerupEnabled = useMutation(api.powerups.setEnabled);
@@ -103,7 +112,13 @@ export default function ProfileScreen() {
   const email = user?.primaryEmailAddress?.emailAddress;
 
   const handleSignOut = async () => {
-    if (signingOut) return;
+    if (
+      signingOut ||
+      subscription.operation !== null ||
+      accountDeletion.deleting
+    ) {
+      return;
+    }
     setSigningOut(true);
     setError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -143,6 +158,17 @@ export default function ProfileScreen() {
     } finally {
       setGoogleHealthWorking(false);
     }
+  };
+
+  const openAccountPage = (url: string) => {
+    setError(null);
+    Haptics.selectionAsync();
+    void WebBrowser.openBrowserAsync(url, {
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+    }).catch((cause) => {
+      captureMobileFailure(cause, 'account.open_link', { url });
+      setError("Couldn't open that page. Try again.");
+    });
   };
 
   return (
@@ -202,6 +228,10 @@ export default function ProfileScreen() {
 
         <Section label="Connections">
           <ChatGptAuthSettings />
+        </Section>
+
+        <Section label="Beennectors">
+          <BeennectorsSettings />
         </Section>
 
         {powerups && powerups.length > 0 ? (
@@ -281,9 +311,133 @@ export default function ProfileScreen() {
           </Section>
         ) : null}
 
+        <Section label="Account">
+          <View
+            style={[
+              styles.accountCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
+            {process.env.EXPO_OS === 'ios' ? (
+              <View style={styles.settingCopy}>
+                <ThemedText type="default">BeeGreat Pro</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {subscription.isPro
+                    ? `${subscription.plan?.localizedPrice ?? 'Active'} per month`
+                    : 'Subscription inactive'}
+                </ThemedText>
+              </View>
+            ) : null}
+            <View style={styles.accountActions}>
+              {process.env.EXPO_OS === 'ios' && !subscription.isPro ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Upgrade to BeeGreat Pro"
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    router.push('/paywall');
+                  }}
+                  style={({ pressed }) => [
+                    styles.upgrade,
+                    { backgroundColor: theme.primary },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <ThemedText
+                    type="default"
+                    style={[styles.upgradeLabel, { color: Hive.cacao }]}
+                  >
+                    Upgrade to Pro
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+              {process.env.EXPO_OS === 'ios' ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={subscription.operation !== null}
+                    onPress={() => void subscription.manage()}
+                    style={({ pressed }) => [styles.accountAction, pressed && styles.pressed]}
+                  >
+                    {subscription.operation === 'manage' ? (
+                      <ActivityIndicator color={theme.primary} />
+                    ) : (
+                      <ThemedText type="small">Manage Subscription</ThemedText>
+                    )}
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={subscription.operation !== null}
+                    onPress={() => void subscription.restore()}
+                    style={({ pressed }) => [styles.accountAction, pressed && styles.pressed]}
+                  >
+                    {subscription.operation === 'restore' ? (
+                      <ActivityIndicator color={theme.primary} />
+                    ) : (
+                      <ThemedText type="small">Restore Purchases</ThemedText>
+                    )}
+                  </Pressable>
+                </>
+              ) : null}
+              {[
+                ['Terms of Use', TERMS_URL],
+                ['Privacy Policy', PRIVACY_URL],
+                ['Support', SUPPORT_URL],
+              ].map(([label, url]) => (
+                <Pressable
+                  key={url}
+                  accessibilityRole="link"
+                  onPress={() => openAccountPage(url)}
+                  style={({ pressed }) => [styles.accountAction, pressed && styles.pressed]}
+                >
+                  <ThemedText type="small">{label}</ThemedText>
+                </Pressable>
+              ))}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete Account"
+                disabled={
+                  accountDeletion.deleting || subscription.operation !== null
+                }
+                onPress={accountDeletion.requestDeletion}
+                style={({ pressed }) => [
+                  styles.accountAction,
+                  styles.deleteAccount,
+                  { borderColor: theme.destructive },
+                  pressed && styles.pressed,
+                ]}
+              >
+                {accountDeletion.deleting ? (
+                  <ActivityIndicator color={theme.destructive} />
+                ) : (
+                  <ThemedText type="small" themeColor="destructive">
+                    Delete Account
+                  </ThemedText>
+                )}
+              </Pressable>
+            </View>
+            {subscription.error || subscription.message || accountDeletion.error ? (
+              <ThemedText
+                type="small"
+                themeColor={subscription.error || accountDeletion.error ? 'destructive' : 'textSecondary'}
+              >
+                {accountDeletion.error ?? subscription.error ?? subscription.message}
+              </ThemedText>
+            ) : null}
+          </View>
+        </Section>
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign out"
+          accessibilityState={{
+            busy: signingOut,
+            disabled:
+              subscription.operation !== null || accountDeletion.deleting,
+          }}
+          disabled={
+            subscription.operation !== null || accountDeletion.deleting
+          }
           onPress={handleSignOut}
           style={({ pressed }) => [
             styles.signOut,
@@ -416,6 +570,40 @@ const styles = StyleSheet.create({
   },
   powerupName: {
     fontWeight: '600',
+  },
+  accountCard: {
+    alignSelf: 'stretch',
+    gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    padding: Spacing.three,
+  },
+  accountActions: {
+    gap: Spacing.one,
+  },
+  upgrade: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: 24,
+    borderCurve: 'continuous',
+  },
+  upgradeLabel: {
+    fontWeight: '700',
+  },
+  accountAction: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+  },
+  deleteAccount: {
+    marginTop: Spacing.one,
+    borderWidth: 1,
+    borderRadius: 14,
+    borderCurve: 'continuous',
   },
   signOut: {
     alignSelf: 'stretch',

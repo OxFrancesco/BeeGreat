@@ -3,7 +3,17 @@ import { v } from 'convex/values'
 
 const app = defineApp({
   env: {
+    AGENT_URL: v.optional(v.string()),
     AGENT_CREDENTIAL_BROKER_SECRET: v.optional(v.string()),
+    APPLE_SIGN_IN_CLIENT_ID: v.optional(v.string()),
+    APPLE_SIGN_IN_KEY_ID: v.optional(v.string()),
+    APPLE_SIGN_IN_PRIVATE_KEY: v.optional(v.string()),
+    APPLE_SIGN_IN_TEAM_ID: v.optional(v.string()),
+    CLERK_SECRET_KEY: v.optional(v.string()),
+    CLERK_WEBHOOK_SIGNING_SECRET: v.optional(v.string()),
+    REVENUECAT_SECRET_API_KEY: v.optional(v.string()),
+    REVENUECAT_WEBHOOK_SECRET: v.optional(v.string()),
+    REVENUECAT_APP_ID: v.optional(v.string()),
     FIRECRAWL_API_KEY: v.optional(v.string()),
     TWITTERAPI_IO_API_KEY: v.optional(v.string()),
     ELEVENLABS_API_KEY: v.optional(v.string()),

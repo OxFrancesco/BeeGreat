@@ -14,5 +14,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/sentry-react-native` — Official Sentry React Native SDK for Expo configuration, native crash reporting, source maps, tracing, and app lifecycle
 - `resources/sugar-sdk` — Velodrome/Aerodrome Sugar SDK and CLI reference for pool, position, rewards, swap, stake, unstake, and voting actions
 - `resources/effect` — Effect TypeScript library — functional effect system, concurrency, streams, schema
+- `resources/flue` — Official Flue framework — runtime, channel/database/sandbox connectors, blueprints, tooling, and examples
+- `resources/stagehand` — Browserbase Stagehand — AI browser automation framework (act/extract/observe/agent) built on Playwright
+- `resources/chat` — Vercel Chat SDK — cross-platform adapters, identity/event models, state, and examples
 
 <!-- codeview:end -->

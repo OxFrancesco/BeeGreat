@@ -1,7 +1,10 @@
 import { Image as ExpoImage } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { MOOD_BEE_SOURCES } from '@/components/bee-healthy/mood-bee-assets';
+import {
+  BEE_DOCTOR_SOURCE,
+  MOOD_BEE_SOURCES,
+} from '@/components/bee-healthy/mood-bee-assets';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -29,8 +32,8 @@ export function MoodTracker({ value, onChange, disabled = false }: MoodTrackerPr
       >
         <ExpoImage
           contentFit="contain"
-          source={MOOD_BEE_SOURCES[value ?? 'okay']}
-          style={[styles.heroBee, value === null && styles.heroBeeEmpty]}
+          source={value ? MOOD_BEE_SOURCES[value] : BEE_DOCTOR_SOURCE}
+          style={styles.heroBee}
         />
       </View>
 
@@ -104,9 +107,6 @@ const styles = StyleSheet.create({
   heroBee: {
     width: 174,
     height: 174,
-  },
-  heroBeeEmpty: {
-    opacity: 0.68,
   },
   status: {
     minHeight: 20,

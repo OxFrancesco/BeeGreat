@@ -7,9 +7,6 @@ import {
   LinearGradient,
   Path,
   Shadow,
-  Skia,
-  TextPath,
-  matchFont,
   useImage,
   vec,
 } from '@shopify/react-native-skia';
@@ -17,7 +14,7 @@ import { Image } from 'expo-image';
 import { Link, type Href } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { makeHexPath } from '@/components/hex-avatar';
 import { ThemedText } from '@/components/themed-text';
@@ -60,7 +57,7 @@ export function BookmarkCell({
         style={({ pressed }) => pressed && styles.pressed}
       >
         {view === 'hex' ? (
-          <HexBookmark bookmark={bookmark} size={width} />
+          <HexBookmark bookmark={bookmark} width={width} />
         ) : view === 'cards' ? (
           <CardBookmark bookmark={bookmark} width={width} />
         ) : (
@@ -81,12 +78,17 @@ const Comb = {
   wallInner: 'rgba(255, 250, 235, 0.85)',
   rimShadow: 'rgba(126, 74, 5, 0.28)',
   text: '#582D1D',
-  arcText: '#8A5410',
 } as const;
 
-const arcFontFamily = Platform.select({ ios: 'Avenir', default: 'sans-serif-medium' });
+/** Height of a pointy-top hexagon whose flat-to-flat width is `width`. */
+export function hexCellHeight(width: number) {
+  return (width * 2) / Math.sqrt(3);
+}
 
-function HexBookmark({ bookmark, size }: { bookmark: BookmarkItem; size: number }) {
+function HexBookmark({ bookmark, width }: { bookmark: BookmarkItem; width: number }) {
+  // The hex is inscribed in a square of side `size`; its visible width is
+  // exactly `width`, so tessellated cells can share walls edge to edge.
+  const size = hexCellHeight(width);
   const image = useImage(bookmark.meta?.imageUrl ?? null);
   const theme = useTheme();
   const failed = bookmark.status === 'failed';
@@ -97,33 +99,17 @@ function HexBookmark({ bookmark, size }: { bookmark: BookmarkItem; size: number 
     [size, wall],
   );
 
-  // Curved site name hugging the top edges inside the cell.
-  const arcFontSize = Math.max(9, size * 0.062);
-  const arc = useMemo(() => {
-    const font = matchFont({
-      fontFamily: arcFontFamily,
-      fontSize: arcFontSize,
-      fontWeight: 'bold',
-    });
-    const c = size / 2;
-    const r = c - wall * 2.6 - arcFontSize * 1.5;
-    const rect = Skia.XYWHRect(c - r, c - r, r * 2, r * 2);
-    const builder = Skia.PathBuilder.Make();
-    builder.addArc(rect, -150, 120);
-    const textPath = builder.build();
-    const arcLength = (Math.PI * r * 120) / 180;
-    let label = sourceLabel(bookmark).toUpperCase();
-    let width = font.getTextWidth(label);
-    while (label.length > 4 && width > arcLength * 0.92) {
-      label = `${label.slice(0, -2).replace(/…$/, '')}…`;
-      width = font.getTextWidth(label);
-    }
-    return { font, textPath, label, offset: Math.max(0, (arcLength - width) / 2) };
-  }, [arcFontSize, bookmark, size, wall]);
-
   return (
-    <View style={{ width: size, height: size }}>
-      <Canvas style={StyleSheet.absoluteFill}>
+    <View style={{ width, height: size }}>
+      <Canvas
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: -(size - width) / 2,
+          width: size,
+          height: size,
+        }}
+      >
         {/* Wax cell body with honey gradient and soft depth. */}
         <Path path={path} color={Comb.fillBottom}>
           <LinearGradient
@@ -136,8 +122,8 @@ function HexBookmark({ bookmark, size }: { bookmark: BookmarkItem; size: number 
         {image ? (
           <Group clip={path}>
             <SkiaImage image={image} x={0} y={0} width={size} height={size} fit="cover" />
-            {/* Honey scrim keeps the curved label and title legible over art. */}
-            <Path path={path} color="rgba(48, 26, 4, 0.42)" />
+            {/* Honey scrim keeps the site name legible over busy preview art. */}
+            <Path path={path} color="rgba(48, 26, 4, 0.58)" />
           </Group>
         ) : null}
         {/* Inner highlight rim gives the wax-wall bevel. */}
@@ -151,17 +137,23 @@ function HexBookmark({ bookmark, size }: { bookmark: BookmarkItem; size: number 
         <Path path={path} style="stroke" strokeWidth={wall} color={Comb.wall}>
           <Shadow dx={0} dy={1.5} blur={3} color={Comb.rimShadow} />
         </Path>
-        {/* Site name curved along the top edge of the cell. */}
-        <TextPath
-          font={arc.font}
-          path={arc.textPath}
-          text={arc.label}
-          initialOffset={arc.offset}
-          color={image ? '#FFE9BE' : Comb.arcText}
-        />
       </Canvas>
       <View style={styles.hexOverlay}>
         <FaviconBadge bookmark={bookmark} size={Math.max(40, size * 0.32)} />
+        {/* Site name sits under the badge, at the hex's widest band. */}
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.hexName,
+            {
+              maxWidth: size * 0.72,
+              fontSize: Math.max(10, size * 0.072),
+              color: bookmark.meta?.imageUrl ? '#FFE9BE' : Comb.text,
+            },
+          ]}
+        >
+          {sourceLabel(bookmark).toUpperCase()}
+        </Text>
       </View>
       {(bookmark.status === 'pending' || bookmark.status === 'processing') && (
         <View
@@ -180,7 +172,6 @@ function FaviconBadge({ bookmark, size }: { bookmark: BookmarkItem; size: number
     () => makeHexPath(size, stroke / 2 + 1, size / 26),
     [size, stroke],
   );
-  const inset = size * 0.22;
   return (
     <View style={{ width: size, height: size }}>
       <Canvas style={StyleSheet.absoluteFill}>
@@ -189,13 +180,15 @@ function FaviconBadge({ bookmark, size }: { bookmark: BookmarkItem; size: number
         </Path>
         {favicon ? (
           <Group clip={path}>
+            {/* Cover the whole cell so the icon reads as a hexagon, not a
+                square floating inside one. */}
             <SkiaImage
               image={favicon}
-              x={inset}
-              y={inset}
-              width={size - inset * 2}
-              height={size - inset * 2}
-              fit="contain"
+              x={0}
+              y={0}
+              width={size}
+              height={size}
+              fit="cover"
             />
           </Group>
         ) : null}
@@ -275,7 +268,15 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: '7%',
+    gap: 6,
+  },
+  hexName: {
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    textShadowColor: 'rgba(48, 26, 4, 0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   badgeGlyph: {
     ...StyleSheet.absoluteFill,

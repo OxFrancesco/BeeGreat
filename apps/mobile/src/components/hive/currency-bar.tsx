@@ -6,6 +6,13 @@ import { StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { useScreenshotFixture } from "@/lib/screenshot-fixture";
+
+type CurrencyValues = {
+  honeyBalance: number;
+  honeycombScore: number;
+  royalJellyBalance: number;
+};
 
 /**
  * Gacha-style currency readout: Honey, Honeycomb Score, and Royal Jelly as
@@ -13,9 +20,29 @@ import { useTheme } from "@/hooks/use-theme";
  * headers never jump between a spinner and the pills.
  */
 export function CurrencyBar({ size = "compact" }: { size?: "compact" | "regular" }) {
-  const theme = useTheme();
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return <CurrencyBarView values={fixture.hive.hive} size={size} />;
+  }
+
+  return <LiveCurrencyBar size={size} />;
+}
+
+function LiveCurrencyBar({ size }: { size: "compact" | "regular" }) {
   const current = useQuery(api.firstFocus.getCurrent, {});
   if (!current) return null;
+
+  return <CurrencyBarView values={current.hive} size={size} />;
+}
+
+export function CurrencyBarView({
+  values,
+  size = "compact",
+}: {
+  values: CurrencyValues;
+  size?: "compact" | "regular";
+}) {
+  const theme = useTheme();
 
   const regular = size === "regular";
   const currencies = [
@@ -23,19 +50,19 @@ export function CurrencyBar({ size = "compact" }: { size?: "compact" | "regular"
       label: "Honey",
       icon: "drop.fill" as const,
       tint: "#E19100",
-      value: current.hive.honeyBalance,
+      value: values.honeyBalance,
     },
     {
       label: "Honeycomb Score",
       icon: "hexagon.fill" as const,
       tint: "#D78A00",
-      value: current.hive.honeycombScore,
+      value: values.honeycombScore,
     },
     {
       label: "Royal Jelly",
       icon: "crown.fill" as const,
       tint: "#C85682",
-      value: current.hive.royalJellyBalance,
+      value: values.royalJellyBalance,
     },
   ];
 

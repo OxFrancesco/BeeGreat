@@ -19,6 +19,7 @@ import { KeyboardStickyView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 const MAINTAIN_AT_END = {
   animated: false,
@@ -30,9 +31,13 @@ const MAINTAIN_AT_END = {
   },
 } as const;
 
+// `data` anchors the viewport when older pages prepend. `size` stays off:
+// combined with maintainScrollAtEnd's itemLayout correction, size anchoring
+// double-compensates when a row shrinks (collapsing a tool call), leaving the
+// scroll offset beyond the content so the transcript looks empty.
 const MAINTAIN_VISIBLE_POSITION = {
   data: true,
-  size: true,
+  size: false,
 } as const;
 
 type ConversationProps<ItemT> = {
@@ -74,6 +79,7 @@ export function Conversation<ItemT>({
   renderComposer,
 }: ConversationProps<ItemT>) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const listRef = useRef<LegendListRef>(null);
   const composerRef = useRef<View>(null);
   const [anchorIndex, setAnchorIndex] = useState<number>();
@@ -121,8 +127,12 @@ export function Conversation<ItemT>({
     void onLoadOlder();
   }, [canLoadOlder, loadingOlder, onLoadOlder]);
 
+  // The composer floats over the list's bottom edge; the composer-inset hook
+  // reports its height so Legend List keeps messages visible above it. Stacking
+  // the composer below the list instead would double-count that inset and leave
+  // a composer-sized blank band under the messages.
   return (
-    <>
+    <View style={styles.container}>
       <KeyboardAwareLegendList
         ref={listRef}
         alignItemsAtEnd
@@ -151,19 +161,36 @@ export function Conversation<ItemT>({
         showsVerticalScrollIndicator={false}
         style={styles.list}
       />
-      <KeyboardStickyView offset={{ closed: 0, opened: insets.bottom }}>
-        <View ref={composerRef} onLayout={onComposerLayout}>
+      <KeyboardStickyView
+        style={styles.composerOverlay}
+        offset={{ closed: 0, opened: insets.bottom }}
+      >
+        <View
+          ref={composerRef}
+          onLayout={onComposerLayout}
+          style={{ backgroundColor: theme.background }}
+        >
           {renderComposer(submit)}
         </View>
       </KeyboardStickyView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignSelf: 'stretch',
+  },
   list: {
     flex: 1,
     alignSelf: 'stretch',
+  },
+  composerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   content: {
     gap: Spacing.three,

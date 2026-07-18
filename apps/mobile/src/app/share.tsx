@@ -10,6 +10,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
+import { normalizeBookmarkInputUrl } from '@/lib/bookmark-url';
 
 type SaveState =
   | { status: 'waiting' | 'saving' }
@@ -18,22 +19,14 @@ type SaveState =
 
 function urlFromText(value: string) {
   const exact = value.trim();
-  try {
-    const parsed = new URL(exact);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.toString();
-  } catch {
-    // Shared text often contains a title followed by a URL, so try the first link below.
-  }
+  const exactUrl = normalizeBookmarkInputUrl(exact);
+  if (exactUrl) return exactUrl;
 
+  // Shared text often contains a title followed by a URL, so try the first link.
   const match = value.match(/https?:\/\/[^\s<>"']+/i)?.[0];
   if (!match) return null;
   const candidate = match.replace(/[.,;:!?\]}]+$/, '').replace(/\)$/, '');
-  try {
-    const parsed = new URL(candidate);
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null;
-  } catch {
-    return null;
-  }
+  return normalizeBookmarkInputUrl(candidate);
 }
 
 function sharedUrl(raw: SharePayload[], resolved: ResolvedSharePayload[]) {

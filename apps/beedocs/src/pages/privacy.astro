@@ -1,0 +1,235 @@
+---
+import PolicyLayout from '../layouts/PolicyLayout.astro'
+
+const sections = [
+  { href: '#scope', label: 'Scope and summary' },
+  { href: '#data-we-collect', label: 'Data we collect' },
+  { href: '#sources', label: 'Where data comes from' },
+  { href: '#how-we-use-data', label: 'How we use data' },
+  { href: '#ai-and-voice', label: 'AI and voice processing' },
+  { href: '#health-data', label: 'Health data' },
+  { href: '#sharing', label: 'How data is shared' },
+  { href: '#legal-bases', label: 'Legal bases' },
+  { href: '#retention', label: 'Retention and deletion' },
+  { href: '#choices', label: 'Your choices and rights' },
+  { href: '#security', label: 'Security and transfers' },
+  { href: '#children', label: 'Children and changes' },
+  { href: '#contact', label: 'Contact' },
+]
+---
+<PolicyLayout
+  title="Privacy Policy"
+  description="What BeeGreat collects, why it is needed, where it goes, and the controls you have over your information."
+  eyebrow="Privacy at BeeGreat"
+  updated="July 16, 2026"
+  sections={sections}
+>
+  <section aria-labelledby="scope">
+    <h2 id="scope">Scope and summary</h2>
+    <p>
+      This Privacy Policy explains how BeeGreat (“BeeGreat,” “we,” “us,” or “our”) handles personal information when you use the BeeGreat app, Bee assistant, BeeDocs website, support, and related services (the “Service”). BeeGreat is the controller of the personal information described here unless a different notice says otherwise.
+    </p>
+    <div class="policy-summary">
+      <article>
+        <strong>Your work stays yours</strong>
+        <p>You control the goals, tasks, messages, and memories you add, and can edit or delete product content.</p>
+      </article>
+      <article>
+        <strong>Power-ups are optional</strong>
+        <p>Health, ChatGPT, connected-workspace, and Web3 data is processed only when you enable or use those features.</p>
+      </article>
+      <article>
+        <strong>No data brokerage</strong>
+        <p>We do not sell personal information or share it for cross-context behavioral advertising.</p>
+      </article>
+    </div>
+    <p>
+      This policy does not govern a third-party service you choose to connect or visit. That provider’s policy applies to its own collection and use.
+    </p>
+  </section>
+
+  <section aria-labelledby="data-we-collect">
+    <h2 id="data-we-collect">Data we collect</h2>
+    <div class="policy-table" role="list">
+      <div class="policy-row" role="listitem">
+        <strong>Account and profile</strong>
+        <p>Your BeeGreat account identifier, name, email address, profile image, authentication method, sign-in state, and basic account settings. Authentication is provided by Clerk using the Apple or Google sign-in flow you choose.</p>
+      </div>
+      <div class="policy-row" role="listitem">
+        <strong>Product content</strong>
+        <p>Goals, projects, tasks, highlights, progress and Hive activity, saved bookmarks and memories, preferences, prompts, chat messages, Bee responses, generated interface content, and related timestamps.</p>
+      </div>
+      <div class="policy-row" role="listitem">
+        <strong>Voice and AI inputs</strong>
+        <p>Audio you choose to record for transcription, the resulting transcript, text sent to Bee, contextual product data needed to answer, generated speech text, and AI output.</p>
+      </div>
+      <div class="policy-row" role="listitem">
+        <strong>Optional connections</strong>
+        <p>Connection status, authorized scopes, account or workspace identifiers and names, and encrypted access credentials for services you connect, which may include ChatGPT, Google Health, GitHub, Linear, and Notion.</p>
+      </div>
+      <div class="policy-row" role="listitem">
+        <strong>Optional health data</strong>
+        <p>Read-only Google Health data you ask Bee to use, such as steps, exercise, heart rate, sleep, weight, body measurements, blood-oxygen saturation, heart-rate variability, or nutrition information.</p>
+      </div>
+      <div class="policy-row" role="listitem">
+        <strong>Optional Web3 data</strong>
+        <p>Power-up status, public wallet address, network, balances, public blockchain activity, and the wallet actions you request or approve. Public blockchain records are inherently public and cannot generally be deleted from the network.</p>
+      </div>
+      <div class="policy-row" role="listitem">
+        <strong>Subscription data</strong>
+        <p>Product identifier, purchase and renewal status, entitlement, transaction identifiers, region, and limited purchase history from Apple and RevenueCat. We do not receive your full payment-card number.</p>
+      </div>
+      <div class="policy-row" role="listitem">
+        <strong>Technical and support data</strong>
+        <p>Device and operating-system details, app version, timestamps, network and request metadata, IP address, crash or performance diagnostics, security events, support messages, and files or screenshots you send us.</p>
+      </div>
+    </div>
+    <p>
+      BeeDocs stores your light or dark theme choice locally in your browser. Our hosting provider may process ordinary request logs. BeeDocs does not use advertising cookies.
+    </p>
+  </section>
+
+  <section aria-labelledby="sources">
+    <h2 id="sources">Where data comes from</h2>
+    <ul>
+      <li><strong>From you</strong> when you create an account, add content, speak or type to Bee, turn on a feature, make a purchase, or contact support.</li>
+      <li><strong>From your device and use</strong> through app permissions, logs, diagnostics, and your interactions with the Service.</li>
+      <li><strong>From providers</strong> such as Apple, Clerk, RevenueCat, or an account you deliberately connect, according to the permissions you approve.</li>
+      <li><strong>From public networks</strong> when an enabled Web3 feature reads a public blockchain address or transaction.</li>
+    </ul>
+    <p>
+      Microphone access is used only when you invoke a voice feature. You can change system permissions in iOS or iPadOS Settings, although disabling a permission may prevent the related feature from working.
+    </p>
+  </section>
+
+  <section aria-labelledby="how-we-use-data">
+    <h2 id="how-we-use-data">How we use data</h2>
+    <p>We process personal information to:</p>
+    <ul>
+      <li>create and authenticate accounts and keep data synchronized across signed-in devices;</li>
+      <li>provide Bee conversations, voice features, planning tools, memories, optional connections, power-ups, and subscription access;</li>
+      <li>personalize responses using the context and preferences you choose to keep in BeeGreat;</li>
+      <li>process, verify, restore, and support purchases;</li>
+      <li>respond to support, privacy, and account-deletion requests;</li>
+      <li>detect abuse, protect accounts, troubleshoot failures, and maintain performance and reliability;</li>
+      <li>understand aggregate product operation and improve the Service; and</li>
+      <li>comply with law, enforce our <a href="/terms/">Terms of Use</a>, and protect users, BeeGreat, and others.</li>
+    </ul>
+    <p>We do not use health data, message content, or saved memories for targeted advertising.</p>
+  </section>
+
+  <section aria-labelledby="ai-and-voice">
+    <h2 id="ai-and-voice">AI and voice processing</h2>
+    <p>
+      When you talk to Bee, we send the prompt and the minimum relevant BeeGreat context to the AI infrastructure needed to generate a response. Depending on availability and your choices, this can include OpenAI or OpenRouter models and Cloudflare-hosted BeeGreat services. If you connect ChatGPT, encrypted authorization credentials are stored in BeeGreat’s backend and short-lived access is used to make the request.
+    </p>
+    <p>
+      For voice input, audio is transmitted to ElevenLabs for speech-to-text processing. BeeGreat does not add the raw recording to your saved account data as part of the normal voice flow, but the transcript and resulting conversation may be saved. Text sent for spoken replies is processed for text-to-speech. Providers may retain limited service records according to their agreements and legal obligations.
+    </p>
+    <p>
+      Automated systems generate Bee’s output, but BeeGreat does not make legal or similarly significant decisions about you solely through Bee’s output.
+    </p>
+  </section>
+
+  <section aria-labelledby="health-data">
+    <h2 id="health-data">Health data</h2>
+    <p>
+      The Google Health power-up is off by default. If you enable it and complete Google’s authorization flow, BeeGreat stores encrypted read-only credentials and accesses only the scopes you approve. Requests are limited to the health information needed to answer the question you ask.
+    </p>
+    <div class="policy-note">
+      <p><strong>Important:</strong> A Bee response that includes health information can become part of your saved conversation. Delete that conversation or your account if you no longer want the response stored in BeeGreat.</p>
+    </div>
+    <p>
+      We do not sell health data, use it for advertising, use it to determine eligibility for employment, credit, or insurance, or write health data back to Google Health. You can disconnect Google Health in BeeGreat and can also revoke BeeGreat from your Google Account permissions.
+    </p>
+  </section>
+
+  <section aria-labelledby="sharing">
+    <h2 id="sharing">How data is shared</h2>
+    <p>We disclose information only as needed for the purposes described above:</p>
+    <ul>
+      <li><strong>Infrastructure and product providers:</strong> Clerk for authentication; Convex for application data; Cloudflare for network and agent infrastructure; Apple and RevenueCat for subscriptions; Sentry for filtered diagnostics; ElevenLabs for voice; OpenAI or OpenRouter for AI; and Crossmint for an enabled wallet feature.</li>
+      <li><strong>Services you connect:</strong> Google Health, GitHub, Linear, Notion, ChatGPT, or another integration you deliberately authorize. Data is exchanged according to the requested action and granted scopes.</li>
+      <li><strong>Professional advisers and authorities:</strong> when reasonably necessary for legal compliance, audits, security, fraud prevention, or the establishment or defense of legal claims.</li>
+      <li><strong>Business transfers:</strong> in connection with a merger, financing, acquisition, reorganization, or sale of assets, subject to appropriate confidentiality and notice obligations.</li>
+      <li><strong>With your direction:</strong> when you ask us to share information or clearly consent.</li>
+    </ul>
+    <p>
+      Providers may process information in countries other than yours. They are permitted to handle it only for contracted services or another disclosed lawful purpose. We do not sell personal information or share it for cross-context behavioral advertising.
+    </p>
+  </section>
+
+  <section aria-labelledby="legal-bases">
+    <h2 id="legal-bases">Legal bases</h2>
+    <p>If European Economic Area, United Kingdom, or similar data-protection law applies, we rely on:</p>
+    <ul>
+      <li><strong>Contract</strong> to provide your account, requested features, and BeeGreat Pro;</li>
+      <li><strong>Consent</strong> for optional permissions and sensitive integrations such as health access, where consent is required; you may withdraw consent by disconnecting the feature;</li>
+      <li><strong>Legitimate interests</strong> to secure, diagnose, and improve the Service, prevent abuse, and communicate with you, balanced against your rights; and</li>
+      <li><strong>Legal obligations</strong> for tax, accounting, lawful requests, and protection of rights.</li>
+    </ul>
+    <p>Where we ask for information to perform a contract, not providing it may mean the related feature cannot work.</p>
+  </section>
+
+  <section aria-labelledby="retention">
+    <h2 id="retention">Retention and deletion</h2>
+    <p>
+      We keep account and product content while your account is active or as needed to provide the Service. Connection credentials remain until you disconnect, delete your account, the provider revokes them, or they expire. Short-lived authorization state is removed or allowed to expire after the flow ends. Diagnostics and support records are kept only as long as reasonably needed for security, troubleshooting, and legal purposes.
+    </p>
+    <p>
+      You can start account deletion in BeeGreat from your profile. If you cannot sign in, email <a href="mailto:oddofrancesco000@gmail.com?subject=BeeGreat%20account%20deletion">oddofrancesco000@gmail.com</a> from the address associated with your account. We may verify your identity before acting. In-app deletion first removes the BeeGreat sign-in account, then starts background deletion from BeeGreat active systems. That cleanup normally begins immediately when the device and services are online. A minimal deletion tombstone is retained for repeated safety sweeps, which may continue for up to 30 days to catch delayed writes; the tombstone does not contain your product content. Protected backups age out under our backup cycle. We may retain limited records where required for security, fraud prevention, legal compliance, dispute resolution, or financial reporting.
+    </p>
+    <p>
+      During deletion, BeeGreat attempts to remove its RevenueCat customer record and revoke supported Google Health, GitHub, Linear, and Notion credentials before erasing the encrypted local credentials. A provider may independently retain information under its own policy, and a provider outage may prevent immediate revocation. Account deletion does not erase public blockchain records, the Crossmint smart wallet or its on-chain history, Apple purchase history, or information controlled independently by a connected service. Disconnect or contact those providers separately.
+    </p>
+    <p>
+      Deleting an account does not cancel your Apple subscription. Manage or cancel it through Apple Subscriptions. BeeGreat attempts to revoke any available Sign in with Apple token before deletion. If the authorization remains visible afterward, you can remove BeeGreat under your Apple Account’s Sign in with Apple settings.
+    </p>
+  </section>
+
+  <section aria-labelledby="choices">
+    <h2 id="choices">Your choices and rights</h2>
+    <p>Depending on where you live, you may have rights to access, correct, delete, export, restrict, or object to processing of personal information, withdraw consent, or appeal a denied request.</p>
+    <ul>
+      <li>Edit or delete supported goals, projects, tasks, messages, bookmarks, and memories inside BeeGreat.</li>
+      <li>Turn off power-ups and disconnect services in your profile; revoke access with the provider for an additional control.</li>
+      <li>Change microphone access and other system permissions in device Settings.</li>
+      <li>Manage or cancel BeeGreat Pro through <a href="https://apps.apple.com/account/subscriptions">Apple Subscriptions</a>.</li>
+      <li>Request account deletion in the app or send a privacy request to the email below.</li>
+    </ul>
+    <p>
+      We do not discriminate against you for exercising a privacy right. We may need to verify your identity and authority, and applicable law may permit or require exceptions. You may use an authorized agent where local law allows. You can also complain to your local data-protection authority.
+    </p>
+  </section>
+
+  <section aria-labelledby="security">
+    <h2 id="security">Security and international transfers</h2>
+    <p>
+      We use administrative, technical, and organizational safeguards designed to protect personal information. Sensitive connection credentials are encrypted at rest, access is scoped to authenticated users and services, and diagnostics are configured to filter prompts, health fields, credentials, authorization headers, and direct contact details. No system is perfectly secure, so we cannot guarantee absolute security.
+    </p>
+    <p>
+      BeeGreat and its providers may process information in the United States, the European Economic Area, and other countries whose laws may differ from yours. Where required, we use recognized transfer mechanisms and safeguards, such as contractual protections, and honor mandatory local rights.
+    </p>
+    <p>
+      If you discover a suspected security issue, do not include passwords, tokens, health records, or wallet secrets in your first message. Use the security contact on our <a href="/support/#security">Support page</a>.
+    </p>
+  </section>
+
+  <section aria-labelledby="children">
+    <h2 id="children">Children and policy changes</h2>
+    <p>
+      BeeGreat is not directed to children under 13, and we do not knowingly collect their personal information. If the law where a child lives sets a higher age for consent to online services, that age applies. Contact us if you believe a child has provided personal information without appropriate authorization.
+    </p>
+    <p>
+      We may update this policy when the product, providers, or law changes. We will revise the date above and provide additional notice when required. Material changes apply prospectively unless law allows otherwise.
+    </p>
+  </section>
+
+  <section aria-labelledby="contact">
+    <h2 id="contact">Contact</h2>
+    <p>
+      For privacy questions or requests, email <a href="mailto:oddofrancesco000@gmail.com?subject=BeeGreat%20privacy%20request">oddofrancesco000@gmail.com</a>. Include the email associated with your BeeGreat account and the type of request, but never send a password, one-time code, access token, private key, or full health record.
+    </p>
+    <p>For general product help, visit <a href="/support/">BeeGreat Support</a>.</p>
+  </section>
+</PolicyLayout>

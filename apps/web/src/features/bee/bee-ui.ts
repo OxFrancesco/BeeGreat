@@ -1,3 +1,4 @@
+import { scrubIdentifiers } from '@beegreat/tool-presentation'
 import { z } from 'zod'
 
 const httpsUrlSchema = z
@@ -75,6 +76,44 @@ export type UIComponent = z.infer<typeof uiComponentSchema>
 const uiSpecSchema = z.object({ components: z.array(uiComponentSchema) })
 const BEEUI_BLOCK = /```beeui\s*([\s\S]*?)```/g
 
+/** Machine ids belong in structured fields, never in copy the user reads. */
+function scrubComponent(component: UIComponent): UIComponent {
+  switch (component.type) {
+    case 'text':
+      return { ...component, body: scrubIdentifiers(component.body) }
+    case 'metric':
+      return {
+        ...component,
+        label: scrubIdentifiers(component.label),
+        value: scrubIdentifiers(component.value),
+        delta: component.delta
+          ? scrubIdentifiers(component.delta)
+          : component.delta,
+      }
+    case 'chart':
+    case 'tasks':
+      return { ...component, title: scrubIdentifiers(component.title) }
+    case 'highlight':
+      return {
+        ...component,
+        title: scrubIdentifiers(component.title),
+        body: scrubIdentifiers(component.body),
+      }
+    case 'devin':
+      return {
+        ...component,
+        title: scrubIdentifiers(component.title),
+        summary: component.summary
+          ? scrubIdentifiers(component.summary)
+          : component.summary,
+      }
+    case 'confirm':
+      return { ...component, summary: scrubIdentifiers(component.summary) }
+    default:
+      return component
+  }
+}
+
 /** Splits Bee's response into conversational copy and validated web UI. */
 export function extractBeeUI(text: string): {
   spoken: string
@@ -85,7 +124,9 @@ export function extractBeeUI(text: string): {
     .replace(BEEUI_BLOCK, (_match, json: string) => {
       try {
         const parsed = uiSpecSchema.safeParse(JSON.parse(json))
-        if (parsed.success) components.push(...parsed.data.components)
+        if (parsed.success) {
+          components.push(...parsed.data.components.map(scrubComponent))
+        }
       } catch {
         // A malformed generated block must never leak raw JSON into the chat.
       }
@@ -94,7 +135,7 @@ export function extractBeeUI(text: string): {
     .replace(/\s+/g, ' ')
     .trim()
 
-  return { spoken, components }
+  return { spoken: scrubIdentifiers(spoken), components }
 }
 
 export function endOfLocalDay(dayOffset = 0): number {

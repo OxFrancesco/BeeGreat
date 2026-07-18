@@ -24,9 +24,17 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { VoiceAgentProvider } from '@/components/agent/voice-agent-provider';
 import { ChatGptAuthGate } from '@/components/chatgpt/chatgpt-auth';
+import { SubscriptionGate } from '@/components/subscription/subscription-paywall';
+import { SubscriptionProvider } from '@/components/subscription/subscription-provider';
 import { Colors } from '@/constants/theme';
 import { flueClient } from '@/lib/flue';
 import { Sentry, sentryNavigationIntegration } from '@/lib/sentry';
+import { ScreenshotHarnessRoot } from '@/screenshot-harness/screenshot-harness-root';
+
+const PRIVACY_URL = 'https://beedocs.pages.dev/privacy';
+const TERMS_URL = 'https://beedocs.pages.dev/terms';
+const SCREENSHOT_HARNESS_ENABLED =
+  __DEV__ && process.env.EXPO_PUBLIC_BEEGREAT_SCREENSHOT_HARNESS === '1';
 
 const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
   unsavedChangesWarning: false,
@@ -35,17 +43,21 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 function RootLayout() {
   return (
     <KeyboardProvider>
-      <ClerkProvider
-        publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-        tokenCache={tokenCache}
-      >
-        <SentryUserContext />
-        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-          <FlueProvider client={flueClient}>
-            <RootNavigator />
-          </FlueProvider>
-        </ConvexProviderWithClerk>
-      </ClerkProvider>
+      {SCREENSHOT_HARNESS_ENABLED ? (
+        <ScreenshotHarnessRoot />
+      ) : (
+        <ClerkProvider
+          publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+          tokenCache={tokenCache}
+        >
+          <SentryUserContext />
+          <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+            <FlueProvider client={flueClient}>
+              <RootNavigator />
+            </FlueProvider>
+          </ConvexProviderWithClerk>
+        </ClerkProvider>
+      )}
     </KeyboardProvider>
   );
 }
@@ -75,7 +87,11 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
       <Text style={styles.errorBody}>
         The failure was reported. Try this screen again.
       </Text>
-      <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={retry}
+        style={styles.retry}
+      >
         <Text style={styles.retryLabel}>Try again</Text>
       </Pressable>
     </View>
@@ -85,6 +101,7 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 function RootNavigator() {
   const colorScheme = useColorScheme();
   const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
   const navigationRef = useNavigationContainerRef();
 
   useEffect(() => {
@@ -125,7 +142,19 @@ function RootNavigator() {
             contentStyle: { height: '100%' },
           }}
         />
+        <Stack.Screen
+          name="paywall"
+          options={{
+            presentation: 'formSheet',
+            sheetAllowedDetents: [1],
+            sheetGrabberVisible: true,
+            // formSheet content collapses to zero height without this once it
+            // holds a ScrollView (react-native-screens#2522).
+            contentStyle: { height: '100%' },
+          }}
+        />
         <Stack.Screen name="share" />
+        <Stack.Screen name="bee-healthy" />
       </Stack.Protected>
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="sign-in" />
@@ -133,15 +162,29 @@ function RootNavigator() {
     </Stack>
   );
 
+  const signedInExperience = (
+    <ChatGptAuthGate>
+      <VoiceAgentProvider>{navigator}</VoiceAgentProvider>
+    </ChatGptAuthGate>
+  );
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       {/* The voice agent lives above the navigator so mic state, the Live
           Activity, and the island pill survive tab switches app-wide. */}
       {isSignedIn ? (
-        <ChatGptAuthGate>
-          <VoiceAgentProvider>{navigator}</VoiceAgentProvider>
-        </ChatGptAuthGate>
-      ) : navigator}
+        <SubscriptionProvider clerkUserId={user?.id}>
+          {process.env.EXPO_OS === 'ios' ? (
+            <SubscriptionGate privacyUrl={PRIVACY_URL} termsUrl={TERMS_URL}>
+              {signedInExperience}
+            </SubscriptionGate>
+          ) : (
+            signedInExperience
+          )}
+        </SubscriptionProvider>
+      ) : (
+        navigator
+      )}
     </ThemeProvider>
   );
 }

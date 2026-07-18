@@ -24,12 +24,27 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useScreenshotFixture } from '@/lib/screenshot-fixture';
 
 const MAX_GOALS = 3;
 
 type GoalSummary = FunctionReturnType<typeof api.goals.list>[number];
 
 export default function GoalsScreen() {
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return (
+      <GoalsScreenView
+        goals={fixture.goals}
+        onAddGoal={async () => {}}
+      />
+    );
+  }
+
+  return <LiveGoalsScreen />;
+}
+
+function LiveGoalsScreen() {
   const goals = useQuery(api.goals.list);
   const createGoal = useMutation(api.goals.create);
 
@@ -41,6 +56,16 @@ export default function GoalsScreen() {
     }
   };
 
+  return <GoalsScreenView goals={goals} onAddGoal={addGoal} />;
+}
+
+function GoalsScreenView({
+  goals,
+  onAddGoal,
+}: {
+  goals: GoalSummary[] | undefined;
+  onAddGoal: (title: string) => void | Promise<void>;
+}) {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -75,7 +100,7 @@ export default function GoalsScreen() {
                     <GoalCard key={goal.id} goal={goal} />
                   ))}
                   {goals.length < MAX_GOALS ? (
-                    <AddRow label="New goal" onSubmit={addGoal} dashed />
+                    <AddRow label="New goal" onSubmit={onAddGoal} dashed />
                   ) : null}
                 </View>
               </View>
@@ -88,13 +113,17 @@ export default function GoalsScreen() {
 }
 
 function GoalCard({ goal }: { goal: GoalSummary }) {
-  const theme = useTheme();
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return <GoalCardView goal={goal} onLongPress={() => {}} />;
+  }
+
+  return <LiveGoalCard goal={goal} />;
+}
+
+function LiveGoalCard({ goal }: { goal: GoalSummary }) {
   const updateGoal = useMutation(api.goals.update);
   const removeGoal = useMutation(api.goals.remove);
-  const totalTasks = goal.openTasks + goal.doneTasks;
-  const progress = totalTasks === 0 ? 0 : goal.doneTasks / totalTasks;
-  const meta =
-    totalTasks === 0 ? null : goal.openTasks === 0 ? 'All tasks done' : `${goal.openTasks} ${goal.openTasks === 1 ? 'task' : 'tasks'} left`;
 
   const rename = () => {
     Alert.prompt(
@@ -137,12 +166,28 @@ function GoalCard({ goal }: { goal: GoalSummary }) {
     ]);
   };
 
+  return <GoalCardView goal={goal} onLongPress={showOptions} />;
+}
+
+function GoalCardView({
+  goal,
+  onLongPress,
+}: {
+  goal: GoalSummary;
+  onLongPress: () => void;
+}) {
+  const theme = useTheme();
+  const totalTasks = goal.openTasks + goal.doneTasks;
+  const progress = totalTasks === 0 ? 0 : goal.doneTasks / totalTasks;
+  const meta =
+    totalTasks === 0 ? null : goal.openTasks === 0 ? 'All tasks done' : `${goal.openTasks} ${goal.openTasks === 1 ? 'task' : 'tasks'} left`;
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Open goal ${goal.title}`}
       onPress={() => router.push({ pathname: '/goals/[goalId]', params: { goalId: goal.id } })}
-      onLongPress={showOptions}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
         { backgroundColor: theme.card, borderColor: theme.border },

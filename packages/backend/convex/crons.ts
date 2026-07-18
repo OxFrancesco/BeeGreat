@@ -10,4 +10,18 @@ crons.cron(
   { cursor: null },
 )
 
+crons.cron(
+  'remove expired Beennector delivery claims',
+  '25 2 * * *',
+  internal.beennectors.deleteExpiredDeliveries,
+  {},
+)
+
+crons.interval(
+  'repair account deletion jobs and safety sweeps',
+  { minutes: 15 },
+  internal.accountDeletion.watchdog,
+  {},
+)
+
 export default crons

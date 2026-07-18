@@ -1,0 +1,22 @@
+{
+  "appName": "BeeGreat",
+  "version": "1.0.0",
+  "subtitle": "Your personal focus agent",
+  "promotionalText": "Turn one goal into a clear next step with Bee, organize Tasks, and watch your Hive reflect every focused win.",
+  "description": "BeeGreat turns an outcome into one clear next focus—with an AI agent that helps you plan, act, and keep momentum.\n\nTALK OR TYPE TO BEE\nUse voice or text to work through what matters. Bee can turn an idea into an editable Goal, Project, Tasks, and a highlighted next action.\n\nBUILD A FOCUS SYSTEM\n• Organize Goals, Projects, and Tasks\n• Keep one clear Highlight in view\n• Save useful links and ideas in Mind\n• Return to conversations without losing the plan\n\nWATCH YOUR HIVE GROW\nCompleting focused work updates your Hive, Honey, and Honeycomb Score, making progress visible without turning your day into a spreadsheet.\n\nCONNECT ON YOUR TERMS\nOptional connections can bring context from ChatGPT, Google Health, GitHub, Linear, Notion, and supported wallet tools into BeeGreat. Core use does not require connecting these services. Third-party accounts, terms, and regional availability may apply.\n\nBEEGREAT PRO\nAn active BeeGreat Pro subscription is required to use BeeGreat after sign-in. BeeGreat Pro costs $6.99 per month in the United States and includes no free trial. Payment is charged to your Apple Account when you confirm the purchase. The subscription renews automatically unless canceled at least 24 hours before the end of the current period. Your Apple Account is charged for renewal within 24 hours before the current period ends. Manage or cancel the subscription in your App Store account settings. Prices may vary by country or region.\n\nIMPORTANT\nBee uses generative AI and can make mistakes. Review important output before acting. Health-related features support general wellness and are not medical advice, diagnosis, or treatment.\n\nTerms of Use: https://beedocs.pages.dev/terms\nPrivacy Policy: https://beedocs.pages.dev/privacy\nSupport: https://beedocs.pages.dev/support",
+  "keywords": "goals,tasks,planner,productivity,habit,assistant,voice,motivation,organizer,memory,routine,hive",
+  "supportUrl": "https://beedocs.pages.dev/support",
+  "marketingUrl": "https://beedocs.pages.dev",
+  "privacyPolicyUrl": "https://beedocs.pages.dev/privacy",
+  "termsUrl": "https://beedocs.pages.dev/terms",
+  "copyright": "2026 Francesco Oddo",
+  "primaryCategory": "PRODUCTIVITY",
+  "secondaryCategory": "LIFESTYLE",
+  "subscription": {
+    "referenceName": "BeeGreat Pro Monthly",
+    "productId": "com.beegreat.app.pro.monthly",
+    "period": "ONE_MONTH",
+    "usPrice": "6.99",
+    "freeTrial": false
+  }
+}

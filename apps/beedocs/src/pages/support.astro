@@ -1,0 +1,149 @@
+---
+import PolicyLayout from '../layouts/PolicyLayout.astro'
+
+const sections = [
+  { href: '#contact', label: 'Contact support' },
+  { href: '#subscription', label: 'Subscription help' },
+  { href: '#account', label: 'Account and deletion' },
+  { href: '#bee-and-voice', label: 'Bee and voice' },
+  { href: '#connections', label: 'Connections and power-ups' },
+  { href: '#privacy', label: 'Privacy requests' },
+  { href: '#security', label: 'Security reports' },
+]
+---
+<PolicyLayout
+  title="BeeGreat Support"
+  description="Clear paths for account, subscription, voice, connection, privacy, and security help."
+  eyebrow="We’ll get you unstuck"
+  updated="July 16, 2026"
+  sections={sections}
+>
+  <section aria-labelledby="contact">
+    <h2 id="contact">Contact support</h2>
+    <div class="support-grid">
+      <article class="support-card">
+        <p class="support-label">Product support</p>
+        <h3>Email BeeGreat</h3>
+        <p>For sign-in, subscription, app, Bee, and connection questions.</p>
+        <a class="support-action" href="mailto:oddofrancesco000@gmail.com?subject=BeeGreat%20support">Start an email</a>
+      </article>
+      <article class="support-card">
+        <p class="support-label">Self-service</p>
+        <h3>Read the user guide</h3>
+        <p>Learn how focuses, goals, tasks, voice, the Hive, and Honey work.</p>
+        <a class="support-action" href="/users/">Open BeeDocs</a>
+      </article>
+    </div>
+    <p>For faster troubleshooting, include:</p>
+    <ul>
+      <li>the email address associated with your BeeGreat account;</li>
+      <li>your iPhone or iPad model, iOS or iPadOS version, and BeeGreat app version;</li>
+      <li>what you expected, what happened, and the steps that reproduce it; and</li>
+      <li>a screenshot if useful, after hiding unrelated personal or health information.</li>
+    </ul>
+    <div class="policy-note">
+      <p><strong>Keep secrets out of support email.</strong> BeeGreat will not ask for your password, one-time code, recovery code, access token, full payment-card number, wallet private key, seed phrase, or a complete health record.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="subscription">
+    <h2 id="subscription">Subscription help</h2>
+    <h3>Restore BeeGreat Pro</h3>
+    <ol>
+      <li>Sign in to the BeeGreat account you used with your purchase.</li>
+      <li>On the BeeGreat Pro screen, tap <strong>Restore Purchases</strong>.</li>
+      <li>Confirm that the device uses the Apple Account that originally purchased the subscription.</li>
+    </ol>
+    <p>
+      If access is still missing, restart BeeGreat and email support with the approximate purchase date and Apple transaction identifier. Do not send payment-card details.
+    </p>
+
+    <h3>Manage or cancel</h3>
+    <p>
+      Open Settings on your device, select your Apple Account, then Subscriptions, or visit <a href="https://apps.apple.com/account/subscriptions">Apple Subscriptions</a>. Cancellation prevents the next renewal; it does not normally end access before the current paid month finishes.
+    </p>
+
+    <h3>Billing and refunds</h3>
+    <p>
+      Apple processes App Store payments, receipts, and refunds. BeeGreat cannot view your full payment method or directly issue an App Store refund. Visit <a href="https://reportaproblem.apple.com/">Report a Problem</a> to request one from Apple.
+    </p>
+    <p>
+      BeeGreat Pro renews monthly. The United States price is US$6.99 per month; the localized price shown by Apple when you purchase controls. Read the full <a href="/terms/#subscription">subscription terms</a>.
+    </p>
+  </section>
+
+  <section aria-labelledby="account">
+    <h2 id="account">Account and deletion</h2>
+    <h3>Sign-in trouble</h3>
+    <ul>
+      <li>Use the same Apple or Google sign-in method you originally chose.</li>
+      <li>Check that the email shown by the provider matches the account you expect.</li>
+      <li>If a browser sign-in window closes, reopen BeeGreat and try once more on a stable connection.</li>
+    </ul>
+
+    <h3>Delete your account</h3>
+    <p>
+      In BeeGreat, open <strong>Profile → Account → Delete Account</strong> and confirm the request. BeeGreat deletes the sign-in account first, then normally starts active-system cleanup immediately in the background when online. Safety sweeps may continue for up to 30 days to remove delayed writes. You do not need to keep the app open. Some provider-controlled, security, transaction, legal, or backup records may remain as explained in our <a href="/privacy/#retention">Privacy Policy</a>.
+    </p>
+    <p>
+      If you cannot sign in, email <a href="mailto:oddofrancesco000@gmail.com?subject=BeeGreat%20account%20deletion">oddofrancesco000@gmail.com</a> from the address associated with your account. We may need to verify that the account is yours.
+    </p>
+    <div class="policy-note">
+      <p>Deleting BeeGreat or your BeeGreat account does not cancel BeeGreat Pro. Cancel the subscription separately through Apple if you do not want another renewal. BeeGreat attempts to revoke any available Sign in with Apple token before deletion. If BeeGreat remains listed afterward, remove it under your Apple Account’s Sign in with Apple settings as well.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="bee-and-voice">
+    <h2 id="bee-and-voice">Bee and voice</h2>
+    <h3>Bee is not responding</h3>
+    <ul>
+      <li>Check your internet connection and try sending a short text message.</li>
+      <li>Close and reopen BeeGreat if a response remains in progress.</li>
+      <li>If you connected ChatGPT, open Profile and reconnect it when the status says authorization expired. BeeGreat can otherwise use its default AI provider when available.</li>
+    </ul>
+
+    <h3>Voice input is unavailable</h3>
+    <ul>
+      <li>Open iOS or iPadOS Settings, find BeeGreat, and allow Microphone access.</li>
+      <li>Check that another app is not currently using the microphone.</li>
+      <li>Use text input while troubleshooting; it reaches the same Bee conversation.</li>
+    </ul>
+    <p>
+      Bee uses AI and can make mistakes. Verify important output. Do not use Bee for emergencies, diagnosis, treatment, or professional financial, legal, or medical advice.
+    </p>
+  </section>
+
+  <section aria-labelledby="connections">
+    <h2 id="connections">Connections and power-ups</h2>
+    <p>
+      Manage ChatGPT, GitHub, Linear, Notion, Google Health, and Web3 features from Profile. If a connection needs authorization again, disconnect it, reconnect, and approve only the permissions you want to grant.
+    </p>
+    <ul>
+      <li><strong>Google Health:</strong> access is read-only. You can turn off the power-up and revoke BeeGreat in your Google Account permissions.</li>
+      <li><strong>Work connections:</strong> workspace permissions can change. Ask an organization administrator if the provider says access is restricted.</li>
+      <li><strong>ChatGPT:</strong> if device authorization expires before approval, start a fresh connection from BeeGreat.</li>
+      <li><strong>Web3:</strong> verify the network, destination, amount, and fees before approving any action. Public blockchain transactions may be irreversible.</li>
+    </ul>
+    <p>
+      Disconnecting prevents future BeeGreat access but does not delete information controlled by the provider. Use the provider’s account settings for that data.
+    </p>
+  </section>
+
+  <section aria-labelledby="privacy">
+    <h2 id="privacy">Privacy requests</h2>
+    <p>
+      You can manage product content and optional connections in BeeGreat. For an access, correction, deletion, export, restriction, or objection request, email <a href="mailto:oddofrancesco000@gmail.com?subject=BeeGreat%20privacy%20request">oddofrancesco000@gmail.com</a> with the account email and request type. We may verify your identity before disclosing or deleting information.
+    </p>
+    <p>Read the <a href="/privacy/">Privacy Policy</a> for data categories, providers, retention, and rights.</p>
+  </section>
+
+  <section aria-labelledby="security">
+    <h2 id="security">Security reports</h2>
+    <p>
+      To report a suspected vulnerability or account-security issue, email <a href="mailto:oddofrancesco000@gmail.com?subject=BeeGreat%20security%20report">oddofrancesco000@gmail.com</a> with “BeeGreat security report” in the subject. Describe the affected feature, impact, and safe reproduction steps.
+    </p>
+    <p>
+      Do not access another person’s data, disrupt the Service, use destructive tests, or send live credentials. Give us a reasonable opportunity to investigate before public disclosure.
+    </p>
+  </section>
+</PolicyLayout>

@@ -38,7 +38,9 @@ import { registerApiProvider, registerProvider } from '@flue/runtime';
 
 import * as handler_bee_0 from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/agents/bee.ts";
 
-
+import * as channel_github_0 from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/channels/github.ts";
+import * as channel_linear_1 from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/channels/linear.ts";
+import * as channel_notion_2 from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/channels/notion.ts";
 import userApp from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/app.ts";
 
 
@@ -121,7 +123,9 @@ const workflowModules = {
 
 };
 const channelModules = {
-
+  "github": channel_github_0,
+  "linear": channel_linear_1,
+  "notion": channel_notion_2,
 };
 const { agents, workflows, channelHandlers } = normalizeBuiltModules(agentModules, workflowModules, channelModules);
 const agentIdentities = {

@@ -20,7 +20,10 @@ import {
 } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { MOOD_BEE_SOURCES } from '@/components/bee-healthy/mood-bee-assets';
+import {
+  BEE_DOCTOR_SOURCE,
+  MOOD_BEE_SOURCES,
+} from '@/components/bee-healthy/mood-bee-assets';
 import { MotionDuration, MotionEasing } from '@/constants/motion';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -44,7 +47,9 @@ function triggerSelectionHaptic() {
 export function MoodTracker({ value, onChange, disabled = false }: MoodTrackerProps) {
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
-  const selectedBee = useImage(MOOD_BEE_SOURCES[value ?? 'okay']);
+  const selectedBee = useImage(
+    value ? MOOD_BEE_SOURCES[value] : BEE_DOCTOR_SOURCE,
+  );
   const reveal = useSharedValue(1);
   const selectedLabel = MOODS.find((option) => option.value === value)?.label;
 
@@ -74,7 +79,7 @@ export function MoodTracker({ value, onChange, disabled = false }: MoodTrackerPr
         <Canvas style={styles.canvas}>
           {selectedBee ? (
             <Group
-              opacity={value === null ? 0.68 : 1}
+              opacity={1}
               origin={vec(ORB_CENTER, ORB_CENTER)}
               transform={beeTransform}
             >

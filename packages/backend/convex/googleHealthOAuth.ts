@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'node:crypto'
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
+const REVOCATION_URL = 'https://oauth2.googleapis.com/revoke'
 
 export const GOOGLE_HEALTH_SCOPES = [
   'https://www.googleapis.com/auth/googlehealth.activity_and_fitness.readonly',
@@ -131,5 +132,32 @@ export function refreshGoogleHealthToken(refreshToken: string) {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
     }),
+  )
+}
+
+/** Revokes the Google grant; an already-invalid token is deletion-complete. */
+export async function revokeGoogleHealthToken(
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+) {
+  let response: Response
+  try {
+    response = await fetchImpl(REVOCATION_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token }).toString(),
+    })
+  } catch {
+    throw new GoogleHealthOAuthError(
+      'Could not reach Google OAuth revocation',
+      'network_error',
+      true,
+    )
+  }
+  if (response.ok || response.status === 400 || response.status === 404) return
+  throw new GoogleHealthOAuthError(
+    'Google OAuth revocation failed',
+    `revoke_http_${response.status}`,
+    response.status === 429 || response.status >= 500,
   )
 }

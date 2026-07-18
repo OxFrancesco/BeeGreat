@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest'
 import {
   BookmarkUrlError,
   buildSearchText,
+  completeBookmarkUrl,
   detectBookmarkKind,
   normalizeBookmarkUrl,
   truncateContent,
@@ -15,6 +16,8 @@ describe('bookmark URL detection', () => {
     ['https://www.youtube.com/watch?v=watch-me', { kind: 'youtube', videoId: 'watch-me' }],
     ['https://youtube.com/shorts/short-one', { kind: 'youtube', videoId: 'short-one' }],
     ['https://youtube.com/live/live-one', { kind: 'youtube', videoId: 'live-one' }],
+    ['youtu.be/bare-video', { kind: 'youtube', videoId: 'bare-video' }],
+    ['instagram.com', { kind: 'website' }],
     ['https://example.com/article', { kind: 'website' }],
   ] as const)('detects %s', (url, expected) => {
     expect(detectBookmarkKind(url)).toEqual(expected)
@@ -29,6 +32,11 @@ describe('bookmark URL detection', () => {
 })
 
 test('normalizes canonical media URLs and removes tracking', () => {
+  expect(completeBookmarkUrl('instagram.com')).toBe('https://instagram.com/')
+  expect(completeBookmarkUrl('example.com/articles/bee')).toBe(
+    'https://example.com/articles/bee',
+  )
+  expect(normalizeBookmarkUrl('instagram.com')).toBe('https://instagram.com/')
   expect(normalizeBookmarkUrl('https://twitter.com/bee/status/42?utm_source=x')).toBe(
     'https://x.com/i/status/42',
   )

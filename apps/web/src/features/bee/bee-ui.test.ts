@@ -25,6 +25,24 @@ describe('extractBeeUI', () => {
     expect(result).toEqual({ spoken: 'Keep going.', components: [] })
   })
 
+  test('scrubs machine ids from user-facing copy', () => {
+    const result = extractBeeUI(`Done, goal j970mfwm36h24y655hz3pcke3s8apxap is active.
+\`\`\`beeui
+{"components":[{"type":"highlight","title":"Goal created","body":"Become wealthy · Active · ID: j970mfwm36h24y655hz3pcke3s8apxap"}]}
+\`\`\``)
+
+    expect(result).toEqual({
+      spoken: 'Done, goal is active.',
+      components: [
+        {
+          type: 'highlight',
+          title: 'Goal created',
+          body: 'Become wealthy · Active',
+        },
+      ],
+    })
+  })
+
   test('accepts a Devin session card with follow-up and PR links', () => {
     const result = extractBeeUI(`Devin is working on it.
 \`\`\`beeui

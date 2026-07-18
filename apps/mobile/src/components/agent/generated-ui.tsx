@@ -311,9 +311,6 @@ function DevinCard({
         </View>
         <View style={styles.devinTitle}>
           <ThemedText type="smallBold">{title}</ThemedText>
-          <ThemedText selectable type="small" themeColor="textSecondary">
-            {sessionId}
-          </ThemedText>
         </View>
         <View style={styles.devinStatus}>
           <View style={styles.devinStatusDot} />

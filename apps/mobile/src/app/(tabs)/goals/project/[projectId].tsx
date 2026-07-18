@@ -24,8 +24,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useScreenshotFixture } from '@/lib/screenshot-fixture';
 
 type Task = FunctionReturnType<typeof api.tasks.listByProject>[number];
+type Project = FunctionReturnType<typeof api.projects.get>;
 type ProjectDue = { year: number; quarter?: number } | null;
 
 /** End of the given day in local time, as epoch millis. */
@@ -58,11 +60,31 @@ function upcomingQuarters(): { year: number; quarter: number }[] {
 }
 
 export default function ProjectScreen() {
-  const theme = useTheme();
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return (
+      <ProjectScreenView
+        project={fixture.project}
+        tasks={fixture.tasks}
+        highlightTaskId={fixture.hive.activeHighlight?.taskId ?? null}
+        onAddTask={async () => {}}
+        onToggleTask={() => {}}
+        onOpenTaskActions={() => {}}
+        onOpenProjectSettings={() => {}}
+        onPickProjectDue={() => {}}
+      />
+    );
+  }
+
+  return <LiveProjectScreen />;
+}
+
+function LiveProjectScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   const id = projectId as Id<'projects'>;
   const project = useQuery(api.projects.get, { projectId: id });
   const tasks = useQuery(api.tasks.listByProject, { projectId: id });
+  const firstFocus = useQuery(api.firstFocus.getCurrent, {});
   const createTask = useMutation(api.tasks.create);
   const toggleTask = useMutation(api.tasks.toggle);
   const removeTask = useMutation(api.tasks.remove);
@@ -71,12 +93,8 @@ export default function ProjectScreen() {
   const setProjectDue = useMutation(api.projects.setDue);
   const updateProject = useMutation(api.projects.update);
   const removeProject = useMutation(api.projects.remove);
-  const [subtaskTarget, setSubtaskTarget] = useState<string | null>(null);
-
-  const tree = useMemo(() => buildTree(tasks ?? []), [tasks]);
 
   const add = async (title: string, parentTaskId?: string) => {
-    setSubtaskTarget(null);
     try {
       await createTask({
         projectId: id,
@@ -228,7 +246,48 @@ export default function ProjectScreen() {
     ]);
   };
 
+  return (
+    <ProjectScreenView
+      project={project}
+      tasks={tasks}
+      highlightTaskId={firstFocus?.activeHighlight?.taskId ?? null}
+      onAddTask={add}
+      onToggleTask={(task) => toggleTask({ taskId: task.id })}
+      onOpenTaskActions={openTaskActions}
+      onOpenProjectSettings={openProjectSettings}
+      onPickProjectDue={pickProjectDue}
+    />
+  );
+}
+
+export function ProjectScreenView({
+  project,
+  tasks,
+  highlightTaskId,
+  onAddTask,
+  onToggleTask,
+  onOpenTaskActions,
+  onOpenProjectSettings,
+  onPickProjectDue,
+}: {
+  project: Project | undefined;
+  tasks: Task[] | undefined;
+  highlightTaskId: string | null;
+  onAddTask: (title: string, parentTaskId?: string) => void | Promise<void>;
+  onToggleTask: (task: Task) => void;
+  onOpenTaskActions: (task: Task) => void;
+  onOpenProjectSettings: () => void;
+  onPickProjectDue: () => void;
+}) {
+  const theme = useTheme();
+  const [subtaskTarget, setSubtaskTarget] = useState<string | null>(null);
+  const tree = useMemo(() => buildTree(tasks ?? []), [tasks]);
   const loading = project === undefined || tasks === undefined;
+
+  const add = async (title: string, parentTaskId?: string) => {
+    setSubtaskTarget(null);
+    await onAddTask(title, parentTaskId);
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -257,7 +316,7 @@ export default function ProjectScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Project settings"
                     hitSlop={Spacing.two}
-                    onPress={openProjectSettings}
+                    onPress={onOpenProjectSettings}
                     style={({ pressed }) => pressed && styles.duePressed}
                   >
                     <SymbolView
@@ -272,7 +331,7 @@ export default function ProjectScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Set project target date"
-                onPress={pickProjectDue}
+                onPress={onPickProjectDue}
                 style={({ pressed }) => [
                   styles.dueChip,
                   { backgroundColor: theme.card, borderColor: theme.border },
@@ -289,8 +348,9 @@ export default function ProjectScreen() {
                 <View key={task.id}>
                   <TaskRow
                     task={task}
-                    onToggle={() => toggleTask({ taskId: task.id })}
-                    onLongPress={() => openTaskActions(task)}
+                    highlighted={task.id === highlightTaskId}
+                    onToggle={() => onToggleTask(task)}
+                    onLongPress={() => onOpenTaskActions(task)}
                     onAddSubtask={() =>
                       setSubtaskTarget((current) => (current === task.id ? null : task.id))
                     }
@@ -299,9 +359,10 @@ export default function ProjectScreen() {
                     <TaskRow
                       key={subtask.id}
                       task={subtask}
+                      highlighted={subtask.id === highlightTaskId}
                       isSubtask
-                      onToggle={() => toggleTask({ taskId: subtask.id })}
-                      onLongPress={() => openTaskActions(subtask)}
+                      onToggle={() => onToggleTask(subtask)}
+                      onLongPress={() => onOpenTaskActions(subtask)}
                     />
                   ))}
                   {subtaskTarget === task.id ? (
@@ -334,16 +395,18 @@ export default function ProjectScreen() {
                     <View key={task.id}>
                       <TaskRow
                         task={task}
-                        onToggle={() => toggleTask({ taskId: task.id })}
-                        onLongPress={() => openTaskActions(task)}
+                        highlighted={task.id === highlightTaskId}
+                        onToggle={() => onToggleTask(task)}
+                        onLongPress={() => onOpenTaskActions(task)}
                       />
                       {subtasks.map((subtask) => (
                         <TaskRow
                           key={subtask.id}
                           task={subtask}
+                          highlighted={subtask.id === highlightTaskId}
                           isSubtask
-                          onToggle={() => toggleTask({ taskId: subtask.id })}
-                          onLongPress={() => openTaskActions(subtask)}
+                          onToggle={() => onToggleTask(subtask)}
+                          onLongPress={() => onOpenTaskActions(subtask)}
                         />
                       ))}
                     </View>

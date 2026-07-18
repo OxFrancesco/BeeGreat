@@ -1,4 +1,8 @@
 import { type AgentRouteHandler, defineAgent } from '@flue/runtime'
+import {
+  extend,
+  type CloudflareAgentLike,
+} from '@flue/runtime/cloudflare'
 import * as Sentry from '@sentry/cloudflare'
 import {
   codexProviderIdForUser,
@@ -8,6 +12,7 @@ import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
 import { createMindTools } from '../shared/mind-tools.ts'
+import { loadBeennectorSubagent } from '../shared/beennectors/index.ts'
 import { loadPowerups } from '../shared/powerups/index.ts'
 import instructions from './bee.md' with { type: 'markdown' }
 
@@ -28,9 +33,27 @@ export const description =
 // before requests reach this Flue route.
 export const route: AgentRouteHandler = async (_c, next) => next()
 
+type AgentWithStorage = CloudflareAgentLike & {
+  ctx: { storage: { deleteAll(): Promise<void> } }
+}
+
+// The Worker calls this RPC method through the generated namespace after a
+// signed-in user deletes their account. `deleteAll()` is the only Cloudflare
+// operation that clears the entire Durable Object, including Flue's SQLite
+// conversation stream, attachments, execution state, and alarms.
+export const cloudflare = extend<AgentWithStorage>({
+  base: (Base) =>
+    class extends Base {
+      async deleteAccountData() {
+        await this.ctx.storage.deleteAll()
+      }
+    },
+})
+
 // Bee is an orchestrator: it owns the conversation and the voice/beeui contract,
 // and delegates domain work via its built-in `task` capability to specialist
-// subagents — `goals` (always on) plus one subagent per enabled power-up.
+// subagents — `goals` (always on), the connection-backed Beennectors
+// specialist when available, plus one subagent per enabled power-up.
 export default defineAgent<Env>(async ({ id, env }) => {
   // Conversation ids are `<userId>` or `<userId>~<session>` once the user has
   // restarted the chat; specialists always key data by the bare user id.
@@ -62,6 +85,11 @@ export default defineAgent<Env>(async ({ id, env }) => {
     credentialBrokerSecret:
       env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
   })
+  const beennectors = await loadBeennectorSubagent(
+    userId,
+    env.CONVEX_URL,
+    focusOptions,
+  )
   let model = 'openrouter/openai/gpt-5.6-sol'
   const localCodexAccessToken = env.OPENAI_CODEX_ACCESS_TOKEN?.trim()
   if (localCodexAccessToken) {
@@ -86,6 +114,7 @@ export default defineAgent<Env>(async ({ id, env }) => {
     tools: createMindTools(userId, env.CONVEX_URL, focusOptions),
     subagents: [
       goalsSubagent(userId, env.CONVEX_URL, focusOptions),
+      ...beennectors,
       ...powerups,
     ],
   }

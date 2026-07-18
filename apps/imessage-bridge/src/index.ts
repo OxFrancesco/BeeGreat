@@ -3,6 +3,7 @@ import { toError } from '@beegreat/observability'
 import * as Sentry from '@sentry/bun'
 import { markdown, Spectrum, text } from 'spectrum-ts'
 import { effect, imessage } from 'spectrum-ts/providers/imessage'
+import { promptFailureReply } from './agent-error'
 
 // Bridges iMessage (via Spectrum Cloud) to the BeeGreat Flue agent worker.
 // Only senders in IMESSAGE_USER_MAP are answered; everyone else is ignored.
@@ -146,6 +147,6 @@ for await (const [space, message] of app.messages) {
   } catch (error) {
     captureBridgeFailure(error, 'prompt.handle', userId)
     console.error('imessage-bridge: prompt failed', error)
-    await space.send(text('Something went wrong reaching Bee. Try again in a moment.'))
+    await space.send(text(promptFailureReply(error)))
   }
 }

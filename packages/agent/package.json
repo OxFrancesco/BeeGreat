@@ -12,6 +12,9 @@
   "dependencies": {
     "@beegreat/observability": "workspace:*",
     "@earendil-works/pi-ai": "^0.80.6",
+    "@flue/github": "1.0.0-beta.1",
+    "@flue/linear": "1.0.0-beta.1",
+    "@flue/notion": "1.0.0-beta.1",
     "@flue/runtime": "1.0.0-beta.9",
     "@sentry/cloudflare": "^10.65.0",
     "agents": "^0.14.2",

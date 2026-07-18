@@ -1,3 +1,5 @@
+export { scrubIdentifiers } from "./scrub-identifiers";
+
 export type ToolActivityState = "running" | "done" | "error";
 
 type ToolCopy = {
@@ -14,6 +16,36 @@ const POWERUP_AGENTS: Record<string, string> = {
 };
 
 const TOOL_COPY: Record<string, ToolCopy> = {
+  search_mind: {
+    running: "Searching your Mind…",
+    done: "Searched your Mind",
+    failed: "Couldn’t search your Mind",
+  },
+  list_bookmarks: {
+    running: "Checking your bookmarks…",
+    done: "Checked your bookmarks",
+    failed: "Couldn’t read your bookmarks",
+  },
+  get_bookmark: {
+    running: "Reading the bookmark…",
+    done: "Read the bookmark",
+    failed: "Couldn’t read the bookmark",
+  },
+  save_bookmark: {
+    running: "Saving the bookmark…",
+    done: "Saved the bookmark",
+    failed: "Couldn’t save the bookmark",
+  },
+  update_bookmark: {
+    running: "Updating the bookmark…",
+    done: "Updated the bookmark",
+    failed: "Couldn’t update the bookmark",
+  },
+  delete_bookmark: {
+    running: "Deleting the bookmark…",
+    done: "Deleted the bookmark",
+    failed: "Couldn’t delete the bookmark",
+  },
   get_goals: {
     running: "Checking your goals…",
     done: "Checked your goals",

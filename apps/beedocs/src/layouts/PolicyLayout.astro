@@ -1,0 +1,46 @@
+---
+import BaseLayout from './BaseLayout.astro'
+
+interface SectionLink {
+  href: string
+  label: string
+}
+
+interface Props {
+  title: string
+  description: string
+  eyebrow: string
+  updated: string
+  sections: SectionLink[]
+}
+
+const { title, description, eyebrow, updated, sections } = Astro.props
+---
+<BaseLayout title={title} description={description} section="legal">
+  <div class="policy-shell">
+    <aside class="policy-rail" aria-label="Page contents">
+      <div class="policy-rail-inner">
+        <a class="policy-home-link" href="/">
+          <span class="policy-hex"><img src="/assets/bee-icon.svg" alt="" /></span>
+          <span>BeeGreat</span>
+        </a>
+        <p>On this page</p>
+        <nav>
+          {sections.map((section) => <a href={section.href}>{section.label}</a>)}
+        </nav>
+      </div>
+    </aside>
+
+    <main class="policy-main" id="main-content">
+      <header class="policy-hero">
+        <p class="policy-eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        <p class="policy-lead">{description}</p>
+        <p class="policy-updated">Last updated <time datetime="2026-07-16">{updated}</time></p>
+      </header>
+      <div class="policy-body">
+        <slot />
+      </div>
+    </main>
+  </div>
+</BaseLayout>

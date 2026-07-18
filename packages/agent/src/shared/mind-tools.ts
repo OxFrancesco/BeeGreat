@@ -21,7 +21,7 @@ export async function callMindService<T extends JsonValue = JsonValue>(
   userId: string,
   convexUrl: string,
   options: MindServiceOptions,
-  operation: 'search' | 'list' | 'get' | 'save',
+  operation: 'search' | 'list' | 'get' | 'save' | 'update' | 'delete',
   input: Record<string, unknown> = {},
 ): Promise<T> {
   const secret = options.brokerSecret?.trim()
@@ -64,6 +64,10 @@ export async function callMindService<T extends JsonValue = JsonValue>(
 }
 
 const bookmarkKind = v.optional(v.picklist(['website', 'tweet', 'youtube']))
+const bookmarkId = v.pipe(
+  v.string(),
+  v.description('Bookmark id from search_mind or list_bookmarks'),
+)
 
 export function createMindTools(
   userId: string,
@@ -113,10 +117,7 @@ export function createMindTools(
       description:
         'Read the full content or transcript of one Mind bookmark after finding its id.',
       input: v.object({
-        bookmarkId: v.pipe(
-          v.string(),
-          v.description('Bookmark id from search_mind or list_bookmarks'),
-        ),
+        bookmarkId,
       }),
       async run({ input }) {
         return await callMindService(
@@ -131,9 +132,12 @@ export function createMindTools(
     defineTool({
       name: 'save_bookmark',
       description:
-        'Save a website, X/Twitter post, or YouTube URL to the user’s Mind. Use when the user explicitly asks to save a link they shared.',
+        'Save a website, X/Twitter post, or YouTube URL to the user’s Mind. A bare domain such as instagram.com is valid and becomes HTTPS. Use when the user explicitly asks to save a link they shared.',
       input: v.object({
-        url: v.pipe(v.string(), v.description('The complete http or https URL')),
+        url: v.pipe(
+          v.string(),
+          v.description('A domain, domain/path, or complete http or https URL'),
+        ),
         note: v.optional(
           v.pipe(v.string(), v.description("The user's own note, if supplied")),
         ),
@@ -144,6 +148,41 @@ export function createMindTools(
           convexUrl,
           options,
           'save',
+          input,
+        )
+      },
+    }),
+    defineTool({
+      name: 'update_bookmark',
+      description:
+        "Edit a Mind bookmark's title, labels, or personal note. Find the exact bookmark first. Omit fields that should stay unchanged; an empty title or note clears it, and labels replaces the full label list.",
+      input: v.object({
+        bookmarkId,
+        title: v.optional(v.string()),
+        labels: v.optional(v.pipe(v.array(v.string()), v.maxLength(12))),
+        note: v.optional(v.string()),
+      }),
+      async run({ input }) {
+        return await callMindService(
+          userId,
+          convexUrl,
+          options,
+          'update',
+          input,
+        )
+      },
+    }),
+    defineTool({
+      name: 'delete_bookmark',
+      description:
+        'Permanently delete one exact Mind bookmark. Find it first and use only after the user explicitly confirms they want that bookmark deleted.',
+      input: v.object({ bookmarkId }),
+      async run({ input }) {
+        return await callMindService(
+          userId,
+          convexUrl,
+          options,
+          'delete',
           input,
         )
       },

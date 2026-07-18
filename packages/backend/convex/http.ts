@@ -1,8 +1,13 @@
 import { httpRouter } from 'convex/server'
+import { verifyWebhook } from '@clerk/backend/webhooks'
 import { isSugarAction, type SugarAction } from '@beegreat/sugar/contracts'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { env, httpAction } from './_generated/server'
+import {
+  isClerkUserId,
+  parseRevenueCatWebhook,
+} from './revenueCatWebhook'
 
 const http = httpRouter()
 
@@ -60,6 +65,157 @@ function focusRecurrence(value: unknown): FocusRecurrence | undefined | null {
     firstOccurrenceAt: record.firstOccurrenceAt,
   }
 }
+
+http.route({
+  path: '/webhooks/clerk',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const signingSecret = env.CLERK_WEBHOOK_SIGNING_SECRET?.trim()
+    if (!signingSecret) {
+      return jsonResponse(
+        { error: 'Clerk webhook is not configured' },
+        503,
+        { 'retry-after': '60' },
+      )
+    }
+    let event: Awaited<ReturnType<typeof verifyWebhook>>
+    try {
+      event = await verifyWebhook(request, { signingSecret })
+    } catch {
+      return jsonResponse({ error: 'Invalid Clerk webhook signature' }, 401)
+    }
+    if (event.type !== 'user.deleted') return jsonResponse({ ok: true }, 200)
+    const userId = event.data.id
+    if (typeof userId !== 'string' || !isClerkUserId(userId)) {
+      return jsonResponse({ error: 'Invalid Clerk user deletion event' }, 400)
+    }
+    await ctx.runMutation(internal.accountDeletion.activateFromClerkWebhook, {
+      userId,
+    })
+    return jsonResponse({ ok: true }, 200)
+  }),
+})
+
+http.route({
+  path: '/webhooks/revenuecat',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.REVENUECAT_WEBHOOK_SECRET?.trim()
+    const configuredAppId = env.REVENUECAT_APP_ID?.trim()
+    if (!configuredSecret || !configuredAppId) {
+      return jsonResponse(
+        { error: 'RevenueCat webhook is not configured' },
+        503,
+        { 'retry-after': '60' },
+      )
+    }
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (!suppliedSecret || !secretsMatch(configuredSecret, suppliedSecret)) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+    }
+    const contentLength = Number(request.headers.get('content-length') ?? '0')
+    if (Number.isFinite(contentLength) && contentLength > 64 * 1024) {
+      return jsonResponse({ error: 'RevenueCat webhook is too large' }, 413)
+    }
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > 64 * 1024) {
+      return jsonResponse({ error: 'RevenueCat webhook is too large' }, 413)
+    }
+    let body: unknown
+    try {
+      body = JSON.parse(rawBody || 'null') as unknown
+    } catch {
+      return jsonResponse({ error: 'Invalid JSON' }, 400)
+    }
+    const parsed = parseRevenueCatWebhook(body)
+    if (!parsed.ok) return jsonResponse({ error: parsed.error }, 400)
+    if (parsed.event.apiVersion !== '1.0') {
+      return jsonResponse({ error: 'Unsupported RevenueCat API version' }, 400)
+    }
+    if (parsed.event.appId !== configuredAppId) {
+      // A project-wide integration may deliver events for another app. Ack it
+      // so RevenueCat does not retry an event that can never belong to BeeGreat.
+      return jsonResponse({ ok: true, status: 'ignored_app' }, 200)
+    }
+
+    const event = parsed.event
+    const result = await ctx.runMutation(
+      internal.subscriptions.applyRevenueCatEvent,
+      {
+        eventId: event.eventId,
+        type: event.type,
+        ...(event.appUserId ? { appUserId: event.appUserId } : {}),
+        ...(event.environment ? { environment: event.environment } : {}),
+        ...(event.productId ? { productId: event.productId } : {}),
+        entitlementIds: event.entitlementIds,
+        ...(event.purchasedAtMs !== undefined
+          ? { purchasedAtMs: event.purchasedAtMs }
+          : {}),
+        ...(event.expirationAtMs !== undefined
+          ? { expirationAtMs: event.expirationAtMs }
+          : {}),
+        ...(event.gracePeriodExpirationAtMs !== undefined
+          ? {
+              gracePeriodExpirationAtMs: event.gracePeriodExpirationAtMs,
+            }
+          : {}),
+        ...(event.cancelReason ? { cancelReason: event.cancelReason } : {}),
+        eventTimestampMs: event.eventTimestampMs,
+        receivedAt: Date.now(),
+        transferredFrom: event.transferredFrom,
+        transferredTo: event.transferredTo,
+      },
+    )
+    return jsonResponse({ ok: true, status: result.status }, 200)
+  }),
+})
+
+http.route({
+  path: '/internal/subscription/status',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+    }
+    const body = (await request.json().catch(() => null)) as {
+      userId?: unknown
+    } | null
+    if (!body || typeof body.userId !== 'string' || !isClerkUserId(body.userId)) {
+      return jsonResponse({ error: 'Invalid Clerk user id' }, 400)
+    }
+    const result = await ctx.runAction(
+      internal.subscriptionReconciliation.statusForAgent,
+      { userId: body.userId },
+    )
+    if (result.status === 'unavailable') {
+      return jsonResponse(
+        {
+          error: 'Subscription verification unavailable',
+          reason: result.reason,
+        },
+        503,
+        { 'retry-after': '5' },
+      )
+    }
+    return jsonResponse(result.subscription, 200)
+  }),
+})
 
 http.route({
   path: '/internal/focus',
@@ -260,6 +416,35 @@ http.route({
           url: body.url,
           note: body.note as string | undefined,
         })
+      } else if (body.operation === 'update') {
+        if (
+          typeof body.bookmarkId !== 'string' ||
+          (body.title !== undefined && typeof body.title !== 'string') ||
+          (body.note !== undefined && typeof body.note !== 'string') ||
+          (body.labels !== undefined &&
+            (!Array.isArray(body.labels) ||
+              !body.labels.every((label) => typeof label === 'string'))) ||
+          (body.title === undefined &&
+            body.labels === undefined &&
+            body.note === undefined)
+        ) {
+          return jsonResponse({ error: 'Invalid bookmark update' }, 400)
+        }
+        result = await ctx.runMutation(internal.agentMind.updateBookmark, {
+          userId: body.userId,
+          bookmarkId: body.bookmarkId as Id<'bookmarks'>,
+          title: body.title as string | undefined,
+          labels: body.labels as string[] | undefined,
+          note: body.note as string | undefined,
+        })
+      } else if (body.operation === 'delete') {
+        if (typeof body.bookmarkId !== 'string') {
+          return jsonResponse({ error: 'Bookmark id is required' }, 400)
+        }
+        result = await ctx.runMutation(internal.agentMind.deleteBookmark, {
+          userId: body.userId,
+          bookmarkId: body.bookmarkId as Id<'bookmarks'>,
+        })
       } else {
         return jsonResponse({ error: 'Unknown Mind operation' }, 400)
       }
@@ -365,6 +550,154 @@ http.route({
     )
     appUrl.searchParams.set('googleHealth', connected ? 'connected' : 'failed')
     return Response.redirect(appUrl.toString(), 302)
+  }),
+})
+
+http.route({
+  path: '/beennectors/oauth/callback',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url)
+    const state = url.searchParams.get('state')
+    const code = url.searchParams.get('code')
+    const oauthError = url.searchParams.get('error')
+    let connected = false
+    let provider: 'github' | 'linear' | 'notion' | undefined
+    if (state) {
+      const result = await ctx.runAction(
+        internal.beennectorAuthActions.completeAuthorization,
+        {
+          state,
+          ...(code ? { code } : {}),
+          ...(oauthError ? { errorCode: oauthError } : {}),
+        },
+      )
+      connected = result.ok
+      provider = result.provider
+    }
+    const appUrl = new URL(
+      process.env.BEENNECTOR_APP_REDIRECT_URI?.trim() || 'beegreat://profile',
+    )
+    appUrl.searchParams.set('beennector', provider ?? 'unknown')
+    appUrl.searchParams.set('status', connected ? 'connected' : 'failed')
+    return Response.redirect(appUrl.toString(), 302)
+  }),
+})
+
+http.route({
+  path: '/internal/beennectors',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+    }
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    if (!body || typeof body.operation !== 'string') {
+      return jsonResponse({ error: 'Invalid Beennector request' }, 400)
+    }
+    const provider = body.provider
+    if (
+      provider !== undefined &&
+      provider !== 'github' &&
+      provider !== 'linear' &&
+      provider !== 'notion'
+    ) {
+      return jsonResponse({ error: 'Invalid Beennector provider' }, 400)
+    }
+    try {
+      if (body.operation === 'claim_delivery') {
+        if (
+          !provider ||
+          typeof body.deliveryId !== 'string' ||
+          (body.actorId !== undefined && typeof body.actorId !== 'string') ||
+          (body.workspaceId !== undefined && typeof body.workspaceId !== 'string')
+        ) {
+          return jsonResponse({ error: 'Invalid Beennector delivery' }, 400)
+        }
+        const result = await ctx.runMutation(internal.beennectors.claimDelivery, {
+          provider,
+          deliveryId: body.deliveryId,
+          actorId: body.actorId as string | undefined,
+          workspaceId: body.workspaceId as string | undefined,
+        })
+        if (result.status === 'accepted') {
+          const verification = await ctx.runAction(
+            internal.subscriptionReconciliation.statusForAgent,
+            { userId: result.userId },
+          )
+          if (
+            verification.status === 'unavailable' ||
+            !verification.subscription.active
+          ) {
+            // The signed provider delivery is intentionally consumed, but it
+            // must not dispatch paid AI work without a current paid grant.
+            return jsonResponse({ status: 'subscription_required' }, 200)
+          }
+        }
+        return jsonResponse(result, 200)
+      }
+      if (
+        typeof body.userId !== 'string' ||
+        !/^user_[A-Za-z0-9]+$/.test(body.userId)
+      ) {
+        return jsonResponse({ error: 'Invalid Clerk user id' }, 400)
+      }
+      if (body.operation === 'list_connections') {
+        const result = await ctx.runQuery(
+          internal.beennectors.listConnectedForAgent,
+          { userId: body.userId },
+        )
+        return jsonResponse(result, 200)
+      }
+      if (
+        body.operation !== 'list' &&
+        body.operation !== 'search' &&
+        body.operation !== 'get' &&
+        body.operation !== 'comment'
+      ) {
+        return jsonResponse({ error: 'Unknown Beennector operation' }, 400)
+      }
+      if (
+        !provider ||
+        (body.query !== undefined && typeof body.query !== 'string') ||
+        (body.ref !== undefined && typeof body.ref !== 'string') ||
+        (body.body !== undefined && typeof body.body !== 'string') ||
+        (body.limit !== undefined && typeof body.limit !== 'number')
+      ) {
+        return jsonResponse({ error: 'Invalid Beennector operation' }, 400)
+      }
+      const result = await ctx.runAction(
+        internal.beennectorOperations.execute,
+        {
+          userId: body.userId,
+          provider,
+          operation: body.operation,
+          query: body.query as string | undefined,
+          ref: body.ref as string | undefined,
+          body: body.body as string | undefined,
+          limit: body.limit as number | undefined,
+        },
+      )
+      return jsonResponse(result, 200)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Beennector request failed'
+      return jsonResponse({ error: message }, 400)
+    }
   }),
 })
 

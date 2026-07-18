@@ -14,6 +14,11 @@ import {
   googleHealthCredentialStatusValidator,
   googleHealthSessionStatusValidator,
 } from './googleHealthValidators'
+import {
+  beennectorCredentialStatusValidator,
+  beennectorProviderValidator,
+  beennectorSessionStatusValidator,
+} from './beennectorValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -21,6 +26,118 @@ export default defineSchema({
     title: v.string(),
     body: v.string(),
   }).index('id', ['id']),
+
+  // Server-owned RevenueCat state. Environment is part of the key so a
+  // delayed sandbox event can never revoke a production entitlement (or the
+  // reverse). `expiresAt` also makes access fail closed if a webhook is lost.
+  subscriptionEntitlements: defineTable({
+    userId: v.string(),
+    entitlementId: v.string(),
+    productId: v.string(),
+    environment: v.union(v.literal('SANDBOX'), v.literal('PRODUCTION')),
+    active: v.boolean(),
+    // Optional only for the short rollout window from the first ledger schema.
+    periodStartedAt: v.optional(v.number()),
+    expiresAt: v.number(),
+    latestEventId: v.string(),
+    latestEventType: v.string(),
+    latestEventTimestampMs: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_user_and_entitlement', ['userId', 'entitlementId'])
+    .index('by_user_entitlement_and_environment', [
+      'userId',
+      'entitlementId',
+      'environment',
+    ]),
+
+  // Records the latest authoritative Customer Info reconciliation. This lets
+  // paid endpoints briefly reuse a fail-closed result without requiring the
+  // optional RevenueCat webhook integration or calling RevenueCat per request.
+  subscriptionStatusChecks: defineTable({
+    userId: v.string(),
+    checkedAt: v.number(),
+    // When the upstream snapshot began being observed. This is separate from
+    // `checkedAt` so a slow older request cannot appear newer when it returns.
+    observedAt: v.optional(v.number()),
+    active: v.boolean(),
+    productId: v.optional(v.string()),
+    environment: v.optional(
+      v.union(v.literal('SANDBOX'), v.literal('PRODUCTION')),
+    ),
+    periodStartedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    reason: v.optional(v.string()),
+  }).index('by_user', ['userId']),
+
+  // RevenueCat retries with the same event id. Keeping the receipt makes the
+  // webhook mutation idempotent and records why unsupported events were
+  // ignored without storing the full customer payload.
+  revenueCatWebhookEvents: defineTable({
+    eventId: v.string(),
+    type: v.string(),
+    environment: v.optional(
+      v.union(v.literal('SANDBOX'), v.literal('PRODUCTION')),
+    ),
+    productId: v.optional(v.string()),
+    eventTimestampMs: v.number(),
+    receivedAt: v.number(),
+    outcome: v.union(
+      v.literal('applied'),
+      v.literal('ignored'),
+      v.literal('stale'),
+    ),
+    reason: v.optional(v.string()),
+  }).index('by_event_id', ['eventId']),
+
+  // Durable two-phase privacy-erasure cursor. Preparing a row is deliberately
+  // non-destructive: a matching capability or Clerk `user.deleted` webhook
+  // must activate it before cleanup starts. A minimal tombstone remains for a
+  // bounded safety window so watchdog sweeps can remove late writes.
+  accountDeletionJobs: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    status: v.optional(
+      v.union(
+        v.literal('awaiting_identity_deletion'),
+        v.literal('external_cleanup'),
+        v.literal('purging'),
+        v.literal('tombstoned'),
+      ),
+    ),
+    activationTokenHash: v.optional(v.string()),
+    stageIndex: v.number(),
+    focusGoalId: v.optional(v.id('goals')),
+    focusStage: v.optional(
+      v.union(
+        v.literal('tasks'),
+        v.literal('projects'),
+        v.literal('golieBees'),
+        v.literal('goal'),
+      ),
+    ),
+    deletedDocuments: v.number(),
+    passDeletedDocuments: v.number(),
+    externalCleanupAttempts: v.optional(v.number()),
+    externalCleanupNextAttemptAt: v.optional(v.number()),
+    // Records only the outcome of the just-in-time Apple preflight. Provider
+    // tokens and Apple client credentials are never persisted in Convex.
+    appleRevocationStatus: v.optional(
+      v.union(v.literal('revoked'), v.literal('no_token')),
+    ),
+    appleRevocationCompletedAt: v.optional(v.number()),
+    activatedAt: v.optional(v.number()),
+    tombstonedAt: v.optional(v.number()),
+    nextSweepAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_user_id', ['userId'])
+    .index('by_status_and_updated_at', ['status', 'updatedAt'])
+    .index('by_status_and_expires_at', ['status', 'expiresAt'])
+    .index('by_status_and_next_sweep_at', ['status', 'nextSweepAt']),
 
   // Short-lived, durable device-authorization state. The device auth id is
   // encrypted because possession is sufficient to poll the upstream flow.
@@ -162,6 +279,61 @@ export default defineSchema({
     refreshLeaseExpiresAt: v.optional(v.number()),
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
+
+  // Beennectors are durable account/workspace connections, not optional
+  // PowerBee capability packs. OAuth state and credentials therefore live in
+  // their own domain and tokens never reach app clients or the agent worker.
+  beennectorAuthSessions: defineTable({
+    userId: v.string(),
+    provider: beennectorProviderValidator,
+    stateHash: v.string(),
+    status: beennectorSessionStatusValidator,
+    encryptedCodeVerifier: v.optional(encryptedSecretValidator),
+    expiresAt: v.number(),
+    errorCode: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index('by_user_and_provider', ['userId', 'provider'])
+    .index('by_state_hash', ['stateHash']),
+
+  // One encrypted connection per Clerk user and provider. `externalAccountId`
+  // and `workspaceId` let verified Flue webhooks resolve their Bee owner.
+  beennectorCredentials: defineTable({
+    userId: v.string(),
+    provider: beennectorProviderValidator,
+    status: beennectorCredentialStatusValidator,
+    encryptedAccess: v.optional(encryptedSecretValidator),
+    encryptedRefresh: v.optional(encryptedSecretValidator),
+    expiresAt: v.optional(v.number()),
+    scopes: v.array(v.string()),
+    externalAccountId: v.string(),
+    externalAccountName: v.optional(v.string()),
+    workspaceId: v.optional(v.string()),
+    workspaceName: v.optional(v.string()),
+    botId: v.optional(v.string()),
+    refreshLeaseId: v.optional(v.string()),
+    refreshLeaseExpiresAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index('by_user_and_provider', ['userId', 'provider'])
+    .index('by_provider_and_external_account', [
+      'provider',
+      'externalAccountId',
+    ])
+    .index('by_provider_and_workspace', ['provider', 'workspaceId']),
+
+  // Flue verifies signatures; this table supplies application-owned durable
+  // deduplication before a provider delivery is dispatched to Bee.
+  beennectorDeliveries: defineTable({
+    provider: beennectorProviderValidator,
+    deliveryId: v.string(),
+    userId: v.string(),
+    receivedAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index('by_provider_and_delivery', ['provider', 'deliveryId'])
+    .index('by_user', ['userId'])
+    .index('by_expires_at', ['expiresAt']),
 
   goals: defineTable({
     userId: v.string(),
@@ -467,6 +639,7 @@ export default defineSchema({
   })
     .index('by_user', ['userId', 'status'])
     .index('by_goal', ['goalId', 'status'])
+    .index('by_goal_and_user', ['goalId', 'userId'])
     .index('by_recurrence_schedule_id_and_recurrence_occurrence_at', [
       'recurrenceScheduleId',
       'recurrenceOccurrenceAt',
@@ -560,6 +733,7 @@ export default defineSchema({
   })
     .index('by_user', ['userId', 'status'])
     .index('by_goal', ['goalId', 'status'])
+    .index('by_goal_and_user', ['goalId', 'userId'])
     .index('by_project', ['projectId'])
     .index('by_recurrence_schedule_id_and_recurrence_occurrence_at', [
       'recurrenceScheduleId',
@@ -611,10 +785,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
-    .index('by_owner_key_and_normalized_url', [
-      'ownerKey',
-      'normalizedUrl',
-    ])
+    .index('by_owner_key_and_normalized_url', ['ownerKey', 'normalizedUrl'])
     .index('by_owner_key_and_kind_and_created_at', [
       'ownerKey',
       'kind',

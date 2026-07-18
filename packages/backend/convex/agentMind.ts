@@ -11,9 +11,26 @@ import {
   bookmarkValidator,
   compactBookmarkValidator,
 } from './bookmarkValidators'
-import { insertBookmarkForOwner } from './bookmarks'
+import {
+  insertBookmarkForOwner,
+  removeBookmarkForOwner,
+  updateBookmarkForOwner,
+} from './bookmarks'
 
 const MAX_AGENT_RESULTS = 50
+
+const editableBookmarkResultValidator = v.object({
+  id: v.id('bookmarks'),
+  title: v.optional(v.string()),
+  labels: v.array(v.string()),
+  note: v.optional(v.string()),
+  updatedAt: v.number(),
+})
+
+const deletedBookmarkResultValidator = v.object({
+  id: v.id('bookmarks'),
+  deleted: v.literal(true),
+})
 
 type ServiceCtx = QueryCtx | MutationCtx
 
@@ -29,6 +46,26 @@ async function serviceHive(ctx: ServiceCtx, userId: string) {
     })
   }
   return hive
+}
+
+async function serviceBookmark(
+  ctx: ServiceCtx,
+  userId: string,
+  bookmarkId: Id<'bookmarks'>,
+) {
+  const hive = await serviceHive(ctx, userId)
+  const bookmark = await ctx.db.get('bookmarks', bookmarkId)
+  if (
+    !bookmark ||
+    bookmark.ownerKey !== hive.ownerKey ||
+    bookmark.userId !== userId
+  ) {
+    throw new ConvexError({
+      code: 'NOT_FOUND',
+      message: 'Bookmark not found',
+    })
+  }
+  return { hive, bookmark }
 }
 
 function compact(bookmark: {
@@ -147,5 +184,56 @@ export const saveBookmark = internalMutation({
         note: args.note,
       }),
     )
+  },
+})
+
+export const updateBookmark = internalMutation({
+  args: {
+    userId: v.string(),
+    bookmarkId: v.id('bookmarks'),
+    title: v.optional(v.string()),
+    labels: v.optional(v.array(v.string())),
+    note: v.optional(v.string()),
+  },
+  returns: editableBookmarkResultValidator,
+  handler: async (ctx, args) => {
+    if (
+      args.title === undefined &&
+      args.labels === undefined &&
+      args.note === undefined
+    ) {
+      throw new ConvexError({
+        code: 'INVALID_UPDATE',
+        message: 'Choose at least one bookmark field to update.',
+      })
+    }
+    const { hive } = await serviceBookmark(ctx, args.userId, args.bookmarkId)
+    const updated = await updateBookmarkForOwner(ctx, {
+      ownerKey: hive.ownerKey,
+      bookmarkId: args.bookmarkId,
+      title: args.title,
+      labels: args.labels,
+      note: args.note,
+    })
+    return {
+      id: updated._id,
+      title: updated.title,
+      labels: updated.labels,
+      note: updated.note,
+      updatedAt: updated.updatedAt,
+    }
+  },
+})
+
+export const deleteBookmark = internalMutation({
+  args: { userId: v.string(), bookmarkId: v.id('bookmarks') },
+  returns: deletedBookmarkResultValidator,
+  handler: async (ctx, args) => {
+    const { hive } = await serviceBookmark(ctx, args.userId, args.bookmarkId)
+    await removeBookmarkForOwner(ctx, {
+      ownerKey: hive.ownerKey,
+      bookmarkId: args.bookmarkId,
+    })
+    return { id: args.bookmarkId, deleted: true as const }
   },
 })

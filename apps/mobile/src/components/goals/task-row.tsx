@@ -33,12 +33,14 @@ function formatDueDate(dueDate: number) {
 export function TaskRow({
   task,
   isSubtask,
+  highlighted,
   onToggle,
   onLongPress,
   onAddSubtask,
 }: {
   task: TaskItem;
   isSubtask?: boolean;
+  highlighted?: boolean;
   onToggle: () => void;
   onLongPress: () => void;
   onAddSubtask?: () => void;
@@ -82,7 +84,7 @@ export function TaskRow({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${done ? 'Reopen' : 'Complete'} task ${task.title}`}
+      accessibilityLabel={`${done ? 'Reopen' : 'Complete'} task ${task.title}${highlighted ? ', current Highlight' : ''}`}
       onPress={toggle}
       onLongPress={onLongPress}
       style={({ pressed }) => [styles.row, isSubtask && styles.subtaskRow, pressed && styles.pressed]}
@@ -122,6 +124,19 @@ export function TaskRow({
         >
           {task.title}
         </ThemedText>
+        {highlighted && !done ? (
+          <View style={styles.highlightBadge}>
+            <SymbolView
+              name="scope"
+              size={12}
+              tintColor="#A86400"
+              fallback={null}
+            />
+            <ThemedText type="smallBold" style={styles.highlightLabel}>
+              HIGHLIGHT
+            </ThemedText>
+          </View>
+        ) : null}
         {task.dueDate !== null && !done ? (
           <ThemedText type="small" themeColor={overdue ? 'destructive' : 'textSecondary'}>
             {overdue ? 'Overdue · ' : 'Due '}
@@ -163,6 +178,22 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     gap: Spacing.half,
+  },
+  highlightBadge: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: Spacing.half,
+    backgroundColor: '#FFF1D9',
+  },
+  highlightLabel: {
+    color: '#A86400',
+    fontSize: 10,
+    lineHeight: 13,
+    letterSpacing: 0.7,
   },
   iconLayer: {
     position: 'absolute',

@@ -10,6 +10,7 @@
     "ios": {
       "bundleIdentifier": "com.beegreat.app",
       "buildNumber": "20",
+      "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -73,6 +74,7 @@
         }
       ],
       "expo-secure-store",
+      "expo-apple-authentication",
       "@sentry/react-native",
       "expo-font",
       "expo-image",

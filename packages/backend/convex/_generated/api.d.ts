@@ -8,9 +8,18 @@
  * @module
  */
 
+import type * as accountDeletion from "../accountDeletion.js";
+import type * as accountDeletionActions from "../accountDeletionActions.js";
 import type * as agent from "../agent.js";
 import type * as agentFocus from "../agentFocus.js";
 import type * as agentMind from "../agentMind.js";
+import type * as appleSignInRevocation from "../appleSignInRevocation.js";
+import type * as beennectorAuthActions from "../beennectorAuthActions.js";
+import type * as beennectorCrypto from "../beennectorCrypto.js";
+import type * as beennectorOAuth from "../beennectorOAuth.js";
+import type * as beennectorOperations from "../beennectorOperations.js";
+import type * as beennectorValidators from "../beennectorValidators.js";
+import type * as beennectors from "../beennectors.js";
 import type * as bookmarkValidators from "../bookmarkValidators.js";
 import type * as bookmarks from "../bookmarks.js";
 import type * as chat from "../chat.js";
@@ -46,10 +55,14 @@ import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
 import type * as recurrence from "../recurrence.js";
 import type * as recurrenceValidators from "../recurrenceValidators.js";
+import type * as revenueCatRest from "../revenueCatRest.js";
+import type * as revenueCatWebhook from "../revenueCatWebhook.js";
 import type * as scraper from "../scraper.js";
 import type * as scraperEffect from "../scraperEffect.js";
 import type * as scraperShared from "../scraperShared.js";
 import type * as sentryNode from "../sentryNode.js";
+import type * as subscriptionReconciliation from "../subscriptionReconciliation.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
 import type * as wallets from "../wallets.js";
@@ -62,9 +75,18 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  accountDeletion: typeof accountDeletion;
+  accountDeletionActions: typeof accountDeletionActions;
   agent: typeof agent;
   agentFocus: typeof agentFocus;
   agentMind: typeof agentMind;
+  appleSignInRevocation: typeof appleSignInRevocation;
+  beennectorAuthActions: typeof beennectorAuthActions;
+  beennectorCrypto: typeof beennectorCrypto;
+  beennectorOAuth: typeof beennectorOAuth;
+  beennectorOperations: typeof beennectorOperations;
+  beennectorValidators: typeof beennectorValidators;
+  beennectors: typeof beennectors;
   bookmarkValidators: typeof bookmarkValidators;
   bookmarks: typeof bookmarks;
   chat: typeof chat;
@@ -100,10 +122,14 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   recurrence: typeof recurrence;
   recurrenceValidators: typeof recurrenceValidators;
+  revenueCatRest: typeof revenueCatRest;
+  revenueCatWebhook: typeof revenueCatWebhook;
   scraper: typeof scraper;
   scraperEffect: typeof scraperEffect;
   scraperShared: typeof scraperShared;
   sentryNode: typeof sentryNode;
+  subscriptionReconciliation: typeof subscriptionReconciliation;
+  subscriptions: typeof subscriptions;
   tasks: typeof tasks;
   user: typeof user;
   wallets: typeof wallets;

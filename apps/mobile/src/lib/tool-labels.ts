@@ -4,6 +4,12 @@ import {
 } from "@beegreat/tool-presentation";
 
 const TOOL_SYMBOLS: Record<string, string> = {
+  search_mind: "magnifyingglass",
+  list_bookmarks: "bookmark",
+  get_bookmark: "bookmark",
+  save_bookmark: "bookmark.fill",
+  update_bookmark: "pencil",
+  delete_bookmark: "trash",
   get_goals: "scope",
   create_goal: "plus.circle",
   update_goal: "pencil",

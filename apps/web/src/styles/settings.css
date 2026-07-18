@@ -152,6 +152,65 @@
   display: grid;
   gap: 8px;
 }
+.beennector-intro {
+  padding: 0 8px 4px;
+  color: var(--ink-soft);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+.beennector-card {
+  position: relative;
+  overflow: hidden;
+}
+.beennector-card::after {
+  position: absolute;
+  right: -18px;
+  bottom: -22px;
+  width: 76px;
+  height: 70px;
+  border: 1px solid color-mix(in srgb, var(--honey-strong) 24%, transparent);
+  opacity: 0.65;
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  content: '';
+  pointer-events: none;
+}
+.beennector-card.is-active::after {
+  background: color-mix(in srgb, var(--honey) 18%, transparent);
+}
+.connection-mark--github {
+  background: #24292f;
+  color: #fff;
+}
+.connection-mark--linear {
+  background: #5e6ad2;
+  color: #fff;
+}
+.connection-mark--notion {
+  border: 1px solid #202020;
+  background: #fff;
+  color: #202020;
+  font-family: ui-serif, Georgia, serif;
+  font-weight: 800;
+}
+.beennector-status {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+  font-family: var(--font-utility);
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.beennector-status--connected {
+  background: color-mix(in srgb, var(--honey) 45%, var(--surface));
+  color: var(--brown);
+}
+.beennector-status--pending {
+  background: color-mix(in srgb, var(--honey) 22%, var(--surface));
+}
 .info-toggle {
   display: grid;
   width: 28px;
