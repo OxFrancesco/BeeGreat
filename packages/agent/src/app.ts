@@ -17,6 +17,7 @@ type Bindings = {
   CONVEX_URL?: string
   CONVEX_SITE_URL?: string
   AGENT_CREDENTIAL_BROKER_SECRET?: string
+  REQUIRE_SUBSCRIPTION?: string
   // Shared secret for trusted service bridges (e.g. the iMessage bridge).
   BRIDGE_SECRET?: string
   SENTRY_DSN?: string

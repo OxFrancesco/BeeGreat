@@ -1,5 +1,5 @@
 import { ConvexError, v } from 'convex/values'
-import type { Doc, Id } from './_generated/dataModel'
+import type { Doc } from './_generated/dataModel'
 import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 
 const MAX_BODY_LENGTH = 50_000
