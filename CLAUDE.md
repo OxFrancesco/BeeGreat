@@ -19,3 +19,10 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/chat` — Vercel Chat SDK — cross-platform adapters, identity/event models, state, and examples
 
 <!-- codeview:end -->
+
+## Design system
+
+Before building or styling any UI (mobile screens, web pages, or Bee's `beeui`
+generative-UI components), read `docs/design-system.md` — it defines the
+tokens, motion, navigation patterns, component recipes, and the generative-UI
+vocabulary with its content rules (e.g. machine ids never reach the user).

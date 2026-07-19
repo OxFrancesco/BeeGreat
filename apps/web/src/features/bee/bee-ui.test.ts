@@ -43,6 +43,27 @@ describe('extractBeeUI', () => {
     })
   })
 
+  test('accepts a bookmark card and keeps markdown line breaks in the reply', () => {
+    const result = extractBeeUI(`Yes — you saved one:
+
+- open source
+- great for RAG
+\`\`\`beeui
+{"components":[{"type":"bookmark","title":"Firecrawl web data API for AI agents","url":"https://firecrawl.com/","kind":"website","labels":["web-scraping","AI agents"]}]}
+\`\`\``)
+
+    expect(result.spoken).toBe('Yes — you saved one:\n\n- open source\n- great for RAG')
+    expect(result.components).toEqual([
+      {
+        type: 'bookmark',
+        title: 'Firecrawl web data API for AI agents',
+        url: 'https://firecrawl.com/',
+        kind: 'website',
+        labels: ['web-scraping', 'AI agents'],
+      },
+    ])
+  })
+
   test('accepts a Devin session card with follow-up and PR links', () => {
     const result = extractBeeUI(`Devin is working on it.
 \`\`\`beeui

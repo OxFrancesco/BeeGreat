@@ -1,3 +1,6 @@
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { extractBeeUI } from './bee-ui'
 import { GeneratedUI } from './generated-ui'
@@ -78,7 +81,20 @@ export function AgentMessage({
         ) : null}
         {hasResponse ? (
           <div className="assistant-response">
-            {spoken ? <p>{spoken}</p> : null}
+            {spoken ? (
+              <div className="assistant-markdown">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: (props) => (
+                      <a {...props} target="_blank" rel="noreferrer" />
+                    ),
+                  }}
+                >
+                  {spoken}
+                </ReactMarkdown>
+              </div>
+            ) : null}
             <GeneratedUI components={components} onReply={onReply} />
           </div>
         ) : null}

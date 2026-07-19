@@ -2,9 +2,14 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import { useAction, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
+import {
+  GitHubLogo,
+  LinearLogo,
+  NotionLogo,
+} from '@/components/beennectors/beennector-logos';
 import { InfoButton } from '@/components/info-button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -14,10 +19,10 @@ import { captureMobileFailure } from '@/lib/sentry';
 type BeennectorProvider = 'github' | 'linear' | 'notion';
 
 const APP_REDIRECT_URI = 'beegreat://profile';
-const MARKS: Record<BeennectorProvider, string> = {
-  github: '⌘',
-  linear: '◩',
-  notion: 'N',
+const MARKS: Record<BeennectorProvider, ReactNode> = {
+  github: <GitHubLogo size={22} />,
+  linear: <LinearLogo size={20} />,
+  notion: <NotionLogo size={20} />,
 };
 const BRAND_COLORS: Record<BeennectorProvider, string> = {
   github: '#24292F',
@@ -91,8 +96,6 @@ export function BeennectorsSettings() {
           connection.workspaceName ??
           connection.accountName ??
           connection.description;
-        const markTextColor =
-          connection.provider === 'notion' ? '#202020' : '#FFFFFF';
         return (
           <View
             key={connection.provider}
@@ -110,9 +113,7 @@ export function BeennectorsSettings() {
                   connection.provider === 'notion' && styles.notionMark,
                 ]}
               >
-                <ThemedText style={{ color: markTextColor, fontWeight: '800' }}>
-                  {MARKS[connection.provider]}
-                </ThemedText>
+                {MARKS[connection.provider]}
               </View>
               <View style={styles.title}>
                 <View style={styles.titleLine}>

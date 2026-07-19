@@ -45,6 +45,14 @@ export const uiComponentSchema = z.discriminatedUnion('type', [
     body: z.string(),
   }),
   z.object({
+    type: z.literal('bookmark'),
+    title: z.string(),
+    url: httpsUrlSchema,
+    kind: z.enum(['website', 'tweet', 'youtube']).optional(),
+    labels: z.array(z.string()).max(8).optional(),
+    note: z.string().optional(),
+  }),
+  z.object({
     type: z.literal('devin'),
     title: z.string(),
     status: z.string(),
@@ -98,6 +106,12 @@ function scrubComponent(component: UIComponent): UIComponent {
         title: scrubIdentifiers(component.title),
         summary: component.summary ? scrubIdentifiers(component.summary) : component.summary,
       };
+    case 'bookmark':
+      return {
+        ...component,
+        title: scrubIdentifiers(component.title),
+        note: component.note ? scrubIdentifiers(component.note) : component.note,
+      };
     case 'confirm':
       return { ...component, summary: scrubIdentifiers(component.summary) };
     default:
@@ -123,7 +137,9 @@ export function extractBeeUI(text: string): {
       }
       return '';
     })
-    .replace(/\s+/g, ' ')
+    // Keep line breaks so markdown structure survives; just trim the excess.
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
   return { spoken: scrubIdentifiers(spoken), components };
 }

@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { Markdown } from '@/components/agent/markdown';
 import { FloatingBee } from '@/components/floating-bee';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -67,12 +68,11 @@ export function MessageContent({
 }
 
 export function MessageText({ from, text }: { from: MessageRole; text: string }) {
+  if (from === 'assistant') {
+    return <Markdown>{text}</Markdown>;
+  }
   return (
-    <ThemedText
-      selectable
-      themeColor={from === 'user' ? 'secondaryForeground' : 'text'}
-      style={from === 'assistant' ? styles.assistantText : styles.userText}
-    >
+    <ThemedText selectable themeColor="secondaryForeground" style={styles.userText}>
       {text}
     </ThemedText>
   );
@@ -132,11 +132,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: Spacing.two,
     minWidth: 0,
-  },
-  assistantText: {
-    fontSize: 17,
-    lineHeight: 26,
-    fontWeight: '400',
   },
   userText: {
     fontSize: 16,

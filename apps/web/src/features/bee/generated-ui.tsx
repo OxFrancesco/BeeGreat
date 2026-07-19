@@ -57,6 +57,8 @@ function UIComponentView({
           <p>{component.body}</p>
         </section>
       )
+    case 'bookmark':
+      return <BookmarkCard {...component} />
     case 'devin':
       return <DevinCard {...component} onReply={onReply} />
     case 'first_focus':
@@ -87,6 +89,43 @@ function UIComponentView({
         </Card>
       )
   }
+}
+
+function bookmarkHost(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
+function BookmarkCard({
+  title,
+  url,
+  note,
+}: Extract<UIComponent, { type: 'bookmark' }>) {
+  const host = bookmarkHost(url)
+  return (
+    <a
+      className="bookmark-card"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Open bookmark ${title} on ${host}`}
+    >
+      <header className="bookmark-card__header">
+        <img
+          className="bookmark-card__favicon"
+          src={`https://www.google.com/s2/favicons?domain=${host}&sz=64`}
+          alt=""
+          loading="lazy"
+        />
+        <h3>{title}</h3>
+        <b aria-hidden="true">↗</b>
+      </header>
+      <p>{note?.trim() || host}</p>
+    </a>
+  )
 }
 
 function DevinCard({

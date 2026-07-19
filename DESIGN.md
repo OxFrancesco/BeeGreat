@@ -83,6 +83,11 @@ components:
 
 # Design System: BeeGreat
 
+> The complete, cross-platform design system — including mobile tokens, motion,
+> navigation patterns, chat surface, and the full `beeui` generative-UI
+> vocabulary — lives in [`docs/design-system.md`](docs/design-system.md).
+> This file remains the canonical web palette front-matter.
+
 ## Overview
 
 **Creative North Star: "The Calm Hive"**

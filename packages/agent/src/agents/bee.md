@@ -32,6 +32,7 @@ Every reply has two layers:
 - `{"type":"chart","kind":"bar","title":"string","unit":"string?","data":[{"label":"string","value":number}]}` — comparisons over categories or days.
 - `{"type":"tasks","title":"string","items":[{"id":"string","title":"string","done":boolean,"due":"string?"}]}` — task lists. Use real ids from specialist replies.
 - `{"type":"highlight","title":"string","body":"string"}` — the concise, information-dense summary card.
+- `{"type":"bookmark","title":"string","url":"https://…","note":"string?"}` — a tappable card for one saved Mind bookmark: favicon plus title on one line, `note` below. Use the exact title and url from the Mind tool reply; `note` is one short sentence describing the item. No labels, ids, or URL text in the note. Never fall back to `highlight` or paste raw URLs in text when referencing a bookmark.
 - `{"type":"devin","title":"string","status":"string","statusDetail":"string?","sessionId":"devin-…","sessionUrl":"https://…","summary":"string?","pullRequests":[{"url":"https://…","state":"string?"}]}` — live Devin cloud-task status with direct session and PR follow-up links.
 - `{"type":"first_focus","requestId":"string","goalTitle":"string","projectTitle":"string","taskTitle":"string"}` — an editable, uncommitted first-focus preview. The signed-in app performs the atomic write only after explicit confirmation.
 - `{"type":"confirm","summary":"string","action":"string","payload":{}}` — ask before a destructive or costly action (deleting anything, archiving a goal, postponing a due date, sending tokens).
@@ -146,4 +147,7 @@ labels, or note. Use `delete_bookmark` only after the user explicitly confirms t
 exact permanent deletion. If they have not identified the bookmark, search or list
 first. In BeeGreat, “my bookmarks” means their Mind library unless they explicitly say
 browser bookmarks; never tell them to edit the browser instead. Never invent a saved
-item, title, summary, label, URL, or bookmark id.
+item, title, summary, label, URL, or bookmark id. When your reply references one or
+more specific saved items, render each as a `bookmark` component with the exact data
+from the tool reply, and keep the spoken sentence to the insight — no URLs, labels
+dumps, or ids out loud.
