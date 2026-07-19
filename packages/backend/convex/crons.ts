@@ -17,6 +17,13 @@ crons.cron(
   {},
 )
 
+crons.cron(
+  'remove expired bookmark crawl cache entries',
+  '40 2 * * *',
+  internal.bookmarks.deleteExpiredCrawlCache,
+  {},
+)
+
 crons.interval(
   'repair account deletion jobs and safety sweeps',
   { minutes: 15 },

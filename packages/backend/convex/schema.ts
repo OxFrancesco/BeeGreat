@@ -841,6 +841,43 @@ export default defineSchema({
       filterFields: ['ownerKey', 'kind'],
     }),
 
+  // Shared, server-only source cache. User-owned bookmark fields never live
+  // here; the short lease prevents concurrent saves of the same canonical URL
+  // from issuing duplicate provider crawls.
+  bookmarkCrawlCache: defineTable({
+    normalizedUrl: v.string(),
+    kind: v.union(
+      v.literal('website'),
+      v.literal('tweet'),
+      v.literal('youtube'),
+    ),
+    status: v.union(v.literal('processing'), v.literal('ready')),
+    leaseOwnerBookmarkId: v.optional(v.id('bookmarks')),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+    meta: v.optional(
+      v.object({
+        siteName: v.optional(v.string()),
+        author: v.optional(v.string()),
+        handle: v.optional(v.string()),
+        imageUrl: v.optional(v.string()),
+        faviconUrl: v.optional(v.string()),
+        publishedAt: v.optional(v.number()),
+        tweetId: v.optional(v.string()),
+        videoId: v.optional(v.string()),
+        durationSeconds: v.optional(v.number()),
+      }),
+    ),
+    transcriptSource: v.optional(
+      v.union(v.literal('captions'), v.literal('scribe')),
+    ),
+    scrapedAt: v.optional(v.number()),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_normalized_url', ['normalizedUrl'])
+    .index('by_expires_at', ['expiresAt']),
+
   memories: defineTable({
     ownerKey: v.string(),
     value: memoryValueValidator,

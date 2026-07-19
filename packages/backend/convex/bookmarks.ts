@@ -37,6 +37,24 @@ const MAX_URL_BYTES = 8 * 1024
 const MAX_TITLE_BYTES = 4 * 1024
 const MAX_SUMMARY_BYTES = 8 * 1024
 const MAX_META_TEXT_BYTES = 2 * 1024
+const MAX_CRAWL_CACHE_CONTENT_BYTES = 96 * 1024
+const CRAWL_CACHE_TTL_MS = 24 * 60 * 60 * 1_000
+const CRAWL_CACHE_LEASE_MS = 10 * 60 * 1_000
+const CRAWL_CACHE_RETRY_MAX_MS = 5_000
+const CRAWL_CACHE_CLEANUP_BATCH_SIZE = 500
+
+const cachedScrapeValidator = v.object({
+  title: v.optional(v.string()),
+  content: v.string(),
+  meta: v.optional(bookmarkMetaValidator),
+  transcriptSource: v.optional(transcriptSourceValidator),
+})
+
+const crawlCacheClaimValidator = v.union(
+  v.object({ state: v.literal('acquired') }),
+  v.object({ state: v.literal('hit'), scraped: cachedScrapeValidator }),
+  v.object({ state: v.literal('wait'), retryAfterMs: v.number() }),
+)
 
 type AuthCtx = QueryCtx | MutationCtx
 
@@ -357,6 +375,184 @@ export const markProcessing = internalMutation({
   },
 })
 
+export const claimCrawlCache = internalMutation({
+  args: { bookmarkId: v.id('bookmarks') },
+  returns: crawlCacheClaimValidator,
+  handler: async (ctx, args) => {
+    const bookmark = await ctx.db.get('bookmarks', args.bookmarkId)
+    if (!bookmark || bookmark.status !== 'processing') {
+      throw new Error('Only a processing bookmark can claim the crawl cache')
+    }
+
+    const now = Date.now()
+    const existing = await ctx.db
+      .query('bookmarkCrawlCache')
+      .withIndex('by_normalized_url', (q) =>
+        q.eq('normalizedUrl', bookmark.normalizedUrl),
+      )
+      .unique()
+
+    if (
+      existing?.status === 'ready' &&
+      existing.expiresAt > now &&
+      existing.content
+    ) {
+      return {
+        state: 'hit' as const,
+        scraped: {
+          title: existing.title,
+          content: existing.content,
+          meta: existing.meta,
+          transcriptSource: existing.transcriptSource,
+        },
+      }
+    }
+
+    if (
+      existing?.status === 'processing' &&
+      existing.expiresAt > now &&
+      existing.leaseOwnerBookmarkId !== bookmark._id
+    ) {
+      return {
+        state: 'wait' as const,
+        retryAfterMs: Math.max(
+          1_000,
+          Math.min(CRAWL_CACHE_RETRY_MAX_MS, existing.expiresAt - now),
+        ),
+      }
+    }
+
+    const lease = {
+      status: 'processing' as const,
+      kind: bookmark.kind,
+      leaseOwnerBookmarkId: bookmark._id,
+      title: undefined,
+      content: undefined,
+      meta: undefined,
+      transcriptSource: undefined,
+      scrapedAt: undefined,
+      expiresAt: now + CRAWL_CACHE_LEASE_MS,
+      updatedAt: now,
+    }
+    if (existing) {
+      await ctx.db.patch('bookmarkCrawlCache', existing._id, lease)
+    } else {
+      await ctx.db.insert('bookmarkCrawlCache', {
+        normalizedUrl: bookmark.normalizedUrl,
+        ...lease,
+      })
+    }
+    return { state: 'acquired' as const }
+  },
+})
+
+export const saveCrawlCache = internalMutation({
+  args: {
+    bookmarkId: v.id('bookmarks'),
+    normalizedUrl: v.string(),
+    title: v.optional(v.string()),
+    content: v.string(),
+    meta: v.optional(bookmarkMetaValidator),
+    transcriptSource: v.optional(transcriptSourceValidator),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const cache = await ctx.db
+      .query('bookmarkCrawlCache')
+      .withIndex('by_normalized_url', (q) =>
+        q.eq('normalizedUrl', args.normalizedUrl),
+      )
+      .unique()
+    if (
+      !cache ||
+      cache.status !== 'processing' ||
+      cache.leaseOwnerBookmarkId !== args.bookmarkId
+    ) {
+      return false
+    }
+
+    const now = Date.now()
+    await ctx.db.patch('bookmarkCrawlCache', cache._id, {
+      status: 'ready',
+      leaseOwnerBookmarkId: undefined,
+      title: args.title
+        ? truncateContent(args.title.trim(), MAX_TITLE_BYTES) || undefined
+        : undefined,
+      content: truncateContent(args.content, MAX_CRAWL_CACHE_CONTENT_BYTES),
+      meta: args.meta,
+      transcriptSource: args.transcriptSource,
+      scrapedAt: now,
+      expiresAt: now + CRAWL_CACHE_TTL_MS,
+      updatedAt: now,
+    })
+    return true
+  },
+})
+
+export const releaseCrawlCache = internalMutation({
+  args: {
+    bookmarkId: v.id('bookmarks'),
+    normalizedUrl: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const cache = await ctx.db
+      .query('bookmarkCrawlCache')
+      .withIndex('by_normalized_url', (q) =>
+        q.eq('normalizedUrl', args.normalizedUrl),
+      )
+      .unique()
+    if (
+      cache?.status === 'processing' &&
+      cache.leaseOwnerBookmarkId === args.bookmarkId
+    ) {
+      await ctx.db.delete('bookmarkCrawlCache', cache._id)
+    }
+    return null
+  },
+})
+
+export const deferForCrawlCache = internalMutation({
+  args: { bookmarkId: v.id('bookmarks'), delayMs: v.number() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const bookmark = await ctx.db.get('bookmarks', args.bookmarkId)
+    if (!bookmark || bookmark.status !== 'processing') return false
+    await ctx.db.patch('bookmarks', bookmark._id, {
+      status: 'pending',
+      updatedAt: Date.now(),
+    })
+    await ctx.scheduler.runAfter(
+      Math.max(1_000, Math.min(CRAWL_CACHE_RETRY_MAX_MS, args.delayMs)),
+      internal.scraper.process,
+      { bookmarkId: bookmark._id },
+    )
+    return true
+  },
+})
+
+export const deleteExpiredCrawlCache = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const expired = await ctx.db
+      .query('bookmarkCrawlCache')
+      .withIndex('by_expires_at', (q) => q.lt('expiresAt', Date.now()))
+      .take(CRAWL_CACHE_CLEANUP_BATCH_SIZE)
+    await Promise.all(
+      expired.map((cache) => ctx.db.delete('bookmarkCrawlCache', cache._id)),
+    )
+    if (expired.length === CRAWL_CACHE_CLEANUP_BATCH_SIZE) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.bookmarks.deleteExpiredCrawlCache,
+        {},
+      )
+    }
+    return null
+  },
+})
+
 export const saveScrape = internalMutation({
   args: {
     bookmarkId: v.id('bookmarks'),
@@ -378,7 +574,10 @@ export const saveScrape = internalMutation({
       (args.title
         ? truncateContent(args.title.trim(), MAX_TITLE_BYTES) || undefined
         : undefined)
-    const labels = bookmark.labels.length > 0 ? bookmark.labels : normalizeLabels(args.labels)
+    const labels =
+      bookmark.labels.length > 0
+        ? bookmark.labels
+        : normalizeLabels(args.labels)
     const content = args.content
       ? truncateContent(args.content, MAX_CONTENT_BYTES)
       : undefined
