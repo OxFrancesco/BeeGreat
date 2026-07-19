@@ -185,6 +185,42 @@ test('signed Clerk deletion webhook idempotently activates a prepared job', asyn
   }
 }, 30_000)
 
+test('account erasure includes independent journal entries', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    const subject = 'journal_deletion_owner'
+    const ownerKey = `https://issuer.example.test|${subject}`
+    const owner = authenticated(t, subject)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('journalEntries', {
+        ownerKey,
+        userId: subject,
+        localDate: '2026-07-19',
+        timeZone: 'Europe/Rome',
+        occurredAt: Date.UTC(2026, 6, 19, 12),
+        title: 'Private memory',
+        body: 'Remove this with my account.',
+        tags: ['private'],
+        searchText: 'Private memory Remove this with my account. private',
+        isPinned: false,
+        isFavorite: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    })
+
+    await prepareAndActivate(t, owner)
+    await finishDeletion(t)
+
+    expect(
+      await t.run((ctx) => ctx.db.query('journalEntries').collect()),
+    ).toHaveLength(0)
+  } finally {
+    vi.useRealTimers()
+  }
+}, 30_000)
+
 test('watchdog expires an unconfirmed intent without deleting user data', async () => {
   const t = convexTest(schema, modules)
   const subject = 'expired_intent_owner'

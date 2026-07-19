@@ -78,6 +78,13 @@
       "@sentry/react-native",
       "expo-font",
       "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BeeGreat uses your photos only when you choose an image for a journal entry.",
+          "cameraPermission": false
+        }
+      ],
       "expo-status-bar",
       "expo-web-browser"
     ],

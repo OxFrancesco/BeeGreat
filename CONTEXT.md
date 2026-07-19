@@ -2,6 +2,16 @@
 
 BeeGreat is a voice-first focus system that helps a person direct attention toward a deliberately small set of meaningful outcomes.
 
+## Personal Reflection
+
+**Daily Check-in**:
+A single local-day health snapshot that records mood and hydration. It may inform a Journal Entry, but it is not itself a written memory.
+_Avoid_: Journal Entry, diary entry, reflection
+
+**Journal Entry**:
+An independently authored memory associated with a moment in time. A person may create multiple Journal Entries on the same day, with or without completing a Daily Check-in.
+_Avoid_: Daily Check-in, health row, journal day
+
 ## Focus Structure
 
 **Goal**:

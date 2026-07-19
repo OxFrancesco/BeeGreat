@@ -230,6 +230,51 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_owner_key_and_local_date', ['ownerKey', 'localDate']),
 
+  journalEntries: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    localDate: v.string(),
+    timeZone: v.string(),
+    occurredAt: v.number(),
+    title: v.string(),
+    body: v.string(),
+    tags: v.optional(v.array(v.string())),
+    searchText: v.string(),
+    isPinned: v.boolean(),
+    isFavorite: v.boolean(),
+    legacyLocalDate: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key_and_local_date_and_occurred_at', [
+      'ownerKey',
+      'localDate',
+      'occurredAt',
+    ])
+    .index('by_owner_key_and_legacy_local_date', [
+      'ownerKey',
+      'legacyLocalDate',
+    ])
+    .searchIndex('search_text', {
+      searchField: 'searchText',
+      filterFields: ['ownerKey'],
+    }),
+
+  journalAttachments: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    entryId: v.id('journalEntries'),
+    kind: v.literal('photo'),
+    storageId: v.id('_storage'),
+    mimeType: v.string(),
+    fileName: v.optional(v.string()),
+    width: v.optional(v.number()),
+    height: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index('by_entry_id_and_created_at', ['entryId', 'createdAt'])
+    .index('by_owner_key', ['ownerKey']),
+
   chatMessages: defineTable({
     ownerKey: v.string(),
     userId: v.string(),

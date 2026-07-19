@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -7,7 +8,15 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 /** Compact navbar for Bee Healthy section screens: back-to-app, title, date. */
-export function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+export function SectionHeader({
+  title,
+  subtitle,
+  actions,
+}: {
+  title: string;
+  subtitle: string;
+  actions?: ReactNode;
+}) {
   const theme = useTheme();
 
   return (
@@ -40,6 +49,7 @@ export function SectionHeader({ title, subtitle }: { title: string; subtitle: st
           {subtitle}
         </ThemedText>
       </View>
+      {actions ? <View style={styles.actions}>{actions}</View> : null}
     </View>
   );
 }
@@ -54,6 +64,11 @@ const styles = StyleSheet.create({
   copy: {
     flex: 1,
     gap: Spacing.half,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
   },
   title: {
     fontSize: 22,

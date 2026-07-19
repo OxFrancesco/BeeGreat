@@ -47,6 +47,7 @@ import type * as googleHealthValidators from "../googleHealthValidators.js";
 import type * as healthJournal from "../healthJournal.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
+import type * as journalEntries from "../journalEntries.js";
 import type * as memories from "../memories.js";
 import type * as memoryRelevance from "../memoryRelevance.js";
 import type * as memoryValidators from "../memoryValidators.js";
@@ -114,6 +115,7 @@ declare const fullApi: ApiFromModules<{
   healthJournal: typeof healthJournal;
   helpers: typeof helpers;
   http: typeof http;
+  journalEntries: typeof journalEntries;
   memories: typeof memories;
   memoryRelevance: typeof memoryRelevance;
   memoryValidators: typeof memoryValidators;

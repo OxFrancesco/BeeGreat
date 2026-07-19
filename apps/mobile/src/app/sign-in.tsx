@@ -4,7 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as AuthSession from 'expo-auth-session';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,7 @@ import { FloatingBee } from '@/components/floating-bee';
 import { HexButton, Hive } from '@/components/hex-button';
 import { MotionDuration } from '@/constants/motion';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
+import { resolveAppleAuthenticationAvailability } from '@/lib/apple-auth-availability';
 import { captureMobileFailure } from '@/lib/sentry';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -36,6 +37,23 @@ export default function SignInScreen() {
   const reducedMotion = useReducedMotion();
   const [pending, setPending] = useState<'apple' | 'google' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [appleAuthenticationAvailable, setAppleAuthenticationAvailable] =
+    useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    void resolveAppleAuthenticationAvailability(
+      process.env.EXPO_OS ?? 'unknown',
+      AppleAuthentication.isAvailableAsync,
+    ).then((available) => {
+      if (active) setAppleAuthenticationAvailable(available);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const heroWidth = Math.min(width, MaxContentWidth);
   const scale = heroWidth / SVG_WIDTH;
@@ -124,7 +142,7 @@ export default function SignInScreen() {
           }
           style={styles.actions}
         >
-          {process.env.EXPO_OS === 'ios' ? (
+          {appleAuthenticationAvailable ? (
             <AppleAuthentication.AppleAuthenticationButton
               accessibilityLabel="Sign in with Apple"
               buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}

@@ -61,6 +61,8 @@ const DATA_STAGES = [
   'chatgptGatePreferences',
   'googleHealthAuthSessions',
   'googleHealthCredentials',
+  'journalAttachments',
+  'journalEntries',
   'healthJournalEntries',
   'beennectorAuthSessions',
   'beennectorCredentials',
@@ -75,7 +77,7 @@ const DATA_STAGES = [
   'hives',
 ] as const
 
-// This enumerates all 41 user-data tables in schema.ts. `posts` and the
+// This enumerates all 43 user-data tables in schema.ts. `posts` and the
 // privacy-minimized `revenueCatWebhookEvents` are global/provider metadata;
 // `accountDeletionJobs` retains only a bounded safety-sweep tombstone.
 //
@@ -369,6 +371,27 @@ async function removeDataBatch(
         await ctx.db
           .query('googleHealthCredentials')
           .withIndex('by_user', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'journalAttachments': {
+      const attachments = await ctx.db
+        .query('journalAttachments')
+        .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
+        .take(BATCH_SIZE)
+      for (const attachment of attachments) {
+        await ctx.storage.delete(attachment.storageId)
+        await ctx.db.delete(attachment._id)
+      }
+      return attachments.length
+    }
+    case 'journalEntries':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('journalEntries')
+          .withIndex('by_owner_key_and_local_date_and_occurred_at', (q) =>
+            q.eq('ownerKey', ownerKey),
+          )
           .take(BATCH_SIZE),
       )
     case 'healthJournalEntries':

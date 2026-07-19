@@ -155,6 +155,10 @@ function RootNavigator() {
         />
         <Stack.Screen name="share" />
         <Stack.Screen name="bee-healthy" />
+        <Stack.Screen
+          name="journal-entry/[entryId]"
+          options={{ gestureEnabled: false }}
+        />
       </Stack.Protected>
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="sign-in" />
