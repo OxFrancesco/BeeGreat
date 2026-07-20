@@ -7,6 +7,10 @@ import {
   beennectorProviderValidator,
   encryptedSecretValidator as beennectorEncryptedSecretValidator,
 } from './beennectorValidators'
+import {
+  removeOwnerCrawlRunsBatch,
+  removeOwnerWebsiteCacheBatch,
+} from './bookmarkCrawl'
 import { encryptedSecretValidator as healthEncryptedSecretValidator } from './googleHealthValidators'
 
 // Ten documents keeps the mutation comfortably below Convex's 16 MiB
@@ -55,6 +59,8 @@ const DATA_STAGES = [
   'boosterActivations',
   'anonymizedEconomyEvents',
   'recurrenceSchedules',
+  'bookmarkCrawlRuns',
+  'bookmarkCrawlCache',
   'bookmarks',
   'chatgptAuthSessions',
   'chatgptCredentials',
@@ -77,8 +83,9 @@ const DATA_STAGES = [
   'hives',
 ] as const
 
-// This enumerates all 43 user-data tables in schema.ts. `posts` and the
-// privacy-minimized `revenueCatWebhookEvents` are global/provider metadata;
+// This enumerates all 45 user-data stages in schema.ts. The crawl-cache stage
+// removes only owner-scoped websites; public tweet/video artifacts contain no
+// account identity. `posts` and privacy-minimized provider metadata are global;
 // `accountDeletionJobs` retains only a bounded safety-sweep tombstone.
 //
 // BeeGreat production has one fixed Clerk issuer. Legacy tables and RevenueCat
@@ -323,6 +330,10 @@ async function removeDataBatch(
           )
           .take(BATCH_SIZE),
       )
+    case 'bookmarkCrawlRuns':
+      return removeOwnerCrawlRunsBatch(ctx, ownerKey, BATCH_SIZE)
+    case 'bookmarkCrawlCache':
+      return removeOwnerWebsiteCacheBatch(ctx, ownerKey, BATCH_SIZE)
     case 'bookmarks':
       return removeDocuments(
         ctx,

@@ -7,7 +7,9 @@ crons.cron(
   'settle continuous Brain Fatigue',
   '5 0 * * *',
   internal.economy.settleFatigueBatch,
-  { cursor: null },
+  {
+    cursor: null,
+  },
 )
 
 crons.cron(
@@ -20,7 +22,14 @@ crons.cron(
 crons.cron(
   'remove expired bookmark crawl cache entries',
   '40 2 * * *',
-  internal.bookmarks.deleteExpiredCrawlCache,
+  internal.bookmarkCrawl.sweepExpiredCache,
+  {},
+)
+
+crons.interval(
+  'repair stalled bookmark crawl runs',
+  { minutes: 15 },
+  internal.bookmarkCrawl.watchdog,
   {},
 )
 

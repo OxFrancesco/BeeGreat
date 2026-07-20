@@ -6,6 +6,8 @@ import * as Effect from 'effect/Effect'
 import { internal } from './_generated/api'
 import type { Doc } from './_generated/dataModel'
 import { env, internalAction } from './_generated/server'
+import { sanitizeCrawlResult } from './bookmarkCrawlDomain'
+import type { CrawlRequest } from './bookmarkCrawlValidators'
 import {
   abortableFetch,
   DEFAULT_NETWORK_POLICY,
@@ -22,11 +24,14 @@ import {
   type ScraperEffectFailure,
   withProviderFallback,
 } from './scraperEffect'
-import { normalizeLabels, truncateContent } from './scraperShared'
+import {
+  MAX_CRAWL_CONTENT_BYTES,
+  normalizeLabels,
+  truncateContent,
+} from './scraperShared'
 
 const MODEL = 'gpt-5.6-luna'
 const OPENROUTER_MODEL = 'openai/gpt-5.6-luna'
-const MAX_MODEL_CONTENT_BYTES = 96 * 1024
 const MAX_AUDIO_BYTES = 30 * 1024 * 1024
 const MAX_AUDIO_DURATION_SECONDS = 60 * 60
 const SUMMARY_POLICY = {
@@ -585,7 +590,7 @@ Use specific topical labels, never generic labels like website, tweet, or video.
 URL: ${bookmark.url}
 Source title: ${scraped.title ?? ''}
 Content:
-${truncateContent(scraped.content, MAX_MODEL_CONTENT_BYTES)}`
+${truncateContent(scraped.content, MAX_CRAWL_CONTENT_BYTES)}`
 }
 
 function parseSummary(value: string): BookmarkSummary {
@@ -772,98 +777,84 @@ function summaryEffect(
   })
 }
 
+function crawlRequestEffect(request: CrawlRequest) {
+  switch (request.kind) {
+    case 'website':
+      return providerAttempt({
+        code: 'scrape-failed',
+        policy: DEFAULT_NETWORK_POLICY,
+        provider: 'firecrawl',
+        stage: 'scrape',
+        task: (signal) =>
+          scrapeWebsite(request.url, {
+            apiKey: env.FIRECRAWL_API_KEY,
+            fetch: abortableFetch(fetch, signal),
+          }),
+      })
+    case 'tweet':
+      return tweetEffect(request.tweetId, {
+        apiKey: env.TWITTERAPI_IO_API_KEY,
+        firecrawlApiKey: env.FIRECRAWL_API_KEY,
+      })
+    case 'youtube':
+      return youtubeEffect(request.videoId, {
+        elevenLabsApiKey: env.ELEVENLABS_API_KEY,
+        firecrawlApiKey: env.FIRECRAWL_API_KEY,
+      })
+  }
+}
+
+function isPersistenceFailure(failure: ScraperEffectFailure) {
+  return failure instanceof ProviderFailure && failure.provider === 'convex'
+}
+
 export const process = internalAction({
   args: { bookmarkId: v.id('bookmarks') },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const bookmark: Doc<'bookmarks'> | null = await ctx.runQuery(
-      internal.bookmarks.getForProcessing,
-      { bookmarkId: args.bookmarkId },
-    )
-    if (!bookmark) return null
-    const claimed = await ctx.runMutation(internal.bookmarks.markProcessing, {
-      bookmarkId: bookmark._id,
+    const prepared = await ctx.runMutation(internal.bookmarkCrawl.prepare, {
+      bookmarkId: args.bookmarkId,
     })
-    if (!claimed) return null
-
-    const crawlCache = await ctx.runMutation(internal.bookmarks.claimCrawlCache, {
-      bookmarkId: bookmark._id,
-    })
-    if (crawlCache.state === 'wait') {
-      await ctx.runMutation(internal.bookmarks.deferForCrawlCache, {
-        bookmarkId: bookmark._id,
-        delayMs: crawlCache.retryAfterMs,
-      })
-      return null
-    }
-    const cachedScrape =
-      crawlCache.state === 'hit' ? crawlCache.scraped : undefined
-    const ownsCrawlCacheLease = crawlCache.state === 'acquired'
+    if (prepared.state === 'noop' || prepared.state === 'deferred') return null
 
     const processing = Effect.gen(function* () {
-      const credentialResult = yield* Effect.either(
-        convexOperation({
-          provider: 'credential-broker',
-          stage: 'auth',
-          task: () =>
-            ctx.runAction(internal.chatgptAuthActions.resolveForAgent, {
-              userId: bookmark.userId,
-            }),
-        }),
-      )
-      const accessToken =
-        credentialResult._tag === 'Right' && credentialResult.right.status === 'ok'
-          ? credentialResult.right.accessToken
-          : undefined
-
       const remotePreparation = Effect.gen(function* () {
-        const scraped = yield* (cachedScrape
-          ? Effect.succeed(cachedScrape)
-          : bookmark.kind === 'website'
-            ? providerAttempt({
-                code: 'scrape-failed',
-                policy: DEFAULT_NETWORK_POLICY,
-                provider: 'firecrawl',
-                stage: 'scrape',
-                task: (signal) =>
-                  scrapeWebsite(bookmark.url, {
-                    apiKey: env.FIRECRAWL_API_KEY,
-                    fetch: abortableFetch(fetch, signal),
-                  }),
-              })
-            : bookmark.kind === 'tweet'
-              ? tweetEffect(bookmark.meta?.tweetId ?? '', {
-                  apiKey: env.TWITTERAPI_IO_API_KEY,
-                  firecrawlApiKey: env.FIRECRAWL_API_KEY,
-                })
-              : youtubeEffect(bookmark.meta?.videoId ?? '', {
-                  elevenLabsApiKey: env.ELEVENLABS_API_KEY,
-                  firecrawlApiKey: env.FIRECRAWL_API_KEY,
-                }))
-        if (ownsCrawlCacheLease) {
-          yield* Effect.either(
-            convexOperation({
-              provider: 'convex',
-              stage: 'persistence',
-              task: () =>
-                ctx.runMutation(internal.bookmarks.saveCrawlCache, {
-                  bookmarkId: bookmark._id,
-                  normalizedUrl: bookmark.normalizedUrl,
-                  title: scraped.title,
-                  content: scraped.content,
-                  meta: scraped.meta,
-                  transcriptSource: scraped.transcriptSource,
-                }),
+        const isCurrent = yield* convexOperation({
+          provider: 'convex',
+          stage: 'persistence',
+          task: () =>
+            ctx.runQuery(internal.bookmarkCrawl.isRunCurrent, {
+              runId: prepared.runId,
             }),
-          )
-        }
+        })
+        if (!isCurrent) return { state: 'stale' as const }
+
+        const rawScrape = yield* prepared.state === 'hit'
+          ? Effect.succeed(prepared.scraped)
+          : crawlRequestEffect(prepared.request)
+        const scraped = sanitizeCrawlResult(rawScrape)
+        const credentialResult = yield* Effect.either(
+          convexOperation({
+            provider: 'credential-broker',
+            stage: 'auth',
+            task: () =>
+              ctx.runAction(internal.chatgptAuthActions.resolveForAgent, {
+                userId: prepared.bookmark.userId,
+              }),
+          }),
+        )
+        const accessToken =
+          credentialResult._tag === 'Right' &&
+          credentialResult.right.status === 'ok'
+            ? credentialResult.right.accessToken
+            : undefined
         const summaryResult = yield* Effect.either(
-          summaryEffect(bookmark, scraped, {
+          summaryEffect(prepared.bookmark, scraped, {
             accessToken,
             openRouterApiKey: env.OPENROUTER_API_KEY,
           }),
         )
-        return { scraped, summaryResult }
+        return { state: 'ready' as const, scraped, summaryResult }
       }).pipe(
         Effect.timeoutFail({
           duration: REMOTE_WORKFLOW_TIMEOUT_MS,
@@ -871,7 +862,10 @@ export const process = internalAction({
             new ProviderFailure({
               cause: new Error('Hivemind remote workflow timed out'),
               code: 'unknown',
-              message: `Hivemind remote workflow timed out after ${REMOTE_WORKFLOW_TIMEOUT_MS}ms`,
+              message:
+                'Hivemind remote workflow timed out after ' +
+                REMOTE_WORKFLOW_TIMEOUT_MS +
+                'ms',
               provider: 'hivemind',
               retryAfterMs: 0,
               retryable: false,
@@ -879,63 +873,53 @@ export const process = internalAction({
             }),
         }),
       )
-      const { scraped, summaryResult } = yield* remotePreparation
+      const preparedRemote = yield* remotePreparation
+      if (preparedRemote.state === 'stale') return
+      const { scraped, summaryResult } = preparedRemote
 
       yield* convexOperation({
         provider: 'convex',
         stage: 'persistence',
         task: () =>
-          summaryResult._tag === 'Right'
-            ? ctx.runMutation(internal.bookmarks.saveScrape, {
-                bookmarkId: bookmark._id,
-                title: summaryResult.right.title ?? scraped.title,
-                summary: summaryResult.right.summary,
-                labels: summaryResult.right.labels,
-                content: scraped.content,
-                meta: scraped.meta,
-                transcriptSource: scraped.transcriptSource,
-              })
-            : ctx.runMutation(internal.bookmarks.saveScrape, {
-                bookmarkId: bookmark._id,
-                title: scraped.title,
-                labels: [],
-                content: scraped.content,
-                meta: scraped.meta,
-                transcriptSource: scraped.transcriptSource,
-                errorCode: 'summary-failed',
-                errorMessage: failureMessage(summaryResult.left),
-              }),
+          ctx.runMutation(internal.bookmarkCrawl.finish, {
+            runId: prepared.runId,
+            outcome:
+              summaryResult._tag === 'Right'
+                ? {
+                    state: 'ready' as const,
+                    scraped,
+                    summary: summaryResult.right,
+                  }
+                : {
+                    state: 'ready' as const,
+                    scraped,
+                    summary: { labels: [] },
+                    summaryError: {
+                      code: 'summary-failed' as const,
+                      message: failureMessage(summaryResult.left),
+                    },
+                  },
+          }),
       })
     })
 
     const program = processing.pipe(
-      Effect.catchAll((failure) =>
-        Effect.gen(function* () {
-          if (ownsCrawlCacheLease) {
-            yield* Effect.either(
-              convexOperation({
-                provider: 'convex',
-                stage: 'persistence',
-                task: () =>
-                  ctx.runMutation(internal.bookmarks.releaseCrawlCache, {
-                    bookmarkId: bookmark._id,
-                    normalizedUrl: bookmark.normalizedUrl,
-                  }),
-              }),
-            )
-          }
-          yield* convexOperation({
-            provider: 'convex',
-            stage: 'persistence',
-            task: () =>
-              ctx.runMutation(internal.bookmarks.markFailed, {
-                bookmarkId: bookmark._id,
+      Effect.catchAll((failure) => {
+        if (isPersistenceFailure(failure)) return Effect.fail(failure)
+        return convexOperation({
+          provider: 'convex',
+          stage: 'persistence',
+          task: () =>
+            ctx.runMutation(internal.bookmarkCrawl.finish, {
+              runId: prepared.runId,
+              outcome: {
+                state: 'failed',
                 errorCode: failureCode(failure),
                 errorMessage: failureMessage(failure),
-              }),
-          }).pipe(Effect.orDie)
-        }),
-      ),
+              },
+            }),
+        }).pipe(Effect.orDie)
+      }),
     )
 
     await Effect.runPromise(program)

@@ -19,6 +19,10 @@ import {
   beennectorProviderValidator,
   beennectorSessionStatusValidator,
 } from './beennectorValidators'
+import {
+  bookmarkCrawlCacheValidator,
+  bookmarkCrawlRunValidator,
+} from './bookmarkCrawlValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -831,6 +835,7 @@ export default defineSchema({
   })
     .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
     .index('by_owner_key_and_normalized_url', ['ownerKey', 'normalizedUrl'])
+    .index('by_status_and_updated_at', ['status', 'updatedAt'])
     .index('by_owner_key_and_kind_and_created_at', [
       'ownerKey',
       'kind',
@@ -841,42 +846,22 @@ export default defineSchema({
       filterFields: ['ownerKey', 'kind'],
     }),
 
-  // Shared, server-only source cache. User-owned bookmark fields never live
-  // here; the short lease prevents concurrent saves of the same canonical URL
-  // from issuing duplicate provider crawls.
-  bookmarkCrawlCache: defineTable({
-    normalizedUrl: v.string(),
-    kind: v.union(
-      v.literal('website'),
-      v.literal('tweet'),
-      v.literal('youtube'),
-    ),
-    status: v.union(v.literal('processing'), v.literal('ready')),
-    leaseOwnerBookmarkId: v.optional(v.id('bookmarks')),
-    title: v.optional(v.string()),
-    content: v.optional(v.string()),
-    meta: v.optional(
-      v.object({
-        siteName: v.optional(v.string()),
-        author: v.optional(v.string()),
-        handle: v.optional(v.string()),
-        imageUrl: v.optional(v.string()),
-        faviconUrl: v.optional(v.string()),
-        publishedAt: v.optional(v.number()),
-        tweetId: v.optional(v.string()),
-        videoId: v.optional(v.string()),
-        durationSeconds: v.optional(v.number()),
-      }),
-    ),
-    transcriptSource: v.optional(
-      v.union(v.literal('captions'), v.literal('scribe')),
-    ),
-    scrapedAt: v.optional(v.number()),
-    expiresAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index('by_normalized_url', ['normalizedUrl'])
+  // Website artifacts are structurally owner-scoped. The public variants can
+  // only represent canonical tweet/video ids and contain no account identity.
+  // Processing and ready states are a closed union, so partial cache states
+  // cannot be persisted.
+  bookmarkCrawlCache: defineTable(bookmarkCrawlCacheValidator)
+    .index('by_cache_key', ['cacheKey'])
+    .index('by_owner_key', ['ownerKey'])
     .index('by_expires_at', ['expiresAt']),
+
+  // A run id is the capability required to settle a bookmark. Waiting runs
+  // are also the event-driven fan-out queue for a shared public crawl.
+  bookmarkCrawlRuns: defineTable(bookmarkCrawlRunValidator)
+    .index('by_bookmark_id', ['bookmarkId'])
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_cache_key_and_status', ['cacheKey', 'status'])
+    .index('by_status_and_deadline_at', ['status', 'deadlineAt']),
 
   memories: defineTable({
     ownerKey: v.string(),

@@ -29,7 +29,9 @@ describe('Mind bookmarks', () => {
       note: 'Read this',
       retryCount: 0,
     })
-    expect(await other.query(api.bookmarks.get, { bookmarkId: first._id })).toBeNull()
+    expect(
+      await other.query(api.bookmarks.get, { bookmarkId: first._id }),
+    ).toBeNull()
     await expect(
       other.mutation(api.bookmarks.update, {
         bookmarkId: first._id,
@@ -61,68 +63,8 @@ describe('Mind bookmarks', () => {
     ).rejects.toThrow('Only failed bookmarks')
 
     await owner.mutation(api.bookmarks.remove, { bookmarkId: added._id })
-    expect(await owner.query(api.bookmarks.get, { bookmarkId: added._id })).toBeNull()
-  })
-
-  test('shares one canonical crawl across owners for 24 hours', async () => {
-    const t = convexTest(schema, modules)
-    const firstOwner = t.withIdentity(identity('user_cache_first'))
-    const secondOwner = t.withIdentity(identity('user_cache_second'))
-    const first = await firstOwner.mutation(api.bookmarks.add, {
-      url: 'https://example.com/cached?utm_source=first',
-    })
-    const second = await secondOwner.mutation(api.bookmarks.add, {
-      url: 'https://EXAMPLE.com/cached?utm_medium=second',
-    })
-
-    await t.mutation(internal.bookmarks.markProcessing, {
-      bookmarkId: first._id,
-    })
-    await t.mutation(internal.bookmarks.markProcessing, {
-      bookmarkId: second._id,
-    })
-
-    await expect(
-      t.mutation(internal.bookmarks.claimCrawlCache, {
-        bookmarkId: first._id,
-      }),
-    ).resolves.toEqual({ state: 'acquired' })
-    await expect(
-      t.mutation(internal.bookmarks.claimCrawlCache, {
-        bookmarkId: second._id,
-      }),
-    ).resolves.toMatchObject({ state: 'wait' })
-
-    await t.mutation(internal.bookmarks.saveCrawlCache, {
-      bookmarkId: first._id,
-      normalizedUrl: first.normalizedUrl,
-      title: 'Shared crawl',
-      content: '# Cached once',
-      meta: { siteName: 'Example' },
-    })
-    const cached = await t.run(async (ctx) =>
-      ctx.db
-        .query('bookmarkCrawlCache')
-        .withIndex('by_normalized_url', (q) =>
-          q.eq('normalizedUrl', first.normalizedUrl),
-        )
-        .unique(),
-    )
-    expect(cached).not.toBeNull()
-    expect(cached!.expiresAt - cached!.scrapedAt!).toBe(24 * 60 * 60 * 1_000)
-
-    await expect(
-      t.mutation(internal.bookmarks.claimCrawlCache, {
-        bookmarkId: second._id,
-      }),
-    ).resolves.toEqual({
-      state: 'hit',
-      scraped: {
-        title: 'Shared crawl',
-        content: '# Cached once',
-        meta: { siteName: 'Example' },
-        transcriptSource: undefined,
-      },
-    })
+    expect(
+      await owner.query(api.bookmarks.get, { bookmarkId: added._id }),
+    ).toBeNull()
   })
 })

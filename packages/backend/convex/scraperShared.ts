@@ -1,8 +1,13 @@
 export const MAX_CONTENT_BYTES = 64 * 1024
+export const MAX_CRAWL_CONTENT_BYTES = 96 * 1024
 export const MAX_SEARCH_TEXT_BYTES = 32 * 1024
 export const MAX_NOTE_BYTES = 4 * 1024
 export const MAX_LABELS = 12
 export const MAX_LABEL_BYTES = 40
+export const MAX_URL_BYTES = 8 * 1024
+export const MAX_TITLE_BYTES = 4 * 1024
+export const MAX_SUMMARY_BYTES = 8 * 1024
+export const MAX_META_TEXT_BYTES = 2 * 1024
 
 export type BookmarkKind = 'website' | 'tweet' | 'youtube'
 
