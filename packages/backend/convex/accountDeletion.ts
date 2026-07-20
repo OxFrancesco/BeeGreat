@@ -70,6 +70,8 @@ const DATA_STAGES = [
   'journalAttachments',
   'journalEntries',
   'healthJournalEntries',
+  'nfcActionExecutions',
+  'nfcActions',
   'beennectorAuthSessions',
   'beennectorCredentials',
   'beennectorDeliveries',
@@ -83,7 +85,7 @@ const DATA_STAGES = [
   'hives',
 ] as const
 
-// This enumerates all 45 user-data stages in schema.ts. The crawl-cache stage
+// This enumerates all 47 user-data stages in schema.ts. The crawl-cache stage
 // removes only owner-scoped websites; public tweet/video artifacts contain no
 // account identity. `posts` and privacy-minimized provider metadata are global;
 // `accountDeletionJobs` retains only a bounded safety-sweep tombstone.
@@ -411,6 +413,26 @@ async function removeDataBatch(
         await ctx.db
           .query('healthJournalEntries')
           .withIndex('by_owner_key_and_local_date', (q) =>
+            q.eq('ownerKey', ownerKey),
+          )
+          .take(BATCH_SIZE),
+      )
+    case 'nfcActionExecutions':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('nfcActionExecutions')
+          .withIndex('by_owner_key_and_executed_at', (q) =>
+            q.eq('ownerKey', ownerKey),
+          )
+          .take(BATCH_SIZE),
+      )
+    case 'nfcActions':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('nfcActions')
+          .withIndex('by_owner_key_and_created_at', (q) =>
             q.eq('ownerKey', ownerKey),
           )
           .take(BATCH_SIZE),

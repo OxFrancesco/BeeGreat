@@ -138,20 +138,22 @@ export function BeennectorsSettings() {
                   {detail}
                 </ThemedText>
               </View>
-              <View
-                style={[
-                  styles.status,
-                  {
-                    backgroundColor: connected
-                      ? theme.secondary
-                      : theme.backgroundElement,
-                  },
-                ]}
-              >
-                <ThemedText type="small" style={styles.statusText}>
-                  {connected ? 'Linked' : pending ? 'Waiting' : 'Off'}
-                </ThemedText>
-              </View>
+              {connected || pending ? (
+                <View
+                  style={[
+                    styles.status,
+                    {
+                      backgroundColor: connected
+                        ? theme.secondary
+                        : theme.backgroundElement,
+                    },
+                  ]}
+                >
+                  <ThemedText type="small" style={styles.statusText}>
+                    {connected ? 'Linked' : 'Waiting'}
+                  </ThemedText>
+                </View>
+              ) : null}
             </View>
 
             {openInfo === connection.provider ? (

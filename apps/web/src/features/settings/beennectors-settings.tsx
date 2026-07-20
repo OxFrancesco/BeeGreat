@@ -104,11 +104,13 @@ export function BeennectorsSettings() {
                 </strong>
                 <span>{detail}</span>
               </div>
-              <span
-                className={`beennector-status beennector-status--${connection.state}`}
-              >
-                {connected ? 'Linked' : pending ? 'Waiting' : 'Off'}
-              </span>
+              {connected || pending ? (
+                <span
+                  className={`beennector-status beennector-status--${connection.state}`}
+                >
+                  {connected ? 'Linked' : 'Waiting'}
+                </span>
+              ) : null}
               <button
                 className="info-toggle"
                 type="button"

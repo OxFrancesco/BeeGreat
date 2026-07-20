@@ -1,6 +1,8 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { useAuth } from '@clerk/clerk-expo';
 import { useMutation, useQuery } from 'convex/react';
+import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -120,6 +122,39 @@ function WaterDay({ localDate, timeZone }: { localDate: string; timeZone: string
                 onAdd={(amountMl) => void handleHydrationChange(amountMl, true)}
                 onRemove={(amountMl) => void handleHydrationChange(-amountMl, false)}
               />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Manage NFC water actions"
+                onPress={() => router.push('/nfc-actions')}
+                style={({ pressed }) => [
+                  styles.nfcCard,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={[styles.nfcIcon, { backgroundColor: theme.secondary }]}>
+                  <SymbolView
+                    name="wave.3.right"
+                    size={20}
+                    tintColor={theme.secondaryForeground}
+                    fallback={
+                      <ThemedText style={{ color: theme.secondaryForeground }}>NFC</ThemedText>
+                    }
+                  />
+                </View>
+                <View style={styles.nfcCopy}>
+                  <ThemedText type="smallBold">Tap to log water</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    Set up a reusable NFC action for your bottle or glass
+                  </ThemedText>
+                </View>
+                <SymbolView
+                  name="chevron.right"
+                  size={14}
+                  tintColor={theme.textSecondary}
+                  fallback={<ThemedText themeColor="textSecondary">›</ThemedText>}
+                />
+              </Pressable>
               {lastAddedMl !== null ? (
                 <Animated.View
                   entering={FadeInDown.duration(180)}
@@ -184,5 +219,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: 800,
+  },
+  nfcCard: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    padding: Spacing.three,
+  },
+  nfcIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    borderCurve: 'continuous',
+  },
+  nfcCopy: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  pressed: {
+    opacity: 0.72,
   },
 });

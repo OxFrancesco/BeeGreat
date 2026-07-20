@@ -23,6 +23,10 @@ import {
   bookmarkCrawlCacheValidator,
   bookmarkCrawlRunValidator,
 } from './bookmarkCrawlValidators'
+import {
+  nfcActionDefinitionValidator,
+  nfcActionOutcomeValidator,
+} from './nfcActionValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -233,6 +237,38 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index('by_owner_key_and_local_date', ['ownerKey', 'localDate']),
+
+  // NFC tags contain only the opaque public id. Definitions stay server-side,
+  // so changing an amount or adding future action kinds never rewrites a tag.
+  nfcActions: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    publicId: v.string(),
+    label: v.string(),
+    enabled: v.boolean(),
+    definition: nfcActionDefinitionValidator,
+    lastExecutionId: v.optional(v.id('nfcActionExecutions')),
+    lastExecutedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
+    .index('by_public_id', ['publicId']),
+
+  // Execution snapshots keep undo generic and auditable even if an action is
+  // edited or removed after a tap.
+  nfcActionExecutions: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    actionId: v.id('nfcActions'),
+    actionLabel: v.string(),
+    definition: nfcActionDefinitionValidator,
+    outcome: nfcActionOutcomeValidator,
+    executedAt: v.number(),
+    undoneAt: v.optional(v.number()),
+  })
+    .index('by_owner_key_and_executed_at', ['ownerKey', 'executedAt'])
+    .index('by_action_id_and_executed_at', ['actionId', 'executedAt']),
 
   journalEntries: defineTable({
     ownerKey: v.string(),
