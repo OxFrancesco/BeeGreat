@@ -19,6 +19,10 @@ import {
   beennectorProviderValidator,
   beennectorSessionStatusValidator,
 } from './beennectorValidators'
+import {
+  bookmarkCrawlCacheValidator,
+  bookmarkCrawlRunValidator,
+} from './bookmarkCrawlValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -831,6 +835,7 @@ export default defineSchema({
   })
     .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
     .index('by_owner_key_and_normalized_url', ['ownerKey', 'normalizedUrl'])
+    .index('by_status_and_updated_at', ['status', 'updatedAt'])
     .index('by_owner_key_and_kind_and_created_at', [
       'ownerKey',
       'kind',
@@ -840,6 +845,23 @@ export default defineSchema({
       searchField: 'searchText',
       filterFields: ['ownerKey', 'kind'],
     }),
+
+  // Website artifacts are structurally owner-scoped. The public variants can
+  // only represent canonical tweet/video ids and contain no account identity.
+  // Processing and ready states are a closed union, so partial cache states
+  // cannot be persisted.
+  bookmarkCrawlCache: defineTable(bookmarkCrawlCacheValidator)
+    .index('by_cache_key', ['cacheKey'])
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_expires_at', ['expiresAt']),
+
+  // A run id is the capability required to settle a bookmark. Waiting runs
+  // are also the event-driven fan-out queue for a shared public crawl.
+  bookmarkCrawlRuns: defineTable(bookmarkCrawlRunValidator)
+    .index('by_bookmark_id', ['bookmarkId'])
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_cache_key_and_status', ['cacheKey', 'status'])
+    .index('by_status_and_deadline_at', ['status', 'deadlineAt']),
 
   memories: defineTable({
     ownerKey: v.string(),

@@ -1,6 +1,6 @@
 import { convexTest } from 'convex-test'
 import { describe, expect, test } from 'vitest'
-import { api } from './_generated/api'
+import { api, internal } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -29,7 +29,9 @@ describe('Mind bookmarks', () => {
       note: 'Read this',
       retryCount: 0,
     })
-    expect(await other.query(api.bookmarks.get, { bookmarkId: first._id })).toBeNull()
+    expect(
+      await other.query(api.bookmarks.get, { bookmarkId: first._id }),
+    ).toBeNull()
     await expect(
       other.mutation(api.bookmarks.update, {
         bookmarkId: first._id,
@@ -61,6 +63,8 @@ describe('Mind bookmarks', () => {
     ).rejects.toThrow('Only failed bookmarks')
 
     await owner.mutation(api.bookmarks.remove, { bookmarkId: added._id })
-    expect(await owner.query(api.bookmarks.get, { bookmarkId: added._id })).toBeNull()
+    expect(
+      await owner.query(api.bookmarks.get, { bookmarkId: added._id }),
+    ).toBeNull()
   })
 })

@@ -6,8 +6,6 @@ import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
-  internalMutation,
-  internalQuery,
   mutation,
   query,
   type MutationCtx,
@@ -16,16 +14,16 @@ import {
 import {
   bookmarkKindValidator,
   bookmarkListItemValidator,
-  bookmarkMetaValidator,
   bookmarkValidator,
-  transcriptSourceValidator,
 } from './bookmarkValidators'
+import { forgetBookmarkCrawlData } from './bookmarkCrawl'
 import {
   BookmarkUrlError,
   buildSearchText,
   completeBookmarkUrl,
   detectBookmarkKind,
-  MAX_CONTENT_BYTES,
+  MAX_TITLE_BYTES,
+  MAX_URL_BYTES,
   normalizeBookmarkUrl,
   normalizeLabels,
   normalizeNote,
@@ -33,10 +31,6 @@ import {
 } from './scraperShared'
 
 const MAX_LABEL_SCAN = 500
-const MAX_URL_BYTES = 8 * 1024
-const MAX_TITLE_BYTES = 4 * 1024
-const MAX_SUMMARY_BYTES = 8 * 1024
-const MAX_META_TEXT_BYTES = 2 * 1024
 
 type AuthCtx = QueryCtx | MutationCtx
 
@@ -186,6 +180,7 @@ export async function removeBookmarkForOwner(
   input: { ownerKey: string; bookmarkId: Id<'bookmarks'> },
 ) {
   const bookmark = await ownedBookmark(ctx, input.ownerKey, input.bookmarkId)
+  await forgetBookmarkCrawlData(ctx, bookmark)
   await ctx.db.delete('bookmarks', bookmark._id)
 }
 
@@ -233,7 +228,9 @@ export const search = query({
     const results = await ctx.db
       .query('bookmarks')
       .withSearchIndex('search_text', (q) => {
-        const scoped = q.search('searchText', searchQuery).eq('ownerKey', ownerKey)
+        const scoped = q
+          .search('searchText', searchQuery)
+          .eq('ownerKey', ownerKey)
         return args.kind ? scoped.eq('kind', args.kind) : scoped
       })
       .take(24)
@@ -258,7 +255,9 @@ export const labels = query({
     const { ownerKey } = await requireIdentity(ctx)
     const bookmarks = await ctx.db
       .query('bookmarks')
-      .withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))
+      .withIndex('by_owner_key_and_created_at', (q) =>
+        q.eq('ownerKey', ownerKey),
+      )
       .order('desc')
       .take(MAX_LABEL_SCAN)
     const counts = new Map<string, number>()
@@ -269,7 +268,10 @@ export const labels = query({
     }
     return [...counts.entries()]
       .map(([label, count]) => ({ label, count }))
-      .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+      .sort(
+        (left, right) =>
+          right.count - left.count || left.label.localeCompare(right.label),
+      )
   },
 })
 
@@ -331,116 +333,5 @@ export const retry = mutation({
     const updated = await ctx.db.get('bookmarks', bookmark._id)
     if (!updated) bookmarkNotFound()
     return updated
-  },
-})
-
-export const getForProcessing = internalQuery({
-  args: { bookmarkId: v.id('bookmarks') },
-  returns: v.union(v.null(), bookmarkValidator),
-  handler: async (ctx, args) => {
-    const bookmark = await ctx.db.get('bookmarks', args.bookmarkId)
-    return bookmark?.status === 'pending' ? bookmark : null
-  },
-})
-
-export const markProcessing = internalMutation({
-  args: { bookmarkId: v.id('bookmarks') },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const bookmark = await ctx.db.get('bookmarks', args.bookmarkId)
-    if (!bookmark || bookmark.status !== 'pending') return false
-    await ctx.db.patch('bookmarks', bookmark._id, {
-      status: 'processing',
-      updatedAt: Date.now(),
-    })
-    return true
-  },
-})
-
-export const saveScrape = internalMutation({
-  args: {
-    bookmarkId: v.id('bookmarks'),
-    title: v.optional(v.string()),
-    summary: v.optional(v.string()),
-    labels: v.array(v.string()),
-    content: v.optional(v.string()),
-    meta: v.optional(bookmarkMetaValidator),
-    transcriptSource: v.optional(transcriptSourceValidator),
-    errorCode: v.optional(v.string()),
-    errorMessage: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const bookmark = await ctx.db.get('bookmarks', args.bookmarkId)
-    if (!bookmark) return null
-    const title =
-      bookmark.title ??
-      (args.title
-        ? truncateContent(args.title.trim(), MAX_TITLE_BYTES) || undefined
-        : undefined)
-    const labels = bookmark.labels.length > 0 ? bookmark.labels : normalizeLabels(args.labels)
-    const content = args.content
-      ? truncateContent(args.content, MAX_CONTENT_BYTES)
-      : undefined
-    const summary = args.summary
-      ? truncateContent(args.summary.trim(), MAX_SUMMARY_BYTES) || undefined
-      : undefined
-    const meta = args.meta
-      ? {
-          siteName: args.meta.siteName
-            ? truncateContent(args.meta.siteName, MAX_META_TEXT_BYTES)
-            : undefined,
-          author: args.meta.author
-            ? truncateContent(args.meta.author, MAX_META_TEXT_BYTES)
-            : undefined,
-          handle: args.meta.handle
-            ? truncateContent(args.meta.handle, MAX_META_TEXT_BYTES)
-            : undefined,
-          imageUrl: args.meta.imageUrl
-            ? truncateContent(args.meta.imageUrl, MAX_URL_BYTES)
-            : undefined,
-          faviconUrl: args.meta.faviconUrl
-            ? truncateContent(args.meta.faviconUrl, MAX_URL_BYTES)
-            : undefined,
-          publishedAt: args.meta.publishedAt,
-          tweetId: args.meta.tweetId,
-          videoId: args.meta.videoId,
-          durationSeconds: args.meta.durationSeconds,
-        }
-      : undefined
-    await ctx.db.patch('bookmarks', bookmark._id, {
-      status: 'ready',
-      title,
-      summary,
-      labels,
-      content,
-      meta,
-      transcriptSource: args.transcriptSource,
-      errorCode: args.errorCode,
-      errorMessage: args.errorMessage,
-      searchText: buildSearchText({ title, labels, summary, content }),
-      updatedAt: Date.now(),
-    })
-    return null
-  },
-})
-
-export const markFailed = internalMutation({
-  args: {
-    bookmarkId: v.id('bookmarks'),
-    errorCode: v.string(),
-    errorMessage: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const bookmark = await ctx.db.get('bookmarks', args.bookmarkId)
-    if (!bookmark) return null
-    await ctx.db.patch('bookmarks', bookmark._id, {
-      status: 'failed',
-      errorCode: args.errorCode,
-      errorMessage: truncateContent(args.errorMessage, 2_000),
-      updatedAt: Date.now(),
-    })
-    return null
   },
 })

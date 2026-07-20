@@ -24,6 +24,7 @@ views) on mobile and web. Bee has full read/write access to the user's Mind.
  ctx.scheduler.runAfter(0, internal.scraper.process, { bookmarkId })
         ▼
  scraper.process ('use node' internalAction)
+   ├─ bookmarkCrawl.prepare → noop | deferred | cache hit | acquired request
    ├─ kind=website → Firecrawl v2 /scrape (markdown + metadata)
    ├─ kind=tweet   → twitterapi.io /twitter/tweets?tweet_ids=…
    ├─ kind=youtube → youtubei.js transcript
@@ -32,7 +33,7 @@ views) on mobile and web. Bee has full read/write access to the user's Mind.
         ├─ default: user ChatGPT credential (chatgptAuthActions.resolveForAgent)
         └─ fallback: OpenRouter (OPENROUTER_API_KEY)
         ▼
- internal.bookmarks.saveScrape / markFailed  → status=ready|failed (reactive UI)
+ bookmarkCrawl.finish(runId, outcome) → status=ready|failed (reactive UI)
 ```
 
 The pipeline never blocks the client: `add` returns immediately and every state
@@ -118,18 +119,30 @@ Auth follows the `memories.ts` pattern (`ownerKey = identity.tokenIdentifier`,
   with the same `normalizedUrl` exists, return it (idempotent); else insert
   `status: 'pending'` and `ctx.scheduler.runAfter(0, internal.scraper.process, …)`.
 - `update({ bookmarkId, title?, labels?, note? })` — user edits; rebuilds `searchText`.
-- `remove({ bookmarkId })` — hard delete.
+- `remove({ bookmarkId })` — revokes any in-flight crawl, purges the owner's
+  private website artifact, then hard-deletes the bookmark.
 - `retry({ bookmarkId })` — only when `failed`; increments `retryCount`, resets to
   `pending`, reschedules `internal.scraper.process`.
 
-Internal (pipeline writers, all keyed by `bookmarkId`):
+### 1.3a `bookmarkCrawl.ts` — durable processing coordinator (V8)
 
-- `internal.bookmarks.getForProcessing` (internalQuery)
-- `internal.bookmarks.markProcessing`
-- `internal.bookmarks.saveScrape({ title, summary, labels, content, meta, transcriptSource? })`
-  — sets `status: 'ready'`, rebuilds `searchText`, preserves user-edited fields if
-  the user renamed/labeled while processing.
-- `internal.bookmarks.markFailed({ errorCode, errorMessage })`
+The scraper-facing interface has two atomic mutations:
+
+- `internal.bookmarkCrawl.prepare({ bookmarkId })` validates a pending bookmark,
+  creates a stale-write-guarded run, and returns either a bounded cache hit or
+  the exact versioned provider request. Websites are scoped to `ownerKey` and
+  keyed by the exact Firecrawl URL; canonical tweet and YouTube ids use the
+  explicitly public cache scope. A live lease creates a durable waiter instead
+  of polling.
+- `internal.bookmarkCrawl.finish({ runId, outcome })` atomically settles the
+  bookmark and owned cache lease. Failures release the lease and promote one
+  waiter; successful public artifacts wake waiters in bounded scheduled batches.
+
+Processing/ready cache documents and active/waiting run documents are closed
+discriminated unions. Ten-minute run recovery plus a 15-minute watchdog reject
+late writes, repair at-most-once action crashes, and requeue orphaned bookmarks.
+Account erasure cancels owner runs before bookmarks, deletes private website
+artifacts, and prevents scheduled actions from recreating work during deletion.
 
 ### 1.4 `scraper.ts` — the scraper module (`'use node'`)
 
