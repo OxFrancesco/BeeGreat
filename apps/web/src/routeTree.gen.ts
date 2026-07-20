@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TapPublicIdRouteImport } from './routes/tap/$publicId'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppMindRouteImport } from './routes/_app/mind'
 import { Route as AppHiveRouteImport } from './routes/_app/hive'
@@ -26,6 +27,11 @@ const AppRoute = AppRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TapPublicIdRoute = TapPublicIdRouteImport.update({
+  id: '/tap/$publicId',
+  path: '/tap/$publicId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/hive': typeof AppHiveRoute
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
+  '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/goals/': typeof AppGoalsIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/hive': typeof AppHiveRoute
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
+  '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/goals': typeof AppGoalsIndexRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/_app/hive': typeof AppHiveRoute
   '/_app/mind': typeof AppMindRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/tap/$publicId': typeof TapPublicIdRoute
   '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/_app/goals/': typeof AppGoalsIndexRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
     | '/hive'
     | '/mind'
     | '/settings'
+    | '/tap/$publicId'
     | '/goals/$goalId'
     | '/projects/$projectId'
     | '/goals/'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/hive'
     | '/mind'
     | '/settings'
+    | '/tap/$publicId'
     | '/goals/$goalId'
     | '/projects/$projectId'
     | '/goals'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
     | '/_app/hive'
     | '/_app/mind'
     | '/_app/settings'
+    | '/tap/$publicId'
     | '/_app/goals/$goalId'
     | '/_app/projects/$projectId'
     | '/_app/goals/'
@@ -133,6 +145,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  TapPublicIdRoute: typeof TapPublicIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -149,6 +162,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tap/$publicId': {
+      id: '/tap/$publicId'
+      path: '/tap/$publicId'
+      fullPath: '/tap/$publicId'
+      preLoaderRoute: typeof TapPublicIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/settings': {
@@ -228,6 +248,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  TapPublicIdRoute: TapPublicIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

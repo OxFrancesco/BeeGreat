@@ -54,6 +54,8 @@ import type * as journalEntries from "../journalEntries.js";
 import type * as memories from "../memories.js";
 import type * as memoryRelevance from "../memoryRelevance.js";
 import type * as memoryValidators from "../memoryValidators.js";
+import type * as nfcActionValidators from "../nfcActionValidators.js";
+import type * as nfcActions from "../nfcActions.js";
 import type * as posts from "../posts.js";
 import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
@@ -125,6 +127,8 @@ declare const fullApi: ApiFromModules<{
   memories: typeof memories;
   memoryRelevance: typeof memoryRelevance;
   memoryValidators: typeof memoryValidators;
+  nfcActionValidators: typeof nfcActionValidators;
+  nfcActions: typeof nfcActions;
   posts: typeof posts;
   powerups: typeof powerups;
   projects: typeof projects;

@@ -11,6 +11,9 @@
       "bundleIdentifier": "com.beegreat.app",
       "buildNumber": "20",
       "supportsTablet": true,
+      "associatedDomains": [
+        "applinks:beegreat.app"
+      ],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,6 +28,23 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "beegreat.app",
+              "pathPrefix": "/tap"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
@@ -38,6 +58,13 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "BeeGreat uses NFC so you can write and run your tap actions.",
+          "includeNdefEntitlement": false
+        }
+      ],
       [
         "expo-splash-screen",
         {

@@ -156,6 +156,18 @@ function RootNavigator() {
         <Stack.Screen name="share" />
         <Stack.Screen name="bee-healthy" />
         <Stack.Screen
+          name="nfc-actions"
+          options={{
+            headerShown: true,
+            title: 'NFC actions',
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.75, 1],
+            sheetGrabberVisible: true,
+            contentStyle: { height: '100%' },
+          }}
+        />
+        <Stack.Screen name="tap/[publicId]" />
+        <Stack.Screen
           name="journal-entry/[entryId]"
           options={{ gestureEnabled: false }}
         />

@@ -422,6 +422,48 @@ test('account erasure removes RevenueCat subscription state under the single-iss
   }
 }, 30_000)
 
+test('account erasure removes NFC actions and execution snapshots', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    const subject = 'nfc_deletion_owner'
+    const otherSubject = 'nfc_deletion_other'
+    const owner = authenticated(t, subject)
+    const other = authenticated(t, otherSubject)
+
+    const createAndExecute = async (
+      identity: ReturnType<typeof authenticated>,
+      label: string,
+    ) => {
+      const action = await identity.mutation(api.nfcActions.create, {
+        label,
+        definition: { type: 'hydration', amountMl: 250 },
+      })
+      await identity.mutation(api.nfcActions.execute, {
+        publicId: new URL(action.tagUrl).pathname.split('/').at(-1)!,
+        localDate: '2026-07-20',
+        timeZone: 'Europe/Rome',
+      })
+    }
+
+    await createAndExecute(owner, 'Owned bottle')
+    await createAndExecute(other, 'Other bottle')
+    await prepareAndActivate(t, owner)
+    await finishDeletion(t)
+
+    const remaining = await t.run(async (ctx) => ({
+      actions: await ctx.db.query('nfcActions').collect(),
+      executions: await ctx.db.query('nfcActionExecutions').collect(),
+    }))
+    expect(remaining.actions.map((row) => row.userId)).toEqual([otherSubject])
+    expect(remaining.executions.map((row) => row.userId)).toEqual([
+      otherSubject,
+    ])
+  } finally {
+    vi.useRealTimers()
+  }
+}, 30_000)
+
 test('account erasure removes every subject-keyed integration row and preserves globals', async () => {
   vi.useFakeTimers()
   try {

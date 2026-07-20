@@ -45,6 +45,8 @@ type EntryPatch = {
   journal?: string
 }
 
+export type HealthJournalIdentity = { ownerKey: string; userId: string }
+
 async function requireIdentity(ctx: AuthContext) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
@@ -155,7 +157,7 @@ async function findEntry(ctx: AuthContext, ownerKey: string, localDate: string) 
 
 async function upsertEntry(
   ctx: MutationCtx,
-  identity: { ownerKey: string; userId: string },
+  identity: HealthJournalIdentity,
   localDate: string,
   timeZone: string,
   patch: EntryPatch,
@@ -187,6 +189,31 @@ async function upsertEntry(
   const inserted = await ctx.db.get('healthJournalEntries', entryId)
   if (!inserted) throw new Error('Health journal entry disappeared during creation')
   return inserted
+}
+
+/** Shared domain operation used by direct controls and automation adapters. */
+export async function adjustHydrationForIdentity(
+  ctx: MutationCtx,
+  identity: HealthJournalIdentity,
+  args: { localDate: string; timeZone: string; deltaMl: number },
+) {
+  validateLocalDate(args.localDate)
+  validateTimeZone(args.timeZone)
+  validateDelta(args.deltaMl)
+
+  const existing = await findEntry(ctx, identity.ownerKey, args.localDate)
+  const previousHydrationMl = existing?.hydrationMl ?? 0
+  const hydrationMl = Math.max(
+    0,
+    Math.min(MAX_HYDRATION_ML, previousHydrationMl + args.deltaMl),
+  )
+  const entry = await upsertEntry(ctx, identity, args.localDate, args.timeZone, {
+    hydrationMl,
+  })
+  return {
+    ...normalizeEntry(entry),
+    appliedDeltaMl: hydrationMl - previousHydrationMl,
+  }
 }
 
 export const getByDate = query({
@@ -244,23 +271,8 @@ export const adjustHydration = mutation({
   },
   returns: hydrationAdjustmentValidator,
   handler: async (ctx, args) => {
-    validateLocalDate(args.localDate)
-    validateTimeZone(args.timeZone)
-    validateDelta(args.deltaMl)
     const identity = await requireIdentity(ctx)
-    const existing = await findEntry(ctx, identity.ownerKey, args.localDate)
-    const previousHydrationMl = existing?.hydrationMl ?? 0
-    const hydrationMl = Math.max(
-      0,
-      Math.min(MAX_HYDRATION_ML, previousHydrationMl + args.deltaMl),
-    )
-    const entry = await upsertEntry(ctx, identity, args.localDate, args.timeZone, {
-      hydrationMl,
-    })
-    return {
-      ...normalizeEntry(entry),
-      appliedDeltaMl: hydrationMl - previousHydrationMl,
-    }
+    return adjustHydrationForIdentity(ctx, identity, args)
   },
 })
 
