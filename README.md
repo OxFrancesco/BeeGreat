@@ -15,6 +15,14 @@ Bee defaults to `openrouter/openai/gpt-5.6-sol`. A user who connects ChatGPT can
 
 Mind follows the same resilient pattern with `gpt-5.6-luna`: it tries the connected ChatGPT path first and falls back to `openai/gpt-5.6-luna` on OpenRouter. Without a connected ChatGPT account, it uses OpenRouter directly.
 
+## How Codex was used
+
+Codex was the main harness for building BeeGreat, mostly through the Codex desktop app:
+
+- **Planning** ran on GPT-5.6 Sol Ultra.
+- **Implementation and testing** ran on GPT-5.6 Sol High, using the NPX simulator and computer use to automatically exercise the app.
+- **Runtime**: the Codex adapter (`apps/codex-adapter`) lets users power the Bee agent with their own Codex/ChatGPT subscription via Pi's native Codex Responses transport.
+
 The Git history captures how this evolved:
 
 | Commit | Change |
