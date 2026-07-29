@@ -237,8 +237,8 @@ live regions for async status, `selectable` on data users may copy,
 - **Assistant message**: full-width flow next to a 36px `FloatingBee` avatar —
   no bubble. Body renders as **markdown** (17/26): honey-underlined links,
   `backgroundElement` code blocks, honey-ruled blockquotes, GFM tables/lists.
-  Mobile: `components/agent/markdown.tsx`; web: `react-markdown` + `remark-gfm`
-  under `.assistant-markdown`.
+  Mobile: `components/agent/markdown.tsx`; web: AI Elements `MessageResponse`
+  (Streamdown) under `.assistant-markdown`.
 - **Tool activity**: collapsed pill row ("Searched your Mind ✓") with SF symbol,
   expandable for detail. Human copy lives in `@beegreat/tool-presentation`
   (`getToolCopy`) — running/done/failed strings per tool, power-up badge when
@@ -322,6 +322,8 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
 | Motion tokens | `apps/mobile/src/constants/motion.ts` |
 | Text scale | `apps/mobile/src/components/themed-text.tsx` |
 | Web tokens | `apps/web/src/styles/app.css` (`:root`) |
+| Web shadcn/AI Elements token bridge | `apps/web/src/styles/app.css` (`--background` etc. → hive tokens, `@theme inline`) |
+| Web chat primitives (vendored AI Elements) | `apps/web/src/components/ai-elements/`, shadcn base in `apps/web/src/components/ui/` |
 | Web palette front-matter | `DESIGN.md` |
 | beeui schema (mobile) | `apps/mobile/src/lib/ui-spec.ts` |
 | beeui schema (web) | `apps/web/src/features/bee/bee-ui.ts` |

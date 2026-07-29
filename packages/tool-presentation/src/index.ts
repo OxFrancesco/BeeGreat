@@ -13,6 +13,7 @@ const POWERUP_AGENTS: Record<string, string> = {
   devin: "Devin",
   web3: "Web3",
   "google-health": "Google Health",
+  imagine: "Imagine",
 };
 
 const TOOL_COPY: Record<string, ToolCopy> = {
@@ -159,6 +160,30 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     done: "Sent Devin the follow-up",
     failed: "Couldn’t send Devin the follow-up",
     powerup: "Devin",
+  },
+  generate_image: {
+    running: "Creating your image…",
+    done: "Created your image",
+    failed: "Couldn’t create your image",
+    powerup: "Imagine",
+  },
+  edit_image: {
+    running: "Editing your image…",
+    done: "Edited your image",
+    failed: "Couldn’t edit your image",
+    powerup: "Imagine",
+  },
+  generate_video: {
+    running: "Creating your video…",
+    done: "Created your video",
+    failed: "Couldn’t create your video",
+    powerup: "Imagine",
+  },
+  edit_video: {
+    running: "Editing your video…",
+    done: "Edited your video",
+    failed: "Couldn’t edit your video",
+    powerup: "Imagine",
   },
 };
 

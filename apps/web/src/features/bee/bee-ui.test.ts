@@ -26,7 +26,8 @@ describe('extractBeeUI', () => {
   })
 
   test('scrubs machine ids from user-facing copy', () => {
-    const result = extractBeeUI(`Done, goal j970mfwm36h24y655hz3pcke3s8apxap is active.
+    const result =
+      extractBeeUI(`Done, goal j970mfwm36h24y655hz3pcke3s8apxap is active.
 \`\`\`beeui
 {"components":[{"type":"highlight","title":"Goal created","body":"Become wealthy · Active · ID: j970mfwm36h24y655hz3pcke3s8apxap"}]}
 \`\`\``)
@@ -52,7 +53,9 @@ describe('extractBeeUI', () => {
 {"components":[{"type":"bookmark","title":"Firecrawl web data API for AI agents","url":"https://firecrawl.com/","kind":"website","labels":["web-scraping","AI agents"]}]}
 \`\`\``)
 
-    expect(result.spoken).toBe('Yes — you saved one:\n\n- open source\n- great for RAG')
+    expect(result.spoken).toBe(
+      'Yes — you saved one:\n\n- open source\n- great for RAG',
+    )
     expect(result.components).toEqual([
       {
         type: 'bookmark',

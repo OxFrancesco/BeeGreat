@@ -1,5 +1,15 @@
 import { useState } from 'react'
-import type { FormEvent, KeyboardEvent } from 'react'
+
+import micIcon from '../../../../mobile/assets/icons/mic-honey.svg?url'
+import type { PromptInputMessage } from '~/components/ai-elements/prompt-input'
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputButton,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+} from '~/components/ai-elements/prompt-input'
 
 const COMMANDS = [
   { command: '/clear', description: 'Clear the conversation and start fresh' },
@@ -8,9 +18,13 @@ const COMMANDS = [
 
 export function PromptComposer({
   onSubmit,
+  onTalk,
+  recording,
   disabled,
 }: {
   onSubmit: (text: string) => Promise<void>
+  onTalk: () => void
+  recording: boolean
   disabled: boolean
 }) {
   const [text, setText] = useState('')
@@ -21,9 +35,7 @@ export function PromptComposer({
     ? COMMANDS.filter((item) => item.command.startsWith(typed))
     : []
 
-  async function submit(event?: FormEvent) {
-    event?.preventDefault()
-    const message = text.trim()
+  async function send(message: string) {
     if (!message || disabled || submitting) return
     setText('')
     setSubmitting(true)
@@ -36,11 +48,8 @@ export function PromptComposer({
     }
   }
 
-  function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault()
-      void submit()
-    }
+  function handleSubmit(message: PromptInputMessage) {
+    void send(message.text.trim())
   }
 
   return (
@@ -51,10 +60,7 @@ export function PromptComposer({
             <button
               type="button"
               key={item.command}
-              onClick={() => {
-                setText(item.command)
-                void submitCommand(item.command)
-              }}
+              onClick={() => void send(item.command)}
             >
               <strong>{item.command}</strong>
               <span>{item.description}</span>
@@ -62,45 +68,41 @@ export function PromptComposer({
           ))}
         </div>
       ) : null}
-      <form className="prompt-composer" onSubmit={submit}>
-        <textarea
-          value={text}
-          rows={1}
-          maxLength={4000}
-          aria-label="Message Bee"
-          placeholder="Ask Bee anything…"
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={onKeyDown}
-        />
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          aria-label={submitting ? 'Sending message' : 'Send message'}
-        >
-          <ArrowUpIcon />
-        </button>
-      </form>
+      <PromptInput className="prompt-composer-shell" onSubmit={handleSubmit}>
+        <PromptInputBody>
+          <PromptInputTextarea
+            value={text}
+            maxLength={4000}
+            aria-label="Message Bee"
+            placeholder="Ask Bee anything…"
+            className="min-h-10 px-4 pt-3 text-[0.92rem] leading-[1.45]"
+            onChange={(event) => setText(event.target.value)}
+          />
+        </PromptInputBody>
+        <PromptInputFooter className="prompt-composer-footer">
+          <PromptInputButton
+            type="button"
+            size="sm"
+            className={`prompt-talk-button${recording ? ' is-recording' : ''}`}
+            aria-label={
+              recording ? 'Stop recording and send voice' : 'Talk to Bee'
+            }
+            aria-pressed={recording}
+            disabled={disabled && !recording}
+            onClick={onTalk}
+          >
+            <img src={micIcon} alt="" />
+            <span>{recording ? 'Send voice' : 'Talk'}</span>
+          </PromptInputButton>
+          <PromptInputSubmit
+            disabled={!canSubmit}
+            status={submitting || disabled ? 'submitted' : 'ready'}
+            aria-label={submitting ? 'Sending message' : 'Send message'}
+            className="size-9 rounded-full"
+            variant="default"
+          />
+        </PromptInputFooter>
+      </PromptInput>
     </div>
-  )
-
-  async function submitCommand(command: string) {
-    if (disabled || submitting) return
-    setText('')
-    setSubmitting(true)
-    try {
-      await onSubmit(command)
-    } catch {
-      setText(command)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-}
-
-function ArrowUpIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 19V5M7 10l5-5 5 5" />
-    </svg>
   )
 }

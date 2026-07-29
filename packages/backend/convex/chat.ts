@@ -165,6 +165,8 @@ async function requireIdentity(ctx: QueryCtx | MutationCtx) {
   }
 }
 
+export type ChatIdentity = Awaited<ReturnType<typeof requireIdentity>>
+
 async function findThread(
   ctx: QueryCtx | MutationCtx,
   ownerKey: string,
@@ -212,52 +214,64 @@ export const getActiveThread = query({
   args: {},
   returns: v.number(),
   handler: async (ctx) => {
-    const { ownerKey } = await requireIdentity(ctx)
-    const preferences = await ctx.db
-      .query('chatPreferences')
-      .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-      .unique()
-    return preferences?.activeThreadId ?? 0
+    return await activeThreadForIdentity(ctx, await requireIdentity(ctx))
   },
 })
+
+export async function activeThreadForIdentity(
+  ctx: QueryCtx | MutationCtx,
+  identity: ChatIdentity,
+) {
+  const preferences = await ctx.db
+    .query('chatPreferences')
+    .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
+    .unique()
+  return preferences?.activeThreadId ?? 0
+}
+
+export async function createThreadForIdentity(
+  ctx: MutationCtx,
+  identity: ChatIdentity,
+) {
+  const newest = await ctx.db
+    .query('chatThreads')
+    .withIndex('by_owner_key_and_created_at', (q) =>
+      q.eq('ownerKey', identity.ownerKey),
+    )
+    .order('desc')
+    .first()
+  const now = Date.now()
+  const threadId = Math.max(now, (newest?.threadId ?? 0) + 1)
+  await ctx.db.insert('chatThreads', {
+    ...identity,
+    threadId,
+    createdAt: now,
+    updatedAt: now,
+  })
+  const preferences = await ctx.db
+    .query('chatPreferences')
+    .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
+    .unique()
+  if (preferences) {
+    await ctx.db.patch('chatPreferences', preferences._id, {
+      activeThreadId: threadId,
+      updatedAt: now,
+    })
+  } else {
+    await ctx.db.insert('chatPreferences', {
+      ...identity,
+      activeThreadId: threadId,
+      updatedAt: now,
+    })
+  }
+  return threadId
+}
 
 export const createThread = mutation({
   args: {},
   returns: v.number(),
   handler: async (ctx) => {
-    const identity = await requireIdentity(ctx)
-    const newest = await ctx.db
-      .query('chatThreads')
-      .withIndex('by_owner_key_and_created_at', (q) =>
-        q.eq('ownerKey', identity.ownerKey),
-      )
-      .order('desc')
-      .first()
-    const now = Date.now()
-    const threadId = Math.max(now, (newest?.threadId ?? 0) + 1)
-    await ctx.db.insert('chatThreads', {
-      ...identity,
-      threadId,
-      createdAt: now,
-      updatedAt: now,
-    })
-    const preferences = await ctx.db
-      .query('chatPreferences')
-      .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
-      .unique()
-    if (preferences) {
-      await ctx.db.patch('chatPreferences', preferences._id, {
-        activeThreadId: threadId,
-        updatedAt: now,
-      })
-    } else {
-      await ctx.db.insert('chatPreferences', {
-        ...identity,
-        activeThreadId: threadId,
-        updatedAt: now,
-      })
-    }
-    return threadId
+    return await createThreadForIdentity(ctx, await requireIdentity(ctx))
   },
 })
 
@@ -288,30 +302,49 @@ export const setActiveThread = mutation({
   },
 })
 
+export async function titleThreadForIdentity(
+  ctx: MutationCtx,
+  identity: ChatIdentity,
+  threadId: number,
+  requestedTitle: string,
+) {
+  const title = requestedTitle.trim().slice(0, 64)
+  if (!title) return
+  const existing = await findThread(ctx, identity.ownerKey, threadId)
+  if (existing) {
+    if (!existing.title) {
+      await ctx.db.patch('chatThreads', existing._id, {
+        title,
+        updatedAt: Date.now(),
+      })
+    }
+  } else if (threadId === 0) {
+    const now = Date.now()
+    await ctx.db.insert('chatThreads', {
+      ...identity,
+      threadId: 0,
+      title,
+      createdAt: now,
+      updatedAt: now,
+    })
+  } else {
+    throw new ConvexError({
+      code: 'NOT_FOUND',
+      message: 'Conversation not found',
+    })
+  }
+}
+
 export const setThreadTitle = mutation({
   args: { threadId: v.number(), title: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx)
-    const title = args.title.trim().slice(0, 64)
-    if (!title) return null
-    const existing = await findThread(ctx, identity.ownerKey, args.threadId)
-    if (existing) {
-      if (!existing.title) {
-        await ctx.db.patch('chatThreads', existing._id, { title, updatedAt: Date.now() })
-      }
-    } else if (args.threadId === 0) {
-      const now = Date.now()
-      await ctx.db.insert('chatThreads', {
-        ...identity,
-        threadId: 0,
-        title,
-        createdAt: now,
-        updatedAt: now,
-      })
-    } else {
-      throw new ConvexError({ code: 'NOT_FOUND', message: 'Conversation not found' })
-    }
+    await titleThreadForIdentity(
+      ctx,
+      await requireIdentity(ctx),
+      args.threadId,
+      args.title,
+    )
     return null
   },
 })

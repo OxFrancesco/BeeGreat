@@ -65,6 +65,7 @@ type VoiceAgentScreenState = ScreenshotAgentState & {
   canLoadOlder?: boolean;
   loadingOlder?: boolean;
   loadOlder?: () => void | Promise<void>;
+  toggleRecording?: () => void | Promise<void>;
 };
 
 export default function VoiceAgentScreen() {
@@ -208,7 +209,22 @@ export function VoiceAgentScreenView({
                   entering={FadeIn.duration(400)}
                   style={[styles.hero, compact && styles.heroCompact]}
                 >
-                  <FloatingBee height={compact ? 96 : 120} />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      agent.recording ? 'Stop and send' : 'Talk to Bee'
+                    }
+                    disabled={!agent.toggleRecording}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      void agent.toggleRecording?.();
+                    }}
+                    style={({ pressed }) =>
+                      pressed && styles.heroBeePressed
+                    }
+                  >
+                    <FloatingBee height={compact ? 96 : 120} />
+                  </Pressable>
                   <Suggestions>
                     {HERO_SUGGESTIONS.map((suggestion) => (
                       <Suggestion
@@ -406,6 +422,10 @@ const styles = StyleSheet.create({
   },
   heroCompact: {
     gap: Spacing.four,
+  },
+  heroBeePressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.97 }],
   },
   historyLoader: {
     alignItems: 'center',

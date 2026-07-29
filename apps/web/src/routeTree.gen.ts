@@ -15,10 +15,16 @@ import { Route as TapPublicIdRouteImport } from './routes/tap/$publicId'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppMindRouteImport } from './routes/_app/mind'
 import { Route as AppHiveRouteImport } from './routes/_app/hive'
+import { Route as AppHealthRouteImport } from './routes/_app/health'
 import { Route as AppBeeRouteImport } from './routes/_app/bee'
+import { Route as AppHealthIndexRouteImport } from './routes/_app/health/index'
 import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
 import { Route as AppProjectsProjectIdRouteImport } from './routes/_app/projects/$projectId'
+import { Route as AppHealthWaterRouteImport } from './routes/_app/health/water'
+import { Route as AppHealthTapActionsRouteImport } from './routes/_app/health/tap-actions'
 import { Route as AppGoalsGoalIdRouteImport } from './routes/_app/goals/$goalId'
+import { Route as AppHealthJournalIndexRouteImport } from './routes/_app/health/journal/index'
+import { Route as AppHealthJournalEntryIdRouteImport } from './routes/_app/health/journal/$entryId'
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
@@ -49,10 +55,20 @@ const AppHiveRoute = AppHiveRouteImport.update({
   path: '/hive',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHealthRoute = AppHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppBeeRoute = AppBeeRouteImport.update({
   id: '/bee',
   path: '/bee',
   getParentRoute: () => AppRoute,
+} as any)
+const AppHealthIndexRoute = AppHealthIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppHealthRoute,
 } as any)
 const AppGoalsIndexRoute = AppGoalsIndexRouteImport.update({
   id: '/goals/',
@@ -64,22 +80,48 @@ const AppProjectsProjectIdRoute = AppProjectsProjectIdRouteImport.update({
   path: '/projects/$projectId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHealthWaterRoute = AppHealthWaterRouteImport.update({
+  id: '/water',
+  path: '/water',
+  getParentRoute: () => AppHealthRoute,
+} as any)
+const AppHealthTapActionsRoute = AppHealthTapActionsRouteImport.update({
+  id: '/tap-actions',
+  path: '/tap-actions',
+  getParentRoute: () => AppHealthRoute,
+} as any)
 const AppGoalsGoalIdRoute = AppGoalsGoalIdRouteImport.update({
   id: '/goals/$goalId',
   path: '/goals/$goalId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppHealthJournalIndexRoute = AppHealthJournalIndexRouteImport.update({
+  id: '/journal/',
+  path: '/journal/',
+  getParentRoute: () => AppHealthRoute,
+} as any)
+const AppHealthJournalEntryIdRoute = AppHealthJournalEntryIdRouteImport.update({
+  id: '/journal/$entryId',
+  path: '/journal/$entryId',
+  getParentRoute: () => AppHealthRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/bee': typeof AppBeeRoute
+  '/health': typeof AppHealthRouteWithChildren
   '/hive': typeof AppHiveRoute
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/health/tap-actions': typeof AppHealthTapActionsRoute
+  '/health/water': typeof AppHealthWaterRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/goals/': typeof AppGoalsIndexRoute
+  '/health/': typeof AppHealthIndexRoute
+  '/health/journal/$entryId': typeof AppHealthJournalEntryIdRoute
+  '/health/journal/': typeof AppHealthJournalIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -89,34 +131,51 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/health/tap-actions': typeof AppHealthTapActionsRoute
+  '/health/water': typeof AppHealthWaterRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/goals': typeof AppGoalsIndexRoute
+  '/health': typeof AppHealthIndexRoute
+  '/health/journal/$entryId': typeof AppHealthJournalEntryIdRoute
+  '/health/journal': typeof AppHealthJournalIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_app/bee': typeof AppBeeRoute
+  '/_app/health': typeof AppHealthRouteWithChildren
   '/_app/hive': typeof AppHiveRoute
   '/_app/mind': typeof AppMindRoute
   '/_app/settings': typeof AppSettingsRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/_app/health/tap-actions': typeof AppHealthTapActionsRoute
+  '/_app/health/water': typeof AppHealthWaterRoute
   '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/_app/goals/': typeof AppGoalsIndexRoute
+  '/_app/health/': typeof AppHealthIndexRoute
+  '/_app/health/journal/$entryId': typeof AppHealthJournalEntryIdRoute
+  '/_app/health/journal/': typeof AppHealthJournalIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/bee'
+    | '/health'
     | '/hive'
     | '/mind'
     | '/settings'
     | '/tap/$publicId'
     | '/goals/$goalId'
+    | '/health/tap-actions'
+    | '/health/water'
     | '/projects/$projectId'
     | '/goals/'
+    | '/health/'
+    | '/health/journal/$entryId'
+    | '/health/journal/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -126,20 +185,31 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tap/$publicId'
     | '/goals/$goalId'
+    | '/health/tap-actions'
+    | '/health/water'
     | '/projects/$projectId'
     | '/goals'
+    | '/health'
+    | '/health/journal/$entryId'
+    | '/health/journal'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/_app/bee'
+    | '/_app/health'
     | '/_app/hive'
     | '/_app/mind'
     | '/_app/settings'
     | '/tap/$publicId'
     | '/_app/goals/$goalId'
+    | '/_app/health/tap-actions'
+    | '/_app/health/water'
     | '/_app/projects/$projectId'
     | '/_app/goals/'
+    | '/_app/health/'
+    | '/_app/health/journal/$entryId'
+    | '/_app/health/journal/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -192,12 +262,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHiveRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/health': {
+      id: '/_app/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof AppHealthRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/bee': {
       id: '/_app/bee'
       path: '/bee'
       fullPath: '/bee'
       preLoaderRoute: typeof AppBeeRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/health/': {
+      id: '/_app/health/'
+      path: '/'
+      fullPath: '/health/'
+      preLoaderRoute: typeof AppHealthIndexRouteImport
+      parentRoute: typeof AppHealthRoute
     }
     '/_app/goals/': {
       id: '/_app/goals/'
@@ -213,6 +297,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProjectsProjectIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/health/water': {
+      id: '/_app/health/water'
+      path: '/water'
+      fullPath: '/health/water'
+      preLoaderRoute: typeof AppHealthWaterRouteImport
+      parentRoute: typeof AppHealthRoute
+    }
+    '/_app/health/tap-actions': {
+      id: '/_app/health/tap-actions'
+      path: '/tap-actions'
+      fullPath: '/health/tap-actions'
+      preLoaderRoute: typeof AppHealthTapActionsRouteImport
+      parentRoute: typeof AppHealthRoute
+    }
     '/_app/goals/$goalId': {
       id: '/_app/goals/$goalId'
       path: '/goals/$goalId'
@@ -220,11 +318,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGoalsGoalIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/health/journal/': {
+      id: '/_app/health/journal/'
+      path: '/journal'
+      fullPath: '/health/journal/'
+      preLoaderRoute: typeof AppHealthJournalIndexRouteImport
+      parentRoute: typeof AppHealthRoute
+    }
+    '/_app/health/journal/$entryId': {
+      id: '/_app/health/journal/$entryId'
+      path: '/journal/$entryId'
+      fullPath: '/health/journal/$entryId'
+      preLoaderRoute: typeof AppHealthJournalEntryIdRouteImport
+      parentRoute: typeof AppHealthRoute
+    }
   }
 }
 
+interface AppHealthRouteChildren {
+  AppHealthTapActionsRoute: typeof AppHealthTapActionsRoute
+  AppHealthWaterRoute: typeof AppHealthWaterRoute
+  AppHealthIndexRoute: typeof AppHealthIndexRoute
+  AppHealthJournalEntryIdRoute: typeof AppHealthJournalEntryIdRoute
+  AppHealthJournalIndexRoute: typeof AppHealthJournalIndexRoute
+}
+
+const AppHealthRouteChildren: AppHealthRouteChildren = {
+  AppHealthTapActionsRoute: AppHealthTapActionsRoute,
+  AppHealthWaterRoute: AppHealthWaterRoute,
+  AppHealthIndexRoute: AppHealthIndexRoute,
+  AppHealthJournalEntryIdRoute: AppHealthJournalEntryIdRoute,
+  AppHealthJournalIndexRoute: AppHealthJournalIndexRoute,
+}
+
+const AppHealthRouteWithChildren = AppHealthRoute._addFileChildren(
+  AppHealthRouteChildren,
+)
+
 interface AppRouteChildren {
   AppBeeRoute: typeof AppBeeRoute
+  AppHealthRoute: typeof AppHealthRouteWithChildren
   AppHiveRoute: typeof AppHiveRoute
   AppMindRoute: typeof AppMindRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -235,6 +368,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppBeeRoute: AppBeeRoute,
+  AppHealthRoute: AppHealthRouteWithChildren,
   AppHiveRoute: AppHiveRoute,
   AppMindRoute: AppMindRoute,
   AppSettingsRoute: AppSettingsRoute,

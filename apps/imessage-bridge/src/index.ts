@@ -1,17 +1,51 @@
-import { createFlueClient, type FlueClient } from '@flue/sdk'
 import { toError } from '@beegreat/observability'
+import {
+  createFlueClient,
+  type AgentPromptImage,
+  type FlueClient,
+} from '@flue/sdk'
 import * as Sentry from '@sentry/bun'
-import { markdown, Spectrum, text } from 'spectrum-ts'
+import {
+  markdown,
+  richlink,
+  type Space,
+  Spectrum,
+  text,
+} from 'spectrum-ts'
 import { effect, imessage } from 'spectrum-ts/providers/imessage'
 import { promptFailureReply } from './agent-error'
+import {
+  extractBeeResponse,
+  isFirstFocusCancellation,
+  isFirstFocusConfirmation,
+  isHighlightCompletion,
+  latestFirstFocusPreview,
+  type FirstFocusPreview,
+} from './bee-response'
 
 // Bridges iMessage (via Spectrum Cloud) to the BeeGreat Flue agent worker.
 // Only senders in IMESSAGE_USER_MAP are answered; everyone else is ignored.
 
 const BEE_AGENT_NAME = 'bee'
-// Keeps iMessage on its own conversation thread; tools still key data by the
-// bare user id (see packages/agent/src/agents/bee.ts).
-const SESSION_SUFFIX = 'imessage'
+const NEW_CONVERSATION_COMMANDS = new Set(['/clear', '/new'])
+
+type ChannelContext = {
+  threadId: number
+  activeHighlight: {
+    highlightId: string
+    taskId: string
+    title: string
+    expiresAt: number
+  } | null
+}
+
+type IncomingPrompt = {
+  text: string
+  images: AgentPromptImage[]
+  unsupportedAttachment: boolean
+}
+
+type BeeReply = ReturnType<typeof extractBeeResponse>
 
 function captureBridgeFailure(
   error: unknown,
@@ -41,6 +75,9 @@ if (missing.length > 0) {
 
 const AGENT_URL = process.env.AGENT_URL!
 const BRIDGE_SECRET = process.env.BRIDGE_SECRET!
+const bridgeHeaders = {
+  'x-bridge-secret': BRIDGE_SECRET,
+}
 
 /** Phone numbers compare without formatting; emails compare lowercased. */
 function normalizeAddress(address: string) {
@@ -83,15 +120,205 @@ function clientFor(userId: string) {
   return client
 }
 
-/** Sends one prompt to Bee and resolves with the assistant's reply text. */
-async function askBee(userId: string, body: string): Promise<string> {
-  const client = clientFor(userId)
-  const { result } = await client.agents.prompt(BEE_AGENT_NAME, `${userId}~${SESSION_SUFFIX}`, {
-    message: body,
+function conversationId(userId: string, threadId: number) {
+  return threadId > 0 ? `${userId}~${threadId}` : userId
+}
+
+async function channelAction<T>(
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const response = await fetch(`${AGENT_URL.replace(/\/$/, '')}/bridge/channel`, {
+    method: 'POST',
+    headers: {
+      ...bridgeHeaders,
+      'x-bridge-user': userId,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
   })
-  // Bee emits ```beeui fenced blocks for the app's generated UI; there's
-  // nothing to render them with in Messages, so drop them.
-  return result.text.replace(/```beeui[\s\S]*?```/g, '').replace(/\n{3,}/g, '\n\n').trim()
+  const result = (await response.json().catch(() => null)) as
+    | Record<string, unknown>
+    | null
+  if (!response.ok) {
+    const message =
+      result && typeof result.error === 'string'
+        ? result.error
+        : `Bee channel action failed (HTTP ${response.status})`
+    throw Object.assign(new Error(message), {
+      status: response.status,
+      body: result,
+    })
+  }
+  return result as T
+}
+
+/** Sends one prompt to Bee and returns both spoken copy and projected UI. */
+async function askBee(
+  userId: string,
+  threadId: number,
+  body: string,
+  images: AgentPromptImage[] = [],
+): Promise<BeeReply> {
+  const client = clientFor(userId)
+  const { result } = await client.agents.prompt(
+    BEE_AGENT_NAME,
+    conversationId(userId, threadId),
+    {
+      message: body,
+      ...(images.length ? { images } : {}),
+    },
+  )
+  return extractBeeResponse(result.text)
+}
+
+async function latestPreview(userId: string, threadId: number) {
+  const history = await clientFor(userId).agents.history(
+    BEE_AGENT_NAME,
+    conversationId(userId, threadId),
+  )
+  return latestFirstFocusPreview(history.messages)
+}
+
+async function transcribeVoice(
+  userId: string,
+  bytes: Buffer,
+  mimeType: string,
+) {
+  const response = await fetch(
+    `${AGENT_URL.replace(/\/$/, '')}/voice/transcribe`,
+    {
+      method: 'POST',
+      headers: {
+        ...bridgeHeaders,
+        'x-bridge-user': userId,
+        'content-type': mimeType,
+      },
+      body: bytes,
+    },
+  )
+  const result = (await response.json().catch(() => null)) as {
+    text?: unknown
+    error?: unknown
+  } | null
+  if (
+    !response.ok ||
+    !result ||
+    typeof result.text !== 'string'
+  ) {
+    const message =
+      result && typeof result.error === 'string'
+        ? result.error
+        : `Voice transcription failed (HTTP ${response.status})`
+    throw Object.assign(new Error(message), {
+      status: response.status,
+      body: result,
+    })
+  }
+  return result.text.trim()
+}
+
+async function promptFromContent(
+  userId: string,
+  content: {
+    type: string
+    text?: string
+    mimeType?: string
+    read?: () => Promise<Buffer>
+    items?: { content: unknown }[]
+  },
+): Promise<IncomingPrompt> {
+  if (content.type === 'text') {
+    return {
+      text: content.text?.trim() ?? '',
+      images: [],
+      unsupportedAttachment: false,
+    }
+  }
+  if (
+    (content.type === 'voice' ||
+      (content.type === 'attachment' &&
+        content.mimeType?.startsWith('audio/'))) &&
+    content.read &&
+    content.mimeType
+  ) {
+    return {
+      text: await transcribeVoice(
+        userId,
+        await content.read(),
+        content.mimeType,
+      ),
+      images: [],
+      unsupportedAttachment: false,
+    }
+  }
+  if (
+    content.type === 'attachment' &&
+    content.mimeType?.startsWith('image/') &&
+    content.read
+  ) {
+    return {
+      text: '',
+      images: [
+        {
+          type: 'image',
+          data: (await content.read()).toString('base64'),
+          mimeType: content.mimeType,
+        },
+      ],
+      unsupportedAttachment: false,
+    }
+  }
+  if (content.type === 'group' && Array.isArray(content.items)) {
+    const parts = await Promise.all(
+      content.items.map((item) =>
+        promptFromContent(
+          userId,
+          item.content as Parameters<typeof promptFromContent>[1],
+        ),
+      ),
+    )
+    return {
+      text: parts
+        .map((part) => part.text)
+        .filter(Boolean)
+        .join('\n'),
+      images: parts.flatMap((part) => part.images),
+      unsupportedAttachment: parts.some(
+        (part) => part.unsupportedAttachment,
+      ),
+    }
+  }
+  return { text: '', images: [], unsupportedAttachment: true }
+}
+
+async function sendReply(
+  space: Space,
+  reply: BeeReply,
+  celebrate = false,
+) {
+  if (reply.markdown) {
+    await space.send(
+      celebrate
+        ? effect(markdown(reply.markdown), imessage.effect.message.confetti)
+        : markdown(reply.markdown),
+    )
+  }
+  for (const link of reply.links) {
+    await space.send(richlink(link))
+  }
+}
+
+function firstFocusActionInput(preview: FirstFocusPreview) {
+  return {
+    requestId: preview.requestId,
+    goalTitle: preview.goalTitle,
+    projectTitle: preview.projectTitle,
+    taskTitle: preview.taskTitle,
+    ...(preview.highlightExpiresAt
+      ? { highlightExpiresAt: preview.highlightExpiresAt }
+      : {}),
+  }
 }
 
 const app = await Spectrum({
@@ -124,8 +351,6 @@ if (process.argv.includes('--greet')) {
 }
 
 for await (const [space, message] of app.messages) {
-  if (message.content.type !== 'text') continue
-
   // For iMessage the sender's cross-provider id is their address (phone/email).
   const address = message.sender?.id
   const userId = address ? userMap.get(normalizeAddress(address)) : undefined
@@ -135,15 +360,115 @@ for await (const [space, message] of app.messages) {
     // Tapback 👀 so the sender knows Bee is on it (replies can take a while).
     await message.react('👀').catch(() => {})
 
-    const reply = await askBee(userId, message.content.text)
-    if (!reply) continue
-
-    // Celebrate with confetti when the sender reports finishing something.
-    const celebrate = /\b(done|finished|completed?|fatto|finito)\b/i.test(message.content.text)
-    // markdown() renders as native iMessage styled text (bold, italic, ...).
-    await space.send(
-      celebrate ? effect(markdown(reply), imessage.effect.message.confetti) : markdown(reply),
+    const incoming = await promptFromContent(
+      userId,
+      message.content as Parameters<typeof promptFromContent>[1],
     )
+    if (
+      incoming.unsupportedAttachment &&
+      !incoming.text &&
+      incoming.images.length === 0
+    ) {
+      await space.send(
+        text(
+          'I can read text, voice notes, and images here. Open another file in BeeGreat or paste its text.',
+        ),
+      )
+      continue
+    }
+    const prompt =
+      incoming.text ||
+      (incoming.images.length
+        ? 'Please help me with the image I sent.'
+        : '')
+    if (!prompt) continue
+
+    const context = await channelAction<ChannelContext>(userId, {
+      action: 'context',
+    })
+    const command = prompt.trim().toLowerCase()
+    if (NEW_CONVERSATION_COMMANDS.has(command)) {
+      await channelAction(userId, { action: 'create_thread' })
+      await space.send(
+        text('New conversation started. What would you like to work on?'),
+      )
+      continue
+    }
+
+    let reply: BeeReply
+    let celebrate = false
+    if (
+      isFirstFocusConfirmation(prompt) ||
+      isFirstFocusCancellation(prompt)
+    ) {
+      const preview = await latestPreview(userId, context.threadId)
+      if (preview) {
+        if (isFirstFocusConfirmation(prompt)) {
+          await channelAction(userId, {
+            action: 'confirm_first_focus',
+            ...firstFocusActionInput(preview),
+          })
+          reply = await askBee(
+            userId,
+            context.threadId,
+            '[BeeGreat app event] The first-focus plan was confirmed and persisted successfully. Acknowledge it; do not create or mutate the plan again.',
+          )
+        } else {
+          await channelAction(userId, {
+            action: 'cancel_first_focus',
+            ...firstFocusActionInput(preview),
+          })
+          reply = await askBee(
+            userId,
+            context.threadId,
+            '[BeeGreat app event] The first-focus preview was cancelled. Nothing was created. Acknowledge the cancellation; do not create or mutate the plan.',
+          )
+        }
+      } else {
+        reply = await askBee(
+          userId,
+          context.threadId,
+          prompt,
+          incoming.images,
+        )
+      }
+    } else if (
+      isHighlightCompletion(prompt) &&
+      context.activeHighlight
+    ) {
+      const highlight = context.activeHighlight
+      const completion = await channelAction<{
+        status: 'completed' | 'already_completed'
+        honeyAwarded: number
+        scoreAwarded: number
+      }>(userId, {
+        action: 'complete_highlight',
+        requestId: `complete-highlight:${highlight.highlightId}`,
+        taskId: highlight.taskId,
+      })
+      reply = await askBee(
+        userId,
+        context.threadId,
+        `[BeeGreat app event] Highlight "${highlight.title}" was completed successfully. The verified award was ${completion.honeyAwarded} Honey and ${completion.scoreAwarded} Honeycomb Score. Acknowledge this completion and reward only; do not call a completion tool or create, update, or mutate any data again.`,
+      )
+      celebrate = completion.status === 'completed'
+    } else {
+      reply = await askBee(
+        userId,
+        context.threadId,
+        prompt,
+        incoming.images,
+      )
+    }
+
+    if (incoming.text) {
+      await channelAction(userId, {
+        action: 'title_thread',
+        threadId: context.threadId,
+        title: incoming.text.slice(0, 64),
+      }).catch(() => {})
+    }
+    await sendReply(space, reply, celebrate)
   } catch (error) {
     captureBridgeFailure(error, 'prompt.handle', userId)
     console.error('imessage-bridge: prompt failed', error)

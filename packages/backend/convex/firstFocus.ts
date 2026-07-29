@@ -116,9 +116,19 @@ const completeHighlightResultValidator = v.object({
   honeycombScore: v.number(),
 })
 
-type IdentityKeys = {
+export type IdentityKeys = {
   ownerKey: string
   userId: string
+}
+
+export type FirstFocusPlanInput = {
+  requestId: string
+  confirmed: boolean
+  goalTitle: string
+  goalOutcome?: string
+  projectTitle: string
+  taskTitle: string
+  highlightExpiresAt: number
 }
 
 async function requireIdentity(
@@ -274,9 +284,138 @@ export const getCurrent = query({
 })
 
 /**
- * Confirms the editable preview in one Convex transaction. `confirmed: false`
- * is deliberately a zero-write cancellation path.
+ * Confirms the editable preview in one Convex transaction. Both authenticated
+ * apps and trusted text-channel adapters cross this same mutation seam.
+ * `confirmed: false` is deliberately a zero-write cancellation path.
  */
+export async function confirmFirstFocusPlan(
+  ctx: MutationCtx,
+  identity: IdentityKeys,
+  args: FirstFocusPlanInput,
+) {
+  if (!args.confirmed) {
+    return { status: 'cancelled' as const, bundle: null }
+  }
+
+  const requestId = requiredText(args.requestId, 'Request id')
+  const existing = await ctx.db
+    .query('firstFocusBundles')
+    .withIndex('by_owner_key_and_request_id', (q) =>
+      q.eq('ownerKey', identity.ownerKey).eq('requestId', requestId),
+    )
+    .unique()
+  if (existing) {
+    return {
+      status: 'existing' as const,
+      bundle: bundleFromReceipt(existing),
+    }
+  }
+
+  const goalTitle = requiredText(args.goalTitle, 'Goal title')
+  const projectTitle = requiredText(args.projectTitle, 'Project title')
+  const taskTitle = requiredText(args.taskTitle, 'Task title')
+  const goalOutcome = args.goalOutcome?.trim() || undefined
+  const now = Date.now()
+  if (args.highlightExpiresAt <= now) {
+    throw new ConvexError({
+      code: 'INVALID_PLAN',
+      message: 'Highlight expiry must be in the future',
+    })
+  }
+
+  const activeGoalCount = await countAccessibleActiveGoals(
+    ctx,
+    identity.ownerKey,
+    identity.userId,
+  )
+  if (activeGoalCount >= MAX_ACTIVE_GOALS) {
+    throw new ConvexError({
+      code: 'ACTIVE_GOAL_LIMIT',
+      message: `A Hive can have at most ${MAX_ACTIVE_GOALS} Active Goals`,
+    })
+  }
+
+  const priorHighlights = await ctx.db
+    .query('highlights')
+    .withIndex('by_owner_key_and_status', (q) =>
+      q.eq('ownerKey', identity.ownerKey).eq('status', 'active'),
+    )
+    .take(2)
+  for (const prior of priorHighlights) {
+    await ctx.db.patch('highlights', prior._id, {
+      status: 'expired',
+      expiredAt: now,
+    })
+  }
+
+  let hive = await ctx.db
+    .query('hives')
+    .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
+    .unique()
+  if (!hive) {
+    const hiveId = await ctx.db.insert('hives', {
+      ...identity,
+      honeyBalance: 0,
+      honeycombScore: 0,
+    })
+    hive = await ctx.db.get('hives', hiveId)
+  }
+  if (!hive) throw new Error('Failed to create Hive')
+
+  // Settle the prior activation roster before adding a new Brain Fatigue rank.
+  await settleFatigueForOwner(ctx, identity, now)
+
+  const goalId = await ctx.db.insert('goals', {
+    userId: identity.userId,
+    title: goalTitle,
+    finalGoal: goalOutcome,
+    status: 'active',
+    activatedAt: now,
+    lifecycleUpdatedAt: now,
+  })
+  const projectId = await ctx.db.insert('projects', {
+    userId: identity.userId,
+    goalId,
+    title: projectTitle,
+    status: 'active',
+  })
+  const taskId = await ctx.db.insert('tasks', {
+    userId: identity.userId,
+    goalId,
+    projectId,
+    title: taskTitle,
+    status: 'todo',
+  })
+  const golieBeeId = await ctx.db.insert('golieBees', {
+    ...identity,
+    goalId,
+    seed: requestId,
+    variant: 'mvp-default',
+    status: 'active',
+  })
+  const highlightId = await ctx.db.insert('highlights', {
+    ...identity,
+    goalId,
+    projectId,
+    taskId,
+    status: 'active',
+    expiresAt: args.highlightExpiresAt,
+  })
+  const bundle = {
+    goalId,
+    projectId,
+    taskId,
+    highlightId,
+    golieBeeId,
+  }
+  await ctx.db.insert('firstFocusBundles', {
+    ...identity,
+    requestId,
+    ...bundle,
+  })
+  return { status: 'created' as const, bundle }
+}
+
 export const confirmPlan = mutation({
   args: {
     requestId: v.string(),
@@ -289,128 +428,7 @@ export const confirmPlan = mutation({
   },
   returns: confirmPlanResultValidator,
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx)
-    if (!args.confirmed) {
-      return { status: 'cancelled' as const, bundle: null }
-    }
-
-    const requestId = requiredText(args.requestId, 'Request id')
-    const existing = await ctx.db
-      .query('firstFocusBundles')
-      .withIndex('by_owner_key_and_request_id', (q) =>
-        q.eq('ownerKey', identity.ownerKey).eq('requestId', requestId),
-      )
-      .unique()
-    if (existing) {
-      return {
-        status: 'existing' as const,
-        bundle: bundleFromReceipt(existing),
-      }
-    }
-
-    const goalTitle = requiredText(args.goalTitle, 'Goal title')
-    const projectTitle = requiredText(args.projectTitle, 'Project title')
-    const taskTitle = requiredText(args.taskTitle, 'Task title')
-    const goalOutcome = args.goalOutcome?.trim() || undefined
-    const now = Date.now()
-    if (args.highlightExpiresAt <= now) {
-      throw new ConvexError({
-        code: 'INVALID_PLAN',
-        message: 'Highlight expiry must be in the future',
-      })
-    }
-
-    const activeGoalCount = await countAccessibleActiveGoals(
-      ctx,
-      identity.ownerKey,
-      identity.userId,
-    )
-    if (activeGoalCount >= MAX_ACTIVE_GOALS) {
-      throw new ConvexError({
-        code: 'ACTIVE_GOAL_LIMIT',
-        message: `A Hive can have at most ${MAX_ACTIVE_GOALS} Active Goals`,
-      })
-    }
-
-    const priorHighlights = await ctx.db
-      .query('highlights')
-      .withIndex('by_owner_key_and_status', (q) =>
-        q.eq('ownerKey', identity.ownerKey).eq('status', 'active'),
-      )
-      .take(2)
-    for (const prior of priorHighlights) {
-      await ctx.db.patch('highlights', prior._id, {
-        status: 'expired',
-        expiredAt: now,
-      })
-    }
-
-    let hive = await ctx.db
-      .query('hives')
-      .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
-      .unique()
-    if (!hive) {
-      const hiveId = await ctx.db.insert('hives', {
-        ...identity,
-        honeyBalance: 0,
-        honeycombScore: 0,
-      })
-      hive = await ctx.db.get('hives', hiveId)
-    }
-    if (!hive) throw new Error('Failed to create Hive')
-
-    // Settle the prior activation roster before adding a new Brain Fatigue rank.
-    await settleFatigueForOwner(ctx, identity, now)
-
-    const goalId = await ctx.db.insert('goals', {
-      userId: identity.userId,
-      title: goalTitle,
-      finalGoal: goalOutcome,
-      status: 'active',
-      activatedAt: now,
-      lifecycleUpdatedAt: now,
-    })
-    const projectId = await ctx.db.insert('projects', {
-      userId: identity.userId,
-      goalId,
-      title: projectTitle,
-      status: 'active',
-    })
-    const taskId = await ctx.db.insert('tasks', {
-      userId: identity.userId,
-      goalId,
-      projectId,
-      title: taskTitle,
-      status: 'todo',
-    })
-    const golieBeeId = await ctx.db.insert('golieBees', {
-      ...identity,
-      goalId,
-      seed: requestId,
-      variant: 'mvp-default',
-      status: 'active',
-    })
-    const highlightId = await ctx.db.insert('highlights', {
-      ...identity,
-      goalId,
-      projectId,
-      taskId,
-      status: 'active',
-      expiresAt: args.highlightExpiresAt,
-    })
-    const bundle = {
-      goalId,
-      projectId,
-      taskId,
-      highlightId,
-      golieBeeId,
-    }
-    await ctx.db.insert('firstFocusBundles', {
-      ...identity,
-      requestId,
-      ...bundle,
-    })
-    return { status: 'created' as const, bundle }
+    return await confirmFirstFocusPlan(ctx, await requireIdentity(ctx), args)
   },
 })
 
@@ -453,7 +471,7 @@ async function findHighlightByTask(
     .unique()
 }
 
-async function completeHighlightedTask(
+export async function completeHighlightedTask(
   ctx: MutationCtx,
   keys: IdentityKeys,
   args: { requestId: string; taskId: Id<'tasks'> },

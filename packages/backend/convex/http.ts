@@ -247,7 +247,100 @@ http.route({
 
     try {
       let result: unknown
-      if (body.operation === 'get_context') {
+      const channelOwnerKey =
+        typeof body.ownerKey === 'string' &&
+        body.ownerKey.endsWith(`|${body.userId}`)
+          ? body.ownerKey
+          : undefined
+      if (body.operation.startsWith('channel_') && !channelOwnerKey) {
+        return jsonResponse({ error: 'Invalid channel identity' }, 400)
+      }
+      if (body.operation === 'channel_context') {
+        result = await ctx.runQuery(internal.channelActions.getContext, {
+          userId: body.userId,
+          ownerKey: channelOwnerKey!,
+        })
+      } else if (body.operation === 'channel_create_thread') {
+        result = await ctx.runMutation(internal.channelActions.createThread, {
+          userId: body.userId,
+          ownerKey: channelOwnerKey!,
+        })
+      } else if (body.operation === 'channel_title_thread') {
+        if (
+          typeof body.threadId !== 'number' ||
+          typeof body.title !== 'string'
+        ) {
+          return jsonResponse({ error: 'Invalid conversation title' }, 400)
+        }
+        result = await ctx.runMutation(internal.channelActions.titleThread, {
+          userId: body.userId,
+          ownerKey: channelOwnerKey!,
+          threadId: body.threadId,
+          title: body.title,
+        })
+      } else if (body.operation === 'channel_confirm_first_focus') {
+        if (
+          typeof body.requestId !== 'string' ||
+          typeof body.goalTitle !== 'string' ||
+          typeof body.projectTitle !== 'string' ||
+          typeof body.taskTitle !== 'string' ||
+          (body.highlightExpiresAt !== undefined &&
+            typeof body.highlightExpiresAt !== 'number')
+        ) {
+          return jsonResponse(
+            { error: 'Invalid first-focus confirmation' },
+            400,
+          )
+        }
+        result = await ctx.runMutation(
+          internal.channelActions.confirmFirstFocus,
+          {
+            userId: body.userId,
+            ownerKey: channelOwnerKey!,
+            requestId: body.requestId,
+            goalTitle: body.goalTitle,
+            projectTitle: body.projectTitle,
+            taskTitle: body.taskTitle,
+            highlightExpiresAt: body.highlightExpiresAt as number | undefined,
+          },
+        )
+      } else if (body.operation === 'channel_cancel_first_focus') {
+        if (
+          typeof body.requestId !== 'string' ||
+          typeof body.goalTitle !== 'string' ||
+          typeof body.projectTitle !== 'string' ||
+          typeof body.taskTitle !== 'string'
+        ) {
+          return jsonResponse({ error: 'Invalid first-focus cancellation' }, 400)
+        }
+        result = await ctx.runMutation(
+          internal.channelActions.cancelFirstFocus,
+          {
+            userId: body.userId,
+            ownerKey: channelOwnerKey!,
+            requestId: body.requestId,
+            goalTitle: body.goalTitle,
+            projectTitle: body.projectTitle,
+            taskTitle: body.taskTitle,
+          },
+        )
+      } else if (body.operation === 'channel_complete_highlight') {
+        if (
+          typeof body.requestId !== 'string' ||
+          typeof body.taskId !== 'string'
+        ) {
+          return jsonResponse({ error: 'Invalid Highlight completion' }, 400)
+        }
+        result = await ctx.runMutation(
+          internal.channelActions.completeHighlight,
+          {
+            userId: body.userId,
+            ownerKey: channelOwnerKey!,
+            requestId: body.requestId,
+            taskId: body.taskId as Id<'tasks'>,
+          },
+        )
+      } else if (body.operation === 'get_context') {
         result = await ctx.runQuery(internal.agentFocus.getContext, {
           userId: body.userId,
         })
@@ -811,6 +904,68 @@ http.route({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Devin request failed'
+      return jsonResponse({ error: message }, 400)
+    }
+  }),
+})
+
+http.route({
+  path: '/internal/fal-media',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+    }
+    const contentLength = Number(request.headers.get('content-length') ?? '0')
+    if (Number.isFinite(contentLength) && contentLength > 32 * 1024) {
+      return jsonResponse({ error: 'Imagine request is too large' }, 413)
+    }
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > 32 * 1024) {
+      return jsonResponse({ error: 'Imagine request is too large' }, 413)
+    }
+    const body = (() => {
+      try {
+        return JSON.parse(rawBody || 'null') as Record<string, unknown> | null
+      } catch {
+        return null
+      }
+    })()
+    const operation = body?.operation
+    if (
+      typeof body?.userId !== 'string' ||
+      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+      (operation !== 'generate_image' &&
+        operation !== 'edit_image' &&
+        operation !== 'generate_video' &&
+        operation !== 'edit_video') ||
+      typeof body.prompt !== 'string' ||
+      (body.sourceUrl !== undefined && typeof body.sourceUrl !== 'string')
+    ) {
+      return jsonResponse({ error: 'Invalid Imagine request' }, 400)
+    }
+    try {
+      const result = await ctx.runAction(internal.falMedia.execute, {
+        userId: body.userId,
+        operation,
+        prompt: body.prompt,
+        sourceUrl: body.sourceUrl as string | undefined,
+      })
+      return jsonResponse(result, 200)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Imagine request failed'
       return jsonResponse({ error: message }, 400)
     }
   }),

@@ -8,6 +8,10 @@ import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import {
+  callChannelAction,
+  type ChannelActionName,
+} from './shared/channel-actions'
 import { checkPaidSubscription } from './subscription-gate'
 
 type Bindings = {
@@ -31,6 +35,7 @@ type Bindings = {
 
 type Variables = {
   userId: string
+  authKind: 'bridge' | 'clerk'
 }
 
 function binding<K extends keyof Bindings>(env: Bindings, name: K): Bindings[K] | undefined {
@@ -164,6 +169,7 @@ app.use('*', async (c, next) => {
     secretsMatch(bridgeSecret, configuredBridgeSecret)
   ) {
     c.set('userId', bridgeUser)
+    c.set('authKind', 'bridge')
   } else {
     const issuer = binding(c.env, 'CLERK_JWT_ISSUER_DOMAIN')
     if (!issuer) {
@@ -185,6 +191,7 @@ app.use('*', async (c, next) => {
       const { payload } = await jwtVerify(token, jwks, { issuer })
       if (!payload.sub) throw new Error('Token has no subject')
       c.set('userId', payload.sub)
+      c.set('authKind', 'clerk')
     } catch {
       return c.json({ error: 'Session expired. Sign in again.' }, 401)
     }
@@ -287,6 +294,117 @@ app.post('/internal/account-deletion', async (c) => {
     )
   }
   return c.json({ deleted: conversationIds.length })
+})
+
+/**
+ * Gives trusted text-channel adapters the same intent-level client actions as
+ * the signed-in apps while keeping all writes inside Convex transactions.
+ */
+app.post('/bridge/channel', async (c) => {
+  if (c.get('authKind') !== 'bridge') {
+    return c.json({ error: 'Trusted bridge authentication is required.' }, 403)
+  }
+  const body = (await c.req.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null
+  const action = body?.action
+  if (typeof action !== 'string') {
+    return c.json({ error: 'Send a channel action.' }, 400)
+  }
+
+  let channelAction: ChannelActionName
+  let input: Record<string, unknown>
+  if (action === 'context' || action === 'create_thread') {
+    channelAction = action
+    input = {}
+  } else if (action === 'title_thread') {
+    if (
+      typeof body?.threadId !== 'number' ||
+      !Number.isFinite(body.threadId) ||
+      typeof body.title !== 'string'
+    ) {
+      return c.json({ error: 'Invalid conversation title.' }, 400)
+    }
+    channelAction = action
+    input = { threadId: body.threadId, title: body.title }
+  } else if (
+    action === 'confirm_first_focus' ||
+    action === 'cancel_first_focus'
+  ) {
+    if (
+      typeof body?.requestId !== 'string' ||
+      typeof body.goalTitle !== 'string' ||
+      typeof body.projectTitle !== 'string' ||
+      typeof body.taskTitle !== 'string' ||
+      (body.highlightExpiresAt !== undefined &&
+        (typeof body.highlightExpiresAt !== 'number' ||
+          !Number.isFinite(body.highlightExpiresAt)))
+    ) {
+      return c.json({ error: 'Invalid first-focus action.' }, 400)
+    }
+    channelAction = action
+    input = {
+      requestId: body.requestId,
+      goalTitle: body.goalTitle,
+      projectTitle: body.projectTitle,
+      taskTitle: body.taskTitle,
+      ...(typeof body.highlightExpiresAt === 'number'
+        ? { highlightExpiresAt: body.highlightExpiresAt }
+        : {}),
+    }
+  } else if (action === 'complete_highlight') {
+    if (
+      typeof body?.requestId !== 'string' ||
+      typeof body.taskId !== 'string'
+    ) {
+      return c.json({ error: 'Invalid Highlight completion.' }, 400)
+    }
+    channelAction = action
+    input = { requestId: body.requestId, taskId: body.taskId }
+  } else {
+    return c.json({ error: 'Unknown channel action.' }, 400)
+  }
+
+  const convexUrl = binding(c.env, 'CONVEX_URL')
+  const clerkIssuer = binding(c.env, 'CLERK_JWT_ISSUER_DOMAIN')
+  if (!convexUrl || !clerkIssuer) {
+    captureWorkerFailure(
+      new Error('Channel actions are not configured'),
+      'bridge.channel.configuration',
+    )
+    return c.json({ error: 'Channel actions are not configured.' }, 503)
+  }
+  try {
+    const result = await callChannelAction(
+      {
+        convexUrl,
+        convexSiteUrl: binding(c.env, 'CONVEX_SITE_URL'),
+        brokerSecret:
+          binding(c.env, 'AGENT_CREDENTIAL_BROKER_SECRET') ??
+          binding(c.env, 'BRIDGE_SECRET'),
+        clerkIssuer,
+      },
+      c.get('userId'),
+      channelAction,
+      input,
+    )
+    return c.body(JSON.stringify(result), 200, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    })
+  } catch (error) {
+    captureWorkerFailure(error, `bridge.channel.${channelAction}`)
+    return c.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Channel action failed.',
+      },
+      400,
+    )
+  }
 })
 
 // Speech-to-text: raw audio bytes in, proxied to ElevenLabs Scribe.

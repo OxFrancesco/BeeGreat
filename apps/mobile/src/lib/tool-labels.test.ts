@@ -18,6 +18,9 @@ describe('power-up tool labels', () => {
     );
     expect(getToolCopy('task', 'running', { agent: 'web3' }).powerup).toBe('Web3');
     expect(getToolCopy('task', 'running', { agent: 'devin' }).powerup).toBe('Devin');
+    expect(getToolCopy('task', 'running', { agent: 'imagine' }).powerup).toBe(
+      'Imagine',
+    );
   });
 
   test('labels Devin session activity', () => {
@@ -25,6 +28,19 @@ describe('power-up tool labels', () => {
     expect(getToolCopy('follow_up_devin_task', 'done').label).toBe(
       'Sent Devin the follow-up',
     );
+  });
+
+  test('labels FAL media activity without exposing tool names', () => {
+    expect(getToolCopy('generate_image', 'running')).toMatchObject({
+      label: 'Creating your image…',
+      powerup: 'Imagine',
+      symbol: 'wand.and.stars',
+    });
+    expect(getToolCopy('edit_video', 'done')).toMatchObject({
+      label: 'Edited your video',
+      powerup: 'Imagine',
+      symbol: 'film',
+    });
   });
 });
 

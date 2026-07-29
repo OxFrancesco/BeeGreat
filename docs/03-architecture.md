@@ -105,9 +105,13 @@ Continuous fatigue retains fractional accrual server-side and materializes only 
 ## iMessage bridge (`apps/imessage-bridge`)
 
 - Small always-on Bun process using **spectrum-ts** (Photon's Spectrum Cloud handles the iMessage infrastructure — lines, delivery, blue bubbles)
-- Flow: iMessage → Spectrum Cloud (gRPC) → bridge → agent worker (`x-bridge-secret` + `x-bridge-user` headers, verified against the `BRIDGE_SECRET` Worker secret) → reply as native styled text (markdown), 👀 tapback while thinking, confetti effect when the user reports finishing something
+- Flow: iMessage → Spectrum Cloud (gRPC) → bridge → agent worker (`x-bridge-secret` + `x-bridge-user` headers, verified against the `BRIDGE_SECRET` Worker secret) → the same Bee runtime, model selection, tools, Beennectors, and Power-ups as the apps
 - Sender allowlist via `IMESSAGE_USER_MAP` (`address=clerkUserId` pairs); everyone else is ignored
-- Conversations live on the `<userId>~imessage` session; tools key data by the bare user id, so iMessage and app share the same goals/tasks
+- iMessage resolves the account-wide active chat thread before every turn. `/new` and `/clear` create a normal numeric thread, so conversation state is shared with mobile/web and included in account deletion instead of living in a bridge-only session.
+- Text, voice notes, images, and mixed message groups reach Bee. Unsupported files receive a readable fallback without creating an agent turn.
+- Every current `beeui` component has a Messages projection. Text, metrics, charts, Tasks, Highlights, first-focus previews, and confirmations become styled accessible text; bookmarks, Devin sessions, and pull requests also receive native iMessage link cards. Malformed UI is dropped without exposing raw JSON or machine ids.
+- First-focus confirmation/cancellation and Highlight completion cross the Worker's trusted `/bridge/channel` seam and reuse the exact Convex transactions and idempotency keys used by mobile/web. Confetti is sent only after server-confirmed completion, never from keyword matching.
+- 👀 remains the immediate activity acknowledgement while Bee works.
 - **Can't run on Cloudflare Workers**: outbound sends use Node gRPC (`@grpc/grpc-js`), which the Workers runtime doesn't support. Needs a long-lived host.
 
 ### Hosting on Railway (decided)
@@ -116,7 +120,7 @@ Continuous fatigue retains fractional accrual server-side and materializes only 
 2. New service from the repo with:
    - Root directory: `apps/imessage-bridge` (Railway's Railpack auto-detects Bun)
    - Custom start command: `bun run src/index.ts`
-3. Set the service variables from `apps/imessage-bridge/.env.example`: `PROJECT_ID`, `PROJECT_SECRET`, `AGENT_URL` (deployed worker URL), `BRIDGE_SECRET` (same value as the Worker secret), `IMESSAGE_USER_MAP`
+3. Set the service variables from `apps/imessage-bridge/.env.example`: `PROJECT_ID`, `PROJECT_SECRET`, `AGENT_URL` (deployed worker URL), `BRIDGE_SECRET` (same value as the Worker secret), `IMESSAGE_USER_MAP`. The Worker and Convex deployment must also share `AGENT_CREDENTIAL_BROKER_SECRET`; trusted channel actions never expose it to the bridge.
 4. No public networking needed — the bridge only makes outbound connections (gRPC to Spectrum, HTTPS to the worker). Disable the public domain.
 5. One-off greeting (so a new user learns Bee's number): run the service once with `bun run src/index.ts --greet`, or use `railway run bun run src/index.ts --greet` locally.
 

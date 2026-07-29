@@ -1,14 +1,20 @@
 import { useUser } from '@clerk/tanstack-react-start'
-import { Link } from '@tanstack/react-router'
+import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useStickToBottomContext } from 'use-stick-to-bottom'
 
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
-import historyIcon from '../../../../mobile/assets/icons/honeycomb.svg?url'
 import { useBeeAgentContext } from './bee-agent-context'
 import { AgentMessage, ThinkingActivity } from './message'
 import { PromptComposer } from './prompt-composer'
 import { useChatThreadActions, useChatThreads } from './use-convex-chat'
 import type { ChatThread } from './use-convex-chat'
+import { Suggestion, Suggestions } from '~/components/ai-elements/suggestion'
+import {
+  ConversationContent,
+  ConversationScrollButton,
+  Conversation as ConversationViewport,
+} from '~/components/ai-elements/conversation'
 
 const HERO_SUGGESTIONS = [
   'What should I focus on today?',
@@ -21,16 +27,20 @@ export function BeeWorkspace() {
   const threads = useChatThreads()
   const { activateThread } = useChatThreadActions()
   const { user } = useUser()
-  const [railOpen, setRailOpen] = useState(false)
+  const [railOpen, setRailOpen] = useState(true)
   const [compactShell, setCompactShell] = useState(false)
   const historyButtonRef = useRef<HTMLButtonElement>(null)
-  const closeButtonRef = useRef<HTMLButtonElement>(null)
   const hive = agent.currentFirstFocus?.hive
   const highlight = agent.currentFirstFocus?.activeHighlight
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1120px)')
-    const update = () => setCompactShell(media.matches)
+    const update = () => {
+      setCompactShell(media.matches)
+      // The rail overlays content on compact shells, so it starts closed
+      // there and open on desktop.
+      setRailOpen(!media.matches)
+    }
     update()
     media.addEventListener('change', update)
     return () => media.removeEventListener('change', update)
@@ -38,17 +48,11 @@ export function BeeWorkspace() {
 
   useEffect(() => {
     if (!compactShell || !railOpen) return
-    const frame = window.requestAnimationFrame(() =>
-      closeButtonRef.current?.focus(),
-    )
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') closeRail()
     }
     document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      window.cancelAnimationFrame(frame)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
+    return () => document.removeEventListener('keydown', closeOnEscape)
   }, [compactShell, railOpen])
 
   function openRail() {
@@ -63,27 +67,27 @@ export function BeeWorkspace() {
   }
 
   return (
-    <main className="workspace-shell">
+    <main
+      className={`workspace-shell${railOpen || compactShell ? '' : ' is-rail-closed'}`}
+    >
       <aside
         id="conversation-history"
         className={`conversation-rail${railOpen ? ' is-open' : ''}`}
         aria-label="Conversation history"
-        aria-hidden={compactShell && !railOpen}
-        inert={compactShell && !railOpen}
+        aria-hidden={!railOpen}
+        inert={!railOpen}
       >
         <div className="rail-heading">
-          <div>
-            <p className="rail-label">Bee</p>
-            <strong>Conversations</strong>
-          </div>
+          <strong>Conversations</strong>
           <button
-            ref={closeButtonRef}
             type="button"
-            className="icon-button rail-close"
-            aria-label="Close conversations"
+            className="icon-button rail-heading__toggle"
+            aria-label="Hide conversations"
+            aria-controls="conversation-history"
+            aria-expanded={railOpen}
             onClick={closeRail}
           >
-            ×
+            <ChevronLeftIcon aria-hidden="true" />
           </button>
         </div>
 
@@ -118,7 +122,7 @@ export function BeeWorkspace() {
         </nav>
       </aside>
 
-      {railOpen ? (
+      {compactShell && railOpen ? (
         <button
           className="rail-scrim"
           type="button"
@@ -128,25 +132,21 @@ export function BeeWorkspace() {
       ) : null}
 
       <section className="bee-panel">
-        <header className="bee-topbar">
+        {!railOpen ? (
           <button
             ref={historyButtonRef}
-            className="icon-button mobile-menu"
+            className="icon-button rail-reopen"
             type="button"
-            aria-label="Open conversations"
+            aria-label="Show conversations"
             aria-controls="conversation-history"
-            aria-expanded={compactShell ? railOpen : true}
+            aria-expanded={false}
             onClick={openRail}
           >
-            <img src={historyIcon} alt="" />
+            <ChevronRightIcon aria-hidden="true" />
           </button>
-          <div className="bee-topbar__title">
-            <span className={`presence-dot${agent.busy ? ' is-busy' : ''}`} />
-            <div>
-              <strong>Bee</strong>
-              <span>{agent.busy ? 'Thinking…' : 'Ready in your Hive'}</span>
-            </div>
-          </div>
+        ) : null}
+
+        <div className="bee-resources">
           <div className="hive-balances" aria-label="Hive balances">
             <Balance kind="honey" label="Honey" value={hive?.honeyBalance} />
             <Balance
@@ -160,20 +160,7 @@ export function BeeWorkspace() {
               value={hive?.royalJellyBalance}
             />
           </div>
-          <Link
-            className="bee-profile"
-            to="/settings"
-            aria-label="Open profile and settings"
-          >
-            {user?.hasImage ? (
-              <img src={user.imageUrl} alt="" />
-            ) : (
-              <span aria-hidden="true">
-                {(user?.firstName ?? 'B').slice(0, 1).toUpperCase()}
-              </span>
-            )}
-          </Link>
-        </header>
+        </div>
 
         {highlight ? (
           <div className="current-highlight">
@@ -209,9 +196,6 @@ function ThreadButton({
       aria-current={active ? 'page' : undefined}
       onClick={onSelect}
     >
-      <span className="thread-button__comb" aria-hidden="true">
-        {title.slice(0, 1).toUpperCase()}
-      </span>
       <span>
         <strong>{title}</strong>
         <small>{formatThreadDate(thread.createdAt)}</small>
@@ -259,8 +243,7 @@ function Conversation({
   agent: BeeAgent
   firstName?: string
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const following = useRef(true)
+  const [sendSignal, setSendSignal] = useState(0)
   const hasConversation = agent.messages.length > 0
   const lastMessage = agent.messages.at(-1)
   const awaitingReply =
@@ -276,32 +259,16 @@ function Conversation({
   const sendAndFollow = async (text: string) => {
     // Sending is an explicit request to return to the live edge. Passive
     // incoming updates still respect a reader who has scrolled into history.
-    following.current = true
+    setSendSignal((count) => count + 1)
     await agent.sendText(text)
   }
 
-  useEffect(() => {
-    if (!following.current) return
-    const frame = window.requestAnimationFrame(() => {
-      const element = scrollRef.current
-      if (element) element.scrollTop = element.scrollHeight
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [agent.messages, awaitingReply])
-
   return (
     <div className="conversation-area">
-      <div
-        className={`message-viewport${hasConversation ? '' : ' is-empty'}`}
-        ref={scrollRef}
-        onScroll={(event) => {
-          const element = event.currentTarget
-          following.current =
-            element.scrollHeight - element.scrollTop - element.clientHeight < 96
-        }}
-      >
-        {hasConversation ? (
-          <div className="message-list" aria-live="polite">
+      {hasConversation ? (
+        <ConversationViewport>
+          <ConversationContent className="message-list" aria-live="polite">
+            <FollowLiveEdge signal={sendSignal} />
             {agent.canLoadOlder || agent.loadingOlder ? (
               <button
                 className="button button--quiet load-earlier-messages"
@@ -309,7 +276,9 @@ function Conversation({
                 disabled={agent.loadingOlder}
                 onClick={agent.loadOlder}
               >
-                {agent.loadingOlder ? 'Loading earlier messages…' : 'Load earlier messages'}
+                {agent.loadingOlder
+                  ? 'Loading earlier messages…'
+                  : 'Load earlier messages'}
               </button>
             ) : null}
             {agent.messages.map((message, index) => (
@@ -322,14 +291,17 @@ function Conversation({
               />
             ))}
             {awaitingReply ? <ThinkingActivity /> : null}
-          </div>
-        ) : (
+          </ConversationContent>
+          <ConversationScrollButton aria-label="Scroll to latest message" />
+        </ConversationViewport>
+      ) : (
+        <div className="message-viewport is-empty">
           <EmptyConversation
             firstName={firstName}
             onSuggestion={sendAndFollow}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="composer-dock">
         {agent.errorMessage ? (
@@ -342,10 +314,32 @@ function Conversation({
             ) : null}
           </div>
         ) : null}
-        <PromptComposer onSubmit={sendAndFollow} disabled={agent.busy} />
+        <PromptComposer
+          onSubmit={sendAndFollow}
+          onTalk={() => void agent.toggleRecording()}
+          recording={agent.recording}
+          disabled={agent.busy}
+        />
       </div>
     </div>
   )
+}
+
+/**
+ * StickToBottom only follows passive updates when the reader is already at
+ * the live edge. Sending a message is an explicit request to return there.
+ */
+function FollowLiveEdge({ signal }: { signal: number }) {
+  const { scrollToBottom } = useStickToBottomContext()
+  const seen = useRef(signal)
+
+  useEffect(() => {
+    if (signal === seen.current) return
+    seen.current = signal
+    void scrollToBottom()
+  }, [signal, scrollToBottom])
+
+  return null
 }
 
 function EmptyConversation({
@@ -368,26 +362,19 @@ function EmptyConversation({
             : 'What matters today?'}
         </h1>
       </div>
-      <div className="suggestion-list" aria-label="Suggestions">
+      <Suggestions
+        className="mt-[30px] flex-wrap justify-center"
+        aria-label="Suggestions"
+      >
         {HERO_SUGGESTIONS.map((suggestion) => (
-          <button
-            type="button"
+          <Suggestion
             key={suggestion}
-            onClick={() => void onSuggestion(suggestion)}
-          >
-            <span>{suggestion}</span>
-            <ArrowIcon />
-          </button>
+            suggestion={suggestion}
+            className="border-border bg-card font-medium text-muted-foreground hover:border-primary/45 hover:text-foreground"
+            onClick={(text) => void onSuggestion(text)}
+          />
         ))}
-      </div>
+      </Suggestions>
     </div>
-  )
-}
-
-function ArrowIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M5 12h13M13 7l5 5-5 5" />
-    </svg>
   )
 }

@@ -1,9 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
+import { useBeennectors } from './use-beennectors'
+import type { ReactNode } from 'react'
+import type { BeennectorProvider } from './use-beennectors'
 import { captureWebFailure } from '~/lib/sentry'
-import {
-  type BeennectorProvider,
-  useBeennectors,
-} from './use-beennectors'
 
 function GitHubLogo() {
   return (
@@ -143,9 +142,7 @@ export function BeennectorsSettings() {
                 className={`button ${connected ? 'button--danger' : 'button--primary'}`}
                 type="button"
                 disabled={Boolean(working) || pending}
-                onClick={() =>
-                  void toggle(connection.provider, connected)
-                }
+                onClick={() => void toggle(connection.provider, connected)}
               >
                 {working === connection.provider
                   ? connected
@@ -169,4 +166,3 @@ export function BeennectorsSettings() {
     </>
   )
 }
-

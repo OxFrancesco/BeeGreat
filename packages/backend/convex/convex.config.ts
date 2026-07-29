@@ -20,6 +20,11 @@ const app = defineApp({
     OPENROUTER_API_KEY: v.optional(v.string()),
     DEVIN_API_KEY: v.optional(v.string()),
     DEVIN_ORG_ID: v.optional(v.string()),
+    FAL_KEY: v.optional(v.string()),
+    FAL_IMAGE_GENERATION_MODEL: v.optional(v.string()),
+    FAL_IMAGE_EDIT_MODEL: v.optional(v.string()),
+    FAL_VIDEO_GENERATION_MODEL: v.optional(v.string()),
+    FAL_VIDEO_EDIT_MODEL: v.optional(v.string()),
   },
 })
 

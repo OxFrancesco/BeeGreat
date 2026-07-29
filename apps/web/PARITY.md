@@ -1,6 +1,6 @@
 # Web/mobile feature parity
 
-Audited against `apps/mobile/src` on 2026-07-13. The web twin exposes every
+Audited against `apps/mobile/src` on 2026-07-20. The web twin exposes every
 user-facing mobile workflow and calls the same authenticated Convex and Flue
 services; it does not maintain a second product backend.
 
@@ -21,8 +21,17 @@ services; it does not maintain a second product backend.
 | Highlight rewards, GolieBee, Achievements          | `/hive`                                                      | Same idempotent completion and economy state                                 |
 | Mind library: honeycomb, cards, and list views     | `/mind`, `features/mind/mind-page.tsx`                       | Same reactive `bookmarks.list/search/labels` queries                         |
 | Mind capture, detail, editing, retry, and delete   | `/mind` add dialog and detail panel                          | Same `bookmarks.add/get/update/retry/remove` mutations                       |
+| Bee Healthy daily summary                          | Goals Bee Healthy card, `/health`                            | Same local-day key and `healthJournal.getByDate` state                       |
+| Mood check-in and seven-day pulse                  | `/health`                                                    | Same `healthJournal.getByDate/listRecent/setMood` operations                 |
+| Hydration tracking and undo                        | `/health/water`                                              | Same limits and `healthJournal.adjustHydration` mutation                     |
+| Journal timeline, search, and calendar             | `/health/journal`                                            | Same `journalEntries.listRecent/listDay/listMonth/search/importLegacy` calls |
+| Journal editing, tags, photos, sharing, and delete | `/health/journal/:entryId`                                   | Same entry and Convex storage operations; Web Share/clipboard adapter        |
+| Configurable NFC tap actions                       | `/health/tap-actions`                                        | Same `nfcActions.list/create/update/remove` operations and stable tag URLs   |
+| Tap execution, duplicate protection, and undo      | `/tap/:publicId`                                             | Same authenticated `nfcActions.execute/undo` operations                      |
 | Profile and spoken-reply preference                | `/settings`                                                  | Same Clerk identity; local device preference, as on mobile                   |
 | Power-ups and Google Health                        | `/settings`                                                  | Same registry, enablement, OAuth action, status, and disconnect mutation     |
+| Account deletion and recovery                      | `/settings`                                                  | Same prepare/revoke/delete/activate/cancel lifecycle with durable resume     |
+| Legal, support, and subscription management        | `/settings`                                                  | Same BeeDocs pages; Apple subscription management opens Apple                |
 | Loading, failure, empty, and missing-entity states | All product routes                                           | Reactive Convex state with retry/rollback where the mobile flow has it       |
 | Responsive and dark presentation                   | Shared app shell and CSS                                     | Mobile bottom navigation, desktop Hive spine, OS color preference            |
 
@@ -32,7 +41,10 @@ Native haptics and ActivityKit have no browser API. Their functional equivalents
 are visible pressed/success/error states and the persistent in-app voice island.
 Expo's native auth sheet maps to a constrained browser popup. Audio capture uses
 `MediaRecorder` in place of Expo Audio, while preserving the same authenticated
-transcription, text-command, and speech paths.
+transcription, text-command, and speech paths. NFC-capable browsers write the
+same private URL with Web NFC; other browsers copy the URL for writing from the
+mobile app. Apple purchases remain managed by Apple rather than duplicated with
+a second web billing system.
 
 The unused mobile attachment presentation component is not included because it
 is not connected to any mobile screen or agent workflow.
@@ -46,4 +58,5 @@ is not connected to any mobile screen or agent workflow.
 - Confirmations and Highlight completion are executed client-side once, with
   stable request IDs; Bee only receives a verified app-event acknowledgement.
 - Web unit tests cover transcript reconciliation, generated-UI validation,
-  tool labeling, focus utilities, and stable GolieBee presentation.
+  tool labeling, focus utilities, health calendar utilities, and stable
+  GolieBee presentation.

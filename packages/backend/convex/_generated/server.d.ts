@@ -36,6 +36,11 @@ type Env = {
   readonly DEVIN_API_KEY: string | undefined;
   readonly DEVIN_ORG_ID: string | undefined;
   readonly ELEVENLABS_API_KEY: string | undefined;
+  readonly FAL_IMAGE_EDIT_MODEL: string | undefined;
+  readonly FAL_IMAGE_GENERATION_MODEL: string | undefined;
+  readonly FAL_KEY: string | undefined;
+  readonly FAL_VIDEO_EDIT_MODEL: string | undefined;
+  readonly FAL_VIDEO_GENERATION_MODEL: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly OPENROUTER_API_KEY: string | undefined;
   readonly REVENUECAT_APP_ID: string | undefined;

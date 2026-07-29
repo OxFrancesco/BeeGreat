@@ -119,5 +119,4 @@ describe('chat history', () => {
       }),
     ])
   })
-
 })

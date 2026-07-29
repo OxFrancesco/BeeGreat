@@ -31,6 +31,10 @@ const TOOL_SYMBOLS: Record<string, string> = {
   list_devin_tasks: "cloud.fill",
   inspect_devin_task: "cloud.fill",
   follow_up_devin_task: "paperplane",
+  generate_image: "wand.and.stars",
+  edit_image: "wand.and.stars",
+  generate_video: "film",
+  edit_video: "film",
 };
 
 function taskSymbol(input: unknown) {
@@ -39,7 +43,12 @@ function taskSymbol(input: unknown) {
       ? String((input as { agent?: unknown }).agent ?? "")
       : "";
   if (agent === "goals") return "scope";
-  if (agent === "web3" || agent === "google-health" || agent === "devin") return "bolt.fill";
+  if (
+    agent === "web3" ||
+    agent === "google-health" ||
+    agent === "devin" ||
+    agent === "imagine"
+  ) return "bolt.fill";
   return "sparkles";
 }
 

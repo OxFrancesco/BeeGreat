@@ -16,6 +16,7 @@ import type { ConvexQueryClient } from '@convex-dev/react-query'
 import type { ConvexReactClient } from 'convex/react'
 import type { QueryClient } from '@tanstack/react-query'
 import appCss from '~/styles/app.css?url'
+import { AccountDeletionResume } from '~/features/settings/use-account-deletion'
 
 const fetchClerkAuth = createServerFn({ method: 'GET' }).handler(async () => {
   const { getToken, userId } = await auth()
@@ -96,6 +97,7 @@ function RootComponent() {
     <ClerkProvider>
       <SentryUserContext userId={context.userId} />
       <ConvexProviderWithClerk client={context.convexClient} useAuth={useAuth}>
+        <AccountDeletionResume />
         <RootDocument>
           <Outlet />
         </RootDocument>

@@ -110,7 +110,7 @@ Both clients call `packages/backend` directly and stream from the same authentic
 - [Design system](DESIGN.md) and [asset guide](docs/design/DESIGN_SYSTEM.md)
 - [Architecture](docs/03-architecture.md) and [memory](docs/09-fra-423-memory-architecture.md)
 - [Economy](docs/04-gamification.md) and [voice agent](docs/05-voice-agent.md)
-- Runbooks: [ChatGPT auth](docs/11-chatgpt-authentication.md), [Google Health](docs/12-google-health-powerup.md), [Sentry](docs/13-sentry-observability.md), [X bookmark bot plan](docs/15-x-bookmark-bot-implementation-plan.md)
+- Runbooks: [ChatGPT auth](docs/11-chatgpt-authentication.md), [Google Health](docs/12-google-health-powerup.md), [Sentry](docs/13-sentry-observability.md), [Imagine/FAL](docs/16-imagine-powerup.md), [X bookmark bot plan](docs/15-x-bookmark-bot-implementation-plan.md)
 - [Web/mobile parity evidence](apps/web/PARITY.md)
 
 ## Contributing

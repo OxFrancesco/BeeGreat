@@ -23,4 +23,15 @@ describe('tool labels', () => {
     })
     expect(getToolCopy('inspect_devin_task', 'done').powerup).toBe('Devin')
   })
+
+  test('identifies Imagine media activity as a Power-up', () => {
+    expect(getToolCopy('task', 'running', { agent: 'imagine' })).toEqual({
+      label: 'At work…',
+      powerup: 'Imagine',
+    })
+    expect(getToolCopy('generate_video', 'done')).toEqual({
+      label: 'Created your video',
+      powerup: 'Imagine',
+    })
+  })
 })

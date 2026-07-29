@@ -38,7 +38,7 @@ function UIComponentView({
       return <p>{component.body}</p>
     case 'metric':
       return (
-        <Card>
+        <Card className="generated-card--metric">
           <p className="utility-label">{component.label}</p>
           <div className="metric-row">
             <strong>{component.value}</strong>

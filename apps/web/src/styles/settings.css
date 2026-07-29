@@ -1,21 +1,58 @@
 .settings-page {
-  width: min(820px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
-.identity-card {
-  display: flex;
-  align-items: center;
-  margin-bottom: 38px;
-  padding: 26px;
-  border-radius: 26px;
-  background: var(--honey);
+.settings-header,
+.settings-layout {
+  width: min(1180px, 100%);
+  margin-inline: auto;
+}
+.settings-header {
+  min-height: 96px;
+  align-items: end;
+  margin-bottom: 30px;
+}
+.settings-header > div {
+  display: grid;
+  gap: 10px;
+}
+.settings-header p {
+  max-width: 560px;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+.settings-layout {
+  display: grid;
+  align-items: start;
+  grid-template-columns: 248px minmax(0, 1fr);
+  gap: clamp(24px, 3vw, 40px);
+}
+.settings-profile-column {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  gap: 14px;
+}
+.settings-page .identity-card {
+  display: grid;
+  justify-items: start;
+  margin: 0;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--honey-strong) 34%, var(--line));
+  border-radius: 22px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--honey) 88%, var(--surface)),
+    color-mix(in srgb, var(--honey) 38%, var(--surface))
+  );
   color: var(--honey-ink);
   gap: 18px;
 }
 .identity-avatar {
   display: grid;
-  width: 72px;
-  height: 66px;
+  width: 82px;
+  height: 76px;
   overflow: hidden;
   background: #fff3dc;
   clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
@@ -28,42 +65,90 @@
   height: 100%;
   object-fit: cover;
 }
-.identity-card > div:last-child {
+.identity-card__copy {
   display: grid;
+  width: 100%;
   min-width: 0;
-  gap: 4px;
+  gap: 5px;
+}
+.identity-card__copy .utility-label {
+  color: currentColor;
+  opacity: 0.62;
 }
 .identity-card h2 {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.45rem;
   letter-spacing: -0.035em;
 }
-.identity-card p {
+.identity-card__copy > p:last-child {
   overflow: hidden;
   font-size: 0.76rem;
   opacity: 0.75;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.settings-section {
+.identity-card__note {
+  padding-top: 16px;
+  border-top: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  opacity: 0.72;
+}
+.profile-sign-out {
   display: grid;
-  margin-bottom: 32px;
+  padding: 16px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  gap: 13px;
+}
+.profile-sign-out > p {
+  color: var(--ink-soft);
+  font-size: 0.69rem;
+  line-height: 1.5;
+}
+.settings-content {
+  display: grid;
+  min-width: 0;
+  gap: 38px;
+}
+
+.settings-page .settings-section {
+  display: grid;
+  min-width: 0;
+  margin: 0;
   gap: 10px;
 }
 .settings-section > .utility-label {
-  padding-left: 8px;
+  padding-left: 4px;
 }
 .settings-section > div {
   display: grid;
-  gap: 10px;
+  gap: 14px;
+}
+.settings-section--beennectors > div,
+.settings-section--powerups > div {
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+}
+.settings-section--beennectors .beennector-intro,
+.settings-section--powerups .settings-grid-message {
+  grid-column: 1 / -1;
 }
 .setting-row,
 .powerup-card,
 .connection-card {
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
+  padding: 22px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+.setting-row:hover,
+.powerup-card:hover,
+.connection-card:hover {
+  border-color: var(--line);
   background: var(--surface);
 }
 .setting-row {
@@ -84,6 +169,21 @@
 .powerup-card__row p {
   color: var(--ink-soft);
   font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.powerup-card {
+  position: relative;
+  min-height: 164px;
+  padding: 24px 62px 62px 24px;
+}
+.powerup-card .switch {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+}
+.powerup-card__row {
+  padding-right: 0;
 }
 
 .switch {
@@ -113,18 +213,22 @@
 }
 
 .connection-card {
+  position: relative;
   display: grid;
-  gap: 14px;
+  min-height: 142px;
+  align-content: start;
+  padding: 24px;
+  gap: 18px;
 }
 .connection-card.is-active {
-  border-color: var(--honey-strong);
-  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--honey-strong) 68%, var(--line));
 }
 .connection-card__heading,
 .powerup-card__row {
   display: flex;
-  align-items: center;
-  gap: 13px;
+  align-items: flex-start;
+  padding-right: 34px;
+  gap: 14px;
 }
 .connection-card__heading > div,
 .powerup-card__row > div {
@@ -139,8 +243,8 @@
 .connection-mark,
 .powerup-mark {
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   flex: 0 0 auto;
   border-radius: 14px;
   background: var(--brown);
@@ -150,16 +254,19 @@
 }
 .connection-card__actions {
   display: grid;
+  margin-top: auto;
   gap: 8px;
 }
 .beennector-intro {
-  padding: 0 8px 4px;
+  max-width: 660px;
+  padding: 0 4px 2px;
   color: var(--ink-soft);
   font-size: 0.73rem;
   line-height: 1.5;
 }
 .beennector-card {
   position: relative;
+  min-height: 214px;
   overflow: hidden;
 }
 .beennector-card::after {
@@ -212,9 +319,13 @@
   background: color-mix(in srgb, var(--honey) 22%, var(--surface));
 }
 .info-toggle {
+  position: absolute;
+  z-index: 2;
+  top: 16px;
+  right: 16px;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   flex: 0 0 auto;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -229,7 +340,7 @@
   color: var(--ink);
 }
 .settings-help {
-  padding: 12px;
+  padding: 14px;
   border-radius: 13px;
   background: var(--surface-muted);
   color: var(--ink-soft);
@@ -243,20 +354,181 @@
 }
 .sign-out-button {
   width: 100%;
-  min-height: 50px;
-  border: 1.5px solid var(--danger);
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 750;
+}
+.sign-out-button:hover {
+  border-color: var(--ink-soft);
+  background: var(--surface-muted);
+}
+
+.account-settings-card {
+  display: grid;
+  padding: 24px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--canvas));
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.82fr);
+  gap: 30px;
+}
+.account-settings-links {
+  display: grid;
+}
+.account-settings-links a {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line-soft);
+  color: inherit;
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+.account-settings-links a:last-child {
+  border-bottom: 0;
+}
+.account-settings-links a:hover {
+  color: var(--brown);
+}
+.account-danger-zone {
+  display: grid;
+  align-content: start;
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--danger) 4%, var(--surface));
+  gap: 18px;
+}
+.account-danger-zone > div {
+  display: grid;
+  gap: 5px;
+}
+.account-danger-zone strong {
+  font-size: 0.8rem;
+}
+.account-danger-zone p:not(.inline-error) {
+  color: var(--ink-soft);
+  font-size: 0.69rem;
+  line-height: 1.45;
+}
+.delete-account-button {
+  min-height: 46px;
+  border: 1px solid var(--danger);
   border-radius: 999px;
   background: transparent;
   color: var(--danger);
   font-weight: 750;
 }
-.sign-out-button:hover {
+.delete-account-button:hover {
   background: color-mix(in srgb, var(--danger) 8%, transparent);
 }
 
-@media (max-width: 620px) {
-  .identity-card {
-    padding: 20px;
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch span {
+    transition: none;
+  }
+}
+
+.hotkey-settings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hotkey-record-button {
+  display: inline-flex;
+  min-width: 108px;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.hotkey-record-button:hover {
+  border-color: var(--ink-soft);
+  background: var(--surface-muted);
+}
+
+.hotkey-record-button.is-recording {
+  border-color: var(--honey-strong);
+  background: var(--honey);
+  color: var(--honey-ink);
+}
+
+.hotkey-record-button kbd {
+  font-family: var(--font-utility);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+}
+
+.hotkey-reset {
+  grid-column: 1 / -1;
+  justify-self: start;
+  padding-inline: 0;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 960px) {
+  .settings-layout {
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 22px;
+  }
+  .hotkey-settings {
+    grid-template-columns: 1fr;
+  }
+  .account-settings-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .settings-header {
+    min-height: auto;
+    margin-bottom: 22px;
+  }
+  .settings-header p {
+    font-size: 0.76rem;
+  }
+  .settings-layout {
+    display: block;
+  }
+  .settings-profile-column {
+    position: static;
+    margin-bottom: 28px;
+  }
+  .settings-page .identity-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: center;
+    padding: 18px;
+    border-radius: 18px;
+    gap: 14px;
+  }
+  .identity-avatar {
+    width: 72px;
+    height: 66px;
+    grid-row: 1 / span 2;
+  }
+  .identity-card__note {
+    padding-top: 12px;
+    grid-column: 1 / -1;
+  }
+  .settings-content {
+    gap: 32px;
+  }
+  .settings-section--beennectors > div,
+  .settings-section--powerups > div {
+    grid-template-columns: 1fr;
   }
   .setting-row,
   .powerup-card,
@@ -264,13 +536,6 @@
     border-radius: 17px;
   }
   .powerup-card__row {
-    flex-wrap: wrap;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .switch,
-  .switch span {
-    transition: none;
+    flex-wrap: nowrap;
   }
 }

@@ -14,6 +14,7 @@ import { HexButton, Hive } from '@/components/hex-button';
 import { MotionDuration } from '@/constants/motion';
 import { Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 import { resolveAppleAuthenticationAvailability } from '@/lib/apple-auth-availability';
+import { makeClerkSsoRedirectUrl } from '@/lib/auth-redirect';
 import { captureMobileFailure } from '@/lib/sentry';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -65,12 +66,27 @@ export default function SignInScreen() {
     setError(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: 'oauth_google',
-        redirectUrl: AuthSession.makeRedirectUri(),
-      });
+      const { authSessionResult, createdSessionId, setActive } =
+        await startSSOFlow({
+          strategy: 'oauth_google',
+          redirectUrl: makeClerkSsoRedirectUrl(AuthSession.makeRedirectUri),
+        });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        return;
+      }
+
+      if (
+        authSessionResult?.type !== 'cancel' &&
+        authSessionResult?.type !== 'dismiss'
+      ) {
+        captureMobileFailure(
+          new Error(
+            `Clerk Google SSO completed without a session (browser result: ${authSessionResult?.type ?? 'missing'})`,
+          ),
+          'auth.sign_in.google.incomplete',
+        );
+        setError("Google sign-in couldn't finish. Try again.");
       }
     } catch (caught) {
       captureMobileFailure(caught, 'auth.sign_in.google');

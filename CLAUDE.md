@@ -17,6 +17,7 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/flue` — Official Flue framework — runtime, channel/database/sandbox connectors, blueprints, tooling, and examples
 - `resources/stagehand` — Browserbase Stagehand — AI browser automation framework (act/extract/observe/agent) built on Playwright
 - `resources/chat` — Vercel Chat SDK — cross-platform adapters, identity/event models, state, and examples
+- `resources/buddy-imagine-v2` — BuddyImagineV2 reference for FAL image and video generation and editing
 
 <!-- codeview:end -->
 

@@ -37,6 +37,7 @@ const POWERUP_ICONS: Record<string, { symbol: string; glyph: string }> = {
   devin: { symbol: 'cloud.fill', glyph: 'D' },
   web3: { symbol: 'tree.fill', glyph: '⌬' },
   'google-health': { symbol: 'heart.fill', glyph: '♥' },
+  imagine: { symbol: 'wand.and.stars', glyph: '✦' },
 };
 const DEFAULT_POWERUP_ICON = { symbol: 'puzzlepiece.extension.fill', glyph: '⌁' };
 

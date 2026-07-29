@@ -119,7 +119,9 @@ function scrubComponent(component: UIComponent): UIComponent {
       return {
         ...component,
         title: scrubIdentifiers(component.title),
-        note: component.note ? scrubIdentifiers(component.note) : component.note,
+        note: component.note
+          ? scrubIdentifiers(component.note)
+          : component.note,
       }
     case 'confirm':
       return { ...component, summary: scrubIdentifiers(component.summary) }

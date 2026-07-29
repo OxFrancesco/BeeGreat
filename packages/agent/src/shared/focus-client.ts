@@ -19,6 +19,7 @@ export async function callFocusService<T extends JsonValue = JsonValue>(
   options: FocusServiceOptions,
   operation: string,
   input: Record<string, unknown> = {},
+  fetcher: typeof fetch = fetch,
 ): Promise<T> {
   const secret = options.brokerSecret?.trim()
   if (!secret) {
@@ -27,7 +28,7 @@ export async function callFocusService<T extends JsonValue = JsonValue>(
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 10_000)
   try {
-    const response = await fetch(`${siteUrl(convexUrl, options.convexSiteUrl)}/internal/focus`, {
+    const response = await fetcher(`${siteUrl(convexUrl, options.convexSiteUrl)}/internal/focus`, {
       method: 'POST',
       headers: {
         authorization: `Bearer ${secret}`,

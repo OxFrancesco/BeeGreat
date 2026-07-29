@@ -4,6 +4,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 
 import { useBeeAgentContext } from '../bee/bee-agent-context'
+import { HealthSummaryCard } from '../health/health-pages'
 import {
   CombProgress,
   DeleteModal,
@@ -52,10 +53,15 @@ export function GoalsPage() {
         }
       />
 
+      <HealthSummaryCard />
+
       {goals === undefined ? (
         <FocusLoading label="Gathering your goals…" />
       ) : (
-        <section className="focus-stack" aria-label="Active goals">
+        <section
+          className="focus-stack focus-stack--slots"
+          aria-label="Active goals"
+        >
           {goals.map((goal) => (
             <GoalCard
               key={goal.id}

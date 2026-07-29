@@ -99,6 +99,64 @@
   gap: 13px;
 }
 
+@media (min-width: 861px) {
+  .focus-stack--slots {
+    align-items: stretch;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .focus-stack--slots .focus-card {
+    min-height: 236px;
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .focus-stack--slots .focus-card__link {
+    align-content: start;
+    padding: 24px 22px 22px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 18px;
+  }
+  .focus-stack--slots .focus-card__copy {
+    align-content: end;
+    gap: 7px;
+  }
+  .focus-stack--slots .focus-card__copy h2 {
+    font-size: 1.22rem;
+    white-space: normal;
+  }
+  .focus-stack--slots .focus-card__copy p {
+    white-space: normal;
+  }
+  .focus-stack--slots .focus-card__arrow {
+    display: none;
+  }
+  .focus-stack--slots .focus-card > .entity-menu {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    margin: 0;
+  }
+  .focus-stack--slots .comb-progress {
+    width: 74px;
+    height: 66px;
+  }
+  .focus-stack--slots .comb-progress::before {
+    width: 60px;
+    height: 52px;
+  }
+  .focus-stack--slots .comb-progress span {
+    font-size: 0.66rem;
+  }
+  .focus-stack--slots .inline-create-trigger {
+    min-height: 236px;
+  }
+  .focus-stack--slots .inline-create,
+  .focus-stack--slots .focus-limit-note {
+    grid-column: 1 / -1;
+  }
+}
+
 .focus-card {
   position: relative;
   display: grid;
