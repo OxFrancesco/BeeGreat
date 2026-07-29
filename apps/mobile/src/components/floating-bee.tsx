@@ -3,10 +3,11 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-// Animated bee (transparent animated WebP), cropped from the source video.
+// Animated bee (transparent animated WebP), rendered from the 3D asset's
+// idle clip via tools/bee-3d/render_app_assets.py.
 const BEE_SOURCE = require('../../assets/images/bee.webp');
 /** Intrinsic size of the animation frames, used to keep the aspect ratio. */
-const BEE = { width: 374, height: 360 } as const;
+const BEE = { width: 512, height: 512 } as const;
 
 /**
  * The little animated bee, with a transparent background.
