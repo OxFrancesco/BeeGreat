@@ -13,8 +13,23 @@ import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
 import { createMindTools } from '../shared/mind-tools.ts'
 import { loadBeennectorSubagent } from '../shared/beennectors/index.ts'
+import {
+  BEE_ORCHESTRATOR_THINKING_LEVEL,
+  resolveBeeEscalationModel,
+  resolveBeeOrchestratorModel,
+} from '../shared/bee-models.ts'
 import { loadPowerups } from '../shared/powerups/index.ts'
+import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
 import instructions from './bee.md' with { type: 'markdown' }
+
+export {
+  BEE_ESCALATION_MODEL_ID,
+  BEE_ESCALATION_THINKING_LEVEL,
+  BEE_ORCHESTRATOR_MODEL_ID,
+  BEE_ORCHESTRATOR_THINKING_LEVEL,
+  resolveBeeEscalationModel,
+  resolveBeeOrchestratorModel,
+} from '../shared/bee-models.ts'
 
 interface Env {
   CONVEX_URL: string
@@ -90,32 +105,39 @@ export default defineAgent<Env>(async ({ id, env }) => {
     env.CONVEX_URL,
     focusOptions,
   )
-  let model = 'openrouter/openai/gpt-5.6-sol'
+  let providerId: string | undefined
   const localCodexAccessToken = env.OPENAI_CODEX_ACCESS_TOKEN?.trim()
   if (localCodexAccessToken) {
-    const providerId = await codexProviderIdForUser(userId)
+    providerId = await codexProviderIdForUser(userId)
     registerFlueCodexProvider(providerId, localCodexAccessToken)
-    model = `${providerId}/gpt-5.6-sol`
   } else if (env.CODEX_ADAPTER_URL && env.CODEX_ADAPTER_SECRET) {
     const credential = await resolveChatGptCredential(userId, env)
     if (credential.status === 'connected') {
-      const providerId = await codexProviderIdForUser(userId)
+      providerId = await codexProviderIdForUser(userId)
       registerFlueCodexProvider(providerId, credential.accessToken, {
         baseUrl: env.CODEX_ADAPTER_URL,
         adapterSecret: env.CODEX_ADAPTER_SECRET,
       })
-      model = `${providerId}/gpt-5.6-sol`
     }
   }
+  const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
+  const domainSubagents = [
+    goalsSubagent(userId, env.CONVEX_URL, focusOptions),
+    ...beennectors,
+    ...powerups,
+  ]
   return {
-    model,
-    thinkingLevel: 'low',
+    model: resolveBeeOrchestratorModel(providerId),
+    thinkingLevel: BEE_ORCHESTRATOR_THINKING_LEVEL,
     instructions: `${instructions}\n\n## User time context\nThe user's IANA timezone is ${focusContext.timeZone}. The current time is ${new Date(focusContext.currentTime).toISOString()}. Use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`,
-    tools: createMindTools(userId, env.CONVEX_URL, focusOptions),
+    tools: mindTools,
     subagents: [
-      goalsSubagent(userId, env.CONVEX_URL, focusOptions),
-      ...beennectors,
-      ...powerups,
+      ...domainSubagents,
+      solEscalationSubagent({
+        model: resolveBeeEscalationModel(providerId),
+        tools: mindTools,
+        subagents: domainSubagents,
+      }),
     ],
   }
 })
