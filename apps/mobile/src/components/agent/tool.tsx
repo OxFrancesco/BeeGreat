@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
@@ -59,6 +61,7 @@ export function ToolActivity({
   errorText?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
   const theme = useTheme();
   const { label, symbol, powerup } = getToolCopy(name, state, input);
   const running = state === 'running';
@@ -66,6 +69,18 @@ export function ToolActivity({
   const powerupPalette = powerup
     ? (POWERUP_PALETTES[powerup] ?? DEFAULT_POWERUP_PALETTE)
     : null;
+
+  const copyDetails = async () => {
+    if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
+    const result = error
+      ? `Error:\n${errorText ?? 'The tool call failed.'}`
+      : `Result:\n${running ? 'Waiting for the result…' : formatToolValue(output)}`;
+    await Clipboard.setStringAsync(
+      [`Tool: ${name}`, `Input:\n${formatToolValue(input)}`, result].join('\n\n'),
+    );
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const activity = running ? (
     <Shimmer
@@ -172,6 +187,31 @@ export function ToolActivity({
               value={running ? 'Waiting for the result…' : output}
             />
           )}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Copy tool call details"
+            hitSlop={8}
+            onPress={copyDetails}
+            style={({ pressed }) => [
+              styles.copyButton,
+              { backgroundColor: theme.card, borderColor: theme.border },
+              pressed && styles.headerPressed,
+            ]}
+          >
+            <SymbolView
+              name={copied ? 'checkmark' : 'doc.on.doc'}
+              size={11}
+              tintColor={theme.textSecondary}
+              fallback={
+                <ThemedText type="small" themeColor="textSecondary">
+                  ⧉
+                </ThemedText>
+              }
+            />
+            <ThemedText type="smallBold" themeColor="textSecondary">
+              {copied ? 'Copied ✓' : 'Copy'}
+            </ThemedText>
+          </Pressable>
         </View>
       ) : null}
     </View>
@@ -297,6 +337,16 @@ const styles = StyleSheet.create({
   },
   detailSection: {
     gap: Spacing.one,
+  },
+  copyButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.two + Spacing.one,
+    paddingVertical: Spacing.one + Spacing.half,
   },
   detailLabel: {
     fontSize: 11,

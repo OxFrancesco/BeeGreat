@@ -13,6 +13,7 @@ export type ChatThread = {
   createdAt: number;
   source?: 'imessage';
   title?: string;
+  archivedAt?: number;
 };
 
 const DEFAULT_THREAD: ChatThread = { id: 0, createdAt: 0 };
@@ -29,6 +30,7 @@ export function useChatThreadActions() {
   const create = useMutation(api.chat.createThread);
   const activate = useMutation(api.chat.setActiveThread);
   const title = useMutation(api.chat.setThreadTitle);
+  const archive = useMutation(api.chat.setThreadArchived);
 
   return {
     createThread: useCallback(() => create({}), [create]),
@@ -39,6 +41,10 @@ export function useChatThreadActions() {
     titleThread: useCallback(
       (threadId: number, nextTitle: string) => title({ threadId, title: nextTitle }),
       [title],
+    ),
+    setThreadArchived: useCallback(
+      (threadId: number, archived: boolean) => archive({ threadId, archived }),
+      [archive],
     ),
   };
 }

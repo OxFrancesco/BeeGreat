@@ -61,6 +61,43 @@ describe('chat history', () => {
     expect(mergeConvexMessages([row], [second])).toEqual([second]);
   });
 
+  test('drops tombstoned rows and their live Flue twins after a retry', () => {
+    const oldUser = message('user:1', 'user', 'What is my wallet?', 'sub-1');
+    const oldAssistant = message('assistant:1', 'assistant', 'It failed.');
+    const newUser = message('user:2', 'user', 'What is my wallet?', 'sub-2');
+    const newAssistant = message('assistant:2', 'assistant', 'Here it is.');
+    const rows = [
+      {
+        id: 'submission:sub-1',
+        contentJson: JSON.stringify({ ...oldUser, id: 'submission:sub-1' }),
+        createdAt: 1,
+        hidden: true,
+      },
+      {
+        id: oldAssistant.id,
+        contentJson: JSON.stringify(oldAssistant),
+        createdAt: 2,
+        hidden: true,
+      },
+      {
+        id: 'submission:sub-2',
+        contentJson: JSON.stringify({ ...newUser, id: 'submission:sub-2' }),
+        createdAt: 3,
+      },
+    ];
+
+    // The live Flue transcript still contains the retried turn; hidden rows
+    // must suppress both the durable copy and the local echo.
+    expect(
+      mergeConvexMessages(rows, [
+        oldUser,
+        oldAssistant,
+        newUser,
+        newAssistant,
+      ]),
+    ).toEqual([newUser, newAssistant]);
+  });
+
   test('returns only changed live envelopes after the initial snapshot', () => {
     const user = message('user:1', 'user', 'Hello', 'submission:1');
     const partial = message('assistant:1', 'assistant', 'Hel');

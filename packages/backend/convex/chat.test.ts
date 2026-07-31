@@ -240,6 +240,97 @@ test('legacy transcript snapshots stay bounded to the newest 100 messages in chr
   expect(messages[99].id).toBe('message-105')
 })
 
+test('threads can be archived and unarchived per authenticated account', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_archive')
+  const other = authenticated(t, 'user_chat_archive_other')
+
+  const threadId = await owner.mutation(api.chat.createThread, {})
+  await owner.mutation(api.chat.setThreadArchived, { threadId, archived: true })
+
+  expect(await owner.query(api.chat.listThreads, {})).toEqual([
+    expect.objectContaining({ id: threadId, archivedAt: expect.any(Number) }),
+  ])
+
+  await owner.mutation(api.chat.setThreadArchived, { threadId, archived: false })
+  const [thread] = await owner.query(api.chat.listThreads, {})
+  expect(thread.archivedAt).toBeUndefined()
+
+  await expect(
+    other.mutation(api.chat.setThreadArchived, { threadId, archived: true }),
+  ).rejects.toThrow('Conversation not found')
+})
+
+test('archiving the implicit thread 0 materializes its row', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_archive_zero')
+
+  await owner.mutation(api.chat.setThreadArchived, { threadId: 0, archived: true })
+  expect(await owner.query(api.chat.listThreads, {})).toEqual([
+    expect.objectContaining({ id: 0, archivedAt: expect.any(Number) }),
+  ])
+})
+
+test('hidden messages stay tombstoned across later transcript syncs', async () => {
+  const t = convexTest(schema, modules)
+  const owner = authenticated(t, 'user_chat_hide')
+  const other = authenticated(t, 'user_chat_hide_other')
+  const assistant = JSON.stringify({
+    id: 'assistant-1',
+    role: 'assistant',
+    parts: [{ type: 'text', text: 'First answer', state: 'done' }],
+  })
+
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: [
+      {
+        id: 'submission:user-1',
+        role: 'user',
+        contentJson: JSON.stringify({ id: 'submission:user-1', role: 'user', parts: [] }),
+        createdAt: 100,
+      },
+      { id: 'assistant-1', role: 'assistant', contentJson: assistant, createdAt: 200 },
+    ],
+  })
+
+  await owner.mutation(api.chat.hideMessages, {
+    threadId: 0,
+    messageIds: ['submission:user-1', 'assistant-1', 'missing-id'],
+  })
+
+  const hiddenView = await owner.query(api.chat.listMessages, { threadId: 0 })
+  expect(hiddenView).toEqual([
+    expect.objectContaining({ id: 'submission:user-1', hidden: true }),
+    expect.objectContaining({ id: 'assistant-1', hidden: true }),
+  ])
+
+  // A later live sync of the same envelope must not resurrect the tombstone.
+  await owner.mutation(api.chat.syncMessages, {
+    threadId: 0,
+    messages: [
+      { id: 'assistant-1', role: 'assistant', contentJson: assistant, createdAt: 200 },
+    ],
+  })
+  const resynced = await owner.query(api.chat.listMessagesPage, {
+    threadId: 0,
+    paginationOpts: { cursor: null, numItems: 20 },
+  })
+  expect(resynced.page).toEqual([
+    expect.objectContaining({ id: 'assistant-1', hidden: true }),
+    expect.objectContaining({ id: 'submission:user-1', hidden: true }),
+  ])
+
+  await expect(
+    other.mutation(api.chat.hideMessages, {
+      threadId: 0,
+      messageIds: ['assistant-1'],
+    }),
+  ).resolves.toBeNull()
+  const ownerView = await owner.query(api.chat.listMessages, { threadId: 0 })
+  expect(ownerView).toHaveLength(2)
+})
+
 test('message pages cap caller-requested batches at 100 messages', async () => {
   const t = convexTest(schema, modules)
   const owner = authenticated(t, 'user_chat_page_bound')

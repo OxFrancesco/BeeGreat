@@ -67,6 +67,7 @@ export function useVoiceAgent() {
     client,
   });
   const chatHistory = useConvexMessages(thread, agent.messages);
+  const hideMessages = useMutation(api.chat.hideMessages);
   const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {});
   const completeHighlight = useMutation(api.firstFocus.completeHighlight);
   const syncTimeZone = useMutation(api.user.syncTimeZone);
@@ -270,6 +271,41 @@ export function useVoiceAgent() {
     ],
   );
 
+  /**
+   * Removes the latest reply and re-runs its user input. Flue's transcript is
+   * append-only, so the superseded turn is tombstoned in Convex (hidden on
+   * every device) and the same text is submitted again as a fresh turn.
+   */
+  const retryLastReply = useCallback(async () => {
+    if (agent.status === 'submitted' || agent.status === 'streaming') return;
+    const messages = chatHistory.messages;
+    const lastUserIndex = messages.findLastIndex(
+      (message) => message.role === 'user',
+    );
+    if (lastUserIndex < 0) return;
+    const retriedText = messages[lastUserIndex].parts
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text)
+      .join('\n');
+    if (!retriedText.trim()) return;
+    // Hide the retried user turn and everything after it. User rows are keyed
+    // by submission id in Convex, so tombstone both key forms.
+    const messageIds = messages.slice(lastUserIndex).flatMap((message) => [
+      message.id,
+      ...(message.role === 'user' && message.submissionId
+        ? [`submission:${message.submissionId}`]
+        : []),
+    ]);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await hideMessages({ threadId: thread, messageIds });
+      await sendText(retriedText);
+    } catch (cause) {
+      captureMobileFailure(cause, 'chat.retry');
+      setVoiceError('The retry didn’t go through. Check your connection and try again.');
+    }
+  }, [agent.status, chatHistory.messages, hideMessages, sendText, thread]);
+
   const toggleRecording = useCallback(async () => {
     setVoiceError(undefined);
     try {
@@ -354,6 +390,7 @@ export function useVoiceAgent() {
     voiceError,
     errorMessage: voiceError ?? friendlyErrorMessage(agent.error),
     sendText,
+    retryLastReply,
     toggleRecording,
     resetConversation,
   };

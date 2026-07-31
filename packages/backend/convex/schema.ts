@@ -195,6 +195,7 @@ export default defineSchema({
     threadId: v.number(),
     source: v.optional(v.literal('imessage')),
     title: v.optional(v.string()),
+    archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -330,6 +331,9 @@ export default defineSchema({
     // Flue message parts are versioned by Flue. Keeping their JSON envelope
     // intact preserves tool/reasoning parts without weakening our schema.
     contentJson: v.string(),
+    // Retried turns stay in the table (Flue's transcript is append-only) but
+    // are tombstoned so no client renders them again.
+    hidden: v.optional(v.boolean()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -4,6 +4,7 @@ export type StoredChatMessage = {
   id: string;
   contentJson: string;
   createdAt: number;
+  hidden?: boolean;
 };
 
 export type ChatMessageSyncEnvelope = {
@@ -76,6 +77,19 @@ export function changedMessagesForConvexSync(
   });
 }
 
+/** True when a merged message matches a tombstoned Convex row. */
+function isHiddenMessage(
+  message: FlueConversationMessage,
+  hiddenIds: ReadonlySet<string>,
+) {
+  return (
+    hiddenIds.has(message.id) ||
+    (message.role === 'user' &&
+      message.submissionId !== undefined &&
+      hiddenIds.has(`submission:${message.submissionId}`))
+  );
+}
+
 /** Combines the durable transcript with Flue's live streaming envelope. */
 export function mergeConvexMessages(
   rows: StoredChatMessage[] | undefined,
@@ -133,7 +147,12 @@ export function mergeConvexMessages(
     }
   }
 
+  const hiddenIds = new Set(
+    (rows ?? []).filter((row) => row.hidden).map((row) => row.id),
+  );
+
   return ordered
     .sort((left, right) => left.createdAt - right.createdAt)
-    .map(({ message }) => message);
+    .map(({ message }) => message)
+    .filter((message) => !isHiddenMessage(message, hiddenIds));
 }

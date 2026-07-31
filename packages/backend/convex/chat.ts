@@ -13,12 +13,14 @@ const threadValidator = v.object({
   createdAt: v.number(),
   source: v.optional(v.literal('imessage')),
   title: v.optional(v.string()),
+  archivedAt: v.optional(v.number()),
 })
 
 const messageValidator = v.object({
   id: v.string(),
   role: v.union(v.literal('user'), v.literal('assistant')),
   contentJson: v.string(),
+  hidden: v.optional(v.boolean()),
   createdAt: v.number(),
   updatedAt: v.number(),
 })
@@ -208,6 +210,7 @@ export const listThreads = query({
       createdAt: row.createdAt,
       ...(row.source ? { source: row.source } : {}),
       ...(row.title ? { title: row.title } : {}),
+      ...(row.archivedAt ? { archivedAt: row.archivedAt } : {}),
     }))
   },
 })
@@ -385,6 +388,73 @@ export const setThreadTitle = mutation({
   },
 })
 
+export const setThreadArchived = mutation({
+  args: { threadId: v.number(), archived: v.boolean() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    const existing = await findThread(ctx, identity.ownerKey, args.threadId)
+    const now = Date.now()
+    if (existing) {
+      await ctx.db.patch('chatThreads', existing._id, {
+        archivedAt: args.archived ? now : undefined,
+        updatedAt: now,
+      })
+    } else if (args.threadId === 0) {
+      // Thread 0 exists implicitly until its first write; materialize it so
+      // the archive flag has a row to live on.
+      await ctx.db.insert('chatThreads', {
+        ...identity,
+        threadId: 0,
+        ...(args.archived ? { archivedAt: now } : {}),
+        createdAt: now,
+        updatedAt: now,
+      })
+    } else {
+      throw new ConvexError({ code: 'NOT_FOUND', message: 'Conversation not found' })
+    }
+    return null
+  },
+})
+
+const MAX_MESSAGES_PER_HIDE = 50
+
+/**
+ * Tombstones the retried turn. Flue's transcript is append-only, so a retry
+ * hides the superseded user/assistant rows here instead of deleting them,
+ * which also stops the live transcript sync from resurrecting them.
+ */
+export const hideMessages = mutation({
+  args: { threadId: v.number(), messageIds: v.array(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    await requireThread(ctx, identity.ownerKey, args.threadId)
+    if (args.messageIds.length > MAX_MESSAGES_PER_HIDE) {
+      throw new ConvexError({ code: 'TOO_LARGE', message: 'Too many messages to hide' })
+    }
+    const now = Date.now()
+    for (const messageId of args.messageIds) {
+      const existing = await ctx.db
+        .query('chatMessages')
+        .withIndex('by_owner_key_and_thread_id_and_message_id', (q) =>
+          q
+            .eq('ownerKey', identity.ownerKey)
+            .eq('threadId', args.threadId)
+            .eq('messageId', messageId),
+        )
+        .unique()
+      if (existing && !existing.hidden) {
+        await ctx.db.patch('chatMessages', existing._id, {
+          hidden: true,
+          updatedAt: now,
+        })
+      }
+    }
+    return null
+  },
+})
+
 export const listMessages = query({
   args: { threadId: v.number() },
   returns: v.array(messageValidator),
@@ -402,6 +472,7 @@ export const listMessages = query({
       id: row.messageId,
       role: row.role,
       contentJson: row.contentJson,
+      ...(row.hidden ? { hidden: true } : {}),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     }))
@@ -436,6 +507,7 @@ export const listMessagesPage = query({
         id: row.messageId,
         role: row.role,
         contentJson: row.contentJson,
+        ...(row.hidden ? { hidden: true } : {}),
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       })),

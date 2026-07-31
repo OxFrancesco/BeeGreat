@@ -1,6 +1,8 @@
+import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -33,6 +35,7 @@ export default function ThreadsScreen() {
         active={fixture.activeThread}
         activateThread={async () => {}}
         createThread={async () => 0}
+        setThreadArchived={async () => {}}
       />
     );
   }
@@ -42,13 +45,14 @@ export default function ThreadsScreen() {
 function ConnectedThreadsScreen() {
   const threads = useChatThreads();
   const active = useActiveChatThread();
-  const { activateThread, createThread } = useChatThreadActions();
+  const { activateThread, createThread, setThreadArchived } = useChatThreadActions();
   return (
     <ThreadsScreenView
       threads={threads}
       active={active}
       activateThread={activateThread}
       createThread={createThread}
+      setThreadArchived={setThreadArchived}
     />
   );
 }
@@ -58,19 +62,79 @@ function ThreadsScreenView({
   active,
   activateThread,
   createThread,
+  setThreadArchived,
 }: {
   threads: ChatThread[];
   active: number;
   activateThread: (threadId: number) => Promise<unknown>;
   createThread: () => Promise<unknown>;
+  setThreadArchived: (threadId: number, archived: boolean) => Promise<unknown>;
 }) {
   const theme = useTheme();
+  const [showArchived, setShowArchived] = useState(false);
   const newest = [...threads].sort((a, b) => b.id - a.id);
+  const current = newest.filter((thread) => !thread.archivedAt);
+  const archived = newest.filter((thread) => thread.archivedAt);
 
   const open = async (id: number) => {
     await activateThread(id);
     router.back();
   };
+
+  const confirmArchive = (thread: ChatThread) => {
+    const isArchived = Boolean(thread.archivedAt);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Alert.alert(thread.title ?? 'New conversation', undefined, [
+      {
+        text: isArchived ? 'Unarchive' : 'Archive',
+        onPress: () => void setThreadArchived(thread.id, !isArchived),
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const renderThread = (thread: ChatThread) => (
+    <Pressable
+      key={thread.id}
+      accessibilityRole="button"
+      accessibilityLabel={`Open conversation: ${thread.title ?? 'New conversation'}`}
+      accessibilityHint={
+        thread.archivedAt ? 'Long press to unarchive' : 'Long press to archive'
+      }
+      onPress={() => open(thread.id)}
+      onLongPress={() => confirmArchive(thread)}
+      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+    >
+      <SymbolView
+        name={thread.source === 'imessage' ? 'message.fill' : 'hexagon.fill'}
+        size={14}
+        tintColor={thread.id === active ? HONEY : theme.border}
+        fallback={
+          <ThemedText type="small" themeColor="textSecondary">
+            ⬡
+          </ThemedText>
+        }
+      />
+      <View style={styles.rowBody}>
+        <ThemedText numberOfLines={1} style={styles.rowTitle}>
+          {thread.title ?? 'New conversation'}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {thread.source === 'imessage' ? 'iMessage · ' : ''}
+          {formatCreatedAt(thread.createdAt)}
+          {thread.id === active ? ' · Current' : ''}
+        </ThemedText>
+      </View>
+      {thread.id === active ? (
+        <SymbolView
+          name="checkmark"
+          size={14}
+          tintColor={HONEY}
+          fallback={<ThemedText type="smallBold">✓</ThemedText>}
+        />
+      ) : null}
+    </Pressable>
+  );
 
   return (
     // collapsable={false} keeps this wrapper in the native tree so the form
@@ -118,46 +182,48 @@ function ThreadsScreenView({
           <ThemedText style={styles.rowTitle}>New conversation</ThemedText>
         </Pressable>
         <View style={[styles.divider, { backgroundColor: theme.border }]} />
-        {newest.map((thread) => (
-          <Pressable
-            key={thread.id}
-            accessibilityRole="button"
-            accessibilityLabel={`Open conversation: ${thread.title ?? 'New conversation'}`}
-            onPress={() => open(thread.id)}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          >
-            <SymbolView
-              name={
-                thread.source === 'imessage' ? 'message.fill' : 'hexagon.fill'
-              }
-              size={14}
-              tintColor={thread.id === active ? HONEY : theme.border}
-              fallback={
-                <ThemedText type="small" themeColor="textSecondary">
-                  ⬡
-                </ThemedText>
-              }
-            />
-            <View style={styles.rowBody}>
-              <ThemedText numberOfLines={1} style={styles.rowTitle}>
-                {thread.title ?? 'New conversation'}
-              </ThemedText>
-              <ThemedText type="small" themeColor="textSecondary">
-                {thread.source === 'imessage' ? 'iMessage · ' : ''}
-                {formatCreatedAt(thread.createdAt)}
-                {thread.id === active ? ' · Current' : ''}
-              </ThemedText>
-            </View>
-            {thread.id === active ? (
+        {current.map(renderThread)}
+        {archived.length > 0 ? (
+          <>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${showArchived ? 'Hide' : 'Show'} archived conversations`}
+              accessibilityState={{ expanded: showArchived }}
+              onPress={() => setShowArchived((visible) => !visible)}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
               <SymbolView
-                name="checkmark"
+                name="archivebox.fill"
                 size={14}
-                tintColor={HONEY}
-                fallback={<ThemedText type="smallBold">✓</ThemedText>}
+                tintColor={theme.textSecondary}
+                fallback={
+                  <ThemedText type="small" themeColor="textSecondary">
+                    ▤
+                  </ThemedText>
+                }
               />
-            ) : null}
-          </Pressable>
-        ))}
+              <ThemedText
+                type="smallBold"
+                themeColor="textSecondary"
+                style={styles.rowTitle}
+              >
+                Archived ({archived.length})
+              </ThemedText>
+              <SymbolView
+                name={showArchived ? 'chevron.up' : 'chevron.down'}
+                size={12}
+                tintColor={theme.textSecondary}
+                fallback={
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {showArchived ? '▴' : '▾'}
+                  </ThemedText>
+                }
+              />
+            </Pressable>
+            {showArchived ? archived.map(renderThread) : null}
+          </>
+        ) : null}
       </ScrollView>
     </ThemedView>
   );

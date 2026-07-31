@@ -5,7 +5,9 @@ import type {
 } from '@flue/react';
 import type { LegendListRenderItemProps } from '@legendapp/list/react-native';
 import { router } from 'expo-router';
-import { useCallback } from 'react';
+import { SymbolView } from 'expo-symbols';
+import * as Haptics from 'expo-haptics';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -16,7 +18,12 @@ import {
   View,
 } from 'react-native';
 import { KeyboardStickyView } from 'react-native-keyboard-controller';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useReducedMotion,
+  ZoomIn,
+} from 'react-native-reanimated';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -42,9 +49,11 @@ import { FloatingBee } from '@/components/floating-bee';
 import { HexAvatar } from '@/components/hex-avatar';
 import { HexIconButton } from '@/components/hex-icon-button';
 import { CurrencyBar } from '@/components/hive/currency-bar';
+import { useSmartWalletAddress, WalletQrCard } from '@/components/web3/wallet-qr';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { extractBeeUI } from '@/lib/ui-spec';
 import {
   useScreenshotFixture,
@@ -66,6 +75,7 @@ type VoiceAgentScreenState = ScreenshotAgentState & {
   loadingOlder?: boolean;
   loadOlder?: () => void | Promise<void>;
   toggleRecording?: () => void | Promise<void>;
+  retryLastReply?: () => void | Promise<void>;
 };
 
 export default function VoiceAgentScreen() {
@@ -86,10 +96,12 @@ export default function VoiceAgentScreen() {
 function LiveVoiceAgentScreen() {
   const agent = useVoiceAgentContext();
   const { user } = useUser();
+  const walletAddress = useSmartWalletAddress();
   return (
     <VoiceAgentScreenView
       agent={agent}
       avatarUri={user?.hasImage ? user.imageUrl : null}
+      walletAddress={walletAddress}
     />
   );
 }
@@ -98,13 +110,21 @@ export function VoiceAgentScreenView({
   agent,
   avatarUri,
   profileEnabled = true,
+  walletAddress = null,
 }: {
   agent: VoiceAgentScreenState;
   avatarUri: string | null;
   profileEnabled?: boolean;
+  walletAddress?: string | null;
 }) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
+  const [walletQrOpen, setWalletQrOpen] = useState(false);
+  const toggleWalletQr = useCallback(() => {
+    Haptics.selectionAsync();
+    setWalletQrOpen((open) => !open);
+  }, []);
   const hasConversation = agent.messages.length > 0;
   // Keep the hero comfortable on small iPhones (SE) without shrinking it on Pro Max.
   const compact = height < 700;
@@ -134,9 +154,10 @@ export function VoiceAgentScreenView({
         isLast={index === data.length - 1}
         isBusy={agent.busy}
         onReply={agent.sendText}
+        onRetry={agent.retryLastReply}
       />
     ),
-    [agent.busy, agent.sendText],
+    [agent.busy, agent.sendText, agent.retryLastReply],
   );
 
   const renderComposer = useCallback(
@@ -169,7 +190,10 @@ export function VoiceAgentScreenView({
               accessibilityLabel="Conversations"
               onPress={() => router.push('/threads')}
             />
-            <CurrencyBar />
+            <CurrencyBar
+              onWalletQr={walletAddress ? toggleWalletQr : undefined}
+              walletQrOpen={walletQrOpen}
+            />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Profile"
@@ -182,6 +206,28 @@ export function VoiceAgentScreenView({
               <HexAvatar size={36} uri={avatarUri} />
             </Pressable>
           </View>
+
+          {walletQrOpen && walletAddress ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close wallet QR code"
+                style={styles.qrScrim}
+                onPress={() => setWalletQrOpen(false)}
+              />
+              <Animated.View
+                entering={
+                  reducedMotion
+                    ? FadeIn.duration(200)
+                    : ZoomIn.springify().damping(16).stiffness(220)
+                }
+                exiting={FadeOut.duration(140)}
+                style={styles.qrPopover}
+              >
+                <WalletQrCard address={walletAddress} />
+              </Animated.View>
+            </>
+          ) : null}
 
           {hasConversation ? (
             <Conversation
@@ -306,13 +352,16 @@ function AgentMessage({
   isLast,
   isBusy,
   onReply,
+  onRetry,
 }: {
   message: FlueConversationMessage;
   showSpeaker: boolean;
   isLast: boolean;
   isBusy: boolean;
   onReply?: (text: string) => void;
+  onRetry?: () => void | Promise<void>;
 }) {
+  const theme = useTheme();
   const text = message.parts
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
@@ -321,7 +370,7 @@ function AgentMessage({
   if (message.role === 'user') {
     return (
       <Message from="user">
-        <MessageContent from="user" showSpeaker={showSpeaker}>
+        <MessageContent from="user" showSpeaker={showSpeaker} copyText={text}>
           <MessageText from="user" text={text} />
         </MessageContent>
       </Message>
@@ -385,11 +434,47 @@ function AgentMessage({
       ) : null}
       {hasResponse ? (
         <Message from="assistant">
-          <MessageContent from="assistant" showSpeaker>
+          <MessageContent
+            from="assistant"
+            showSpeaker
+            // Only the spoken reply is copyable; beeui component specs are
+            // machine content and never reach the clipboard.
+            copyText={textStreaming ? undefined : spoken || undefined}
+          >
             {spoken ? <MessageText from="assistant" text={spoken} /> : null}
             <GeneratedUI components={components} onReply={onReply} />
           </MessageContent>
         </Message>
+      ) : null}
+      {isLast && !isBusy && onRetry ? (
+        <View style={styles.replyActions}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry this answer"
+            accessibilityHint="Removes the answer and asks Bee again"
+            hitSlop={Spacing.one}
+            onPress={() => void onRetry()}
+            style={({ pressed }) => [
+              styles.retryButton,
+              { backgroundColor: theme.card, borderColor: theme.border },
+              pressed && styles.retryPressed,
+            ]}
+          >
+            <SymbolView
+              name="arrow.clockwise"
+              size={13}
+              tintColor={theme.textSecondary}
+              fallback={
+                <ThemedText type="small" themeColor="textSecondary">
+                  ↻
+                </ThemedText>
+              }
+            />
+            <ThemedText type="small" themeColor="textSecondary">
+              Retry
+            </ThemedText>
+          </Pressable>
+        </View>
       ) : null}
     </View>
   );
@@ -457,5 +542,39 @@ const styles = StyleSheet.create({
   },
   activityGroup: {
     gap: Spacing.two,
+  },
+  qrScrim: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 9,
+  },
+  // Springs open from under the balance pills (ZoomIn + top-center origin).
+  qrPopover: {
+    position: 'absolute',
+    top: 52,
+    alignSelf: 'center',
+    zIndex: 10,
+    transformOrigin: 'top center',
+  },
+  // Aligns with the assistant text column (past the 36px avatar + gap).
+  replyActions: {
+    flexDirection: 'row',
+    marginLeft: 36 + Spacing.two,
+  },
+  retryButton: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.three,
+  },
+  retryPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.97 }],
   },
 });

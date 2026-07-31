@@ -1,5 +1,13 @@
-import type { PropsWithChildren } from 'react';
-import { StyleSheet, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Markdown } from '@/components/agent/markdown';
 import { FloatingBee } from '@/components/floating-bee';
@@ -21,12 +29,42 @@ export function Message({ from, children }: PropsWithChildren<{ from: MessageRol
   );
 }
 
+/** Long-press-to-copy with a transient "Copied" acknowledgement. */
+function useCopyToClipboard(value?: string) {
+  const [copied, setCopied] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const copy = useCallback(async () => {
+    if (!value?.trim()) return;
+    if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
+    await Clipboard.setStringAsync(value);
+    setCopied(true);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setCopied(false), 1500);
+  }, [value]);
+  return { copied, copy };
+}
+
+function CopiedBadge() {
+  return (
+    <ThemedText type="small" themeColor="textSecondary" style={styles.copied}>
+      Copied
+    </ThemedText>
+  );
+}
+
 export function MessageContent({
   from,
   showSpeaker = true,
+  copyText,
   children,
-}: PropsWithChildren<{ from: MessageRole; showSpeaker?: boolean }>) {
+}: PropsWithChildren<{
+  from: MessageRole;
+  showSpeaker?: boolean;
+  copyText?: string;
+}>) {
   const theme = useTheme();
+  const { copied, copy } = useCopyToClipboard(copyText);
   if (from === 'user') {
     return (
       <View style={styles.userStack}>
@@ -35,14 +73,18 @@ export function MessageContent({
             You
           </ThemedText>
         ) : null}
-        <View
+        <Pressable
+          accessibilityHint={copyText ? 'Long press to copy' : undefined}
+          disabled={!copyText}
+          onLongPress={() => void copy()}
           style={[
             styles.bubble,
             { backgroundColor: theme.secondary, borderColor: theme.border },
           ]}
         >
           {children}
-        </View>
+        </Pressable>
+        {copied ? <CopiedBadge /> : null}
       </View>
     );
   }
@@ -61,7 +103,15 @@ export function MessageContent({
         <View style={styles.assistantAvatarSpacer} />
       )}
       <View style={styles.assistantStack}>
-        <View style={styles.assistantContent}>{children}</View>
+        <Pressable
+          accessibilityHint={copyText ? 'Long press to copy' : undefined}
+          disabled={!copyText}
+          onLongPress={() => void copy()}
+          style={styles.assistantContent}
+        >
+          {children}
+        </Pressable>
+        {copied ? <CopiedBadge /> : null}
       </View>
     </View>
   );
@@ -72,7 +122,7 @@ export function MessageText({ from, text }: { from: MessageRole; text: string })
     return <Markdown>{text}</Markdown>;
   }
   return (
-    <ThemedText selectable themeColor="secondaryForeground" style={styles.userText}>
+    <ThemedText themeColor="secondaryForeground" style={styles.userText}>
       {text}
     </ThemedText>
   );
@@ -108,6 +158,11 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: '100%',
   },
+  copied: {
+    paddingHorizontal: Spacing.one,
+    fontSize: 12,
+    lineHeight: 14,
+  },
   assistantRow: {
     flex: 1,
     flexDirection: 'row',
@@ -127,6 +182,7 @@ const styles = StyleSheet.create({
   assistantStack: {
     flex: 1,
     minWidth: 0,
+    gap: Spacing.one,
   },
   assistantContent: {
     flex: 1,
