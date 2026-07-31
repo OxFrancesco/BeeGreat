@@ -2,10 +2,18 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useReducedMotion,
+  ZoomIn,
+} from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
+import { WalletQrCard } from '@/components/web3/wallet-qr';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -17,6 +25,7 @@ import { useTheme } from '@/hooks/use-theme';
  */
 export function WalletSettings() {
   const theme = useTheme();
+  const reducedMotion = useReducedMotion();
   const wallets = useQuery(api.wallets.myWallets);
   const linkEoa = useMutation(api.wallets.linkEoa);
   const unlinkEoa = useMutation(api.wallets.unlinkEoa);
@@ -25,6 +34,7 @@ export function WalletSettings() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
 
   if (wallets === undefined) return null;
 
@@ -84,18 +94,60 @@ export function WalletSettings() {
           </ThemedText>
         </View>
         {wallets.smartWallet ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Copy smart wallet address"
-            onPress={() => void copyAddress(wallets.smartWallet!.address)}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-          >
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              {copied ? 'Copied ✓' : 'Copy'}
-            </ThemedText>
-          </Pressable>
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                showQr ? 'Hide wallet QR code' : 'Show wallet QR code'
+              }
+              accessibilityState={{ expanded: showQr }}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setShowQr(!showQr);
+              }}
+              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            >
+              <SymbolView
+                name="qrcode"
+                size={17}
+                tintColor={showQr ? theme.primary : theme.textSecondary}
+                fallback={
+                  <ThemedText type="smallBold" themeColor="textSecondary">
+                    ▦
+                  </ThemedText>
+                }
+              />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Copy smart wallet address"
+              onPress={() => void copyAddress(wallets.smartWallet!.address)}
+              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+            >
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                {copied ? 'Copied ✓' : 'Copy'}
+              </ThemedText>
+            </Pressable>
+          </>
         ) : null}
       </View>
+
+      {showQr && wallets.smartWallet ? (
+        <Animated.View
+          entering={
+            reducedMotion
+              ? FadeIn.duration(200)
+              : ZoomIn.springify().damping(16).stiffness(220)
+          }
+          exiting={FadeOut.duration(140)}
+          style={styles.qrWrap}
+        >
+          <WalletQrCard
+            address={wallets.smartWallet.address}
+            chain={wallets.smartWallet.chain}
+          />
+        </Animated.View>
+      ) : null}
 
       <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
@@ -214,6 +266,12 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: StyleSheet.hairlineWidth,
+  },
+  // Springs open from the QR button's row.
+  qrWrap: {
+    alignItems: 'center',
+    paddingVertical: Spacing.one,
+    transformOrigin: 'top center',
   },
   editor: {
     flexDirection: 'row',

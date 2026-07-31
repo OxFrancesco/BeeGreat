@@ -1,7 +1,7 @@
 import { api } from "@beegreat/backend/convex/_generated/api";
 import { useQuery } from "convex/react";
 import { SymbolView } from "expo-symbols";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/components/themed-text";
 import { Spacing } from "@/constants/theme";
@@ -19,28 +19,57 @@ type CurrencyValues = {
  * compact capsule pills. Renders nothing until the Hive summary arrives, so
  * headers never jump between a spinner and the pills.
  */
-export function CurrencyBar({ size = "compact" }: { size?: "compact" | "regular" }) {
+export function CurrencyBar({
+  size = "compact",
+  onWalletQr,
+  walletQrOpen = false,
+}: {
+  size?: "compact" | "regular";
+  onWalletQr?: () => void;
+  walletQrOpen?: boolean;
+}) {
   const fixture = useScreenshotFixture();
   if (fixture) {
     return <CurrencyBarView values={fixture.hive.hive} size={size} />;
   }
 
-  return <LiveCurrencyBar size={size} />;
+  return (
+    <LiveCurrencyBar size={size} onWalletQr={onWalletQr} walletQrOpen={walletQrOpen} />
+  );
 }
 
-function LiveCurrencyBar({ size }: { size: "compact" | "regular" }) {
+function LiveCurrencyBar({
+  size,
+  onWalletQr,
+  walletQrOpen,
+}: {
+  size: "compact" | "regular";
+  onWalletQr?: () => void;
+  walletQrOpen?: boolean;
+}) {
   const current = useQuery(api.firstFocus.getCurrent, {});
   if (!current) return null;
 
-  return <CurrencyBarView values={current.hive} size={size} />;
+  return (
+    <CurrencyBarView
+      values={current.hive}
+      size={size}
+      onWalletQr={onWalletQr}
+      walletQrOpen={walletQrOpen}
+    />
+  );
 }
 
 export function CurrencyBarView({
   values,
   size = "compact",
+  onWalletQr,
+  walletQrOpen = false,
 }: {
   values: CurrencyValues;
   size?: "compact" | "regular";
+  onWalletQr?: () => void;
+  walletQrOpen?: boolean;
 }) {
   const theme = useTheme();
 
@@ -94,6 +123,32 @@ export function CurrencyBarView({
           </ThemedText>
         </View>
       ))}
+      {onWalletQr ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Show wallet QR code"
+          accessibilityState={{ expanded: walletQrOpen }}
+          hitSlop={Spacing.two}
+          onPress={onWalletQr}
+          style={({ pressed }) => [
+            styles.pill,
+            regular && styles.pillRegular,
+            { backgroundColor: theme.backgroundElement },
+            pressed && styles.qrPressed,
+          ]}
+        >
+          <SymbolView
+            name="qrcode"
+            size={regular ? 15 : 13}
+            tintColor={walletQrOpen ? theme.primary : theme.textSecondary}
+            fallback={
+              <ThemedText type={regular ? "smallBold" : "small"} themeColor="textSecondary">
+                ▦
+              </ThemedText>
+            }
+          />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -125,5 +180,9 @@ const styles = StyleSheet.create({
   },
   value: {
     fontVariant: ["tabular-nums"],
+  },
+  qrPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
   },
 });
