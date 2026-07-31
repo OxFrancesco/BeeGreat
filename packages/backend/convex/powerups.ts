@@ -26,7 +26,7 @@ export const POWERUP_CATALOG = [
     name: 'Web3',
     tagline: 'A wallet for your hive',
     description:
-      'Gives your Bee a secure wallet. Ask it to check balances or send tokens, right from the chat.',
+      'Gives your Bee a secure smart wallet and DeFi smarts: balances, transfers, Aerodrome pools, swaps, liquidity, and rewards. Anything that moves funds waits for your in-app confirmation, and you can link your own wallet for plans you sign yourself.',
   },
   {
     id: 'google-health',

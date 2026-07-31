@@ -1,12 +1,13 @@
 import { defineAgentProfile, defineTool } from '@flue/runtime'
-import { ConvexHttpClient } from 'convex/browser'
-import { anyApi } from 'convex/server'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
 
-// Web3: per-user wallets via Crossmint plus unsigned Velodrome/Aerodrome
-// transaction planning and on-chain reads through the Sugar CLI bridge.
-// Backend lives in packages/backend/convex/web3.ts.
+// Web3: a Crossmint smart wallet per user (server-signed after in-app
+// confirmation) plus an optional linked EOA, with Velodrome/Aerodrome DeFi
+// through the native Sugar SDK. Everything goes through the authenticated
+// Convex HTTP bridge (packages/backend/convex/http.ts); the Convex functions
+// are internal, and nothing here can move funds — actions that spend are only
+// *prepared* and must be confirmed by the signed-in app (web3Actions.confirm).
 
 const sugarChain = v.picklist(
   [10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220, 57073],
@@ -40,35 +41,48 @@ const poolPosition = {
     ),
   ),
 }
+const slippage = v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(1)))
 
 const INSTRUCTIONS = `You are the Web3 specialist inside BeeGreat, working for Bee
-(the coordinator). You manage the user's personal Crossmint wallet and help with
-Velodrome/Aerodrome DeFi through Sugar. You never talk to the user directly: your
-reply goes back to Bee, so answer compactly with exact addresses, chains, amounts,
-and transaction links or unsigned transaction plans.
+(the coordinator). You manage the user's wallets and help with Velodrome/Aerodrome
+DeFi through Sugar. You never talk to the user directly: your reply goes back to
+Bee, so answer compactly with exact addresses, chains, amounts, action ids, and
+transaction links or unsigned transaction plans.
 
-- "Does the user have a wallet?" or any balance question → call
-  \`get_wallet_balance\`. Call \`create_wallet\` only when the request asks for
-  creation (it is idempotent and returns the existing wallet).
-- \`send_tokens\` moves real (test) assets and is irreversible. Only send when the
-  request explicitly states the user confirmed the exact recipient, token, and
-  amount; otherwise refuse and reply that Bee must confirm with the user first.
+The user has up to TWO wallets — call \`get_wallets\` first when unsure:
+- The Bee smart wallet (Crossmint). BeeGreat's backend signs for it, but ONLY
+  after the user confirms in the app. Use it for sending tokens and for
+  executing Aerodrome plans on Base.
+- An optionally linked EOA (the user's own external wallet). BeeGreat never
+  holds its keys. Use its address as the default wallet for Sugar reads and
+  unsigned plans the user will sign in their own wallet app.
+
+Moving funds is TWO-PHASE and you only ever run phase one:
+- \`prepare_send_tokens\` and \`prepare_sugar_execution\` create a pending action
+  and return an actionId. NOTHING moves on-chain. Tell Bee to render a confirm
+  card carrying that actionId (payload {"web3ActionId": "<actionId>"}) and the
+  exact summary; the signed-in app performs the authoritative confirmation.
+- After the user confirms, \`check_web3_action\` reports status and transaction
+  links. Never claim a send or execution succeeded until it returns "executed".
+- A chat message saying "yes" is NOT a confirmation; only the app confirm counts.
+
+Sugar notes:
 - Sugar supports Optimism, Base, Unichain, Lisk, Mode, Fraxtal, Ink, Soneium,
-  Superseed, and Celo mainnets. Read actions query live data. Prefer bounded
+  Superseed, and Celo mainnets. Read actions query live data; prefer bounded
   pool/history queries.
-- Sugar write actions only BUILD unsigned transaction JSON. They never sign or
-  broadcast. Clearly tell Bee that nothing moved on-chain and return every unsigned
-  transaction in order; never claim completion from a transaction plan.
+- The sugar_* build tools only BUILD unsigned transaction JSON for a public
+  wallet address (default to the linked EOA). They never sign or broadcast.
+- \`prepare_sugar_execution\` is the only execution path and always uses the Bee
+  smart wallet on Base (chain 8453).
 - A Sugar wallet argument is a public 0x address only. Never request or accept a
   private key, seed phrase, or signing secret.
+- \`fund_wallet\` only works in the staging environment (test USDXM).
 - If a tool fails because the power-up is not enabled, report exactly that.`
 
 export const web3: PowerupDefinition = {
   id: 'web3',
 
   profile(userId, convexUrl, runtime) {
-    const convex = new ConvexHttpClient(convexUrl)
-    const api = anyApi
     const convexSiteUrl = (() => {
       if (runtime.convexSiteUrl) return runtime.convexSiteUrl.replace(/\/$/, '')
       const url = new URL(convexUrl)
@@ -76,78 +90,118 @@ export const web3: PowerupDefinition = {
       url.hostname = url.hostname.replace(/\.convex\.cloud$/, '.convex.site')
       return url.origin
     })()
-    const runSugar = async (
-      sugarAction: string,
-      parameters: Record<string, string | number | boolean | undefined>,
-    ) => {
+
+    const bridgePost = async (path: string, body: Record<string, unknown>) => {
       if (!convexSiteUrl || !runtime.credentialBrokerSecret) {
-        throw new Error('Sugar is not configured for the Bee worker.')
+        throw new Error('Web3 is not configured for the Bee worker.')
       }
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 130_000)
       try {
-        const response = await fetch(`${convexSiteUrl}/internal/web3/sugar`, {
+        const response = await fetch(`${convexSiteUrl}${path}`, {
           method: 'POST',
           headers: {
             authorization: `Bearer ${runtime.credentialBrokerSecret}`,
             'content-type': 'application/json',
           },
-          body: JSON.stringify({ userId, sugarAction, parameters }),
+          body: JSON.stringify(body),
           signal: controller.signal,
         })
-        const body = await response.text()
+        const responseBody = await response.text()
         if (!response.ok) {
-          const parsed = JSON.parse(body) as { error?: unknown }
-          throw new Error(
-            typeof parsed.error === 'string'
-              ? parsed.error
-              : 'Sugar request failed.',
-          )
+          let message = 'Web3 request failed.'
+          try {
+            const parsed = JSON.parse(responseBody) as { error?: unknown }
+            if (typeof parsed.error === 'string') message = parsed.error
+          } catch {
+            // Non-JSON error body: keep the generic message.
+          }
+          throw new Error(message)
         }
-        return body
+        return responseBody
       } finally {
         clearTimeout(timeout)
       }
     }
 
+    const runSugar = (
+      sugarAction: string,
+      parameters: Record<string, string | number | boolean | undefined>,
+    ) => bridgePost('/internal/web3/sugar', { userId, sugarAction, parameters })
+
+    const runWallet = (op: string, params: Record<string, unknown> = {}) =>
+      bridgePost('/internal/web3/wallet', { userId, op, params })
+
     return defineAgentProfile({
       name: 'web3',
       description:
-        'The user\u2019s Web3 wallet and Velodrome/Aerodrome DeFi specialist: wallet creation, balances, testnet transfers, pools, positions, epochs, quotes, swaps, liquidity, staking, and rewards. Sugar transaction actions return unsigned plans only. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
+        'The user\u2019s Web3 wallet and Velodrome/Aerodrome DeFi specialist: the Bee smart wallet (send tokens and execute Aerodrome plans on Base after in-app confirmation), an optional linked EOA for unsigned plans, balances, activity, pools, positions, epochs, quotes, and rewards. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
       instructions: INSTRUCTIONS,
       tools: [
         defineTool({
+          name: 'get_wallets',
+          description:
+            'Get both of the user\u2019s wallets: the Bee smart wallet (address + chain, null before creation) and the linked EOA (null when not linked). Call this first to pick the right wallet for a request.',
+          async run() {
+            return await runWallet('wallets')
+          },
+        }),
+
+        defineTool({
           name: 'create_wallet',
           description:
-            'Create the user\u2019s Web3 wallet (Base Sepolia, Crossmint). Idempotent: returns the existing wallet if one was already created. Returns the wallet address.',
+            'Create the user\u2019s Bee smart wallet (Crossmint). Idempotent: returns the existing wallet if one was already created. Returns the wallet address and chain.',
           async run() {
-            return await convex.action(api.web3.getOrCreateWallet, { userId })
+            return await runWallet('create_wallet')
           },
         }),
 
         defineTool({
           name: 'get_wallet_balance',
           description:
-            'Get the user\u2019s wallet address and its ETH, USDC, and USDXM (test stablecoin) balances on Base Sepolia. Fails if no wallet exists yet.',
+            'Get the Bee smart wallet address and its ETH and USDC balances (plus USDXM test stablecoin on staging). Creates the wallet on first use.',
           async run() {
-            return await convex.action(api.web3.getBalances, { userId })
+            return await runWallet('balances')
           },
         }),
 
         defineTool({
-          name: 'send_tokens',
+          name: 'get_wallet_activity',
           description:
-            'Send tokens from the user\u2019s wallet. Moves real (test) assets and is irreversible: only call when the delegated request states the user explicitly confirmed the exact recipient, token, and amount.',
+            'Recent transaction history of the Bee smart wallet (hashes, status, timestamps).',
+          async run() {
+            return await runWallet('activity')
+          },
+        }),
+
+        defineTool({
+          name: 'fund_wallet',
+          description:
+            'Staging-only test faucet: mint USDXM test stablecoin into the Bee smart wallet. Fails on production/mainnet.',
           input: v.object({
-            recipient: v.pipe(
-              v.string(),
-              v.description(
-                'Recipient wallet address, e.g. 0x\u2026 for Base Sepolia',
-              ),
+            amount: v.pipe(
+              v.number(),
+              v.minValue(0),
+              v.maxValue(100),
+              v.description('USDXM amount to mint, at most 100'),
             ),
+          }),
+          async run({ input }) {
+            return await runWallet('fund', { amount: input.amount })
+          },
+        }),
+
+        defineTool({
+          name: 'prepare_send_tokens',
+          description:
+            'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must confirm in the app. Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
+          input: v.object({
+            recipient: address('Recipient 0x wallet address'),
             token: v.pipe(
               v.string(),
-              v.description('Token symbol: "eth", "usdc", or "usdxm"'),
+              v.description(
+                'Token symbol: "eth" or "usdc" (plus "usdxm" on staging)',
+              ),
             ),
             amount: v.pipe(
               v.string(),
@@ -155,9 +209,58 @@ export const web3: PowerupDefinition = {
             ),
           }),
           async run({ input }) {
-            return await convex.action(api.web3.sendTokens, {
-              userId,
-              ...input,
+            return await runWallet('prepare_send', { ...input })
+          },
+        }),
+
+        defineTool({
+          name: 'prepare_sugar_execution',
+          description:
+            'Phase one of executing an Aerodrome action (swap, deposit, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must confirm in the app via a confirm card with payload {"web3ActionId": actionId}. Mainnet only.',
+          input: v.object({
+            sugar_action: v.picklist(
+              [
+                'swap',
+                'deposit',
+                'withdraw',
+                'stake',
+                'unstake',
+                'claim_emissions',
+                'claim_fees',
+              ],
+              'Aerodrome action to execute on Base',
+            ),
+            parameters: v.pipe(
+              v.record(
+                v.string(),
+                v.union([v.string(), v.number(), v.boolean()]),
+              ),
+              v.description(
+                'Action parameters exactly as for the matching sugar_* build tool, WITHOUT chain or wallet (both are pinned server-side to Base and the smart wallet)',
+              ),
+            ),
+          }),
+          async run({ input }) {
+            return await runWallet('prepare_execution', {
+              sugarAction: input.sugar_action,
+              parameters: input.parameters,
+            })
+          },
+        }),
+
+        defineTool({
+          name: 'check_web3_action',
+          description:
+            'Status of a prepared Web3 action: pending (awaiting in-app confirmation), executed (with transaction hashes and explorer links), failed, cancelled, or expired.',
+          input: v.object({
+            action_id: v.pipe(
+              v.string(),
+              v.description('The actionId returned by a prepare_* tool'),
+            ),
+          }),
+          async run({ input }) {
+            return await runWallet('action_status', {
+              actionId: input.action_id,
             })
           },
         }),
@@ -194,7 +297,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'sugar_positions',
           description:
-            'List Velodrome/Aerodrome liquidity positions owned by a public wallet address.',
+            'List Velodrome/Aerodrome liquidity positions owned by a public wallet address (default to the linked EOA, or the smart wallet for Base positions it holds).',
           input: v.pipe(
             v.object({
               chain: sugarChain,
@@ -270,7 +373,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'sugar_swap',
           description:
-            'Build an unsigned Velodrome/Aerodrome swap plan. Returns approval first when needed, then the swap. Does not sign or broadcast.',
+            'Build an unsigned Velodrome/Aerodrome swap plan for a wallet the user signs with themselves (default the linked EOA). Returns approval first when needed, then the swap. Does not sign or broadcast; use prepare_sugar_execution to execute with the smart wallet instead.',
           input: v.object({
             chain: sugarChain,
             wallet: address(
@@ -287,9 +390,7 @@ export const web3: PowerupDefinition = {
             amount: amount(
               'Input amount as raw wei, or decimal token units when use_decimals is true',
             ),
-            slippage: v.optional(
-              v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
-            ),
+            slippage,
             use_decimals: v.optional(v.boolean()),
           }),
           async run({ input }) {
@@ -336,9 +437,7 @@ export const web3: PowerupDefinition = {
             tick_lower: v.optional(v.pipe(v.number(), v.integer())),
             tick_upper: v.optional(v.pipe(v.number(), v.integer())),
             initial_price: v.optional(v.number()),
-            slippage: v.optional(
-              v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
-            ),
+            slippage,
             deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
             use_decimals: v.optional(v.boolean()),
           }),
@@ -361,9 +460,7 @@ export const web3: PowerupDefinition = {
             burn: v.optional(v.boolean()),
             collect: v.optional(v.boolean()),
             unwrap_native: v.optional(v.boolean()),
-            slippage: v.optional(
-              v.pipe(v.number(), v.minValue(0), v.maxValue(1)),
-            ),
+            slippage,
             deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
           }),
           async run({ input }) {

@@ -1,6 +1,8 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { useMutation, useQuery } from 'convex/react'
+import { useState } from 'react'
 import { FirstFocusPreviewCard } from './first-focus-preview'
+import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { ReactNode } from 'react'
 
 import type { UIComponent } from './bee-ui'
@@ -63,7 +65,17 @@ function UIComponentView({
       return <DevinCard {...component} onReply={onReply} />
     case 'first_focus':
       return <FirstFocusPreviewCard preview={component} />
-    case 'confirm':
+    case 'confirm': {
+      const web3ActionId = component.payload?.web3ActionId
+      if (typeof web3ActionId === 'string' && web3ActionId.length > 0) {
+        return (
+          <Web3ConfirmCard
+            summary={component.summary}
+            actionId={web3ActionId}
+            onReply={onReply}
+          />
+        )
+      }
       return (
         <Card className="confirm-card">
           <p className="utility-label">Needs your confirmation</p>
@@ -88,7 +100,114 @@ function UIComponentView({
           ) : null}
         </Card>
       )
+    }
   }
+}
+
+/**
+ * Web3 money movement: the app is the authoritative confirmer. Clicking
+ * Confirm runs the signed-in `web3Actions.confirm` mutation (which schedules
+ * server-side execution) and only then tells Bee. A chat "yes" alone can
+ * never move funds.
+ */
+function Web3ConfirmCard({
+  summary,
+  actionId,
+  onReply,
+}: {
+  summary: string
+  actionId: string
+  onReply?: (text: string) => void | Promise<void>
+}) {
+  const confirmAction = useMutation(api.web3Actions.confirm)
+  const cancelAction = useMutation(api.web3Actions.cancel)
+  const [decision, setDecision] = useState<
+    'idle' | 'working' | 'confirmed' | 'declined'
+  >('idle')
+  const [error, setError] = useState<string>()
+  // Subscribe only once the confirm mutation proved the id valid and owned.
+  const live = useQuery(
+    api.web3Actions.status,
+    decision === 'confirmed'
+      ? { actionId: actionId as Id<'web3Actions'> }
+      : 'skip',
+  )
+
+  const confirm = async () => {
+    if (decision !== 'idle') return
+    setDecision('working')
+    setError(undefined)
+    try {
+      await confirmAction({ actionId: actionId as Id<'web3Actions'> })
+      setDecision('confirmed')
+      void onReply?.('I confirmed the action in the app. Check its status.')
+    } catch (cause) {
+      setDecision('idle')
+      setError(
+        cause instanceof Error ? cause.message : 'Couldn’t confirm the action.',
+      )
+    }
+  }
+
+  const decline = () => {
+    if (decision !== 'idle') return
+    setDecision('declined')
+    cancelAction({ actionId: actionId as Id<'web3Actions'> }).catch(() => {
+      // Cancelling a stale or unknown action is a no-op.
+    })
+    void onReply?.('No, I declined the action.')
+  }
+
+  const status = live?.status
+  const explorerLink = live?.result?.find((item) => item.explorerLink)
+    ?.explorerLink
+
+  return (
+    <Card className="confirm-card">
+      <p className="utility-label">Needs your confirmation</p>
+      <p>{summary}</p>
+      {error ? <p className="confirm-card__error">{error}</p> : null}
+      {decision === 'declined' ? (
+        <p>Declined — nothing was sent.</p>
+      ) : decision === 'confirmed' ? (
+        status === 'executed' ? (
+          <p>
+            Done ✓{' '}
+            {explorerLink ? (
+              <a href={explorerLink} target="_blank" rel="noreferrer">
+                View transaction ↗
+              </a>
+            ) : null}
+          </p>
+        ) : status === 'failed' ? (
+          <p className="confirm-card__error">
+            {live?.error ?? 'Execution failed.'}
+          </p>
+        ) : (
+          <p>Confirmed — executing…</p>
+        )
+      ) : (
+        <div className="confirm-card__actions">
+          <button
+            className="button button--primary"
+            type="button"
+            disabled={decision === 'working'}
+            onClick={() => void confirm()}
+          >
+            {decision === 'working' ? 'Confirming…' : 'Confirm'}
+          </button>
+          <button
+            className="button button--quiet"
+            type="button"
+            disabled={decision === 'working'}
+            onClick={decline}
+          >
+            No
+          </button>
+        </div>
+      )}
+    </Card>
+  )
 }
 
 function bookmarkHost(url: string) {

@@ -193,12 +193,18 @@ export default defineSchema({
     ownerKey: v.string(),
     userId: v.string(),
     threadId: v.number(),
+    source: v.optional(v.literal('imessage')),
     title: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_owner_key_and_thread_id', ['ownerKey', 'threadId'])
-    .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt']),
+    .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
+    .index('by_owner_key_and_source_and_created_at', [
+      'ownerKey',
+      'source',
+      'createdAt',
+    ]),
 
   chatPreferences: defineTable({
     ownerKey: v.string(),
@@ -790,14 +796,66 @@ export default defineSchema({
     .index('by_user_and_updated_at', ['userId', 'updatedAt'])
     .index('by_session_id', ['sessionId']),
 
-  // Crossmint smart wallets created by the Web3 power-up, one per user+chain.
-  // The source of truth is Crossmint (keyed by owner `userId:<clerk id>`); this
-  // table is a cache so queries and the app can show the wallet without an API call.
+  // Web3 power-up wallets, one per user+chain. Crossmint smart wallets are a
+  // cache (the source of truth is Crossmint, keyed by owner `userId:<clerk id>`);
+  // linked EOAs are user-entered external addresses stored under chain `evm`.
+  // `kind` is absent on rows written before EOA support: treat missing as
+  // 'crossmint'.
   wallets: defineTable({
     userId: v.string(),
     chain: v.string(),
     address: v.string(),
+    kind: v.optional(v.union(v.literal('crossmint'), v.literal('eoa'))),
   }).index('by_user', ['userId', 'chain']),
+
+  // Server-side confirmation gate for Web3 actions that move funds. The agent
+  // only ever *prepares* one of these rows; funds move exclusively after the
+  // signed-in app confirms (web3Actions.confirm), which schedules the internal
+  // executor. Prompt injection therefore cannot spend from the wallet.
+  web3Actions: defineTable({
+    userId: v.string(),
+    summary: v.string(),
+    payload: v.union(
+      v.object({
+        kind: v.literal('send_tokens'),
+        recipient: v.string(),
+        token: v.string(),
+        amount: v.string(),
+      }),
+      v.object({
+        kind: v.literal('execute_plan'),
+        chainId: v.number(),
+        transactions: v.array(
+          v.object({
+            to: v.string(),
+            data: v.string(),
+            // Decimal wei string (bigint does not survive JSON transport).
+            value: v.string(),
+          }),
+        ),
+      }),
+    ),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('confirmed'),
+      v.literal('executed'),
+      v.literal('failed'),
+      v.literal('cancelled'),
+      v.literal('expired'),
+    ),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    confirmedAt: v.optional(v.number()),
+    result: v.optional(
+      v.array(
+        v.object({
+          hash: v.union(v.string(), v.null()),
+          explorerLink: v.union(v.string(), v.null()),
+        }),
+      ),
+    ),
+    error: v.optional(v.string()),
+  }).index('by_user', ['userId', 'status']),
 
   tasks: defineTable({
     userId: v.string(),

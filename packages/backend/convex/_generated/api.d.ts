@@ -76,6 +76,7 @@ import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
 import type * as wallets from "../wallets.js";
 import type * as web3 from "../web3.js";
+import type * as web3Actions from "../web3Actions.js";
 
 import type {
   ApiFromModules,
@@ -152,6 +153,7 @@ declare const fullApi: ApiFromModules<{
   user: typeof user;
   wallets: typeof wallets;
   web3: typeof web3;
+  web3Actions: typeof web3Actions;
 }>;
 
 /**

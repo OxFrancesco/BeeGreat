@@ -1,6 +1,10 @@
 import { httpRouter } from 'convex/server'
 import { verifyWebhook } from '@clerk/backend/webhooks'
-import { isSugarAction, type SugarAction } from '@beegreat/sugar/contracts'
+import {
+  isSugarAction,
+  isSugarTxAction,
+  type SugarAction,
+} from '@beegreat/sugar/contracts'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { env, httpAction } from './_generated/server'
@@ -256,14 +260,22 @@ http.route({
         return jsonResponse({ error: 'Invalid channel identity' }, 400)
       }
       if (body.operation === 'channel_context') {
-        result = await ctx.runQuery(internal.channelActions.getContext, {
+        if (body.source !== 'imessage') {
+          return jsonResponse({ error: 'Invalid channel source' }, 400)
+        }
+        result = await ctx.runMutation(internal.channelActions.getContext, {
           userId: body.userId,
           ownerKey: channelOwnerKey!,
+          source: body.source,
         })
       } else if (body.operation === 'channel_create_thread') {
+        if (body.source !== 'imessage') {
+          return jsonResponse({ error: 'Invalid channel source' }, 400)
+        }
         result = await ctx.runMutation(internal.channelActions.createThread, {
           userId: body.userId,
           ownerKey: channelOwnerKey!,
+          source: body.source,
         })
       } else if (body.operation === 'channel_title_thread') {
         if (
@@ -1089,6 +1101,155 @@ http.route({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Sugar request failed'
+      return jsonResponse({ error: message }, 400)
+    }
+  }),
+})
+
+const WEB3_WALLET_OPS = [
+  'create_wallet',
+  'balances',
+  'activity',
+  'fund',
+  'wallets',
+  'prepare_send',
+  'prepare_execution',
+  'action_status',
+] as const
+type Web3WalletOp = (typeof WEB3_WALLET_OPS)[number]
+
+// Authenticated bridge for every wallet-side Web3 tool. The Convex functions
+// behind it are internal on purpose: agent identity is the broker secret, and
+// nothing here can move funds — fund movement requires the signed-in app to
+// confirm a pending web3Actions row.
+http.route({
+  path: '/internal/web3/wallet',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    const params = (body?.params ?? {}) as Record<string, unknown>
+    if (
+      typeof body?.userId !== 'string' ||
+      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+      typeof body.op !== 'string' ||
+      !(WEB3_WALLET_OPS as readonly string[]).includes(body.op) ||
+      typeof params !== 'object' ||
+      params === null ||
+      Array.isArray(params)
+    ) {
+      return jsonResponse({ error: 'Invalid Web3 request' }, 400)
+    }
+
+    const userId = body.userId
+    const op = body.op as Web3WalletOp
+    const str = (name: string) =>
+      typeof params[name] === 'string' ? (params[name] as string) : ''
+    try {
+      switch (op) {
+        case 'create_wallet':
+          return jsonResponse(
+            await ctx.runAction(internal.web3.getOrCreateWallet, { userId }),
+            200,
+          )
+        case 'balances':
+          return jsonResponse(
+            await ctx.runAction(internal.web3.getBalances, { userId }),
+            200,
+          )
+        case 'activity': {
+          const activity: string = await ctx.runAction(
+            internal.web3.getActivity,
+            { userId },
+          )
+          return new Response(activity, {
+            status: 200,
+            headers: {
+              'content-type': 'application/json; charset=utf-8',
+              'cache-control': 'no-store',
+            },
+          })
+        }
+        case 'fund':
+          return jsonResponse(
+            await ctx.runAction(internal.web3.fundWallet, {
+              userId,
+              amount: typeof params.amount === 'number' ? params.amount : 0,
+            }),
+            200,
+          )
+        case 'wallets':
+          return jsonResponse(
+            await ctx.runQuery(internal.wallets.getWalletsForAgent, { userId }),
+            200,
+          )
+        case 'prepare_send':
+          return jsonResponse(
+            await ctx.runAction(internal.web3.prepareSendTokens, {
+              userId,
+              recipient: str('recipient'),
+              token: str('token'),
+              amount: str('amount'),
+            }),
+            200,
+          )
+        case 'prepare_execution': {
+          const sugarAction = str('sugarAction')
+          const sugarParameters = params.parameters
+          if (
+            !isSugarTxAction(sugarAction) ||
+            !sugarParameters ||
+            typeof sugarParameters !== 'object' ||
+            Array.isArray(sugarParameters) ||
+            Object.values(sugarParameters).some(
+              (value) =>
+                typeof value !== 'string' &&
+                typeof value !== 'number' &&
+                typeof value !== 'boolean',
+            )
+          ) {
+            return jsonResponse({ error: 'Invalid Sugar execution request' }, 400)
+          }
+          return jsonResponse(
+            await ctx.runAction(internal.web3.prepareSugarExecution, {
+              userId,
+              sugarAction,
+              parameters: sugarParameters as Record<
+                string,
+                string | number | boolean
+              >,
+            }),
+            200,
+          )
+        }
+        case 'action_status': {
+          const status = await ctx.runQuery(internal.web3Actions.getForUser, {
+            userId,
+            actionId: str('actionId') as Id<'web3Actions'>,
+          })
+          return jsonResponse(
+            status ?? { error: 'Unknown action for this user' },
+            status ? 200 : 404,
+          )
+        }
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Web3 request failed'
       return jsonResponse({ error: message }, 400)
     }
   }),

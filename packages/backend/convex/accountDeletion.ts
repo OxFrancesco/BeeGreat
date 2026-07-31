@@ -78,6 +78,7 @@ const DATA_STAGES = [
   'powerups',
   'devinSessions',
   'wallets',
+  'web3Actions',
   'tasks',
   'projects',
   'golieBees',
@@ -85,7 +86,7 @@ const DATA_STAGES = [
   'hives',
 ] as const
 
-// This enumerates all 47 user-data stages in schema.ts. The crawl-cache stage
+// This enumerates all 48 user-data stages in schema.ts. The crawl-cache stage
 // removes only owner-scoped websites; public tweet/video artifacts contain no
 // account identity. `posts` and privacy-minimized provider metadata are global;
 // `accountDeletionJobs` retains only a bounded safety-sweep tombstone.
@@ -482,6 +483,14 @@ async function removeDataBatch(
         ctx,
         await ctx.db
           .query('wallets')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'web3Actions':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('web3Actions')
           .withIndex('by_user', (q) => q.eq('userId', userId))
           .take(BATCH_SIZE),
       )

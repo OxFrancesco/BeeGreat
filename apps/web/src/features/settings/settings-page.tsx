@@ -8,6 +8,7 @@ import { setSpeakReplies, useSpeakReplies } from '../preferences/speak-replies'
 import { useGoogleHealth } from './use-google-health'
 import { BeennectorsSettings } from './beennectors-settings'
 import { HotkeySettings } from './hotkey-settings'
+import { WalletSettings } from './wallet-settings'
 import { useAccountDeletion } from './use-account-deletion'
 
 import type { ReactNode } from 'react'
@@ -241,6 +242,17 @@ export function SettingsPage() {
                   {error}
                 </p>
               ) : null}
+            </SettingsSection>
+          ) : null}
+
+          {powerups?.some(
+            (powerup) => powerup.id === 'web3' && powerup.enabled,
+          ) ? (
+            <SettingsSection
+              label="Wallets"
+              className="settings-section--wallets"
+            >
+              <WalletSettings />
             </SettingsSection>
           ) : null}
 

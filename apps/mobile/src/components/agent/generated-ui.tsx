@@ -5,7 +5,8 @@ import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
 import * as Linking from "expo-linking";
 import { SymbolView } from "expo-symbols";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -74,8 +75,19 @@ function UIComponentView({
       return <DevinCard {...component} onReply={onReply} />;
     case "first_focus":
       return <FirstFocusPreviewCard preview={component} />;
-    case "confirm":
+    case "confirm": {
+      const web3ActionId = component.payload?.web3ActionId;
+      if (typeof web3ActionId === "string" && web3ActionId.length > 0) {
+        return (
+          <Web3ConfirmCard
+            summary={component.summary}
+            actionId={web3ActionId}
+            onReply={onReply}
+          />
+        );
+      }
       return <ConfirmCard {...component} onReply={onReply} />;
+    }
   }
 }
 
@@ -462,6 +474,163 @@ function DevinCard({
           </Pressable>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+/**
+ * Web3 money movement: the app is the authoritative confirmer. Tapping
+ * Confirm runs the signed-in `web3Actions.confirm` mutation (which schedules
+ * server-side execution) and only then tells Bee. A chat "yes" alone can
+ * never move funds.
+ */
+function Web3ConfirmCard({
+  summary,
+  actionId,
+  onReply,
+}: {
+  summary: string;
+  actionId: string;
+  onReply?: (text: string) => void;
+}) {
+  const theme = useTheme();
+  const confirmAction = useMutation(api.web3Actions.confirm);
+  const cancelAction = useMutation(api.web3Actions.cancel);
+  const [decision, setDecision] = useState<
+    "idle" | "working" | "confirmed" | "declined"
+  >("idle");
+  const [error, setError] = useState<string | null>(null);
+  // Subscribe only once the confirm mutation proved the id valid and owned.
+  const live = useQuery(
+    api.web3Actions.status,
+    decision === "confirmed"
+      ? { actionId: actionId as Id<"web3Actions"> }
+      : "skip",
+  );
+
+  const confirm = async () => {
+    if (decision !== "idle") return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setDecision("working");
+    setError(null);
+    try {
+      await confirmAction({ actionId: actionId as Id<"web3Actions"> });
+      setDecision("confirmed");
+      onReply?.("I confirmed the action in the app. Check its status.");
+    } catch (cause) {
+      setDecision("idle");
+      setError(
+        cause instanceof Error ? cause.message : "Couldn’t confirm the action.",
+      );
+    }
+  };
+
+  const decline = () => {
+    if (decision !== "idle") return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDecision("declined");
+    cancelAction({ actionId: actionId as Id<"web3Actions"> }).catch(() => {
+      // Cancelling a stale or unknown action is a no-op.
+    });
+    onReply?.("No, I declined the action.");
+  };
+
+  const status = live?.status;
+  const explorerLink = live?.result?.find(
+    (item) => item.explorerLink,
+  )?.explorerLink;
+
+  return (
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.card, borderColor: theme.destructive },
+      ]}
+    >
+      <ThemedText type="smallBold" themeColor="destructive">
+        Needs your confirmation
+      </ThemedText>
+      <ThemedText selectable>{summary}</ThemedText>
+      {error ? (
+        <ThemedText type="small" themeColor="destructive">
+          {error}
+        </ThemedText>
+      ) : null}
+      {decision === "declined" ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Declined — nothing was sent.
+        </ThemedText>
+      ) : decision === "confirmed" ? (
+        status === "executed" ? (
+          <View style={styles.confirmRow}>
+            <ThemedText type="smallBold">Done ✓</ThemedText>
+            {explorerLink ? (
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => Linking.openURL(explorerLink)}
+                style={({ pressed }) => pressed && styles.taskRowPressed}
+              >
+                <ThemedText type="smallBold" themeColor="textSecondary">
+                  View transaction ↗
+                </ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : status === "failed" ? (
+          <ThemedText type="small" themeColor="destructive">
+            {live?.error ?? "Execution failed."}
+          </ThemedText>
+        ) : (
+          <View style={styles.confirmRow}>
+            <ActivityIndicator size="small" />
+            <ThemedText type="small" themeColor="textSecondary">
+              Confirmed — executing…
+            </ThemedText>
+          </View>
+        )
+      ) : (
+        <View style={styles.confirmRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Confirm in app"
+            disabled={decision === "working"}
+            onPress={() => void confirm()}
+            style={({ pressed }) => [
+              styles.confirmButton,
+              { backgroundColor: theme.primary },
+              (pressed || decision === "working") && styles.taskRowPressed,
+            ]}
+          >
+            {decision === "working" ? (
+              <ActivityIndicator
+                size="small"
+                color={theme.primaryForeground}
+              />
+            ) : (
+              <ThemedText
+                type="smallBold"
+                style={{ color: theme.primaryForeground }}
+              >
+                Confirm
+              </ThemedText>
+            )}
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Decline"
+            disabled={decision === "working"}
+            onPress={decline}
+            style={({ pressed }) => [
+              styles.confirmButton,
+              styles.confirmButtonOutline,
+              { borderColor: theme.border },
+              pressed && styles.taskRowPressed,
+            ]}
+          >
+            <ThemedText type="smallBold">No</ThemedText>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

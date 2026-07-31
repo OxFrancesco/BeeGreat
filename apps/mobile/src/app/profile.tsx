@@ -1,5 +1,6 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { useClerk, useUser } from '@clerk/clerk-expo';
+import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { Canvas, Path } from '@shopify/react-native-skia';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
@@ -21,6 +22,7 @@ import { Hive } from '@/components/hex-button';
 import { InfoButton } from '@/components/info-button';
 import { ChatGptAuthSettings } from '@/components/chatgpt/chatgpt-auth';
 import { BeennectorsSettings } from '@/components/beennectors/beennectors-settings';
+import { WalletSettings } from '@/components/web3/wallet-settings';
 import { useGoogleHealthAuth } from '@/components/google-health/google-health-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -29,7 +31,12 @@ import { Fonts, Spacing } from '@/constants/theme';
 import { useAccountDeletion } from '@/hooks/use-account-deletion';
 import { useTheme } from '@/hooks/use-theme';
 import { updateGoogleHealthPowerup } from '@/lib/google-health-powerup';
-import { setSpeakReplies, useSpeakReplies } from '@/lib/preferences';
+import {
+  setSpeakReplies,
+  setVoiceMode,
+  useSpeakReplies,
+  useVoiceMode,
+} from '@/lib/preferences';
 import { captureMobileFailure } from '@/lib/sentry';
 
 /** Icon per power-up id; the glyph is the SymbolView fallback. */
@@ -100,6 +107,7 @@ export default function ProfileScreen() {
   const subscription = useSubscription();
   const accountDeletion = useAccountDeletion();
   const speakReplies = useSpeakReplies();
+  const voiceMode = useVoiceMode();
   const powerups = useQuery(api.powerups.list);
   const setPowerupEnabled = useMutation(api.powerups.setEnabled);
   const googleHealth = useGoogleHealthAuth();
@@ -201,6 +209,34 @@ export default function ProfileScreen() {
         </View>
 
         <Section label="Preferences">
+          <View
+            style={[
+              styles.voiceModeCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
+          >
+            <View style={styles.settingCopy}>
+              <ThemedText type="default">Voice mode</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {voiceMode === 'voice-note'
+                  ? 'Transcribe, then send to Bee'
+                  : 'Talk live with Grok Voice'}
+              </ThemedText>
+            </View>
+            <SegmentedControl
+              accessibilityLabel="Voice mode"
+              values={['Voice note', 'Live']}
+              selectedIndex={voiceMode === 'voice-note' ? 0 : 1}
+              onChange={({ nativeEvent }) =>
+                setVoiceMode(
+                  nativeEvent.selectedSegmentIndex === 0
+                    ? 'voice-note'
+                    : 'conversation',
+                )
+              }
+              style={styles.voiceModeControl}
+            />
+          </View>
           <View
             style={[
               styles.settingRow,
@@ -309,6 +345,12 @@ export default function ProfileScreen() {
                 </View>
               );
             })}
+          </Section>
+        ) : null}
+
+        {powerups?.some((powerup) => powerup.id === 'web3' && powerup.enabled) ? (
+          <Section label="Wallets">
+            <WalletSettings />
           </Section>
         ) : null}
 
@@ -537,6 +579,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderCurve: 'continuous',
     padding: Spacing.three,
+  },
+  voiceModeCard: {
+    alignSelf: 'stretch',
+    gap: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderCurve: 'continuous',
+    padding: Spacing.three,
+  },
+  voiceModeControl: {
+    height: 34,
   },
   settingCopy: {
     flex: 1,

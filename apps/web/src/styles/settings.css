@@ -136,7 +136,8 @@
 }
 .setting-row,
 .powerup-card,
-.connection-card {
+.connection-card,
+.wallet-settings-card {
   padding: 22px;
   border: 1px solid var(--line-soft);
   border-radius: 18px;
@@ -184,6 +185,45 @@
 }
 .powerup-card__row {
   padding-right: 0;
+}
+
+.wallet-settings-card {
+  display: grid;
+  gap: 16px;
+}
+.wallet-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.wallet-settings-row > div {
+  display: grid;
+  gap: 4px;
+}
+.wallet-settings-row h3 {
+  font-size: 0.86rem;
+}
+.wallet-settings-row p {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+.wallet-settings-editor {
+  display: flex;
+  gap: 10px;
+}
+.wallet-settings-editor input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.72rem;
 }
 
 .switch {
