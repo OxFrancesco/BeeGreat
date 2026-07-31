@@ -7,6 +7,7 @@ import type { FlueConversationMessage } from '@flue/react';
 import type { FunctionReturnType } from 'convex/server';
 
 import type { BookmarkItem } from '@/components/mind/bookmark-item';
+import type { ChatThread } from '@/hooks/use-convex-chat';
 import {
   SCREENSHOT_SHOTS,
   isScreenshotShot,
@@ -73,6 +74,20 @@ const BOOKMARK_IDS = [
 
 const FIXTURE_TIMESTAMP = Date.UTC(2026, 6, 16, 7, 41);
 const HIGHLIGHT_EXPIRES_AT = Date.UTC(2026, 6, 17, 21, 59);
+
+export const SCREENSHOT_THREADS: ChatThread[] = [
+  {
+    id: FIXTURE_TIMESTAMP,
+    createdAt: FIXTURE_TIMESTAMP,
+    title: 'Plan a calmer morning',
+  },
+  {
+    id: FIXTURE_TIMESTAMP + 1,
+    createdAt: FIXTURE_TIMESTAMP + 86_400_000,
+    source: 'imessage',
+    title: 'What should I focus on today?',
+  },
+];
 
 export const SCREENSHOT_PROJECT = {
   id: PROJECT_ID,

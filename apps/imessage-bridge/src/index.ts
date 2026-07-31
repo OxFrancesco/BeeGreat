@@ -385,15 +385,25 @@ for await (const [space, message] of app.messages) {
 
     const context = await channelAction<ChannelContext>(userId, {
       action: 'context',
+      source: 'imessage',
     })
     const command = prompt.trim().toLowerCase()
     if (NEW_CONVERSATION_COMMANDS.has(command)) {
-      await channelAction(userId, { action: 'create_thread' })
+      await channelAction(userId, {
+        action: 'create_thread',
+        source: 'imessage',
+      })
       await space.send(
         text('New conversation started. What would you like to work on?'),
       )
       continue
     }
+
+    await channelAction(userId, {
+      action: 'title_thread',
+      threadId: context.threadId,
+      title: incoming.text || 'iMessage conversation',
+    })
 
     let reply: BeeReply
     let celebrate = false
@@ -461,13 +471,6 @@ for await (const [space, message] of app.messages) {
       )
     }
 
-    if (incoming.text) {
-      await channelAction(userId, {
-        action: 'title_thread',
-        threadId: context.threadId,
-        title: incoming.text.slice(0, 64),
-      }).catch(() => {})
-    }
     await sendReply(space, reply, celebrate)
   } catch (error) {
     captureBridgeFailure(error, 'prompt.handle', userId)

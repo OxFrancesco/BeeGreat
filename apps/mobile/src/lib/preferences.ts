@@ -34,6 +34,41 @@ export function useSpeakReplies() {
   return useSyncExternalStore(subscribeSpeakReplies, getSpeakReplies);
 }
 
+export type VoiceMode = 'voice-note' | 'conversation';
+
+const VOICE_MODE_KEY = 'bee.voiceMode';
+let voiceMode: VoiceMode =
+  SecureStore.getItem(VOICE_MODE_KEY) === 'conversation'
+    ? 'conversation'
+    : 'voice-note';
+const voiceModeListeners = new Set<() => void>();
+
+export function getVoiceMode() {
+  return voiceMode;
+}
+
+export function setVoiceMode(mode: VoiceMode) {
+  voiceMode = mode;
+  voiceModeListeners.forEach((listener) => listener());
+  try {
+    SecureStore.setItem(VOICE_MODE_KEY, mode);
+  } catch {
+    // Persistence is best-effort; the selected mode still applies this session.
+  }
+}
+
+function subscribeVoiceMode(listener: () => void) {
+  voiceModeListeners.add(listener);
+  return () => {
+    voiceModeListeners.delete(listener);
+  };
+}
+
+/** Voice note keeps Bee's STT pipeline; conversation opens xAI realtime voice. */
+export function useVoiceMode() {
+  return useSyncExternalStore(subscribeVoiceMode, getVoiceMode);
+}
+
 const PAYWALL_SEEN_KEY = 'bee.paywallSeen';
 
 let paywallSeen = SecureStore.getItem(PAYWALL_SEEN_KEY) === 'yes';

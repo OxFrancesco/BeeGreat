@@ -17,6 +17,7 @@ import { checkPaidSubscription } from './subscription-gate'
 type Bindings = {
   ELEVENLABS_API_KEY: string
   ELEVENLABS_VOICE_ID?: string
+  XAI_API_KEY?: string
   CLERK_JWT_ISSUER_DOMAIN: string
   CONVEX_URL?: string
   CONVEX_SITE_URL?: string
@@ -49,6 +50,8 @@ function binding<K extends keyof Bindings>(env: Bindings, name: K): Bindings[K] 
 }
 
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1'
+const XAI_REALTIME_CLIENT_SECRETS =
+  'https://api.x.ai/v1/realtime/client_secrets'
 // "Rachel" premade voice; override per-deployment with ELEVENLABS_VOICE_ID.
 const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'
 const MAX_SPOKEN_CHARS = 2000
@@ -316,8 +319,11 @@ app.post('/bridge/channel', async (c) => {
   let channelAction: ChannelActionName
   let input: Record<string, unknown>
   if (action === 'context' || action === 'create_thread') {
+    if (body?.source !== 'imessage') {
+      return c.json({ error: 'Send a valid channel source.' }, 400)
+    }
     channelAction = action
-    input = {}
+    input = { source: body.source }
   } else if (action === 'title_thread') {
     if (
       typeof body?.threadId !== 'number' ||
@@ -457,6 +463,67 @@ app.post('/voice/transcribe', async (c) => {
 
   const result = (await response.json()) as { text: string; language_code?: string }
   return c.json({ text: result.text, languageCode: result.language_code ?? null })
+})
+
+// Short-lived xAI credential for direct mobile → xAI realtime audio.
+// The long-lived API key stays in the Worker; the returned client secret
+// expires automatically and is scoped to realtime connections.
+app.post('/voice/realtime-token', async (c) => {
+  const apiKey = binding(c.env, 'XAI_API_KEY')
+  if (!apiKey) {
+    captureWorkerFailure(
+      new Error('XAI_API_KEY is not configured'),
+      'voice.realtime.configuration',
+    )
+    return c.json({ error: 'Conversational voice is not configured.' }, 500)
+  }
+
+  const response = await fetch(XAI_REALTIME_CLIENT_SECRETS, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${apiKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ expires_after: { seconds: 300 } }),
+  })
+
+  if (!response.ok) {
+    const detail = await response.text()
+    console.error('xai realtime token failed', response.status, detail)
+    captureWorkerFailure(
+      new Error(`xAI realtime token returned HTTP ${response.status}`),
+      'voice.realtime.upstream',
+      {
+        status: response.status,
+        upstreamRequestId:
+          response.headers.get('request-id') ??
+          response.headers.get('x-request-id') ??
+          undefined,
+      },
+    )
+    return c.json(
+      { error: 'Conversational voice could not start. Try again.' },
+      502,
+    )
+  }
+
+  const result = (await response.json()) as {
+    value?: string
+    expires_at?: number
+  }
+  if (!result.value || typeof result.expires_at !== 'number') {
+    captureWorkerFailure(
+      new Error('xAI realtime token response was malformed'),
+      'voice.realtime.response',
+    )
+    return c.json(
+      { error: 'Conversational voice could not start. Try again.' },
+      502,
+    )
+  }
+
+  c.header('cache-control', 'no-store')
+  return c.json({ token: result.value, expiresAt: result.expires_at })
 })
 
 // Text-to-speech: `{ text }` in, base64 mp3 out (React Native writes it to a file to play).

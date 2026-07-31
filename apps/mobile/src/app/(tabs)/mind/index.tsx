@@ -142,7 +142,7 @@ export function MindScreenView({
   const query = search.trim();
   const contentWidth = Math.min(width, MaxContentWidth) - Spacing.three * 2;
   const columns =
-    view === 'list' ? 1 : view === 'hex' ? (width >= 760 ? 7 : 4) : width >= 760 ? 3 : 2;
+    view === 'list' ? 1 : view === 'hex' ? (width >= 760 ? 7 : 5) : width >= 760 ? 3 : 2;
   const gap = view === 'hex' ? 0 : 12;
   // Honeycomb columns overlap by half a hex, so n columns span (n + 1) / 2 hexes.
   const itemWidth =

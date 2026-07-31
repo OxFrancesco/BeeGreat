@@ -38,6 +38,22 @@ export async function synthesizeSpeech(text: string): Promise<string> {
   return file.uri;
 }
 
+export async function createRealtimeVoiceToken(): Promise<{
+  token: string;
+  expiresAt: number;
+}> {
+  const response = await fetch(`${AGENT_URL}/voice/realtime-token`, {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+  });
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(response, 'Conversational voice could not start.'),
+    );
+  }
+  return (await response.json()) as { token: string; expiresAt: number };
+}
+
 /** Prefers the worker's `{ error }` message so the UI shows the real cause. */
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {
   const body = (await response.json().catch(() => null)) as { error?: string } | null;

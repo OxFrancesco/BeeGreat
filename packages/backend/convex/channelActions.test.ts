@@ -1,7 +1,7 @@
 import { convexTest } from 'convex-test'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
-import { internal } from './_generated/api'
+import { api, internal } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -20,22 +20,48 @@ afterEach(() => {
 })
 
 describe('trusted channel actions', () => {
-  test('uses the account-wide active conversation and creates a shared thread', async () => {
+  test('registers a durable iMessage conversation without replacing the app active thread', async () => {
     const t = convexTest(schema, modules)
+    const app = t.withIdentity({
+      subject: owner.userId,
+      tokenIdentifier: owner.ownerKey,
+    })
 
+    const first = await t.mutation(internal.channelActions.getContext, {
+      ...owner,
+      source: 'imessage',
+    })
+    expect(first).toMatchObject({
+      threadId: Date.now(),
+      activeHighlight: null,
+    })
     await expect(
-      t.query(internal.channelActions.getContext, owner),
-    ).resolves.toMatchObject({ threadId: 0, activeHighlight: null })
+      t.mutation(internal.channelActions.getContext, {
+        ...owner,
+        source: 'imessage',
+      }),
+    ).resolves.toMatchObject({ threadId: first.threadId })
+    await expect(app.query(api.chat.listThreads, {})).resolves.toEqual([
+      expect.objectContaining({
+        id: first.threadId,
+        source: 'imessage',
+      }),
+    ])
+    await expect(app.query(api.chat.getActiveThread, {})).resolves.toBe(0)
 
     const thread = await t.mutation(
       internal.channelActions.createThread,
-      owner,
+      { ...owner, source: 'imessage' },
     )
-    expect(thread.threadId).toBe(Date.now())
+    expect(thread.threadId).toBe(Date.now() + 1)
 
     await expect(
-      t.query(internal.channelActions.getContext, owner),
-    ).resolves.toMatchObject({ threadId: Date.now() })
+      t.mutation(internal.channelActions.getContext, {
+        ...owner,
+        source: 'imessage',
+      }),
+    ).resolves.toMatchObject({ threadId: thread.threadId })
+    await expect(app.query(api.chat.getActiveThread, {})).resolves.toBe(0)
   })
 
   test('confirms first focus and completes its Highlight through the same transactions as the app', async () => {
@@ -63,9 +89,9 @@ describe('trusted channel actions', () => {
       Date.parse('2026-10-01T21:59:59.999Z'),
     )
 
-    const context = await t.query(
+    const context = await t.mutation(
       internal.channelActions.getContext,
-      owner,
+      { ...owner, source: 'imessage' },
     )
     expect(context.activeHighlight).toMatchObject({
       title: 'Finish iMessage parity',
@@ -86,7 +112,10 @@ describe('trusted channel actions', () => {
     })
 
     await expect(
-      t.query(internal.channelActions.getContext, owner),
+      t.mutation(internal.channelActions.getContext, {
+        ...owner,
+        source: 'imessage',
+      }),
     ).resolves.toMatchObject({ activeHighlight: null })
   })
 
@@ -94,9 +123,10 @@ describe('trusted channel actions', () => {
     const t = convexTest(schema, modules)
 
     await expect(
-      t.query(internal.channelActions.getContext, {
+      t.mutation(internal.channelActions.getContext, {
         ownerKey: 'https://issuer.example.test|user_attacker',
         userId: owner.userId,
+        source: 'imessage',
       }),
     ).rejects.toThrow('Channel identity does not match')
   })

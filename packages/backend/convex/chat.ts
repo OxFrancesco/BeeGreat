@@ -11,6 +11,7 @@ const MAX_MESSAGES_PER_PAGE = 100
 const threadValidator = v.object({
   id: v.number(),
   createdAt: v.number(),
+  source: v.optional(v.literal('imessage')),
   title: v.optional(v.string()),
 })
 
@@ -205,6 +206,7 @@ export const listThreads = query({
     return rows.map((row) => ({
       id: row.threadId,
       createdAt: row.createdAt,
+      ...(row.source ? { source: row.source } : {}),
       ...(row.title ? { title: row.title } : {}),
     }))
   },
@@ -229,13 +231,14 @@ export async function activeThreadForIdentity(
   return preferences?.activeThreadId ?? 0
 }
 
-export async function createThreadForIdentity(
+async function insertThreadForIdentity(
   ctx: MutationCtx,
   identity: ChatIdentity,
+  source?: 'imessage',
 ) {
   const newest = await ctx.db
     .query('chatThreads')
-    .withIndex('by_owner_key_and_created_at', (q) =>
+    .withIndex('by_owner_key_and_thread_id', (q) =>
       q.eq('ownerKey', identity.ownerKey),
     )
     .order('desc')
@@ -245,9 +248,19 @@ export async function createThreadForIdentity(
   await ctx.db.insert('chatThreads', {
     ...identity,
     threadId,
+    ...(source ? { source } : {}),
     createdAt: now,
     updatedAt: now,
   })
+  return threadId
+}
+
+export async function createThreadForIdentity(
+  ctx: MutationCtx,
+  identity: ChatIdentity,
+) {
+  const threadId = await insertThreadForIdentity(ctx, identity)
+  const now = Date.now()
   const preferences = await ctx.db
     .query('chatPreferences')
     .withIndex('by_owner_key', (q) => q.eq('ownerKey', identity.ownerKey))
@@ -265,6 +278,29 @@ export async function createThreadForIdentity(
     })
   }
   return threadId
+}
+
+export async function channelThreadForIdentity(
+  ctx: MutationCtx,
+  identity: ChatIdentity,
+  source: 'imessage',
+) {
+  const existing = await ctx.db
+    .query('chatThreads')
+    .withIndex('by_owner_key_and_source_and_created_at', (q) =>
+      q.eq('ownerKey', identity.ownerKey).eq('source', source),
+    )
+    .order('desc')
+    .first()
+  return existing?.threadId ?? insertThreadForIdentity(ctx, identity, source)
+}
+
+export async function createChannelThreadForIdentity(
+  ctx: MutationCtx,
+  identity: ChatIdentity,
+  source: 'imessage',
+) {
+  return await insertThreadForIdentity(ctx, identity, source)
 }
 
 export const createThread = mutation({

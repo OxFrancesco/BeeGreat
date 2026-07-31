@@ -31,7 +31,13 @@ const LABELS: Record<Exclude<OrbState, 'idle'>, string> = {
  * real Live Activity (see `bee-activity.tsx`) takes over once the app leaves
  * the foreground. Tapping the pill jumps back to the chat.
  */
-export function ListeningIsland({ state }: { state: OrbState }) {
+export function ListeningIsland({
+  state,
+  onPress,
+}: {
+  state: OrbState;
+  onPress?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const pulse = useSharedValue(1);
   const active = state !== 'idle';
@@ -93,7 +99,7 @@ export function ListeningIsland({ state }: { state: OrbState }) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Bee is ${label.toLowerCase()}. Go to chat.`}
-        onPress={() => router.navigate('/')}
+        onPress={onPress ?? (() => router.navigate('/'))}
         style={({ pressed }) => [
           styles.pill,
           hasIsland && styles.pillIsland,

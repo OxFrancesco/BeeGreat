@@ -10,7 +10,9 @@ import {
   useActiveChatThread,
   useChatThreadActions,
   useChatThreads,
+  type ChatThread,
 } from '@/hooks/use-convex-chat';
+import { useScreenshotFixture } from '@/lib/screenshot-fixture';
 
 const HONEY = '#FAB52A';
 
@@ -23,10 +25,46 @@ function formatCreatedAt(createdAt: number) {
 
 /** Sheet listing recent conversation threads; tap one to jump back into it. */
 export default function ThreadsScreen() {
-  const theme = useTheme();
+  const fixture = useScreenshotFixture();
+  if (fixture) {
+    return (
+      <ThreadsScreenView
+        threads={fixture.threads}
+        active={fixture.activeThread}
+        activateThread={async () => {}}
+        createThread={async () => 0}
+      />
+    );
+  }
+  return <ConnectedThreadsScreen />;
+}
+
+function ConnectedThreadsScreen() {
   const threads = useChatThreads();
   const active = useActiveChatThread();
   const { activateThread, createThread } = useChatThreadActions();
+  return (
+    <ThreadsScreenView
+      threads={threads}
+      active={active}
+      activateThread={activateThread}
+      createThread={createThread}
+    />
+  );
+}
+
+function ThreadsScreenView({
+  threads,
+  active,
+  activateThread,
+  createThread,
+}: {
+  threads: ChatThread[];
+  active: number;
+  activateThread: (threadId: number) => Promise<unknown>;
+  createThread: () => Promise<unknown>;
+}) {
+  const theme = useTheme();
   const newest = [...threads].sort((a, b) => b.id - a.id);
 
   const open = async (id: number) => {
@@ -89,7 +127,9 @@ export default function ThreadsScreen() {
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
             <SymbolView
-              name="hexagon.fill"
+              name={
+                thread.source === 'imessage' ? 'message.fill' : 'hexagon.fill'
+              }
               size={14}
               tintColor={thread.id === active ? HONEY : theme.border}
               fallback={
@@ -103,6 +143,7 @@ export default function ThreadsScreen() {
                 {thread.title ?? 'New conversation'}
               </ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
+                {thread.source === 'imessage' ? 'iMessage · ' : ''}
                 {formatCreatedAt(thread.createdAt)}
                 {thread.id === active ? ' · Current' : ''}
               </ThemedText>

@@ -15,7 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BeeHealthyCard } from '@/components/bee-healthy/bee-healthy-card';
+import {
+  BeeHealthyCard,
+  BeeHealthyCardView,
+} from '@/components/bee-healthy/bee-healthy-card';
 import { AddRow } from '@/components/goals/add-row';
 import { CombCell } from '@/components/goals/comb-cell';
 import { ScreenHeader } from '@/components/goals/screen-header';
@@ -36,6 +39,7 @@ export default function GoalsScreen() {
     return (
       <GoalsScreenView
         goals={fixture.goals}
+        healthSummary="Mood, water, and one honest thought"
         onAddGoal={async () => {}}
       />
     );
@@ -61,9 +65,11 @@ function LiveGoalsScreen() {
 
 function GoalsScreenView({
   goals,
+  healthSummary,
   onAddGoal,
 }: {
   goals: GoalSummary[] | undefined;
+  healthSummary?: string;
   onAddGoal: (title: string) => void | Promise<void>;
 }) {
   return (
@@ -86,7 +92,11 @@ function GoalsScreenView({
               <ThemedText type="smallBold" themeColor="textSecondary">
                 Bee Healthy
               </ThemedText>
-              <BeeHealthyCard />
+              {healthSummary ? (
+                <BeeHealthyCardView summary={healthSummary} />
+              ) : (
+                <BeeHealthyCard />
+              )}
             </View>
             {goals === undefined ? (
               <ActivityIndicator style={styles.loading} />

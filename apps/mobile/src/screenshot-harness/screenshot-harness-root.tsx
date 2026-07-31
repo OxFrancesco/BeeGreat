@@ -23,6 +23,7 @@ import {
   SCREENSHOT_HIVE_COMPLETION,
   SCREENSHOT_PROJECT,
   SCREENSHOT_TASKS,
+  SCREENSHOT_THREADS,
   screenshotAgent,
 } from './fixtures';
 
@@ -50,6 +51,8 @@ export function ScreenshotHarnessRoot() {
       bookmarks: SCREENSHOT_BOOKMARKS,
       bookmarkLabels: SCREENSHOT_BOOKMARK_LABELS,
       mindView: 'cards',
+      threads: SCREENSHOT_THREADS,
+      activeThread: SCREENSHOT_THREADS[0]!.id,
       confirmFirstFocus: async (args) =>
         args.confirmed
           ? { status: 'created', bundle: CONFIRMED_BUNDLE }
@@ -69,6 +72,15 @@ export function ScreenshotHarnessRoot() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="screenshot-harness" />
+              <Stack.Screen
+                name="threads"
+                options={{
+                  presentation: 'formSheet',
+                  sheetAllowedDetents: [0.6, 1],
+                  sheetGrabberVisible: true,
+                  contentStyle: { height: '100%' },
+                }}
+              />
             </Stack>
             <View
               accessible

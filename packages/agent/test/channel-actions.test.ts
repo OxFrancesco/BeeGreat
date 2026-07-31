@@ -39,7 +39,7 @@ describe('trusted app-equivalent channel actions', () => {
         },
         'user_owner',
         'context',
-        {},
+        { source: 'imessage' },
         fetcher,
       ),
     ).resolves.toEqual({ threadId: 42, activeHighlight: null })
@@ -53,6 +53,7 @@ describe('trusted app-equivalent channel actions', () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
       userId: 'user_owner',
       operation: 'channel_context',
+      source: 'imessage',
       ownerKey: 'https://issuer.example.test|user_owner',
     })
   })

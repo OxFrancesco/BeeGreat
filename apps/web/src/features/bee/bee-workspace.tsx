@@ -198,7 +198,10 @@ function ThreadButton({
     >
       <span>
         <strong>{title}</strong>
-        <small>{formatThreadDate(thread.createdAt)}</small>
+        <small>
+          {thread.source === 'imessage' ? 'iMessage · ' : ''}
+          {formatThreadDate(thread.createdAt)}
+        </small>
       </span>
     </button>
   )

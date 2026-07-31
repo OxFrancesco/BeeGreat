@@ -8,6 +8,7 @@ import {
 } from 'react';
 
 import type { BookmarkItem } from '@/components/mind/bookmark-item';
+import type { ChatThread } from '@/hooks/use-convex-chat';
 import type { MindView } from '@/lib/preferences';
 
 export const SCREENSHOT_SHOTS = [
@@ -44,6 +45,8 @@ export type ScreenshotFixtureValue = {
   bookmarks: BookmarkItem[];
   bookmarkLabels: { label: string; count: number }[];
   mindView: MindView;
+  threads: ChatThread[];
+  activeThread: number;
   confirmFirstFocus: (
     args: FunctionArgs<typeof api.firstFocus.confirmPlan>,
   ) => Promise<FunctionReturnType<typeof api.firstFocus.confirmPlan>>;

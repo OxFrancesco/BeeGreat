@@ -71,7 +71,13 @@ type VoiceAgentScreenState = ScreenshotAgentState & {
 export default function VoiceAgentScreen() {
   const fixture = useScreenshotFixture();
   if (fixture) {
-    return <VoiceAgentScreenView agent={fixture.agent} avatarUri={null} />;
+    return (
+      <VoiceAgentScreenView
+        agent={fixture.agent}
+        avatarUri={null}
+        profileEnabled={false}
+      />
+    );
   }
 
   return <LiveVoiceAgentScreen />;
@@ -91,9 +97,11 @@ function LiveVoiceAgentScreen() {
 export function VoiceAgentScreenView({
   agent,
   avatarUri,
+  profileEnabled = true,
 }: {
   agent: VoiceAgentScreenState;
   avatarUri: string | null;
+  profileEnabled?: boolean;
 }) {
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -165,6 +173,8 @@ export function VoiceAgentScreenView({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Profile"
+              accessibilityState={{ disabled: !profileEnabled }}
+              disabled={!profileEnabled}
               hitSlop={Spacing.two}
               onPress={() => router.push('/profile')}
               style={({ pressed }) => pressed && styles.topBarPressed}

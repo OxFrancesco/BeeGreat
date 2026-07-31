@@ -132,6 +132,17 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen
+          name="voice-conversation"
+          options={{
+            headerShown: true,
+            title: 'Live conversation',
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.75, 1],
+            sheetGrabberVisible: true,
+            contentStyle: { height: '100%' },
+          }}
+        />
+        <Stack.Screen
           name="threads"
           options={{
             presentation: 'formSheet',

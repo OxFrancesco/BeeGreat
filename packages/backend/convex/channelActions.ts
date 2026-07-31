@@ -3,13 +3,12 @@ import { ConvexError, v } from 'convex/values'
 import type { Id } from './_generated/dataModel'
 import {
   internalMutation,
-  internalQuery,
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
 import {
-  activeThreadForIdentity,
-  createThreadForIdentity,
+  channelThreadForIdentity,
+  createChannelThreadForIdentity,
   titleThreadForIdentity,
 } from './chat'
 import {
@@ -22,6 +21,8 @@ const identityArgs = {
   ownerKey: v.string(),
   userId: v.string(),
 }
+
+const channelSourceValidator = v.literal('imessage')
 
 const highlightValidator = v.union(
   v.object({
@@ -174,8 +175,11 @@ async function userTimeZone(
   return preference?.timeZone ?? 'UTC'
 }
 
-export const getContext = internalQuery({
-  args: identityArgs,
+export const getContext = internalMutation({
+  args: {
+    ...identityArgs,
+    source: channelSourceValidator,
+  },
   returns: v.object({
     threadId: v.number(),
     activeHighlight: highlightValidator,
@@ -183,19 +187,26 @@ export const getContext = internalQuery({
   handler: async (ctx, args) => {
     const identity = channelIdentity(args)
     return {
-      threadId: await activeThreadForIdentity(ctx, identity),
+      threadId: await channelThreadForIdentity(ctx, identity, args.source),
       activeHighlight: await currentHighlight(ctx, identity.ownerKey),
     }
   },
 })
 
 export const createThread = internalMutation({
-  args: identityArgs,
+  args: {
+    ...identityArgs,
+    source: channelSourceValidator,
+  },
   returns: v.object({ threadId: v.number() }),
   handler: async (ctx, args) => {
     const identity = channelIdentity(args)
     return {
-      threadId: await createThreadForIdentity(ctx, identity),
+      threadId: await createChannelThreadForIdentity(
+        ctx,
+        identity,
+        args.source,
+      ),
     }
   },
 })

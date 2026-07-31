@@ -15,7 +15,6 @@ import { HYDRATION_GOAL_ML, MOODS } from '@/lib/bee-healthy';
 const GLYPH_SIZE = 58;
 
 export function BeeHealthyCard() {
-  const theme = useTheme();
   const { localDate } = useCurrentLocalDay();
   const entry = useQuery(api.healthJournal.getByDate, { localDate });
   const mood = entry?.mood ? MOODS.find((option) => option.value === entry.mood) : null;
@@ -28,6 +27,12 @@ export function BeeHealthyCard() {
       : mood || hydrationMl > 0
         ? `${mood?.label ?? 'Mood not checked'} · ${hydrationPercent}% hydrated`
         : 'Mood, water, and one honest thought';
+
+  return <BeeHealthyCardView summary={summary} />;
+}
+
+export function BeeHealthyCardView({ summary }: { summary: string }) {
+  const theme = useTheme();
 
   return (
     <Pressable
