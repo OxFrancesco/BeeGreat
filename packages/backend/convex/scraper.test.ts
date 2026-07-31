@@ -127,6 +127,27 @@ describe('Firecrawl website scraping', () => {
     })
   })
 
+  test('falls back to the favicon service when Firecrawl has no favicon', async () => {
+    const fetchMock = asFetcher(async () =>
+      jsonResponse({
+        success: true,
+        data: {
+          markdown: '# Useful guide',
+          metadata: { title: 'Useful guide' },
+        },
+      }),
+    )
+
+    const result = await scrapeWebsite('https://docs.example.com/guide', {
+      apiKey: 'firecrawl-secret',
+      fetch: fetchMock,
+    })
+
+    expect(result.meta?.faviconUrl).toBe(
+      'https://www.google.com/s2/favicons?domain=docs.example.com&sz=128',
+    )
+  })
+
   test('fails before fetching when Firecrawl is not configured', async () => {
     const fetchMock = asFetcher(async () => jsonResponse({}))
 
@@ -204,6 +225,7 @@ describe('Twitter scraping', () => {
         author: 'Bee Great',
         handle: 'beegreat',
         imageUrl: 'https://cdn.example.com/tweet.png',
+        faviconUrl: 'https://www.google.com/s2/favicons?domain=x.com&sz=128',
         publishedAt: 1_721_030_400_000,
         tweetId: '187654321',
       },
@@ -478,6 +500,8 @@ describe('YouTube transcript and ElevenLabs seams', () => {
       meta: {
         author: 'Bee Channel',
         imageUrl: 'https://cdn.example.com/large.jpg',
+        faviconUrl:
+          'https://www.google.com/s2/favicons?domain=www.youtube.com&sz=128',
         videoId: 'video-captions',
         durationSeconds: 90,
       },

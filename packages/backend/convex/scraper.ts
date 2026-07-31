@@ -152,6 +152,19 @@ function timestamp(value: unknown) {
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
+/**
+ * Favicon-service fallback so every bookmark kind gets an icon even when the
+ * source (Firecrawl, tweet, or video payload) doesn't expose one.
+ */
+export function fallbackFaviconUrl(url: string) {
+  try {
+    const domain = new URL(url).hostname
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`
+  } catch {
+    return undefined
+  }
+}
+
 async function checkedJson(response: Response, stage: string) {
   const body = (await response.json().catch(() => null)) as unknown
   if (!response.ok) {
@@ -204,7 +217,7 @@ export async function scrapeWebsite(
         text(metadata.ogImage) ??
         text(metadata.image) ??
         text(record(metadata.ogImage)?.url),
-      faviconUrl: text(metadata.favicon),
+      faviconUrl: text(metadata.favicon) ?? fallbackFaviconUrl(url),
       publishedAt: timestamp(metadata.publishedTime ?? metadata.publishedAt),
     },
   }
@@ -262,6 +275,7 @@ export async function scrapeTweet(
       imageUrl:
         text(firstMedia?.media_url_https ?? firstMedia?.url) ??
         text(author.profilePicture ?? author.profile_image_url_https),
+      faviconUrl: fallbackFaviconUrl('https://x.com'),
       publishedAt: timestamp(tweet.createdAt ?? tweet.created_at),
       tweetId,
     },
@@ -454,6 +468,7 @@ export async function scrapeYoutube(
     const meta: BookmarkMeta = {
       author: text(info.basic_info.author ?? info.basic_info.channel?.name),
       imageUrl: text(largestThumbnail?.url),
+      faviconUrl: fallbackFaviconUrl('https://www.youtube.com'),
       videoId,
       durationSeconds,
     }

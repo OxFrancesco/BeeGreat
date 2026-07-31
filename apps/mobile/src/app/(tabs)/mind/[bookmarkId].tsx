@@ -158,7 +158,12 @@ export default function BookmarkDetailScreen() {
       >
         <View style={[styles.hero, { backgroundColor: theme.secondary }]}>
           {bookmark.meta?.imageUrl ? (
-            <Image source={bookmark.meta.imageUrl} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <Image
+              source={bookmark.meta.imageUrl}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+            />
           ) : (
             <SymbolView name={details.symbol} size={56} tintColor="#A86A16" />
           )}

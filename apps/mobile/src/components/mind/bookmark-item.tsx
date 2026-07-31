@@ -7,16 +7,16 @@ import {
   LinearGradient,
   Path,
   Shadow,
-  useImage,
   vec,
 } from '@shopify/react-native-skia';
 import { Image } from 'expo-image';
 import { Link, type Href } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { makeHexPath } from '@/components/hex-avatar';
+import { useCachedSkImage } from '@/components/mind/use-cached-sk-image';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 import type { MindView } from '@/lib/preferences';
@@ -39,7 +39,20 @@ function sourceLabel(bookmark: BookmarkItem) {
   }
 }
 
-export function BookmarkCell({
+/**
+ * Favicon-service fallback for bookmarks whose crawl produced no favicon
+ * (tweets, videos) or one Skia cannot decode (.ico).
+ */
+function fallbackFaviconUrl(bookmark: BookmarkItem) {
+  try {
+    const domain = new URL(bookmark.url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  } catch {
+    return undefined;
+  }
+}
+
+export const BookmarkCell = memo(function BookmarkCell({
   bookmark,
   view,
   width,
@@ -66,7 +79,7 @@ export function BookmarkCell({
       </Pressable>
     </Link>
   );
-}
+});
 
 /** Wax-cell palette for the honeycomb view. */
 const Comb = {
@@ -89,7 +102,7 @@ function HexBookmark({ bookmark, width }: { bookmark: BookmarkItem; width: numbe
   // The hex is inscribed in a square of side `size`; its visible width is
   // exactly `width`, so tessellated cells can share walls edge to edge.
   const size = hexCellHeight(width);
-  const image = useImage(bookmark.meta?.imageUrl ?? null);
+  const image = useCachedSkImage(bookmark.meta?.imageUrl);
   const theme = useTheme();
   const failed = bookmark.status === 'failed';
   const wall = Math.max(3, size / 34);
@@ -166,7 +179,10 @@ function HexBookmark({ bookmark, width }: { bookmark: BookmarkItem; width: numbe
 }
 
 function FaviconBadge({ bookmark, size }: { bookmark: BookmarkItem; size: number }) {
-  const favicon = useImage(bookmark.meta?.faviconUrl ?? null);
+  const favicon = useCachedSkImage(
+    bookmark.meta?.faviconUrl,
+    fallbackFaviconUrl(bookmark),
+  );
   const stroke = Math.max(2, size / 18);
   const path = useMemo(
     () => makeHexPath(size, stroke / 2 + 1, size / 26),
@@ -208,7 +224,12 @@ function CardBookmark({ bookmark, width }: { bookmark: BookmarkItem; width: numb
   return (
     <View style={[styles.card, { width, backgroundColor: theme.card, borderColor: theme.border }]}>
       {bookmark.meta?.imageUrl ? (
-        <Image source={bookmark.meta.imageUrl} style={styles.cardImage} contentFit="cover" />
+        <Image
+          source={bookmark.meta.imageUrl}
+          style={styles.cardImage}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+        />
       ) : (
         <View style={[styles.cardImage, styles.cardFallback]}>
           <SymbolView name={KIND_SYMBOL[bookmark.kind]} size={28} tintColor="#A86A16" />
