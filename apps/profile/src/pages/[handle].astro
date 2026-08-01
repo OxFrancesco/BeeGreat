@@ -1,0 +1,9 @@
+---
+import ProfilePage from '../components/ProfilePage.astro'
+import { getProfileByHandle } from '../lib/profiles'
+
+const requested = Astro.params.handle ?? ''
+const profile = await getProfileByHandle(requested)
+if (!profile) return Astro.rewrite('/404')
+---
+<ProfilePage profile={profile} />

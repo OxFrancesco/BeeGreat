@@ -229,6 +229,61 @@ export default defineSchema({
     .index('by_owner_key', ['ownerKey'])
     .index('by_user_id', ['userId']),
 
+  // The public profile is deliberately separate from Clerk identity and all
+  // private Bee data. `publicId` never changes, so printed QR codes remain
+  // valid when a user edits their handle or profile content.
+  publicProfiles: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    publicId: v.string(),
+    handle: v.string(),
+    displayName: v.string(),
+    bio: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    published: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_user_id', ['userId'])
+    .index('by_public_id', ['publicId'])
+    .index('by_handle', ['handle']),
+
+  publicProfileLinks: defineTable({
+    ownerKey: v.string(),
+    profileId: v.id('publicProfiles'),
+    provider: v.union(
+      v.literal('instagram'),
+      v.literal('linkedin'),
+      v.literal('x'),
+      v.literal('github'),
+      v.literal('youtube'),
+      v.literal('tiktok'),
+      v.literal('facebook'),
+      v.literal('website'),
+      v.literal('other'),
+    ),
+    label: v.string(),
+    url: v.string(),
+    position: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_profile_id_and_position', ['profileId', 'position']),
+
+  // Previous handles stay reserved and resolve to the same profile. That
+  // protects old shared links without making the QR depend on a mutable name.
+  publicProfileAliases: defineTable({
+    ownerKey: v.string(),
+    profileId: v.id('publicProfiles'),
+    handle: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_profile_id', ['profileId'])
+    .index('by_handle', ['handle']),
+
   // One Bee Healthy journal row per authenticated owner and local calendar day.
   // Mood and journal remain optional so hydration-only check-ins stay lightweight.
   healthJournalEntries: defineTable({

@@ -1,0 +1,245 @@
+---
+import type { PublicProfile } from '../lib/profiles'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import BeeMark from './BeeMark.astro'
+
+const { profile } = Astro.props as { profile: PublicProfile }
+const description = profile.bio || `Meet ${profile.displayName} on BeeGreat.`
+const initials = profile.displayName
+  .split(/\s+/)
+  .slice(0, 2)
+  .map((part) => part[0])
+  .join('')
+  .toUpperCase()
+const providerMarks: Record<string, string> = {
+  instagram: '◎', linkedin: 'in', x: '𝕏', github: '⌘', youtube: '▶',
+  tiktok: '♪', facebook: 'f', website: '↗', other: '↗',
+}
+Astro.response.headers.set('Cache-Control', 'public, max-age=30')
+Astro.response.headers.set(
+  'Cloudflare-CDN-Cache-Control',
+  'public, max-age=60, stale-while-revalidate=300',
+)
+---
+<BaseLayout
+  title={`${profile.displayName} (@${profile.handle}) — BeeGreat`}
+  description={description}
+  canonical={profile.profileUrl}
+  image={profile.avatarUrl}
+>
+  <main class="profile-shell" id="profile">
+    <nav class="brand-row" aria-label="BeeGreat">
+      <a href="https://beegreat.app" class="brand-link">
+        <BeeMark />
+        <span>BeeGreat</span>
+      </a>
+      <span class="profile-chip">Profile</span>
+    </nav>
+
+    <article class="profile-card">
+      <header class="profile-header">
+        <div class="avatar-frame">
+          {profile.avatarUrl ? (
+            <img
+              src={profile.avatarUrl}
+              alt={`${profile.displayName}'s profile photo`}
+              referrerpolicy="no-referrer"
+            />
+          ) : (
+            <span>{initials}</span>
+          )}
+        </div>
+        <div class="identity-copy">
+          <h1>{profile.displayName}</h1>
+          <p class="handle">@{profile.handle}</p>
+          {profile.bio ? <p class="bio">{profile.bio}</p> : null}
+        </div>
+      </header>
+
+      {profile.links.length ? (
+        <div class="profile-links" aria-label={`${profile.displayName}'s links`}>
+          {profile.links.map((link, index) => (
+            <a
+              class="profile-link"
+              href={link.url}
+              target="_blank"
+              rel="me noopener noreferrer"
+              style={`--delay: ${index * 55}ms`}
+            >
+              <span class="link-mark" aria-hidden="true">{providerMarks[link.provider] ?? '↗'}</span>
+              <span>{link.label}</span>
+              <span class="link-arrow" aria-hidden="true">↗</span>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <p class="empty-links">This beekeeper hasn’t added any links yet.</p>
+      )}
+    </article>
+
+    <footer>
+      <a class="join-link" href="https://beegreat.app">Create your BeeGreat profile</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://beedocs.pages.dev/support">Report profile</a>
+    </footer>
+  </main>
+</BaseLayout>
+
+<style>
+  .profile-shell {
+    position: relative;
+    z-index: 1;
+    width: min(100% - 32px, 620px);
+    margin: 0 auto;
+    padding: 34px 0 28px;
+  }
+
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .brand-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink);
+    font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+    font-size: 17px;
+    font-weight: 750;
+    text-decoration: none;
+  }
+
+  .profile-chip {
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 11px;
+    color: var(--ink-soft);
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .profile-card {
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    padding: clamp(22px, 5vw, 38px);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+  }
+
+  .profile-header {
+    display: grid;
+    justify-items: center;
+    gap: 20px;
+    text-align: center;
+  }
+
+  .avatar-frame {
+    display: grid;
+    width: 112px;
+    height: 112px;
+    place-items: center;
+    overflow: hidden;
+    border: 6px solid var(--honey);
+    border-radius: 34px;
+    color: var(--honey-ink);
+    background: var(--honey);
+    font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+    font-size: 34px;
+    font-weight: 800;
+    transform: rotate(-2deg);
+  }
+
+  .avatar-frame img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar-frame span { transform: rotate(2deg); }
+
+  .identity-copy { max-width: 480px; }
+
+  h1 {
+    margin: 0;
+    font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+    font-size: clamp(31px, 8vw, 43px);
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+  }
+
+  .handle { margin: 8px 0 0; color: var(--ink-soft); font-size: 15px; }
+
+  .bio {
+    margin: 18px auto 0;
+    color: var(--ink-soft);
+    font-size: 17px;
+    line-height: 1.55;
+    text-wrap: balance;
+  }
+
+  .profile-links { display: grid; gap: 10px; margin-top: 30px; }
+
+  .profile-link {
+    display: grid;
+    grid-template-columns: 38px 1fr 24px;
+    align-items: center;
+    min-height: 58px;
+    gap: 12px;
+    border: 1px solid var(--line);
+    border-radius: 17px;
+    padding: 9px 14px 9px 10px;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--surface) 84%, var(--honey));
+    font-size: 15px;
+    font-weight: 720;
+    text-decoration: none;
+    transition: transform 160ms cubic-bezier(.23, 1, .32, 1), border-color 160ms, background 160ms;
+  }
+
+  .profile-link:hover {
+    transform: translateY(-2px);
+    border-color: var(--honey-strong);
+    background: var(--honey);
+  }
+
+  .link-mark {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border-radius: 12px;
+    color: var(--honey-ink);
+    background: var(--honey);
+    font-size: 14px;
+    font-weight: 800;
+  }
+
+  .link-arrow { color: var(--ink-soft); text-align: right; }
+  .empty-links { margin: 28px 0 4px; color: var(--ink-soft); text-align: center; }
+
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    padding: 22px 10px 0;
+    color: var(--ink-soft);
+    font-size: 12px;
+  }
+
+  footer a { text-underline-offset: 3px; }
+  .join-link { color: var(--ink); font-weight: 700; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .profile-card { animation: card-in 420ms 60ms cubic-bezier(.23, 1, .32, 1) both; }
+    .profile-link { animation: link-in 280ms calc(160ms + var(--delay)) cubic-bezier(.23, 1, .32, 1) both; }
+    @keyframes card-in { from { opacity: 0; transform: translateY(12px) scale(.98); } }
+    @keyframes link-in { from { opacity: 0; transform: translateY(8px); } }
+  }
+
+  @media (max-width: 480px) {
+    .profile-shell { width: min(100% - 20px, 620px); padding-top: 18px; }
+    .profile-card { border-radius: 23px; }
+    .avatar-frame { width: 96px; height: 96px; border-radius: 29px; }
+  }
+</style>

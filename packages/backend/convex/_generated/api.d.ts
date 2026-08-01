@@ -62,6 +62,7 @@ import type * as nfcActions from "../nfcActions.js";
 import type * as posts from "../posts.js";
 import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
+import type * as publicProfiles from "../publicProfiles.js";
 import type * as recurrence from "../recurrence.js";
 import type * as recurrenceValidators from "../recurrenceValidators.js";
 import type * as revenueCatRest from "../revenueCatRest.js";
@@ -141,6 +142,7 @@ declare const fullApi: ApiFromModules<{
   posts: typeof posts;
   powerups: typeof powerups;
   projects: typeof projects;
+  publicProfiles: typeof publicProfiles;
   recurrence: typeof recurrence;
   recurrenceValidators: typeof recurrenceValidators;
   revenueCatRest: typeof revenueCatRest;

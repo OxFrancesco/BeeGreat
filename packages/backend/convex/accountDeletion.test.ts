@@ -464,6 +464,55 @@ test('account erasure removes NFC actions and execution snapshots', async () => 
   }
 }, 30_000)
 
+test('account erasure removes public profiles, links, and handle aliases', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    const subject = 'public_profile_owner'
+    const owner = authenticated(t, subject)
+
+    await owner.mutation(api.publicProfiles.ensureMine, {
+      displayName: 'Delete This Bee',
+      suggestedHandle: 'old-bee-handle',
+    })
+    const profile = await owner.mutation(api.publicProfiles.saveMine, {
+      handle: 'new-bee-handle',
+      displayName: 'Delete This Bee',
+      bio: 'This profile should be fully erased.',
+      published: true,
+      links: [
+        {
+          provider: 'website',
+          label: 'My site',
+          url: 'https://example.test/profile',
+        },
+      ],
+    })
+
+    expect(
+      await t.query(api.publicProfiles.byHandle, { handle: 'old-bee-handle' }),
+    ).toEqual(profile)
+
+    await prepareAndActivate(t, owner)
+    await finishDeletion(t)
+
+    const remaining = await t.run(async (ctx) => ({
+      profiles: await ctx.db.query('publicProfiles').collect(),
+      links: await ctx.db.query('publicProfileLinks').collect(),
+      aliases: await ctx.db.query('publicProfileAliases').collect(),
+    }))
+    expect(remaining).toEqual({ profiles: [], links: [], aliases: [] })
+    expect(
+      await t.query(api.publicProfiles.byHandle, { handle: 'old-bee-handle' }),
+    ).toBeNull()
+    expect(
+      await t.query(api.publicProfiles.byHandle, { handle: 'new-bee-handle' }),
+    ).toBeNull()
+  } finally {
+    vi.useRealTimers()
+  }
+}, 30_000)
+
 test('account erasure removes every subject-keyed integration row and preserves globals', async () => {
   vi.useFakeTimers()
   try {

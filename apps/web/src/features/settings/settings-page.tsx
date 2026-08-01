@@ -9,6 +9,7 @@ import { useGoogleHealth } from './use-google-health'
 import { BeennectorsSettings } from './beennectors-settings'
 import { HotkeySettings } from './hotkey-settings'
 import { WalletSettings } from './wallet-settings'
+import { PublicProfileSettings } from './public-profile-settings'
 import { useAccountDeletion } from './use-account-deletion'
 
 import type { ReactNode } from 'react'
@@ -136,6 +137,13 @@ export function SettingsPage() {
         </aside>
 
         <div className="settings-content">
+          <SettingsSection
+            label="Public profile"
+            className="settings-section--public-profile"
+          >
+            <PublicProfileSettings />
+          </SettingsSection>
+
           <SettingsSection label="Preferences">
             <SettingRow
               title="Speak replies"
