@@ -59,6 +59,8 @@ function UIComponentView({
           <p>{component.body}</p>
         </section>
       )
+    case 'image':
+      return <GeneratedImageCard {...component} />
     case 'bookmark':
       return <BookmarkCard {...component} />
     case 'devin':
@@ -102,6 +104,107 @@ function UIComponentView({
       )
     }
   }
+}
+
+function generatedImageFileName(url: string) {
+  try {
+    const sourceName = new URL(url).pathname.split('/').pop() ?? ''
+    if (/\.(?:avif|gif|jpe?g|png|webp)$/i.test(sourceName)) {
+      return sourceName
+    }
+  } catch {
+    // The schema validates generated URLs; keep a safe filename fallback.
+  }
+  return `bee-image-${Date.now()}.png`
+}
+
+async function fetchGeneratedImage(url: string) {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Image download failed (${response.status})`)
+  return response.blob()
+}
+
+function GeneratedImageCard({
+  url,
+  alt,
+  title,
+}: Extract<UIComponent, { type: 'image' }>) {
+  const [working, setWorking] = useState<'copy' | 'download'>()
+  const [feedback, setFeedback] = useState<string>()
+
+  const copyImage = async () => {
+    setWorking('copy')
+    try {
+      const blob = await fetchGeneratedImage(url)
+      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+        throw new Error('Image clipboard is unavailable')
+      }
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+      setFeedback('Image copied')
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url)
+        setFeedback('Image link copied')
+      } catch {
+        setFeedback('Copy unavailable — use Download')
+      }
+    } finally {
+      setWorking(undefined)
+    }
+  }
+
+  const downloadImage = async () => {
+    setWorking('download')
+    try {
+      const blob = await fetchGeneratedImage(url)
+      const objectUrl = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = objectUrl
+      anchor.download = generatedImageFileName(url)
+      document.body.append(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(objectUrl)
+      setFeedback('Download started')
+    } catch {
+      window.open(url, '_blank', 'noopener,noreferrer')
+      setFeedback('Image opened in a new tab')
+    } finally {
+      setWorking(undefined)
+    }
+  }
+
+  return (
+    <section className="generated-image-card">
+      {title ? <h3>{title}</h3> : null}
+      <img src={url} alt={alt} loading="lazy" />
+      <div className="generated-image-card__actions">
+        <button
+          className="button button--quiet"
+          type="button"
+          disabled={working !== undefined}
+          onClick={() => void copyImage()}
+        >
+          <span aria-hidden="true">⧉</span>
+          {working === 'copy' ? 'Copying…' : 'Copy'}
+        </button>
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={working !== undefined}
+          onClick={() => void downloadImage()}
+        >
+          <span aria-hidden="true">↓</span>
+          {working === 'download' ? 'Downloading…' : 'Download'}
+        </button>
+      </div>
+      {feedback ? (
+        <p className="generated-image-card__feedback" aria-live="polite">
+          {feedback}
+        </p>
+      ) : null}
+    </section>
+  )
 }
 
 /**
@@ -159,8 +262,10 @@ function Web3ConfirmCard({
   }
 
   const status = live?.status
-  const explorerLink = live?.result?.find((item) => item.explorerLink)
-    ?.explorerLink
+  const explorerLink =
+    live?.socketProgress?.destinationExplorerLink ??
+    [...(live?.result ?? [])].reverse().find((item) => item.explorerLink)
+      ?.explorerLink
 
   return (
     <Card className="confirm-card">
@@ -171,7 +276,7 @@ function Web3ConfirmCard({
         <p>Declined — nothing was sent.</p>
       ) : decision === 'confirmed' ? (
         status === 'executed' ? (
-          <p>
+          <p aria-live="polite">
             Done ✓{' '}
             {explorerLink ? (
               <a href={explorerLink} target="_blank" rel="noreferrer">
@@ -180,11 +285,21 @@ function Web3ConfirmCard({
             ) : null}
           </p>
         ) : status === 'failed' ? (
-          <p className="confirm-card__error">
+          <p className="confirm-card__error" aria-live="polite">
             {live?.error ?? 'Execution failed.'}
           </p>
+        ) : status === 'refunded' ? (
+          <p aria-live="polite">The route was refunded.</p>
+        ) : status === 'expired' ? (
+          <p className="confirm-card__error" aria-live="polite">
+            This confirmation expired before execution.
+          </p>
+        ) : status === 'in_progress' ? (
+          <p aria-live="polite">
+            {live?.socketProgress?.detail ?? 'Moving funds…'}
+          </p>
         ) : (
-          <p>Confirmed — executing…</p>
+          <p aria-live="polite">Confirmed — preparing…</p>
         )
       ) : (
         <div className="confirm-card__actions">

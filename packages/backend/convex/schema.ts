@@ -27,6 +27,12 @@ import {
   nfcActionDefinitionValidator,
   nfcActionOutcomeValidator,
 } from './nfcActionValidators'
+import {
+  socketProgressValidator,
+  web3ActionPayloadValidator,
+  web3ActionResultValidator,
+  web3ActionStatusValidator,
+} from './web3ActionValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -819,45 +825,13 @@ export default defineSchema({
   web3Actions: defineTable({
     userId: v.string(),
     summary: v.string(),
-    payload: v.union(
-      v.object({
-        kind: v.literal('send_tokens'),
-        recipient: v.string(),
-        token: v.string(),
-        amount: v.string(),
-      }),
-      v.object({
-        kind: v.literal('execute_plan'),
-        chainId: v.number(),
-        transactions: v.array(
-          v.object({
-            to: v.string(),
-            data: v.string(),
-            // Decimal wei string (bigint does not survive JSON transport).
-            value: v.string(),
-          }),
-        ),
-      }),
-    ),
-    status: v.union(
-      v.literal('pending'),
-      v.literal('confirmed'),
-      v.literal('executed'),
-      v.literal('failed'),
-      v.literal('cancelled'),
-      v.literal('expired'),
-    ),
+    payload: web3ActionPayloadValidator,
+    status: web3ActionStatusValidator,
     createdAt: v.number(),
     expiresAt: v.number(),
     confirmedAt: v.optional(v.number()),
-    result: v.optional(
-      v.array(
-        v.object({
-          hash: v.union(v.string(), v.null()),
-          explorerLink: v.union(v.string(), v.null()),
-        }),
-      ),
-    ),
+    result: v.optional(web3ActionResultValidator),
+    socketProgress: v.optional(socketProgressValidator),
     error: v.optional(v.string()),
   }).index('by_user', ['userId', 'status']),
 

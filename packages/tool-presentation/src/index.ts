@@ -153,6 +153,18 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     failed: "Couldn’t prepare the transfer",
     powerup: "Web3",
   },
+  quote_cross_chain_swap: {
+    running: "Finding a cross-chain route…",
+    done: "Found a cross-chain route",
+    failed: "Couldn’t find a route",
+    powerup: "Web3",
+  },
+  prepare_cross_chain_swap: {
+    running: "Preparing the cross-chain swap…",
+    done: "Prepared the cross-chain swap",
+    failed: "Couldn’t prepare the swap",
+    powerup: "Web3",
+  },
   prepare_sugar_execution: {
     running: "Preparing the DeFi action…",
     done: "Prepared the DeFi action",

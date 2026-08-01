@@ -8,10 +8,7 @@ import {
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { env, httpAction } from './_generated/server'
-import {
-  isClerkUserId,
-  parseRevenueCatWebhook,
-} from './revenueCatWebhook'
+import { isClerkUserId, parseRevenueCatWebhook } from './revenueCatWebhook'
 
 const http = httpRouter()
 
@@ -76,11 +73,9 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const signingSecret = env.CLERK_WEBHOOK_SIGNING_SECRET?.trim()
     if (!signingSecret) {
-      return jsonResponse(
-        { error: 'Clerk webhook is not configured' },
-        503,
-        { 'retry-after': '60' },
-      )
+      return jsonResponse({ error: 'Clerk webhook is not configured' }, 503, {
+        'retry-after': '60',
+      })
     }
     let event: Awaited<ReturnType<typeof verifyWebhook>>
     try {
@@ -110,7 +105,9 @@ http.route({
       return jsonResponse(
         { error: 'RevenueCat webhook is not configured' },
         503,
-        { 'retry-after': '60' },
+        {
+          'retry-after': '60',
+        },
       )
     }
     const suppliedSecret = request.headers
@@ -120,7 +117,10 @@ http.route({
       return jsonResponse({ error: 'Unauthorized' }, 401)
     }
     if (!request.headers.get('content-type')?.includes('application/json')) {
-      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
     }
     const contentLength = Number(request.headers.get('content-length') ?? '0')
     if (Number.isFinite(contentLength) && contentLength > 64 * 1024) {
@@ -195,17 +195,26 @@ http.route({
       return jsonResponse({ error: 'Unauthorized' }, 401)
     }
     if (!request.headers.get('content-type')?.includes('application/json')) {
-      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
     }
     const body = (await request.json().catch(() => null)) as {
       userId?: unknown
     } | null
-    if (!body || typeof body.userId !== 'string' || !isClerkUserId(body.userId)) {
+    if (
+      !body ||
+      typeof body.userId !== 'string' ||
+      !isClerkUserId(body.userId)
+    ) {
       return jsonResponse({ error: 'Invalid Clerk user id' }, 400)
     }
     const result = await ctx.runAction(
       internal.subscriptionReconciliation.statusForAgent,
-      { userId: body.userId },
+      {
+        userId: body.userId,
+      },
     )
     if (result.status === 'unavailable') {
       return jsonResponse(
@@ -323,7 +332,10 @@ http.route({
           typeof body.projectTitle !== 'string' ||
           typeof body.taskTitle !== 'string'
         ) {
-          return jsonResponse({ error: 'Invalid first-focus cancellation' }, 400)
+          return jsonResponse(
+            { error: 'Invalid first-focus cancellation' },
+            400,
+          )
         }
         result = await ctx.runMutation(
           internal.channelActions.cancelFirstFocus,
@@ -361,10 +373,7 @@ http.route({
           userId: body.userId,
         })
       } else if (body.operation === 'list_tasks') {
-        if (
-          body.goalId !== undefined &&
-          typeof body.goalId !== 'string'
-        ) {
+        if (body.goalId !== undefined && typeof body.goalId !== 'string') {
           return jsonResponse({ error: 'Invalid Goal id' }, 400)
         }
         if (
@@ -411,7 +420,8 @@ http.route({
         if (
           typeof body.goalId !== 'string' ||
           typeof body.title !== 'string' ||
-          (body.projectId !== undefined && typeof body.projectId !== 'string') ||
+          (body.projectId !== undefined &&
+            typeof body.projectId !== 'string') ||
           (body.dueDate !== undefined && typeof body.dueDate !== 'number') ||
           recurrence === null
         ) {
@@ -453,7 +463,10 @@ http.route({
       return jsonResponse({ error: 'Unauthorized' }, 401)
     }
     if (!request.headers.get('content-type')?.includes('application/json')) {
-      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
     }
     const body = (await request.json().catch(() => null)) as Record<
       string,
@@ -514,7 +527,10 @@ http.route({
           typeof body.url !== 'string' ||
           (body.note !== undefined && typeof body.note !== 'string')
         ) {
-          return jsonResponse({ error: 'A valid bookmark URL is required' }, 400)
+          return jsonResponse(
+            { error: 'A valid bookmark URL is required' },
+            400,
+          )
         }
         result = await ctx.runMutation(internal.agentMind.saveBookmark, {
           userId: body.userId,
@@ -621,7 +637,9 @@ http.route({
       return jsonResponse(
         { error: 'ChatGPT credentials are temporarily unavailable' },
         503,
-        { 'retry-after': String(retryAfterSeconds) },
+        {
+          'retry-after': String(retryAfterSeconds),
+        },
       )
     } catch {
       return jsonResponse({ error: 'Credential broker failed' }, 500)
@@ -705,7 +723,10 @@ http.route({
       return jsonResponse({ error: 'Unauthorized' }, 401)
     }
     if (!request.headers.get('content-type')?.includes('application/json')) {
-      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
     }
     const body = (await request.json().catch(() => null)) as Record<
       string,
@@ -729,16 +750,20 @@ http.route({
           !provider ||
           typeof body.deliveryId !== 'string' ||
           (body.actorId !== undefined && typeof body.actorId !== 'string') ||
-          (body.workspaceId !== undefined && typeof body.workspaceId !== 'string')
+          (body.workspaceId !== undefined &&
+            typeof body.workspaceId !== 'string')
         ) {
           return jsonResponse({ error: 'Invalid Beennector delivery' }, 400)
         }
-        const result = await ctx.runMutation(internal.beennectors.claimDelivery, {
-          provider,
-          deliveryId: body.deliveryId,
-          actorId: body.actorId as string | undefined,
-          workspaceId: body.workspaceId as string | undefined,
-        })
+        const result = await ctx.runMutation(
+          internal.beennectors.claimDelivery,
+          {
+            provider,
+            deliveryId: body.deliveryId,
+            actorId: body.actorId as string | undefined,
+            workspaceId: body.workspaceId as string | undefined,
+          },
+        )
         if (result.status === 'accepted') {
           const verification = await ctx.runAction(
             internal.subscriptionReconciliation.statusForAgent,
@@ -764,7 +789,9 @@ http.route({
       if (body.operation === 'list_connections') {
         const result = await ctx.runQuery(
           internal.beennectors.listConnectedForAgent,
-          { userId: body.userId },
+          {
+            userId: body.userId,
+          },
         )
         return jsonResponse(result, 200)
       }
@@ -833,7 +860,9 @@ http.route({
     try {
       const result: string = await ctx.runAction(
         internal.googleHealth.getContext,
-        { userId: body.userId },
+        {
+          userId: body.userId,
+        },
       )
       return new Response(result, {
         status: 200,
@@ -866,7 +895,10 @@ http.route({
       return jsonResponse({ error: 'Unauthorized' }, 401)
     }
     if (!request.headers.get('content-type')?.includes('application/json')) {
-      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
     }
     const body = (await request.json().catch(() => null)) as Record<
       string,
@@ -885,8 +917,11 @@ http.route({
       (body.repos !== undefined &&
         (!Array.isArray(body.repos) ||
           body.repos.some((repo) => typeof repo !== 'string'))) ||
-      (body.mode !== undefined && body.mode !== 'normal' && body.mode !== 'fast') ||
-      (body.maxAcuLimit !== undefined && typeof body.maxAcuLimit !== 'number') ||
+      (body.mode !== undefined &&
+        body.mode !== 'normal' &&
+        body.mode !== 'fast') ||
+      (body.maxAcuLimit !== undefined &&
+        typeof body.maxAcuLimit !== 'number') ||
       (body.sessionId !== undefined && typeof body.sessionId !== 'string') ||
       (body.message !== undefined && typeof body.message !== 'string') ||
       (body.limit !== undefined && typeof body.limit !== 'number')
@@ -937,7 +972,10 @@ http.route({
       return jsonResponse({ error: 'Unauthorized' }, 401)
     }
     if (!request.headers.get('content-type')?.includes('application/json')) {
-      return jsonResponse({ error: 'Content-Type must be application/json' }, 415)
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
     }
     const contentLength = Number(request.headers.get('content-length') ?? '0')
     if (Number.isFinite(contentLength) && contentLength > 32 * 1024) {
@@ -1111,6 +1149,8 @@ const WEB3_WALLET_OPS = [
   'fund',
   'wallets',
   'prepare_send',
+  'quote_socket_swap',
+  'prepare_socket_swap',
   'prepare_execution',
   'action_status',
 ] as const
@@ -1164,11 +1204,19 @@ http.route({
             await ctx.runAction(internal.web3.getOrCreateWallet, { userId }),
             200,
           )
-        case 'balances':
+        case 'balances': {
+          const chain = str('chain')
+          if (chain && chain !== 'base' && chain !== 'arbitrum') {
+            return jsonResponse({ error: 'Invalid balance chain' }, 400)
+          }
           return jsonResponse(
-            await ctx.runAction(internal.web3.getBalances, { userId }),
+            await ctx.runAction(internal.web3.getBalances, {
+              userId,
+              ...(chain ? { chain: chain as 'base' | 'arbitrum' } : {}),
+            }),
             200,
           )
+        }
         case 'activity': {
           const activity: string = await ctx.runAction(
             internal.web3.getActivity,
@@ -1205,6 +1253,35 @@ http.route({
             }),
             200,
           )
+        case 'quote_socket_swap':
+        case 'prepare_socket_swap': {
+          const originChain = str('originChain')
+          const destinationChain = str('destinationChain')
+          const inputToken = str('inputToken')
+          const outputToken = str('outputToken')
+          if (
+            (originChain !== 'base' && originChain !== 'arbitrum') ||
+            (destinationChain !== 'base' && destinationChain !== 'arbitrum') ||
+            (inputToken !== 'eth' && inputToken !== 'usdc') ||
+            (outputToken !== 'eth' && outputToken !== 'usdc')
+          ) {
+            return jsonResponse({ error: 'Invalid Socket swap request' }, 400)
+          }
+          const request = {
+            userId,
+            originChain: originChain as 'base' | 'arbitrum',
+            destinationChain: destinationChain as 'base' | 'arbitrum',
+            inputToken: inputToken as 'eth' | 'usdc',
+            outputToken: outputToken as 'eth' | 'usdc',
+            amount: str('amount'),
+          }
+          return jsonResponse(
+            op === 'quote_socket_swap'
+              ? await ctx.runAction(internal.web3.quoteSocketSwap, request)
+              : await ctx.runAction(internal.web3.prepareSocketSwap, request),
+            200,
+          )
+        }
         case 'prepare_execution': {
           const sugarAction = str('sugarAction')
           const sugarParameters = params.parameters
@@ -1220,7 +1297,10 @@ http.route({
                 typeof value !== 'boolean',
             )
           ) {
-            return jsonResponse({ error: 'Invalid Sugar execution request' }, 400)
+            return jsonResponse(
+              { error: 'Invalid Sugar execution request' },
+              400,
+            )
           }
           return jsonResponse(
             await ctx.runAction(internal.web3.prepareSugarExecution, {

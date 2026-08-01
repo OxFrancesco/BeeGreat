@@ -13,6 +13,11 @@
       "skillPath": "plugins/expo/skills/building-native-ui/SKILL.md",
       "computedHash": "bed8dace471bc68d4d6e588fa4d72eedac54afe9f4a34ed9921da3ff994463a0"
     },
+    "bungee": {
+      "source": "docs.socket.tech",
+      "sourceType": "well-known",
+      "computedHash": "fc73c6d823eda3e876cc661da21cb6ddea26679c9c92e297d52c55320f1a1bac"
+    },
     "eas-simulator": {
       "source": "expo/skills",
       "sourceType": "github",

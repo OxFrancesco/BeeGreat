@@ -9,6 +9,14 @@ import {
 import type { Doc, Id } from './_generated/dataModel'
 import { requireUserId } from './helpers'
 import { requirePowerup } from './powerups'
+import { SOCKET_CHAINS, parseTokenAmount } from './socketSwap'
+import {
+  socketApprovalValidator,
+  socketProgressValidator,
+  web3ActionPayloadValidator,
+  web3ActionResultValidator,
+  web3TransactionValidator,
+} from './web3ActionValidators'
 
 // Server-side confirmation gate for Web3 actions that move funds.
 //
@@ -22,22 +30,6 @@ import { requirePowerup } from './powerups'
 /** Pending actions die after 10 minutes so stale confirm cards are inert. */
 export const ACTION_TTL_MS = 10 * 60 * 1000
 
-const payloadValidator = v.union(
-  v.object({
-    kind: v.literal('send_tokens'),
-    recipient: v.string(),
-    token: v.string(),
-    amount: v.string(),
-  }),
-  v.object({
-    kind: v.literal('execute_plan'),
-    chainId: v.number(),
-    transactions: v.array(
-      v.object({ to: v.string(), data: v.string(), value: v.string() }),
-    ),
-  }),
-)
-
 function publicView(action: Doc<'web3Actions'>) {
   return {
     id: action._id,
@@ -46,6 +38,7 @@ function publicView(action: Doc<'web3Actions'>) {
     status: action.status,
     expiresAt: action.expiresAt,
     result: action.result ?? null,
+    socketProgress: action.socketProgress ?? null,
     error: action.error ?? null,
   }
 }
@@ -63,19 +56,20 @@ export const create = internalMutation({
   args: {
     userId: v.string(),
     summary: v.string(),
-    payload: payloadValidator,
+    payload: web3ActionPayloadValidator,
   },
   handler: async (ctx, { userId, summary, payload }) => {
     const now = Date.now()
+    const actionExpiresAt = now + ACTION_TTL_MS
     const id = await ctx.db.insert('web3Actions', {
       userId,
       summary,
       payload,
       status: 'pending',
       createdAt: now,
-      expiresAt: now + ACTION_TTL_MS,
+      expiresAt: actionExpiresAt,
     })
-    return { id, expiresAt: now + ACTION_TTL_MS }
+    return { id, expiresAt: actionExpiresAt }
   },
 })
 
@@ -153,18 +147,67 @@ export const cancel = mutation({
   },
 })
 
+/**
+ * Executor-only: swap a freshly quoted Socket route into a confirmed action
+ * whose original quote went stale. The argument shape cannot alter what the
+ * user confirmed (chains, tokens, input amount), and a route that guarantees
+ * less than the confirmed minimum output is rejected, so the executed swap
+ * never pays less than the summary the user approved.
+ */
+export const refreshSocketRoute = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    route: v.object({
+      quoteId: v.string(),
+      outputAmount: v.string(),
+      minimumOutputAmount: v.string(),
+      provider: v.string(),
+      estimatedTimeSeconds: v.number(),
+      quoteExpiresAt: v.number(),
+      monitoringDeadlineAt: v.number(),
+      statusIntervalSeconds: v.number(),
+      approval: v.optional(socketApprovalValidator),
+      transaction: web3TransactionValidator,
+    }),
+  },
+  returns: v.null(),
+  handler: async (ctx, { actionId, route }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.status !== 'confirmed' ||
+      action.payload.kind !== 'socket_swap'
+    ) {
+      throw new Error('Only a confirmed Socket swap can refresh its route.')
+    }
+    const decimals =
+      SOCKET_CHAINS[action.payload.destinationChain].tokens[
+        action.payload.outputToken
+      ].decimals
+    const confirmedMinimum = BigInt(
+      parseTokenAmount(action.payload.minimumOutputAmount, decimals),
+    )
+    const refreshedMinimum = BigInt(
+      parseTokenAmount(route.minimumOutputAmount, decimals),
+    )
+    if (refreshedMinimum < confirmedMinimum) {
+      throw new Error(
+        'The refreshed route guarantees less than the amount you confirmed. Ask Bee to prepare the swap again.',
+      )
+    }
+    const { approval: _staleApproval, ...confirmedTerms } = action.payload
+    await ctx.db.patch(actionId, {
+      payload: { ...confirmedTerms, ...route },
+    })
+    return null
+  },
+})
+
 /** Executor bookkeeping: record the outcome of a confirmed action. */
 export const recordResult = internalMutation({
   args: {
     actionId: v.id('web3Actions'),
-    result: v.optional(
-      v.array(
-        v.object({
-          hash: v.union(v.string(), v.null()),
-          explorerLink: v.union(v.string(), v.null()),
-        }),
-      ),
-    ),
+    result: v.optional(web3ActionResultValidator),
     error: v.optional(v.string()),
   },
   handler: async (ctx, { actionId, result, error }) => {
@@ -175,6 +218,122 @@ export const recordResult = internalMutation({
       result,
       error,
     })
+    return null
+  },
+})
+
+/** Mark a Socket route as submitted while destination settlement continues. */
+export const recordSocketSubmitted = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    result: web3ActionResultValidator,
+    originTxHash: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { actionId, result, originTxHash }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.status !== 'confirmed' ||
+      action.payload.kind !== 'socket_swap'
+    ) {
+      return null
+    }
+    await ctx.db.patch(actionId, {
+      status: 'in_progress',
+      result,
+      socketProgress: {
+        status: 'PENDING',
+        detail: `Moving funds to ${action.payload.destinationChain === 'base' ? 'Base' : 'Arbitrum'}…`,
+        ...(originTxHash ? { originTxHash } : {}),
+        updatedAt: Date.now(),
+      },
+    })
+    await ctx.scheduler.runAfter(
+      action.payload.statusIntervalSeconds * 1_000,
+      internal.web3.pollSocketSwapStatus,
+      { actionId },
+    )
+    return null
+  },
+})
+
+/** Persist Socket's cross-chain status and close the action when it is final. */
+export const recordSocketProgress = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    progress: socketProgressValidator,
+    result: v.optional(web3ActionResultValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, { actionId, progress, result }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.status !== 'in_progress' ||
+      action.payload.kind !== 'socket_swap'
+    ) {
+      return null
+    }
+    const status =
+      progress.status === 'COMPLETED'
+        ? ('executed' as const)
+        : progress.status === 'REFUNDED'
+          ? ('refunded' as const)
+          : progress.status === 'FAILED' || progress.status === 'EXPIRED'
+            ? ('failed' as const)
+            : ('in_progress' as const)
+    await ctx.db.patch(actionId, {
+      status,
+      socketProgress: progress,
+      ...(result ? { result } : {}),
+      ...(status === 'failed'
+        ? {
+            error:
+              'The cross-chain route did not complete. No further transaction will be sent.',
+          }
+        : {}),
+    })
+    if (status === 'in_progress') {
+      await ctx.scheduler.runAfter(
+        action.payload.statusIntervalSeconds * 1_000,
+        internal.web3.pollSocketSwapStatus,
+        { actionId },
+      )
+    }
+    return null
+  },
+})
+
+/** Keep a route live when Socket status is briefly unavailable. */
+export const recordSocketPollingDelay = internalMutation({
+  args: { actionId: v.id('web3Actions') },
+  returns: v.null(),
+  handler: async (ctx, { actionId }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.status !== 'in_progress' ||
+      action.payload.kind !== 'socket_swap'
+    ) {
+      return null
+    }
+    await ctx.db.patch(actionId, {
+      socketProgress: {
+        ...(action.socketProgress ?? {
+          status: 'IN_PROGRESS' as const,
+          detail: 'Moving funds…',
+          updatedAt: Date.now(),
+        }),
+        detail: 'Transfer submitted. Checking destination settlement…',
+        updatedAt: Date.now(),
+      },
+    })
+    await ctx.scheduler.runAfter(
+      action.payload.statusIntervalSeconds * 1_000,
+      internal.web3.pollSocketSwapStatus,
+      { actionId },
+    )
     return null
   },
 })

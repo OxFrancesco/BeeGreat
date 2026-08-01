@@ -1,13 +1,15 @@
 import { useUser } from '@clerk/clerk-expo';
+import { api } from '@beegreat/backend/convex/_generated/api';
 import type {
   FlueConversationMessage,
   FlueConversationPart,
 } from '@flue/react';
 import type { LegendListRenderItemProps } from '@legendapp/list/react-native';
+import { useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -96,12 +98,17 @@ export default function VoiceAgentScreen() {
 function LiveVoiceAgentScreen() {
   const agent = useVoiceAgentContext();
   const { user } = useUser();
+  const powerups = useQuery(api.powerups.list);
+  const web3Enabled =
+    powerups?.some((powerup) => powerup.id === 'web3' && powerup.enabled) ??
+    false;
+  // Wallet QR lives beside Royal Jelly only while Web3 is toggled on.
   const walletAddress = useSmartWalletAddress();
   return (
     <VoiceAgentScreenView
       agent={agent}
       avatarUri={user?.hasImage ? user.imageUrl : null}
-      walletAddress={walletAddress}
+      walletAddress={web3Enabled ? walletAddress : null}
     />
   );
 }
@@ -125,6 +132,10 @@ export function VoiceAgentScreenView({
     Haptics.selectionAsync();
     setWalletQrOpen((open) => !open);
   }, []);
+  // Drop the popover if the address disappears (Web3 power-up off, wallet gone).
+  useEffect(() => {
+    if (!walletAddress) setWalletQrOpen(false);
+  }, [walletAddress]);
   const hasConversation = agent.messages.length > 0;
   // Keep the hero comfortable on small iPhones (SE) without shrinking it on Pro Max.
   const compact = height < 700;

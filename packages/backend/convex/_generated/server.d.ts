@@ -33,6 +33,8 @@ type Env = {
   readonly APPLE_SIGN_IN_TEAM_ID: string | undefined;
   readonly CLERK_SECRET_KEY: string | undefined;
   readonly CLERK_WEBHOOK_SIGNING_SECRET: string | undefined;
+  readonly CROSSMINT_API_KEY: string | undefined;
+  readonly CROSSMINT_SIGNER_SECRET: string | undefined;
   readonly DEVIN_API_KEY: string | undefined;
   readonly DEVIN_ORG_ID: string | undefined;
   readonly ELEVENLABS_API_KEY: string | undefined;
@@ -46,6 +48,7 @@ type Env = {
   readonly REVENUECAT_APP_ID: string | undefined;
   readonly REVENUECAT_SECRET_API_KEY: string | undefined;
   readonly REVENUECAT_WEBHOOK_SECRET: string | undefined;
+  readonly SOCKET_API_KEY: string | undefined;
   readonly TWITTERAPI_IO_API_KEY: string | undefined;
 };
 

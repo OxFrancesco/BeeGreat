@@ -89,7 +89,7 @@ export function WalletSettings() {
           <ThemedText type="default">Bee smart wallet</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {wallets.smartWallet
-              ? `${shorten(wallets.smartWallet.address)} · ${wallets.smartWallet.chain}`
+              ? `${shorten(wallets.smartWallet.address)} · ${wallets.smartWallet.supportedChains.map(formatChain).join(' · ')}`
               : 'Created the first time you ask Bee about your wallet'}
           </ThemedText>
         </View>
@@ -144,7 +144,9 @@ export function WalletSettings() {
         >
           <WalletQrCard
             address={wallets.smartWallet.address}
-            chain={wallets.smartWallet.chain}
+            chain={wallets.smartWallet.supportedChains
+              .map(formatChain)
+              .join(' · ')}
           />
         </Animated.View>
       ) : null}
@@ -241,6 +243,13 @@ export function WalletSettings() {
 
 function shorten(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+function formatChain(chain: string) {
+  return chain
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 const styles = StyleSheet.create({

@@ -70,12 +70,14 @@ import type * as scraper from "../scraper.js";
 import type * as scraperEffect from "../scraperEffect.js";
 import type * as scraperShared from "../scraperShared.js";
 import type * as sentryNode from "../sentryNode.js";
+import type * as socketSwap from "../socketSwap.js";
 import type * as subscriptionReconciliation from "../subscriptionReconciliation.js";
 import type * as subscriptions from "../subscriptions.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
 import type * as wallets from "../wallets.js";
 import type * as web3 from "../web3.js";
+import type * as web3ActionValidators from "../web3ActionValidators.js";
 import type * as web3Actions from "../web3Actions.js";
 
 import type {
@@ -147,12 +149,14 @@ declare const fullApi: ApiFromModules<{
   scraperEffect: typeof scraperEffect;
   scraperShared: typeof scraperShared;
   sentryNode: typeof sentryNode;
+  socketSwap: typeof socketSwap;
   subscriptionReconciliation: typeof subscriptionReconciliation;
   subscriptions: typeof subscriptions;
   tasks: typeof tasks;
   user: typeof user;
   wallets: typeof wallets;
   web3: typeof web3;
+  web3ActionValidators: typeof web3ActionValidators;
   web3Actions: typeof web3Actions;
 }>;
 

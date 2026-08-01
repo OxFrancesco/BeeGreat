@@ -1,35 +1,14 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
-import {
-  Canvas,
-  Group,
-  Path,
-  Rect,
-  RoundedRect,
-  Skia,
-} from '@shopify/react-native-skia';
 import { useQuery } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import createQr from 'qrcode-generator';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import {
-  Easing,
-  interpolate,
-  useDerivedValue,
-  useReducedMotion,
-  useSharedValue,
-  withDelay,
-  withTiming,
-} from 'react-native-reanimated';
 
+import { HoneyQrCode } from '@/components/honey-qr-code';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-
-const HONEY = '#FAB52A';
-const INK = '#43230F';
-const PAPER = '#FFF9EC';
 
 /** The Bee smart wallet address, or null while loading / before creation. */
 export function useSmartWalletAddress() {
@@ -37,79 +16,9 @@ export function useSmartWalletAddress() {
   return wallets?.smartWallet?.address ?? null;
 }
 
-const QUIET_MODULES = 2;
-
-/** All dark QR modules as one Skia path of softly rounded cells. */
-function buildQrPath(data: string, size: number) {
-  const qr = createQr(0, 'M');
-  qr.addData(data);
-  qr.make();
-  const count = qr.getModuleCount();
-  const cell = size / (count + QUIET_MODULES * 2);
-  const radius = cell * 0.32;
-  const path = Skia.Path.Make();
-  for (let row = 0; row < count; row++) {
-    for (let col = 0; col < count; col++) {
-      if (!qr.isDark(row, col)) continue;
-      const x = (col + QUIET_MODULES) * cell;
-      const y = (row + QUIET_MODULES) * cell;
-      // Cells overlap by a hair so adjacent modules fuse without seams.
-      path.addRRect(
-        Skia.RRectXY(
-          Skia.XYWHRect(x, y, cell * 1.04, cell * 1.04),
-          radius,
-          radius,
-        ),
-      );
-    }
-  }
-  return path;
-}
-
-/**
- * Wallet address QR with a honey scan-line reveal: the code sweeps in from
- * the top behind a moving amber line, then settles. Reduced motion renders
- * the finished code immediately.
- */
+/** Wallet-compatible wrapper around the shared BeeGreat QR renderer. */
 export function WalletQrCode({ address, size }: { address: string; size: number }) {
-  const reducedMotion = useReducedMotion();
-  const path = useMemo(() => buildQrPath(address, size), [address, size]);
-  const progress = useSharedValue(reducedMotion ? 1 : 0);
-
-  useEffect(() => {
-    if (reducedMotion) {
-      progress.value = 1;
-      return;
-    }
-    progress.value = 0;
-    progress.value = withDelay(
-      140,
-      withTiming(1, { duration: 640, easing: Easing.out(Easing.cubic) }),
-    );
-  }, [address, progress, reducedMotion]);
-
-  const revealClip = useDerivedValue(() => ({
-    x: 0,
-    y: 0,
-    width: size,
-    height: size * progress.value,
-  }));
-  const scanY = useDerivedValue(() =>
-    Math.min(size - 2, size * progress.value),
-  );
-  const scanOpacity = useDerivedValue(() =>
-    interpolate(progress.value, [0, 0.05, 0.92, 1], [0, 0.9, 0.9, 0]),
-  );
-
-  return (
-    <Canvas style={{ width: size, height: size }}>
-      <RoundedRect x={0} y={0} width={size} height={size} r={Spacing.two} color={PAPER} />
-      <Group clip={revealClip}>
-        <Path path={path} color={INK} />
-      </Group>
-      <Rect x={0} y={scanY} width={size} height={2} color={HONEY} opacity={scanOpacity} />
-    </Canvas>
-  );
+  return <HoneyQrCode value={address} size={size} />;
 }
 
 function shorten(address: string) {
