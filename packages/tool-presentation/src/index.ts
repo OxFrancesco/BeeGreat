@@ -7,12 +7,16 @@ type ToolCopy = {
   done: string;
   failed: string;
   powerup?: string;
+  specialist?: string;
 };
 
 const POWERUP_AGENTS: Record<string, string> = {
   devin: "Devin",
   web3: "Web3",
   "google-health": "Google Health",
+};
+
+const BUILT_IN_SPECIALISTS: Record<string, string> = {
   imagine: "Imagine",
 };
 
@@ -273,25 +277,25 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     running: "Creating your image…",
     done: "Created your image",
     failed: "Couldn’t create your image",
-    powerup: "Imagine",
+    specialist: "Imagine",
   },
   edit_image: {
     running: "Editing your image…",
     done: "Edited your image",
     failed: "Couldn’t edit your image",
-    powerup: "Imagine",
+    specialist: "Imagine",
   },
   generate_video: {
     running: "Creating your video…",
     done: "Created your video",
     failed: "Couldn’t create your video",
-    powerup: "Imagine",
+    specialist: "Imagine",
   },
   edit_video: {
     running: "Editing your video…",
     done: "Edited your video",
     failed: "Couldn’t edit your video",
-    powerup: "Imagine",
+    specialist: "Imagine",
   },
 };
 
@@ -307,6 +311,15 @@ function taskCopy(input: unknown): ToolCopy {
       done: "Finished",
       failed: "Hit a snag",
       powerup,
+    };
+  }
+  const specialist = BUILT_IN_SPECIALISTS[agent];
+  if (specialist) {
+    return {
+      running: "At work…",
+      done: "Finished",
+      failed: "Hit a snag",
+      specialist,
     };
   }
   if (agent === "goals") {
@@ -344,5 +357,6 @@ export function getToolCopy(
           ? copy.failed
           : copy.done,
     powerup: copy.powerup ?? null,
+    specialist: copy.specialist ?? null,
   };
 }

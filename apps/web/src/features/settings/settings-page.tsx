@@ -18,7 +18,6 @@ const POWERUP_SYMBOLS: Record<string, string> = {
   devin: 'D',
   web3: '⌬',
   'google-health': '♥',
-  imagine: '✦',
 }
 
 export function SettingsPage() {

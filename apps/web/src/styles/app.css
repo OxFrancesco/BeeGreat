@@ -1223,6 +1223,48 @@ h3 {
   color: inherit;
 }
 
+.generated-image-card {
+  display: grid;
+  padding: 13px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: var(--surface);
+  gap: 10px;
+  overflow: hidden;
+}
+
+.generated-image-card h3 {
+  padding: 2px 4px 0;
+  font-family: var(--font-display);
+  font-size: 0.94rem;
+  letter-spacing: -0.02em;
+}
+
+.generated-image-card > img {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 12px;
+  background: var(--surface-muted);
+  object-fit: cover;
+}
+
+.generated-image-card__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.generated-image-card__actions .button {
+  min-height: 44px;
+  gap: 7px;
+}
+
+.generated-image-card__feedback {
+  padding: 0 4px;
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+}
+
 .bookmark-card {
   display: grid;
   padding: 15px 17px;

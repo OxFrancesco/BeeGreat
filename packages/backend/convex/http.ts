@@ -956,8 +956,7 @@ http.route({
     })()
     const operation = body?.operation
     if (
-      typeof body?.userId !== 'string' ||
-      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+      !body ||
       (operation !== 'generate_image' &&
         operation !== 'edit_image' &&
         operation !== 'generate_video' &&
@@ -969,7 +968,6 @@ http.route({
     }
     try {
       const result = await ctx.runAction(internal.falMedia.execute, {
-        userId: body.userId,
         operation,
         prompt: body.prompt,
         sourceUrl: body.sourceUrl as string | undefined,

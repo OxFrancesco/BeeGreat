@@ -29,6 +29,8 @@ const TOOL_SYMBOLS: Record<string, string> = {
   fund_wallet: "drop.fill",
   send_tokens: "paperplane",
   prepare_send_tokens: "paperplane",
+  quote_cross_chain_swap: "arrow.left.arrow.right",
+  prepare_cross_chain_swap: "arrow.left.arrow.right.circle",
   prepare_sugar_execution: "arrow.triangle.2.circlepath.circle",
   check_web3_action: "checkmark.shield",
   sugar_pools: "drop.triangle",
@@ -64,9 +66,10 @@ function taskSymbol(input: unknown) {
   if (
     agent === "web3" ||
     agent === "google-health" ||
-    agent === "devin" ||
-    agent === "imagine"
-  ) return "bolt.fill";
+    agent === "devin"
+  )
+    return "bolt.fill";
+  if (agent === "imagine") return "wand.and.stars";
   return "sparkles";
 }
 

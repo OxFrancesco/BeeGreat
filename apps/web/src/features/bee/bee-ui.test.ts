@@ -87,4 +87,21 @@ describe('extractBeeUI', () => {
       },
     ])
   })
+
+  test('promotes a Markdown image into a downloadable image card', () => {
+    const result = extractBeeUI(
+      'Done — here is your bee.\n\n![Cheerful bee](https://cdn.example.com/bee.png)',
+    )
+
+    expect(result).toEqual({
+      spoken: 'Done — here is your bee.',
+      components: [
+        {
+          type: 'image',
+          url: 'https://cdn.example.com/bee.png',
+          alt: 'Cheerful bee',
+        },
+      ],
+    })
+  })
 })

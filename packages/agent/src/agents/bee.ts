@@ -13,6 +13,7 @@ import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
 import { createMindTools } from '../shared/mind-tools.ts'
 import { loadBeennectorSubagent } from '../shared/beennectors/index.ts'
+import { imagineSubagent } from '../shared/imagine-subagent.ts'
 import {
   BEE_ORCHESTRATOR_THINKING_LEVEL,
   resolveBeeEscalationModel,
@@ -67,8 +68,8 @@ export const cloudflare = extend<AgentWithStorage>({
 
 // Bee is an orchestrator: it owns the conversation and the voice/beeui contract,
 // and delegates domain work via its built-in `task` capability to specialist
-// subagents — `goals` (always on), the connection-backed Beennectors
-// specialist when available, plus one subagent per enabled power-up.
+// subagents — goals and Imagine are always on, Beennectors are loaded when
+// connected, and optional power-ups are loaded when enabled.
 export default defineAgent<Env>(async ({ id, env }) => {
   // Conversation ids are `<userId>` or `<userId>~<session>` once the user has
   // restarted the chat; specialists always key data by the bare user id.
@@ -123,6 +124,7 @@ export default defineAgent<Env>(async ({ id, env }) => {
   const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
   const domainSubagents = [
     goalsSubagent(userId, env.CONVEX_URL, focusOptions),
+    imagineSubagent(env.CONVEX_URL, focusOptions),
     ...beennectors,
     ...powerups,
   ]

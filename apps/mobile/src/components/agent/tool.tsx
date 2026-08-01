@@ -10,7 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { getToolCopy, type ToolActivityState } from '@/lib/tool-labels';
 
-const POWERUP_PALETTES: Record<
+const SPECIALIST_PALETTES: Record<
   string,
   { accent: string; solid: string; surface: string; border: string }
 > = {
@@ -34,7 +34,7 @@ const POWERUP_PALETTES: Record<
   },
 };
 
-const DEFAULT_POWERUP_PALETTE = {
+const DEFAULT_SPECIALIST_PALETTE = {
   accent: '#FAB52A',
   solid: '#845800',
   surface: '#D991001A',
@@ -44,8 +44,8 @@ const DEFAULT_POWERUP_PALETTE = {
 /**
  * A human-readable, expandable trace of what the agent is doing. The summary
  * stays quiet, while the disclosure exposes the complete input and result for
- * users who want to inspect the call. Power-up activity becomes a compact
- * specialist cell with its own accent color.
+ * users who want to inspect the call. Specialist activity becomes a compact
+ * cell with its own accent color; optional power-ups also receive a badge.
  */
 export function ToolActivity({
   name,
@@ -63,11 +63,12 @@ export function ToolActivity({
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const theme = useTheme();
-  const { label, symbol, powerup } = getToolCopy(name, state, input);
+  const { label, symbol, powerup, specialist } = getToolCopy(name, state, input);
+  const identity = specialist ?? powerup;
   const running = state === 'running';
   const error = state === 'error';
-  const powerupPalette = powerup
-    ? (POWERUP_PALETTES[powerup] ?? DEFAULT_POWERUP_PALETTE)
+  const specialistPalette = identity
+    ? (SPECIALIST_PALETTES[identity] ?? DEFAULT_SPECIALIST_PALETTE)
     : null;
 
   const copyDetails = async () => {
@@ -86,7 +87,7 @@ export function ToolActivity({
     <Shimmer
       type="small"
       themeColor="textSecondary"
-      style={powerupPalette ? styles.powerupActivity : undefined}
+      style={specialistPalette ? styles.powerupActivity : undefined}
     >
       {label}
     </Shimmer>
@@ -94,7 +95,7 @@ export function ToolActivity({
     <ThemedText
       type="small"
       themeColor={error ? 'destructive' : 'textSecondary'}
-      style={powerupPalette ? styles.powerupActivity : undefined}
+      style={specialistPalette ? styles.powerupActivity : undefined}
     >
       {label}
     </ThemedText>
@@ -102,21 +103,21 @@ export function ToolActivity({
 
   const borderColor = error
     ? theme.destructive
-    : powerupPalette?.border ?? theme.border;
+    : specialistPalette?.border ?? theme.border;
 
   return (
     <View
       style={[
         styles.tool,
         {
-          backgroundColor: powerupPalette?.surface ?? theme.card,
+          backgroundColor: specialistPalette?.surface ?? theme.card,
           borderColor,
         },
       ]}
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${powerup ?? label} tool call details`}
+        accessibilityLabel={`${identity ?? label} tool call details`}
         accessibilityHint={expanded ? 'Collapses the tool call' : 'Expands the complete tool call'}
         accessibilityState={{ expanded }}
         onPress={() => setExpanded((current) => !current)}
@@ -126,7 +127,7 @@ export function ToolActivity({
           style={[
             styles.iconBadge,
             {
-              backgroundColor: powerupPalette?.solid ?? theme.secondary,
+              backgroundColor: specialistPalette?.solid ?? theme.secondary,
             },
           ]}
         >
@@ -136,7 +137,7 @@ export function ToolActivity({
             tintColor={
               error
                 ? theme.destructive
-                : powerupPalette
+                : specialistPalette
                   ? '#FFFFFF'
                   : theme.secondaryForeground
             }
@@ -147,22 +148,29 @@ export function ToolActivity({
             }
           />
         </View>
-        {powerup && powerupPalette ? (
+        {identity && specialistPalette ? (
           <>
             <View style={styles.label}>
               <ThemedText
                 type="smallBold"
-                style={[styles.powerupName, { color: powerupPalette.accent }]}
+                style={[styles.powerupName, { color: specialistPalette.accent }]}
               >
-                {powerup}
+                {identity}
               </ThemedText>
               {activity}
             </View>
-            <View style={[styles.powerupTag, { backgroundColor: powerupPalette.solid }]}>
-              <ThemedText type="small" style={styles.powerupTagText}>
-                Power-up
-              </ThemedText>
-            </View>
+            {powerup ? (
+              <View
+                style={[
+                  styles.powerupTag,
+                  { backgroundColor: specialistPalette.solid },
+                ]}
+              >
+                <ThemedText type="small" style={styles.powerupTagText}>
+                  Power-up
+                </ThemedText>
+              </View>
+            ) : null}
           </>
         ) : (
           <View style={styles.label}>
