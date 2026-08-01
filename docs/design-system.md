@@ -265,6 +265,7 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
 | `chart` | `{kind:"bar", title, unit?, data:[{label, value}]}` | Comparisons over categories/days |
 | `tasks` | `{title, items:[{id, title, done, due?}]}` | Task lists; rows overlay **live Convex state** and toggle on tap |
 | `highlight` | `{title, body}` | The dense summary card — honey fill, no border |
+| `image` | `{url, alt, title?}` | Generated media — full preview with Copy and Download/Save actions |
 | `bookmark` | `{title, url, note?}` | Referencing saved Mind items — never a `highlight`, never a raw URL dump |
 | `devin` | `{title, status, statusDetail?, sessionId, sessionUrl, summary?, pullRequests[]}` | Devin cloud-task status; live-updates from Convex; session id is machine-only |
 | `first_focus` | `{requestId, goalTitle, projectTitle, taskTitle}` | Editable, uncommitted first-focus preview; app owns the atomic write |
@@ -280,6 +281,9 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
 - `bookmark` card: one row — site favicon (22px, rounded 6) · single-line
   title · `↗` — with the one-sentence note (or the host as fallback) below;
   the whole card opens the URL. No label chips, no kind badges.
+- `image` card: full-width edge-to-edge cover preview on a quiet surface, optional title,
+  then 44px Copy and Download/Save actions. Copy targets the image pixels when the
+  platform allows it and otherwise copies the exact URL with truthful feedback.
 - Numbers in cards use tabular figures; hosts/URLs display without `www.`.
 
 ### Content contract (agent side)

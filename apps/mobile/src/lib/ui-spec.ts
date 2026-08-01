@@ -45,6 +45,12 @@ export const uiComponentSchema = z.discriminatedUnion('type', [
     body: z.string(),
   }),
   z.object({
+    type: z.literal('image'),
+    url: httpsUrlSchema,
+    alt: z.string(),
+    title: z.string().optional(),
+  }),
+  z.object({
     type: z.literal('bookmark'),
     title: z.string(),
     url: httpsUrlSchema,
@@ -78,6 +84,7 @@ export type UIComponent = z.infer<typeof uiComponentSchema>;
 const uiSpecSchema = z.object({ components: z.array(uiComponentSchema) });
 
 const BEEUI_BLOCK = /```beeui\s*([\s\S]*?)```/g;
+const MARKDOWN_IMAGE = /!\[([^\]]*)\]\((https:\/\/[^\s)]+)(?:\s+["'][^"']*["'])?\)/g;
 
 /** Machine ids belong in structured fields, never in copy the user reads. */
 function scrubComponent(component: UIComponent): UIComponent {
@@ -99,6 +106,12 @@ function scrubComponent(component: UIComponent): UIComponent {
         ...component,
         title: scrubIdentifiers(component.title),
         body: scrubIdentifiers(component.body),
+      };
+    case 'image':
+      return {
+        ...component,
+        alt: scrubIdentifiers(component.alt),
+        title: component.title ? scrubIdentifiers(component.title) : component.title,
       };
     case 'devin':
       return {
@@ -134,6 +147,13 @@ export function extractBeeUI(text: string): {
         }
       } catch {
         // Malformed block: drop it rather than reading JSON aloud.
+      }
+      return '';
+    })
+    // Specialists may return Markdown directly. Promote it into the native image card.
+    .replace(MARKDOWN_IMAGE, (_match, alt: string, url: string) => {
+      if (!components.some((component) => component.type === 'image' && component.url === url)) {
+        components.push({ type: 'image', url, alt: alt.trim() || 'Generated image' });
       }
       return '';
     })

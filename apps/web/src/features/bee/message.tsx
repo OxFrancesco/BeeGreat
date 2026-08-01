@@ -132,7 +132,12 @@ function ToolActivity({
   const running = part.state === 'input-available'
   const failed = part.state === 'output-error'
   const state = running ? 'running' : failed ? 'error' : 'done'
-  const { label, powerup } = getToolCopy(part.toolName, state, part.input)
+  const { label, powerup, specialist } = getToolCopy(
+    part.toolName,
+    state,
+    part.input,
+  )
+  const identity = specialist ?? powerup
   const stateClass = running
     ? 'is-running'
     : failed
@@ -144,11 +149,11 @@ function ToolActivity({
     >
       <CollapsibleTrigger
         className="tool-activity-trigger group flex min-h-9 w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-semibold text-muted-foreground"
-        aria-label={`${powerup ?? label}: ${running ? 'In progress' : failed ? 'Failed' : 'Completed'}`}
+        aria-label={`${identity ?? label}: ${running ? 'In progress' : failed ? 'Failed' : 'Completed'}`}
       >
         {running ? <span className="activity-pulse" /> : null}
-        {powerup ? (
-          <strong className="min-w-0 flex-1 text-foreground">{powerup}</strong>
+        {identity ? (
+          <strong className="min-w-0 flex-1 text-foreground">{identity}</strong>
         ) : (
           <span className="min-w-0 flex-1">{label}</span>
         )}

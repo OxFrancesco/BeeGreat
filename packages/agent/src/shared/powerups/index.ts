@@ -6,7 +6,6 @@ import type { PowerupDefinition, PowerupRuntime } from './types.ts'
 import { googleHealth } from './google-health.ts'
 import { web3 } from './web3.ts'
 import { devin } from './devin.ts'
-import { imagine } from './imagine.ts'
 
 export type { PowerupDefinition } from './types.ts'
 
@@ -15,7 +14,6 @@ const REGISTRY: Record<string, PowerupDefinition> = {
   [devin.id]: devin,
   [web3.id]: web3,
   [googleHealth.id]: googleHealth,
-  [imagine.id]: imagine,
 }
 
 /**

@@ -1,7 +1,5 @@
 import { v } from 'convex/values'
-import { internal } from './_generated/api'
 import { env, internalAction } from './_generated/server'
-import type { ActionCtx } from './_generated/server'
 import {
   createFalMediaClient,
   DEFAULT_FAL_MEDIA_MODELS,
@@ -22,18 +20,6 @@ const resultValidator = v.object({
   url: v.string(),
   requestId: v.string(),
 })
-
-async function requireImagine(ctx: ActionCtx, userId: string) {
-  const enabled: boolean = await ctx.runQuery(internal.powerups.checkEnabled, {
-    userId,
-    powerupId: 'imagine',
-  })
-  if (!enabled) {
-    throw new Error(
-      'The Imagine power-up is not enabled. Turn it on from the profile screen first.',
-    )
-  }
-}
 
 function configuredClient() {
   const credentials = env.FAL_KEY?.trim()
@@ -61,14 +47,12 @@ function configuredClient() {
 
 export const execute = internalAction({
   args: {
-    userId: v.string(),
     operation: operationValidator,
     prompt: v.string(),
     sourceUrl: v.optional(v.string()),
   },
   returns: resultValidator,
-  handler: async (ctx, input) => {
-    await requireImagine(ctx, input.userId)
+  handler: async (_ctx, input) => {
     return await configuredClient().generate({
       operation: input.operation as FalMediaOperation,
       prompt: input.prompt,

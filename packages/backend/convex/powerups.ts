@@ -35,13 +35,6 @@ export const POWERUP_CATALOG = [
     description:
       'Lets your Bee read your steps, sleep, workouts, and heart data to answer health questions. Read-only.',
   },
-  {
-    id: 'imagine',
-    name: 'Imagine',
-    tagline: 'Create and remix any scene',
-    description:
-      'Lets your Bee generate images and videos, or edit media from a public link, with FAL.',
-  },
 ] as const
 
 export type PowerupId = (typeof POWERUP_CATALOG)[number]['id']

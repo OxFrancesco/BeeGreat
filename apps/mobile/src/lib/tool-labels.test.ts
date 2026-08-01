@@ -3,7 +3,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { getToolCopy } from './tool-labels';
 
-describe('power-up tool labels', () => {
+describe('specialist tool labels', () => {
   test('separates the specialist identity from its completion status', () => {
     const copy = getToolCopy('task', 'done', { agent: 'google-health' });
 
@@ -18,9 +18,10 @@ describe('power-up tool labels', () => {
     );
     expect(getToolCopy('task', 'running', { agent: 'web3' }).powerup).toBe('Web3');
     expect(getToolCopy('task', 'running', { agent: 'devin' }).powerup).toBe('Devin');
-    expect(getToolCopy('task', 'running', { agent: 'imagine' }).powerup).toBe(
+    expect(getToolCopy('task', 'running', { agent: 'imagine' }).specialist).toBe(
       'Imagine',
     );
+    expect(getToolCopy('task', 'running', { agent: 'imagine' }).powerup).toBeNull();
   });
 
   test('labels Devin session activity', () => {
@@ -33,12 +34,14 @@ describe('power-up tool labels', () => {
   test('labels FAL media activity without exposing tool names', () => {
     expect(getToolCopy('generate_image', 'running')).toMatchObject({
       label: 'Creating your image…',
-      powerup: 'Imagine',
+      specialist: 'Imagine',
+      powerup: null,
       symbol: 'wand.and.stars',
     });
     expect(getToolCopy('edit_video', 'done')).toMatchObject({
       label: 'Edited your video',
-      powerup: 'Imagine',
+      specialist: 'Imagine',
+      powerup: null,
       symbol: 'film',
     });
   });

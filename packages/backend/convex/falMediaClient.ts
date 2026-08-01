@@ -23,7 +23,7 @@ export type FalMediaResult = {
 export type FalMediaModels = Record<FalMediaOperation, string>
 
 export const DEFAULT_FAL_MEDIA_MODELS: FalMediaModels = {
-  generate_image: 'openai/gpt-image-2',
+  generate_image: 'google/nano-banana-2-lite',
   edit_image: 'openai/gpt-image-2/edit',
   generate_video: 'fal-ai/kling-video/v3/pro/text-to-video',
   edit_video: 'fal-ai/kling-video/o3/standard/video-to-video/edit',

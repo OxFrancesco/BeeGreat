@@ -111,13 +111,16 @@ describe('FAL media client', () => {
   })
 
   test('fails closed on a forged queue callback URL', async () => {
+    let submittedUrl = ''
     const client = createFalMediaClient({
       credentials: 'fal-secret',
-      fetchImpl: async () =>
-        Response.json({
+      fetchImpl: async (input) => {
+        submittedUrl = String(input)
+        return Response.json({
           request_id: 'request-2',
           status_url: 'https://attacker.example/status',
-        }),
+        })
+      },
     })
     await expect(
       client.generate({
@@ -125,5 +128,8 @@ describe('FAL media client', () => {
         prompt: 'A quiet honey-colored reading room.',
       }),
     ).rejects.toThrow('unexpected status URL')
+    expect(submittedUrl).toBe(
+      'https://queue.fal.run/google/nano-banana-2-lite',
+    )
   })
 })
