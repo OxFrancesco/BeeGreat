@@ -25,6 +25,9 @@ const app = defineApp({
     FAL_IMAGE_EDIT_MODEL: v.optional(v.string()),
     FAL_VIDEO_GENERATION_MODEL: v.optional(v.string()),
     FAL_VIDEO_EDIT_MODEL: v.optional(v.string()),
+    CROSSMINT_API_KEY: v.optional(v.string()),
+    CROSSMINT_SIGNER_SECRET: v.optional(v.string()),
+    SOCKET_API_KEY: v.optional(v.string()),
   },
 })
 

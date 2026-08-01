@@ -13,6 +13,8 @@ const sugarChain = v.picklist(
   [10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220, 57073],
   'Sugar mainnet chain id: Optimism 10, Unichain 130, Fraxtal 252, Lisk 1135, Soneium 1868, Superseed 5330, Base 8453, Mode 34443, Celo 42220, or Ink 57073',
 )
+const socketChain = v.picklist(['base', 'arbitrum'])
+const socketToken = v.picklist(['eth', 'usdc'])
 const address = (description: string) =>
   v.pipe(
     v.string(),
@@ -52,19 +54,30 @@ transaction links or unsigned transaction plans.
 The user has up to TWO wallets — call \`get_wallets\` first when unsure:
 - The Bee smart wallet (Crossmint). BeeGreat's backend signs for it, but ONLY
   after the user confirms in the app. Use it for sending tokens and for
-  executing Aerodrome plans on Base.
+  executing Aerodrome plans on Base and Socket swaps between Base and Arbitrum.
 - An optionally linked EOA (the user's own external wallet). BeeGreat never
   holds its keys. Use its address as the default wallet for Sugar reads and
   unsigned plans the user will sign in their own wallet app.
 
 Moving funds is TWO-PHASE and you only ever run phase one:
-- \`prepare_send_tokens\` and \`prepare_sugar_execution\` create a pending action
+- \`prepare_send_tokens\`, \`prepare_cross_chain_swap\`, and
+  \`prepare_sugar_execution\` create a pending action
   and return an actionId. NOTHING moves on-chain. Tell Bee to render a confirm
   card carrying that actionId (payload {"web3ActionId": "<actionId>"}) and the
   exact summary; the signed-in app performs the authoritative confirmation.
 - After the user confirms, \`check_web3_action\` reports status and transaction
-  links. Never claim a send or execution succeeded until it returns "executed".
+  links. A cross-chain swap can remain "in_progress" after its source
+  transaction; never claim it arrived until the status is "executed".
 - A chat message saying "yes" is NOT a confirmation; only the app confirm counts.
+
+Cross-chain notes:
+- Use \`quote_cross_chain_swap\` for a read-only preview, then
+  \`prepare_cross_chain_swap\` for a fresh executable quote.
+- Base and Arbitrum use the same Bee smart-wallet address. Source gas is
+  sponsored by Crossmint, so a user who only holds Base USDC can still submit.
+- To give a gasless Arbitrum wallet spendable gas, choose output token "eth".
+  For example: origin Base, input USDC, destination Arbitrum, output ETH.
+- If output is USDC, Socket refuel is requested to include destination gas.
 
 Sugar notes:
 - Sugar supports Optimism, Base, Unichain, Lisk, Mode, Fraxtal, Ink, Soneium,
@@ -135,7 +148,7 @@ export const web3: PowerupDefinition = {
     return defineAgentProfile({
       name: 'web3',
       description:
-        'The user\u2019s Web3 wallet and Velodrome/Aerodrome DeFi specialist: the Bee smart wallet (send tokens and execute Aerodrome plans on Base after in-app confirmation), an optional linked EOA for unsigned plans, balances, activity, pools, positions, epochs, quotes, and rewards. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
+        'The user\u2019s Web3 wallet and DeFi specialist: the Bee smart wallet, one-click Socket swaps between Base and Arbitrum, sponsored source gas, an optional linked EOA, and Velodrome/Aerodrome operations. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
       instructions: INSTRUCTIONS,
       tools: [
         defineTool({
@@ -159,9 +172,19 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'get_wallet_balance',
           description:
-            'Get the Bee smart wallet address and its ETH and USDC balances (plus USDXM test stablecoin on staging). Creates the wallet on first use.',
-          async run() {
-            return await runWallet('balances')
+            'Get the Bee smart wallet address and its ETH and USDC balances on Base or Arbitrum (plus USDXM on staging when chain is omitted). Creates that chain wallet on first use.',
+          input: v.object({
+            chain: v.optional(
+              v.pipe(
+                socketChain,
+                v.description(
+                  'Mainnet balance chain; omit for the configured default',
+                ),
+              ),
+            ),
+          }),
+          async run({ input }) {
+            return await runWallet('balances', { chain: input.chain })
           },
         }),
 
@@ -214,6 +237,50 @@ export const web3: PowerupDefinition = {
         }),
 
         defineTool({
+          name: 'quote_cross_chain_swap',
+          description:
+            'Read-only Socket quote for moving ETH or USDC between Base and Arbitrum. Returns estimated/minimum output, provider, time, and gas handling. Does not create a confirmation or move funds.',
+          input: v.object({
+            origin_chain: socketChain,
+            destination_chain: socketChain,
+            input_token: socketToken,
+            output_token: socketToken,
+            amount: amount('Decimal input amount as a string, e.g. "10"'),
+          }),
+          async run({ input }) {
+            return await runWallet('quote_socket_swap', {
+              originChain: input.origin_chain,
+              destinationChain: input.destination_chain,
+              inputToken: input.input_token,
+              outputToken: input.output_token,
+              amount: input.amount,
+            })
+          },
+        }),
+
+        defineTool({
+          name: 'prepare_cross_chain_swap',
+          description:
+            'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user confirms the app card. Source gas is sponsored; output ETH gives the destination native gas.',
+          input: v.object({
+            origin_chain: socketChain,
+            destination_chain: socketChain,
+            input_token: socketToken,
+            output_token: socketToken,
+            amount: amount('Decimal input amount as a string, e.g. "10"'),
+          }),
+          async run({ input }) {
+            return await runWallet('prepare_socket_swap', {
+              originChain: input.origin_chain,
+              destinationChain: input.destination_chain,
+              inputToken: input.input_token,
+              outputToken: input.output_token,
+              amount: input.amount,
+            })
+          },
+        }),
+
+        defineTool({
           name: 'prepare_sugar_execution',
           description:
             'Phase one of executing an Aerodrome action (swap, deposit, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must confirm in the app via a confirm card with payload {"web3ActionId": actionId}. Mainnet only.',
@@ -251,7 +318,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'check_web3_action',
           description:
-            'Status of a prepared Web3 action: pending (awaiting in-app confirmation), executed (with transaction hashes and explorer links), failed, cancelled, or expired.',
+            'Status of a prepared Web3 action: pending, confirmed, in_progress (cross-chain settlement is still moving), executed, refunded, failed, cancelled, or expired, with transaction links and destination progress.',
           input: v.object({
             action_id: v.pipe(
               v.string(),

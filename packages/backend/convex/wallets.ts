@@ -15,6 +15,9 @@ import { requirePowerup } from './powerups'
 /** Chain key for the linked EOA row (valid on every EVM network). */
 export const EOA_CHAIN = 'evm'
 
+/** Mainnet chains where BeeGreat can use the Crossmint smart wallet. */
+const CROSSMINT_MAINNET_CHAINS = ['base', 'arbitrum'] as const
+
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/
 
 /** App-facing: the signed-in user's wallets — smart wallet cache plus linked EOA. */
@@ -27,9 +30,18 @@ export const myWallets = query({
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
     const eoa = rows.find((row) => row.kind === 'eoa')
-    const smart = rows.find((row) => (row.kind ?? 'crossmint') === 'crossmint')
+    const smartWallets = rows
+      .filter((row) => (row.kind ?? 'crossmint') === 'crossmint')
+      .map((row) => ({ address: row.address, chain: row.chain }))
+    const smart = smartWallets[0]
+    const cachedChains = smartWallets.map((wallet) => wallet.chain)
+    const supportedChains = cachedChains.some((chain) =>
+      chain.includes('sepolia'),
+    )
+      ? [...new Set(cachedChains)]
+      : [...new Set([...CROSSMINT_MAINNET_CHAINS, ...cachedChains])]
     return {
-      smartWallet: smart ? { address: smart.address, chain: smart.chain } : null,
+      smartWallet: smart ? { ...smart, supportedChains } : null,
       eoa: eoa ? { address: eoa.address } : null,
     }
   },

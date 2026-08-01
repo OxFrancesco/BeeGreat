@@ -1,9 +1,12 @@
 import { api } from "@beegreat/backend/convex/_generated/api";
 import type { Id } from "@beegreat/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
+import * as Clipboard from "expo-clipboard";
+import { File, Paths } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import { Image as ExpoImage } from "expo-image";
 import * as Linking from "expo-linking";
+import * as Sharing from "expo-sharing";
 import { SymbolView } from "expo-symbols";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
@@ -69,6 +72,8 @@ function UIComponentView({
       return <TaskListCard {...component} />;
     case "highlight":
       return <HighlightCard {...component} />;
+    case "image":
+      return <GeneratedImageCard {...component} />;
     case "bookmark":
       return <BookmarkCard {...component} />;
     case "devin":
@@ -283,6 +288,167 @@ function HighlightCard({ title, body }: { title: string; body: string }) {
   );
 }
 
+function imageFileName(url: string) {
+  try {
+    const sourceName = new URL(url).pathname.split("/").pop() ?? "";
+    if (/\.(?:avif|gif|jpe?g|png|webp)$/i.test(sourceName)) {
+      return sourceName;
+    }
+  } catch {
+    // The schema already validates the URL; keep a safe fallback for native URL parsing.
+  }
+  return `bee-image-${Date.now()}.png`;
+}
+
+async function downloadGeneratedImage(url: string) {
+  return File.downloadFileAsync(
+    url,
+    new File(Paths.cache, imageFileName(url)),
+    { idempotent: true },
+  );
+}
+
+function GeneratedImageCard({
+  url,
+  alt,
+  title,
+}: Extract<UIComponent, { type: "image" }>) {
+  const theme = useTheme();
+  const [feedback, setFeedback] = useState<string>();
+  const [working, setWorking] = useState<"copy" | "save">();
+
+  const copyImage = async () => {
+    setWorking("copy");
+    try {
+      const file = await downloadGeneratedImage(url);
+      await Clipboard.setImageAsync(await file.base64());
+      setFeedback("Image copied");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      await Clipboard.setStringAsync(url);
+      setFeedback("Image link copied");
+    } finally {
+      setWorking(undefined);
+    }
+  };
+
+  const saveImage = async () => {
+    setWorking("save");
+    try {
+      const file = await downloadGeneratedImage(url);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, {
+          dialogTitle: "Save image",
+          mimeType: file.type || "image/png",
+          UTI: "public.image",
+        });
+        setFeedback("Image ready to save");
+      } else {
+        await Linking.openURL(url);
+        setFeedback("Image opened");
+      }
+    } catch {
+      await Linking.openURL(url);
+      setFeedback("Image opened");
+    } finally {
+      setWorking(undefined);
+    }
+  };
+
+  return (
+    <View
+      style={[
+        styles.card,
+        styles.imageCard,
+        { backgroundColor: theme.card, borderColor: theme.border },
+      ]}
+    >
+      {title ? <ThemedText type="smallBold">{title}</ThemedText> : null}
+      <ExpoImage
+        accessibilityLabel={alt}
+        accessibilityRole="image"
+        contentFit="cover"
+        source={{ uri: url }}
+        style={[
+          styles.generatedImage,
+          { backgroundColor: theme.backgroundElement },
+        ]}
+        transition={MotionDuration.enter}
+      />
+      <View style={styles.imageActions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Copy generated image"
+          disabled={working !== undefined}
+          onPress={() => void copyImage()}
+          style={({ pressed }) => [
+            styles.imageAction,
+            styles.imageActionOutline,
+            { borderColor: theme.border },
+            (pressed || working !== undefined) && styles.taskRowPressed,
+          ]}
+        >
+          {working === "copy" ? (
+            <ActivityIndicator size="small" color={theme.text} />
+          ) : (
+            <SymbolView
+              name="doc.on.doc"
+              size={16}
+              tintColor={theme.text}
+              fallback={<ThemedText type="smallBold">Copy</ThemedText>}
+            />
+          )}
+          <ThemedText type="smallBold">Copy</ThemedText>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Save generated image"
+          disabled={working !== undefined}
+          onPress={() => void saveImage()}
+          style={({ pressed }) => [
+            styles.imageAction,
+            { backgroundColor: theme.primary },
+            (pressed || working !== undefined) && styles.taskRowPressed,
+          ]}
+        >
+          {working === "save" ? (
+            <ActivityIndicator size="small" color={theme.primaryForeground} />
+          ) : (
+            <SymbolView
+              name="square.and.arrow.down"
+              size={16}
+              tintColor={theme.primaryForeground}
+              fallback={
+                <ThemedText
+                  type="smallBold"
+                  style={{ color: theme.primaryForeground }}
+                >
+                  Save
+                </ThemedText>
+              }
+            />
+          )}
+          <ThemedText
+            type="smallBold"
+            style={{ color: theme.primaryForeground }}
+          >
+            Save
+          </ThemedText>
+        </Pressable>
+      </View>
+      {feedback ? (
+        <ThemedText
+          accessibilityLiveRegion="polite"
+          type="small"
+          themeColor="textSecondary"
+        >
+          {feedback}
+        </ThemedText>
+      ) : null}
+    </View>
+  );
+}
+
 function bookmarkHost(url: string) {
   try {
     return new URL(url).hostname.replace(/^www\./, "");
@@ -327,7 +493,11 @@ function BookmarkCard({
             { backgroundColor: theme.backgroundElement },
           ]}
         />
-        <ThemedText type="smallBold" numberOfLines={1} style={styles.bookmarkTitle}>
+        <ThemedText
+          type="smallBold"
+          numberOfLines={1}
+          style={styles.bookmarkTitle}
+        >
           {title}
         </ThemedText>
         <SymbolView
@@ -452,7 +622,9 @@ function DevinCard({
             name="arrow.up.right"
             size={12}
             tintColor="#FFFFFF"
-            fallback={<ThemedText style={styles.devinPrimaryText}>↗</ThemedText>}
+            fallback={
+              <ThemedText style={styles.devinPrimaryText}>↗</ThemedText>
+            }
           />
         </Pressable>
         {onReply ? (
@@ -536,9 +708,10 @@ function Web3ConfirmCard({
   };
 
   const status = live?.status;
-  const explorerLink = live?.result?.find(
-    (item) => item.explorerLink,
-  )?.explorerLink;
+  const explorerLink =
+    live?.socketProgress?.destinationExplorerLink ??
+    [...(live?.result ?? [])].reverse().find((item) => item.explorerLink)
+      ?.explorerLink;
 
   return (
     <View
@@ -577,14 +750,36 @@ function Web3ConfirmCard({
             ) : null}
           </View>
         ) : status === "failed" ? (
-          <ThemedText type="small" themeColor="destructive">
+          <ThemedText
+            type="small"
+            themeColor="destructive"
+            accessibilityLiveRegion="polite"
+          >
             {live?.error ?? "Execution failed."}
+          </ThemedText>
+        ) : status === "refunded" ? (
+          <ThemedText type="small" accessibilityLiveRegion="polite">
+            The route was refunded.
+          </ThemedText>
+        ) : status === "expired" ? (
+          <ThemedText
+            type="small"
+            themeColor="destructive"
+            accessibilityLiveRegion="polite"
+          >
+            This confirmation expired before execution.
           </ThemedText>
         ) : (
           <View style={styles.confirmRow}>
             <ActivityIndicator size="small" />
-            <ThemedText type="small" themeColor="textSecondary">
-              Confirmed — executing…
+            <ThemedText
+              type="small"
+              themeColor="textSecondary"
+              accessibilityLiveRegion="polite"
+            >
+              {status === "in_progress"
+                ? (live?.socketProgress?.detail ?? "Moving funds…")
+                : "Confirmed — preparing…"}
             </ThemedText>
           </View>
         )
@@ -602,10 +797,7 @@ function Web3ConfirmCard({
             ]}
           >
             {decision === "working" ? (
-              <ActivityIndicator
-                size="small"
-                color={theme.primaryForeground}
-              />
+              <ActivityIndicator size="small" color={theme.primaryForeground} />
             ) : (
               <ThemedText
                 type="smallBold"
@@ -788,6 +980,31 @@ const styles = StyleSheet.create({
   },
   highlight: {
     borderWidth: 0,
+  },
+  imageCard: {
+    overflow: "hidden",
+  },
+  generatedImage: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: Spacing.two,
+    borderCurve: "continuous",
+  },
+  imageActions: {
+    flexDirection: "row",
+    gap: Spacing.two,
+  },
+  imageAction: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 22,
+    gap: Spacing.one,
+  },
+  imageActionOutline: {
+    borderWidth: StyleSheet.hairlineWidth,
   },
   bookmarkCard: {
     gap: Spacing.two,

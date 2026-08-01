@@ -64,7 +64,7 @@ export function WalletSettings() {
           <h3>Bee smart wallet</h3>
           <p>
             {wallets.smartWallet
-              ? `${shorten(wallets.smartWallet.address)} · ${wallets.smartWallet.chain}`
+              ? `${shorten(wallets.smartWallet.address)} · ${wallets.smartWallet.supportedChains.map(formatChain).join(' · ')}`
               : 'Created the first time you ask Bee about your wallet'}
           </p>
         </div>
@@ -140,4 +140,11 @@ export function WalletSettings() {
 
 function shorten(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`
+}
+
+function formatChain(chain: string) {
+  return chain
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
 }

@@ -16,6 +16,35 @@ const sendPayload = {
   amount: '1.5',
 }
 
+const socketPayload = {
+  kind: 'socket_swap' as const,
+  quoteId: `0x${'12'.repeat(32)}`,
+  originChainId: 8453,
+  destinationChainId: 42161,
+  originChain: 'base' as const,
+  destinationChain: 'arbitrum' as const,
+  inputToken: 'usdc' as const,
+  outputToken: 'eth' as const,
+  inputAmount: '10',
+  outputAmount: '0.003',
+  minimumOutputAmount: '0.00297',
+  provider: 'Across',
+  estimatedTimeSeconds: 45,
+  quoteExpiresAt: Date.parse('2026-07-31T12:05:00Z'),
+  monitoringDeadlineAt: Date.parse('2026-07-31T12:35:00Z'),
+  statusIntervalSeconds: 5,
+  approval: {
+    tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    spenderAddress: '0x00000000000000000000000000000000000000bb',
+    amount: '10000000',
+  },
+  transaction: {
+    to: '0x00000000000000000000000000000000000000cc',
+    data: '0x1234',
+    value: '0',
+  },
+}
+
 function identity(subject: string) {
   return { subject, tokenIdentifier: `https://issuer.example.test|${subject}` }
 }
@@ -187,6 +216,202 @@ describe('web3 action confirmation gate', () => {
       }),
     ).toBeNull()
   })
+
+  test('Socket actions stay in progress until destination completion', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Swap Base USDC for Arbitrum ETH',
+      payload: socketPayload,
+    })
+    const app = t.withIdentity(identity(owner))
+    await app.mutation(api.web3Actions.confirm, { actionId: created.id })
+
+    const sourceTxHash = `0x${'ab'.repeat(32)}`
+    await t.mutation(internal.web3Actions.recordSocketSubmitted, {
+      actionId: created.id,
+      originTxHash: sourceTxHash,
+      result: [
+        {
+          hash: sourceTxHash,
+          explorerLink: `https://basescan.org/tx/${sourceTxHash}`,
+        },
+      ],
+    })
+    let status = await app.query(api.web3Actions.status, {
+      actionId: created.id,
+    })
+    expect(status?.status).toBe('in_progress')
+    expect(status?.socketProgress?.status).toBe('PENDING')
+
+    const destinationTxHash = `0x${'cd'.repeat(32)}`
+    await t.mutation(internal.web3Actions.recordSocketProgress, {
+      actionId: created.id,
+      progress: {
+        status: 'COMPLETED',
+        detail: 'Funds arrived on Arbitrum.',
+        originTxHash: sourceTxHash,
+        destinationTxHash,
+        destinationExplorerLink: `https://arbiscan.io/tx/${destinationTxHash}`,
+        updatedAt: Date.now(),
+      },
+      result: [
+        {
+          hash: sourceTxHash,
+          explorerLink: `https://basescan.org/tx/${sourceTxHash}`,
+        },
+        {
+          hash: destinationTxHash,
+          explorerLink: `https://arbiscan.io/tx/${destinationTxHash}`,
+        },
+      ],
+    })
+    status = await app.query(api.web3Actions.status, {
+      actionId: created.id,
+    })
+    expect(status?.status).toBe('executed')
+    expect(status?.socketProgress?.destinationTxHash).toBe(destinationTxHash)
+  })
+
+  test('a Socket confirmation gets the full action TTL even if its quote is shorter', async () => {
+    const t = convexTest(schema, modules)
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Quoted cross-chain swap',
+      payload: { ...socketPayload, quoteExpiresAt: Date.now() + 30_000 },
+    })
+    expect(created.expiresAt).toBe(Date.now() + ACTION_TTL_MS)
+  })
+})
+
+describe('socket route refresh', () => {
+  const refreshedRoute = {
+    quoteId: `0x${'34'.repeat(32)}`,
+    outputAmount: '0.0031',
+    minimumOutputAmount: '0.003069',
+    provider: 'CCTP',
+    estimatedTimeSeconds: 60,
+    quoteExpiresAt: Date.parse('2026-07-31T12:11:00Z'),
+    monitoringDeadlineAt: Date.parse('2026-07-31T12:41:00Z'),
+    statusIntervalSeconds: 10,
+    approval: {
+      tokenAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+      spenderAddress: '0x00000000000000000000000000000000000000dd',
+      amount: '10000000',
+    },
+    transaction: {
+      to: '0x00000000000000000000000000000000000000ee',
+      data: '0x5678',
+      value: '0',
+    },
+  }
+
+  async function confirmedSocketAction(t: ReturnType<typeof convexTest>) {
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Swap Base USDC for Arbitrum ETH',
+      payload: socketPayload,
+    })
+    await t
+      .withIdentity(identity(owner))
+      .mutation(api.web3Actions.confirm, { actionId: created.id })
+    return created.id
+  }
+
+  test('refresh swaps in the fresh route but keeps the confirmed terms', async () => {
+    const t = convexTest(schema, modules)
+    const actionId = await confirmedSocketAction(t)
+
+    await t.mutation(internal.web3Actions.refreshSocketRoute, {
+      actionId,
+      route: refreshedRoute,
+    })
+
+    const action = await t.run(async (ctx) => await ctx.db.get(actionId))
+    if (action?.payload.kind !== 'socket_swap') throw new Error('wrong kind')
+    expect(action.payload.quoteId).toBe(refreshedRoute.quoteId)
+    expect(action.payload.transaction).toEqual(refreshedRoute.transaction)
+    expect(action.payload.approval).toEqual(refreshedRoute.approval)
+    expect(action.payload.quoteExpiresAt).toBe(refreshedRoute.quoteExpiresAt)
+    expect(action.payload.minimumOutputAmount).toBe(
+      refreshedRoute.minimumOutputAmount,
+    )
+    // The confirmed terms are untouched.
+    expect(action.payload.inputAmount).toBe(socketPayload.inputAmount)
+    expect(action.payload.originChain).toBe(socketPayload.originChain)
+    expect(action.payload.destinationChain).toBe(socketPayload.destinationChain)
+  })
+
+  test('refresh rejects a route that guarantees less than the user confirmed', async () => {
+    const t = convexTest(schema, modules)
+    const actionId = await confirmedSocketAction(t)
+
+    await expect(
+      t.mutation(internal.web3Actions.refreshSocketRoute, {
+        actionId,
+        route: { ...refreshedRoute, minimumOutputAmount: '0.00296' },
+      }),
+    ).rejects.toThrow('less than')
+
+    const action = await t.run(async (ctx) => await ctx.db.get(actionId))
+    if (action?.payload.kind !== 'socket_swap') throw new Error('wrong kind')
+    expect(action.payload.quoteId).toBe(socketPayload.quoteId)
+  })
+
+  test('refresh without an approval clears the stale approval', async () => {
+    const t = convexTest(schema, modules)
+    const actionId = await confirmedSocketAction(t)
+
+    const { approval: _approval, ...withoutApproval } = refreshedRoute
+    await t.mutation(internal.web3Actions.refreshSocketRoute, {
+      actionId,
+      route: withoutApproval,
+    })
+
+    const action = await t.run(async (ctx) => await ctx.db.get(actionId))
+    if (action?.payload.kind !== 'socket_swap') throw new Error('wrong kind')
+    expect(action.payload.approval).toBeUndefined()
+  })
+
+  test('refresh refuses actions that are not confirmed Socket swaps', async () => {
+    const t = convexTest(schema, modules)
+    const send = await prepare(t)
+    const pending = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Swap Base USDC for Arbitrum ETH',
+      payload: socketPayload,
+    })
+    await expect(
+      t.mutation(internal.web3Actions.refreshSocketRoute, {
+        actionId: pending.id,
+        route: refreshedRoute,
+      }),
+    ).rejects.toThrow('confirmed')
+
+    await t
+      .withIdentity(identity(owner))
+      .mutation(api.web3Actions.confirm, { actionId: send.id })
+    await expect(
+      t.mutation(internal.web3Actions.refreshSocketRoute, {
+        actionId: send.id,
+        route: refreshedRoute,
+      }),
+    ).rejects.toThrow('Socket')
+  })
 })
 
 describe('wallets DB surface', () => {
@@ -215,6 +440,7 @@ describe('wallets DB surface', () => {
       '0x00000000000000000000000000000000000000bb',
     )
     expect(wallets.smartWallet?.chain).toBe('base')
+    expect(wallets.smartWallet?.supportedChains).toEqual(['base', 'arbitrum'])
     expect(wallets.eoa?.address).toBe(
       '0x00000000000000000000000000000000000000cc',
     )
@@ -264,5 +490,6 @@ describe('wallets DB surface', () => {
     expect(wallets.smartWallet?.address).toBe(
       '0x00000000000000000000000000000000000000ee',
     )
+    expect(wallets.smartWallet?.supportedChains).toEqual(['base-sepolia'])
   })
 })
