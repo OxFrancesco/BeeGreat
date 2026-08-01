@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "beegreat-profiles",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-07-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "bee.buddytools.org/*",
+      "zone_name": "buddytools.org"
+    }
+  ],
+  "observability": { "enabled": true }
+}

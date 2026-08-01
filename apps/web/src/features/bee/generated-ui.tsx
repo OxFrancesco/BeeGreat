@@ -211,7 +211,8 @@ function GeneratedImageCard({
  * Web3 money movement: the app is the authoritative confirmer. Clicking
  * Confirm runs the signed-in `web3Actions.confirm` mutation (which schedules
  * server-side execution) and only then tells Bee. A chat "yes" alone can
- * never move funds.
+ * never move funds. When the user's YOLO mode auto-approved the action
+ * server-side, the card skips the buttons and shows live progress instead.
  */
 function Web3ConfirmCard({
   summary,
@@ -228,13 +229,12 @@ function Web3ConfirmCard({
     'idle' | 'working' | 'confirmed' | 'declined'
   >('idle')
   const [error, setError] = useState<string>()
-  // Subscribe only once the confirm mutation proved the id valid and owned.
-  const live = useQuery(
-    api.web3Actions.status,
-    decision === 'confirmed'
-      ? { actionId: actionId as Id<'web3Actions'> }
-      : 'skip',
-  )
+  // The status query is ownership-scoped (null for anyone else), so it is
+  // safe to subscribe immediately — needed to detect YOLO auto-confirmation.
+  const live = useQuery(api.web3Actions.status, {
+    actionId: actionId as Id<'web3Actions'>,
+  })
+  const autoConfirmed = live?.autoConfirmed === true
 
   const confirm = async () => {
     if (decision !== 'idle') return
@@ -266,15 +266,21 @@ function Web3ConfirmCard({
     live?.socketProgress?.destinationExplorerLink ??
     [...(live?.result ?? [])].reverse().find((item) => item.explorerLink)
       ?.explorerLink
+  // YOLO auto-approval resolves the card without a click; show progress
+  // immediately instead of confirm buttons.
+  const resolved = decision === 'confirmed' || autoConfirmed
+  const loading = live === undefined
 
   return (
     <Card className="confirm-card">
-      <p className="utility-label">Needs your confirmation</p>
+      <p className="utility-label">
+        {autoConfirmed ? 'Auto-approved · YOLO mode' : 'Needs your confirmation'}
+      </p>
       <p>{summary}</p>
       {error ? <p className="confirm-card__error">{error}</p> : null}
       {decision === 'declined' ? (
         <p>Declined — nothing was sent.</p>
-      ) : decision === 'confirmed' ? (
+      ) : resolved ? (
         status === 'executed' ? (
           <p aria-live="polite">
             Done ✓{' '}
@@ -301,6 +307,10 @@ function Web3ConfirmCard({
         ) : (
           <p aria-live="polite">Confirmed — preparing…</p>
         )
+      ) : loading ? (
+        // Wait for the first status read so an auto-approved action never
+        // flashes confirm buttons.
+        <p aria-live="polite">Checking status…</p>
       ) : (
         <div className="confirm-card__actions">
           <button

@@ -132,6 +132,17 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen
+          name="public-profile"
+          options={{
+            headerShown: true,
+            title: 'Public profile',
+            presentation: 'formSheet',
+            sheetAllowedDetents: [1],
+            sheetGrabberVisible: true,
+            contentStyle: { height: '100%' },
+          }}
+        />
+        <Stack.Screen
           name="voice-conversation"
           options={{
             headerShown: true,

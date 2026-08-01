@@ -1,0 +1,26 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import BeeMark from '../components/BeeMark.astro'
+Astro.response.status = 404
+Astro.response.headers.set('Cache-Control', 'no-store')
+---
+<BaseLayout
+  title="Profile not found — BeeGreat"
+  description="This BeeGreat profile is unavailable."
+  noIndex={true}
+>
+  <main class="not-found">
+    <BeeMark />
+    <h1>This hive is quiet.</h1>
+    <p>The profile may be private, unpublished, or no longer available.</p>
+    <a href="https://beegreat.app">Go to BeeGreat</a>
+  </main>
+</BaseLayout>
+
+<style>
+  .not-found { position: relative; z-index: 1; width: min(100% - 32px, 560px); margin: 0 auto; padding: 24vh 0 64px; text-align: center; }
+  .not-found :global(.bee-mark) { margin: 0 auto 18px; }
+  h1 { margin: 0; font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; font-size: clamp(36px, 9vw, 54px); letter-spacing: -.04em; }
+  p { margin: 16px auto 24px; color: var(--ink-soft); line-height: 1.55; }
+  a { color: var(--ink); font-weight: 750; text-underline-offset: 4px; }
+</style>

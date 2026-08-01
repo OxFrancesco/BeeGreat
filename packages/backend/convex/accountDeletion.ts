@@ -45,6 +45,9 @@ const DATA_STAGES = [
   'chatThreads',
   'chatPreferences',
   'userPreferences',
+  'publicProfileLinks',
+  'publicProfileAliases',
+  'publicProfiles',
   'highlights',
   'honeyLedgerEntries',
   'firstFocusBundles',
@@ -77,6 +80,9 @@ const DATA_STAGES = [
   'beennectorDeliveries',
   'powerups',
   'devinSessions',
+  'beeSiteDeployments',
+  'beeSiteUsage',
+  'beeSites',
   'wallets',
   'web3Actions',
   'tasks',
@@ -86,7 +92,7 @@ const DATA_STAGES = [
   'hives',
 ] as const
 
-// This enumerates all 48 user-data stages in schema.ts. The crawl-cache stage
+// This enumerates every user-data stage in schema.ts. The crawl-cache stage
 // removes only owner-scoped websites; public tweet/video artifacts contain no
 // account identity. `posts` and privacy-minimized provider metadata are global;
 // `accountDeletionJobs` retains only a bounded safety-sweep tombstone.
@@ -192,6 +198,30 @@ async function removeDataBatch(
         ctx,
         await ctx.db
           .query('userPreferences')
+          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
+          .take(BATCH_SIZE),
+      )
+    case 'publicProfileLinks':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('publicProfileLinks')
+          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
+          .take(BATCH_SIZE),
+      )
+    case 'publicProfileAliases':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('publicProfileAliases')
+          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
+          .take(BATCH_SIZE),
+      )
+    case 'publicProfiles':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('publicProfiles')
           .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
           .take(BATCH_SIZE),
       )
@@ -476,6 +506,30 @@ async function removeDataBatch(
         await ctx.db
           .query('devinSessions')
           .withIndex('by_user_and_updated_at', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'beeSiteDeployments':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('beeSiteDeployments')
+          .withIndex('by_user_id_and_created_at', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'beeSiteUsage':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('beeSiteUsage')
+          .withIndex('by_user_id_and_month_key', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'beeSites':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('beeSites')
+          .withIndex('by_user_id_and_updated_at', (q) => q.eq('userId', userId))
           .take(BATCH_SIZE),
       )
     case 'wallets':

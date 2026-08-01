@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import BeeMark from '../components/BeeMark.astro'
+export const prerender = true
+---
+<BaseLayout
+  title="BeeGreat Profiles"
+  description="One warm, shareable home for your bio and social links."
+  canonical="https://bee.buddytools.org/"
+>
+  <main class="landing">
+    <BeeMark />
+    <p class="eyebrow">BeeGreat Profiles</p>
+    <h1>Your links, carried by one little QR.</h1>
+    <p>Build your profile in BeeGreat, then share one permanent link anywhere.</p>
+    <a href="https://beegreat.app">Open BeeGreat</a>
+  </main>
+</BaseLayout>
+
+<style>
+  .landing { position: relative; z-index: 1; width: min(100% - 32px, 650px); margin: 0 auto; padding: 18vh 0 64px; text-align: center; }
+  .landing :global(.bee-mark) { margin: 0 auto; }
+  .eyebrow { margin: 20px 0 10px; color: var(--ink-soft); font-size: 13px; font-weight: 750; }
+  h1 { max-width: 620px; margin: 0 auto; font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif; font-size: clamp(40px, 9vw, 68px); line-height: .98; letter-spacing: -.05em; }
+  p:not(.eyebrow) { max-width: 510px; margin: 24px auto; color: var(--ink-soft); font-size: 18px; line-height: 1.55; }
+  a { display: inline-flex; min-height: 48px; align-items: center; border-radius: 999px; padding: 0 22px; color: var(--brown-ink); background: var(--brown); font-weight: 750; text-decoration: none; }
+</style>

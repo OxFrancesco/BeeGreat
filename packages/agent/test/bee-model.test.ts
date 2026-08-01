@@ -4,8 +4,11 @@ import {
   BEE_ESCALATION_THINKING_LEVEL,
   BEE_ORCHESTRATOR_MODEL_ID,
   BEE_ORCHESTRATOR_THINKING_LEVEL,
+  BEE_SITE_CREATOR_MODEL_ID,
+  BEE_SITE_CREATOR_THINKING_LEVEL,
   resolveBeeEscalationModel,
   resolveBeeOrchestratorModel,
+  resolveBeeSiteCreatorModel,
 } from '../src/agents/bee.ts'
 import { solEscalationSubagent } from '../src/shared/sol-escalation-subagent.ts'
 
@@ -32,6 +35,17 @@ describe('Bee orchestrator model', () => {
     )
     expect(resolveBeeEscalationModel('openai-codex-user')).toBe(
       'openai-codex-user/gpt-5.6-sol',
+    )
+  })
+
+  test('uses GPT-5.6 Terra High for Astro Creator', () => {
+    expect(BEE_SITE_CREATOR_MODEL_ID).toBe('gpt-5.6-terra')
+    expect(BEE_SITE_CREATOR_THINKING_LEVEL).toBe('high')
+    expect(resolveBeeSiteCreatorModel()).toBe(
+      'openrouter/openai/gpt-5.6-terra',
+    )
+    expect(resolveBeeSiteCreatorModel('openai-codex-user')).toBe(
+      'openai-codex-user/gpt-5.6-terra',
     )
   })
 

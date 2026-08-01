@@ -448,6 +448,140 @@ http.route({
 })
 
 http.route({
+  path: '/internal/bee-sites',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
+    }
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > 32 * 1024) {
+      return jsonResponse({ error: 'Bee Sites request is too large' }, 413)
+    }
+    const body = (() => {
+      try {
+        return JSON.parse(rawBody || 'null') as Record<string, unknown> | null
+      } catch {
+        return null
+      }
+    })()
+    if (
+      !body ||
+      typeof body.userId !== 'string' ||
+      !isClerkUserId(body.userId) ||
+      typeof body.operation !== 'string'
+    ) {
+      return jsonResponse({ error: 'Invalid Bee Sites request' }, 400)
+    }
+    try {
+      switch (body.operation) {
+        case 'list':
+          return jsonResponse(
+            await ctx.runQuery(internal.beeSites.listForAgent, {
+              userId: body.userId,
+            }),
+            200,
+          )
+        case 'prepare': {
+          if (
+            typeof body.title !== 'string' ||
+            (body.siteId !== undefined && typeof body.siteId !== 'string') ||
+            (body.suggestedSlug !== undefined &&
+              typeof body.suggestedSlug !== 'string')
+          ) {
+            return jsonResponse({ error: 'Invalid site preparation' }, 400)
+          }
+          return jsonResponse(
+            await ctx.runMutation(internal.beeSites.prepareForAgent, {
+              userId: body.userId,
+              siteId: body.siteId as Id<'beeSites'> | undefined,
+              title: body.title,
+              suggestedSlug: body.suggestedSlug as string | undefined,
+            }),
+            200,
+          )
+        }
+        case 'begin_deployment': {
+          if (
+            typeof body.siteId !== 'string' ||
+            typeof body.version !== 'string' ||
+            (body.kind !== 'preview' && body.kind !== 'production') ||
+            typeof body.pageCount !== 'number' ||
+            typeof body.fileCount !== 'number' ||
+            typeof body.totalBytes !== 'number'
+          ) {
+            return jsonResponse({ error: 'Invalid site deployment' }, 400)
+          }
+          return jsonResponse(
+            await ctx.runMutation(internal.beeSites.beginDeployment, {
+              userId: body.userId,
+              siteId: body.siteId as Id<'beeSites'>,
+              version: body.version,
+              kind: body.kind,
+              pageCount: body.pageCount,
+              fileCount: body.fileCount,
+              totalBytes: body.totalBytes,
+            }),
+            200,
+          )
+        }
+        case 'complete_deployment': {
+          if (
+            typeof body.deploymentId !== 'string' ||
+            typeof body.manifestKey !== 'string'
+          ) {
+            return jsonResponse({ error: 'Invalid deployment completion' }, 400)
+          }
+          return jsonResponse(
+            await ctx.runMutation(internal.beeSites.completeDeployment, {
+              userId: body.userId,
+              deploymentId:
+                body.deploymentId as Id<'beeSiteDeployments'>,
+              manifestKey: body.manifestKey,
+            }),
+            200,
+          )
+        }
+        case 'fail_deployment': {
+          if (
+            typeof body.deploymentId !== 'string' ||
+            typeof body.error !== 'string'
+          ) {
+            return jsonResponse({ error: 'Invalid deployment failure' }, 400)
+          }
+          await ctx.runMutation(internal.beeSites.failDeployment, {
+            userId: body.userId,
+            deploymentId: body.deploymentId as Id<'beeSiteDeployments'>,
+            error: body.error,
+          })
+          return jsonResponse({ ok: true }, 200)
+        }
+        default:
+          return jsonResponse({ error: 'Unknown Bee Sites operation' }, 400)
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Bee Sites request failed'
+      return jsonResponse({ error: message }, 400)
+    }
+  }),
+})
+
+http.route({
   path: '/internal/mind',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {

@@ -65,10 +65,28 @@ Moving funds is TWO-PHASE and you only ever run phase one:
   and return an actionId. NOTHING moves on-chain. Tell Bee to render a confirm
   card carrying that actionId (payload {"web3ActionId": "<actionId>"}) and the
   exact summary; the signed-in app performs the authoritative confirmation.
-- After the user confirms, \`check_web3_action\` reports status and transaction
-  links. A cross-chain swap can remain "in_progress" after its source
-  transaction; never claim it arrived until the status is "executed".
+- EXCEPTION — YOLO mode: when the user pre-authorized auto-approval in the app,
+  a prepare tool can come back with status "confirmed" and autoConfirmed true.
+  Execution has already started: still tell Bee to render the same confirm card
+  (it shows live progress instead of buttons) and do NOT ask the user to
+  confirm.
+- After an action is confirmed, \`check_web3_action\` reports status and
+  transaction links. A cross-chain swap can remain "in_progress" after its
+  source transaction; never claim it arrived until the status is "executed".
 - A chat message saying "yes" is NOT a confirmation; only the app confirm counts.
+
+Long-running, multi-step plans (e.g. bridge, then open a pool position):
+- You do NOT need to poll a moving action. The backend follows it for its
+  whole settlement window (a cross-chain swap for its full monitoring window)
+  and Bee receives a \`web3.action_settled\` event the moment it reaches
+  executed, failed, refunded, or expired.
+- So after a confirmation, report the expected duration, keep note of what
+  the plan's next step is, and end your reply. When the settled event arrives:
+  on "executed", continue immediately with the next step (e.g. prepare the
+  Aerodrome deposit with the arrived funds); on "failed", "refunded", or
+  "expired", tell the user what happened and stop the plan.
+- \`check_web3_action\` remains available for on-demand status when the user
+  asks in the meantime.
 
 Cross-chain notes:
 - Use \`quote_cross_chain_swap\` for a read-only preview, then
@@ -217,7 +235,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'prepare_send_tokens',
           description:
-            'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must confirm in the app. Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
+            'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must confirm in the app, unless the response says status "confirmed" (YOLO auto-approval). Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
           input: v.object({
             recipient: address('Recipient 0x wallet address'),
             token: v.pipe(
@@ -261,7 +279,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'prepare_cross_chain_swap',
           description:
-            'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user confirms the app card. Source gas is sponsored; output ETH gives the destination native gas.',
+            'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user confirms the app card, unless the response says status "confirmed" (YOLO auto-approval). Source gas is sponsored; output ETH gives the destination native gas.',
           input: v.object({
             origin_chain: socketChain,
             destination_chain: socketChain,
@@ -283,7 +301,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'prepare_sugar_execution',
           description:
-            'Phase one of executing an Aerodrome action (swap, deposit, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must confirm in the app via a confirm card with payload {"web3ActionId": actionId}. Mainnet only.',
+            'Phase one of executing an Aerodrome action (swap, deposit, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must confirm in the app via a confirm card with payload {"web3ActionId": actionId} \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
           input: v.object({
             sugar_action: v.picklist(
               [

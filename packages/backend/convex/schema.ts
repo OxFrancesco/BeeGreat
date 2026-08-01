@@ -218,7 +218,10 @@ export default defineSchema({
     userId: v.string(),
     activeThreadId: v.number(),
     updatedAt: v.number(),
-  }).index('by_owner_key', ['ownerKey']),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    // Internal lookups (web3Notify) resolve the active conversation by user.
+    .index('by_user', ['userId']),
 
   userPreferences: defineTable({
     ownerKey: v.string(),
@@ -228,6 +231,118 @@ export default defineSchema({
   })
     .index('by_owner_key', ['ownerKey'])
     .index('by_user_id', ['userId']),
+
+  // The public profile is deliberately separate from Clerk identity and all
+  // private Bee data. `publicId` never changes, so printed QR codes remain
+  // valid when a user edits their handle or profile content.
+  publicProfiles: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    publicId: v.string(),
+    handle: v.string(),
+    displayName: v.string(),
+    bio: v.optional(v.string()),
+    avatarUrl: v.optional(v.string()),
+    published: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_user_id', ['userId'])
+    .index('by_public_id', ['publicId'])
+    .index('by_handle', ['handle']),
+
+  publicProfileLinks: defineTable({
+    ownerKey: v.string(),
+    profileId: v.id('publicProfiles'),
+    provider: v.union(
+      v.literal('instagram'),
+      v.literal('linkedin'),
+      v.literal('x'),
+      v.literal('github'),
+      v.literal('youtube'),
+      v.literal('tiktok'),
+      v.literal('facebook'),
+      v.literal('website'),
+      v.literal('other'),
+    ),
+    label: v.string(),
+    url: v.string(),
+    position: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_profile_id_and_position', ['profileId', 'position']),
+
+  // Previous handles stay reserved and resolve to the same profile. That
+  // protects old shared links without making the QR depend on a mutable name.
+  publicProfileAliases: defineTable({
+    ownerKey: v.string(),
+    profileId: v.id('publicProfiles'),
+    handle: v.string(),
+    createdAt: v.number(),
+  })
+    .index('by_owner_key', ['ownerKey'])
+    .index('by_profile_id', ['profileId'])
+    .index('by_handle', ['handle']),
+
+  // Bee Sites are public, static Astro sites authored through Bee. Convex is
+  // the ownership and quota control plane; built artifacts live in R2 and are
+  // addressed by the active deployment version rather than stored here.
+  beeSites: defineTable({
+    userId: v.string(),
+    slug: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(
+      v.literal('draft'),
+      v.literal('published'),
+      v.literal('unpublished'),
+      v.literal('suspended'),
+    ),
+    pageCount: v.number(),
+    activeDeploymentId: v.optional(v.id('beeSiteDeployments')),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    publishedAt: v.optional(v.number()),
+  })
+    .index('by_user_id_and_updated_at', ['userId', 'updatedAt'])
+    .index('by_slug', ['slug']),
+
+  beeSiteDeployments: defineTable({
+    userId: v.string(),
+    siteId: v.id('beeSites'),
+    version: v.string(),
+    kind: v.union(v.literal('preview'), v.literal('production')),
+    status: v.union(
+      v.literal('uploading'),
+      v.literal('ready'),
+      v.literal('failed'),
+    ),
+    manifestKey: v.optional(v.string()),
+    pageCount: v.number(),
+    fileCount: v.number(),
+    totalBytes: v.number(),
+    error: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index('by_user_id_and_created_at', ['userId', 'createdAt'])
+    .index('by_site_id_and_created_at', ['siteId', 'createdAt'])
+    .index('by_site_id_and_version', ['siteId', 'version'])
+    .index('by_version', ['version']),
+
+  // One bounded counter row per user and calendar month. It meters the costly
+  // model/build path separately from the inexpensive number of hosted files.
+  beeSiteUsage: defineTable({
+    userId: v.string(),
+    monthKey: v.string(),
+    generationCount: v.number(),
+    publishCount: v.number(),
+    updatedAt: v.number(),
+  }).index('by_user_id_and_month_key', ['userId', 'monthKey']),
 
   // One Bee Healthy journal row per authenticated owner and local calendar day.
   // Mood and journal remain optional so hydration-only check-ins stay lightweight.
@@ -821,7 +936,9 @@ export default defineSchema({
   // Server-side confirmation gate for Web3 actions that move funds. The agent
   // only ever *prepares* one of these rows; funds move exclusively after the
   // signed-in app confirms (web3Actions.confirm), which schedules the internal
-  // executor. Prompt injection therefore cannot spend from the wallet.
+  // executor. Prompt injection therefore cannot spend from the wallet. The one
+  // exception is YOLO mode (web3Prefs): when the signed-in user opted in,
+  // actions are auto-confirmed at creation and marked `autoConfirmed`.
   web3Actions: defineTable({
     userId: v.string(),
     summary: v.string(),
@@ -830,10 +947,20 @@ export default defineSchema({
     createdAt: v.number(),
     expiresAt: v.number(),
     confirmedAt: v.optional(v.number()),
+    autoConfirmed: v.optional(v.boolean()),
     result: v.optional(web3ActionResultValidator),
     socketProgress: v.optional(socketProgressValidator),
     error: v.optional(v.string()),
   }).index('by_user', ['userId', 'status']),
+
+  // Per-user Web3 preferences, settable only by the signed-in app. YOLO mode
+  // is a standing opt-in that auto-confirms every prepared action, so Bee can
+  // run multi-step plans without a confirmation tap per transaction.
+  web3Prefs: defineTable({
+    userId: v.string(),
+    yoloEnabled: v.boolean(),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
 
   tasks: defineTable({
     userId: v.string(),

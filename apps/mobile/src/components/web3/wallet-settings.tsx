@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -19,7 +19,9 @@ import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Wallets card for the profile screen (shown while the Web3 power-up is on):
- * the Bee smart wallet address (tap to copy) and the user's own linked EOA.
+ * the Bee smart wallet address (tap to copy), the user's own linked EOA, and
+ * YOLO mode — a standing opt-in that lets Bee auto-approve every transaction
+ * instead of asking for a confirmation tap.
  * The EOA is an address-only link — BeeGreat never holds its keys; Bee uses
  * it to build unsigned DeFi plans the user signs in their own wallet app.
  */
@@ -29,14 +31,34 @@ export function WalletSettings() {
   const wallets = useQuery(api.wallets.myWallets);
   const linkEoa = useMutation(api.wallets.linkEoa);
   const unlinkEoa = useMutation(api.wallets.unlinkEoa);
+  const yoloPrefs = useQuery(api.web3Prefs.get);
+  const setYolo = useMutation(api.web3Prefs.setYolo);
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [yoloWorking, setYoloWorking] = useState(false);
+  const [yoloError, setYoloError] = useState<string | null>(null);
 
   if (wallets === undefined) return null;
+
+  const toggleYolo = async (enabled: boolean) => {
+    if (yoloWorking) return;
+    setYoloWorking(true);
+    setYoloError(null);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await setYolo({ enabled });
+    } catch (cause) {
+      setYoloError(
+        cause instanceof Error ? cause.message : 'Couldn’t update YOLO mode.',
+      );
+    } finally {
+      setYoloWorking(false);
+    }
+  };
 
   const copyAddress = async (address: string) => {
     Haptics.selectionAsync();
@@ -235,6 +257,32 @@ export function WalletSettings() {
       {error ? (
         <ThemedText type="small" themeColor="destructive">
           {error}
+        </ThemedText>
+      ) : null}
+
+      <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+      <View style={styles.row}>
+        <View style={styles.copy}>
+          <ThemedText type="default">YOLO mode</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {yoloPrefs?.yoloEnabled
+              ? 'Bee auto-approves every transaction without asking'
+              : 'Bee asks before every transaction'}
+          </ThemedText>
+        </View>
+        <Switch
+          accessibilityLabel="YOLO mode: auto-approve every transaction"
+          disabled={yoloWorking || yoloPrefs === undefined}
+          value={yoloPrefs?.yoloEnabled ?? false}
+          onValueChange={(enabled) => void toggleYolo(enabled)}
+          trackColor={{ true: theme.primary }}
+        />
+      </View>
+
+      {yoloError ? (
+        <ThemedText type="small" themeColor="destructive">
+          {yoloError}
         </ThemedText>
       ) : null}
     </View>

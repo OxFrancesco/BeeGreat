@@ -654,7 +654,8 @@ function DevinCard({
  * Web3 money movement: the app is the authoritative confirmer. Tapping
  * Confirm runs the signed-in `web3Actions.confirm` mutation (which schedules
  * server-side execution) and only then tells Bee. A chat "yes" alone can
- * never move funds.
+ * never move funds. When the user's YOLO mode auto-approved the action
+ * server-side, the card skips the buttons and shows live progress instead.
  */
 function Web3ConfirmCard({
   summary,
@@ -672,13 +673,12 @@ function Web3ConfirmCard({
     "idle" | "working" | "confirmed" | "declined"
   >("idle");
   const [error, setError] = useState<string | null>(null);
-  // Subscribe only once the confirm mutation proved the id valid and owned.
-  const live = useQuery(
-    api.web3Actions.status,
-    decision === "confirmed"
-      ? { actionId: actionId as Id<"web3Actions"> }
-      : "skip",
-  );
+  // The status query is ownership-scoped (null for anyone else), so it is
+  // safe to subscribe immediately — needed to detect YOLO auto-confirmation.
+  const live = useQuery(api.web3Actions.status, {
+    actionId: actionId as Id<"web3Actions">,
+  });
+  const autoConfirmed = live?.autoConfirmed === true;
 
   const confirm = async () => {
     if (decision !== "idle") return;
@@ -712,16 +712,26 @@ function Web3ConfirmCard({
     live?.socketProgress?.destinationExplorerLink ??
     [...(live?.result ?? [])].reverse().find((item) => item.explorerLink)
       ?.explorerLink;
+  // YOLO auto-approval resolves the card without a tap; show progress
+  // immediately instead of confirm buttons.
+  const resolved = decision === "confirmed" || autoConfirmed;
+  const loading = live === undefined;
 
   return (
     <View
       style={[
         styles.card,
-        { backgroundColor: theme.card, borderColor: theme.destructive },
+        {
+          backgroundColor: theme.card,
+          borderColor: autoConfirmed ? theme.primary : theme.destructive,
+        },
       ]}
     >
-      <ThemedText type="smallBold" themeColor="destructive">
-        Needs your confirmation
+      <ThemedText
+        type="smallBold"
+        themeColor={autoConfirmed ? "primary" : "destructive"}
+      >
+        {autoConfirmed ? "Auto-approved · YOLO mode" : "Needs your confirmation"}
       </ThemedText>
       <ThemedText selectable>{summary}</ThemedText>
       {error ? (
@@ -733,7 +743,7 @@ function Web3ConfirmCard({
         <ThemedText type="small" themeColor="textSecondary">
           Declined — nothing was sent.
         </ThemedText>
-      ) : decision === "confirmed" ? (
+      ) : resolved ? (
         status === "executed" ? (
           <View style={styles.confirmRow}>
             <ThemedText type="smallBold">Done ✓</ThemedText>
@@ -783,6 +793,12 @@ function Web3ConfirmCard({
             </ThemedText>
           </View>
         )
+      ) : loading ? (
+        // Wait for the first status read so an auto-approved action never
+        // flashes confirm buttons.
+        <View style={styles.confirmRow}>
+          <ActivityIndicator size="small" />
+        </View>
       ) : (
         <View style={styles.confirmRow}>
           <Pressable

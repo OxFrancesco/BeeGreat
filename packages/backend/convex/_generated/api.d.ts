@@ -14,6 +14,7 @@ import type * as agent from "../agent.js";
 import type * as agentFocus from "../agentFocus.js";
 import type * as agentMind from "../agentMind.js";
 import type * as appleSignInRevocation from "../appleSignInRevocation.js";
+import type * as beeSites from "../beeSites.js";
 import type * as beennectorAuthActions from "../beennectorAuthActions.js";
 import type * as beennectorCrypto from "../beennectorCrypto.js";
 import type * as beennectorOAuth from "../beennectorOAuth.js";
@@ -62,6 +63,7 @@ import type * as nfcActions from "../nfcActions.js";
 import type * as posts from "../posts.js";
 import type * as powerups from "../powerups.js";
 import type * as projects from "../projects.js";
+import type * as publicProfiles from "../publicProfiles.js";
 import type * as recurrence from "../recurrence.js";
 import type * as recurrenceValidators from "../recurrenceValidators.js";
 import type * as revenueCatRest from "../revenueCatRest.js";
@@ -79,6 +81,8 @@ import type * as wallets from "../wallets.js";
 import type * as web3 from "../web3.js";
 import type * as web3ActionValidators from "../web3ActionValidators.js";
 import type * as web3Actions from "../web3Actions.js";
+import type * as web3Notify from "../web3Notify.js";
+import type * as web3Prefs from "../web3Prefs.js";
 
 import type {
   ApiFromModules,
@@ -93,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   agentFocus: typeof agentFocus;
   agentMind: typeof agentMind;
   appleSignInRevocation: typeof appleSignInRevocation;
+  beeSites: typeof beeSites;
   beennectorAuthActions: typeof beennectorAuthActions;
   beennectorCrypto: typeof beennectorCrypto;
   beennectorOAuth: typeof beennectorOAuth;
@@ -141,6 +146,7 @@ declare const fullApi: ApiFromModules<{
   posts: typeof posts;
   powerups: typeof powerups;
   projects: typeof projects;
+  publicProfiles: typeof publicProfiles;
   recurrence: typeof recurrence;
   recurrenceValidators: typeof recurrenceValidators;
   revenueCatRest: typeof revenueCatRest;
@@ -158,6 +164,8 @@ declare const fullApi: ApiFromModules<{
   web3: typeof web3;
   web3ActionValidators: typeof web3ActionValidators;
   web3Actions: typeof web3Actions;
+  web3Notify: typeof web3Notify;
+  web3Prefs: typeof web3Prefs;
 }>;
 
 /**

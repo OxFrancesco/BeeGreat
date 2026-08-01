@@ -207,6 +207,43 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <Section label="Share">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Edit and share your public profile"
+            onPress={() => {
+              if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
+              router.push('/public-profile');
+            }}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { backgroundColor: theme.card, borderColor: theme.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={[styles.powerupIcon, { backgroundColor: theme.secondary }]}>
+              <SymbolView
+                name="qrcode"
+                size={18}
+                tintColor={theme.secondaryForeground}
+                fallback={<ThemedText style={{ color: theme.secondaryForeground }}>⌗</ThemedText>}
+              />
+            </View>
+            <View style={styles.settingCopy}>
+              <ThemedText type="default">Public profile & QR</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Share your bio and social links with one permanent code.
+              </ThemedText>
+            </View>
+            <SymbolView
+              name="chevron.right"
+              size={14}
+              tintColor={theme.textSecondary}
+              fallback={<ThemedText themeColor="textSecondary">›</ThemedText>}
+            />
+          </Pressable>
+        </Section>
+
         <Section label="Preferences">
           <View
             style={[

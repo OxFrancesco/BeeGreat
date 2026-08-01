@@ -8,8 +8,9 @@ import {
 } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import { requireUserId } from './helpers'
-import { requirePowerup } from './powerups'
+import { requirePowerup, isPowerupEnabled } from './powerups'
 import { SOCKET_CHAINS, parseTokenAmount } from './socketSwap'
+import { yoloEnabledForUser } from './web3Prefs'
 import {
   socketApprovalValidator,
   socketProgressValidator,
@@ -22,10 +23,19 @@ import {
 //
 // Lifecycle: the agent *prepares* a pending action (internal.web3.prepare*),
 // Bee renders a `confirm` component carrying the action id, and the signed-in
-// app calls `confirm` — the only path to 'confirmed'. Confirming schedules the
-// internal executor in web3.ts, which signs with the Crossmint server signer.
-// The agent can read status but can never confirm or execute, so a prompt
-// injection cannot spend from the wallet.
+// app calls `confirm`. Confirming schedules the internal executor in web3.ts,
+// which signs with the Crossmint server signer. The agent can read status but
+// can never confirm or execute, so a prompt injection cannot spend from the
+// wallet.
+//
+// YOLO mode (web3Prefs, settable only by the signed-in app) is the single
+// alternative to a per-action tap: while the user's standing opt-in is on,
+// actions are confirmed automatically at creation and marked `autoConfirmed`.
+//
+// When an action reaches a terminal state, `notifyActionSettled` pushes a
+// `web3.action_settled` event to the agent worker so Bee can continue
+// long-running multi-step plans (e.g. bridge, then open a pool position)
+// without the user poking the chat.
 
 /** Pending actions die after 10 minutes so stale confirm cards are inert. */
 export const ACTION_TTL_MS = 10 * 60 * 1000
@@ -37,6 +47,17 @@ function publicView(action: Doc<'web3Actions'>) {
     kind: action.payload.kind,
     status: action.status,
     expiresAt: action.expiresAt,
+    autoConfirmed: action.autoConfirmed ?? false,
+    // Task-based timing so callers (the app card and the agent's wait tool)
+    // can budget how long this action is expected to run.
+    timing:
+      action.payload.kind === 'socket_swap'
+        ? {
+            estimatedTimeSeconds: action.payload.estimatedTimeSeconds,
+            monitoringDeadlineAt: action.payload.monitoringDeadlineAt,
+            statusIntervalSeconds: action.payload.statusIntervalSeconds,
+          }
+        : null,
     result: action.result ?? null,
     socketProgress: action.socketProgress ?? null,
     error: action.error ?? null,
@@ -51,7 +72,12 @@ function withExpiry(action: Doc<'web3Actions'>, now: number) {
   return action
 }
 
-/** Agent/internal: create a pending action awaiting in-app confirmation. */
+/**
+ * Agent/internal: create an action awaiting in-app confirmation. When the
+ * signed-in user pre-authorized YOLO mode, the action is confirmed
+ * immediately and the executor is scheduled — otherwise it stays pending for
+ * the manual confirm card.
+ */
 export const create = internalMutation({
   args: {
     userId: v.string(),
@@ -61,15 +87,24 @@ export const create = internalMutation({
   handler: async (ctx, { userId, summary, payload }) => {
     const now = Date.now()
     const actionExpiresAt = now + ACTION_TTL_MS
+    const autoConfirm =
+      (await yoloEnabledForUser(ctx, userId)) &&
+      (await isPowerupEnabled(ctx, userId, 'web3'))
     const id = await ctx.db.insert('web3Actions', {
       userId,
       summary,
       payload,
-      status: 'pending',
+      status: autoConfirm ? 'confirmed' : 'pending',
       createdAt: now,
       expiresAt: actionExpiresAt,
+      ...(autoConfirm ? { confirmedAt: now, autoConfirmed: true } : {}),
     })
-    return { id, expiresAt: actionExpiresAt }
+    if (autoConfirm) {
+      await ctx.scheduler.runAfter(0, internal.web3.executeConfirmedAction, {
+        actionId: id,
+      })
+    }
+    return { id, expiresAt: actionExpiresAt, autoConfirmed: autoConfirm }
   },
 })
 
@@ -104,9 +139,10 @@ export const status = query({
 })
 
 /**
- * App-facing: the ONLY path that authorizes moving funds. Requires the
- * signed-in owner, a live pending action, and the enabled power-up; then
- * schedules the internal executor exactly once.
+ * App-facing: the manual path that authorizes moving funds (the other is the
+ * user's standing YOLO opt-in applied in `create`). Requires the signed-in
+ * owner, a live pending action, and the enabled power-up; then schedules the
+ * internal executor exactly once.
  */
 export const confirm = mutation({
   args: { actionId: v.id('web3Actions') },
@@ -218,6 +254,9 @@ export const recordResult = internalMutation({
       result,
       error,
     })
+    await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
+      actionId,
+    })
     return null
   },
 })
@@ -300,6 +339,11 @@ export const recordSocketProgress = internalMutation({
         internal.web3.pollSocketSwapStatus,
         { actionId },
       )
+    } else {
+      // Terminal transition: wake the agent so it can continue the plan.
+      await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
+        actionId,
+      })
     }
     return null
   },

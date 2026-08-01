@@ -1,0 +1,9 @@
+---
+import ProfilePage from '../../components/ProfilePage.astro'
+import { getProfileByPublicId } from '../../lib/profiles'
+
+const publicId = Astro.params.publicId ?? ''
+const profile = await getProfileByPublicId(publicId)
+if (!profile) return Astro.rewrite('/404')
+---
+<ProfilePage profile={profile} />

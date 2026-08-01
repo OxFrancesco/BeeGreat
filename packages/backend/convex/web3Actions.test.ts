@@ -414,6 +414,123 @@ describe('socket route refresh', () => {
   })
 })
 
+describe('YOLO mode', () => {
+  test('setYolo requires the signed-in owner and the enabled power-up', async () => {
+    const t = convexTest(schema, modules)
+    await expect(
+      t.mutation(api.web3Prefs.setYolo, { enabled: true }),
+    ).rejects.toThrow('Not signed in')
+
+    const app = t.withIdentity(identity(owner))
+    await expect(
+      app.mutation(api.web3Prefs.setYolo, { enabled: true }),
+    ).rejects.toThrow('not enabled')
+
+    await app.mutation(api.powerups.setEnabled, {
+      powerupId: 'web3',
+      enabled: true,
+    })
+    await app.mutation(api.web3Prefs.setYolo, { enabled: true })
+    expect(await app.query(api.web3Prefs.get, {})).toEqual({
+      yoloEnabled: true,
+    })
+  })
+
+  test('create auto-confirms while YOLO is on and marks the action', async () => {
+    const t = convexTest(schema, modules)
+    const app = t.withIdentity(identity(owner))
+    await app.mutation(api.powerups.setEnabled, {
+      powerupId: 'web3',
+      enabled: true,
+    })
+    await app.mutation(api.web3Prefs.setYolo, { enabled: true })
+
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Send 1.5 USDC to 0x…00aa',
+      payload: sendPayload,
+    })
+    expect(created.autoConfirmed).toBe(true)
+
+    const action = await t.run(async (ctx) => await ctx.db.get(created.id))
+    expect(action?.status).toBe('confirmed')
+    expect(action?.autoConfirmed).toBe(true)
+    expect(action?.confirmedAt).toBe(Date.now())
+
+    const status = await app.query(api.web3Actions.status, {
+      actionId: created.id,
+    })
+    expect(status?.autoConfirmed).toBe(true)
+    expect(status?.status).toBe('confirmed')
+  })
+
+  test('create stays pending when YOLO is off or the power-up is disabled', async () => {
+    const t = convexTest(schema, modules)
+    const app = t.withIdentity(identity(owner))
+    await app.mutation(api.powerups.setEnabled, {
+      powerupId: 'web3',
+      enabled: true,
+    })
+
+    // YOLO off: pending.
+    let created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Send 1.5 USDC to 0x…00aa',
+      payload: sendPayload,
+    })
+    expect(created.autoConfirmed).toBe(false)
+    let action = await t.run(async (ctx) => await ctx.db.get(created.id))
+    expect(action?.status).toBe('pending')
+    expect(action?.autoConfirmed).toBeUndefined()
+
+    // YOLO on but power-up later disabled: pending again.
+    await app.mutation(api.web3Prefs.setYolo, { enabled: true })
+    await app.mutation(api.powerups.setEnabled, {
+      powerupId: 'web3',
+      enabled: false,
+    })
+    created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Send 1.5 USDC to 0x…00aa',
+      payload: sendPayload,
+    })
+    expect(created.autoConfirmed).toBe(false)
+    action = await t.run(async (ctx) => await ctx.db.get(created.id))
+    expect(action?.status).toBe('pending')
+  })
+
+  test('status exposes task timing for socket swaps', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Swap Base USDC for Arbitrum ETH',
+      payload: socketPayload,
+    })
+    const app = t.withIdentity(identity(owner))
+    const status = await app.query(api.web3Actions.status, {
+      actionId: created.id,
+    })
+    expect(status?.timing).toEqual({
+      estimatedTimeSeconds: socketPayload.estimatedTimeSeconds,
+      monitoringDeadlineAt: socketPayload.monitoringDeadlineAt,
+      statusIntervalSeconds: socketPayload.statusIntervalSeconds,
+    })
+
+    const send = await prepare(t)
+    const sendStatus = await app.query(api.web3Actions.status, {
+      actionId: send.id,
+    })
+    expect(sendStatus?.timing).toBeNull()
+  })
+})
+
 describe('wallets DB surface', () => {
   test('linkEoa validates, upserts, and myWallets returns both kinds', async () => {
     const t = convexTest(schema, modules)
