@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TapPublicIdRouteImport } from './routes/tap/$publicId'
+import { Route as AppSitesRouteImport } from './routes/_app/sites'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppMindRouteImport } from './routes/_app/mind'
 import { Route as AppHiveRouteImport } from './routes/_app/hive'
@@ -39,6 +40,11 @@ const TapPublicIdRoute = TapPublicIdRouteImport.update({
   id: '/tap/$publicId',
   path: '/tap/$publicId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppSitesRoute = AppSitesRouteImport.update({
+  id: '/sites',
+  path: '/sites',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
@@ -113,6 +119,7 @@ export interface FileRoutesByFullPath {
   '/hive': typeof AppHiveRoute
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
+  '/sites': typeof AppSitesRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/hive': typeof AppHiveRoute
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
+  '/sites': typeof AppSitesRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   '/_app/hive': typeof AppHiveRoute
   '/_app/mind': typeof AppMindRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/sites': typeof AppSitesRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/_app/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/hive'
     | '/mind'
     | '/settings'
+    | '/sites'
     | '/tap/$publicId'
     | '/goals/$goalId'
     | '/health/tap-actions'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/hive'
     | '/mind'
     | '/settings'
+    | '/sites'
     | '/tap/$publicId'
     | '/goals/$goalId'
     | '/health/tap-actions'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/_app/hive'
     | '/_app/mind'
     | '/_app/settings'
+    | '/_app/sites'
     | '/tap/$publicId'
     | '/_app/goals/$goalId'
     | '/_app/health/tap-actions'
@@ -240,6 +252,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tap/$publicId'
       preLoaderRoute: typeof TapPublicIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/sites': {
+      id: '/_app/sites'
+      path: '/sites'
+      fullPath: '/sites'
+      preLoaderRoute: typeof AppSitesRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/settings': {
       id: '/_app/settings'
@@ -361,6 +380,7 @@ interface AppRouteChildren {
   AppHiveRoute: typeof AppHiveRoute
   AppMindRoute: typeof AppMindRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppSitesRoute: typeof AppSitesRoute
   AppGoalsGoalIdRoute: typeof AppGoalsGoalIdRoute
   AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
   AppGoalsIndexRoute: typeof AppGoalsIndexRoute
@@ -372,6 +392,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppHiveRoute: AppHiveRoute,
   AppMindRoute: AppMindRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppSitesRoute: AppSitesRoute,
   AppGoalsGoalIdRoute: AppGoalsGoalIdRoute,
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
   AppGoalsIndexRoute: AppGoalsIndexRoute,

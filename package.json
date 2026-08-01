@@ -14,6 +14,8 @@
     "profile": "bun run --cwd apps/profile dev",
     "profile:build": "bun run --cwd apps/profile build",
     "profile:deploy": "bun run --cwd apps/profile deploy",
+    "sites": "bun run --cwd apps/sites dev",
+    "sites:deploy": "bun run --cwd apps/sites deploy",
     "docs": "bun run --cwd apps/beedocs dev",
     "docs:deploy": "bun run --cwd apps/beedocs deploy",
     "backend": "bun run --cwd packages/backend dev",

@@ -1,3 +1,4 @@
+import { dispatch } from '@flue/runtime'
 import { flue } from '@flue/runtime/routing'
 import {
   sanitizeSentryBreadcrumb,
@@ -8,6 +9,7 @@ import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import bee from './agents/bee.ts'
 import {
   callChannelAction,
   type ChannelActionName,
@@ -31,6 +33,13 @@ type Bindings = {
   WEB_ALLOWED_ORIGINS?: string
   FLUE_BEE_AGENT: {
     getByName(name: string): { deleteAccountData(): Promise<void> }
+  }
+  BEE_SITES_BUCKET: {
+    list(options: {
+      prefix: string
+      limit?: number
+    }): Promise<{ objects: Array<{ key: string }> }>
+    delete(keys: string[]): Promise<void>
   }
 }
 
@@ -155,10 +164,14 @@ app.use('*', async (c, next) => {
     await next()
     return
   }
-  // This route authenticates its Convex caller with the same server-only
-  // broker secret in its own handler. It must remain reachable after Clerk
-  // has deleted the user's identity and session.
-  if (c.req.path === '/internal/account-deletion') {
+  // These routes authenticate their Convex caller with the same server-only
+  // broker secret in their own handlers. Account deletion must remain
+  // reachable after Clerk has deleted the user's identity and session, and
+  // settled-action wake-ups arrive without any user session at all.
+  if (
+    c.req.path === '/internal/account-deletion' ||
+    c.req.path === '/internal/web3-settled'
+  ) {
     await next()
     return
   }
@@ -296,7 +309,81 @@ app.post('/internal/account-deletion', async (c) => {
         .map((id) => c.env.FLUE_BEE_AGENT.getByName(id).deleteAccountData()),
     )
   }
-  return c.json({ deleted: conversationIds.length })
+  let siteObjectsDeleted = 0
+  const prefix = `users/${body.userId}/`
+  while (true) {
+    const page = await c.env.BEE_SITES_BUCKET.list({ prefix, limit: 1_000 })
+    const keys = page.objects.map((object) => object.key)
+    if (!keys.length) break
+    await c.env.BEE_SITES_BUCKET.delete(keys)
+    siteObjectsDeleted += keys.length
+    if (siteObjectsDeleted > 100_000) {
+      throw new Error('Bee Site account cleanup exceeded its safety bound')
+    }
+  }
+  return c.json({ deleted: conversationIds.length, siteObjectsDeleted })
+})
+
+/**
+ * Convex wake-up for settled Web3 actions: injects a `web3.action_settled`
+ * event into the user's active Bee conversation so long-running multi-step
+ * plans (e.g. bridge, then open a pool position) continue without the user
+ * nudging the chat. The event carries status only — Bee re-reads authoritative
+ * details through its own Web3 tools and still cannot confirm or execute.
+ */
+app.post('/internal/web3-settled', async (c) => {
+  const configuredSecret = binding(c.env, 'AGENT_CREDENTIAL_BROKER_SECRET')
+  const suppliedSecret = c.req.header('authorization')?.match(/^Bearer ([^\s]+)$/i)?.[1]
+  if (
+    !configuredSecret ||
+    !suppliedSecret ||
+    !secretsMatch(configuredSecret, suppliedSecret)
+  ) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  const body = (await c.req.json().catch(() => null)) as {
+    userId?: unknown
+    conversationId?: unknown
+    actionId?: unknown
+    kind?: unknown
+    status?: unknown
+    summary?: unknown
+    detail?: unknown
+    error?: unknown
+    explorerLink?: unknown
+  } | null
+  const status = body?.status
+  if (
+    !body ||
+    typeof body.userId !== 'string' ||
+    !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+    typeof body.conversationId !== 'string' ||
+    (body.conversationId !== body.userId &&
+      !new RegExp(`^${body.userId}~[0-9]+$`).test(body.conversationId)) ||
+    typeof body.actionId !== 'string' ||
+    typeof body.summary !== 'string' ||
+    (status !== 'executed' &&
+      status !== 'failed' &&
+      status !== 'refunded' &&
+      status !== 'expired')
+  ) {
+    return c.json({ error: 'Invalid settled-action event' }, 400)
+  }
+  await dispatch(bee, {
+    id: body.conversationId,
+    input: {
+      type: 'web3.action_settled',
+      actionId: body.actionId,
+      kind: typeof body.kind === 'string' ? body.kind : null,
+      status,
+      summary: body.summary,
+      detail: typeof body.detail === 'string' ? body.detail : null,
+      error: typeof body.error === 'string' ? body.error : null,
+      explorerLink:
+        typeof body.explorerLink === 'string' ? body.explorerLink : null,
+    },
+  })
+  return c.json({ dispatched: true })
 })
 
 /**

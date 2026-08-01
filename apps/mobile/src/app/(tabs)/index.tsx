@@ -134,7 +134,9 @@ export function VoiceAgentScreenView({
   }, []);
   // Drop the popover if the address disappears (Web3 power-up off, wallet gone).
   useEffect(() => {
-    if (!walletAddress) setWalletQrOpen(false);
+    if (walletAddress) return;
+    const timeout = setTimeout(() => setWalletQrOpen(false), 0);
+    return () => clearTimeout(timeout);
   }, [walletAddress]);
   const hasConversation = agent.messages.length > 0;
   // Keep the hero comfortable on small iPhones (SE) without shrinking it on Pro Max.

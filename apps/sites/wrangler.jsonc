@@ -1,0 +1,22 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "beegreat-sites",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-08",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "sites.buddytools.org/*",
+      "zone_name": "buddytools.org"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BEE_SITES_BUCKET",
+      "bucket_name": "beegreat-sites"
+    }
+  ],
+  "observability": { "enabled": true }
+}

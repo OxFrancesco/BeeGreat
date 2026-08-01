@@ -2,6 +2,7 @@ import { api } from '@beegreat/backend/convex/_generated/api'
 import { useClerk, useUser } from '@clerk/tanstack-react-start'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 
 import { ChatGptSettings } from '../auth/chatgpt-auth'
 import { setSpeakReplies, useSpeakReplies } from '../preferences/speak-replies'
@@ -142,6 +143,19 @@ export function SettingsPage() {
             className="settings-section--public-profile"
           >
             <PublicProfileSettings />
+          </SettingsSection>
+
+          <SettingsSection label="Bee Sites">
+            <div className="bee-sites-setting-card">
+              <div>
+                <h3>Make a page with Bee</h3>
+                <p>
+                  Astro Creator builds static pages, gives you a private
+                  preview, and publishes only when you say so.
+                </p>
+              </div>
+              <Link to="/sites">Open site studio <span aria-hidden="true">→</span></Link>
+            </div>
           </SettingsSection>
 
           <SettingsSection label="Preferences">

@@ -42,8 +42,8 @@ import * as channel_github_0 from "/Volumes/T6-7/Coding/Personal/BeeGreat/packag
 import * as channel_linear_1 from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/channels/linear.ts";
 import * as channel_notion_2 from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/channels/notion.ts";
 import userApp from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/app.ts";
-
-
+import * as userCloudflareModule from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/cloudflare.ts";
+export * from "/Volumes/T6-7/Coding/Personal/BeeGreat/packages/agent/src/cloudflare.ts";
 
 // ─── Internal provider registrations ────────────────────────────────────────
 // User `app.ts` imports are hoisted above this body, so a user-supplied
@@ -135,7 +135,7 @@ const workflowIdentities = {
 
 };
 
-const userCloudflare = {};
+const userCloudflare = userCloudflareModule;
 const reservedCloudflareExportNames = new Set(["FlueBeeAgent","FlueRegistry"]);
 for (const name of Object.keys(userCloudflare)) {
   if (name === 'default') continue;

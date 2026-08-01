@@ -221,6 +221,58 @@ test('account erasure includes independent journal entries', async () => {
   }
 }, 30_000)
 
+test('account erasure removes Bee Site metadata and deployment history', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    const subject = 'site_deletion_owner'
+    const owner = authenticated(t, subject)
+    await t.run(async (ctx) => {
+      const now = Date.now()
+      const siteId = await ctx.db.insert('beeSites', {
+        userId: subject,
+        slug: 'private-studio',
+        title: 'Private studio',
+        status: 'draft',
+        pageCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      await ctx.db.insert('beeSiteDeployments', {
+        userId: subject,
+        siteId,
+        version: 'privateversion01',
+        kind: 'preview',
+        status: 'ready',
+        manifestKey: `users/${subject}/sites/${siteId}/deployments/privateversion01/`,
+        pageCount: 1,
+        fileCount: 2,
+        totalBytes: 100,
+        createdAt: now,
+        completedAt: now,
+      })
+      await ctx.db.insert('beeSiteUsage', {
+        userId: subject,
+        monthKey: '2026-08',
+        generationCount: 1,
+        publishCount: 0,
+        updatedAt: now,
+      })
+    })
+
+    await prepareAndActivate(t, owner)
+    await finishDeletion(t)
+
+    expect(await t.run((ctx) => ctx.db.query('beeSites').collect())).toEqual([])
+    expect(
+      await t.run((ctx) => ctx.db.query('beeSiteDeployments').collect()),
+    ).toEqual([])
+    expect(await t.run((ctx) => ctx.db.query('beeSiteUsage').collect())).toEqual([])
+  } finally {
+    vi.useRealTimers()
+  }
+}, 30_000)
+
 test('watchdog expires an unconfirmed intent without deleting user data', async () => {
   const t = convexTest(schema, modules)
   const subject = 'expired_intent_owner'

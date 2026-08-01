@@ -181,7 +181,10 @@ test('account erasure cancels a waiting crawl without resurrecting work', async 
     await t.run((ctx) =>
       ctx.db.patch('accountDeletionJobs', prepared.jobId, {
         status: 'purging',
-        stageIndex: 23,
+        // Start at bookmarkCrawlRuns so this assertion inspects the crawl
+        // cancellation boundary without first advancing through unrelated
+        // privacy stages.
+        stageIndex: 26,
         updatedAt: Date.now(),
       }),
     )

@@ -11,10 +11,34 @@
   "vars": {
     "CODEX_ADAPTER_URL": "https://codex-adapter.vercel.app/api"
   },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "Sandbox",
+        "class_name": "Sandbox"
+      }
+    ]
+  },
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "./Dockerfile"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BEE_SITES_BUCKET",
+      "bucket_name": "beegreat-sites"
+    }
+  ],
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["FlueRegistry", "FlueBeeAgent"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["Sandbox"]
     }
   ]
 }

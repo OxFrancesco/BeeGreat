@@ -113,6 +113,37 @@
   gap: 38px;
 }
 
+.bee-sites-setting-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 22px;
+  border: 1px solid color-mix(in srgb, var(--honey-strong) 32%, var(--line));
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--honey) 30%, var(--surface));
+  gap: 20px;
+}
+.bee-sites-setting-card > div { display: grid; gap: 5px; }
+.bee-sites-setting-card h3 { font-size: 0.88rem; }
+.bee-sites-setting-card p {
+  max-width: 520px;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  line-height: 1.5;
+}
+.bee-sites-setting-card a {
+  flex: 0 0 auto;
+  color: var(--ink);
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+.bee-sites-setting-card a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 600px) {
+  .bee-sites-setting-card { align-items: flex-start; flex-direction: column; }
+}
+
 .public-profile-editor {
   display: grid;
   padding: clamp(18px, 3vw, 28px);

@@ -299,6 +299,13 @@ async function quoteSocketSwapForUser(
   return { quote, walletAddress: originWallet.address }
 }
 
+/** Agent-facing note matching whether YOLO auto-approved the action. */
+function preparedNote(autoConfirmed: boolean) {
+  return autoConfirmed
+    ? 'YOLO mode auto-approved this action and execution has started. Do not ask the user to confirm; you will receive a web3.action_settled event when it finishes.'
+    : 'Nothing has moved. The user must confirm this action in the app before it executes.'
+}
+
 /** Read-only preview. Preparing later always fetches a fresh executable quote. */
 export const quoteSocketSwap = internalAction({
   args: {
@@ -366,7 +373,8 @@ export const prepareSocketSwap = internalAction({
     minimumOutput: v.string(),
     estimatedTimeSeconds: v.number(),
     sourceGasSponsored: v.boolean(),
-    status: v.literal('pending'),
+    status: v.union(v.literal('pending'), v.literal('confirmed')),
+    autoConfirmed: v.boolean(),
     note: v.string(),
   }),
   handler: async (ctx, args) => {
@@ -378,8 +386,11 @@ export const prepareSocketSwap = internalAction({
     // lifetime: if the quote goes stale before execution, the executor
     // re-fetches a fresh route and refreshSocketRoute enforces the
     // confirmed minimum output.
-    const created: { id: Id<'web3Actions'>; expiresAt: number } =
-      await ctx.runMutation(internal.web3Actions.create, {
+    const created: {
+      id: Id<'web3Actions'>
+      expiresAt: number
+      autoConfirmed: boolean
+    } = await ctx.runMutation(internal.web3Actions.create, {
         userId: args.userId,
         summary,
         payload: {
@@ -413,8 +424,11 @@ export const prepareSocketSwap = internalAction({
       minimumOutput: `${quote.minimumOutputAmount} ${quote.outputToken.toUpperCase()}`,
       estimatedTimeSeconds: quote.estimatedTimeSeconds,
       sourceGasSponsored: true,
-      status: 'pending' as const,
-      note: 'Nothing has moved. The user must confirm this action in the app before it executes.',
+      status: created.autoConfirmed
+        ? ('confirmed' as const)
+        : ('pending' as const),
+      autoConfirmed: created.autoConfirmed,
+      note: preparedNote(created.autoConfirmed),
     }
   },
 })
@@ -452,9 +466,8 @@ export const prepareSendTokens = internalAction({
     const cleanRecipient = recipient.trim()
     const cleanAmount = amount.trim()
     const summary = `Send ${cleanAmount} ${normalizedToken.toUpperCase()} on ${walletChain()} to ${cleanRecipient}`
-    const created: { id: string; expiresAt: number } = await ctx.runMutation(
-      internal.web3Actions.create,
-      {
+    const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
+      await ctx.runMutation(internal.web3Actions.create, {
         userId,
         summary,
         payload: {
@@ -463,15 +476,17 @@ export const prepareSendTokens = internalAction({
           token: normalizedToken,
           amount: cleanAmount,
         },
-      },
-    )
+      })
     return {
       actionId: created.id,
       expiresAt: created.expiresAt,
       summary,
       from: wallet.address,
-      status: 'pending' as const,
-      note: 'Nothing has moved. The user must confirm this action in the app before it executes.',
+      status: created.autoConfirmed
+        ? ('confirmed' as const)
+        : ('pending' as const),
+      autoConfirmed: created.autoConfirmed,
+      note: preparedNote(created.autoConfirmed),
     }
   },
 })
@@ -553,9 +568,8 @@ export const prepareSugarExecution = internalAction({
       value: typeof step.value === 'string' ? step.value : '0',
     }))
     const summary = describeSugarExecution(sugarAction, parameters)
-    const created: { id: string; expiresAt: number } = await ctx.runMutation(
-      internal.web3Actions.create,
-      {
+    const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
+      await ctx.runMutation(internal.web3Actions.create, {
         userId,
         summary,
         payload: {
@@ -563,23 +577,27 @@ export const prepareSugarExecution = internalAction({
           chainId: BASE_MAINNET_CHAIN_ID,
           transactions,
         },
-      },
-    )
+      })
     return {
       actionId: created.id,
       expiresAt: created.expiresAt,
       summary,
       wallet: wallet.address,
       stepCount: transactions.length,
-      status: 'pending' as const,
-      note: 'Nothing has moved. The user must confirm this action in the app before it executes.',
+      status: created.autoConfirmed
+        ? ('confirmed' as const)
+        : ('pending' as const),
+      autoConfirmed: created.autoConfirmed,
+      note: preparedNote(created.autoConfirmed),
     }
   },
 })
 
 /**
- * Phase two: runs only via web3Actions.confirm (signed-in app), never from
- * the agent. Signs with the Crossmint server signer and records the outcome.
+ * Phase two: runs only after user authorization — a signed-in
+ * web3Actions.confirm tap or the user's standing YOLO opt-in applied at
+ * creation — never from the agent. Signs with the Crossmint server signer
+ * and records the outcome.
  */
 export const executeConfirmedAction = internalAction({
   args: { actionId: v.id('web3Actions') },

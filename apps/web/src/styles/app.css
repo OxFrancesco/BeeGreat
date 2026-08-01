@@ -7,6 +7,7 @@
 @import './mind.css';
 @import './settings.css';
 @import './health.css';
+@import './sites.css';
 
 :root {
   color-scheme: light;

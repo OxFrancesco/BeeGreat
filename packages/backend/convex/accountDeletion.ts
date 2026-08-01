@@ -80,6 +80,9 @@ const DATA_STAGES = [
   'beennectorDeliveries',
   'powerups',
   'devinSessions',
+  'beeSiteDeployments',
+  'beeSiteUsage',
+  'beeSites',
   'wallets',
   'web3Actions',
   'tasks',
@@ -503,6 +506,30 @@ async function removeDataBatch(
         await ctx.db
           .query('devinSessions')
           .withIndex('by_user_and_updated_at', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'beeSiteDeployments':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('beeSiteDeployments')
+          .withIndex('by_user_id_and_created_at', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'beeSiteUsage':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('beeSiteUsage')
+          .withIndex('by_user_id_and_month_key', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'beeSites':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('beeSites')
+          .withIndex('by_user_id_and_updated_at', (q) => q.eq('userId', userId))
           .take(BATCH_SIZE),
       )
     case 'wallets':

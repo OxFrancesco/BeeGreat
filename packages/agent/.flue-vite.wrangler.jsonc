@@ -13,18 +13,12 @@
   "vars": {
     "CODEX_ADAPTER_URL": "https://codex-adapter.vercel.app/api"
   },
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_sqlite_classes": [
-        "FlueRegistry",
-        "FlueBeeAgent"
-      ]
-    }
-  ],
-  "main": ".flue-vite/_entry.ts",
   "durable_objects": {
     "bindings": [
+      {
+        "name": "Sandbox",
+        "class_name": "Sandbox"
+      },
       {
         "name": "FLUE_BEE_AGENT",
         "class_name": "FlueBeeAgent"
@@ -34,5 +28,33 @@
         "class_name": "FlueRegistry"
       }
     ]
-  }
+  },
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "./Dockerfile"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BEE_SITES_BUCKET",
+      "bucket_name": "beegreat-sites"
+    }
+  ],
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "FlueRegistry",
+        "FlueBeeAgent"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "Sandbox"
+      ]
+    }
+  ],
+  "main": ".flue-vite/_entry.ts"
 }

@@ -15,9 +15,14 @@ import { createMindTools } from '../shared/mind-tools.ts'
 import { loadBeennectorSubagent } from '../shared/beennectors/index.ts'
 import { imagineSubagent } from '../shared/imagine-subagent.ts'
 import {
+  astroCreatorSubagent,
+  type BeeSitesBucket,
+} from '../shared/bee-sites/astro-creator.ts'
+import {
   BEE_ORCHESTRATOR_THINKING_LEVEL,
   resolveBeeEscalationModel,
   resolveBeeOrchestratorModel,
+  resolveBeeSiteCreatorModel,
 } from '../shared/bee-models.ts'
 import { loadPowerups } from '../shared/powerups/index.ts'
 import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
@@ -28,8 +33,11 @@ export {
   BEE_ESCALATION_THINKING_LEVEL,
   BEE_ORCHESTRATOR_MODEL_ID,
   BEE_ORCHESTRATOR_THINKING_LEVEL,
+  BEE_SITE_CREATOR_MODEL_ID,
+  BEE_SITE_CREATOR_THINKING_LEVEL,
   resolveBeeEscalationModel,
   resolveBeeOrchestratorModel,
+  resolveBeeSiteCreatorModel,
 } from '../shared/bee-models.ts'
 
 interface Env {
@@ -40,6 +48,8 @@ interface Env {
   OPENAI_CODEX_ACCESS_TOKEN?: string
   CODEX_ADAPTER_URL?: string
   CODEX_ADAPTER_SECRET?: string
+  Sandbox?: unknown
+  BEE_SITES_BUCKET?: BeeSitesBucket
 }
 
 export const description =
@@ -122,9 +132,32 @@ export default defineAgent<Env>(async ({ id, env }) => {
     }
   }
   const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
+  // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
+  const sandboxSdk =
+    env.Sandbox && env.BEE_SITES_BUCKET
+      ? await import('@cloudflare/sandbox')
+      : null
+  const sitesSubagents =
+    sandboxSdk && env.Sandbox && env.BEE_SITES_BUCKET
+      ? [
+          astroCreatorSubagent({
+            userId,
+            model: resolveBeeSiteCreatorModel(providerId),
+            convexUrl: env.CONVEX_URL,
+            brokerSecret:
+              env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+            sandbox: sandboxSdk.getSandbox(
+              env.Sandbox as Parameters<typeof sandboxSdk.getSandbox>[0],
+              `bee-sites-${userId}`,
+            ),
+            bucket: env.BEE_SITES_BUCKET,
+          }),
+        ]
+      : []
   const domainSubagents = [
     goalsSubagent(userId, env.CONVEX_URL, focusOptions),
     imagineSubagent(env.CONVEX_URL, focusOptions),
+    ...sitesSubagents,
     ...beennectors,
     ...powerups,
   ]
