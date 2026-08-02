@@ -7,6 +7,7 @@ import gaugeClJson from './abis/gauge_cl.json'
 import interchainAccountRouterJson from './abis/interchain_account_router.json'
 import interchainRouterJson from './abis/interchain_router.json'
 import nfpmJson from './abis/nfpm.json'
+import permit2Json from './abis/permit2.json'
 import poolBasicJson from './abis/pool_basic.json'
 import priceOracleJson from './abis/price_oracle.json'
 import quoterJson from './abis/quoter.json'
@@ -25,6 +26,7 @@ export const abis = {
   interchainAccountRouter: interchainAccountRouterJson as Abi,
   interchainRouter: interchainRouterJson as Abi,
   nfpm: nfpmJson as Abi,
+  permit2: permit2Json as Abi,
   poolBasic: poolBasicJson as Abi,
   priceOracle: priceOracleJson as Abi,
   quoter: quoterJson as Abi,
