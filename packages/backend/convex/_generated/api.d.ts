@@ -75,6 +75,7 @@ import type * as sentryNode from "../sentryNode.js";
 import type * as socketSwap from "../socketSwap.js";
 import type * as subscriptionReconciliation from "../subscriptionReconciliation.js";
 import type * as subscriptions from "../subscriptions.js";
+import type * as sugarRuntime from "../sugarRuntime.js";
 import type * as tasks from "../tasks.js";
 import type * as user from "../user.js";
 import type * as wallets from "../wallets.js";
@@ -158,6 +159,7 @@ declare const fullApi: ApiFromModules<{
   socketSwap: typeof socketSwap;
   subscriptionReconciliation: typeof subscriptionReconciliation;
   subscriptions: typeof subscriptions;
+  sugarRuntime: typeof sugarRuntime;
   tasks: typeof tasks;
   user: typeof user;
   wallets: typeof wallets;

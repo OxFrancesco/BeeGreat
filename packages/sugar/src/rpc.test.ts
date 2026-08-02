@@ -39,6 +39,50 @@ function quoteFixture(): { fromToken: Token; rawPool: unknown[]; toToken: Token 
 }
 
 describe('Sugar RPC policy', () => {
+  test('prefers the shortest route when its output is within configured slippage of the best quote', async () => {
+    const { fromToken, rawPool, toToken } = quoteFixture()
+    const direct: PathHop[] = [{
+      pool: {
+        chainId: 10,
+        chainName: 'OP',
+        factory: rawPool[4] as `0x${string}`,
+        isBasic: true,
+        isCl: false,
+        isStable: false,
+        lp: rawPool[0] as `0x${string}`,
+        token0Address: fromToken.tokenAddress as `0x${string}`,
+        token1Address: toToken.tokenAddress as `0x${string}`,
+        type: -1,
+      },
+      reversed: false,
+    }]
+    const threeHop: PathHop[] = [
+      direct[0],
+      { ...direct[0], pool: { ...direct[0].pool, lp: '0x2000000000000000000000000000000000000005' } },
+      { ...direct[0], pool: { ...direct[0].pool, lp: '0x2000000000000000000000000000000000000006' } },
+    ]
+    const sugar = new SugarClient(10, {
+      publicClient: {
+        multicall: async () => [
+          { status: 'success', result: [1_000n] },
+          { status: 'success', result: [995n] },
+        ],
+        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+          if (request.functionName === 'count') return 1n
+          if (request.functionName === 'forSwaps') return Number(request.args?.[1]) === 0 ? [rawPool] : []
+          throw new Error(`Unexpected read: ${request.functionName}`)
+        },
+      } as unknown as PublicClient,
+      settings: { swapSlippage: 0.01 },
+    })
+    sugar.getPathsForQuote = () => [threeHop, direct]
+
+    const quote = await sugar.getQuote(fromToken, toToken, 10n)
+
+    expect(quote?.amountOut).toBe(995n)
+    expect(quote?.input.path).toHaveLength(1)
+  })
+
   test('disables Viem retries on the SDK-owned transport', () => {
     const sugar = new SugarClient(10, { env: {} })
     expect(sugar.publicClient.transport.retryCount).toBe(0)

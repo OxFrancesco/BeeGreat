@@ -1,10 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import type { Address, PublicClient } from 'viem'
+import {
+  decodeFunctionData,
+  parseAbi,
+  type Address,
+  type PublicClient,
+} from 'viem'
+import { BaseChain } from './chains'
 import { SugarClient } from './client'
 import { withdrawalFromPosition } from './models'
-import { ADDRESS_ZERO, type LiquidityPool, type Position, type Token } from './types'
+import { ADDRESS_ZERO, type LiquidityPool, type LiquidityPoolForSwap, type Position, type Quote, type Token } from './types'
 
 const account = '0x1111111111111111111111111111111111111111' as Address
+const permit2 = '0x1212121212121212121212121212121212121212' as Address
 const token0: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x2222222222222222222222222222222222222222', symbol: 'A', decimals: 18, listed: true, emerging: false }
 const token1: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x3333333333333333333333333333333333333333', symbol: 'B', decimals: 6, listed: true, emerging: false }
 
@@ -35,6 +42,86 @@ function client(readContract: (request: { functionName: string }) => Promise<unk
 }
 
 describe('unsigned transaction builders', () => {
+  test('builds the Base ETH -> USDC -> ETH round trip with correct value and approval order', async () => {
+    const base = new BaseChain()
+    const baseClient = new SugarClient(8453, {
+      account,
+      publicClient: {
+        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+          if (request.functionName === 'PERMIT2') return permit2
+          if (request.functionName === 'allowance' && request.args?.length === 3) {
+            return [0n, 0, 0]
+          }
+          return 0n
+        },
+      } as unknown as PublicClient,
+    })
+    const routePool: LiquidityPoolForSwap = {
+      chainId: 8453,
+      chainName: 'Base',
+      lp: '0x4444444444444444444444444444444444444444',
+      type: -1,
+      token0Address: base.eth.wrappedTokenAddress!,
+      token1Address: BaseChain.usdc.tokenAddress as Address,
+      isCl: false,
+      isStable: false,
+      isBasic: true,
+    }
+    const ethAmount = 1_000_000_000_000_000n
+    const usdcAmount = 2_000_000n
+    const ethToUsdc: Quote = {
+      input: {
+        fromToken: base.eth,
+        toToken: BaseChain.usdc,
+        path: [{ pool: routePool, reversed: false }],
+        amountIn: ethAmount,
+      },
+      amountOut: usdcAmount,
+    }
+    const usdcToEth: Quote = {
+      input: {
+        fromToken: BaseChain.usdc,
+        toToken: base.eth,
+        path: [{ pool: routePool, reversed: true }],
+        amountIn: usdcAmount,
+      },
+      amountOut: ethAmount,
+    }
+
+    const outbound = await baseClient.swapFromQuote(ethToUsdc)
+    expect(outbound).toHaveLength(1)
+    expect(outbound[0].to).toBe(baseClient.settings.swapperContractAddress)
+    expect(outbound[0].value).toBe(ethAmount)
+
+    const returning = await baseClient.swapFromQuote(usdcToEth)
+    expect(returning).toHaveLength(3)
+    expect(returning.map((transaction) => transaction.to)).toEqual([
+      BaseChain.usdc.tokenAddress as Address,
+      permit2,
+      baseClient.settings.swapperContractAddress,
+    ])
+    expect(returning.every((transaction) => transaction.value === 0n)).toBe(true)
+
+    const tokenApproval = decodeFunctionData({
+      abi: parseAbi(['function approve(address spender,uint256 amount)']),
+      data: returning[0].data,
+    })
+    expect(tokenApproval.args).toEqual([permit2, usdcAmount])
+
+    const permit2Approval = decodeFunctionData({
+      abi: parseAbi([
+        'function approve(address token,address spender,uint160 amount,uint48 expiration)',
+      ]),
+      data: returning[1].data,
+    })
+    expect(permit2Approval.args?.slice(0, 3)).toEqual([
+      BaseChain.usdc.tokenAddress as Address,
+      baseClient.settings.swapperContractAddress,
+      usdcAmount,
+    ])
+    expect(permit2Approval.args?.[3]).toBeGreaterThan(0)
+  })
+
   test('returns both ERC20 approvals before a basic deposit', async () => {
     const transactions = await client().deposit({ pool: pool(), amountToken0: 100n, amountToken1: 200n, sqrtPriceX96: 0n })
     expect(transactions).toHaveLength(3)

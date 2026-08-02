@@ -1,27 +1,29 @@
-import { api } from "@beegreat/backend/convex/_generated/api";
-import type { Id } from "@beegreat/backend/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
-import * as Clipboard from "expo-clipboard";
-import { File, Paths } from "expo-file-system";
-import * as Haptics from "expo-haptics";
-import { Image as ExpoImage } from "expo-image";
-import * as Linking from "expo-linking";
-import * as Sharing from "expo-sharing";
-import { SymbolView } from "expo-symbols";
-import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { api } from '@beegreat/backend/convex/_generated/api';
+import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
+import { sameEvmAddress, sendEoaTransactions } from '@beegreat/wallet-connect';
+import { useMutation, useQuery } from 'convex/react';
+import * as Clipboard from 'expo-clipboard';
+import { File, Paths } from 'expo-file-system';
+import * as Haptics from 'expo-haptics';
+import { Image as ExpoImage } from 'expo-image';
+import * as Linking from 'expo-linking';
+import * as Sharing from 'expo-sharing';
+import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
   useReducedMotion,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
-import { FirstFocusPreviewCard } from "@/components/first-focus/first-focus-preview-card";
-import { ThemedText } from "@/components/themed-text";
-import { MotionDuration } from "@/constants/motion";
-import { Spacing } from "@/constants/theme";
-import { useTheme } from "@/hooks/use-theme";
-import type { UIComponent } from "@/lib/ui-spec";
+import { FirstFocusPreviewCard } from '@/components/first-focus/first-focus-preview-card';
+import { ThemedText } from '@/components/themed-text';
+import { MotionDuration } from '@/constants/motion';
+import { Spacing } from '@/constants/theme';
+import { useEoaWallet } from '@/hooks/use-eoa-wallet';
+import { useTheme } from '@/hooks/use-theme';
+import type { UIComponent } from '@/lib/ui-spec';
 
 /** Renders the agent's `beeui` spec as native cards streaming in below the pill. */
 export function GeneratedUI({
@@ -62,27 +64,27 @@ function UIComponentView({
   onReply?: (text: string) => void;
 }) {
   switch (component.type) {
-    case "text":
+    case 'text':
       return <ThemedText>{component.body}</ThemedText>;
-    case "metric":
+    case 'metric':
       return <MetricCard {...component} />;
-    case "chart":
+    case 'chart':
       return <BarChartCard {...component} />;
-    case "tasks":
+    case 'tasks':
       return <TaskListCard {...component} />;
-    case "highlight":
+    case 'highlight':
       return <HighlightCard {...component} />;
-    case "image":
+    case 'image':
       return <GeneratedImageCard {...component} />;
-    case "bookmark":
+    case 'bookmark':
       return <BookmarkCard {...component} />;
-    case "devin":
+    case 'devin':
       return <DevinCard {...component} onReply={onReply} />;
-    case "first_focus":
+    case 'first_focus':
       return <FirstFocusPreviewCard preview={component} />;
-    case "confirm": {
+    case 'confirm': {
       const web3ActionId = component.payload?.web3ActionId;
-      if (typeof web3ActionId === "string" && web3ActionId.length > 0) {
+      if (typeof web3ActionId === 'string' && web3ActionId.length > 0) {
         return (
           <Web3ConfirmCard
             summary={component.summary}
@@ -178,7 +180,7 @@ function BarChartCard({
               </View>
               <ThemedText selectable type="small" style={styles.chartValue}>
                 {point.value}
-                {unit ? ` ${unit}` : ""}
+                {unit ? ` ${unit}` : ''}
               </ThemedText>
             </View>
           </View>
@@ -199,7 +201,7 @@ function TaskListCard({
   // The card is a snapshot from the agent; overlay live Convex state so rows
   // stay in sync with the Goals pages and stay tappable to complete tasks.
   const live = useQuery(api.tasks.statuses, {
-    taskIds: items.map((item) => item.id as Id<"tasks">),
+    taskIds: items.map((item) => item.id as Id<'tasks'>),
   });
   const toggle = useMutation(api.tasks.toggle);
   const liveById = new Map(live?.map((task) => [task.id, task.status]));
@@ -207,7 +209,7 @@ function TaskListCard({
   const onToggle = async (taskId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await toggle({ taskId: taskId as Id<"tasks"> });
+      await toggle({ taskId: taskId as Id<'tasks'> });
     } catch {
       // Row simply stays as-is; the live query is the source of truth.
     }
@@ -218,8 +220,8 @@ function TaskListCard({
       <ThemedText type="smallBold">{title}</ThemedText>
       <View style={styles.taskList}>
         {items.map((item) => {
-          const liveStatus = liveById.get(item.id as Id<"tasks">);
-          const done = liveStatus ? liveStatus === "done" : item.done;
+          const liveStatus = liveById.get(item.id as Id<'tasks'>);
+          const done = liveStatus ? liveStatus === 'done' : item.done;
           // Only rows backed by a real task are interactive.
           const interactive = liveStatus !== undefined;
           return (
@@ -236,19 +238,19 @@ function TaskListCard({
               ]}
             >
               <SymbolView
-                name={done ? "checkmark.circle.fill" : "circle"}
+                name={done ? 'checkmark.circle.fill' : 'circle'}
                 size={18}
                 tintColor={done ? theme.primary : theme.textSecondary}
                 fallback={
                   <ThemedText type="small" themeColor="textSecondary">
-                    {done ? "[x]" : "[ ]"}
+                    {done ? '[x]' : '[ ]'}
                   </ThemedText>
                 }
               />
               <View style={styles.taskBody}>
                 <ThemedText
                   style={[styles.taskTitle, done && styles.taskDone]}
-                  themeColor={done ? "textSecondary" : "text"}
+                  themeColor={done ? 'textSecondary' : 'text'}
                 >
                   {item.title}
                 </ThemedText>
@@ -290,7 +292,7 @@ function HighlightCard({ title, body }: { title: string; body: string }) {
 
 function imageFileName(url: string) {
   try {
-    const sourceName = new URL(url).pathname.split("/").pop() ?? "";
+    const sourceName = new URL(url).pathname.split('/').pop() ?? '';
     if (/\.(?:avif|gif|jpe?g|png|webp)$/i.test(sourceName)) {
       return sourceName;
     }
@@ -312,44 +314,44 @@ function GeneratedImageCard({
   url,
   alt,
   title,
-}: Extract<UIComponent, { type: "image" }>) {
+}: Extract<UIComponent, { type: 'image' }>) {
   const theme = useTheme();
   const [feedback, setFeedback] = useState<string>();
-  const [working, setWorking] = useState<"copy" | "save">();
+  const [working, setWorking] = useState<'copy' | 'save'>();
 
   const copyImage = async () => {
-    setWorking("copy");
+    setWorking('copy');
     try {
       const file = await downloadGeneratedImage(url);
       await Clipboard.setImageAsync(await file.base64());
-      setFeedback("Image copied");
+      setFeedback('Image copied');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       await Clipboard.setStringAsync(url);
-      setFeedback("Image link copied");
+      setFeedback('Image link copied');
     } finally {
       setWorking(undefined);
     }
   };
 
   const saveImage = async () => {
-    setWorking("save");
+    setWorking('save');
     try {
       const file = await downloadGeneratedImage(url);
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(file.uri, {
-          dialogTitle: "Save image",
-          mimeType: file.type || "image/png",
-          UTI: "public.image",
+          dialogTitle: 'Save image',
+          mimeType: file.type || 'image/png',
+          UTI: 'public.image',
         });
-        setFeedback("Image ready to save");
+        setFeedback('Image ready to save');
       } else {
         await Linking.openURL(url);
-        setFeedback("Image opened");
+        setFeedback('Image opened');
       }
     } catch {
       await Linking.openURL(url);
-      setFeedback("Image opened");
+      setFeedback('Image opened');
     } finally {
       setWorking(undefined);
     }
@@ -388,7 +390,7 @@ function GeneratedImageCard({
             (pressed || working !== undefined) && styles.taskRowPressed,
           ]}
         >
-          {working === "copy" ? (
+          {working === 'copy' ? (
             <ActivityIndicator size="small" color={theme.text} />
           ) : (
             <SymbolView
@@ -411,7 +413,7 @@ function GeneratedImageCard({
             (pressed || working !== undefined) && styles.taskRowPressed,
           ]}
         >
-          {working === "save" ? (
+          {working === 'save' ? (
             <ActivityIndicator size="small" color={theme.primaryForeground} />
           ) : (
             <SymbolView
@@ -451,7 +453,7 @@ function GeneratedImageCard({
 
 function bookmarkHost(url: string) {
   try {
-    return new URL(url).hostname.replace(/^www\./, "");
+    return new URL(url).hostname.replace(/^www\./, '');
   } catch {
     return url;
   }
@@ -461,7 +463,7 @@ function BookmarkCard({
   title,
   url,
   note,
-}: Extract<UIComponent, { type: "bookmark" }>) {
+}: Extract<UIComponent, { type: 'bookmark' }>) {
   const theme = useTheme();
   const host = bookmarkHost(url);
 
@@ -527,7 +529,7 @@ function DevinCard({
   summary,
   pullRequests,
   onReply,
-}: Extract<UIComponent, { type: "devin" }> & {
+}: Extract<UIComponent, { type: 'devin' }> & {
   onReply?: (text: string) => void;
 }) {
   const theme = useTheme();
@@ -536,7 +538,7 @@ function DevinCard({
   const currentDetail = live?.statusDetail ?? statusDetail;
   const currentPullRequests = live?.pullRequests ?? pullRequests;
   const detail =
-    currentDetail?.replace(/_/g, " ") ?? currentStatus.replace(/_/g, " ");
+    currentDetail?.replace(/_/g, ' ') ?? currentStatus.replace(/_/g, ' ');
   const open = (url: string) => {
     Haptics.selectionAsync();
     void Linking.openURL(url);
@@ -547,7 +549,7 @@ function DevinCard({
       style={[
         styles.card,
         styles.devinCard,
-        { backgroundColor: theme.card, borderColor: "#F2765A66" },
+        { backgroundColor: theme.card, borderColor: '#F2765A66' },
       ]}
     >
       <View style={styles.devinHeading}>
@@ -651,11 +653,11 @@ function DevinCard({
 }
 
 /**
- * Web3 money movement: the app is the authoritative confirmer. Tapping
- * Confirm runs the signed-in `web3Actions.confirm` mutation (which schedules
- * server-side execution) and only then tells Bee. A chat "yes" alone can
- * never move funds. When the user's YOLO mode auto-approved the action
- * server-side, the card skips the buttons and shows live progress instead.
+ * Web3 money movement uses an action-bound authorization. Smart-wallet actions
+ * call `web3Actions.confirm` and schedule server-side execution; linked-wallet
+ * actions claim the exact plan and leave every signature in the connected EOA.
+ * Free-form chat text cannot move funds. YOLO may auto-approve only smart-wallet
+ * actions, in which case the card shows live progress instead of buttons.
  */
 function Web3ConfirmCard({
   summary,
@@ -669,42 +671,109 @@ function Web3ConfirmCard({
   const theme = useTheme();
   const confirmAction = useMutation(api.web3Actions.confirm);
   const cancelAction = useMutation(api.web3Actions.cancel);
+  const beginEoaExecution = useMutation(api.web3Actions.beginEoaExecution);
+  const recordEoaSubmission = useMutation(api.web3Actions.recordEoaSubmission);
+  const reportEoaFailure = useMutation(api.web3Actions.reportEoaFailure);
+  const connectedWallet = useEoaWallet();
   const [decision, setDecision] = useState<
-    "idle" | "working" | "confirmed" | "declined"
-  >("idle");
+    'idle' | 'working' | 'confirmed' | 'declined'
+  >('idle');
   const [error, setError] = useState<string | null>(null);
   // The status query is ownership-scoped (null for anyone else), so it is
   // safe to subscribe immediately — needed to detect YOLO auto-confirmation.
   const live = useQuery(api.web3Actions.status, {
-    actionId: actionId as Id<"web3Actions">,
+    actionId: actionId as Id<'web3Actions'>,
   });
   const autoConfirmed = live?.autoConfirmed === true;
+  const isEoaAction = live?.kind === 'execute_eoa_plan';
+  const expectedEoaAddress = live?.eoaRequest?.walletAddress;
+  const eoaSessionMatches = Boolean(
+    expectedEoaAddress &&
+    connectedWallet.address &&
+    connectedWallet.provider &&
+    sameEvmAddress(expectedEoaAddress, connectedWallet.address),
+  );
 
   const confirm = async () => {
-    if (decision !== "idle") return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setDecision("working");
+    if (decision !== 'idle') return;
+    if (isEoaAction && !eoaSessionMatches) {
+      setError(null);
+      try {
+        if (connectedWallet.isConnected) await connectedWallet.disconnect();
+        await connectedWallet.connect();
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Couldn’t open WalletConnect.',
+        );
+      }
+      return;
+    }
+    if (process.env.EXPO_OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setDecision('working');
     setError(null);
+    let eoaClaimed = false;
     try {
-      await confirmAction({ actionId: actionId as Id<"web3Actions"> });
-      setDecision("confirmed");
-      onReply?.("I confirmed the action in the app. Check its status.");
+      if (isEoaAction) {
+        const plan = await beginEoaExecution({
+          actionId: actionId as Id<'web3Actions'>,
+        });
+        eoaClaimed = true;
+        try {
+          await sendEoaTransactions({
+            provider: connectedWallet.provider!,
+            address: plan.walletAddress,
+            chainId: plan.chainId,
+            transactions: plan.transactions,
+            onSubmitted: async ({ index, hash }) => {
+              await recordEoaSubmission({
+                actionId: actionId as Id<'web3Actions'>,
+                index,
+                hash,
+              });
+            },
+          });
+        } catch (cause) {
+          await reportEoaFailure({
+            actionId: actionId as Id<'web3Actions'>,
+            reason: eoaFailureReason(cause),
+          });
+          throw cause;
+        }
+      } else {
+        await confirmAction({ actionId: actionId as Id<'web3Actions'> });
+      }
+      setDecision('confirmed');
+      onReply?.(
+        isEoaAction
+          ? 'I signed the linked-wallet action in the app. Check its status.'
+          : 'I confirmed the action in the app. Check its status.',
+      );
     } catch (cause) {
-      setDecision("idle");
+      setDecision(
+        isEoaAction && eoaClaimed
+          ? eoaFailureReason(cause) === 'user_rejected'
+            ? 'declined'
+            : 'confirmed'
+          : 'idle',
+      );
       setError(
-        cause instanceof Error ? cause.message : "Couldn’t confirm the action.",
+        cause instanceof Error ? cause.message : 'Couldn’t confirm the action.',
       );
     }
   };
 
   const decline = () => {
-    if (decision !== "idle") return;
+    if (decision !== 'idle') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setDecision("declined");
-    cancelAction({ actionId: actionId as Id<"web3Actions"> }).catch(() => {
+    setDecision('declined');
+    cancelAction({ actionId: actionId as Id<'web3Actions'> }).catch(() => {
       // Cancelling a stale or unknown action is a no-op.
     });
-    onReply?.("No, I declined the action.");
+    onReply?.('No, I declined the action.');
   };
 
   const status = live?.status;
@@ -714,7 +783,10 @@ function Web3ConfirmCard({
       ?.explorerLink;
   // YOLO auto-approval resolves the card without a tap; show progress
   // immediately instead of confirm buttons.
-  const resolved = decision === "confirmed" || autoConfirmed;
+  const resolved =
+    decision === 'confirmed' ||
+    autoConfirmed ||
+    (isEoaAction && status !== undefined && status !== 'pending');
   const loading = live === undefined;
 
   return (
@@ -723,15 +795,20 @@ function Web3ConfirmCard({
         styles.card,
         {
           backgroundColor: theme.card,
-          borderColor: autoConfirmed ? theme.primary : theme.destructive,
+          borderColor:
+            autoConfirmed || isEoaAction ? theme.primary : theme.destructive,
         },
       ]}
     >
       <ThemedText
         type="smallBold"
-        themeColor={autoConfirmed ? "primary" : "destructive"}
+        themeColor={autoConfirmed || isEoaAction ? 'primary' : 'destructive'}
       >
-        {autoConfirmed ? "Auto-approved · YOLO mode" : "Needs your confirmation"}
+        {autoConfirmed
+          ? 'Auto-approved · YOLO mode'
+          : isEoaAction
+            ? 'Needs your wallet signature'
+            : 'Needs your confirmation'}
       </ThemedText>
       <ThemedText selectable>{summary}</ThemedText>
       {error ? (
@@ -739,12 +816,12 @@ function Web3ConfirmCard({
           {error}
         </ThemedText>
       ) : null}
-      {decision === "declined" ? (
+      {decision === 'declined' || status === 'cancelled' ? (
         <ThemedText type="small" themeColor="textSecondary">
           Declined — nothing was sent.
         </ThemedText>
       ) : resolved ? (
-        status === "executed" ? (
+        status === 'executed' ? (
           <View style={styles.confirmRow}>
             <ThemedText type="smallBold">Done ✓</ThemedText>
             {explorerLink ? (
@@ -759,19 +836,19 @@ function Web3ConfirmCard({
               </Pressable>
             ) : null}
           </View>
-        ) : status === "failed" ? (
+        ) : status === 'failed' ? (
           <ThemedText
             type="small"
             themeColor="destructive"
             accessibilityLiveRegion="polite"
           >
-            {live?.error ?? "Execution failed."}
+            {live?.error ?? 'Execution failed.'}
           </ThemedText>
-        ) : status === "refunded" ? (
+        ) : status === 'refunded' ? (
           <ThemedText type="small" accessibilityLiveRegion="polite">
             The route was refunded.
           </ThemedText>
-        ) : status === "expired" ? (
+        ) : status === 'expired' ? (
           <ThemedText
             type="small"
             themeColor="destructive"
@@ -787,9 +864,13 @@ function Web3ConfirmCard({
               themeColor="textSecondary"
               accessibilityLiveRegion="polite"
             >
-              {status === "in_progress"
-                ? (live?.socketProgress?.detail ?? "Moving funds…")
-                : "Confirmed — preparing…"}
+              {status === 'in_progress'
+                ? isEoaAction
+                  ? `${live?.result?.length ?? 0} of ${live?.eoaRequest?.stepCount ?? 1} transactions submitted…`
+                  : (live?.socketProgress?.detail ?? 'Moving funds…')
+                : isEoaAction
+                  ? 'Check your wallet to sign each transaction…'
+                  : 'Confirmed — preparing…'}
             </ThemedText>
           </View>
         )
@@ -804,29 +885,31 @@ function Web3ConfirmCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Confirm in app"
-            disabled={decision === "working"}
+            disabled={decision === 'working'}
             onPress={() => void confirm()}
             style={({ pressed }) => [
               styles.confirmButton,
               { backgroundColor: theme.primary },
-              (pressed || decision === "working") && styles.taskRowPressed,
+              (pressed || decision === 'working') && styles.taskRowPressed,
             ]}
           >
-            {decision === "working" ? (
+            {decision === 'working' ? (
               <ActivityIndicator size="small" color={theme.primaryForeground} />
             ) : (
               <ThemedText
                 type="smallBold"
                 style={{ color: theme.primaryForeground }}
               >
-                Confirm
+                {isEoaAction && !eoaSessionMatches
+                  ? 'Connect wallet'
+                  : 'Confirm'}
               </ThemedText>
             )}
           </Pressable>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Decline"
-            disabled={decision === "working"}
+            disabled={decision === 'working'}
             onPress={decline}
             style={({ pressed }) => [
               styles.confirmButton,
@@ -841,6 +924,26 @@ function Web3ConfirmCard({
       )}
     </View>
   );
+}
+
+function eoaFailureReason(
+  cause: unknown,
+): 'user_rejected' | 'account_changed' | 'wallet_error' {
+  if (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    cause.code === 4001
+  ) {
+    return 'user_rejected';
+  }
+  if (
+    cause instanceof Error &&
+    cause.message.toLowerCase().includes('connect the wallet shown')
+  ) {
+    return 'account_changed';
+  }
+  return 'wallet_error';
 }
 
 function ConfirmCard({
@@ -874,7 +977,7 @@ function ConfirmCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Confirm"
-            onPress={() => reply("Yes")}
+            onPress={() => reply('Yes')}
             style={({ pressed }) => [
               styles.confirmButton,
               { backgroundColor: theme.primary },
@@ -891,7 +994,7 @@ function ConfirmCard({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Decline"
-            onPress={() => reply("No")}
+            onPress={() => reply('No')}
             style={({ pressed }) => [
               styles.confirmButton,
               styles.confirmButtonOutline,
@@ -914,20 +1017,20 @@ function ConfirmCard({
 const styles = StyleSheet.create({
   stack: {
     gap: Spacing.two,
-    alignSelf: "stretch",
+    alignSelf: 'stretch',
   },
   card: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: Spacing.three,
-    borderCurve: "continuous",
+    borderCurve: 'continuous',
     padding: Spacing.three,
     gap: Spacing.two,
     minWidth: 0,
   },
   metricRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
     gap: Spacing.two,
   },
   metricValue: {
@@ -940,43 +1043,43 @@ const styles = StyleSheet.create({
     gap: Spacing.one,
   },
   chartRow: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
   chartTrack: {
     flex: 1,
     height: 12,
     borderRadius: 6,
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   chartFill: {
-    height: "100%",
+    height: '100%',
     borderRadius: 6,
   },
   chartValue: {
     minWidth: 48,
-    textAlign: "right",
+    textAlign: 'right',
   },
   taskList: {
     gap: Spacing.two,
   },
   taskRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: Spacing.two,
   },
   taskRowPressed: {
     opacity: 0.6,
   },
   confirmRow: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: Spacing.two,
   },
   confirmButton: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     height: 40,
     borderRadius: 20,
   },
@@ -992,30 +1095,30 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   taskDone: {
-    textDecorationLine: "line-through",
+    textDecorationLine: 'line-through',
   },
   highlight: {
     borderWidth: 0,
   },
   imageCard: {
-    overflow: "hidden",
+    overflow: 'hidden',
   },
   generatedImage: {
-    width: "100%",
+    width: '100%',
     aspectRatio: 1,
     borderRadius: Spacing.two,
-    borderCurve: "continuous",
+    borderCurve: 'continuous',
   },
   imageActions: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: Spacing.two,
   },
   imageAction: {
     flex: 1,
     minHeight: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 22,
     gap: Spacing.one,
   },
@@ -1026,15 +1129,15 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   bookmarkHeading: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
   bookmarkFavicon: {
     width: 22,
     height: 22,
     borderRadius: 6,
-    borderCurve: "continuous",
+    borderCurve: 'continuous',
   },
   bookmarkTitle: {
     flex: 1,
@@ -1046,22 +1149,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   devinHeading: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.two,
   },
   devinMark: {
     width: 34,
     height: 34,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 11,
-    borderCurve: "continuous",
-    backgroundColor: "#D85238",
+    borderCurve: 'continuous',
+    backgroundColor: '#D85238',
   },
   devinMarkText: {
-    color: "#FFFFFF",
-    fontWeight: "800",
+    color: '#FFFFFF',
+    fontWeight: '800',
   },
   devinTitle: {
     flex: 1,
@@ -1069,61 +1172,61 @@ const styles = StyleSheet.create({
     gap: Spacing.half,
   },
   devinStatus: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.one,
     paddingHorizontal: Spacing.two,
     minHeight: 26,
     borderRadius: 13,
-    backgroundColor: "#F2765A1F",
+    backgroundColor: '#F2765A1F',
   },
   devinStatusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#D85238",
+    backgroundColor: '#D85238',
   },
   devinStatusText: {
-    color: "#D85238",
-    textTransform: "capitalize",
+    color: '#D85238',
+    textTransform: 'capitalize',
   },
   devinLinks: {
     gap: Spacing.one,
   },
   devinLink: {
     minHeight: 38,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.two,
     borderRadius: 12,
-    borderCurve: "continuous",
+    borderCurve: 'continuous',
     gap: Spacing.two,
   },
   devinLinkLabel: {
     flex: 1,
   },
   devinActions: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: Spacing.two,
   },
   devinPrimaryAction: {
     minHeight: 40,
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 20,
-    backgroundColor: "#D85238",
+    backgroundColor: '#D85238',
     gap: Spacing.one,
   },
   devinPrimaryText: {
-    color: "#FFFFFF",
+    color: '#FFFFFF',
   },
   devinSecondaryAction: {
     minHeight: 40,
     paddingHorizontal: Spacing.three,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 20,
     borderWidth: StyleSheet.hairlineWidth,
   },

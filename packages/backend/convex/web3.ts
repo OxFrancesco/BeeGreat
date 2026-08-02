@@ -28,6 +28,10 @@ import {
   type SocketRouteStatus,
   type SocketToken,
 } from './socketSwap'
+import {
+  normalizeSugarAgentParameters,
+  sugarRuntimeEnvironment,
+} from './sugarRuntime'
 
 // Web3 power-up: per-user wallets via Crossmint plus Velodrome/Aerodrome DeFi
 // through the native TypeScript Sugar SDK (packages/sugar).
@@ -38,11 +42,11 @@ import {
 // leaves our backend and users hold no keys. Creation is idempotent — the
 // same owner + secret resolves to the same EVM address. Production can resolve
 // that wallet on Base and Arbitrum; staging uses Base Sepolia. Users can also
-// link their own EOA (wallets.ts); Sugar plans built for it are returned
-// unsigned for external signing.
+// link their own EOA (wallets.ts); allowlisted Sugar plans built for it are
+// authorized in-app and signed by the connected wallet.
 //
 // Anything that MOVES funds goes through the two-phase confirmation gate in
-// web3Actions.ts: the agent prepares a pending action, the signed-in app
+// web3Actions.ts: the agent prepares a pending action, an authenticated client
 // confirms it, and only then does `executeConfirmedAction` sign with the
 // server signer. Every entry point is also gated on the `web3` power-up
 // server-side, and all agent-facing functions are internal — they are only
@@ -54,11 +58,30 @@ import {
 //   CROSSMINT_SIGNER_SECRET long random string; DO NOT rotate — it derives
 //                           every wallet's admin signing key
 //   SOCKET_API_KEY          production key for Socket's dedicated V3 API
+//   SUGAR_RPC_URI_8453      production Base JSON-RPC URL used for Aerodrome
+//                           reads and unsigned transaction preparation
 
 const BASE_MAINNET_CHAIN_ID = 8453
 
+const SUGAR_CHAIN_NAMES: Record<number, string> = {
+  10: 'Optimism',
+  130: 'Unichain',
+  252: 'Fraxtal',
+  1135: 'Lisk',
+  1868: 'Soneium',
+  5330: 'Superseed',
+  8453: 'Base',
+  34443: 'Mode',
+  42220: 'Celo',
+  57073: 'Ink',
+}
+
 /** Re-quote a confirmed Socket route unless it will outlive execution. */
 const SOCKET_QUOTE_REFRESH_BUFFER_MS = 15_000
+
+function sugarEnvironment() {
+  return sugarRuntimeEnvironment(env)
+}
 
 type RequiredWeb3Env =
   'CROSSMINT_API_KEY' | 'CROSSMINT_SIGNER_SECRET' | 'SOCKET_API_KEY'
@@ -354,7 +377,7 @@ export const quoteSocketSwap = internalAction({
   },
 })
 
-/** Create a fresh Socket route and place it behind the in-app confirmation gate. */
+/** Create a fresh Socket route and place it behind the client confirmation gate. */
 export const prepareSocketSwap = internalAction({
   args: {
     userId: v.string(),
@@ -391,30 +414,30 @@ export const prepareSocketSwap = internalAction({
       expiresAt: number
       autoConfirmed: boolean
     } = await ctx.runMutation(internal.web3Actions.create, {
-        userId: args.userId,
-        summary,
-        payload: {
-          kind: 'socket_swap',
-          quoteId: quote.quoteId,
-          originChainId: quote.originChainId,
-          destinationChainId: quote.destinationChainId,
-          originChain: quote.originChain,
-          destinationChain: quote.destinationChain,
-          inputToken: quote.inputToken,
-          outputToken: quote.outputToken,
-          inputAmount: quote.inputAmount,
-          outputAmount: quote.outputAmount,
-          minimumOutputAmount: quote.minimumOutputAmount,
-          provider: quote.provider,
-          estimatedTimeSeconds: quote.estimatedTimeSeconds,
-          quoteExpiresAt: quote.expiresAt,
-          monitoringDeadlineAt:
-            quote.expiresAt + quote.statusMaxDurationSeconds * 1_000,
-          statusIntervalSeconds: quote.statusIntervalSeconds,
-          ...(quote.approval ? { approval: quote.approval } : {}),
-          transaction: quote.transaction,
-        },
-      })
+      userId: args.userId,
+      summary,
+      payload: {
+        kind: 'socket_swap',
+        quoteId: quote.quoteId,
+        originChainId: quote.originChainId,
+        destinationChainId: quote.destinationChainId,
+        originChain: quote.originChain,
+        destinationChain: quote.destinationChain,
+        inputToken: quote.inputToken,
+        outputToken: quote.outputToken,
+        inputAmount: quote.inputAmount,
+        outputAmount: quote.outputAmount,
+        minimumOutputAmount: quote.minimumOutputAmount,
+        provider: quote.provider,
+        estimatedTimeSeconds: quote.estimatedTimeSeconds,
+        quoteExpiresAt: quote.expiresAt,
+        monitoringDeadlineAt:
+          quote.expiresAt + quote.statusMaxDurationSeconds * 1_000,
+        statusIntervalSeconds: quote.statusIntervalSeconds,
+        ...(quote.approval ? { approval: quote.approval } : {}),
+        transaction: quote.transaction,
+      },
+    })
     return {
       actionId: created.id,
       expiresAt: created.expiresAt,
@@ -438,7 +461,7 @@ const DECIMAL_AMOUNT = /^(?:\d+\.?\d*|\.\d+)$/
 
 /**
  * Phase one of sending tokens: validate and store a pending action. Nothing
- * moves until the signed-in app confirms it (web3Actions.confirm).
+ * moves until an authenticated client confirms it.
  */
 export const prepareSendTokens = internalAction({
   args: {
@@ -495,6 +518,7 @@ export const prepareSendTokens = internalAction({
 function describeSugarExecution(
   sugarAction: string,
   parameters: Record<string, string | number | boolean>,
+  options: { chainName?: string; walletLabel?: string } = {},
 ) {
   const interesting = [
     'from_token',
@@ -513,13 +537,35 @@ function describeSugarExecution(
     .map((name) => `${name.replace(/_/g, ' ')} ${String(parameters[name])}`)
     .join(', ')
   const verb = sugarAction.replace(/_/g, ' ')
-  return `Aerodrome ${verb} on Base from your Bee wallet${details ? `: ${details}` : ''}`
+  const chainName = options.chainName ?? 'Base'
+  const walletLabel = options.walletLabel ?? 'your Bee wallet'
+  return `Aerodrome ${verb} on ${chainName} from ${walletLabel}${details ? `: ${details}` : ''}`
+}
+
+function executableSugarTransactions(plan: unknown) {
+  const steps = (Array.isArray(plan) ? plan : [plan]).filter(
+    (step): step is { to: string; data: string; value?: string } =>
+      typeof step === 'object' &&
+      step !== null &&
+      typeof (step as { to?: unknown }).to === 'string' &&
+      typeof (step as { data?: unknown }).data === 'string',
+  )
+  if (steps.length === 0) {
+    throw new Error(
+      'Sugar returned no executable transactions for this request.',
+    )
+  }
+  return steps.map((step) => ({
+    to: step.to,
+    data: step.data,
+    value: typeof step.value === 'string' ? step.value : '0',
+  }))
 }
 
 /**
  * Phase one of executing a Sugar plan with the smart wallet: build the plan
  * server-side from an allowlisted action (the agent never supplies raw
- * calldata), then store it as a pending action awaiting in-app confirmation.
+ * calldata), then store it as a pending action awaiting client confirmation.
  * Mainnet only — Aerodrome has no public testnet deployment.
  */
 export const prepareSugarExecution = internalAction({
@@ -535,7 +581,7 @@ export const prepareSugarExecution = internalAction({
     await requireWeb3(ctx, userId)
     if (!isProduction()) {
       throw new Error(
-        'Executing DeFi plans requires the mainnet wallet (production Crossmint key). On staging, build unsigned plans for the linked EOA instead.',
+        'Executing smart-wallet DeFi plans requires the mainnet wallet (production Crossmint key). On staging, prepare the plan for a linked EOA instead.',
       )
     }
     const wallet = await cachedWalletForUser(ctx, userId)
@@ -543,30 +589,14 @@ export const prepareSugarExecution = internalAction({
     // agent passed: the smart wallet only exists on Base, and pinning the
     // wallet here means the confirmed plan always spends the user's own funds.
     const planParameters = {
-      ...parameters,
+      ...normalizeSugarAgentParameters(parameters),
       chain: BASE_MAINNET_CHAIN_ID,
       wallet: wallet.address,
     }
     const plan = await executeSugarAction(sugarAction, planParameters, {
-      env: {},
+      env: sugarEnvironment(),
     })
-    const steps = (Array.isArray(plan) ? plan : [plan]).filter(
-      (step): step is { to: string; data: string; value?: string } =>
-        typeof step === 'object' &&
-        step !== null &&
-        typeof (step as { to?: unknown }).to === 'string' &&
-        typeof (step as { data?: unknown }).data === 'string',
-    )
-    if (steps.length === 0) {
-      throw new Error(
-        'Sugar returned no executable transactions for this request.',
-      )
-    }
-    const transactions = steps.map((step) => ({
-      to: step.to,
-      data: step.data,
-      value: typeof step.value === 'string' ? step.value : '0',
-    }))
+    const transactions = executableSugarTransactions(plan)
     const summary = describeSugarExecution(sugarAction, parameters)
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
       await ctx.runMutation(internal.web3Actions.create, {
@@ -594,10 +624,76 @@ export const prepareSugarExecution = internalAction({
 })
 
 /**
- * Phase two: runs only after user authorization — a signed-in
- * web3Actions.confirm tap or the user's standing YOLO opt-in applied at
- * creation — never from the agent. Signs with the Crossmint server signer
- * and records the outcome.
+ * Build an allowlisted Sugar transaction plan for the verified linked EOA.
+ * The client-side WalletConnect provider is the only signer and broadcaster.
+ */
+export const prepareEoaSugarExecution = internalAction({
+  args: {
+    userId: v.string(),
+    chainId: v.number(),
+    sugarAction: v.union(...SUGAR_TX_ACTIONS.map((name) => v.literal(name))),
+    parameters: v.record(
+      v.string(),
+      v.union(v.string(), v.number(), v.boolean()),
+    ),
+  },
+  handler: async (ctx, { userId, chainId, sugarAction, parameters }) => {
+    await requireWeb3(ctx, userId)
+    const chainName = SUGAR_CHAIN_NAMES[chainId]
+    if (!chainName) throw new Error('That Sugar chain is not supported.')
+    const wallets: {
+      smartWallet: { address: string; chain: string } | null
+      eoa: { address: string } | null
+    } = await ctx.runQuery(internal.wallets.getWalletsForAgent, { userId })
+    if (!wallets.eoa) {
+      throw new Error(
+        'Link your wallet in BeeGreat before preparing this action.',
+      )
+    }
+    const plan = await executeSugarAction(
+      sugarAction,
+      {
+        ...normalizeSugarAgentParameters(parameters),
+        chain: chainId,
+        wallet: wallets.eoa.address,
+      },
+      { env: sugarEnvironment() },
+    )
+    const transactions = executableSugarTransactions(plan)
+    const summary = describeSugarExecution(sugarAction, parameters, {
+      chainName,
+      walletLabel: 'your linked wallet',
+    })
+    const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
+      await ctx.runMutation(internal.web3Actions.create, {
+        userId,
+        summary,
+        payload: {
+          kind: 'execute_eoa_plan',
+          chainId,
+          walletAddress: wallets.eoa.address,
+          transactions,
+        },
+      })
+    return {
+      actionId: created.id,
+      expiresAt: created.expiresAt,
+      summary,
+      wallet: wallets.eoa.address,
+      chainId,
+      stepCount: transactions.length,
+      status: 'pending' as const,
+      autoConfirmed: false,
+      note: 'Open BeeGreat and confirm this action. Your connected wallet will show every transaction before signing.',
+    }
+  },
+})
+
+/**
+ * Smart-wallet phase two: runs only after user authorization — a signed-in app
+ * tap, an exact action-bound iMessage decision, or the user's standing YOLO
+ * opt-in applied at creation — never from the agent. EOA actions are rejected
+ * here because only the connected client wallet may sign them.
  */
 export const executeConfirmedAction = internalAction({
   args: { actionId: v.id('web3Actions') },
@@ -647,9 +743,16 @@ export const executeConfirmedAction = internalAction({
             explorerLink: transaction.explorerLink ?? null,
           })
         }
+      } else if (action.payload.kind === 'execute_eoa_plan') {
+        throw new Error(
+          'Linked-wallet actions must be signed by the connected wallet.',
+        )
       } else {
         let payload = action.payload
-        if (payload.quoteExpiresAt <= Date.now() + SOCKET_QUOTE_REFRESH_BUFFER_MS) {
+        if (
+          payload.quoteExpiresAt <=
+          Date.now() + SOCKET_QUOTE_REFRESH_BUFFER_MS
+        ) {
           // Socket quotes only live ~60s, so the confirmed route is often
           // stale by the time the user taps confirm. Re-quote with the exact
           // terms the user confirmed; refreshSocketRoute rejects any route
@@ -871,10 +974,12 @@ export const runSugar = internalAction({
   handler: async (ctx, { userId, sugarAction, parameters }) => {
     await requireWeb3(ctx, userId)
 
-    // Convex app configuration is typed explicitly. Keep the portable SDK
-    // from inspecting Node's ambient process.env inside this action.
-    return executeSugarActionJson(sugarAction as SugarAction, parameters, {
-      env: {},
-    })
+    // Convex app configuration is typed explicitly. Forward only allowlisted
+    // Sugar settings instead of exposing Node's ambient process.env.
+    return executeSugarActionJson(
+      sugarAction as SugarAction,
+      normalizeSugarAgentParameters(parameters),
+      { env: sugarEnvironment() },
+    )
   },
 })

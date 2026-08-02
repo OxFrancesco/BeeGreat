@@ -9,6 +9,9 @@ export type ChannelActionName =
   | 'confirm_first_focus'
   | 'cancel_first_focus'
   | 'complete_highlight'
+  | 'confirm_web3'
+  | 'cancel_web3'
+  | 'get_web3_action'
 
 export type ChannelActionOptions = {
   convexUrl: string

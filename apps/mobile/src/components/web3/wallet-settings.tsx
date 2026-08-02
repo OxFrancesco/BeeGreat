@@ -1,10 +1,11 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
+import { sameEvmAddress, signWalletLink } from '@beegreat/wallet-connect';
 import { useMutation, useQuery } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Switch, View } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -14,33 +15,82 @@ import Animated, {
 
 import { ThemedText } from '@/components/themed-text';
 import { WalletQrCard } from '@/components/web3/wallet-qr';
-import { Fonts, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useEoaWallet } from '@/hooks/use-eoa-wallet';
 import { useTheme } from '@/hooks/use-theme';
 
-/**
- * Wallets card for the profile screen (shown while the Web3 power-up is on):
- * the Bee smart wallet address (tap to copy), the user's own linked EOA, and
- * YOLO mode — a standing opt-in that lets Bee auto-approve every transaction
- * instead of asking for a confirmation tap.
- * The EOA is an address-only link — BeeGreat never holds its keys; Bee uses
- * it to build unsigned DeFi plans the user signs in their own wallet app.
- */
+/** Wallet settings for Bee's smart wallet and a verified WalletConnect EOA. */
 export function WalletSettings() {
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
   const wallets = useQuery(api.wallets.myWallets);
+  const beginEoaLink = useMutation(api.wallets.beginEoaLink);
   const linkEoa = useMutation(api.wallets.linkEoa);
   const unlinkEoa = useMutation(api.wallets.unlinkEoa);
+  const connectedWallet = useEoaWallet();
   const yoloPrefs = useQuery(api.web3Prefs.get);
   const setYolo = useMutation(api.web3Prefs.setYolo);
-  const [draft, setDraft] = useState('');
-  const [editing, setEditing] = useState(false);
+  const [linkRequested, setLinkRequested] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [yoloWorking, setYoloWorking] = useState(false);
   const [yoloError, setYoloError] = useState<string | null>(null);
+  const linking = useRef(false);
+
+  const linkedAddress = wallets?.eoa?.address;
+  const sessionMatches = Boolean(
+    linkedAddress &&
+    connectedWallet.address &&
+    sameEvmAddress(linkedAddress, connectedWallet.address),
+  );
+
+  useEffect(() => {
+    if (
+      !linkRequested ||
+      linking.current ||
+      !connectedWallet.address ||
+      !connectedWallet.provider
+    ) {
+      return;
+    }
+    linking.current = true;
+    setWorking(true);
+    setError(null);
+    void (async () => {
+      try {
+        const challenge = await beginEoaLink({
+          address: connectedWallet.address!,
+        });
+        const signature = await signWalletLink(
+          connectedWallet.provider!,
+          connectedWallet.address!,
+          challenge.message,
+        );
+        await linkEoa({
+          challengeId: challenge.challengeId,
+          signature,
+        });
+        if (process.env.EXPO_OS === 'ios') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        setLinkRequested(false);
+      } catch (cause) {
+        setError(walletError(cause, 'Couldn’t link that wallet.'));
+        setLinkRequested(false);
+      } finally {
+        linking.current = false;
+        setWorking(false);
+      }
+    })();
+  }, [
+    beginEoaLink,
+    connectedWallet.address,
+    connectedWallet.provider,
+    linkEoa,
+    linkRequested,
+  ]);
 
   if (wallets === undefined) return null;
 
@@ -48,38 +98,50 @@ export function WalletSettings() {
     if (yoloWorking) return;
     setYoloWorking(true);
     setYoloError(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (process.env.EXPO_OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     try {
       await setYolo({ enabled });
     } catch (cause) {
-      setYoloError(
-        cause instanceof Error ? cause.message : 'Couldn’t update YOLO mode.',
-      );
+      setYoloError(walletError(cause, 'Couldn’t update YOLO mode.'));
     } finally {
       setYoloWorking(false);
     }
   };
 
   const copyAddress = async (address: string) => {
-    Haptics.selectionAsync();
+    if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
     await Clipboard.setStringAsync(address);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const saveEoa = async () => {
+  const startLink = async () => {
+    if (working) return;
+    setError(null);
+    setLinkRequested(true);
+    if (connectedWallet.address && connectedWallet.provider) return;
+    setWorking(true);
+    try {
+      await connectedWallet.connect();
+    } catch (cause) {
+      setLinkRequested(false);
+      setError(walletError(cause, 'Couldn’t open WalletConnect.'));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const reconnect = async () => {
     if (working) return;
     setWorking(true);
     setError(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await linkEoa({ address: draft });
-      setDraft('');
-      setEditing(false);
+      if (connectedWallet.isConnected) await connectedWallet.disconnect();
+      await connectedWallet.connect();
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : 'Couldn’t link that address.',
-      );
+      setError(walletError(cause, 'Couldn’t reconnect that wallet.'));
     } finally {
       setWorking(false);
     }
@@ -89,9 +151,9 @@ export function WalletSettings() {
     if (working) return;
     setWorking(true);
     setError(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await unlinkEoa();
+      if (connectedWallet.isConnected) await connectedWallet.disconnect();
     } catch {
       setError('Couldn’t unlink the wallet. Try again.');
     } finally {
@@ -124,10 +186,13 @@ export function WalletSettings() {
               }
               accessibilityState={{ expanded: showQr }}
               onPress={() => {
-                Haptics.selectionAsync();
+                if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
                 setShowQr(!showQr);
               }}
-              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.action,
+                pressed && styles.pressed,
+              ]}
             >
               <SymbolView
                 name="qrcode"
@@ -144,7 +209,10 @@ export function WalletSettings() {
               accessibilityRole="button"
               accessibilityLabel="Copy smart wallet address"
               onPress={() => void copyAddress(wallets.smartWallet!.address)}
-              style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+              style={({ pressed }) => [
+                styles.action,
+                pressed && styles.pressed,
+              ]}
             >
               <ThemedText type="smallBold" themeColor="textSecondary">
                 {copied ? 'Copied ✓' : 'Copy'}
@@ -177,85 +245,52 @@ export function WalletSettings() {
 
       <View style={styles.row}>
         <View style={styles.copy}>
-          <ThemedText type="default">Your own wallet</ThemedText>
+          <ThemedText type="default">Your wallet</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {wallets.eoa
-              ? shorten(wallets.eoa.address)
-              : 'Link an address so Bee can build DeFi plans you sign yourself'}
+              ? `${shorten(wallets.eoa.address)} · ${sessionMatches ? 'Ready to sign' : 'Reconnect to sign'}`
+              : 'Link with WalletConnect so Bee can prepare transactions for you to sign'}
           </ThemedText>
         </View>
         {wallets.eoa ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Unlink your wallet"
-            disabled={working}
-            onPress={() => void removeEoa()}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-          >
-            <ThemedText type="smallBold" themeColor="destructive">
-              Unlink
-            </ThemedText>
-          </Pressable>
+          sessionMatches ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Unlink your wallet"
+              disabled={working}
+              onPress={() => void removeEoa()}
+              style={({ pressed }) => [
+                styles.action,
+                pressed && styles.pressed,
+              ]}
+            >
+              <ThemedText type="smallBold" themeColor="destructive">
+                Unlink
+              </ThemedText>
+            </Pressable>
+          ) : (
+            <PrimaryAction
+              disabled={working}
+              label={working ? 'Opening…' : 'Reconnect'}
+              onPress={() => void reconnect()}
+            />
+          )
         ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={editing ? 'Cancel linking' : 'Link a wallet'}
-            onPress={() => {
-              Haptics.selectionAsync();
-              setEditing(!editing);
-              setError(null);
-            }}
-            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-          >
-            <ThemedText type="smallBold" themeColor="textSecondary">
-              {editing ? 'Cancel' : 'Link'}
-            </ThemedText>
-          </Pressable>
+          <PrimaryAction
+            disabled={working}
+            label={working || linkRequested ? 'Linking…' : 'Link my wallet'}
+            onPress={() => void startLink()}
+          />
         )}
       </View>
 
-      {editing && !wallets.eoa ? (
-        <View style={styles.editor}>
-          <TextInput
-            accessibilityLabel="Wallet address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="0x…"
-            placeholderTextColor={theme.textSecondary}
-            value={draft}
-            onChangeText={setDraft}
-            style={[
-              styles.input,
-              {
-                borderColor: theme.border,
-                color: theme.text,
-                backgroundColor: theme.background,
-              },
-            ]}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Save wallet address"
-            disabled={working || draft.trim().length === 0}
-            onPress={() => void saveEoa()}
-            style={({ pressed }) => [
-              styles.save,
-              { backgroundColor: theme.primary },
-              (pressed || working) && styles.pressed,
-            ]}
-          >
-            <ThemedText
-              type="smallBold"
-              style={{ color: theme.primaryForeground }}
-            >
-              Save
-            </ThemedText>
-          </Pressable>
-        </View>
-      ) : null}
-
       {error ? (
-        <ThemedText type="small" themeColor="destructive">
+        <ThemedText
+          selectable
+          type="small"
+          themeColor="destructive"
+          accessibilityLiveRegion="polite"
+        >
           {error}
         </ThemedText>
       ) : null}
@@ -267,12 +302,12 @@ export function WalletSettings() {
           <ThemedText type="default">YOLO mode</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             {yoloPrefs?.yoloEnabled
-              ? 'Bee auto-approves every transaction without asking'
+              ? 'Bee auto-approves Bee smart-wallet transactions only'
               : 'Bee asks before every transaction'}
           </ThemedText>
         </View>
         <Switch
-          accessibilityLabel="YOLO mode: auto-approve every transaction"
+          accessibilityLabel="YOLO mode: auto-approve Bee smart-wallet transactions"
           disabled={yoloWorking || yoloPrefs === undefined}
           value={yoloPrefs?.yoloEnabled ?? false}
           onValueChange={(enabled) => void toggleYolo(enabled)}
@@ -281,12 +316,51 @@ export function WalletSettings() {
       </View>
 
       {yoloError ? (
-        <ThemedText type="small" themeColor="destructive">
+        <ThemedText selectable type="small" themeColor="destructive">
           {yoloError}
         </ThemedText>
       ) : null}
     </View>
   );
+}
+
+function PrimaryAction({
+  disabled,
+  label,
+  onPress,
+}: {
+  disabled: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label.replace('…', '')}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.primaryAction,
+        { backgroundColor: disabled ? theme.backgroundElement : theme.primary },
+        pressed && styles.pressed,
+      ]}
+    >
+      <ThemedText
+        type="smallBold"
+        style={{
+          color: disabled ? theme.textSecondary : theme.primaryForeground,
+        }}
+      >
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+function walletError(cause: unknown, fallback: string) {
+  if (cause instanceof Error && cause.message.trim()) return cause.message;
+  return fallback;
 }
 
 function shorten(address: string) {
@@ -318,38 +392,23 @@ const styles = StyleSheet.create({
     gap: Spacing.half,
   },
   action: {
-    paddingVertical: Spacing.one,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: Spacing.two,
+  },
+  primaryAction: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.three,
+    borderRadius: 999,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
   },
-  // Springs open from the QR button's row.
   qrWrap: {
     alignItems: 'center',
     paddingVertical: Spacing.one,
     transformOrigin: 'top center',
-  },
-  editor: {
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  input: {
-    flex: 1,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: Spacing.two,
-    borderCurve: 'continuous',
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.one,
-    fontFamily: Fonts.mono,
-    fontSize: 13,
-  },
-  save: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.two,
-    borderCurve: 'continuous',
   },
   pressed: {
     opacity: 0.6,

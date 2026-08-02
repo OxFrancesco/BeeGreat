@@ -923,7 +923,7 @@ export default defineSchema({
 
   // Web3 power-up wallets, one per user+chain. Crossmint smart wallets are a
   // cache (the source of truth is Crossmint, keyed by owner `userId:<clerk id>`);
-  // linked EOAs are user-entered external addresses stored under chain `evm`.
+  // linked EOAs are proof-of-control verified addresses stored under chain `evm`.
   // `kind` is absent on rows written before EOA support: treat missing as
   // 'crossmint'.
   wallets: defineTable({
@@ -931,14 +931,24 @@ export default defineSchema({
     chain: v.string(),
     address: v.string(),
     kind: v.optional(v.union(v.literal('crossmint'), v.literal('eoa'))),
+    linkedAt: v.optional(v.number()),
   }).index('by_user', ['userId', 'chain']),
 
+  // Short-lived proof-of-control requests for linking an EOA. The signed
+  // challenge is consumed atomically and WalletConnect session material stays
+  // on the user's device; BeeGreat stores only the verified public address.
+  walletLinkChallenges: defineTable({
+    userId: v.string(),
+    address: v.string(),
+    expiresAt: v.number(),
+  }).index('by_user', ['userId']),
+
   // Server-side confirmation gate for Web3 actions that move funds. The agent
-  // only ever *prepares* one of these rows; funds move exclusively after the
-  // signed-in app confirms (web3Actions.confirm), which schedules the internal
-  // executor. Prompt injection therefore cannot spend from the wallet. The one
-  // exception is YOLO mode (web3Prefs): when the signed-in user opted in,
-  // actions are auto-confirmed at creation and marked `autoConfirmed`.
+  // only ever *prepares* one of these rows; funds move exclusively after an
+  // authenticated client authorizes the exact action. Smart-wallet actions then
+  // schedule the internal executor; EOA actions are claimed and signed only by
+  // the user's connected wallet. Prompt injection therefore cannot spend. YOLO
+  // mode can auto-confirm smart-wallet actions, but never EOA actions.
   web3Actions: defineTable({
     userId: v.string(),
     summary: v.string(),
@@ -954,8 +964,8 @@ export default defineSchema({
   }).index('by_user', ['userId', 'status']),
 
   // Per-user Web3 preferences, settable only by the signed-in app. YOLO mode
-  // is a standing opt-in that auto-confirms every prepared action, so Bee can
-  // run multi-step plans without a confirmation tap per transaction.
+  // is a standing opt-in that auto-confirms prepared smart-wallet actions, so
+  // Bee can run multi-step plans without a confirmation tap per transaction.
   web3Prefs: defineTable({
     userId: v.string(),
     yoloEnabled: v.boolean(),

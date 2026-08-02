@@ -364,6 +364,34 @@ http.route({
             taskId: body.taskId as Id<'tasks'>,
           },
         )
+      } else if (body.operation === 'channel_get_web3_action') {
+        if (typeof body.actionId !== 'string') {
+          return jsonResponse({ error: 'Invalid Web3 action' }, 400)
+        }
+        result = await ctx.runQuery(internal.web3Actions.getForUser, {
+          userId: body.userId,
+          actionId: body.actionId as Id<'web3Actions'>,
+        })
+      } else if (
+        body.operation === 'channel_confirm_web3' ||
+        body.operation === 'channel_cancel_web3'
+      ) {
+        if (
+          typeof body.actionId !== 'string' ||
+          typeof body.summary !== 'string'
+        ) {
+          return jsonResponse({ error: 'Invalid Web3 action' }, 400)
+        }
+        const args = {
+          userId: body.userId,
+          ownerKey: channelOwnerKey!,
+          actionId: body.actionId as Id<'web3Actions'>,
+          summary: body.summary,
+        }
+        result =
+          body.operation === 'channel_confirm_web3'
+            ? await ctx.runMutation(internal.channelActions.confirmWeb3, args)
+            : await ctx.runMutation(internal.channelActions.cancelWeb3, args)
       } else if (body.operation === 'get_context') {
         result = await ctx.runQuery(internal.agentFocus.getContext, {
           userId: body.userId,
@@ -549,8 +577,7 @@ http.route({
           return jsonResponse(
             await ctx.runMutation(internal.beeSites.completeDeployment, {
               userId: body.userId,
-              deploymentId:
-                body.deploymentId as Id<'beeSiteDeployments'>,
+              deploymentId: body.deploymentId as Id<'beeSiteDeployments'>,
               manifestKey: body.manifestKey,
             }),
             200,
@@ -1286,14 +1313,16 @@ const WEB3_WALLET_OPS = [
   'quote_socket_swap',
   'prepare_socket_swap',
   'prepare_execution',
+  'prepare_eoa_execution',
   'action_status',
 ] as const
 type Web3WalletOp = (typeof WEB3_WALLET_OPS)[number]
 
 // Authenticated bridge for every wallet-side Web3 tool. The Convex functions
 // behind it are internal on purpose: agent identity is the broker secret, and
-// nothing here can move funds — fund movement requires the signed-in app to
-// confirm a pending web3Actions row.
+// nothing here can move funds — fund movement requires either the signed-in
+// app confirmation gate for the Bee wallet or the matching WalletConnect EOA
+// to sign the exact pending plan.
 http.route({
   path: '/internal/web3/wallet',
   method: 'POST',
@@ -1416,7 +1445,8 @@ http.route({
             200,
           )
         }
-        case 'prepare_execution': {
+        case 'prepare_execution':
+        case 'prepare_eoa_execution': {
           const sugarAction = str('sugarAction')
           const sugarParameters = params.parameters
           if (
@@ -1437,14 +1467,25 @@ http.route({
             )
           }
           return jsonResponse(
-            await ctx.runAction(internal.web3.prepareSugarExecution, {
-              userId,
-              sugarAction,
-              parameters: sugarParameters as Record<
-                string,
-                string | number | boolean
-              >,
-            }),
+            op === 'prepare_execution'
+              ? await ctx.runAction(internal.web3.prepareSugarExecution, {
+                  userId,
+                  sugarAction,
+                  parameters: sugarParameters as Record<
+                    string,
+                    string | number | boolean
+                  >,
+                })
+              : await ctx.runAction(internal.web3.prepareEoaSugarExecution, {
+                  userId,
+                  chainId:
+                    typeof params.chainId === 'number' ? params.chainId : 0,
+                  sugarAction,
+                  parameters: sugarParameters as Record<
+                    string,
+                    string | number | boolean
+                  >,
+                }),
             200,
           )
         }

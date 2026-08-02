@@ -110,6 +110,68 @@ describe('Socket V3 helpers', () => {
     })
   })
 
+  test('quotes native Base ETH to native Arbitrum ETH without an approval', async () => {
+    const inputAmount = '0.001'
+    const inputAmountUnits = '1000000000000000'
+    const fetchImpl = vi.fn(async (request: string | URL | Request) => {
+      const url = new URL(String(request))
+      expect(url.pathname).toBe('/v3/swap/quote')
+      expect(url.searchParams.get('userOps')).toBe('tx')
+      expect(url.searchParams.get('originChainId')).toBe('8453')
+      expect(url.searchParams.get('destinationChainId')).toBe('42161')
+      expect(url.searchParams.get('inputToken')).toBe(
+        SOCKET_CHAINS.base.tokens.eth.address,
+      )
+      expect(url.searchParams.get('outputToken')).toBe(
+        SOCKET_CHAINS.arbitrum.tokens.eth.address,
+      )
+      expect(url.searchParams.get('inputAmount')).toBe(inputAmountUnits)
+      expect(url.searchParams.has('refuel')).toBe(false)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result: {
+            routes: [
+              route({
+                approval: null,
+                txData: {
+                  kind: 'evm_tx',
+                  object: {
+                    to: router,
+                    data: '0xabcd',
+                    value: inputAmountUnits,
+                  },
+                },
+              }),
+            ],
+          },
+        }),
+        { status: 200 },
+      )
+    }) as typeof fetch
+
+    const quote = await getSocketQuote(
+      {
+        originChain: 'base',
+        destinationChain: 'arbitrum',
+        inputToken: 'eth',
+        outputToken: 'eth',
+        inputAmount,
+        userAddress: wallet,
+        receiverAddress: wallet,
+      },
+      config,
+      fetchImpl,
+    )
+
+    expect(quote.approval).toBeUndefined()
+    expect(quote.transaction).toEqual({
+      to: router,
+      data: '0xabcd',
+      value: inputAmountUnits,
+    })
+  })
+
   test('rejects routes whose destination token does not match the request', async () => {
     const unsafeRoute = route({
       output: {

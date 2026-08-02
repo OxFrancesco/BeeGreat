@@ -1,6 +1,7 @@
 import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { FlueProvider } from '@flue/react';
+import { AppKit, AppKitProvider } from '@reown/appkit-react-native';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import {
@@ -29,6 +30,7 @@ import { SubscriptionProvider } from '@/components/subscription/subscription-pro
 import { Colors } from '@/constants/theme';
 import { flueClient } from '@/lib/flue';
 import { Sentry, sentryNavigationIntegration } from '@/lib/sentry';
+import { walletAppKit } from '@/lib/wallet-connect';
 import { ScreenshotHarnessRoot } from '@/screenshot-harness/screenshot-harness-root';
 
 const PRIVACY_URL = 'https://beedocs.pages.dev/privacy';
@@ -42,23 +44,28 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 
 function RootLayout() {
   return (
-    <KeyboardProvider>
-      {SCREENSHOT_HARNESS_ENABLED ? (
-        <ScreenshotHarnessRoot />
-      ) : (
-        <ClerkProvider
-          publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
-          tokenCache={tokenCache}
-        >
-          <SentryUserContext />
-          <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-            <FlueProvider client={flueClient}>
-              <RootNavigator />
-            </FlueProvider>
-          </ConvexProviderWithClerk>
-        </ClerkProvider>
-      )}
-    </KeyboardProvider>
+    <AppKitProvider instance={walletAppKit}>
+      <KeyboardProvider>
+        {SCREENSHOT_HARNESS_ENABLED ? (
+          <ScreenshotHarnessRoot />
+        ) : (
+          <ClerkProvider
+            publishableKey={process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!}
+            tokenCache={tokenCache}
+          >
+            <SentryUserContext />
+            <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+              <FlueProvider client={flueClient}>
+                <RootNavigator />
+              </FlueProvider>
+            </ConvexProviderWithClerk>
+          </ClerkProvider>
+        )}
+      </KeyboardProvider>
+      <View pointerEvents="box-none" style={styles.walletModal}>
+        <AppKit />
+      </View>
+    </AppKitProvider>
   );
 }
 
@@ -182,10 +189,7 @@ function RootNavigator() {
           options={{
             headerShown: true,
             title: 'NFC actions',
-            presentation: 'formSheet',
-            sheetAllowedDetents: [0.75, 1],
-            sheetGrabberVisible: true,
-            contentStyle: { height: '100%' },
+            presentation: 'modal',
           }}
         />
         <Stack.Screen name="tap/[publicId]" />
@@ -228,6 +232,10 @@ function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
+  walletModal: {
+    position: 'absolute',
+    inset: 0,
+  },
   loading: {
     flex: 1,
     alignItems: 'center',

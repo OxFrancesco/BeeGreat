@@ -49,6 +49,7 @@ type Env = {
   readonly REVENUECAT_SECRET_API_KEY: string | undefined;
   readonly REVENUECAT_WEBHOOK_SECRET: string | undefined;
   readonly SOCKET_API_KEY: string | undefined;
+  readonly SUGAR_RPC_URI_8453: string | undefined;
   readonly TWITTERAPI_IO_API_KEY: string | undefined;
 };
 

@@ -16,6 +16,7 @@ import {
   confirmFirstFocusPlan,
   type IdentityKeys,
 } from './firstFocus'
+import { cancelWeb3Action, confirmWeb3Action } from './web3Actions'
 
 const identityArgs = {
   ownerKey: v.string(),
@@ -304,5 +305,41 @@ export const completeHighlight = internalMutation({
       requestId: args.requestId,
       taskId: args.taskId as Id<'tasks'>,
     })
+  },
+})
+
+export const confirmWeb3 = internalMutation({
+  args: {
+    ...identityArgs,
+    actionId: v.id('web3Actions'),
+    summary: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = channelIdentity(args)
+    return await confirmWeb3Action(
+      ctx,
+      identity.userId,
+      args.actionId,
+      args.summary,
+    )
+  },
+})
+
+export const cancelWeb3 = internalMutation({
+  args: {
+    ...identityArgs,
+    actionId: v.id('web3Actions'),
+    summary: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = channelIdentity(args)
+    return await cancelWeb3Action(
+      ctx,
+      identity.userId,
+      args.actionId,
+      args.summary,
+    )
   },
 })

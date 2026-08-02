@@ -119,6 +119,124 @@ describe('trusted channel actions', () => {
     ).resolves.toMatchObject({ activeHighlight: null })
   })
 
+  test('confirms and cancels action-bound Web3 requests for the mapped iMessage user', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner.userId,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+    const first = await t.mutation(internal.web3Actions.create, {
+      userId: owner.userId,
+      summary: 'Swap 10 USDC for ETH on Base',
+      payload: {
+        kind: 'execute_plan',
+        chainId: 8453,
+        transactions: [
+          {
+            to: '0x00000000000000000000000000000000000000aa',
+            data: '0x1234',
+            value: '0',
+          },
+        ],
+      },
+    })
+
+    await t.mutation(internal.channelActions.confirmWeb3, {
+      ...owner,
+      actionId: first.id,
+      summary: 'Swap 10 USDC for ETH on Base',
+    })
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(first.id))?.status),
+    ).resolves.toBe('confirmed')
+
+    const second = await t.mutation(internal.web3Actions.create, {
+      userId: owner.userId,
+      summary: 'Create a USDC/WETH volatile pool',
+      payload: {
+        kind: 'execute_plan',
+        chainId: 8453,
+        transactions: [
+          {
+            to: '0x00000000000000000000000000000000000000bb',
+            data: '0x5678',
+            value: '0',
+          },
+        ],
+      },
+    })
+    await t.mutation(internal.channelActions.cancelWeb3, {
+      ...owner,
+      actionId: second.id,
+      summary: 'Create a USDC/WETH volatile pool',
+    })
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(second.id))?.status),
+    ).resolves.toBe('cancelled')
+  })
+
+  test('cannot confirm another user\'s Web3 action through iMessage', async () => {
+    const t = convexTest(schema, modules)
+    const actionId = await t.run(async (ctx) =>
+      await ctx.db.insert('web3Actions', {
+        userId: 'user_someone_else',
+        summary: 'Send 1 ETH',
+        payload: {
+          kind: 'send_tokens',
+          recipient: '0x00000000000000000000000000000000000000aa',
+          token: 'eth',
+          amount: '1',
+        },
+        status: 'pending',
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      }),
+    )
+
+    await expect(
+      t.mutation(internal.channelActions.confirmWeb3, {
+        ...owner,
+        actionId,
+        summary: 'Send 1 ETH',
+      }),
+    ).rejects.toThrow('no longer available')
+  })
+
+  test('rejects action substitution when the rendered summary does not match Convex', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner.userId,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+    const action = await t.mutation(internal.web3Actions.create, {
+      userId: owner.userId,
+      summary: 'Send 1 USDC to 0x…00aa',
+      payload: {
+        kind: 'send_tokens',
+        recipient: '0x00000000000000000000000000000000000000aa',
+        token: 'usdc',
+        amount: '1',
+      },
+    })
+
+    await expect(
+      t.mutation(internal.channelActions.confirmWeb3, {
+        ...owner,
+        actionId: action.id,
+        summary: 'Send 0.01 USDC to 0x…00aa',
+      }),
+    ).rejects.toThrow('does not match')
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(action.id))?.status),
+    ).resolves.toBe('pending')
+  })
+
   test('rejects an owner key that does not belong to the mapped Clerk user', async () => {
     const t = convexTest(schema, modules)
 

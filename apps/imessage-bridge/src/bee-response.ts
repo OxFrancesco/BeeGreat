@@ -9,6 +9,26 @@ export type FirstFocusPreview = {
   highlightExpiresAt?: number
 }
 
+export type Web3Confirmation = {
+  actionId: string
+  summary: string
+}
+
+export type Web3ActionProjection = {
+  summary: string
+  status:
+    | 'pending'
+    | 'confirmed'
+    | 'in_progress'
+    | 'executed'
+    | 'failed'
+    | 'refunded'
+    | 'cancelled'
+    | 'expired'
+  autoConfirmed: boolean
+  error?: string | null
+}
+
 type BeeComponent =
   | { type: 'text'; body: string }
   | { type: 'metric'; label: string; value: string; delta?: string }
@@ -44,6 +64,7 @@ export type BeeResponseProjection = {
   markdown: string
   links: string[]
   firstFocus?: FirstFocusPreview
+  web3Confirmation?: Web3Confirmation
 }
 
 type ConversationMessageLike = {
@@ -255,6 +276,14 @@ function clean(text: string) {
     .trim()
 }
 
+function web3Confirmation(
+  component: BeeComponent,
+): Web3Confirmation | undefined {
+  if (component.type !== 'confirm') return undefined
+  const actionId = nonEmpty(record(component.payload)?.web3ActionId)
+  return actionId ? { actionId, summary: component.summary } : undefined
+}
+
 function renderComponent(component: BeeComponent): {
   markdown: string
   links: string[]
@@ -338,6 +367,16 @@ function renderComponent(component: BeeComponent): {
         links: [],
       }
     case 'confirm':
+      if (web3Confirmation(component)) {
+        return {
+          markdown: [
+            '**Needs your confirmation**',
+            clean(component.summary),
+            'Reply **yes** to authorize this exact action or **no** to cancel it.',
+          ].join('\n'),
+          links: [],
+        }
+      }
       return {
         markdown: [
           '**Needs your confirmation**',
@@ -365,6 +404,13 @@ export function extractBeeResponse(text: string): BeeResponseProjection {
     (component): component is FirstFocusPreview =>
       component.type === 'first_focus',
   )
+  const web3Confirmations = components
+    .map(web3Confirmation)
+    .filter((confirmation): confirmation is Web3Confirmation =>
+      Boolean(confirmation),
+    )
+  const pendingWeb3 =
+    web3Confirmations.length === 1 ? web3Confirmations[0] : undefined
   return {
     spoken,
     markdown,
@@ -372,10 +418,71 @@ export function extractBeeResponse(text: string): BeeResponseProjection {
       ...new Set(rendered.flatMap((item) => item.links)),
     ],
     ...(firstFocus ? { firstFocus } : {}),
+    ...(pendingWeb3 ? { web3Confirmation: pendingWeb3 } : {}),
   }
 }
 
-export function latestFirstFocusPreview(
+export function projectWeb3Action(
+  response: BeeResponseProjection,
+  action: Web3ActionProjection,
+): BeeResponseProjection {
+  const confirmation = response.web3Confirmation
+  if (!confirmation) return response
+  const original = renderComponent({
+    type: 'confirm',
+    summary: confirmation.summary,
+    action: 'web3',
+    payload: { web3ActionId: confirmation.actionId },
+  }).markdown
+  const canonical = {
+    actionId: confirmation.actionId,
+    summary: action.summary,
+  }
+
+  if (action.status === 'pending') {
+    const replacement = renderComponent({
+      type: 'confirm',
+      summary: action.summary,
+      action: 'web3',
+      payload: { web3ActionId: confirmation.actionId },
+    }).markdown
+    return {
+      ...response,
+      markdown: response.markdown.replace(original, replacement),
+      web3Confirmation: canonical,
+    }
+  }
+
+  const terminalTitles: Partial<
+    Record<Web3ActionProjection['status'], string>
+  > = {
+    executed: '**Web3 action complete**',
+    failed: '**Web3 action failed**',
+    refunded: '**Web3 action refunded**',
+    cancelled: '**Web3 action cancelled**',
+    expired: '**Web3 confirmation expired**',
+  }
+  const title =
+    action.autoConfirmed && action.status === 'confirmed'
+      ? '**Auto-approved · YOLO mode**'
+      : terminalTitles[action.status] ?? '**Web3 action in progress**'
+  const detail =
+    action.status === 'failed' && action.error
+      ? clean(action.error)
+      : action.status === 'confirmed' || action.status === 'in_progress'
+        ? 'Execution has started. Ask Bee for the latest status anytime.'
+        : ''
+  const replacement = [title, clean(action.summary), detail]
+    .filter(Boolean)
+    .join('\n')
+  const { web3Confirmation: _confirmation, ...withoutConfirmation } = response
+  return {
+    ...withoutConfirmation,
+    markdown: response.markdown.replace(original, replacement),
+  }
+}
+
+function latestAssistantProjection(
   messages: readonly ConversationMessageLike[],
 ) {
   const latestAssistant = [...messages]
@@ -386,7 +493,19 @@ export function latestFirstFocusPreview(
     .filter((part) => part.type === 'text' && typeof part.text === 'string')
     .map((part) => part.text)
     .join('\n')
-  return extractBeeResponse(text).firstFocus
+  return extractBeeResponse(text)
+}
+
+export function latestFirstFocusPreview(
+  messages: readonly ConversationMessageLike[],
+) {
+  return latestAssistantProjection(messages)?.firstFocus
+}
+
+export function latestWeb3Confirmation(
+  messages: readonly ConversationMessageLike[],
+) {
+  return latestAssistantProjection(messages)?.web3Confirmation
 }
 
 export function isFirstFocusConfirmation(text: string): boolean {
@@ -397,6 +516,14 @@ export function isFirstFocusConfirmation(text: string): boolean {
 
 export function isFirstFocusCancellation(text: string): boolean {
   return /^(no|nope|cancel|never mind|nevermind)[.!]?$/i.test(text.trim())
+}
+
+export function isWeb3Confirmation(text: string): boolean {
+  return /^yes[.!]?$/i.test(text.trim())
+}
+
+export function isWeb3Cancellation(text: string): boolean {
+  return /^no[.!]?$/i.test(text.trim())
 }
 
 export function isHighlightCompletion(text: string): boolean {

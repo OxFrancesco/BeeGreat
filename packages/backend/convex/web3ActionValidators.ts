@@ -25,6 +25,12 @@ export const web3ActionPayloadValidator = v.union(
     transactions: v.array(web3TransactionValidator),
   }),
   v.object({
+    kind: v.literal('execute_eoa_plan'),
+    chainId: v.number(),
+    walletAddress: v.string(),
+    transactions: v.array(web3TransactionValidator),
+  }),
+  v.object({
     kind: v.literal('socket_swap'),
     quoteId: v.string(),
     originChainId: v.number(),

@@ -1,22 +1,72 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
+import { sameEvmAddress, signWalletLink } from '@beegreat/wallet-connect'
 import { useMutation, useQuery } from 'convex/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-/**
- * Wallets card for the settings page (shown while the Web3 power-up is on):
- * the Bee smart wallet address (copyable) and the user's own linked EOA.
- * The EOA is an address-only link — BeeGreat never holds its keys; Bee uses
- * it to build unsigned DeFi plans the user signs in their own wallet app.
- */
+import { useEoaWallet } from '~/features/web3/use-eoa-wallet'
+
+/** Wallet settings for Bee's smart wallet and a verified WalletConnect EOA. */
 export function WalletSettings() {
   const wallets = useQuery(api.wallets.myWallets)
+  const beginEoaLink = useMutation(api.wallets.beginEoaLink)
   const linkEoa = useMutation(api.wallets.linkEoa)
   const unlinkEoa = useMutation(api.wallets.unlinkEoa)
-  const [draft, setDraft] = useState('')
-  const [editing, setEditing] = useState(false)
+  const connectedWallet = useEoaWallet()
+  const [linkRequested, setLinkRequested] = useState(false)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string>()
   const [copied, setCopied] = useState(false)
+  const linking = useRef(false)
+
+  const linkedAddress = wallets?.eoa?.address
+  const sessionMatches = Boolean(
+    linkedAddress &&
+    connectedWallet.address &&
+    sameEvmAddress(linkedAddress, connectedWallet.address),
+  )
+
+  useEffect(() => {
+    if (
+      !linkRequested ||
+      linking.current ||
+      !connectedWallet.address ||
+      !connectedWallet.provider
+    ) {
+      return
+    }
+    linking.current = true
+    setWorking(true)
+    setError(undefined)
+    void (async () => {
+      try {
+        const challenge = await beginEoaLink({
+          address: connectedWallet.address!,
+        })
+        const signature = await signWalletLink(
+          connectedWallet.provider!,
+          connectedWallet.address!,
+          challenge.message,
+        )
+        await linkEoa({
+          challengeId: challenge.challengeId,
+          signature,
+        })
+        setLinkRequested(false)
+      } catch (cause) {
+        setError(walletError(cause, 'Couldn’t link that wallet.'))
+        setLinkRequested(false)
+      } finally {
+        linking.current = false
+        setWorking(false)
+      }
+    })()
+  }, [
+    beginEoaLink,
+    connectedWallet.address,
+    connectedWallet.provider,
+    linkEoa,
+    linkRequested,
+  ])
 
   if (wallets === undefined) return null
 
@@ -27,18 +77,31 @@ export function WalletSettings() {
     })
   }
 
-  const saveEoa = async () => {
+  const startLink = async () => {
+    if (working) return
+    setError(undefined)
+    setLinkRequested(true)
+    if (connectedWallet.address && connectedWallet.provider) return
+    setWorking(true)
+    try {
+      await connectedWallet.connect()
+    } catch (cause) {
+      setLinkRequested(false)
+      setError(walletError(cause, 'Couldn’t open WalletConnect.'))
+    } finally {
+      setWorking(false)
+    }
+  }
+
+  const reconnect = async () => {
     if (working) return
     setWorking(true)
     setError(undefined)
     try {
-      await linkEoa({ address: draft })
-      setDraft('')
-      setEditing(false)
+      if (connectedWallet.isConnected) await connectedWallet.disconnect()
+      await connectedWallet.connect()
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : 'Couldn’t link that address.',
-      )
+      setError(walletError(cause, 'Couldn’t reconnect that wallet.'))
     } finally {
       setWorking(false)
     }
@@ -50,6 +113,7 @@ export function WalletSettings() {
     setError(undefined)
     try {
       await unlinkEoa()
+      if (connectedWallet.isConnected) await connectedWallet.disconnect()
     } catch {
       setError('Couldn’t unlink the wallet. Try again.')
     } finally {
@@ -81,61 +145,57 @@ export function WalletSettings() {
 
       <div className="wallet-settings-row">
         <div>
-          <h3>Your own wallet</h3>
+          <h3>Your wallet</h3>
           <p>
             {wallets.eoa
-              ? shorten(wallets.eoa.address)
-              : 'Link an address so Bee can build DeFi plans you sign yourself'}
+              ? `${shorten(wallets.eoa.address)} · ${sessionMatches ? 'Ready to sign' : 'Reconnect to sign'}`
+              : 'Link with WalletConnect so Bee can prepare transactions for you to sign'}
           </p>
         </div>
         {wallets.eoa ? (
-          <button
-            className="button button--quiet"
-            type="button"
-            disabled={working}
-            onClick={() => void removeEoa()}
-          >
-            Unlink
-          </button>
+          sessionMatches ? (
+            <button
+              className="button button--quiet"
+              type="button"
+              disabled={working}
+              onClick={() => void removeEoa()}
+            >
+              Unlink
+            </button>
+          ) : (
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={working}
+              onClick={() => void reconnect()}
+            >
+              {working ? 'Opening…' : 'Reconnect'}
+            </button>
+          )
         ) : (
           <button
-            className="button button--quiet"
+            className="button button--primary"
             type="button"
-            onClick={() => {
-              setEditing(!editing)
-              setError(undefined)
-            }}
+            disabled={working}
+            onClick={() => void startLink()}
           >
-            {editing ? 'Cancel' : 'Link'}
+            {working || linkRequested ? 'Linking…' : 'Link my wallet'}
           </button>
         )}
       </div>
 
-      {editing && !wallets.eoa ? (
-        <div className="wallet-settings-editor">
-          <input
-            aria-label="Wallet address"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="0x…"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <button
-            className="button button--primary"
-            type="button"
-            disabled={working || draft.trim().length === 0}
-            onClick={() => void saveEoa()}
-          >
-            {working ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+      {error ? (
+        <p className="inline-error" aria-live="polite">
+          {error}
+        </p>
       ) : null}
-
-      {error ? <p className="inline-error">{error}</p> : null}
     </div>
   )
+}
+
+function walletError(cause: unknown, fallback: string) {
+  if (cause instanceof Error && cause.message.trim()) return cause.message
+  return fallback
 }
 
 function shorten(address: string) {

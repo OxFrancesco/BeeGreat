@@ -1,5 +1,6 @@
 import { convexTest } from 'convex-test'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
+import { privateKeyToAccount } from 'viem/accounts'
 
 import { api, internal } from './_generated/api'
 import { ACTION_TTL_MS } from './web3Actions'
@@ -8,6 +9,8 @@ import { modules } from './test.setup'
 
 const owner = 'user_web3_owner'
 const stranger = 'user_web3_stranger'
+const firstEoa = privateKeyToAccount(`0x${'11'.repeat(32)}`)
+const secondEoa = privateKeyToAccount(`0x${'22'.repeat(32)}`)
 
 const sendPayload = {
   kind: 'send_tokens' as const,
@@ -52,7 +55,11 @@ function identity(subject: string) {
 async function prepare(t: ReturnType<typeof convexTest>, userId = owner) {
   // Each test gets a fresh convexTest instance, so a plain insert suffices.
   await t.run(async (ctx) => {
-    await ctx.db.insert('powerups', { userId, powerupId: 'web3', enabled: true })
+    await ctx.db.insert('powerups', {
+      userId,
+      powerupId: 'web3',
+      enabled: true,
+    })
   })
   return await t.mutation(internal.web3Actions.create, {
     userId,
@@ -165,7 +172,9 @@ describe('web3 action confirmation gate', () => {
     // Pending actions are not finalizable.
     await t.mutation(internal.web3Actions.recordResult, {
       actionId: created.id,
-      result: [{ hash: '0xabc', explorerLink: 'https://basescan.org/tx/0xabc' }],
+      result: [
+        { hash: '0xabc', explorerLink: 'https://basescan.org/tx/0xabc' },
+      ],
     })
     let action = await t.run(async (ctx) => await ctx.db.get(created.id))
     expect(action?.status).toBe('pending')
@@ -174,7 +183,9 @@ describe('web3 action confirmation gate', () => {
     await app.mutation(api.web3Actions.confirm, { actionId: created.id })
     await t.mutation(internal.web3Actions.recordResult, {
       actionId: created.id,
-      result: [{ hash: '0xabc', explorerLink: 'https://basescan.org/tx/0xabc' }],
+      result: [
+        { hash: '0xabc', explorerLink: 'https://basescan.org/tx/0xabc' },
+      ],
     })
     action = await t.run(async (ctx) => await ctx.db.get(created.id))
     expect(action?.status).toBe('executed')
@@ -529,10 +540,140 @@ describe('YOLO mode', () => {
     })
     expect(sendStatus?.timing).toBeNull()
   })
+
+  test('linked-wallet plans bypass YOLO and record wallet submissions in order', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+      await ctx.db.insert('web3Prefs', {
+        userId: owner,
+        yoloEnabled: true,
+        updatedAt: Date.now(),
+      })
+      await ctx.db.insert('wallets', {
+        userId: owner,
+        chain: 'evm',
+        address: firstEoa.address,
+        kind: 'eoa',
+        linkedAt: Date.now(),
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Aerodrome swap on Base from your linked wallet',
+      payload: {
+        kind: 'execute_eoa_plan',
+        chainId: 8453,
+        walletAddress: firstEoa.address,
+        transactions: [
+          {
+            to: '0x00000000000000000000000000000000000000aa',
+            data: '0x1234',
+            value: '0',
+          },
+          {
+            to: '0x00000000000000000000000000000000000000bb',
+            data: '0xabcd',
+            value: '1',
+          },
+        ],
+      },
+    })
+    expect(created.autoConfirmed).toBe(false)
+
+    const app = t.withIdentity(identity(owner))
+    await expect(
+      app.mutation(api.web3Actions.confirm, { actionId: created.id }),
+    ).rejects.toThrow('linked wallet')
+    const plan = await app.mutation(api.web3Actions.beginEoaExecution, {
+      actionId: created.id,
+    })
+    expect(plan.walletAddress).toBe(firstEoa.address)
+    expect(plan.transactions).toHaveLength(2)
+
+    await expect(
+      app.mutation(api.web3Actions.recordEoaSubmission, {
+        actionId: created.id,
+        index: 1,
+        hash: `0x${'bb'.repeat(32)}`,
+      }),
+    ).rejects.toThrow('plan order')
+    expect(
+      await app.mutation(api.web3Actions.recordEoaSubmission, {
+        actionId: created.id,
+        index: 0,
+        hash: `0x${'aa'.repeat(32)}`,
+      }),
+    ).toEqual({ done: false })
+    expect(
+      await app.mutation(api.web3Actions.recordEoaSubmission, {
+        actionId: created.id,
+        index: 1,
+        hash: `0x${'bb'.repeat(32)}`,
+      }),
+    ).toEqual({ done: true })
+
+    const status = await app.query(api.web3Actions.status, {
+      actionId: created.id,
+    })
+    expect(status?.status).toBe('executed')
+    expect(status?.result?.[1]?.explorerLink).toBe(
+      `https://basescan.org/tx/0x${'bb'.repeat(32)}`,
+    )
+  })
+
+  test('a rejected first linked-wallet request is cancelled without a hash', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+      await ctx.db.insert('wallets', {
+        userId: owner,
+        chain: 'evm',
+        address: firstEoa.address,
+        kind: 'eoa',
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Aerodrome claim fees on Base from your linked wallet',
+      payload: {
+        kind: 'execute_eoa_plan',
+        chainId: 8453,
+        walletAddress: firstEoa.address,
+        transactions: [
+          {
+            to: '0x00000000000000000000000000000000000000aa',
+            data: '0x1234',
+            value: '0',
+          },
+        ],
+      },
+    })
+    const app = t.withIdentity(identity(owner))
+    await app.mutation(api.web3Actions.beginEoaExecution, {
+      actionId: created.id,
+    })
+    await app.mutation(api.web3Actions.reportEoaFailure, {
+      actionId: created.id,
+      reason: 'user_rejected',
+    })
+    expect(
+      (await app.query(api.web3Actions.status, { actionId: created.id }))
+        ?.status,
+    ).toBe('cancelled')
+  })
 })
 
 describe('wallets DB surface', () => {
-  test('linkEoa validates, upserts, and myWallets returns both kinds', async () => {
+  test('linkEoa verifies ownership, upserts, and myWallets returns both kinds', async () => {
     const t = convexTest(schema, modules)
     const app = t.withIdentity(identity(owner))
     await app.mutation(api.powerups.setEnabled, {
@@ -546,11 +687,18 @@ describe('wallets DB surface', () => {
     })
 
     await expect(
-      app.mutation(api.wallets.linkEoa, { address: 'not-an-address' }),
-    ).rejects.toThrow('valid 0x wallet address')
+      app.mutation(api.wallets.beginEoaLink, { address: 'not-an-address' }),
+    ).rejects.toThrow('valid EVM wallet')
 
+    const firstChallenge = await app.mutation(api.wallets.beginEoaLink, {
+      address: firstEoa.address,
+    })
+    const firstSignature = await firstEoa.signMessage({
+      message: firstChallenge.message,
+    })
     await app.mutation(api.wallets.linkEoa, {
-      address: ' 0x00000000000000000000000000000000000000cc ',
+      challengeId: firstChallenge.challengeId,
+      signature: firstSignature,
     })
     let wallets = await app.query(api.wallets.myWallets, {})
     expect(wallets.smartWallet?.address).toBe(
@@ -558,13 +706,19 @@ describe('wallets DB surface', () => {
     )
     expect(wallets.smartWallet?.chain).toBe('base')
     expect(wallets.smartWallet?.supportedChains).toEqual(['base', 'arbitrum'])
-    expect(wallets.eoa?.address).toBe(
-      '0x00000000000000000000000000000000000000cc',
-    )
+    expect(wallets.eoa?.address).toBe(firstEoa.address)
+    expect(wallets.eoa?.linkedAt).toBe(Date.now())
 
     // Re-linking replaces the address instead of duplicating the row.
+    const secondChallenge = await app.mutation(api.wallets.beginEoaLink, {
+      address: secondEoa.address,
+    })
+    const secondSignature = await secondEoa.signMessage({
+      message: secondChallenge.message,
+    })
     await app.mutation(api.wallets.linkEoa, {
-      address: '0x00000000000000000000000000000000000000dd',
+      challengeId: secondChallenge.challengeId,
+      signature: secondSignature,
     })
     const rows = await t.run(
       async (ctx) =>
@@ -583,12 +737,34 @@ describe('wallets DB surface', () => {
     )
   })
 
+  test('linkEoa rejects a signature from a different wallet', async () => {
+    const t = convexTest(schema, modules)
+    const app = t.withIdentity(identity(owner))
+    await app.mutation(api.powerups.setEnabled, {
+      powerupId: 'web3',
+      enabled: true,
+    })
+    const challenge = await app.mutation(api.wallets.beginEoaLink, {
+      address: firstEoa.address,
+    })
+    const wrongSignature = await secondEoa.signMessage({
+      message: challenge.message,
+    })
+
+    await expect(
+      app.mutation(api.wallets.linkEoa, {
+        challengeId: challenge.challengeId,
+        signature: wrongSignature,
+      }),
+    ).rejects.toThrow('does not match')
+  })
+
   test('linkEoa requires the web3 power-up', async () => {
     const t = convexTest(schema, modules)
     const app = t.withIdentity(identity(stranger))
     await expect(
-      app.mutation(api.wallets.linkEoa, {
-        address: '0x00000000000000000000000000000000000000cc',
+      app.mutation(api.wallets.beginEoaLink, {
+        address: firstEoa.address,
       }),
     ).rejects.toThrow('not enabled')
   })

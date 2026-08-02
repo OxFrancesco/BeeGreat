@@ -65,6 +65,9 @@ import {
 type ReadArgs = readonly unknown[] | undefined
 const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11' as Address
 const MAX_PAGINATION_REQUESTS = 10_000
+const MAX_UINT160 = (1n << 160n) - 1n
+const PERMIT2_APPROVAL_MINUTES = 30
+const PERMIT2_VALIDITY_BUFFER_MINUTES = 10
 
 export class SugarClient {
   readonly settings: ChainSettings
@@ -482,7 +485,18 @@ export class SugarClient {
       })
     }
     const valid = quotes.filter((quote) => !filter || filter(quote))
-    return valid.reduce<Quote | undefined>((best, quote) => !best || quote.amountOut > best.amountOut ? quote : best, undefined)
+    const best = valid.reduce<Quote | undefined>(
+      (current, quote) => !current || quote.amountOut > current.amountOut ? quote : current,
+      undefined,
+    )
+    if (!best) return undefined
+    const minimumCompetitiveOutput = applySlippage(best.amountOut, this.settings.swapSlippage)
+    return valid.reduce<Quote | undefined>((safest, quote) => {
+      if (quote.amountOut < minimumCompetitiveOutput) return safest
+      if (!safest || quote.input.path.length < safest.input.path.length) return quote
+      if (quote.input.path.length === safest.input.path.length && quote.amountOut > safest.amountOut) return quote
+      return safest
+    }, undefined)
   }
 
   async checkTokenAllowance(token: Token, spender: Address): Promise<bigint> {
@@ -514,8 +528,34 @@ export class SugarClient {
     })
     const main = this.tx(this.settings.swapperContractAddress, this.encode(abis.swapper, 'execute', [plan.commands, plan.inputs]), quote.input.fromToken.wrappedTokenAddress ? quote.input.amountIn : 0n)
     if (quote.input.fromToken.wrappedTokenAddress) return [main]
-    const approval = await this.setTokenAllowance(quote.input.fromToken, this.settings.swapperContractAddress, quote.input.amountIn)
-    return [approval, main].filter((tx): tx is UnsignedTransaction => tx !== undefined)
+    const approvals = await this.permit2Approvals(quote.input.fromToken, quote.input.amountIn)
+    return [...approvals, main]
+  }
+
+  private async permit2Approvals(token: Token, amount: bigint): Promise<UnsignedTransaction[]> {
+    if (amount > MAX_UINT160) throw new RangeError('Permit2 swap amount exceeds uint160')
+    const tokenAddress = tokenContractAddress(token)
+    const spender = this.settings.swapperContractAddress
+    const permit2 = await this.read<Address>(spender, abis.swapper, 'PERMIT2')
+    const [tokenAllowance, permit2Allowance] = await Promise.all([
+      this.read<bigint>(tokenAddress, abis.erc20, 'allowance', [this.signer(), permit2]),
+      this.read<readonly [bigint, bigint, bigint]>(permit2, abis.permit2, 'allowance', [
+        this.signer(), tokenAddress, spender,
+      ]),
+    ])
+    const tokenApproval = tokenAllowance >= amount
+      ? undefined
+      : this.tx(tokenAddress, this.encode(abis.erc20, 'approve', [permit2, amount]))
+    const [permit2Amount, permit2Expiration] = permit2Allowance
+    const permit2Approval = permit2Amount >= amount &&
+      permit2Expiration > futureTimestamp(PERMIT2_VALIDITY_BUFFER_MINUTES)
+      ? undefined
+      : this.tx(permit2, this.encode(abis.permit2, 'approve', [
+        tokenAddress, spender, amount, futureTimestamp(PERMIT2_APPROVAL_MINUTES),
+      ]))
+    return [tokenApproval, permit2Approval].filter(
+      (transaction): transaction is UnsignedTransaction => transaction !== undefined,
+    )
   }
 
   async poolSpec(token0: Token, token1: Token, options: { tickSpacing?: number; stable?: boolean }): Promise<LiquidityPool> {

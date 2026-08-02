@@ -1,4 +1,5 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
+import { sameEvmAddress, sendEoaTransactions } from '@beegreat/wallet-connect'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { FirstFocusPreviewCard } from './first-focus-preview'
@@ -6,6 +7,7 @@ import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { ReactNode } from 'react'
 
 import type { UIComponent } from './bee-ui'
+import { useEoaWallet } from '~/features/web3/use-eoa-wallet'
 
 export function GeneratedUI({
   components,
@@ -120,7 +122,8 @@ function generatedImageFileName(url: string) {
 
 async function fetchGeneratedImage(url: string) {
   const response = await fetch(url)
-  if (!response.ok) throw new Error(`Image download failed (${response.status})`)
+  if (!response.ok)
+    throw new Error(`Image download failed (${response.status})`)
   return response.blob()
 }
 
@@ -139,7 +142,9 @@ function GeneratedImageCard({
       if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
         throw new Error('Image clipboard is unavailable')
       }
-      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })])
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type]: blob }),
+      ])
       setFeedback('Image copied')
     } catch {
       try {
@@ -208,11 +213,11 @@ function GeneratedImageCard({
 }
 
 /**
- * Web3 money movement: the app is the authoritative confirmer. Clicking
- * Confirm runs the signed-in `web3Actions.confirm` mutation (which schedules
- * server-side execution) and only then tells Bee. A chat "yes" alone can
- * never move funds. When the user's YOLO mode auto-approved the action
- * server-side, the card skips the buttons and shows live progress instead.
+ * Web3 money movement uses an action-bound authorization. Smart-wallet actions
+ * call `web3Actions.confirm` and schedule server-side execution; linked-wallet
+ * actions claim the exact plan and leave every signature in the connected EOA.
+ * Free-form chat text cannot move funds. YOLO may auto-approve only smart-wallet
+ * actions, in which case the card shows live progress instead of buttons.
  */
 function Web3ConfirmCard({
   summary,
@@ -225,6 +230,10 @@ function Web3ConfirmCard({
 }) {
   const confirmAction = useMutation(api.web3Actions.confirm)
   const cancelAction = useMutation(api.web3Actions.cancel)
+  const beginEoaExecution = useMutation(api.web3Actions.beginEoaExecution)
+  const recordEoaSubmission = useMutation(api.web3Actions.recordEoaSubmission)
+  const reportEoaFailure = useMutation(api.web3Actions.reportEoaFailure)
+  const connectedWallet = useEoaWallet()
   const [decision, setDecision] = useState<
     'idle' | 'working' | 'confirmed' | 'declined'
   >('idle')
@@ -235,17 +244,78 @@ function Web3ConfirmCard({
     actionId: actionId as Id<'web3Actions'>,
   })
   const autoConfirmed = live?.autoConfirmed === true
+  const isEoaAction = live?.kind === 'execute_eoa_plan'
+  const expectedEoaAddress = live?.eoaRequest?.walletAddress
+  const eoaSessionMatches = Boolean(
+    expectedEoaAddress &&
+    connectedWallet.address &&
+    connectedWallet.provider &&
+    sameEvmAddress(expectedEoaAddress, connectedWallet.address),
+  )
 
   const confirm = async () => {
     if (decision !== 'idle') return
+    if (isEoaAction && !eoaSessionMatches) {
+      setError(undefined)
+      try {
+        if (connectedWallet.isConnected) await connectedWallet.disconnect()
+        await connectedWallet.connect()
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Couldn’t open WalletConnect.',
+        )
+      }
+      return
+    }
     setDecision('working')
     setError(undefined)
+    let eoaClaimed = false
     try {
-      await confirmAction({ actionId: actionId as Id<'web3Actions'> })
+      if (isEoaAction) {
+        const plan = await beginEoaExecution({
+          actionId: actionId as Id<'web3Actions'>,
+        })
+        eoaClaimed = true
+        try {
+          await sendEoaTransactions({
+            provider: connectedWallet.provider!,
+            address: plan.walletAddress,
+            chainId: plan.chainId,
+            transactions: plan.transactions,
+            onSubmitted: async ({ index, hash }) => {
+              await recordEoaSubmission({
+                actionId: actionId as Id<'web3Actions'>,
+                index,
+                hash,
+              })
+            },
+          })
+        } catch (cause) {
+          await reportEoaFailure({
+            actionId: actionId as Id<'web3Actions'>,
+            reason: eoaFailureReason(cause),
+          })
+          throw cause
+        }
+      } else {
+        await confirmAction({ actionId: actionId as Id<'web3Actions'> })
+      }
       setDecision('confirmed')
-      void onReply?.('I confirmed the action in the app. Check its status.')
+      void onReply?.(
+        isEoaAction
+          ? 'I signed the linked-wallet action in the app. Check its status.'
+          : 'I confirmed the action in the app. Check its status.',
+      )
     } catch (cause) {
-      setDecision('idle')
+      setDecision(
+        isEoaAction && eoaClaimed
+          ? eoaFailureReason(cause) === 'user_rejected'
+            ? 'declined'
+            : 'confirmed'
+          : 'idle',
+      )
       setError(
         cause instanceof Error ? cause.message : 'Couldn’t confirm the action.',
       )
@@ -268,17 +338,24 @@ function Web3ConfirmCard({
       ?.explorerLink
   // YOLO auto-approval resolves the card without a click; show progress
   // immediately instead of confirm buttons.
-  const resolved = decision === 'confirmed' || autoConfirmed
+  const resolved =
+    decision === 'confirmed' ||
+    autoConfirmed ||
+    (isEoaAction && status !== undefined && status !== 'pending')
   const loading = live === undefined
 
   return (
     <Card className="confirm-card">
       <p className="utility-label">
-        {autoConfirmed ? 'Auto-approved · YOLO mode' : 'Needs your confirmation'}
+        {autoConfirmed
+          ? 'Auto-approved · YOLO mode'
+          : isEoaAction
+            ? 'Needs your wallet signature'
+            : 'Needs your confirmation'}
       </p>
       <p>{summary}</p>
       {error ? <p className="confirm-card__error">{error}</p> : null}
-      {decision === 'declined' ? (
+      {decision === 'declined' || status === 'cancelled' ? (
         <p>Declined — nothing was sent.</p>
       ) : resolved ? (
         status === 'executed' ? (
@@ -302,10 +379,16 @@ function Web3ConfirmCard({
           </p>
         ) : status === 'in_progress' ? (
           <p aria-live="polite">
-            {live?.socketProgress?.detail ?? 'Moving funds…'}
+            {isEoaAction
+              ? `${live?.result?.length ?? 0} of ${live?.eoaRequest?.stepCount ?? 1} transactions submitted…`
+              : (live?.socketProgress?.detail ?? 'Moving funds…')}
           </p>
         ) : (
-          <p aria-live="polite">Confirmed — preparing…</p>
+          <p aria-live="polite">
+            {isEoaAction
+              ? 'Check your wallet to sign each transaction…'
+              : 'Confirmed — preparing…'}
+          </p>
         )
       ) : loading ? (
         // Wait for the first status read so an auto-approved action never
@@ -319,7 +402,13 @@ function Web3ConfirmCard({
             disabled={decision === 'working'}
             onClick={() => void confirm()}
           >
-            {decision === 'working' ? 'Confirming…' : 'Confirm'}
+            {decision === 'working'
+              ? isEoaAction
+                ? 'Signing…'
+                : 'Confirming…'
+              : isEoaAction && !eoaSessionMatches
+                ? 'Connect wallet'
+                : 'Confirm'}
           </button>
           <button
             className="button button--quiet"
@@ -333,6 +422,26 @@ function Web3ConfirmCard({
       )}
     </Card>
   )
+}
+
+function eoaFailureReason(
+  cause: unknown,
+): 'user_rejected' | 'account_changed' | 'wallet_error' {
+  if (
+    typeof cause === 'object' &&
+    cause !== null &&
+    'code' in cause &&
+    cause.code === 4001
+  ) {
+    return 'user_rejected'
+  }
+  if (
+    cause instanceof Error &&
+    cause.message.toLowerCase().includes('connect the wallet shown')
+  ) {
+    return 'account_changed'
+  }
+  return 'wallet_error'
 }
 
 function bookmarkHost(url: string) {

@@ -1,0 +1,17 @@
+{
+  "name": "@beegreat/wallet-connect",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "~6.0.3"
+  }
+}

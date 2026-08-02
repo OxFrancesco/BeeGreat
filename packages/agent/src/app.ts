@@ -455,6 +455,23 @@ app.post('/bridge/channel', async (c) => {
     }
     channelAction = action
     input = { requestId: body.requestId, taskId: body.taskId }
+  } else if (action === 'get_web3_action') {
+    if (typeof body?.actionId !== 'string' || !body.actionId.trim()) {
+      return c.json({ error: 'Invalid Web3 action.' }, 400)
+    }
+    channelAction = action
+    input = { actionId: body.actionId }
+  } else if (action === 'confirm_web3' || action === 'cancel_web3') {
+    if (
+      typeof body?.actionId !== 'string' ||
+      !body.actionId.trim() ||
+      typeof body.summary !== 'string' ||
+      !body.summary.trim()
+    ) {
+      return c.json({ error: 'Invalid Web3 action.' }, 400)
+    }
+    channelAction = action
+    input = { actionId: body.actionId, summary: body.summary }
   } else {
     return c.json({ error: 'Unknown channel action.' }, 400)
   }

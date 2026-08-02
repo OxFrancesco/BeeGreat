@@ -28,6 +28,7 @@ const app = defineApp({
     CROSSMINT_API_KEY: v.optional(v.string()),
     CROSSMINT_SIGNER_SECRET: v.optional(v.string()),
     SOCKET_API_KEY: v.optional(v.string()),
+    SUGAR_RPC_URI_8453: v.optional(v.string()),
   },
 })
 

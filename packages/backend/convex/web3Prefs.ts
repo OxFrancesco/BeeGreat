@@ -5,7 +5,8 @@ import { requireUserId } from './helpers'
 import { requirePowerup } from './powerups'
 
 // Per-user Web3 preferences. YOLO mode lets the signed-in user pre-authorize
-// automatic confirmation of every prepared action. Only the app can flip it
+// automatic confirmation of prepared smart-wallet actions. Linked-wallet EOA
+// actions always require the connected wallet. Only the app can flip YOLO
 // (requireUserId): the agent has no path here, so the prompt-injection barrier
 // of web3Actions stays intact — YOLO merely moves the user's consent from
 // per-action taps to a standing opt-in.

@@ -19,9 +19,15 @@ import {
   isFirstFocusCancellation,
   isFirstFocusConfirmation,
   isHighlightCompletion,
+  isWeb3Cancellation,
+  isWeb3Confirmation,
   latestFirstFocusPreview,
+  latestWeb3Confirmation,
+  projectWeb3Action,
   type FirstFocusPreview,
+  type Web3ActionProjection,
 } from './bee-response'
+import { createIMessageProgressReporter } from './progress'
 
 // Bridges iMessage (via Spectrum Cloud) to the BeeGreat Flue agent worker.
 // Only senders in IMESSAGE_USER_MAP are answered; everyone else is ignored.
@@ -153,31 +159,56 @@ async function channelAction<T>(
   return result as T
 }
 
+async function web3ActionFor(userId: string, actionId: string) {
+  return await channelAction<(Web3ActionProjection & { id: string }) | null>(
+    userId,
+    {
+      action: 'get_web3_action',
+      actionId,
+    },
+  )
+}
+
 /** Sends one prompt to Bee and returns both spoken copy and projected UI. */
 async function askBee(
+  space: Space,
   userId: string,
   threadId: number,
   body: string,
   images: AgentPromptImage[] = [],
 ): Promise<BeeReply> {
   const client = clientFor(userId)
-  const { result } = await client.agents.prompt(
-    BEE_AGENT_NAME,
-    conversationId(userId, threadId),
-    {
-      message: body,
-      ...(images.length ? { images } : {}),
-    },
+  const progress = createIMessageProgressReporter(
+    async (message) => await space.send(text(message)),
+    (error) => captureBridgeFailure(error, 'progress.send', userId),
   )
-  return extractBeeResponse(result.text)
+  try {
+    const admission = await client.agents.send(
+      BEE_AGENT_NAME,
+      conversationId(userId, threadId),
+      {
+        message: body,
+        ...(images.length ? { images } : {}),
+      },
+    )
+    const result = await client.agents.wait(admission, {
+      onEvent: (event) => progress.event(event),
+    })
+    return extractBeeResponse(result.text)
+  } finally {
+    await progress.stop()
+  }
 }
 
-async function latestPreview(userId: string, threadId: number) {
+async function latestInteractiveReply(userId: string, threadId: number) {
   const history = await clientFor(userId).agents.history(
     BEE_AGENT_NAME,
     conversationId(userId, threadId),
   )
-  return latestFirstFocusPreview(history.messages)
+  return {
+    firstFocus: latestFirstFocusPreview(history.messages),
+    web3: latestWeb3Confirmation(history.messages),
+  }
 }
 
 async function transcribeVoice(
@@ -295,16 +326,32 @@ async function promptFromContent(
 async function sendReply(
   space: Space,
   reply: BeeReply,
+  userId: string,
   celebrate = false,
 ) {
-  if (reply.markdown) {
+  const currentWeb3 = reply.web3Confirmation
+    ? await web3ActionFor(userId, reply.web3Confirmation.actionId).catch(
+        () => null,
+      )
+    : null
+  let projected = reply
+  if (currentWeb3) {
+    projected = projectWeb3Action(reply, currentWeb3)
+  } else if (reply.web3Confirmation) {
+    projected = projectWeb3Action(reply, {
+      summary: reply.web3Confirmation.summary,
+      status: 'expired',
+      autoConfirmed: false,
+    })
+  }
+  if (projected.markdown) {
     await space.send(
       celebrate
-        ? effect(markdown(reply.markdown), imessage.effect.message.confetti)
-        : markdown(reply.markdown),
+        ? effect(markdown(projected.markdown), imessage.effect.message.confetti)
+        : markdown(projected.markdown),
     )
   }
-  for (const link of reply.links) {
+  for (const link of projected.links) {
     await space.send(richlink(link))
   }
 }
@@ -359,6 +406,7 @@ for await (const [space, message] of app.messages) {
   try {
     // Tapback 👀 so the sender knows Bee is on it (replies can take a while).
     await message.react('👀').catch(() => {})
+    await space.startTyping().catch(() => {})
 
     const incoming = await promptFromContent(
       userId,
@@ -411,7 +459,11 @@ for await (const [space, message] of app.messages) {
       isFirstFocusConfirmation(prompt) ||
       isFirstFocusCancellation(prompt)
     ) {
-      const preview = await latestPreview(userId, context.threadId)
+      const interactive = await latestInteractiveReply(
+        userId,
+        context.threadId,
+      )
+      const preview = interactive.firstFocus
       if (preview) {
         if (isFirstFocusConfirmation(prompt)) {
           await channelAction(userId, {
@@ -419,6 +471,7 @@ for await (const [space, message] of app.messages) {
             ...firstFocusActionInput(preview),
           })
           reply = await askBee(
+            space,
             userId,
             context.threadId,
             '[BeeGreat app event] The first-focus plan was confirmed and persisted successfully. Acknowledge it; do not create or mutate the plan again.',
@@ -429,18 +482,57 @@ for await (const [space, message] of app.messages) {
             ...firstFocusActionInput(preview),
           })
           reply = await askBee(
+            space,
             userId,
             context.threadId,
             '[BeeGreat app event] The first-focus preview was cancelled. Nothing was created. Acknowledge the cancellation; do not create or mutate the plan.',
           )
         }
       } else {
-        reply = await askBee(
-          userId,
-          context.threadId,
-          prompt,
-          incoming.images,
-        )
+        const web3Confirmation = interactive.web3
+        if (
+          web3Confirmation &&
+          (isWeb3Confirmation(prompt) || isWeb3Cancellation(prompt))
+        ) {
+          const confirmed = isWeb3Confirmation(prompt)
+          const current = await web3ActionFor(
+            userId,
+            web3Confirmation.actionId,
+          )
+          if (!current) {
+            throw new Error('This Web3 confirmation is no longer available.')
+          }
+          if (current.status === 'pending') {
+            await channelAction(userId, {
+              action: confirmed ? 'confirm_web3' : 'cancel_web3',
+              actionId: web3Confirmation.actionId,
+              summary: current.summary,
+            })
+            reply = await askBee(
+              space,
+              userId,
+              context.threadId,
+              confirmed
+                ? `[BeeGreat trusted iMessage event] The user explicitly authorized the exact Web3 action "${current.summary}" and Convex accepted confirmation for action ${web3Confirmation.actionId}. Delegate to the Web3 specialist and check that exact action now. Report its current execution status without preparing a replacement or asking for another confirmation.`
+                : `[BeeGreat trusted iMessage event] The user declined the exact Web3 action "${current.summary}". Convex cancelled action ${web3Confirmation.actionId}; no funds moved. Acknowledge the cancellation without preparing a replacement.`,
+            )
+          } else {
+            reply = await askBee(
+              space,
+              userId,
+              context.threadId,
+              `[BeeGreat trusted iMessage event] The user replied to Web3 action "${current.summary}", but Convex reports it is already ${current.status}; no new decision was applied. Check action ${web3Confirmation.actionId} and report its current status without preparing a replacement.`,
+            )
+          }
+        } else {
+          reply = await askBee(
+            space,
+            userId,
+            context.threadId,
+            prompt,
+            incoming.images,
+          )
+        }
       }
     } else if (
       isHighlightCompletion(prompt) &&
@@ -457,6 +549,7 @@ for await (const [space, message] of app.messages) {
         taskId: highlight.taskId,
       })
       reply = await askBee(
+        space,
         userId,
         context.threadId,
         `[BeeGreat app event] Highlight "${highlight.title}" was completed successfully. The verified award was ${completion.honeyAwarded} Honey and ${completion.scoreAwarded} Honeycomb Score. Acknowledge this completion and reward only; do not call a completion tool or create, update, or mutate any data again.`,
@@ -464,6 +557,7 @@ for await (const [space, message] of app.messages) {
       celebrate = completion.status === 'completed'
     } else {
       reply = await askBee(
+        space,
         userId,
         context.threadId,
         prompt,
@@ -471,10 +565,12 @@ for await (const [space, message] of app.messages) {
       )
     }
 
-    await sendReply(space, reply, celebrate)
+    await sendReply(space, reply, userId, celebrate)
   } catch (error) {
     captureBridgeFailure(error, 'prompt.handle', userId)
     console.error('imessage-bridge: prompt failed', error)
     await space.send(text(promptFailureReply(error)))
+  } finally {
+    await space.stopTyping().catch(() => {})
   }
 }

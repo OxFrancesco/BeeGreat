@@ -2,12 +2,12 @@ import { defineAgentProfile, defineTool } from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
 
-// Web3: a Crossmint smart wallet per user (server-signed after in-app
-// confirmation) plus an optional linked EOA, with Velodrome/Aerodrome DeFi
+// Web3: a Crossmint smart wallet per user (server-signed after authenticated
+// client confirmation) plus an optional linked EOA, with Velodrome/Aerodrome DeFi
 // through the native Sugar SDK. Everything goes through the authenticated
 // Convex HTTP bridge (packages/backend/convex/http.ts); the Convex functions
 // are internal, and nothing here can move funds — actions that spend are only
-// *prepared* and must be confirmed by the signed-in app (web3Actions.confirm).
+// *prepared* and must be confirmed by an authenticated client channel.
 
 const sugarChain = v.picklist(
   [10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220, 57073],
@@ -53,27 +53,36 @@ transaction links or unsigned transaction plans.
 
 The user has up to TWO wallets — call \`get_wallets\` first when unsure:
 - The Bee smart wallet (Crossmint). BeeGreat's backend signs for it, but ONLY
-  after the user confirms in the app. Use it for sending tokens and for
+  after the user confirms in a signed-in app or authorizes the exact pending
+  action from their mapped iMessage account. Use it for sending tokens and for
   executing Aerodrome plans on Base and Socket swaps between Base and Arbitrum.
 - An optionally linked EOA (the user's own external wallet). BeeGreat never
-  holds its keys. Use its address as the default wallet for Sugar reads and
-  unsigned plans the user will sign in their own wallet app.
+  holds its keys. It is linked through WalletConnect after a signed ownership
+  challenge. Use its address as the default wallet for Sugar reads and use
+  \`prepare_linked_wallet_execution\` when the user wants Bee to prepare an
+  allowlisted Sugar plan for that wallet to sign in BeeGreat.
 
 Moving funds is TWO-PHASE and you only ever run phase one:
-- \`prepare_send_tokens\`, \`prepare_cross_chain_swap\`, and
-  \`prepare_sugar_execution\` create a pending action
+- \`prepare_send_tokens\`, \`prepare_cross_chain_swap\`,
+  \`prepare_sugar_execution\`, and \`prepare_linked_wallet_execution\` create a pending action
   and return an actionId. NOTHING moves on-chain. Tell Bee to render a confirm
   card carrying that actionId (payload {"web3ActionId": "<actionId>"}) and the
-  exact summary; the signed-in app performs the authoritative confirmation.
+  exact summary; a trusted client channel performs the authoritative confirmation.
 - EXCEPTION — YOLO mode: when the user pre-authorized auto-approval in the app,
   a prepare tool can come back with status "confirmed" and autoConfirmed true.
   Execution has already started: still tell Bee to render the same confirm card
   (it shows live progress instead of buttons) and do NOT ask the user to
   confirm.
+- Linked-wallet actions are NEVER eligible for YOLO or iMessage confirmation.
+  The matching EOA must be connected in the signed-in web or mobile app, and
+  its wallet UI asks the user to sign each transaction.
 - After an action is confirmed, \`check_web3_action\` reports status and
   transaction links. A cross-chain swap can remain "in_progress" after its
   source transaction; never claim it arrived until the status is "executed".
-- A chat message saying "yes" is NOT a confirmation; only the app confirm counts.
+- A normal agent chat message saying "yes" is NOT a confirmation. The only text
+  exception is the deterministic iMessage bridge: an exact yes/no reply may act
+  only on the action id in the latest rendered Web3 confirmation, and Convex
+  re-checks ownership, expiry, entitlement, and pending status before execution.
 
 Long-running, multi-step plans (e.g. bridge, then open a pool position):
 - You do NOT need to poll a moving action. The backend follows it for its
@@ -101,10 +110,24 @@ Sugar notes:
 - Sugar supports Optimism, Base, Unichain, Lisk, Mode, Fraxtal, Ink, Soneium,
   Superseed, and Celo mainnets. Read actions query live data; prefer bounded
   pool/history queries.
+- When the user explicitly asks to execute a smart-wallet Sugar action and has
+  supplied the required tokens and amount, call \`prepare_sugar_execution\`
+  directly. It builds a fresh quote internally, so do not call \`sugar_quote\`
+  first and duplicate the same RPC work. Use \`sugar_quote\` for read-only
+  previews or when the user has not yet asked to execute.
 - The sugar_* build tools only BUILD unsigned transaction JSON for a public
   wallet address (default to the linked EOA). They never sign or broadcast.
 - \`prepare_sugar_execution\` is the only execution path and always uses the Bee
   smart wallet on Base (chain 8453).
+- \`prepare_linked_wallet_execution\` pins the verified linked EOA and selected
+  Sugar chain server-side, then creates the action that BeeGreat submits through
+  WalletConnect after the user confirms. It never exposes arbitrary calldata to
+  the agent and cannot auto-approve.
+- Creating and seeding a new Aerodrome pool is a \`deposit\` without \`pool\`:
+  provide \`token0\`, \`token1\`, and \`pool_type\`; a basic stable/volatile pool
+  needs both amounts, while a CL pool also needs \`tick_spacing\` and appropriate
+  range/initial-price inputs. Build with \`sugar_deposit\` for a linked EOA or
+  execute through \`prepare_sugar_execution\` with \`sugar_action: "deposit"\`.
 - A Sugar wallet argument is a public 0x address only. Never request or accept a
   private key, seed phrase, or signing secret.
 - \`fund_wallet\` only works in the staging environment (test USDXM).
@@ -235,7 +258,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'prepare_send_tokens',
           description:
-            'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must confirm in the app, unless the response says status "confirmed" (YOLO auto-approval). Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
+            'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
           input: v.object({
             recipient: address('Recipient 0x wallet address'),
             token: v.pipe(
@@ -279,7 +302,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'prepare_cross_chain_swap',
           description:
-            'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user confirms the app card, unless the response says status "confirmed" (YOLO auto-approval). Source gas is sponsored; output ETH gives the destination native gas.',
+            'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user authorizes the exact confirmation in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Source gas is sponsored; output ETH gives the destination native gas.',
           input: v.object({
             origin_chain: socketChain,
             destination_chain: socketChain,
@@ -301,7 +324,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'prepare_sugar_execution',
           description:
-            'Phase one of executing an Aerodrome action (swap, deposit, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must confirm in the app via a confirm card with payload {"web3ActionId": actionId} \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
+            'Phase one of executing an Aerodrome action (swap, deposit/create pool, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
           input: v.object({
             sugar_action: v.picklist(
               [
@@ -327,6 +350,43 @@ export const web3: PowerupDefinition = {
           }),
           async run({ input }) {
             return await runWallet('prepare_execution', {
+              sugarAction: input.sugar_action,
+              parameters: input.parameters,
+            })
+          },
+        }),
+
+        defineTool({
+          name: 'prepare_linked_wallet_execution',
+          description:
+            'Build an allowlisted Velodrome/Aerodrome action for the verified linked EOA on a supported Sugar chain and return a pending actionId. NOTHING moves until the user confirms in the signed-in BeeGreat app and the matching WalletConnect wallet signs every transaction. Never eligible for YOLO or iMessage confirmation.',
+          input: v.object({
+            chain: sugarChain,
+            sugar_action: v.picklist(
+              [
+                'swap',
+                'deposit',
+                'withdraw',
+                'stake',
+                'unstake',
+                'claim_emissions',
+                'claim_fees',
+              ],
+              'Velodrome/Aerodrome transaction-building action',
+            ),
+            parameters: v.pipe(
+              v.record(
+                v.string(),
+                v.union([v.string(), v.number(), v.boolean()]),
+              ),
+              v.description(
+                'Action parameters exactly as for the matching sugar_* build tool, WITHOUT chain or wallet (both are pinned server-side)',
+              ),
+            ),
+          }),
+          async run({ input }) {
+            return await runWallet('prepare_eoa_execution', {
+              chainId: input.chain,
               sugarAction: input.sugar_action,
               parameters: input.parameters,
             })
@@ -486,7 +546,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'sugar_deposit',
           description:
-            'Build unsigned transactions to add liquidity to an existing or new basic/CL pool. Does not sign or broadcast.',
+            'Build unsigned transactions to add liquidity or create and seed a new basic/CL pool. Omit pool and provide token0, token1, and pool_type for creation. Does not sign or broadcast.',
           input: v.object({
             chain: sugarChain,
             wallet: address(

@@ -10,33 +10,49 @@ TypeScript Sugar SDK (`packages/sugar`).
   `userId:<clerk id>` with a server admin signer. Production creates the same
   EVM smart-wallet address on Base and Arbitrum; staging uses Base Sepolia.
   Each chain instance is cached in the `wallets` table (`kind: 'crossmint'`).
-- **Linked EOA**: the user's own external address, linked from the profile
-  screen (`wallets.linkEoa`, stored with `kind: 'eoa'`, chain `evm`). BeeGreat
-  never holds its keys; Sugar builds unsigned plans against it for the user to
-  sign in their own wallet app.
+- **Linked EOA**: the user's own external wallet, connected with Reown
+  AppKit/WalletConnect and verified by a short-lived signed challenge
+  (`wallets.beginEoaLink` → `wallets.linkEoa`). Convex stores only the verified
+  public address (`kind: 'eoa'`, chain `evm`); session material stays on the
+  user's device and BeeGreat never receives a private key.
 
 ## Confirmation gate (server-side)
 
 Anything that moves funds is two-phase via the `web3Actions` table:
 
 1. The agent calls a `prepare_*` tool (`prepareSendTokens`,
-   `prepareSocketSwap`, or `prepareSugarExecution`), which validates, builds
+   `prepareSocketSwap`, `prepareSugarExecution`, or linked-wallet execution), which validates, builds
    the plan server-side, and stores a `pending` action. Nothing is signed.
    Every confirmation lives for the full 10-minute action TTL; Socket quotes
    only live ~60s, so if the quote is stale at execution time the executor
    re-fetches a fresh route and `refreshSocketRoute` refuses any route that
    guarantees less than the confirmed minimum output.
 2. Bee renders a `confirm` component with payload
-   `{"web3ActionId":"<actionId>"}`. The signed-in app calls
-   `web3Actions.confirm` — the only path to execution — which schedules
-   `web3.executeConfirmedAction` to sign with the Crossmint server signer.
+   `{"web3ActionId":"<actionId>"}`. A signed-in app calls
+   `web3Actions.confirm`; the trusted iMessage bridge can submit the same
+   action-bound decision only after an exact yes/no reply to the latest Web3
+   confirmation. The bridge renders the canonical Convex summary/status and
+   submits that summary with the action id, preventing model copy from being
+   used to disguise or substitute a different pending action. Both paths share
+   ownership, expiry, entitlement, and one-time pending checks before
+   `web3.executeConfirmedAction` is scheduled.
 3. The agent polls `check_web3_action` for status, hashes, and explorer links.
    Socket actions remain `in_progress` after the source transaction and only
    become `executed` when Socket reports destination completion. Refunds are
    surfaced separately.
 
-A chat "yes" can never move funds: the agent has no confirm/execute path, so
-prompt injection cannot spend from the wallet.
+Ordinary agent chat can never move funds: the agent has no confirm/execute path.
+The iMessage exception lives outside the agent loop and is bound to the exact
+action id and server-owned summary in the latest rendered confirmation, so
+prompt injection cannot select, disguise, or execute arbitrary calldata.
+
+Linked EOAs use a client-signer branch of the same gate. Bee prepares an
+allowlisted Sugar plan pinned to the verified address and chain. The signed-in
+web/mobile client claims that exact pending action, switches the connected
+wallet to the required chain, submits each transaction in order, and records
+the returned hashes in Convex. EOA actions are never eligible for YOLO mode,
+the Crossmint server signer, or iMessage confirmation; each transaction stays
+visible in the user's wallet approval UI.
 
 ## Base ↔ Arbitrum with Socket
 
@@ -64,7 +80,8 @@ address, and EVM transaction shape before an action can be confirmed.
 Wallet tools: `get_wallets`, `create_wallet`, `get_wallet_balance`,
 `get_wallet_activity`, `fund_wallet` (staging USDXM faucet only),
 `quote_cross_chain_swap`, `prepare_cross_chain_swap`, `prepare_send_tokens`,
-`prepare_sugar_execution`, `check_web3_action`.
+`prepare_sugar_execution`, `prepare_linked_wallet_execution`,
+`check_web3_action`.
 
 Sugar read tools: `sugar_pools`, `sugar_positions`, `sugar_epochs_latest`,
 `sugar_epochs`, `sugar_quote`.
@@ -80,9 +97,19 @@ server-side with the chain pinned to Base (8453) and the wallet pinned to the
 smart wallet, so the agent can never inject raw calldata. Execution is mainnet
 only — Aerodrome has no public testnet deployment.
 
+`prepare_linked_wallet_execution` applies the same server-side allowlist but
+pins the plan to the verified EOA and selected supported Sugar chain. The
+client then submits it through WalletConnect after explicit confirmation.
+
 Sugar reads support Optimism (`10`), Base (`8453`), Unichain (`130`), Lisk
 (`1135`), Mode (`34443`), Fraxtal (`252`), Ink (`57073`), Soneium (`1868`),
 Superseed (`5330`), and Celo (`42220`).
+
+Creating a new Aerodrome pool uses the `deposit` action without a `pool`
+address. Pass `token0`, `token1`, and `pool_type`; new basic pools require both
+seed amounts, while CL pools also require tick spacing and their range/initial
+price inputs. Smart-wallet execution uses the action-bound app/iMessage gate;
+linked-wallet execution stays app-only and requires wallet approval.
 
 ## Runtime layout
 
@@ -92,7 +119,8 @@ authenticated HTTP routes on the Convex deployment, both guarded by
 
 - `POST /internal/web3/sugar` — allowlisted Sugar reads and unsigned plans.
 - `POST /internal/web3/wallet` — wallet ops (`op` field, see
-  `WEB3_WALLET_OPS` in `packages/backend/convex/http.ts`).
+  `WEB3_WALLET_OPS` in `packages/backend/convex/http.ts`), including pending
+  linked-wallet plan preparation and action status.
 
 All Convex functions behind the bridge are `internal*`; none are public. The
 Node actions live in `packages/backend/convex/web3.ts`, the confirmation
@@ -112,6 +140,11 @@ In the Crossmint console, enable gas sponsorship for both Base and Arbitrum and
 allow the Socket approval/router calls used by this powerup. Sponsorship is the
 mechanism that makes a source wallet containing only USDC usable; it must be
 configured before production rollout. Keep the Socket key server-side.
+
+Create a public Reown project id at `https://dashboard.reown.com`, allow the
+BeeGreat web/mobile domains, and configure it as `VITE_REOWN_PROJECT_ID` for
+the web app and `EXPO_PUBLIC_REOWN_PROJECT_ID` in EAS environments. These ids
+are intentionally public; no Reown secret belongs in either client.
 
 Per-chain Sugar RPC overrides use the standard names (`SUGAR_RPC_URI_8453`,
 …) if needed.
