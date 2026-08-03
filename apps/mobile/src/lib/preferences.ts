@@ -1,11 +1,12 @@
-import * as SecureStore from 'expo-secure-store';
 import { useSyncExternalStore } from 'react';
+
+import { getPreference, setPreference } from '@/lib/preferences-storage';
 
 /** Tiny persisted preference store (module state + SecureStore). */
 
 const SPEAK_REPLIES_KEY = 'bee.speakReplies';
 
-let speakReplies = SecureStore.getItem(SPEAK_REPLIES_KEY) !== 'off';
+let speakReplies = getPreference(SPEAK_REPLIES_KEY) !== 'off';
 const listeners = new Set<() => void>();
 
 export function getSpeakReplies() {
@@ -16,7 +17,7 @@ export function setSpeakReplies(enabled: boolean) {
   speakReplies = enabled;
   listeners.forEach((listener) => listener());
   try {
-    SecureStore.setItem(SPEAK_REPLIES_KEY, enabled ? 'on' : 'off');
+    setPreference(SPEAK_REPLIES_KEY, enabled ? 'on' : 'off');
   } catch {
     // Persistence is best-effort; the in-memory value still applies.
   }
@@ -38,7 +39,7 @@ export type VoiceMode = 'voice-note' | 'conversation';
 
 const VOICE_MODE_KEY = 'bee.voiceMode';
 let voiceMode: VoiceMode =
-  SecureStore.getItem(VOICE_MODE_KEY) === 'conversation'
+  getPreference(VOICE_MODE_KEY) === 'conversation'
     ? 'conversation'
     : 'voice-note';
 const voiceModeListeners = new Set<() => void>();
@@ -51,7 +52,7 @@ export function setVoiceMode(mode: VoiceMode) {
   voiceMode = mode;
   voiceModeListeners.forEach((listener) => listener());
   try {
-    SecureStore.setItem(VOICE_MODE_KEY, mode);
+    setPreference(VOICE_MODE_KEY, mode);
   } catch {
     // Persistence is best-effort; the selected mode still applies this session.
   }
@@ -71,14 +72,14 @@ export function useVoiceMode() {
 
 const PAYWALL_SEEN_KEY = 'bee.paywallSeen';
 
-let paywallSeen = SecureStore.getItem(PAYWALL_SEEN_KEY) === 'yes';
+let paywallSeen = getPreference(PAYWALL_SEEN_KEY) === 'yes';
 const paywallSeenListeners = new Set<() => void>();
 
 export function markPaywallSeen() {
   paywallSeen = true;
   paywallSeenListeners.forEach((listener) => listener());
   try {
-    SecureStore.setItem(PAYWALL_SEEN_KEY, 'yes');
+    setPreference(PAYWALL_SEEN_KEY, 'yes');
   } catch {
     // Persistence is best-effort; the paywall stays dismissed this session.
   }
@@ -99,7 +100,7 @@ export function usePaywallSeen() {
 export type MindView = 'hex' | 'cards' | 'list';
 
 const MIND_VIEW_KEY = 'bee.mindView';
-const storedMindView = SecureStore.getItem(MIND_VIEW_KEY);
+const storedMindView = getPreference(MIND_VIEW_KEY);
 let mindView: MindView =
   storedMindView === 'cards' || storedMindView === 'list' ? storedMindView : 'hex';
 const mindViewListeners = new Set<() => void>();
@@ -108,7 +109,7 @@ export function setMindView(view: MindView) {
   mindView = view;
   mindViewListeners.forEach((listener) => listener());
   try {
-    SecureStore.setItem(MIND_VIEW_KEY, view);
+    setPreference(MIND_VIEW_KEY, view);
   } catch {
     // Persistence is best-effort; the selected view still changes immediately.
   }

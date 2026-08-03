@@ -1,7 +1,5 @@
 import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
-import { tokenCache } from '@clerk/clerk-expo/token-cache';
 import { FlueProvider } from '@flue/react';
-import { AppKit, AppKitProvider } from '@reown/appkit-react-native';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import {
@@ -27,10 +25,11 @@ import { VoiceAgentProvider } from '@/components/agent/voice-agent-provider';
 import { ChatGptAuthGate } from '@/components/chatgpt/chatgpt-auth';
 import { SubscriptionGate } from '@/components/subscription/subscription-paywall';
 import { SubscriptionProvider } from '@/components/subscription/subscription-provider';
+import { WalletAppKit } from '@/components/web3/wallet-app-kit';
 import { Colors } from '@/constants/theme';
+import { tokenCache } from '@/lib/clerk-token-cache';
 import { flueClient } from '@/lib/flue';
 import { Sentry, sentryNavigationIntegration } from '@/lib/sentry';
-import { walletAppKit } from '@/lib/wallet-connect';
 import { ScreenshotHarnessRoot } from '@/screenshot-harness/screenshot-harness-root';
 
 const PRIVACY_URL = 'https://beedocs.pages.dev/privacy';
@@ -44,7 +43,7 @@ const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
 
 function RootLayout() {
   return (
-    <AppKitProvider instance={walletAppKit}>
+    <WalletAppKit>
       <KeyboardProvider>
         {SCREENSHOT_HARNESS_ENABLED ? (
           <ScreenshotHarnessRoot />
@@ -62,10 +61,7 @@ function RootLayout() {
           </ClerkProvider>
         )}
       </KeyboardProvider>
-      <View pointerEvents="box-none" style={styles.walletModal}>
-        <AppKit />
-      </View>
-    </AppKitProvider>
+    </WalletAppKit>
   );
 }
 
@@ -232,10 +228,6 @@ function RootNavigator() {
 }
 
 const styles = StyleSheet.create({
-  walletModal: {
-    position: 'absolute',
-    inset: 0,
-  },
   loading: {
     flex: 1,
     alignItems: 'center',
