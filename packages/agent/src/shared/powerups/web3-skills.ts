@@ -8,7 +8,7 @@ import { defineSkill } from '@flue/runtime'
 export const aerodromeLiquiditySkill = defineSkill({
   name: 'aerodrome-liquidity',
   description:
-    'Playbook for Velodrome/Aerodrome liquidity work: discovering pools, adding or removing liquidity, creating new basic or CL pools, staking into gauges, and claiming emissions or fees. Activate before any multi-step LP task or pool-creation request.',
+    'Playbook for Velodrome/Aerodrome liquidity work: discovering pools, adding or removing liquidity, creating new basic or CL pools, staking into gauges, and claiming emissions or fees. Activate before any multi-step LP task or pool-creation request. Do NOT activate for balance checks, token sends, or single swap quotes.',
   instructions: `# Aerodrome/Velodrome liquidity playbook
 
 ## Choose the wallet and execution path first
@@ -78,7 +78,7 @@ chain the user's wallet can switch to.`,
 export const crossChainSwapSkill = defineSkill({
   name: 'cross-chain-swap',
   description:
-    'Playbook for Base ↔ Arbitrum swaps through Socket with the Bee smart wallet: quoting, choosing the output token for destination gas, settlement lifecycle, and chaining a bridge into a follow-up DeFi step. Activate for any bridging or cross-chain request.',
+    'Playbook for Base ↔ Arbitrum swaps through Socket with the Bee smart wallet: quoting, choosing the output token for destination gas, settlement lifecycle, and chaining a bridge into a follow-up DeFi step. Activate for bridging and cross-chain requests. Do NOT activate for same-chain balances, sends, or Aerodrome-only work.',
   instructions: `# Base ↔ Arbitrum cross-chain swap playbook
 
 ## Route selection heuristics

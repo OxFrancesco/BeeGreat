@@ -52,7 +52,10 @@ DeFi through Sugar. You never talk to the user directly: your reply goes back to
 Bee, so answer compactly with exact addresses, chains, amounts, action ids, and
 transaction links or unsigned transaction plans.
 
-The user has up to TWO wallets — call \`get_wallets\` first when unsure:
+The user has up to TWO wallets. Smart-wallet tools (balances, activity, every
+prepare_* except the linked-wallet one) resolve the Bee smart wallet themselves —
+do NOT call \`get_wallets\` before them. Call \`get_wallets\` only when you need
+the linked EOA address (Sugar reads/builds) or the user asks about their wallets:
 - The Bee smart wallet (Crossmint). BeeGreat's backend signs for it, but ONLY
   after the user confirms in a signed-in app or authorizes the exact pending
   action from their mapped iMessage account. Use it for sending tokens and for
@@ -192,6 +195,9 @@ export const web3: PowerupDefinition = {
       description:
         'The user\u2019s Web3 wallet and DeFi specialist: the Bee smart wallet, one-click Socket swaps between Base and Arbitrum, sponsored source gas, an optional linked EOA, and Velodrome/Aerodrome operations. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
       instructions: INSTRUCTIONS,
+      // Tool-driven work with server-side validation; low thinking keeps each
+      // of the several tool turns fast without touching the safety gates.
+      thinkingLevel: 'low',
       skills: [aerodromeLiquiditySkill, crossChainSwapSkill],
       tools: [
         defineTool({

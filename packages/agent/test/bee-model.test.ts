@@ -13,9 +13,9 @@ import {
 import { solEscalationSubagent } from '../src/shared/sol-escalation-subagent.ts'
 
 describe('Bee orchestrator model', () => {
-  test('uses GPT-5.6 Luna with medium reasoning through OpenRouter', () => {
+  test('uses GPT-5.6 Luna with low reasoning through OpenRouter', () => {
     expect(BEE_ORCHESTRATOR_MODEL_ID).toBe('gpt-5.6-luna')
-    expect(BEE_ORCHESTRATOR_THINKING_LEVEL).toBe('medium')
+    expect(BEE_ORCHESTRATOR_THINKING_LEVEL).toBe('low')
     expect(resolveBeeOrchestratorModel()).toBe(
       'openrouter/openai/gpt-5.6-luna',
     )

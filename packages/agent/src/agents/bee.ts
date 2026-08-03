@@ -26,6 +26,7 @@ import {
 } from '../shared/bee-models.ts'
 import { loadPowerups } from '../shared/powerups/index.ts'
 import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
+import { createTtlCache } from '../shared/ttl-cache.ts'
 import instructions from './bee.md' with { type: 'markdown' }
 
 export {
@@ -76,6 +77,74 @@ export const cloudflare = extend<AgentWithStorage>({
     },
 })
 
+// Latency caches for per-message init lookups. Both are safe to reuse across
+// messages: a user's IANA timezone changes rarely, and the ChatGPT credential
+// carries its own expiry. Entitlement-style lookups (power-ups, Beennectors)
+// stay fresh per message so toggles apply to the very next reply.
+const TIME_ZONE_TTL_MS = 10 * 60 * 1000
+const timeZoneCache = createTtlCache<string>()
+const chatGptCredentialCache = createTtlCache<{ accessToken: string }>()
+
+async function loadFocusContext(
+  userId: string,
+  convexUrl: string,
+  focusOptions: { convexSiteUrl?: string; brokerSecret?: string },
+): Promise<{ timeZone: string; currentTime: number }> {
+  const cachedTimeZone = timeZoneCache.get(userId)
+  if (cachedTimeZone) {
+    return { timeZone: cachedTimeZone, currentTime: Date.now() }
+  }
+  try {
+    const context = await callFocusService<{
+      timeZone: string
+      currentTime: number
+    }>(userId, convexUrl, focusOptions, 'get_context')
+    timeZoneCache.set(userId, context.timeZone, TIME_ZONE_TTL_MS)
+    return context
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: {
+        service: 'agent-worker',
+        operation: 'focus.get_context',
+        handled: 'true',
+      },
+    })
+    return { timeZone: 'UTC', currentTime: Date.now() }
+  }
+}
+
+/** Registers the user's Codex provider and returns its id, if connected. */
+async function registerCodexProvider(
+  userId: string,
+  env: Env,
+): Promise<string | undefined> {
+  const localCodexAccessToken = env.OPENAI_CODEX_ACCESS_TOKEN?.trim()
+  if (localCodexAccessToken) {
+    const providerId = await codexProviderIdForUser(userId)
+    registerFlueCodexProvider(providerId, localCodexAccessToken)
+    return providerId
+  }
+  if (!env.CODEX_ADAPTER_URL || !env.CODEX_ADAPTER_SECRET) return undefined
+  let credential = chatGptCredentialCache.get(userId)
+  if (!credential) {
+    const resolved = await resolveChatGptCredential(userId, env)
+    if (resolved.status !== 'connected') return undefined
+    credential = { accessToken: resolved.accessToken }
+    // Reuse the token until shortly before its own expiry, capped at 10 min.
+    const ttl = Math.min(
+      Math.max(resolved.expiresAt - Date.now() - 60_000, 0),
+      10 * 60 * 1000,
+    )
+    if (ttl > 0) chatGptCredentialCache.set(userId, credential, ttl)
+  }
+  const providerId = await codexProviderIdForUser(userId)
+  registerFlueCodexProvider(providerId, credential.accessToken, {
+    baseUrl: env.CODEX_ADAPTER_URL,
+    adapterSecret: env.CODEX_ADAPTER_SECRET,
+  })
+  return providerId
+}
+
 // Bee is an orchestrator: it owns the conversation and the voice/beeui contract,
 // and delegates domain work via its built-in `task` capability to specialist
 // subagents — goals and Imagine are always on, Beennectors are loaded when
@@ -89,48 +158,19 @@ export default defineAgent<Env>(async ({ id, env }) => {
     brokerSecret:
       env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
   }
-  const focusContext = await callFocusService<{
-    timeZone: string
-    currentTime: number
-  }>(userId, env.CONVEX_URL, focusOptions, 'get_context').catch((error) => {
-    Sentry.captureException(error, {
-      tags: {
-        service: 'agent-worker',
-        operation: 'focus.get_context',
-        handled: 'true',
-      },
-    })
-    return {
-      timeZone: 'UTC',
-      currentTime: Date.now(),
-    }
-  })
-  // Opt-in power-ups: one specialist subagent each, loaded per user per message.
-  const powerups = await loadPowerups(userId, env.CONVEX_URL, {
-    convexSiteUrl: env.CONVEX_SITE_URL,
-    credentialBrokerSecret:
-      env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
-  })
-  const beennectors = await loadBeennectorSubagent(
-    userId,
-    env.CONVEX_URL,
-    focusOptions,
-  )
-  let providerId: string | undefined
-  const localCodexAccessToken = env.OPENAI_CODEX_ACCESS_TOKEN?.trim()
-  if (localCodexAccessToken) {
-    providerId = await codexProviderIdForUser(userId)
-    registerFlueCodexProvider(providerId, localCodexAccessToken)
-  } else if (env.CODEX_ADAPTER_URL && env.CODEX_ADAPTER_SECRET) {
-    const credential = await resolveChatGptCredential(userId, env)
-    if (credential.status === 'connected') {
-      providerId = await codexProviderIdForUser(userId)
-      registerFlueCodexProvider(providerId, credential.accessToken, {
-        baseUrl: env.CODEX_ADAPTER_URL,
-        adapterSecret: env.CODEX_ADAPTER_SECRET,
-      })
-    }
-  }
+  // The four init lookups are independent; run them concurrently so init costs
+  // one round trip instead of four. Each loader fails open on its own.
+  const [focusContext, powerups, beennectors, providerId] = await Promise.all([
+    loadFocusContext(userId, env.CONVEX_URL, focusOptions),
+    // Opt-in power-ups: one specialist subagent each, loaded per user per message.
+    loadPowerups(userId, env.CONVEX_URL, {
+      convexSiteUrl: env.CONVEX_SITE_URL,
+      credentialBrokerSecret:
+        env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+    }),
+    loadBeennectorSubagent(userId, env.CONVEX_URL, focusOptions),
+    registerCodexProvider(userId, env),
+  ])
   const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
   // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
   const sandboxSdk =
