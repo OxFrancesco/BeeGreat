@@ -237,6 +237,7 @@ export function getChainSettings(
     connectorTokenAddresses: list(envValue(env, 'connectorTokenAddresses', chainId, raw.connectorTokenAddresses)),
     excludedTokenAddresses: list(envValue(env, 'excludedTokenAddresses', chainId, raw.excludedTokenAddresses ?? '')),
     swapSlippage: Number(envValue(env, 'swapSlippage', chainId, 0.01)),
+    quoteMaxPaths: Number(envValue(env, 'quoteMaxPaths', chainId, 3000)),
     priceBatchSize: Number(envValue(env, 'priceBatchSize', chainId, 40)),
     priceThresholdFilter: Number(envValue(env, 'priceThresholdFilter', chainId, 10)),
     paginationLimit: Number(envValue(env, 'paginationLimit', chainId, 2000)),

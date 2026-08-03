@@ -53,9 +53,11 @@ import {
   type LiquidityPool,
   type LiquidityPoolEpoch,
   type LiquidityPoolForSwap,
+  type PathHop,
   type Position,
   type Price,
   type Quote,
+  type SugarClientCaches,
   type SugarClientOptions,
   type Token,
   type UnsignedTransaction,
@@ -74,15 +76,14 @@ export class SugarClient {
   readonly account?: Address
   readonly publicClient: PublicClient
   private readonly rpc: RpcReadExecutor
-  private tokenCache?: Promise<Token[]>
-  private poolCountCache?: Promise<number>
-  private rawPoolCache = new Map<boolean, Promise<unknown[]>>()
-  private poolCache = new Map<boolean, Promise<LiquidityPool[] | LiquidityPoolForSwap[]>>()
+  private readonly caches: SugarClientCaches
 
   constructor(chainId: ChainId | number, options: SugarClientOptions = {}) {
     this.settings = getChainSettings(chainId, { env: options.env, overrides: { ...options.settings, rpcUrl: options.rpcUrl ?? options.settings?.rpcUrl } })
     this.account = options.account ? normalizeAddress(options.account) : undefined
     this.rpc = makeRpcReadExecutor(options.rpcPolicy)
+    this.caches = options.cacheStore?.cachesFor(this.settings.chainId, this.settings.rpcUrl)
+      ?? { rawPoolCache: new Map(), poolCache: new Map() }
     this.publicClient = options.publicClient ?? createPublicClient({
       // Several upstream public RPCs (notably Lisk dRPC) reject JSON-RPC batch
       // bodies with HTTP 500. Contract-level Multicall3 is used where batching
@@ -177,7 +178,7 @@ export class SugarClient {
   }
 
   private getPoolCountWithin(deadline: RpcDeadline): Promise<number> {
-    if (!this.poolCountCache) {
+    if (!this.caches.poolCountCache) {
       const promise = this.read<bigint>(
         this.settings.sugarContractAddress,
         abis.sugar,
@@ -191,12 +192,12 @@ export class SugarClient {
         }
         return count
       })
-      this.poolCountCache = promise
+      this.caches.poolCountCache = promise
       void promise.catch(() => {
-        if (this.poolCountCache === promise) this.poolCountCache = undefined
+        if (this.caches.poolCountCache === promise) this.caches.poolCountCache = undefined
       })
     }
-    return this.poolCountCache
+    return this.caches.poolCountCache
   }
 
   getPoolCount(): Promise<number> {
@@ -239,19 +240,19 @@ export class SugarClient {
   }
 
   getAllTokens(listedOnly = false): Promise<Token[]> {
-    if (!this.tokenCache) {
+    if (!this.caches.tokenCache) {
       const promise = this.paginate('tokens', (limit, offset) => this.readTask<unknown[]>(
         this.settings.sugarContractAddress,
         abis.sugar,
         'tokens',
         [limit, offset, ADDRESS_ZERO, []],
       )).then((raw) => prepareTokens(raw, this.settings))
-      this.tokenCache = promise
+      this.caches.tokenCache = promise
       void promise.catch(() => {
-        if (this.tokenCache === promise) this.tokenCache = undefined
+        if (this.caches.tokenCache === promise) this.caches.tokenCache = undefined
       })
     }
-    return this.tokenCache.then((tokens) => listedOnly ? tokens.filter((token, index) => index === 0 || token.listed) : tokens)
+    return this.caches.tokenCache.then((tokens) => listedOnly ? tokens.filter((token, index) => index === 0 || token.listed) : tokens)
   }
 
   async getToken(reference: string | bigint | number): Promise<Token | undefined> {
@@ -291,7 +292,7 @@ export class SugarClient {
   }
 
   getRawPools(forSwaps = false): Promise<unknown[]> {
-    let promise = this.rawPoolCache.get(forSwaps)
+    let promise = this.caches.rawPoolCache.get(forSwaps)
     if (!promise) {
       const operation = forSwaps ? 'forSwaps' : 'all'
       promise = this.paginate(operation, (limit, offset) => this.readTask<unknown[]>(
@@ -300,9 +301,9 @@ export class SugarClient {
         forSwaps ? 'forSwaps' : 'all',
         forSwaps ? [limit, offset] : [limit, offset, 0],
       ))
-      this.rawPoolCache.set(forSwaps, promise)
+      this.caches.rawPoolCache.set(forSwaps, promise)
       void promise.catch(() => {
-        if (this.rawPoolCache.get(forSwaps) === promise) this.rawPoolCache.delete(forSwaps)
+        if (this.caches.rawPoolCache.get(forSwaps) === promise) this.caches.rawPoolCache.delete(forSwaps)
       })
     }
     return promise
@@ -312,7 +313,7 @@ export class SugarClient {
   async getPools(forSwaps: false): Promise<LiquidityPool[]>
   async getPools(forSwaps: true): Promise<LiquidityPoolForSwap[]>
   async getPools(forSwaps = false): Promise<LiquidityPool[] | LiquidityPoolForSwap[]> {
-    let promise = this.poolCache.get(forSwaps)
+    let promise = this.caches.poolCache.get(forSwaps)
     if (!promise) {
       promise = (async () => {
         const raw = await this.getRawPools(forSwaps)
@@ -320,9 +321,9 @@ export class SugarClient {
         const tokens = await this.getAllTokens()
         return preparePools(raw, tokens, await this.getPrices(tokens), this.settings)
       })()
-      this.poolCache.set(forSwaps, promise)
+      this.caches.poolCache.set(forSwaps, promise)
       void promise.catch(() => {
-        if (this.poolCache.get(forSwaps) === promise) this.poolCache.delete(forSwaps)
+        if (this.caches.poolCache.get(forSwaps) === promise) this.caches.poolCache.delete(forSwaps)
       })
     }
     return promise
@@ -400,9 +401,24 @@ export class SugarClient {
     )
   }
 
+  /**
+   * Dense chains produce tens of thousands of candidate paths, and quoter
+   * simulations are gas-heavy eth_calls that throttle metered RPC plans.
+   * Shorter routes carry nearly all real liquidity, so when the candidate
+   * set exceeds the budget, keep the shortest paths.
+   */
+  private prioritizeQuotePaths(paths: PathHop[][]): PathHop[][] {
+    const limit = this.settings.quoteMaxPaths
+    if (!Number.isSafeInteger(limit) || limit <= 0) {
+      throw new RangeError('quoteMaxPaths must be a positive safe integer')
+    }
+    if (paths.length <= limit) return paths
+    return [...paths].sort((a, b) => a.length - b.length).slice(0, limit)
+  }
+
   async getQuote(fromToken: Token, toToken: Token, amount: bigint, filter?: (quote: Quote) => boolean): Promise<Quote | undefined> {
     const pools = this.filterPoolsForSwap(await this.getPoolsForSwaps(), fromToken, toToken)
-    const paths = this.getPathsForQuote(fromToken, toToken, pools)
+    const paths = this.prioritizeQuotePaths(this.getPathsForQuote(fromToken, toToken, pools))
     const inputs = paths.map((path) => ({
       path,
       encoded: packPath(path, { newFactory: this.settings.slipstreamFactoryAddress, oldFactory: this.settings.oldSlipstreamFactoryAddress }).encoded,
