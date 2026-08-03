@@ -144,6 +144,7 @@ export const get = internalQuery({
 export const getForUser = internalQuery({
   args: { userId: v.string(), actionId: v.id('web3Actions') },
   handler: async (ctx, { userId, actionId }) => {
+    await requirePowerup(ctx, userId, 'web3')
     const action = await ctx.db.get(actionId)
     if (!action || action.userId !== userId) return null
     return publicView(withExpiry(action, Date.now()))

@@ -241,6 +241,7 @@ export const getWalletsForAgent = internalQuery({
     eoa: v.union(v.object({ address: v.string() }), v.null()),
   }),
   handler: async (ctx, { userId }) => {
+    await requirePowerup(ctx, userId, 'web3')
     const rows = await ctx.db
       .query('wallets')
       .withIndex('by_user', (q) => q.eq('userId', userId))

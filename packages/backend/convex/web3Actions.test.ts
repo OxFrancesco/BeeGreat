@@ -220,12 +220,31 @@ describe('web3 action confirmation gate', () => {
     expect(mine?.status).toBe('pending')
     expect(mine?.summary).toContain('USDC')
 
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: stranger,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
     expect(
       await t.query(internal.web3Actions.getForUser, {
         userId: stranger,
         actionId: created.id,
       }),
     ).toBeNull()
+  })
+
+  test('the agent-facing status view requires the enabled power-up', async () => {
+    const t = convexTest(schema, modules)
+    const created = await prepare(t)
+
+    await expect(
+      t.query(internal.web3Actions.getForUser, {
+        userId: stranger,
+        actionId: created.id,
+      }),
+    ).rejects.toThrow('not enabled')
   })
 
   test('Socket actions stay in progress until destination completion', async () => {
