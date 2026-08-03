@@ -1,6 +1,7 @@
 import { defineAgentProfile, defineTool } from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
+import { aerodromeLiquiditySkill, crossChainSwapSkill } from './web3-skills.ts'
 
 // Web3: a Crossmint smart wallet per user (server-signed after authenticated
 // client confirmation) plus an optional linked EOA, with Velodrome/Aerodrome DeFi
@@ -191,6 +192,7 @@ export const web3: PowerupDefinition = {
       description:
         'The user\u2019s Web3 wallet and DeFi specialist: the Bee smart wallet, one-click Socket swaps between Base and Arbitrum, sponsored source gas, an optional linked EOA, and Velodrome/Aerodrome operations. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
       instructions: INSTRUCTIONS,
+      skills: [aerodromeLiquiditySkill, crossChainSwapSkill],
       tools: [
         defineTool({
           name: 'get_wallets',
