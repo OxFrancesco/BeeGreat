@@ -405,8 +405,9 @@ for await (const [space, message] of app.messages) {
 
   try {
     // Tapback 👀 so the sender knows Bee is on it (replies can take a while).
-    await message.react('👀').catch(() => {})
-    await space.startTyping().catch(() => {})
+    // Fire-and-forget: acknowledgement UX must not delay the actual work.
+    void message.react('👀').catch(() => {})
+    void space.startTyping().catch(() => {})
 
     const incoming = await promptFromContent(
       userId,
@@ -447,11 +448,12 @@ for await (const [space, message] of app.messages) {
       continue
     }
 
-    await channelAction(userId, {
+    // Fire-and-forget: the thread title is cosmetic and must not delay Bee.
+    void channelAction(userId, {
       action: 'title_thread',
       threadId: context.threadId,
       title: incoming.text || 'iMessage conversation',
-    })
+    }).catch(() => {})
 
     let reply: BeeReply
     let celebrate = false
