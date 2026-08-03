@@ -228,4 +228,56 @@ describe('Socket V3 helpers', () => {
     expect(status.status).toBe('COMPLETED')
     expect(status.destinationTxHash).toBe(destinationTxHash)
   })
+
+  test('retries transient status failures and returns the recovered result', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(new Response('upstream error', { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'PENDING' }), { status: 200 }),
+      ) as typeof fetch
+
+    const status = await getSocketStatus(quoteId, config, fetchImpl)
+    expect(status.status).toBe('PENDING')
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+  })
+
+  test('does not retry deterministic Socket rejections', async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ success: false, message: 'No routes available' }),
+          { status: 400 },
+        ),
+    ) as typeof fetch
+
+    await expect(
+      getSocketQuote(
+        {
+          originChain: 'base',
+          destinationChain: 'arbitrum',
+          inputToken: 'usdc',
+          outputToken: 'eth',
+          inputAmount: '10',
+          userAddress: wallet,
+          receiverAddress: wallet,
+        },
+        config,
+        fetchImpl,
+      ),
+    ).rejects.toThrow('No routes available')
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+  })
+
+  test('surfaces the last transient response after retries are exhausted', async () => {
+    const fetchImpl = vi.fn(
+      async () => new Response('service unavailable', { status: 503 }),
+    ) as typeof fetch
+
+    await expect(getSocketStatus(quoteId, config, fetchImpl)).rejects.toThrow(
+      'Socket status is temporarily unavailable',
+    )
+    expect(fetchImpl).toHaveBeenCalledTimes(3)
+  })
 })

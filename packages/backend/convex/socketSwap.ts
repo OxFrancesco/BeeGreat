@@ -1,3 +1,7 @@
+import * as Data from 'effect/Data'
+import * as Effect from 'effect/Effect'
+import * as Schedule from 'effect/Schedule'
+
 export type SocketChain = 'base' | 'arbitrum'
 export type SocketToken = 'eth' | 'usdc'
 
@@ -53,6 +57,79 @@ export function createSocketApiConfig(apiKey?: string): SocketApiConfig {
     baseUrl: 'https://dedicated-backend.socket.tech',
     headers: { 'x-api-key': key },
   }
+}
+
+const SOCKET_TRANSIENT_STATUSES = new Set([408, 429, 500, 502, 503, 504])
+const SOCKET_RETRY_POLICY = {
+  attemptTimeoutMs: 30_000,
+  baseDelayMs: 250,
+  maxRetries: 2,
+} as const
+
+class SocketTransientFailure extends Data.TaggedError('SocketTransientFailure')<{
+  readonly cause?: unknown
+  readonly response?: Response
+  readonly retryAfterMs: number
+}> {}
+
+function headerRetryAfterMs(headers: Headers): number {
+  const value = headers.get('Retry-After')
+  if (typeof value !== 'string' || value.trim() === '') return 0
+  const seconds = Number(value)
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1_000)
+  const at = Date.parse(value)
+  if (Number.isFinite(at)) return Math.max(0, at - Date.now())
+  return 0
+}
+
+/**
+ * Socket quote/status reads are idempotent, so transient failures (network
+ * errors, per-attempt timeouts, 408/429/5xx) retry with the Retry-After hint
+ * plus exponential backoff. The last transient response still flows to the
+ * caller's canonical body handling; deterministic statuses are never retried.
+ */
+async function socketFetch(
+  url: string,
+  config: SocketApiConfig,
+  fetchImpl: typeof fetch,
+): Promise<Response> {
+  const attempt = Effect.tryPromise({
+    try: (signal) => fetchImpl(url, { headers: config.headers, signal }),
+    catch: (cause) => new SocketTransientFailure({ cause, retryAfterMs: 0 }),
+  }).pipe(
+    Effect.timeoutFail({
+      duration: SOCKET_RETRY_POLICY.attemptTimeoutMs,
+      onTimeout: () =>
+        new SocketTransientFailure({
+          cause: new Error(
+            `Socket request timed out after ${SOCKET_RETRY_POLICY.attemptTimeoutMs}ms`,
+          ),
+          retryAfterMs: 0,
+        }),
+    }),
+    Effect.flatMap((response) =>
+      SOCKET_TRANSIENT_STATUSES.has(response.status)
+        ? Effect.fail(
+            new SocketTransientFailure({
+              response,
+              retryAfterMs: headerRetryAfterMs(response.headers),
+            }),
+          )
+        : Effect.succeed(response),
+    ),
+  )
+  const program = Effect.retry(
+    attempt,
+    Schedule.identity<SocketTransientFailure>().pipe(
+      Schedule.addDelay((failure) => failure.retryAfterMs),
+      Schedule.intersect(Schedule.exponential(SOCKET_RETRY_POLICY.baseDelayMs)),
+      Schedule.intersect(Schedule.recurs(SOCKET_RETRY_POLICY.maxRetries)),
+    ),
+  )
+  const result = await Effect.runPromise(Effect.either(program))
+  if (result._tag === 'Right') return result.right
+  if (result.left.response) return result.left.response
+  throw result.left.cause
 }
 
 export type SocketQuote = {
@@ -352,11 +429,10 @@ export async function getSocketQuote(
     slippage: '1',
     ...(input.outputToken === 'eth' ? {} : { refuel: 'true' }),
   })
-  const response = await fetchImpl(
+  const response = await socketFetch(
     `${config.baseUrl.replace(/\/$/, '')}/v3/swap/quote?${query}`,
-    {
-      headers: config.headers,
-    },
+    config,
+    fetchImpl,
   )
   const requestId = response.headers.get('server-req-id')
   const body = (await response.json().catch(() => null)) as unknown
@@ -405,11 +481,10 @@ export async function getSocketStatus(
     throw new Error('Socket quote id is invalid.')
   }
   const query = new URLSearchParams({ quoteId })
-  const response = await fetchImpl(
+  const response = await socketFetch(
     `${config.baseUrl.replace(/\/$/, '')}/v3/swap/status?${query}`,
-    {
-      headers: config.headers,
-    },
+    config,
+    fetchImpl,
   )
   const requestId = response.headers.get('server-req-id')
   const body = (await response.json().catch(() => null)) as unknown
