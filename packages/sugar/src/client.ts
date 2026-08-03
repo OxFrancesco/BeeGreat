@@ -396,8 +396,18 @@ export class SugarClient {
     const excluded = new Set(excludedAddresses.map(addressKey))
     excluded.delete(addressKey(tokenContractAddress(fromToken)))
     excluded.delete(addressKey(tokenContractAddress(toToken)))
+    // Multi-hop routes may only pass through vetted connector tokens: an
+    // arbitrary intermediate can quote well but revert on transfer (honeypot),
+    // failing the whole swap at execution time.
+    const allowedIntermediates = new Set(
+      [...this.settings.connectorTokenAddresses, tokenContractAddress(fromToken), tokenContractAddress(toToken)].map(addressKey),
+    )
     return findAllPaths(pools, tokenContractAddress(fromToken), tokenContractAddress(toToken), 3).filter((path) =>
-      !path.some((hop, index) => index > 0 && excluded.has(addressKey(hop.reversed ? hop.pool.token1Address : hop.pool.token0Address))),
+      !path.some((hop, index) => {
+        if (index === 0) return false
+        const hopInput = addressKey(hop.reversed ? hop.pool.token1Address : hop.pool.token0Address)
+        return excluded.has(hopInput) || !allowedIntermediates.has(hopInput)
+      }),
     )
   }
 
@@ -628,9 +638,14 @@ export class SugarClient {
     return validateDepositQuote({ pool, amountToken0, amountToken1: options.amountToken1!, tickLower, tickUpper, sqrtPriceX96 })
   }
 
+  /** A pool leg is native when it is the native token itself (pool specs) or its wrapped form (indexed pools). */
+  private isNativeLeg(token: Token): boolean {
+    return token.wrappedTokenAddress !== undefined || addressKey(token.tokenAddress) === addressKey(this.settings.wrappedNativeTokenAddress)
+  }
+
   private async collectApprovals(pool: LiquidityPool, target: Address, amount0: bigint, amount1: bigint) {
-    const native0 = addressKey(pool.token0.tokenAddress) === addressKey(this.settings.wrappedNativeTokenAddress)
-    const native1 = addressKey(pool.token1.tokenAddress) === addressKey(this.settings.wrappedNativeTokenAddress)
+    const native0 = this.isNativeLeg(pool.token0)
+    const native1 = this.isNativeLeg(pool.token1)
     const approvals: UnsignedTransaction[] = []
     if (!native0) { const tx = await this.setTokenAllowance(pool.token0, target, amount0); if (tx) approvals.push(tx) }
     if (!native1) { const tx = await this.setTokenAllowance(pool.token1, target, amount1); if (tx) approvals.push(tx) }
@@ -660,7 +675,7 @@ export class SugarClient {
           ])
       return [...approvals, this.tx(target, data, native0 ? amount0 : native1 ? amount1 : 0n)]
     }
-    const mintArgs = [normalizeAddress(pool.token0.tokenAddress), normalizeAddress(pool.token1.tokenAddress), pool.type, quote.tickLower!, quote.tickUpper!, amount0, amount1, applySlippage(amount0, slippage), applySlippage(amount1, slippage), this.signer(), deadline, quote.sqrtPriceX96] as const
+    const mintArgs = [tokenContractAddress(pool.token0), tokenContractAddress(pool.token1), pool.type, quote.tickLower!, quote.tickUpper!, amount0, amount1, applySlippage(amount0, slippage), applySlippage(amount1, slippage), this.signer(), deadline, quote.sqrtPriceX96] as const
     const data = native0 || native1
       ? this.encode(abis.nfpm, 'multicall', [[this.encode(abis.nfpm, 'mint', [mintArgs]), this.encode(abis.nfpm, 'refundETH')]])
       : this.encode(abis.nfpm, 'mint', [mintArgs])
