@@ -72,6 +72,11 @@ function errorName(value: unknown): string | undefined {
     : undefined
 }
 
+/** Whether a failure is transient (throttling, outage, timeout) rather than deterministic. */
+export function isTransientRpcFailure(cause: unknown): boolean {
+  return classifyRpcError(cause).retryable
+}
+
 function classifyRpcError(cause: unknown): { code: SugarRpcErrorCode; retryable: boolean } {
   const chain = errorChain(cause)
   if (chain.some((error) => errorName(error) === 'ContractFunctionRevertedError')) {

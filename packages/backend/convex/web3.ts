@@ -6,7 +6,14 @@ import {
   WalletNotAvailableError,
   createCrossmint,
 } from '@crossmint/wallets-sdk'
-import { executeSugarAction, executeSugarActionJson } from '@beegreat/sugar'
+import {
+  SugarClient,
+  createSugarCacheStore,
+  createSugarFailoverTransport,
+  executeSugarAction,
+  executeSugarActionJson,
+  type SugarClientOptions,
+} from '@beegreat/sugar'
 import {
   SUGAR_ACTIONS,
   SUGAR_TX_ACTIONS,
@@ -83,6 +90,50 @@ function sugarEnvironment() {
   return sugarRuntimeEnvironment(env)
 }
 
+// Module-level so warm Node action invocations reuse the token and pool
+// topology scans instead of re-reading every Aerodrome pool per request.
+// Swap amounts always come from live quoter calls, so the TTL only delays
+// seeing newly created pools or tokens.
+const sugarCacheStore = createSugarCacheStore({ ttlMs: 5 * 60_000 })
+
+// Provider throughput caps (Alchemy compute units per second) throttle in
+// windows of tens of seconds; the default ~1s of exponential backoff gives
+// up before the window resets, so retry longer within the same deadline.
+const SUGAR_RPC_POLICY = { baseDelayMs: 500, maxRetries: 5 }
+
+// When the dedicated Base RPC throttles a burst (full pool scans are
+// gas-heavy eth_calls), fail over to the public endpoint for that request
+// instead of backing off until the throughput window resets.
+const BASE_FALLBACK_RPC_URL = 'https://base-rpc.publicnode.com'
+
+function sugarOptions() {
+  const environment = sugarEnvironment()
+  const baseRpcUrl = environment.SUGAR_RPC_URI_8453
+  const useFallback = baseRpcUrl && baseRpcUrl !== BASE_FALLBACK_RPC_URL
+  return {
+    cacheStore: sugarCacheStore,
+    env: environment,
+    rpcPolicy: SUGAR_RPC_POLICY,
+    ...(useFallback
+      ? {
+          clientFactory: (chainId: number, options: SugarClientOptions) =>
+            new SugarClient(
+              chainId,
+              chainId === BASE_MAINNET_CHAIN_ID
+                ? {
+                    ...options,
+                    transport: createSugarFailoverTransport([
+                      baseRpcUrl,
+                      BASE_FALLBACK_RPC_URL,
+                    ]),
+                  }
+                : options,
+            ),
+        }
+      : {}),
+  }
+}
+
 type RequiredWeb3Env =
   'CROSSMINT_API_KEY' | 'CROSSMINT_SIGNER_SECRET' | 'SOCKET_API_KEY'
 
@@ -149,7 +200,10 @@ async function walletForUser(
   const wallets = CrossmintWallets.from(crossmint)
   const secret = requireEnv('CROSSMINT_SIGNER_SECRET')
   const owner = `userId:${userId}`
-  const wallet = await wallets.getWallet(owner, { chain }).catch((error) => {
+  // Wallet locators require the chain type and wallet type suffix; the owner
+  // string passed to createWallet must stay bare (`userId:<id>`).
+  const locator = `${owner}:evm:smart`
+  const wallet = await wallets.getWallet(locator, { chain }).catch((error) => {
     if (!(error instanceof WalletNotAvailableError)) throw error
     return wallets.createWallet({
       chain,
@@ -593,9 +647,11 @@ export const prepareSugarExecution = internalAction({
       chain: BASE_MAINNET_CHAIN_ID,
       wallet: wallet.address,
     }
-    const plan = await executeSugarAction(sugarAction, planParameters, {
-      env: sugarEnvironment(),
-    })
+    const plan = await executeSugarAction(
+      sugarAction,
+      planParameters,
+      sugarOptions(),
+    )
     const transactions = executableSugarTransactions(plan)
     const summary = describeSugarExecution(sugarAction, parameters)
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
@@ -657,7 +713,7 @@ export const prepareEoaSugarExecution = internalAction({
         chain: chainId,
         wallet: wallets.eoa.address,
       },
-      { env: sugarEnvironment() },
+      sugarOptions(),
     )
     const transactions = executableSugarTransactions(plan)
     const summary = describeSugarExecution(sugarAction, parameters, {
@@ -979,7 +1035,7 @@ export const runSugar = internalAction({
     return executeSugarActionJson(
       sugarAction as SugarAction,
       normalizeSugarAgentParameters(parameters),
-      { env: sugarEnvironment() },
+      sugarOptions(),
     )
   },
 })

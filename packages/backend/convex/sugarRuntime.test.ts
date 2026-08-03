@@ -43,4 +43,27 @@ describe('Sugar agent parameters', () => {
       normalizeSugarAgentParameters({ use_decimals: 'yes' }),
     ).toThrow('use_decimals must be a boolean')
   })
+
+  test('coerces numeric strings for number parameters only', () => {
+    expect(
+      normalizeSugarAgentParameters({
+        slippage: '0.5',
+        deadline_minutes: ' 30 ',
+        amount: '1.195095',
+      }),
+    ).toEqual({
+      slippage: 0.5,
+      deadline_minutes: 30,
+      amount: '1.195095',
+    })
+  })
+
+  test('rejects non-numeric strings for number parameters', () => {
+    expect(() => normalizeSugarAgentParameters({ slippage: 'low' })).toThrow(
+      'slippage must be a finite number',
+    )
+    expect(() => normalizeSugarAgentParameters({ slippage: '' })).toThrow(
+      'slippage must be a finite number',
+    )
+  })
 })

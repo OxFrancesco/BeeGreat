@@ -18,21 +18,43 @@ const SUGAR_BOOLEAN_PARAMETERS = new Set([
   'use_decimals',
 ])
 
+const SUGAR_NUMBER_PARAMETERS = new Set([
+  'chain',
+  'deadline_minutes',
+  'initial_price',
+  'limit',
+  'offset',
+  'price_lower',
+  'price_upper',
+  'slippage',
+  'tick_lower',
+  'tick_spacing',
+  'tick_upper',
+])
+
 /** Normalize the narrow coercions accepted from model-generated tool input. */
 export function normalizeSugarAgentParameters(
   parameters: Record<string, string | number | boolean>,
 ): Record<string, string | number | boolean> {
   return Object.fromEntries(
     Object.entries(parameters).map(([name, value]) => {
-      if (!SUGAR_BOOLEAN_PARAMETERS.has(name) || typeof value === 'boolean') {
-        return [name, value]
+      if (SUGAR_BOOLEAN_PARAMETERS.has(name) && typeof value !== 'boolean') {
+        if (typeof value === 'string') {
+          const normalized = value.trim().toLowerCase()
+          if (normalized === 'true') return [name, true]
+          if (normalized === 'false') return [name, false]
+        }
+        throw new Error(`${name} must be a boolean`)
       }
-      if (typeof value === 'string') {
-        const normalized = value.trim().toLowerCase()
-        if (normalized === 'true') return [name, true]
-        if (normalized === 'false') return [name, false]
+      if (SUGAR_NUMBER_PARAMETERS.has(name) && typeof value === 'string') {
+        const trimmed = value.trim()
+        const parsed = Number(trimmed)
+        if (trimmed === '' || !Number.isFinite(parsed)) {
+          throw new Error(`${name} must be a finite number`)
+        }
+        return [name, parsed]
       }
-      throw new Error(`${name} must be a boolean`)
+      return [name, value]
     }),
   )
 }

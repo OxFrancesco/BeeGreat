@@ -47,6 +47,7 @@ export type ChainSettings = {
   connectorTokenAddresses: Address[]
   excludedTokenAddresses: Address[]
   swapSlippage: number
+  quoteMaxPaths: number
   priceBatchSize: number
   priceThresholdFilter: number
   paginationLimit: number
@@ -73,6 +74,23 @@ export type SugarClientOptions = {
   env?: Record<string, string | undefined>
   rpcPolicy?: SugarRpcPolicyOptions
   settings?: Partial<ChainSettings>
+  cacheStore?: SugarCacheStore
+}
+
+/** Mutable read caches a SugarClient consults before hitting the RPC. */
+export type SugarClientCaches = {
+  tokenCache?: Promise<Token[]>
+  poolCountCache?: Promise<number>
+  rawPoolCache: Map<boolean, Promise<unknown[]>>
+  poolCache: Map<boolean, Promise<LiquidityPool[] | LiquidityPoolForSwap[]>>
+}
+
+/**
+ * Shares chain-level read caches (tokens, pool topology) across SugarClient
+ * instances, so repeated quotes do not re-scan every pool on each request.
+ */
+export type SugarCacheStore = {
+  cachesFor(chainId: number, rpcUrl: string): SugarClientCaches
 }
 
 export type Token = {

@@ -83,6 +83,51 @@ describe('Sugar RPC policy', () => {
     expect(quote?.input.path).toHaveLength(1)
   })
 
+  test('caps quoted paths at quoteMaxPaths, preferring the shortest routes', async () => {
+    const { fromToken, rawPool, toToken } = quoteFixture()
+    const direct: PathHop[] = [{
+      pool: {
+        chainId: 10,
+        chainName: 'OP',
+        factory: rawPool[4] as `0x${string}`,
+        isBasic: true,
+        isCl: false,
+        isStable: false,
+        lp: rawPool[0] as `0x${string}`,
+        token0Address: fromToken.tokenAddress as `0x${string}`,
+        token1Address: toToken.tokenAddress as `0x${string}`,
+        type: -1,
+      },
+      reversed: false,
+    }]
+    const threeHop: PathHop[] = [
+      direct[0],
+      { ...direct[0], pool: { ...direct[0].pool, lp: '0x2000000000000000000000000000000000000005' } },
+      { ...direct[0], pool: { ...direct[0].pool, lp: '0x2000000000000000000000000000000000000006' } },
+    ]
+    const quotedBatches: number[] = []
+    const sugar = new SugarClient(10, {
+      publicClient: {
+        multicall: async (request: { contracts: unknown[] }) => {
+          quotedBatches.push(request.contracts.length)
+          return request.contracts.map(() => ({ status: 'success', result: [1_000n] }))
+        },
+        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+          if (request.functionName === 'count') return 1n
+          if (request.functionName === 'forSwaps') return Number(request.args?.[1]) === 0 ? [rawPool] : []
+          throw new Error(`Unexpected read: ${request.functionName}`)
+        },
+      } as unknown as PublicClient,
+      settings: { quoteMaxPaths: 2 },
+    })
+    sugar.getPathsForQuote = () => [threeHop, threeHop, threeHop, direct]
+
+    const quote = await sugar.getQuote(fromToken, toToken, 10n)
+
+    expect(quotedBatches.reduce((sum, size) => sum + size, 0)).toBe(2)
+    expect(quote?.input.path).toHaveLength(1)
+  })
+
   test('disables Viem retries on the SDK-owned transport', () => {
     const sugar = new SugarClient(10, { env: {} })
     expect(sugar.publicClient.transport.retryCount).toBe(0)

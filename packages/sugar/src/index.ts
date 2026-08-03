@@ -309,6 +309,8 @@ export function buildSugarArgv(
 }
 
 export { SugarClient, createSugarClient } from './client'
+export { createSugarCacheStore, type SugarCacheStoreOptions } from './cache'
+export { createSugarFailoverTransport, type SugarFailoverTransportOptions } from './transport'
 export { SugarRpcError, type SugarRpcErrorCode } from './errors'
 export { executeSugarAction, executeSugarActionJson, type SugarExecutionOptions } from './actions'
 export { abis } from './abis'
