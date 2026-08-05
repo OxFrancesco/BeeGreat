@@ -3,6 +3,20 @@
 Native TypeScript port of Velodrome/Aerodrome's Sugar SDK. It uses Viem for
 RPC reads and ABI encoding and never signs or broadcasts transactions.
 
+## Standalone repository
+
+This package is developed in the BeeGreat monorepo (`packages/sugar`) and
+mirrored to [OxFrancesco/aerodrome-sdk-ts](https://github.com/OxFrancesco/aerodrome-sdk-ts)
+(MIT). The monorepo is the source of truth; mirror after landing changes with
+`bun run sugar:mirror` from the monorepo root. Standalone usage:
+
+```sh
+bun add github:OxFrancesco/aerodrome-sdk-ts   # as a dependency
+# or work in a clone:
+bun install && bun test && bun run typecheck
+bun run cli -- pools --chain=8453 --pool-type=cl --limit=5
+```
+
 ## Client API
 
 ```ts

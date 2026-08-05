@@ -1,0 +1,18 @@
+# CI for the standalone mirror (OxFrancesco/aerodrome-sdk-ts), where this
+# directory is the repository root. Inert inside the BeeGreat monorepo.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run typecheck
+      - run: bun test
