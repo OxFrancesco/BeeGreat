@@ -1,7 +1,7 @@
 import type { Address } from 'viem'
 import { SugarClient } from './client'
 import type { SugarAction, SugarParameters } from './contracts'
-import { parseTokenUnits, poolTypeLabel, toSugarJson, tokenToNumber } from './helpers'
+import { applySlippage, parseTokenUnits, poolTypeLabel, toSugarJson, tokenToNumber } from './helpers'
 import { withdrawalFromPosition } from './models'
 import { validateSugarRequest } from './index'
 import { ADDRESS_ZERO, type Amount, type LiquidityPool, type LiquidityPoolEpoch, type Position, type Quote, type SugarClientOptions, type SugarJson, type Token } from './types'
@@ -67,6 +67,18 @@ function positionJson(position: Position) {
     sqrt_ratio_lower: position.sqrtRatioLower,
     sqrt_ratio_upper: position.sqrtRatioUpper,
     alm: position.alm,
+  }
+}
+
+/** Compact pool context attached to transaction-building action outputs. */
+function positionPoolJson(pool: LiquidityPool) {
+  return {
+    symbol: pool.symbol,
+    lp: pool.lp,
+    is_cl: pool.isCl,
+    type_label: poolTypeLabel(pool.type),
+    token0: pool.token0.symbol,
+    token1: pool.token1.symbol,
   }
 }
 
@@ -148,12 +160,42 @@ async function quoteJson(client: SugarClient, quote: Quote) {
   }
 }
 
+/**
+ * Guard candidate routes against outputs more than double the on-chain
+ * oracle's expectation. A simulated quote that far above fair value is a
+ * honeypot signal (the pool quotes well but the transfer rugs at execution),
+ * mirroring the official sdk.js impactTooHigh rejection. Skipped for
+ * unlisted tokens, where the oracle has no reliable rate.
+ */
+async function tooGoodToBeTrueFilter(
+  client: SugarClient,
+  fromToken: Token,
+  toToken: Token,
+  amount: bigint,
+): Promise<((quote: Quote) => boolean) | undefined> {
+  if (!fromToken.listed || !toToken.listed) return undefined
+  let fromPrice: number | undefined
+  let toPrice: number | undefined
+  try {
+    const prices = await client.getPrices([fromToken, toToken])
+    fromPrice = prices.find((price) => price.token.tokenAddress === fromToken.tokenAddress)?.price
+    toPrice = prices.find((price) => price.token.tokenAddress === toToken.tokenAddress)?.price
+  } catch {
+    return undefined
+  }
+  if (!fromPrice || !toPrice) return undefined
+  const ceiling = 2 * tokenToNumber(fromToken, amount) * (fromPrice / toPrice)
+  if (!Number.isFinite(ceiling) || ceiling <= 0) return undefined
+  return (quote) => tokenToNumber(toToken, quote.amountOut) < ceiling
+}
+
 async function resolveSwapQuote(client: SugarClient, parameters: SugarParameters): Promise<Quote> {
   const fromToken = await requireToken(client, stringValue(parameters, 'from_token'), 'from-token')
   const toToken = await requireToken(client, stringValue(parameters, 'to_token'), 'to-token')
   const raw = stringValue(parameters, 'amount')!
   const amount = booleanValue(parameters, 'use_decimals') ? parseTokenUnits(fromToken, raw) : BigInt(raw)
-  const quote = await client.getQuote(fromToken, toToken, amount)
+  const filter = await tooGoodToBeTrueFilter(client, fromToken, toToken, amount)
+  const quote = await client.getQuote(fromToken, toToken, amount, filter)
   if (!quote) throw new Error(`no quote found for ${fromToken.symbol} -> ${toToken.symbol}`)
   return quote
 }
@@ -176,7 +218,21 @@ async function execute(client: SugarClient, action: SugarAction, p: SugarParamet
   if (action === 'epochs_latest') return (await client.getLatestPoolEpochs()).filter((epoch) => epoch.pool && poolTypeMatches(epoch.pool.type, stringValue(p, 'pool_type'))).map(epochJson)
   if (action === 'epochs') return (await client.getPoolEpochs(stringValue(p, 'lp')!, numberValue(p, 'offset') ?? 0, numberValue(p, 'limit') ?? 10)).filter((epoch) => !epoch.pool || poolTypeMatches(epoch.pool.type, stringValue(p, 'pool_type'))).map(epochJson)
   if (action === 'quote') return quoteJson(client, await resolveSwapQuote(client, p))
-  if (action === 'swap') return client.swapFromQuote(await resolveSwapQuote(client, p), numberValue(p, 'slippage'))
+  if (action === 'swap') {
+    const quote = await resolveSwapQuote(client, p)
+    const slippage = numberValue(p, 'slippage') ?? client.settings.swapSlippage
+    const transactions = await client.swapFromQuote(quote, slippage)
+    const minAmountOut = applySlippage(quote.amountOut, slippage)
+    return {
+      transactions,
+      quote: {
+        ...(await quoteJson(client, quote)),
+        slippage,
+        min_amount_out: minAmountOut,
+        min_amount_out_decimal: tokenToNumber(quote.input.toToken, minAmountOut),
+      },
+    }
+  }
 
   if (action === 'deposit') {
     let pool: LiquidityPool
@@ -205,15 +261,45 @@ async function execute(client: SugarClient, action: SugarAction, p: SugarParamet
       if (amountToken0 === undefined || amountToken1 === undefined) throw new Error('new basic pool requires both amounts')
       quote = { pool, amountToken0, amountToken1, sqrtPriceX96: 0n }
     } else quote = await client.quoteBasicDeposit(pool, { amountToken0, amountToken1 })
-    return client.deposit(quote, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01)
+    const transactions = await client.deposit(quote, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01)
+    return {
+      transactions,
+      deposit: {
+        pool: positionPoolJson(pool),
+        creates_pool: pool.lp === ADDRESS_ZERO,
+        amount0: quote.amountToken0,
+        amount0_decimal: tokenToNumber(pool.token0, quote.amountToken0),
+        amount1: quote.amountToken1,
+        amount1_decimal: tokenToNumber(pool.token1, quote.amountToken1),
+        tick_lower: quote.tickLower ?? null,
+        tick_upper: quote.tickUpper ?? null,
+      },
+    }
   }
 
   const position = await findPosition(client, p)
-  if (action === 'withdraw') return client.withdraw(withdrawalFromPosition(position, { fraction: stringValue(p, 'fraction'), burn: booleanValue(p, 'burn') }), numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01, booleanValue(p, 'collect', true), booleanValue(p, 'unwrap_native'))
-  if (action === 'stake') return client.stake(position)
-  if (action === 'unstake') return client.unstake(position, bigintValue(p, 'amount'))
-  if (action === 'claim_emissions') return client.claimEmissions(position)
-  return client.claimFees(position, booleanValue(p, 'burn'), booleanValue(p, 'unwrap_native'))
+  if (action === 'withdraw') {
+    const withdrawal = withdrawalFromPosition(position, { fraction: stringValue(p, 'fraction'), burn: booleanValue(p, 'burn') })
+    const transactions = await client.withdraw(withdrawal, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01, booleanValue(p, 'collect', true), booleanValue(p, 'unwrap_native'))
+    return {
+      transactions,
+      withdrawal: {
+        pool: positionPoolJson(position.pool),
+        position: position.id,
+        liquidity: withdrawal.liquidity,
+        amount0: withdrawal.amountToken0,
+        amount0_decimal: tokenToNumber(position.pool.token0, withdrawal.amountToken0),
+        amount1: withdrawal.amountToken1,
+        amount1_decimal: tokenToNumber(position.pool.token1, withdrawal.amountToken1),
+        burn: withdrawal.burn,
+      },
+    }
+  }
+  const context = { position: { id: position.id, pool: positionPoolJson(position.pool) } }
+  if (action === 'stake') return { transactions: await client.stake(position), ...context }
+  if (action === 'unstake') return { transactions: await client.unstake(position, bigintValue(p, 'amount')), ...context }
+  if (action === 'claim_emissions') return { transactions: await client.claimEmissions(position), ...context }
+  return { transactions: await client.claimFees(position, booleanValue(p, 'burn'), booleanValue(p, 'unwrap_native')), ...context }
 }
 
 export async function executeSugarAction(action: SugarAction, rawParameters: unknown, options: SugarExecutionOptions = {}): Promise<SugarJson> {

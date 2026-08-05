@@ -83,7 +83,7 @@ export class SugarClient {
     this.account = options.account ? normalizeAddress(options.account) : undefined
     this.rpc = makeRpcReadExecutor(options.rpcPolicy)
     this.caches = options.cacheStore?.cachesFor(this.settings.chainId, this.settings.rpcUrl)
-      ?? { rawPoolCache: new Map(), poolCache: new Map() }
+      ?? { rawPoolCache: new Map(), poolCache: new Map(), priceRateCache: new Map() }
     this.publicClient = options.publicClient ?? createPublicClient({
       // Several upstream public RPCs (notably Lisk dRPC) reject JSON-RPC batch
       // bodies with HTTP 500. Contract-level Multicall3 is used where batching
@@ -273,21 +273,37 @@ export class SugarClient {
 
   async getPrices(tokens: Token[]): Promise<Price[]> {
     const requestTokens = this.getPriceRequestTokens(tokens)
-    const batches = chunk(requestTokens, this.settings.priceBatchSize)
-    const connectors = this.getPriceConnectors()
-    const results = await this.rpc.forEachRead(
-      'getManyRatesToEthWithCustomConnectors',
-      batches,
-      (batch) => this.publicClient.readContract({
-        address: this.settings.priceOracleContractAddress,
-        abi: abis.priceOracle,
-        functionName: 'getManyRatesToEthWithCustomConnectors',
-        args: [batch.map(tokenContractAddress), false, connectors, this.settings.priceThresholdFilter],
-      } as never) as Promise<bigint[]>,
-      this.settings.requestConcurrency,
-    )
     const rateMap = new Map<string, bigint>()
-    batches.forEach((batch, index) => batch.forEach((token, tokenIndex) => rateMap.set(token.tokenAddress, results[index][tokenIndex])))
+    const now = Date.now()
+    const staleTokens = requestTokens.filter((token) => {
+      const cached = this.caches.priceRateCache.get(addressKey(token.tokenAddress))
+      if (cached && cached.expiresAt > now) {
+        rateMap.set(token.tokenAddress, cached.rate)
+        return false
+      }
+      return true
+    })
+    if (staleTokens.length > 0) {
+      const batches = chunk(staleTokens, this.settings.priceBatchSize)
+      const connectors = this.getPriceConnectors()
+      const results = await this.rpc.forEachRead(
+        'getManyRatesToEthWithCustomConnectors',
+        batches,
+        (batch) => this.publicClient.readContract({
+          address: this.settings.priceOracleContractAddress,
+          abi: abis.priceOracle,
+          functionName: 'getManyRatesToEthWithCustomConnectors',
+          args: [batch.map(tokenContractAddress), false, connectors, this.settings.priceThresholdFilter],
+        } as never) as Promise<bigint[]>,
+        this.settings.requestConcurrency,
+      )
+      const expiresAt = Date.now() + this.settings.pricingCacheTimeoutSeconds * 1_000
+      batches.forEach((batch, index) => batch.forEach((token, tokenIndex) => {
+        const rate = results[index][tokenIndex]
+        rateMap.set(token.tokenAddress, rate)
+        this.caches.priceRateCache.set(addressKey(token.tokenAddress), { expiresAt, rate })
+      }))
+    }
     return preparePrices(tokens, tokens.map((token) => rateMap.get(token.tokenAddress) ?? 0n), this.settings)
   }
 
@@ -388,8 +404,12 @@ export class SugarClient {
   }
 
   filterPoolsForSwap(pools: LiquidityPoolForSwap[], fromToken: Token, toToken: Token): LiquidityPoolForSwap[] {
+    // Every hop of a valid route connects two tokens from this set (route ends
+    // are the swap tokens and intermediates must be vetted connectors), so a
+    // pool with a long-tail token on either side can never appear in a path.
+    // Dropping them up front keeps the path search off the majority of pools.
     const matches = new Set([...this.settings.connectorTokenAddresses, tokenContractAddress(fromToken), tokenContractAddress(toToken)].map(addressKey))
-    return pools.filter((pool) => matches.has(addressKey(pool.token0Address)) || matches.has(addressKey(pool.token1Address)))
+    return pools.filter((pool) => matches.has(addressKey(pool.token0Address)) && matches.has(addressKey(pool.token1Address)))
   }
 
   getPathsForQuote(fromToken: Token, toToken: Token, pools: LiquidityPoolForSwap[], excludedAddresses = this.settings.excludedTokenAddresses) {
@@ -449,7 +469,7 @@ export class SugarClient {
         amountOut,
       }
     }
-    const batches = chunk(inputs, 250)
+    const batches = chunk(inputs, Math.max(1, this.settings.quoteBatchSize))
     const deadline = this.rpc.deadline('quoteExactInput')
     const multicallBatches = await this.rpc.forEachReadResult(
       'quoteExactInput.multicall',
@@ -464,7 +484,7 @@ export class SugarClient {
           args: [encoded, amount],
         })),
       } as never) as Promise<Array<{ status: 'success'; result: unknown } | { status: 'failure' }>>,
-      Math.max(1, Math.min(4, batches.length)),
+      Math.max(1, Math.min(this.settings.requestConcurrency, batches.length)),
       deadline,
     )
     const quotes: Quote[] = []
@@ -558,11 +578,22 @@ export class SugarClient {
     return [...approvals, main]
   }
 
+  private getPermit2Address(): Promise<Address> {
+    if (!this.caches.permit2AddressCache) {
+      const promise = this.read<Address>(this.settings.swapperContractAddress, abis.swapper, 'PERMIT2')
+      this.caches.permit2AddressCache = promise
+      void promise.catch(() => {
+        if (this.caches.permit2AddressCache === promise) this.caches.permit2AddressCache = undefined
+      })
+    }
+    return this.caches.permit2AddressCache
+  }
+
   private async permit2Approvals(token: Token, amount: bigint): Promise<UnsignedTransaction[]> {
     if (amount > MAX_UINT160) throw new RangeError('Permit2 swap amount exceeds uint160')
     const tokenAddress = tokenContractAddress(token)
     const spender = this.settings.swapperContractAddress
-    const permit2 = await this.read<Address>(spender, abis.swapper, 'PERMIT2')
+    const permit2 = await this.getPermit2Address()
     const [tokenAllowance, permit2Allowance] = await Promise.all([
       this.read<bigint>(tokenAddress, abis.erc20, 'allowance', [this.signer(), permit2]),
       this.read<readonly [bigint, bigint, bigint]>(permit2, abis.permit2, 'allowance', [

@@ -48,6 +48,7 @@ export type ChainSettings = {
   excludedTokenAddresses: Address[]
   swapSlippage: number
   quoteMaxPaths: number
+  quoteBatchSize: number
   priceBatchSize: number
   priceThresholdFilter: number
   paginationLimit: number
@@ -83,6 +84,10 @@ export type SugarClientCaches = {
   poolCountCache?: Promise<number>
   rawPoolCache: Map<boolean, Promise<unknown[]>>
   poolCache: Map<boolean, Promise<LiquidityPool[] | LiquidityPoolForSwap[]>>
+  /** Oracle rates by token address, refreshed after pricingCacheTimeoutSeconds. */
+  priceRateCache: Map<string, { expiresAt: number; rate: bigint }>
+  /** The swapper's immutable PERMIT2 address; one read per cache lifetime. */
+  permit2AddressCache?: Promise<Address>
 }
 
 /**

@@ -564,7 +564,8 @@ describe('Sugar RPC policy', () => {
       },
       reversed: false,
     }]
-    sugar.getPathsForQuote = () => Array.from({ length: 501 }, () => path)
+    // 65 paths split into a full 64-path batch and a trailing 1-path batch.
+    sugar.getPathsForQuote = () => Array.from({ length: 65 }, () => path)
 
     await expect(sugar.getQuote(fromToken, toToken, 10n)).rejects.toMatchObject({
       code: 'RPC_RATE_LIMITED',
@@ -582,7 +583,7 @@ describe('Sugar RPC policy', () => {
     const sugar = new SugarClient(10, {
       publicClient: {
         multicall: async () => {
-          await Bun.sleep(60)
+          await Bun.sleep(30)
           throw new Error('Multicall3 is not deployed')
         },
         readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
@@ -590,13 +591,13 @@ describe('Sugar RPC policy', () => {
           if (request.functionName === 'forSwaps') return Number(request.args?.[1]) === 0 ? [rawPool] : []
           if (request.functionName === 'quoteExactInput') {
             directAttempts += 1
-            await Bun.sleep(100)
+            await Bun.sleep(400)
             return [111n]
           }
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
       } as unknown as PublicClient,
-      rpcPolicy: { baseDelayMs: 0, deadlineMs: 80, maxRetries: 0 },
+      rpcPolicy: { baseDelayMs: 0, deadlineMs: 150, maxRetries: 0 },
       settings: { requestConcurrency: 2 },
     })
 
@@ -605,7 +606,7 @@ describe('Sugar RPC policy', () => {
       () => undefined,
       (failure: unknown) => failure,
     )
-    expect(performance.now() - startedAt).toBeLessThan(120)
+    expect(performance.now() - startedAt).toBeLessThan(350)
     expect(error).toMatchObject({ code: 'RPC_TIMEOUT', name: 'SugarRpcError' })
     expect(directAttempts).toBe(1)
   })

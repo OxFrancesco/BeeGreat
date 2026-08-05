@@ -15,7 +15,7 @@ const [pools, quote] = await Promise.all([
   invoke(['pools', `--chain=${chain}`, '--limit=1']),
   invoke(['quote', `--chain=${chain}`, `--from-token=${fromToken}`, `--to-token=${toToken}`, `--amount=${amount}`, '--use-decimals']),
 ])
-const transactions = await invoke([
+const swap = await invoke([
   'swap', `--chain=${chain}`, `--wallet=${wallet}`, `--from-token=${fromToken}`,
   `--to-token=${toToken}`, `--amount=${amount}`, '--use-decimals',
 ])
@@ -26,7 +26,8 @@ console.log(JSON.stringify({
   chain,
   pool: pools[0] ?? null,
   quote,
-  unsigned_transactions: transactions,
+  unsigned_transactions: swap.transactions ?? swap,
+  swap_quote: swap.quote ?? null,
   broadcast: false,
   elapsed_ms: Math.round(performance.now() - startedAt),
 }, null, 2))

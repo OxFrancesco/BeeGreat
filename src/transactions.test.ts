@@ -122,6 +122,68 @@ describe('unsigned transaction builders', () => {
     expect(permit2Approval.args?.[3]).toBeGreaterThan(0)
   })
 
+  test('reads the immutable PERMIT2 address once across swap builds', async () => {
+    let permit2Reads = 0
+    const baseClient = new SugarClient(8453, {
+      account,
+      publicClient: {
+        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+          if (request.functionName === 'PERMIT2') {
+            permit2Reads += 1
+            return permit2
+          }
+          if (request.functionName === 'allowance' && request.args?.length === 3) {
+            return [0n, 0, 0]
+          }
+          return 0n
+        },
+      } as unknown as PublicClient,
+    })
+    const routePool: LiquidityPoolForSwap = {
+      chainId: 8453,
+      chainName: 'Base',
+      lp: '0x4444444444444444444444444444444444444444',
+      type: -1,
+      token0Address: BaseChain.usdc.tokenAddress as Address,
+      token1Address: new BaseChain().eth.wrappedTokenAddress!,
+      isCl: false,
+      isStable: false,
+      isBasic: true,
+    }
+    const quote: Quote = {
+      input: {
+        fromToken: BaseChain.usdc,
+        toToken: new BaseChain().eth,
+        path: [{ pool: routePool, reversed: false }],
+        amountIn: 2_000_000n,
+      },
+      amountOut: 1_000_000_000_000_000n,
+    }
+    await baseClient.swapFromQuote(quote)
+    await baseClient.swapFromQuote(quote)
+    expect(permit2Reads).toBe(1)
+  })
+
+  test('caches oracle rates for the configured pricing window', async () => {
+    let oracleCalls = 0
+    const sugar = new SugarClient(10, {
+      publicClient: {
+        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+          if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
+            oracleCalls += 1
+            return (request.args?.[0] as unknown[]).map(() => 1_000_000_000_000_000_000n)
+          }
+          throw new Error(`Unexpected read: ${request.functionName}`)
+        },
+      } as unknown as PublicClient,
+    })
+    const stable: Token = { ...token0, symbol: 'USDC', decimals: 6, tokenAddress: sugar.settings.stableTokenAddress }
+    const first = await sugar.getPrices([stable, token0])
+    const second = await sugar.getPrices([stable, token0])
+    expect(oracleCalls).toBe(1)
+    expect(first).toEqual(second)
+  })
+
   test('returns both ERC20 approvals before a basic deposit', async () => {
     const transactions = await client().deposit({ pool: pool(), amountToken0: 100n, amountToken1: 200n, sqrtPriceX96: 0n })
     expect(transactions).toHaveLength(3)
