@@ -1,6 +1,7 @@
 import { toError } from '@beegreat/observability'
 import {
   createFlueClient,
+  FlueApiError,
   type DeliveredAttachment,
   type FlueClient,
 } from '@flue/sdk'
@@ -204,10 +205,20 @@ async function askBee(
 }
 
 async function latestInteractiveReply(userId: string, threadId: number) {
-  const history = await clientFor(userId, threadId).history()
+  let messages: Awaited<ReturnType<FlueClient['history']>>['messages']
+  try {
+    messages = (await clientFor(userId, threadId).history()).messages
+  } catch (error) {
+    // Flue 2 only creates a conversation's stream on its first prompt, so a
+    // fresh thread has no history yet — that just means nothing interactive.
+    if (error instanceof FlueApiError && error.status === 404) {
+      return { firstFocus: undefined, web3: undefined }
+    }
+    throw error
+  }
   return {
-    firstFocus: latestFirstFocusPreview(history.messages),
-    web3: latestWeb3Confirmation(history.messages),
+    firstFocus: latestFirstFocusPreview(messages),
+    web3: latestWeb3Confirmation(messages),
   }
 }
 

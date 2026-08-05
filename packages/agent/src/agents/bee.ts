@@ -1,5 +1,6 @@
 'use agent'
 import {
+  defineTool,
   useAgentStart,
   useModel,
   useSubagent,
@@ -7,6 +8,7 @@ import {
   type AgentProps,
   type SubagentDefinition,
 } from '@flue/runtime'
+import * as v from 'valibot'
 import {
   extend,
   getCloudflareContext,
@@ -244,6 +246,30 @@ export function Bee({ id }: AgentProps) {
   const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
   for (const tool of mindTools) useTool(tool)
 
+  // The instruction document must stay stable across renders — Flue 2 diffs
+  // it every turn and narrates any change to the model ("System instructions
+  // updated."), so a live timestamp there loops the session forever. Time is
+  // a tool call instead.
+  const timeZone = snapshot?.timeZone ?? 'UTC'
+  useTool(
+    defineTool({
+      name: 'current_time',
+      description:
+        "Get the current date and time (UTC and in the user's timezone). Call this whenever you need 'now', today's date, or to compute due dates and recurrence start times.",
+      input: v.object({}),
+      run() {
+        const now = new Date()
+        return {
+          output: {
+            utc: now.toISOString(),
+            local: now.toLocaleString('en-US', { timeZone, timeZoneName: 'longOffset' }),
+            timeZone,
+          },
+        }
+      },
+    }),
+  )
+
   const sitesSubagents =
     snapshot?.sandboxSdk && env.Sandbox && env.BEE_SITES_BUCKET
       ? [
@@ -279,8 +305,7 @@ export function Bee({ id }: AgentProps) {
     }),
   )
 
-  const timeZone = snapshot?.timeZone ?? 'UTC'
-  return `${instructions}\n\n## User time context\nThe user's IANA timezone is ${timeZone}. The current time is ${new Date().toISOString()}. Use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`
+  return `${instructions}\n\n## User time context\nThe user's IANA timezone is ${timeZone}. Call the current_time tool when you need the current date or time, and use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`
 }
 // 'bee-v2': the beta-era 'bee' Durable Object storage (schema v5) is
 // reset-only under Flue 2, and Cloudflare cannot delete and recreate the same
