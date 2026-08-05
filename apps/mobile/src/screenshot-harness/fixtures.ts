@@ -204,6 +204,8 @@ const beeFocusMessages: FlueConversationMessage[] = [
   {
     id: 'fixture_bee_focus_user',
     role: 'user',
+    purpose: 'user',
+    display: 'visible',
     parts: [
       {
         type: 'text',
@@ -215,6 +217,8 @@ const beeFocusMessages: FlueConversationMessage[] = [
   {
     id: 'fixture_bee_focus_assistant',
     role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
     parts: [
       {
         type: 'text',
@@ -244,6 +248,8 @@ const voiceMessages: FlueConversationMessage[] = [
   {
     id: 'fixture_voice_user',
     role: 'user',
+    purpose: 'user',
+    display: 'visible',
     parts: [
       {
         type: 'text',
@@ -255,6 +261,8 @@ const voiceMessages: FlueConversationMessage[] = [
   {
     id: 'fixture_voice_assistant',
     role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
     parts: [
       {
         type: 'text',

@@ -1,4 +1,10 @@
-import { type AgentProfile, defineAgentProfile } from '@flue/runtime'
+import {
+  defineSubagent,
+  useSubagent,
+  useTool,
+  type SubagentDefinition,
+  type ToolDefinition,
+} from '@flue/runtime'
 
 import { BEE_ESCALATION_THINKING_LEVEL } from './bee-models.ts'
 
@@ -22,23 +28,25 @@ answer to Bee, which owns the final voice and UI response.
 
 interface SolEscalationOptions {
   model: string
-  tools: AgentProfile['tools']
-  subagents: AgentProfile[]
+  tools: ToolDefinition[]
+  subagents: SubagentDefinition[]
 }
 
 export function solEscalationSubagent({
   model,
   tools,
   subagents,
-}: SolEscalationOptions): AgentProfile {
-  return defineAgentProfile({
+}: SolEscalationOptions): SubagentDefinition {
+  return defineSubagent({
     name: 'sol',
     description:
       'Escalation-only GPT-5.6 Sol specialist for unresolved, ambiguous, cross-domain, or empty-result requests. Rechecks with deeper reasoning and broader searches before Bee gives up.',
     model,
     thinkingLevel: BEE_ESCALATION_THINKING_LEVEL,
-    instructions: INSTRUCTIONS,
-    tools,
-    subagents,
+    agent: () => {
+      for (const tool of tools) useTool(tool)
+      for (const subagent of subagents) useSubagent(subagent)
+      return INSTRUCTIONS
+    },
   })
 }

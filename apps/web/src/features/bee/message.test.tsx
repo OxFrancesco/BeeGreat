@@ -8,6 +8,8 @@ function streamingAssistant(text: string): FlueConversationMessage {
   return {
     id: 'assistant:turn-1',
     role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
     parts: [{ type: 'text', text, state: 'streaming' }],
   }
 }

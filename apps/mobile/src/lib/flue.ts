@@ -1,7 +1,10 @@
 import { getClerkInstance } from '@clerk/clerk-expo';
 import { createFlueClient } from '@flue/sdk';
 
-export const AGENT_URL = process.env.EXPO_PUBLIC_AGENT_URL ?? 'http://localhost:3583';
+// Flue 2.0 dev serves through Vite (5173); beta's flue dev used 3583.
+export const AGENT_URL = process.env.EXPO_PUBLIC_AGENT_URL ?? 'http://localhost:5173';
+
+export const BEE_AGENT_NAME = 'bee';
 
 /**
  * Clerk session token headers for the agent worker, which verifies them
@@ -22,11 +25,14 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
   return {};
 }
 
-/** Each client owns its own live subscriptions; a fresh one forces a reconnect. */
-export function createBeeFlueClient() {
-  return createFlueClient({ baseUrl: AGENT_URL, headers: getAuthHeaders });
+/**
+ * Flue 2.0 clients are conversation-scoped: one client per conversation URL
+ * (the agent's mount path plus the conversation id). Each client owns its own
+ * live subscriptions; a fresh one forces a reconnect.
+ */
+export function createBeeFlueClient(conversationId: string) {
+  return createFlueClient({
+    url: `${AGENT_URL}/agents/${BEE_AGENT_NAME}/${conversationId}`,
+    headers: getAuthHeaders,
+  });
 }
-
-export const flueClient = createBeeFlueClient();
-
-export const BEE_AGENT_NAME = 'bee';

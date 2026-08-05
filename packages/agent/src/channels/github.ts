@@ -1,10 +1,11 @@
 import { createGitHubChannel } from '@flue/github'
 import { dispatch } from '@flue/runtime'
-import bee from '../agents/bee.ts'
+import { Bee } from '../agents/bee.ts'
 import {
   beennectorAgentId,
   channelSecret,
   claimBeennectorDelivery,
+  signalAttributes,
 } from '../shared/beennectors/channel.ts'
 
 export const channel = createGitHubChannel({
@@ -31,24 +32,33 @@ export const channel = createGitHubChannel({
     const pullRequest =
       'pull_request' in payload ? payload.pull_request : undefined
     const comment = 'comment' in payload ? payload.comment : undefined
-    await dispatch(bee, {
+    const action = 'action' in payload ? payload.action : 'updated'
+    const repoName = `${repository.owner.login}/${repository.name}`
+    const number = issue?.number ?? pullRequest?.number ?? null
+    const title = issue?.title ?? pullRequest?.title ?? null
+    const commentBody =
+      comment && 'body' in comment ? (comment.body ?? '') : null
+    await dispatch(Bee, {
       id: beennectorAgentId(claim.userId, 'github'),
-      input: {
+      message: {
+        kind: 'signal',
         type: `github.${delivery.name}`,
-        deliveryId: delivery.deliveryId,
-        action: 'action' in payload ? payload.action : 'updated',
-        repository: `${repository.owner.login}/${repository.name}`,
-        number: issue?.number ?? pullRequest?.number ?? null,
-        title: issue?.title ?? pullRequest?.title ?? null,
-        sender: payload.sender.login,
-        comment:
-          comment && 'body' in comment
-            ? { id: comment.id, body: comment.body ?? '' }
-            : null,
-        url:
-          issue?.html_url ??
-          pullRequest?.html_url ??
-          ('html_url' in repository ? repository.html_url : null),
+        body:
+          commentBody ||
+          `${action} on ${repoName}${number === null ? '' : `#${number}`}${title ? `: ${title}` : ''}`,
+        attributes: signalAttributes({
+          deliveryId: delivery.deliveryId,
+          action,
+          repository: repoName,
+          number,
+          title,
+          sender: payload.sender.login,
+          commentId: comment ? comment.id : null,
+          url:
+            issue?.html_url ??
+            pullRequest?.html_url ??
+            ('html_url' in repository ? repository.html_url : null),
+        }),
       },
     })
   },

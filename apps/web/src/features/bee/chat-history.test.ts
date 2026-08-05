@@ -12,10 +12,12 @@ function message(
   text: string,
   submissionId?: string,
   state: 'streaming' | 'done' = 'done',
-): FlueConversationMessage {
+): FlueConversationMessage & { role: 'user' | 'assistant' } {
   return {
     id,
     role,
+    purpose: role,
+    display: 'visible',
     ...(submissionId ? { submissionId } : {}),
     parts: [{ type: 'text', text, state }],
   }

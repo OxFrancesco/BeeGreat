@@ -39,6 +39,18 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["Sandbox"]
+    },
+    // Flue 2.0 upgrade: beta-era persisted stores are reset-only. FlueRegistry
+    // is gone from the framework, and beta FlueBeeAgent storage (schema v5) is
+    // rejected by the 2.0 runtime, so the class is drained and recreated.
+    // Convex keeps the user-visible chat history.
+    {
+      "tag": "v3",
+      "deleted_classes": ["FlueRegistry", "FlueBeeAgent"]
+    },
+    {
+      "tag": "v4",
+      "new_sqlite_classes": ["FlueBeeAgent"]
     }
   ]
 }

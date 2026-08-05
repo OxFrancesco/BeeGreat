@@ -1,4 +1,4 @@
-import { defineAgentProfile, defineTool } from '@flue/runtime'
+import { defineSubagent, defineTool, useSkill, useTool } from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
 import { aerodromeLiquiditySkill, crossChainSwapSkill } from './web3-skills.ts'
@@ -190,16 +190,7 @@ export const web3: PowerupDefinition = {
     const runWallet = (op: string, params: Record<string, unknown> = {}) =>
       bridgePost('/internal/web3/wallet', { userId, op, params })
 
-    return defineAgentProfile({
-      name: 'web3',
-      description:
-        'The user\u2019s Web3 wallet and DeFi specialist: the Bee smart wallet, one-click Socket swaps between Base and Arbitrum, sponsored source gas, an optional linked EOA, and Velodrome/Aerodrome operations. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
-      instructions: INSTRUCTIONS,
-      // Tool-driven work with server-side validation; low thinking keeps each
-      // of the several tool turns fast without touching the safety gates.
-      thinkingLevel: 'low',
-      skills: [aerodromeLiquiditySkill, crossChainSwapSkill],
-      tools: [
+    const tools = [
         defineTool({
           name: 'get_wallets',
           description:
@@ -232,8 +223,8 @@ export const web3: PowerupDefinition = {
               ),
             ),
           }),
-          async run({ input }) {
-            return await runWallet('balances', { chain: input.chain })
+          async run({ data }) {
+            return await runWallet('balances', { chain: data.chain })
           },
         }),
 
@@ -258,8 +249,8 @@ export const web3: PowerupDefinition = {
               v.description('USDXM amount to mint, at most 100'),
             ),
           }),
-          async run({ input }) {
-            return await runWallet('fund', { amount: input.amount })
+          async run({ data }) {
+            return await runWallet('fund', { amount: data.amount })
           },
         }),
 
@@ -280,8 +271,8 @@ export const web3: PowerupDefinition = {
               v.description('Decimal amount to send as a string, e.g. "0.01"'),
             ),
           }),
-          async run({ input }) {
-            return await runWallet('prepare_send', { ...input })
+          async run({ data }) {
+            return await runWallet('prepare_send', { ...data })
           },
         }),
 
@@ -296,13 +287,13 @@ export const web3: PowerupDefinition = {
             output_token: socketToken,
             amount: amount('Decimal input amount as a string, e.g. "10"'),
           }),
-          async run({ input }) {
+          async run({ data }) {
             return await runWallet('quote_socket_swap', {
-              originChain: input.origin_chain,
-              destinationChain: input.destination_chain,
-              inputToken: input.input_token,
-              outputToken: input.output_token,
-              amount: input.amount,
+              originChain: data.origin_chain,
+              destinationChain: data.destination_chain,
+              inputToken: data.input_token,
+              outputToken: data.output_token,
+              amount: data.amount,
             })
           },
         }),
@@ -318,13 +309,13 @@ export const web3: PowerupDefinition = {
             output_token: socketToken,
             amount: amount('Decimal input amount as a string, e.g. "10"'),
           }),
-          async run({ input }) {
+          async run({ data }) {
             return await runWallet('prepare_socket_swap', {
-              originChain: input.origin_chain,
-              destinationChain: input.destination_chain,
-              inputToken: input.input_token,
-              outputToken: input.output_token,
-              amount: input.amount,
+              originChain: data.origin_chain,
+              destinationChain: data.destination_chain,
+              inputToken: data.input_token,
+              outputToken: data.output_token,
+              amount: data.amount,
             })
           },
         }),
@@ -356,10 +347,10 @@ export const web3: PowerupDefinition = {
               ),
             ),
           }),
-          async run({ input }) {
+          async run({ data }) {
             return await runWallet('prepare_execution', {
-              sugarAction: input.sugar_action,
-              parameters: input.parameters,
+              sugarAction: data.sugar_action,
+              parameters: data.parameters,
             })
           },
         }),
@@ -392,11 +383,11 @@ export const web3: PowerupDefinition = {
               ),
             ),
           }),
-          async run({ input }) {
+          async run({ data }) {
             return await runWallet('prepare_eoa_execution', {
-              chainId: input.chain,
-              sugarAction: input.sugar_action,
-              parameters: input.parameters,
+              chainId: data.chain,
+              sugarAction: data.sugar_action,
+              parameters: data.parameters,
             })
           },
         }),
@@ -411,9 +402,9 @@ export const web3: PowerupDefinition = {
               v.description('The actionId returned by a prepare_* tool'),
             ),
           }),
-          async run({ input }) {
+          async run({ data }) {
             return await runWallet('action_status', {
-              actionId: input.action_id,
+              actionId: data.action_id,
             })
           },
         }),
@@ -442,8 +433,8 @@ export const web3: PowerupDefinition = {
               v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
             ),
           }),
-          async run({ input }) {
-            return await runSugar('pools', input)
+          async run({ data }) {
+            return await runSugar('pools', data)
           },
         }),
 
@@ -462,13 +453,13 @@ export const web3: PowerupDefinition = {
               ),
             }),
             v.check(
-              (input) =>
-                input.wallet !== undefined || input.owner !== undefined,
+              (fields) =>
+                fields.wallet !== undefined || fields.owner !== undefined,
               'Provide wallet or owner',
             ),
           ),
-          async run({ input }) {
-            return await runSugar('positions', input)
+          async run({ data }) {
+            return await runSugar('positions', data)
           },
         }),
 
@@ -477,8 +468,8 @@ export const web3: PowerupDefinition = {
           description:
             'Read the latest voting epoch for every gauged pool, including votes, emissions, fees, incentives, and gauge status.',
           input: v.object({ chain: sugarChain, pool_type: poolType }),
-          async run({ input }) {
-            return await runSugar('epochs_latest', input)
+          async run({ data }) {
+            return await runSugar('epochs_latest', data)
           },
         }),
 
@@ -494,8 +485,8 @@ export const web3: PowerupDefinition = {
             ),
             offset: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
           }),
-          async run({ input }) {
-            return await runSugar('epochs', input)
+          async run({ data }) {
+            return await runSugar('epochs', data)
           },
         }),
 
@@ -518,8 +509,8 @@ export const web3: PowerupDefinition = {
             ),
             use_decimals: v.optional(v.boolean()),
           }),
-          async run({ input }) {
-            return await runSugar('quote', input)
+          async run({ data }) {
+            return await runSugar('quote', data)
           },
         }),
 
@@ -546,8 +537,8 @@ export const web3: PowerupDefinition = {
             slippage,
             use_decimals: v.optional(v.boolean()),
           }),
-          async run({ input }) {
-            return await runSugar('swap', input)
+          async run({ data }) {
+            return await runSugar('swap', data)
           },
         }),
 
@@ -594,8 +585,8 @@ export const web3: PowerupDefinition = {
             deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
             use_decimals: v.optional(v.boolean()),
           }),
-          async run({ input }) {
-            return await runSugar('deposit', input)
+          async run({ data }) {
+            return await runSugar('deposit', data)
           },
         }),
 
@@ -616,8 +607,8 @@ export const web3: PowerupDefinition = {
             slippage,
             deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
           }),
-          async run({ input }) {
-            return await runSugar('withdraw', input)
+          async run({ data }) {
+            return await runSugar('withdraw', data)
           },
         }),
 
@@ -632,8 +623,8 @@ export const web3: PowerupDefinition = {
             ),
             ...poolPosition,
           }),
-          async run({ input }) {
-            return await runSugar('stake', input)
+          async run({ data }) {
+            return await runSugar('stake', data)
           },
         }),
 
@@ -651,8 +642,8 @@ export const web3: PowerupDefinition = {
               amount('Raw wei amount for a partial basic-position unstake'),
             ),
           }),
-          async run({ input }) {
-            return await runSugar('unstake', input)
+          async run({ data }) {
+            return await runSugar('unstake', data)
           },
         }),
 
@@ -667,8 +658,8 @@ export const web3: PowerupDefinition = {
             ),
             ...poolPosition,
           }),
-          async run({ input }) {
-            return await runSugar('claim_emissions', input)
+          async run({ data }) {
+            return await runSugar('claim_emissions', data)
           },
         }),
 
@@ -685,11 +676,25 @@ export const web3: PowerupDefinition = {
             burn: v.optional(v.boolean()),
             unwrap_native: v.optional(v.boolean()),
           }),
-          async run({ input }) {
-            return await runSugar('claim_fees', input)
+          async run({ data }) {
+            return await runSugar('claim_fees', data)
           },
         }),
-      ],
+    ]
+
+    return defineSubagent({
+      name: 'web3',
+      description:
+        'The user\u2019s Web3 wallet and DeFi specialist: the Bee smart wallet, one-click Socket swaps between Base and Arbitrum, sponsored source gas, an optional linked EOA, and Velodrome/Aerodrome operations. Delegate ALL wallet, crypto, token, DeFi, and balance matters here.',
+      // Tool-driven work with server-side validation; low thinking keeps each
+      // of the several tool turns fast without touching the safety gates.
+      thinkingLevel: 'low',
+      agent: () => {
+        useSkill(aerodromeLiquiditySkill)
+        useSkill(crossChainSwapSkill)
+        for (const tool of tools) useTool(tool)
+        return INSTRUCTIONS
+      },
     })
   },
 }

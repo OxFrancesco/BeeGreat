@@ -1,10 +1,11 @@
 import { createNotionChannel } from '@flue/notion'
 import { dispatch } from '@flue/runtime'
-import bee from '../agents/bee.ts'
+import { Bee } from '../agents/bee.ts'
 import {
   beennectorAgentId,
   channelSecret,
   claimBeennectorDelivery,
+  signalAttributes,
 } from '../shared/beennectors/channel.ts'
 
 export const channel = createNotionChannel({
@@ -38,22 +39,25 @@ export const channel = createNotionChannel({
       payload.data && typeof payload.data === 'object'
         ? (payload.data as Record<string, unknown>)
         : undefined
-    await dispatch(bee, {
+    const parent =
+      data?.parent && typeof data.parent === 'object'
+        ? (data.parent as Record<string, string | null>)
+        : undefined
+    const type = String(payload.type ?? 'notion.event')
+    await dispatch(Bee, {
       id: beennectorAgentId(claim.userId, 'notion'),
-      input: {
-        type: String(payload.type ?? 'notion.event'),
-        deliveryId,
-        workspaceId: workspaceId ?? null,
-        entity: entity
-          ? {
-              id: typeof entity.id === 'string' ? entity.id : null,
-              type: typeof entity.type === 'string' ? entity.type : null,
-            }
-          : null,
-        parent:
-          data?.parent && typeof data.parent === 'object'
-            ? (data.parent as Record<string, string | null>)
-            : null,
+      message: {
+        kind: 'signal',
+        type,
+        body: `${type}${entity && typeof entity.id === 'string' ? ` on ${String(entity.type ?? 'entity')} ${entity.id}` : ''}`,
+        attributes: signalAttributes({
+          deliveryId,
+          workspaceId: workspaceId ?? null,
+          entityId: typeof entity?.id === 'string' ? entity.id : null,
+          entityType: typeof entity?.type === 'string' ? entity.type : null,
+          parentId: typeof parent?.id === 'string' ? parent.id : null,
+          parentType: typeof parent?.type === 'string' ? parent.type : null,
+        }),
       },
     })
   },

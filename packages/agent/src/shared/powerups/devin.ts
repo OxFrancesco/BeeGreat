@@ -1,4 +1,4 @@
-import { defineAgentProfile, defineTool } from '@flue/runtime'
+import { defineSubagent, defineTool, useTool } from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
 
@@ -63,12 +63,7 @@ export const devin: PowerupDefinition = {
       }
     }
 
-    return defineAgentProfile({
-      name: 'devin',
-      description:
-        'Devin Cloud coding tasks: launch implementation work, check live session progress and messages, see created pull requests, and send follow-up instructions to an existing session.',
-      instructions: INSTRUCTIONS,
-      tools: [
+    const tools = [
         defineTool({
           name: 'start_devin_task',
           description:
@@ -100,8 +95,8 @@ export const devin: PowerupDefinition = {
               v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(1000)),
             ),
           }),
-          async run({ input }) {
-            return await request({ operation: 'start', ...input })
+          async run({ data }) {
+            return await request({ operation: 'start', ...data })
           },
         }),
         defineTool({
@@ -111,8 +106,8 @@ export const devin: PowerupDefinition = {
           input: v.object({
             limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(10))),
           }),
-          async run({ input }) {
-            return await request({ operation: 'list', ...input })
+          async run({ data }) {
+            return await request({ operation: 'list', ...data })
           },
         }),
         defineTool({
@@ -125,8 +120,8 @@ export const devin: PowerupDefinition = {
               v.regex(/^devin-[A-Za-z0-9_-]+$/, 'Expected a devin- session id'),
             ),
           }),
-          async run({ input }) {
-            return await request({ operation: 'inspect', ...input })
+          async run({ data }) {
+            return await request({ operation: 'inspect', ...data })
           },
         }),
         defineTool({
@@ -140,11 +135,20 @@ export const devin: PowerupDefinition = {
             ),
             message: v.pipe(v.string(), v.minLength(1), v.maxLength(10_000)),
           }),
-          async run({ input }) {
-            return await request({ operation: 'follow_up', ...input })
+          async run({ data }) {
+            return await request({ operation: 'follow_up', ...data })
           },
         }),
-      ],
+    ]
+
+    return defineSubagent({
+      name: 'devin',
+      description:
+        'Devin Cloud coding tasks: launch implementation work, check live session progress and messages, see created pull requests, and send follow-up instructions to an existing session.',
+      agent: () => {
+        for (const tool of tools) useTool(tool)
+        return INSTRUCTIONS
+      },
     })
   },
 }

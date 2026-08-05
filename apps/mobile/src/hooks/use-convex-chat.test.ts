@@ -16,6 +16,8 @@ test('survives a Strict Mode effect replay', async () => {
   const partial: FlueConversationMessage = {
     id: 'assistant:strict-mode',
     role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
     parts: [{ type: 'text', text: 'Stream', state: 'streaming' }],
   };
 
@@ -47,11 +49,15 @@ test('isolates a permanently rejected envelope without blocking valid deltas', a
   const valid: FlueConversationMessage = {
     id: 'assistant:valid',
     role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
     parts: [{ type: 'text', text: 'Saved', state: 'done' }],
   };
   const rejected: FlueConversationMessage = {
     id: 'assistant:too-large',
     role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
     parts: [{ type: 'text', text: 'Oversized', state: 'done' }],
   };
 

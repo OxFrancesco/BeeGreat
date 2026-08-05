@@ -7,6 +7,8 @@ function assistantMessage(id: string, text: string): FlueConversationMessage {
   return {
     id,
     role: 'assistant',
+    purpose: 'assistant',
+    display: 'visible',
     parts: [{ type: 'text', text, state: 'streaming' }],
   };
 }

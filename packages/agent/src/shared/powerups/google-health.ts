@@ -1,4 +1,4 @@
-import { defineAgentProfile, defineTool } from '@flue/runtime'
+import { defineSubagent, defineTool, useTool } from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
 
@@ -106,12 +106,7 @@ export const googleHealth: PowerupDefinition = {
       }
     }
 
-    return defineAgentProfile({
-      name: 'google-health',
-      description:
-        'The user’s Google Health data (read-only): steps, workouts, sleep, heart rate, weight, SpO2, HRV, nutrition, and related trends. Delegate all personal health-data questions here; do not treat them as goals or tasks.',
-      instructions: INSTRUCTIONS,
-      tools: [
+    const tools = [
         defineTool({
           name: 'get_health_context',
           description:
@@ -158,11 +153,20 @@ export const googleHealth: PowerupDefinition = {
               ),
             ),
           }),
-          async run({ input }) {
-            return await request('query', input)
+          async run({ data }) {
+            return await request('query', data)
           },
         }),
-      ],
+    ]
+
+    return defineSubagent({
+      name: 'google-health',
+      description:
+        'The user’s Google Health data (read-only): steps, workouts, sleep, heart rate, weight, SpO2, HRV, nutrition, and related trends. Delegate all personal health-data questions here; do not treat them as goals or tasks.',
+      agent: () => {
+        for (const tool of tools) useTool(tool)
+        return INSTRUCTIONS
+      },
     })
   },
 }

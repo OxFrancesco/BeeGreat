@@ -1,7 +1,9 @@
 import {
-  type AgentProfile,
-  defineAgentProfile,
+  defineSubagent,
   defineTool,
+  useTool,
+  type JsonValue,
+  type SubagentDefinition,
 } from '@flue/runtime'
 import * as Sentry from '@sentry/cloudflare'
 import * as v from 'valibot'
@@ -34,7 +36,7 @@ export async function loadBeennectorSubagent(
   userId: string,
   convexUrl: string,
   runtime: BeennectorRuntime,
-): Promise<AgentProfile[]> {
+): Promise<SubagentDefinition[]> {
   let connected: ConnectedBeennector[]
   try {
     connected = await callBeennectorService<ConnectedBeennector[]>(
@@ -59,65 +61,69 @@ export async function loadBeennectorSubagent(
     )
     .join(', ')
   const request = (input: Record<string, unknown>) =>
-    callBeennectorService<unknown>(convexUrl, runtime, { userId, ...input })
+    callBeennectorService<JsonValue>(convexUrl, runtime, { userId, ...input })
+
+  const tools = [
+    defineTool({
+      name: 'list_beennector_items',
+      description:
+        'List recently relevant items. GitHub returns open items involving the user, Linear returns assigned issues, and Notion returns recently edited shared pages.',
+      input: v.object({
+        provider: v.picklist(PROVIDERS),
+        limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(50))),
+      }),
+      async run({ data }) {
+        return { output: await request({ operation: 'list', ...data }) }
+      },
+    }),
+    defineTool({
+      name: 'search_beennector',
+      description:
+        'Search a connected provider. GitHub accepts its issue-search syntax; Linear and Notion accept plain text.',
+      input: v.object({
+        provider: v.picklist(PROVIDERS),
+        query: v.pipe(v.string(), v.minLength(1)),
+        limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(50))),
+      }),
+      async run({ data }) {
+        return { output: await request({ operation: 'search', ...data }) }
+      },
+    }),
+    defineTool({
+      name: 'get_beennector_item',
+      description:
+        'Read one GitHub issue/PR with comments, Linear issue with comments, or Notion page with its first 100 blocks.',
+      input: v.object({
+        provider: v.picklist(PROVIDERS),
+        ref: v.pipe(v.string(), v.minLength(1)),
+      }),
+      async run({ data }) {
+        return { output: await request({ operation: 'get', ...data }) }
+      },
+    }),
+    defineTool({
+      name: 'comment_on_beennector_item',
+      description:
+        'Post a GitHub issue/PR or Linear issue comment after an explicit user request. Notion is read-only.',
+      input: v.object({
+        provider: v.picklist(['github', 'linear'] as const),
+        ref: v.pipe(v.string(), v.minLength(1)),
+        body: v.pipe(v.string(), v.minLength(1)),
+      }),
+      async run({ data }) {
+        return { output: await request({ operation: 'comment', ...data }) }
+      },
+    }),
+  ]
 
   return [
-    defineAgentProfile({
+    defineSubagent({
       name: 'beennectors',
       description: `Connected work systems (${connectedNames}): find and read GitHub issues/PRs, Linear issues, and Notion pages; post GitHub/Linear comments only on explicit request.`,
-      instructions: INSTRUCTIONS,
-      tools: [
-        defineTool({
-          name: 'list_beennector_items',
-          description:
-            'List recently relevant items. GitHub returns open items involving the user, Linear returns assigned issues, and Notion returns recently edited shared pages.',
-          input: v.object({
-            provider: v.picklist(PROVIDERS),
-            limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(50))),
-          }),
-          async run({ input }) {
-            return await request({ operation: 'list', ...input })
-          },
-        }),
-        defineTool({
-          name: 'search_beennector',
-          description:
-            'Search a connected provider. GitHub accepts its issue-search syntax; Linear and Notion accept plain text.',
-          input: v.object({
-            provider: v.picklist(PROVIDERS),
-            query: v.pipe(v.string(), v.minLength(1)),
-            limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(50))),
-          }),
-          async run({ input }) {
-            return await request({ operation: 'search', ...input })
-          },
-        }),
-        defineTool({
-          name: 'get_beennector_item',
-          description:
-            'Read one GitHub issue/PR with comments, Linear issue with comments, or Notion page with its first 100 blocks.',
-          input: v.object({
-            provider: v.picklist(PROVIDERS),
-            ref: v.pipe(v.string(), v.minLength(1)),
-          }),
-          async run({ input }) {
-            return await request({ operation: 'get', ...input })
-          },
-        }),
-        defineTool({
-          name: 'comment_on_beennector_item',
-          description:
-            'Post a GitHub issue/PR or Linear issue comment after an explicit user request. Notion is read-only.',
-          input: v.object({
-            provider: v.picklist(['github', 'linear'] as const),
-            ref: v.pipe(v.string(), v.minLength(1)),
-            body: v.pipe(v.string(), v.minLength(1)),
-          }),
-          async run({ input }) {
-            return await request({ operation: 'comment', ...input })
-          },
-        }),
-      ],
+      agent: () => {
+        for (const tool of tools) useTool(tool)
+        return INSTRUCTIONS
+      },
     }),
   ]
 }

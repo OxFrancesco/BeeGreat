@@ -29,6 +29,8 @@
   },
   "trustedDependencies": [
     "@sentry/cli",
-    "@shopify/react-native-skia"
+    "@shopify/react-native-skia",
+    "esbuild",
+    "workerd"
   ]
 }

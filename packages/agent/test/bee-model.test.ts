@@ -50,17 +50,16 @@ describe('Bee orchestrator model', () => {
   })
 
   test('gives the Sol fallback the capabilities needed to retry the request', () => {
-    const goals = { name: 'goals' }
-    const profile = solEscalationSubagent({
+    const definition = solEscalationSubagent({
       model: 'openai-codex-user/gpt-5.6-sol',
       tools: [],
-      subagents: [goals],
+      subagents: [],
     })
 
-    expect(profile.name).toBe('sol')
-    expect(profile.model).toBe('openai-codex-user/gpt-5.6-sol')
-    expect(profile.thinkingLevel).toBe('medium')
-    expect(profile.tools).toEqual([])
-    expect(profile.subagents).toEqual([goals])
+    expect(definition.name).toBe('sol')
+    expect(definition.model).toBe('openai-codex-user/gpt-5.6-sol')
+    expect(definition.thinkingLevel).toBe('medium')
+    // Tools and nested delegates mount when the delegate renders at task time.
+    expect(typeof definition.agent).toBe('function')
   })
 })

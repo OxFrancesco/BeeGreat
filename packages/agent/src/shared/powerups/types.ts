@@ -1,4 +1,4 @@
-import type { AgentProfile } from '@flue/runtime'
+import type { SubagentDefinition } from '@flue/runtime'
 
 /**
  * A power-up is an opt-in capability pack, loaded as a named subagent that Bee
@@ -20,7 +20,7 @@ export interface PowerupDefinition {
     userId: string,
     convexUrl: string,
     runtime: PowerupRuntime,
-  ) => AgentProfile
+  ) => SubagentDefinition
 }
 
 export interface PowerupRuntime {

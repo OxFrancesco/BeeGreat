@@ -1,4 +1,4 @@
-import { defineAgentProfile, defineTool } from '@flue/runtime'
+import { defineSubagent, defineTool, useTool } from '@flue/runtime'
 import * as v from 'valibot'
 
 const INSTRUCTIONS = `You are the Imagine specialist inside BeeGreat, working for Bee
@@ -46,8 +46,8 @@ export interface ImagineRuntime {
   brokerSecret?: string
 }
 
-/** Built-in media specialist. Bee receives this profile for every conversation. */
-export function imagineSubagent(
+/** The FAL toolset the Imagine delegate mounts; exported for tests. */
+export function imagineTools(
   convexUrl: string,
   runtime: ImagineRuntime = {},
 ) {
@@ -107,68 +107,87 @@ export function imagineSubagent(
     }
   }
 
-  return defineAgentProfile({
+  return [
+    defineTool({
+      name: 'generate_image',
+      description:
+        'Generate one image from an explicit user-approved visual prompt. This is a billable FAL request.',
+      input: v.object({ prompt }),
+      async run({ data, signal }) {
+        return {
+          output: await request(
+            { operation: 'generate_image', prompt: data.prompt },
+            signal,
+          ),
+        }
+      },
+    }),
+    defineTool({
+      name: 'edit_image',
+      description:
+        'Edit one image at a public HTTPS URL according to the prompt. This is a billable FAL request.',
+      input: v.object({ prompt, sourceUrl }),
+      async run({ data, signal }) {
+        return {
+          output: await request(
+            {
+              operation: 'edit_image',
+              prompt: data.prompt,
+              sourceUrl: data.sourceUrl,
+            },
+            signal,
+          ),
+        }
+      },
+    }),
+    defineTool({
+      name: 'generate_video',
+      description:
+        'Generate one video from an explicit user-approved visual prompt. This is a billable FAL request and may take several minutes.',
+      input: v.object({ prompt }),
+      async run({ data, signal }) {
+        return {
+          output: await request(
+            { operation: 'generate_video', prompt: data.prompt },
+            signal,
+          ),
+        }
+      },
+    }),
+    defineTool({
+      name: 'edit_video',
+      description:
+        'Edit one video at a public HTTPS URL according to the prompt. This is a billable FAL request and may take several minutes.',
+      input: v.object({ prompt, sourceUrl }),
+      async run({ data, signal }) {
+        return {
+          output: await request(
+            {
+              operation: 'edit_video',
+              prompt: data.prompt,
+              sourceUrl: data.sourceUrl,
+            },
+            signal,
+          ),
+        }
+      },
+    }),
+  ]
+}
+
+/** Built-in media specialist. Bee receives this delegate for every conversation. */
+export function imagineSubagent(
+  convexUrl: string,
+  runtime: ImagineRuntime = {},
+) {
+  const tools = imagineTools(convexUrl, runtime)
+  return defineSubagent({
     name: 'imagine',
     description:
       'Built-in FAL media studio. Use for explicit requests to generate an image or video, or edit media from a public HTTPS source URL.',
-    instructions: INSTRUCTIONS,
-    tools: [
-      defineTool({
-        name: 'generate_image',
-        description:
-          'Generate one image from an explicit user-approved visual prompt. This is a billable FAL request.',
-        input: v.object({ prompt }),
-        async run({ input, signal }) {
-          return await request(
-            { operation: 'generate_image', prompt: input.prompt },
-            signal,
-          )
-        },
-      }),
-      defineTool({
-        name: 'edit_image',
-        description:
-          'Edit one image at a public HTTPS URL according to the prompt. This is a billable FAL request.',
-        input: v.object({ prompt, sourceUrl }),
-        async run({ input, signal }) {
-          return await request(
-            {
-              operation: 'edit_image',
-              prompt: input.prompt,
-              sourceUrl: input.sourceUrl,
-            },
-            signal,
-          )
-        },
-      }),
-      defineTool({
-        name: 'generate_video',
-        description:
-          'Generate one video from an explicit user-approved visual prompt. This is a billable FAL request and may take several minutes.',
-        input: v.object({ prompt }),
-        async run({ input, signal }) {
-          return await request(
-            { operation: 'generate_video', prompt: input.prompt },
-            signal,
-          )
-        },
-      }),
-      defineTool({
-        name: 'edit_video',
-        description:
-          'Edit one video at a public HTTPS URL according to the prompt. This is a billable FAL request and may take several minutes.',
-        input: v.object({ prompt, sourceUrl }),
-        async run({ input, signal }) {
-          return await request(
-            {
-              operation: 'edit_video',
-              prompt: input.prompt,
-              sourceUrl: input.sourceUrl,
-            },
-            signal,
-          )
-        },
-      }),
-    ],
+    agent: () => {
+      for (const tool of tools) useTool(tool)
+      return INSTRUCTIONS
+    },
   })
 }

@@ -12,6 +12,8 @@ function userMessage(id: string, submissionId: string): FlueConversationMessage 
     id,
     submissionId,
     role: 'user',
+    purpose: 'user',
+    display: 'visible',
     metadata: { timestamp: '2026-07-12T10:00:00.000Z' },
     parts: [{ type: 'text', text: 'Create a weekly planning task', state: 'done' }],
   };
@@ -24,6 +26,8 @@ describe('mergeConvexMessages', () => {
       id: 'message:assistant-1',
       submissionId: 'submission-1',
       role: 'assistant',
+      purpose: 'assistant',
+      display: 'visible',
       metadata: { timestamp: '2026-07-12T10:00:01.000Z' },
       parts: [{ type: 'text', text: 'Absolutely.', state: 'done' }],
     };
@@ -110,6 +114,8 @@ describe('mergeConvexMessages', () => {
     const partial: FlueConversationMessage = {
       id: 'message:assistant-1',
       role: 'assistant',
+      purpose: 'assistant',
+      display: 'visible',
       parts: [{ type: 'text', text: 'Work', state: 'streaming' }],
     };
     const initial = changedMessagesForConvexSync([first, partial], new Map());
@@ -132,6 +138,8 @@ describe('mergeConvexMessages', () => {
     const stored: FlueConversationMessage = {
       id: 'message:assistant-stream',
       role: 'assistant',
+      purpose: 'assistant',
+      display: 'visible',
       parts: [{ type: 'text', text: 'Hel', state: 'streaming' }],
     };
     const row = {

@@ -6,7 +6,8 @@ import lockfile from 'proper-lockfile'
 
 const PROVIDER = 'openai-codex'
 const REFRESH_EARLY_MS = 5 * 60 * 1000
-const AGENT_PORT = 3583
+// Flue 2.0 dev is `vite dev`; keep the spawned worker on Vite's default port.
+const AGENT_PORT = 5173
 const AUTH_LOCK_STALE_MS = 30_000
 
 interface OAuthCredential {
@@ -147,7 +148,7 @@ async function main(): Promise<void> {
   const packageRoot = dirname(dirname(import.meta.path))
   const localEnv = await localAgentEnvironment(packageRoot)
   const child = Bun.spawn({
-    cmd: ['bun', 'run', 'dev', '--target', 'node', '--port', String(AGENT_PORT)],
+    cmd: ['bun', 'run', 'dev', '--port', String(AGENT_PORT)],
     cwd: packageRoot,
     env: {
       ...localEnv,

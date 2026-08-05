@@ -20,7 +20,7 @@ import {
   useChatThreadActions,
   useConvexMessages,
 } from '@/hooks/use-convex-chat';
-import { BEE_AGENT_NAME, createBeeFlueClient, flueClient } from '@/lib/flue';
+import { createBeeFlueClient } from '@/lib/flue';
 import {
   confirmPendingFirstFocus,
   isFirstFocusConfirmation,
@@ -59,10 +59,13 @@ export function useVoiceAgent() {
   // Thread 0 keeps the original `userId` conversation; later threads append a
   // `~N` suffix (the agent strips it to recover the user id for its tools).
   const conversationId = userId ? (thread > 0 ? `${userId}~${thread}` : userId) : 'signed-out';
-  const [client, setClient] = useState(() => flueClient);
+  // Flue 2.0 clients are conversation-scoped, so a thread switch needs a
+  // client addressed at the new conversation URL.
+  const [client, setClient] = useState(() => createBeeFlueClient(conversationId));
+  useEffect(() => {
+    setClient(createBeeFlueClient(conversationId));
+  }, [conversationId]);
   const agent = useFlueAgent({
-    name: BEE_AGENT_NAME,
-    id: conversationId,
     live: BEE_AGENT_LIVE_MODE,
     client,
   });
@@ -92,9 +95,12 @@ export function useVoiceAgent() {
       return;
     }
     const delay = Math.min(1500 * 2 ** reconnectAttempts.current++, 15000);
-    const timer = setTimeout(() => setClient(createBeeFlueClient()), delay);
+    const timer = setTimeout(
+      () => setClient(createBeeFlueClient(conversationId)),
+      delay,
+    );
     return () => clearTimeout(timer);
-  }, [agent.error]);
+  }, [agent.error, conversationId]);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const player = useAudioPlayer();

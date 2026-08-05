@@ -83,14 +83,10 @@ export function createMindTools(
         query: v.pipe(v.string(), v.description('Topic or keywords to search')),
         kind: bookmarkKind,
       }),
-      async run({ input }) {
-        return await callMindService(
-          userId,
-          convexUrl,
-          options,
-          'search',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callMindService(userId, convexUrl, options, 'search', data),
+        }
       },
     }),
     defineTool({
@@ -102,14 +98,10 @@ export function createMindTools(
         label: v.optional(v.string()),
         limit: v.optional(v.pipe(v.number(), v.minValue(1), v.maxValue(50))),
       }),
-      async run({ input }) {
-        return await callMindService(
-          userId,
-          convexUrl,
-          options,
-          'list',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callMindService(userId, convexUrl, options, 'list', data),
+        }
       },
     }),
     defineTool({
@@ -119,14 +111,10 @@ export function createMindTools(
       input: v.object({
         bookmarkId,
       }),
-      async run({ input }) {
-        return await callMindService(
-          userId,
-          convexUrl,
-          options,
-          'get',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callMindService(userId, convexUrl, options, 'get', data),
+        }
       },
     }),
     defineTool({
@@ -142,14 +130,10 @@ export function createMindTools(
           v.pipe(v.string(), v.description("The user's own note, if supplied")),
         ),
       }),
-      async run({ input }) {
-        return await callMindService(
-          userId,
-          convexUrl,
-          options,
-          'save',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callMindService(userId, convexUrl, options, 'save', data),
+        }
       },
     }),
     defineTool({
@@ -162,14 +146,10 @@ export function createMindTools(
         labels: v.optional(v.pipe(v.array(v.string()), v.maxLength(12))),
         note: v.optional(v.string()),
       }),
-      async run({ input }) {
-        return await callMindService(
-          userId,
-          convexUrl,
-          options,
-          'update',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callMindService(userId, convexUrl, options, 'update', data),
+        }
       },
     }),
     defineTool({
@@ -177,14 +157,10 @@ export function createMindTools(
       description:
         'Permanently delete one exact Mind bookmark. Find it first and use only after the user explicitly confirms they want that bookmark deleted.',
       input: v.object({ bookmarkId }),
-      async run({ input }) {
-        return await callMindService(
-          userId,
-          convexUrl,
-          options,
-          'delete',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callMindService(userId, convexUrl, options, 'delete', data),
+        }
       },
     }),
   ]

@@ -1,4 +1,4 @@
-import { type AgentProfile, defineAgentProfile } from '@flue/runtime'
+import { defineSubagent, useTool, type SubagentDefinition } from '@flue/runtime'
 import { createBeeTools } from './bee-tools.ts'
 import type { FocusServiceOptions } from './focus-client.ts'
 
@@ -32,12 +32,16 @@ export function goalsSubagent(
   userId: string,
   convexUrl: string,
   options: FocusServiceOptions,
-): AgentProfile {
-  return defineAgentProfile({
+): SubagentDefinition {
+  return defineSubagent({
     name: 'goals',
     description:
       'Read goals, projects, and tasks; create one-time or recurring Goals, Projects, and Tasks. Other changes remain app-only.',
-    instructions: INSTRUCTIONS,
-    tools: createBeeTools(userId, convexUrl, options),
+    agent: () => {
+      for (const tool of createBeeTools(userId, convexUrl, options)) {
+        useTool(tool)
+      }
+      return INSTRUCTIONS
+    },
   })
 }

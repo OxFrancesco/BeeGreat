@@ -49,3 +49,14 @@ export function beennectorAgentId(
 ) {
   return `${userId}~beennector-${provider}`
 }
+
+/** Flattens webhook facts into the string-only attributes a signal message carries. */
+export function signalAttributes(
+  values: Record<string, string | number | null | undefined>,
+): Record<string, string> {
+  const attributes: Record<string, string> = {}
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== null && value !== undefined) attributes[key] = String(value)
+  }
+  return attributes
+}

@@ -1,5 +1,6 @@
+// Flue 2.0 dev serves through Vite (5173); beta's flue dev used 3583.
 export const AGENT_URL =
-  import.meta.env.VITE_AGENT_URL ?? 'http://localhost:3583'
+  import.meta.env.VITE_AGENT_URL ?? 'http://localhost:5173'
 
 type GetToken = () => Promise<string | null>
 

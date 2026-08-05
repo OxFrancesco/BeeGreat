@@ -40,16 +40,28 @@ function findMessagePosition(
     .find((value) => value !== undefined);
 }
 
+export type SyncableMessage = FlueConversationMessage & {
+  role: 'user' | 'assistant';
+};
+
 /** Gives admitted user turns a stable key while Flue reconciles its local echo. */
-export function messagesForConvexSync(messages: FlueConversationMessage[]) {
+export function messagesForConvexSync(
+  messages: FlueConversationMessage[],
+): SyncableMessage[] {
   return messages.flatMap((message) => {
-    if (message.role === 'user' && message.submissionId) {
-      return [{ ...message, id: `submission:${message.submissionId}` }];
-    }
-    if (message.id.startsWith('local:')) {
+    // Flue 2.0 folds dispatch signals and runtime advisories into
+    // system-role messages; they are runtime plumbing, not chat history.
+    if (message.role === 'system') {
       return [];
     }
-    return [message];
+    const syncable = message as SyncableMessage;
+    if (syncable.role === 'user' && syncable.submissionId) {
+      return [{ ...syncable, id: `submission:${syncable.submissionId}` }];
+    }
+    if (syncable.id.startsWith('local:')) {
+      return [];
+    }
+    return [syncable];
   });
 }
 

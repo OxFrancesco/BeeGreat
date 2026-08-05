@@ -1,4 +1,4 @@
-import type { AgentProfile } from '@flue/runtime'
+import type { SubagentDefinition } from '@flue/runtime'
 import * as Sentry from '@sentry/cloudflare'
 import { ConvexHttpClient } from 'convex/browser'
 import { anyApi } from 'convex/server'
@@ -31,7 +31,7 @@ export async function loadPowerups(
   userId: string,
   convexUrl: string,
   runtime: PowerupRuntime = {},
-): Promise<AgentProfile[]> {
+): Promise<SubagentDefinition[]> {
   let enabledIds: string[]
   try {
     const convex = new ConvexHttpClient(convexUrl)

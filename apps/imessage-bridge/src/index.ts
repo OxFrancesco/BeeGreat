@@ -1,7 +1,7 @@
 import { toError } from '@beegreat/observability'
 import {
   createFlueClient,
-  type AgentPromptImage,
+  type DeliveredAttachment,
   type FlueClient,
 } from '@flue/sdk'
 import * as Sentry from '@sentry/bun'
@@ -47,7 +47,7 @@ type ChannelContext = {
 
 type IncomingPrompt = {
   text: string
-  images: AgentPromptImage[]
+  images: DeliveredAttachment[]
   unsupportedAttachment: boolean
 }
 
@@ -111,23 +111,25 @@ if (userMap.size === 0) {
   process.exit(1)
 }
 
-// The worker authorizes the bridge via shared secret and scopes every request
-// to one user, so each mapped user gets their own client.
-const clients = new Map<string, FlueClient>()
-function clientFor(userId: string) {
-  let client = clients.get(userId)
-  if (!client) {
-    client = createFlueClient({
-      baseUrl: AGENT_URL,
-      headers: { 'x-bridge-secret': BRIDGE_SECRET, 'x-bridge-user': userId },
-    })
-    clients.set(userId, client)
-  }
-  return client
-}
-
 function conversationId(userId: string, threadId: number) {
   return threadId > 0 ? `${userId}~${threadId}` : userId
+}
+
+// Flue 2.0 clients are conversation-scoped: one client per conversation URL.
+// The worker authorizes the bridge via shared secret and scopes every request
+// to one user, so each mapped user+thread pair gets its own client.
+const clients = new Map<string, FlueClient>()
+function clientFor(userId: string, threadId: number) {
+  const url = `${AGENT_URL.replace(/\/$/, '')}/agents/${BEE_AGENT_NAME}/${conversationId(userId, threadId)}`
+  let client = clients.get(url)
+  if (!client) {
+    client = createFlueClient({
+      url,
+      headers: { 'x-bridge-secret': BRIDGE_SECRET, 'x-bridge-user': userId },
+    })
+    clients.set(url, client)
+  }
+  return client
 }
 
 async function channelAction<T>(
@@ -175,23 +177,24 @@ async function askBee(
   userId: string,
   threadId: number,
   body: string,
-  images: AgentPromptImage[] = [],
+  images: DeliveredAttachment[] = [],
 ): Promise<BeeReply> {
-  const client = clientFor(userId)
+  const client = clientFor(userId, threadId)
   const progress = createIMessageProgressReporter(
     async (message) => await space.send(text(message)),
     (error) => captureBridgeFailure(error, 'progress.send', userId),
   )
   try {
-    const admission = await client.agents.send(
-      BEE_AGENT_NAME,
-      conversationId(userId, threadId),
-      {
-        message: body,
-        ...(images.length ? { images } : {}),
+    const admission = await client.send({
+      message: {
+        kind: 'user',
+        body,
+        ...(images.length ? { attachments: images } : {}),
       },
-    )
-    const result = await client.agents.wait(admission, {
+    })
+    // read() awaits settlement and resolves with the reply; wait() alone no
+    // longer carries the assistant text in Flue 2.0.
+    const result = await client.read(admission, {
       onEvent: (event) => progress.event(event),
     })
     return extractBeeResponse(result.text)
@@ -201,10 +204,7 @@ async function askBee(
 }
 
 async function latestInteractiveReply(userId: string, threadId: number) {
-  const history = await clientFor(userId).agents.history(
-    BEE_AGENT_NAME,
-    conversationId(userId, threadId),
-  )
+  const history = await clientFor(userId, threadId).history()
   return {
     firstFocus: latestFirstFocusPreview(history.messages),
     web3: latestWeb3Confirmation(history.messages),

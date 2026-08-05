@@ -1,6 +1,15 @@
-import { type AgentRouteHandler, defineAgent } from '@flue/runtime'
+'use agent'
+import {
+  useAgentStart,
+  useModel,
+  useSubagent,
+  useTool,
+  type AgentProps,
+  type SubagentDefinition,
+} from '@flue/runtime'
 import {
   extend,
+  getCloudflareContext,
   type CloudflareAgentLike,
 } from '@flue/runtime/cloudflare'
 import * as Sentry from '@sentry/cloudflare'
@@ -27,7 +36,7 @@ import {
 import { loadPowerups } from '../shared/powerups/index.ts'
 import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
 import { createTtlCache } from '../shared/ttl-cache.ts'
-import instructions from './bee.md' with { type: 'markdown' }
+import instructions from './bee.md'
 
 export {
   BEE_ESCALATION_MODEL_ID,
@@ -53,12 +62,20 @@ interface Env {
   BEE_SITES_BUCKET?: BeeSitesBucket
 }
 
-export const description =
-  'BeeGreat voice-first personal focus agent: goals, tasks, and generated UI.'
-
-// app.ts verifies the Clerk JWT and rejects agent ids owned by another user
-// before requests reach this Flue route.
-export const route: AgentRouteHandler = async (_c, next) => next()
+/** Worker env for the current request; process.env under `flue run` and tests. */
+function workerEnv(): Env {
+  try {
+    return getCloudflareContext().env as unknown as Env
+  } catch {
+    return (
+      (
+        globalThis as unknown as {
+          process?: { env?: Env }
+        }
+      ).process?.env ?? ({} as Env)
+    )
+  }
+}
 
 type AgentWithStorage = CloudflareAgentLike & {
   ctx: { storage: { deleteAll(): Promise<void> } }
@@ -80,27 +97,41 @@ export const cloudflare = extend<AgentWithStorage>({
 // Latency caches for per-message init lookups. Both are safe to reuse across
 // messages: a user's IANA timezone changes rarely, and the ChatGPT credential
 // carries its own expiry. Entitlement-style lookups (power-ups, Beennectors)
-// stay fresh per message so toggles apply to the very next reply.
+// refresh on every delivered message so toggles apply to the next reply.
 const TIME_ZONE_TTL_MS = 10 * 60 * 1000
 const timeZoneCache = createTtlCache<string>()
 const chatGptCredentialCache = createTtlCache<{ accessToken: string }>()
 
-async function loadFocusContext(
+/**
+ * Per-user async init results, warmed by `useAgentStart` before each model
+ * call and read synchronously by the render. Flue 2.0 renders are synchronous,
+ * so the very first render of a cold isolate falls back to the defaults
+ * (OpenRouter model, UTC, core subagents only); the snapshot is in place for
+ * every later turn and message.
+ */
+type BeeSnapshot = {
+  timeZone: string
+  powerups: SubagentDefinition[]
+  beennectors: SubagentDefinition[]
+  providerId?: string
+  sandboxSdk: typeof import('@cloudflare/sandbox') | null
+}
+const snapshots = new Map<string, BeeSnapshot>()
+
+async function loadTimeZone(
   userId: string,
   convexUrl: string,
   focusOptions: { convexSiteUrl?: string; brokerSecret?: string },
-): Promise<{ timeZone: string; currentTime: number }> {
-  const cachedTimeZone = timeZoneCache.get(userId)
-  if (cachedTimeZone) {
-    return { timeZone: cachedTimeZone, currentTime: Date.now() }
-  }
+): Promise<string> {
+  const cached = timeZoneCache.get(userId)
+  if (cached) return cached
   try {
     const context = await callFocusService<{
       timeZone: string
       currentTime: number
     }>(userId, convexUrl, focusOptions, 'get_context')
     timeZoneCache.set(userId, context.timeZone, TIME_ZONE_TTL_MS)
-    return context
+    return context.timeZone
   } catch (error) {
     Sentry.captureException(error, {
       tags: {
@@ -109,7 +140,7 @@ async function loadFocusContext(
         handled: 'true',
       },
     })
-    return { timeZone: 'UTC', currentTime: Date.now() }
+    return 'UTC'
   }
 }
 
@@ -145,40 +176,76 @@ async function registerCodexProvider(
   return providerId
 }
 
+/** One warm pass per delivered message; every loader fails open on its own. */
+async function warmSnapshot(userId: string, env: Env): Promise<void> {
+  const focusOptions = {
+    convexSiteUrl: env.CONVEX_SITE_URL,
+    brokerSecret: env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+  }
+  // The lookups are independent; run them concurrently so warming costs one
+  // round trip instead of four.
+  const [timeZone, powerups, beennectors, providerId, sandboxSdk] =
+    await Promise.all([
+      loadTimeZone(userId, env.CONVEX_URL, focusOptions),
+      // Opt-in power-ups: one specialist subagent each, loaded per user per message.
+      loadPowerups(userId, env.CONVEX_URL, {
+        convexSiteUrl: env.CONVEX_SITE_URL,
+        credentialBrokerSecret:
+          env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+      }),
+      loadBeennectorSubagent(userId, env.CONVEX_URL, focusOptions),
+      registerCodexProvider(userId, env).catch((error) => {
+        Sentry.captureException(error, {
+          tags: {
+            service: 'agent-worker',
+            operation: 'codex.register_provider',
+            handled: 'true',
+          },
+        })
+        return undefined
+      }),
+      // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
+      env.Sandbox && env.BEE_SITES_BUCKET
+        ? import('@cloudflare/sandbox')
+        : Promise.resolve(null),
+    ])
+  snapshots.set(userId, {
+    timeZone,
+    powerups,
+    beennectors,
+    providerId,
+    sandboxSdk,
+  })
+}
+
 // Bee is an orchestrator: it owns the conversation and the voice/beeui contract,
 // and delegates domain work via its built-in `task` capability to specialist
 // subagents — goals and Imagine are always on, Beennectors are loaded when
 // connected, and optional power-ups are loaded when enabled.
-export default defineAgent<Env>(async ({ id, env }) => {
+export function Bee({ id }: AgentProps) {
   // Conversation ids are `<userId>` or `<userId>~<session>` once the user has
   // restarted the chat; specialists always key data by the bare user id.
   const userId = id.split('~')[0]
+  const env = workerEnv()
+  const snapshot = snapshots.get(userId)
+  const providerId = snapshot?.providerId
+
+  useModel(resolveBeeOrchestratorModel(providerId), {
+    thinkingLevel: BEE_ORCHESTRATOR_THINKING_LEVEL,
+  })
+  useAgentStart(async () => {
+    await warmSnapshot(userId, env)
+  })
+
   const focusOptions = {
     convexSiteUrl: env.CONVEX_SITE_URL,
-    brokerSecret:
-      env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+    brokerSecret: env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
   }
-  // The four init lookups are independent; run them concurrently so init costs
-  // one round trip instead of four. Each loader fails open on its own.
-  const [focusContext, powerups, beennectors, providerId] = await Promise.all([
-    loadFocusContext(userId, env.CONVEX_URL, focusOptions),
-    // Opt-in power-ups: one specialist subagent each, loaded per user per message.
-    loadPowerups(userId, env.CONVEX_URL, {
-      convexSiteUrl: env.CONVEX_SITE_URL,
-      credentialBrokerSecret:
-        env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
-    }),
-    loadBeennectorSubagent(userId, env.CONVEX_URL, focusOptions),
-    registerCodexProvider(userId, env),
-  ])
   const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
-  // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
-  const sandboxSdk =
-    env.Sandbox && env.BEE_SITES_BUCKET
-      ? await import('@cloudflare/sandbox')
-      : null
+  for (const tool of mindTools) useTool(tool)
+
   const sitesSubagents =
-    sandboxSdk && env.Sandbox && env.BEE_SITES_BUCKET
+    snapshot?.sandboxSdk && env.Sandbox && env.BEE_SITES_BUCKET
       ? [
           astroCreatorSubagent({
             userId,
@@ -186,8 +253,10 @@ export default defineAgent<Env>(async ({ id, env }) => {
             convexUrl: env.CONVEX_URL,
             brokerSecret:
               env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
-            sandbox: sandboxSdk.getSandbox(
-              env.Sandbox as Parameters<typeof sandboxSdk.getSandbox>[0],
+            sandbox: snapshot.sandboxSdk.getSandbox(
+              env.Sandbox as Parameters<
+                typeof snapshot.sandboxSdk.getSandbox
+              >[0],
               `bee-sites-${userId}`,
             ),
             bucket: env.BEE_SITES_BUCKET,
@@ -198,21 +267,19 @@ export default defineAgent<Env>(async ({ id, env }) => {
     goalsSubagent(userId, env.CONVEX_URL, focusOptions),
     imagineSubagent(env.CONVEX_URL, focusOptions),
     ...sitesSubagents,
-    ...beennectors,
-    ...powerups,
+    ...(snapshot?.beennectors ?? []),
+    ...(snapshot?.powerups ?? []),
   ]
-  return {
-    model: resolveBeeOrchestratorModel(providerId),
-    thinkingLevel: BEE_ORCHESTRATOR_THINKING_LEVEL,
-    instructions: `${instructions}\n\n## User time context\nThe user's IANA timezone is ${focusContext.timeZone}. The current time is ${new Date(focusContext.currentTime).toISOString()}. Use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`,
-    tools: mindTools,
-    subagents: [
-      ...domainSubagents,
-      solEscalationSubagent({
-        model: resolveBeeEscalationModel(providerId),
-        tools: mindTools,
-        subagents: domainSubagents,
-      }),
-    ],
-  }
-})
+  for (const subagent of domainSubagents) useSubagent(subagent)
+  useSubagent(
+    solEscalationSubagent({
+      model: resolveBeeEscalationModel(providerId),
+      tools: mindTools,
+      subagents: domainSubagents,
+    }),
+  )
+
+  const timeZone = snapshot?.timeZone ?? 'UTC'
+  return `${instructions}\n\n## User time context\nThe user's IANA timezone is ${timeZone}. The current time is ${new Date().toISOString()}. Use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`
+}
+Bee.agentName = 'bee'

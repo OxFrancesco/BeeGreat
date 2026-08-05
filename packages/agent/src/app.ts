@@ -1,5 +1,5 @@
 import { dispatch } from '@flue/runtime'
-import { flue } from '@flue/runtime/routing'
+import { createAgentRouter } from '@flue/runtime/routing'
 import {
   sanitizeSentryBreadcrumb,
   sanitizeSentryEvent,
@@ -9,7 +9,10 @@ import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
-import bee from './agents/bee.ts'
+import { Bee } from './agents/bee.ts'
+import { channel as githubChannel } from './channels/github.ts'
+import { channel as linearChannel } from './channels/linear.ts'
+import { channel as notionChannel } from './channels/notion.ts'
 import {
   callChannelAction,
   type ChannelActionName,
@@ -369,18 +372,20 @@ app.post('/internal/web3-settled', async (c) => {
   ) {
     return c.json({ error: 'Invalid settled-action event' }, 400)
   }
-  await dispatch(bee, {
+  const attributes: Record<string, string> = { actionId: body.actionId, status }
+  if (typeof body.kind === 'string') attributes.kind = body.kind
+  if (typeof body.detail === 'string') attributes.detail = body.detail
+  if (typeof body.error === 'string') attributes.error = body.error
+  if (typeof body.explorerLink === 'string') {
+    attributes.explorerLink = body.explorerLink
+  }
+  await dispatch(Bee, {
     id: body.conversationId,
-    input: {
+    message: {
+      kind: 'signal',
       type: 'web3.action_settled',
-      actionId: body.actionId,
-      kind: typeof body.kind === 'string' ? body.kind : null,
-      status,
-      summary: body.summary,
-      detail: typeof body.detail === 'string' ? body.detail : null,
-      error: typeof body.error === 'string' ? body.error : null,
-      explorerLink:
-        typeof body.explorerLink === 'string' ? body.explorerLink : null,
+      body: body.summary,
+      attributes,
     },
   })
   return c.json({ dispatched: true })
@@ -681,7 +686,13 @@ app.post('/voice/speak', async (c) => {
   return c.json({ audio: toBase64(await response.arrayBuffer()), mimeType: 'audio/mpeg' })
 })
 
-app.route('/', flue())
+// Flue 2.0 routing is explicit: the agent router serves POST/GET/abort/
+// attachments under /agents/bee/:id, and each channel mounts its own webhook
+// routes at the paths registered with the providers.
+app.route('/agents/bee', createAgentRouter(Bee))
+app.route('/channels/github', githubChannel.route())
+app.route('/channels/linear', linearChannel.route())
+app.route('/channels/notion', notionChannel.route())
 
 export default Sentry.withSentry<Bindings>(
   (env) => {

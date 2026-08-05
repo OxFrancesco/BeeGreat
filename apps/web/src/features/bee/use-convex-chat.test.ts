@@ -15,6 +15,8 @@ describe('TranscriptSyncQueue', () => {
     const partial: FlueConversationMessage = {
       id: 'assistant:strict-mode',
       role: 'assistant',
+      purpose: 'assistant',
+      display: 'visible',
       parts: [{ type: 'text', text: 'Stream', state: 'streaming' }],
     }
 
@@ -47,11 +49,15 @@ describe('TranscriptSyncQueue', () => {
     const valid: FlueConversationMessage = {
       id: 'assistant:valid',
       role: 'assistant',
+      purpose: 'assistant',
+      display: 'visible',
       parts: [{ type: 'text', text: 'Saved', state: 'done' }],
     }
     const rejected: FlueConversationMessage = {
       id: 'assistant:too-large',
       role: 'assistant',
+      purpose: 'assistant',
+      display: 'visible',
       parts: [{ type: 'text', text: 'Oversized', state: 'done' }],
     }
 

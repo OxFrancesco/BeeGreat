@@ -1,7 +1,8 @@
 import {
-  type AgentProfile,
-  defineAgentProfile,
+  defineSubagent,
   defineTool,
+  useTool,
+  type SubagentDefinition,
 } from '@flue/runtime'
 import type { ISandbox } from '@cloudflare/sandbox'
 import * as v from 'valibot'
@@ -217,9 +218,8 @@ function newVersion() {
   return crypto.randomUUID().replaceAll('-', '')
 }
 
-export function astroCreatorSubagent(
-  options: AstroCreatorOptions,
-): AgentProfile {
+/** The guarded site-workspace toolset the delegate mounts; exported for tests. */
+export function astroCreatorTools(options: AstroCreatorOptions) {
   let activeSite: PreparedSite | null = null
 
   const broker = <T>(
@@ -444,122 +444,131 @@ export function astroCreatorSubagent(
   const siteId = v.optional(v.pipe(v.string(), v.minLength(1), v.maxLength(128)))
   const filePath = v.pipe(v.string(), v.minLength(1), v.maxLength(240))
 
-  return defineAgentProfile({
+  return [
+    defineTool({
+      name: 'list_bee_sites',
+      description: 'List the signed-in user’s Bee Sites before choosing one.',
+      input: v.object({}),
+      async run({ signal }) {
+        return { output: await broker<AgentSite[]>('list', {}, signal) }
+      },
+    }),
+    defineTool({
+      name: 'prepare_site_workspace',
+      description:
+        'Select or create one site and prepare its locked Astro workspace. This consumes one monthly generation.',
+      input: v.object({
+        siteId,
+        title,
+        suggestedSlug: v.optional(
+          v.pipe(v.string(), v.minLength(2), v.maxLength(48)),
+        ),
+      }),
+      async run({ data, signal }) {
+        activeSite = await broker<PreparedSite>(
+          'prepare',
+          {
+            siteId: data.siteId,
+            title: data.title,
+            suggestedSlug: data.suggestedSlug,
+          },
+          signal,
+        )
+        const workspace = workspaceFor(activeSite.siteId)
+        const exists = await options.sandbox.exists(`${workspace}/package.json`)
+        if (!exists.exists) {
+          const result = await options.sandbox.exec(
+            `mkdir -p ${workspace} && cp -a ${TEMPLATE_ROOT}/. ${workspace}/`,
+            { timeout: 30_000, signal },
+          )
+          if (!result.success) {
+            activeSite = null
+            throw new Error(`Could not prepare the Astro workspace: ${result.stderr}`)
+          }
+          await restoreSource(activeSite, workspace)
+        }
+        const { siteId: _siteId, ...publicSite } = activeSite
+        return { output: publicSite }
+      },
+    }),
+    defineTool({
+      name: 'read_site_file',
+      description: 'Read one approved text file from the selected Astro workspace.',
+      input: v.object({ path: filePath }),
+      async run({ data }) {
+        const { workspace } = requireActive()
+        const path = safeRelativePath(data.path, 'read')
+        const result = await options.sandbox.readFile(`${workspace}/${path}`)
+        if (!result.success) throw new Error(`Could not read ${path}.`)
+        if (result.content.length > MAX_TOOL_TEXT) {
+          throw new Error(`${path} is too large to read through Astro Creator.`)
+        }
+        return { output: { path, content: result.content } }
+      },
+    }),
+    defineTool({
+      name: 'write_site_file',
+      description:
+        'Write one approved static Astro, CSS, or public text asset in the selected workspace.',
+      input: v.object({
+        path: filePath,
+        content: v.pipe(v.string(), v.maxLength(MAX_TOOL_TEXT)),
+      }),
+      async run({ data }) {
+        const { workspace } = requireActive()
+        const path = safeRelativePath(data.path, 'write')
+        const parent = path.slice(0, path.lastIndexOf('/'))
+        if (parent) await options.sandbox.mkdir(`${workspace}/${parent}`, { recursive: true })
+        const result = await options.sandbox.writeFile(
+          `${workspace}/${path}`,
+          data.content,
+        )
+        if (!result.success) throw new Error(`Could not write ${path}.`)
+        return { output: { path, saved: true } }
+      },
+    }),
+    defineTool({
+      name: 'check_site',
+      description: 'Run Astro type checks and a production build for the selected site.',
+      input: v.object({}),
+      async run({ signal }) {
+        return { output: await check(signal) }
+      },
+    }),
+    defineTool({
+      name: 'preview_site',
+      description:
+        'Build and upload an unlisted review preview. This does not change the public site.',
+      input: v.object({}),
+      async run({ signal }) {
+        return { output: await deploy('preview', signal) }
+      },
+    }),
+    defineTool({
+      name: 'publish_site',
+      description:
+        'Publish a checked site to its public address. Use only after explicit user approval.',
+      input: v.object({}),
+      async run({ signal }) {
+        return { output: await deploy('production', signal) }
+      },
+    }),
+  ]
+}
+
+export function astroCreatorSubagent(
+  options: AstroCreatorOptions,
+): SubagentDefinition {
+  const tools = astroCreatorTools(options)
+  return defineSubagent({
     name: 'astro-creator',
     description:
       'Create, edit, preview, and explicitly publish fast static Astro pages as Bee Sites.',
     model: options.model,
     thinkingLevel: 'high',
-    instructions: INSTRUCTIONS,
-    tools: [
-      defineTool({
-        name: 'list_bee_sites',
-        description: 'List the signed-in user’s Bee Sites before choosing one.',
-        input: v.object({}),
-        async run({ signal }) {
-          return await broker<AgentSite[]>('list', {}, signal)
-        },
-      }),
-      defineTool({
-        name: 'prepare_site_workspace',
-        description:
-          'Select or create one site and prepare its locked Astro workspace. This consumes one monthly generation.',
-        input: v.object({
-          siteId,
-          title,
-          suggestedSlug: v.optional(
-            v.pipe(v.string(), v.minLength(2), v.maxLength(48)),
-          ),
-        }),
-        async run({ input, signal }) {
-          activeSite = await broker<PreparedSite>(
-            'prepare',
-            {
-              siteId: input.siteId,
-              title: input.title,
-              suggestedSlug: input.suggestedSlug,
-            },
-            signal,
-          )
-          const workspace = workspaceFor(activeSite.siteId)
-          const exists = await options.sandbox.exists(`${workspace}/package.json`)
-          if (!exists.exists) {
-            const result = await options.sandbox.exec(
-              `mkdir -p ${workspace} && cp -a ${TEMPLATE_ROOT}/. ${workspace}/`,
-              { timeout: 30_000, signal },
-            )
-            if (!result.success) {
-              activeSite = null
-              throw new Error(`Could not prepare the Astro workspace: ${result.stderr}`)
-            }
-            await restoreSource(activeSite, workspace)
-          }
-          const { siteId: _siteId, ...publicSite } = activeSite
-          return publicSite
-        },
-      }),
-      defineTool({
-        name: 'read_site_file',
-        description: 'Read one approved text file from the selected Astro workspace.',
-        input: v.object({ path: filePath }),
-        async run({ input }) {
-          const { workspace } = requireActive()
-          const path = safeRelativePath(input.path, 'read')
-          const result = await options.sandbox.readFile(`${workspace}/${path}`)
-          if (!result.success) throw new Error(`Could not read ${path}.`)
-          if (result.content.length > MAX_TOOL_TEXT) {
-            throw new Error(`${path} is too large to read through Astro Creator.`)
-          }
-          return { path, content: result.content }
-        },
-      }),
-      defineTool({
-        name: 'write_site_file',
-        description:
-          'Write one approved static Astro, CSS, or public text asset in the selected workspace.',
-        input: v.object({
-          path: filePath,
-          content: v.pipe(v.string(), v.maxLength(MAX_TOOL_TEXT)),
-        }),
-        async run({ input }) {
-          const { workspace } = requireActive()
-          const path = safeRelativePath(input.path, 'write')
-          const parent = path.slice(0, path.lastIndexOf('/'))
-          if (parent) await options.sandbox.mkdir(`${workspace}/${parent}`, { recursive: true })
-          const result = await options.sandbox.writeFile(
-            `${workspace}/${path}`,
-            input.content,
-          )
-          if (!result.success) throw new Error(`Could not write ${path}.`)
-          return { path, saved: true }
-        },
-      }),
-      defineTool({
-        name: 'check_site',
-        description: 'Run Astro type checks and a production build for the selected site.',
-        input: v.object({}),
-        async run({ signal }) {
-          return await check(signal)
-        },
-      }),
-      defineTool({
-        name: 'preview_site',
-        description:
-          'Build and upload an unlisted review preview. This does not change the public site.',
-        input: v.object({}),
-        async run({ signal }) {
-          return await deploy('preview', signal)
-        },
-      }),
-      defineTool({
-        name: 'publish_site',
-        description:
-          'Publish a checked site to its public address. Use only after explicit user approval.',
-        input: v.object({}),
-        async run({ signal }) {
-          return await deploy('production', signal)
-        },
-      }),
-    ],
+    agent: () => {
+      for (const tool of tools) useTool(tool)
+      return INSTRUCTIONS
+    },
   })
 }

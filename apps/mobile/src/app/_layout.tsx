@@ -1,5 +1,4 @@
 import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
-import { FlueProvider } from '@flue/react';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import {
@@ -28,7 +27,6 @@ import { SubscriptionProvider } from '@/components/subscription/subscription-pro
 import { WalletAppKit } from '@/components/web3/wallet-app-kit';
 import { Colors } from '@/constants/theme';
 import { tokenCache } from '@/lib/clerk-token-cache';
-import { flueClient } from '@/lib/flue';
 import { Sentry, sentryNavigationIntegration } from '@/lib/sentry';
 import { ScreenshotHarnessRoot } from '@/screenshot-harness/screenshot-harness-root';
 
@@ -54,9 +52,7 @@ function RootLayout() {
           >
             <SentryUserContext />
             <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-              <FlueProvider client={flueClient}>
-                <RootNavigator />
-              </FlueProvider>
+              <RootNavigator />
             </ConvexProviderWithClerk>
           </ClerkProvider>
         )}

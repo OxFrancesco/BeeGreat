@@ -4,31 +4,34 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "flue dev",
+    "dev": "vite dev",
     "dev:chatgpt": "bun run scripts/dev-with-pi-chatgpt.ts",
-    "build": "flue build",
-    "deploy": "flue build && wrangler deploy"
+    "build": "vite build",
+    "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
     "@beegreat/observability": "workspace:*",
     "@cloudflare/sandbox": "0.12.4",
-    "@earendil-works/pi-ai": "^0.80.6",
-    "@flue/github": "1.0.0-beta.1",
-    "@flue/linear": "1.0.0-beta.1",
-    "@flue/notion": "1.0.0-beta.1",
-    "@flue/runtime": "1.0.0-beta.9",
+    "@earendil-works/pi-ai": "^0.83.0",
+    "@flue/github": "2.0.3",
+    "@flue/linear": "2.0.3",
+    "@flue/notion": "2.0.3",
+    "@flue/runtime": "2.0.3",
     "@sentry/cloudflare": "^10.65.0",
-    "agents": "^0.14.2",
     "convex": "^1.36.1",
-    "hono": "^4.6.0",
+    "hono": "^4.12.32",
     "jose": "^6.2.3",
     "proper-lockfile": "4.1.2",
     "valibot": "^1.0.0"
   },
   "devDependencies": {
-    "@flue/cli": "1.0.0-beta.9",
+    "@cloudflare/vite-plugin": "^1.39.2",
+    "@cloudflare/workers-types": "^5.20260804.1",
+    "@flue/cli": "2.0.3",
+    "@flue/vite": "2.0.3",
     "@types/proper-lockfile": "4.1.4",
     "typescript": "~6.0.3",
-    "wrangler": "^4.0.0"
+    "vite": "^8.0.14",
+    "wrangler": "^4.113.0"
   }
 }

@@ -36,23 +36,25 @@ export function useBeeAgent() {
       ? `${userId}~${thread}`
       : userId
     : undefined
+  // Flue 2.0 clients are conversation-scoped: one client per conversation URL
+  // (the agent's mount path plus the conversation id). No id → dormant hook.
   const createClient = useCallback(
     () =>
-      createFlueClient({
-        baseUrl: AGENT_URL,
-        headers: async () => {
-          const token = await getToken()
-          const headers: Record<string, string> = {}
-          if (token) headers.authorization = `Bearer ${token}`
-          return headers
-        },
-      }),
-    [getToken],
+      conversationId
+        ? createFlueClient({
+            url: `${AGENT_URL}/agents/${BEE_AGENT_NAME}/${conversationId}`,
+            headers: async () => {
+              const token = await getToken()
+              const headers: Record<string, string> = {}
+              if (token) headers.authorization = `Bearer ${token}`
+              return headers
+            },
+          })
+        : undefined,
+    [conversationId, getToken],
   )
   const [client, setClient] = useState(createClient)
   const agent = useFlueAgent({
-    name: BEE_AGENT_NAME,
-    id: conversationId,
     live: BEE_AGENT_LIVE_MODE,
     client,
   })

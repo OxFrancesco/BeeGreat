@@ -50,12 +50,9 @@ export function createBeeTools(
       description:
         'List the user\u2019s active goals (three is healthy; seven is the hard maximum) with their projects, open/done task counts, and their final goal, if set.',
       async run() {
-        return await callFocusService(
-          userId,
-          convexUrl,
-          options,
-          'get_goals',
-        )
+        return {
+          output: await callFocusService(userId, convexUrl, options, 'get_goals'),
+        }
       },
     }),
 
@@ -69,14 +66,10 @@ export function createBeeTools(
         ),
         status: v.optional(v.picklist(['todo', 'done'])),
       }),
-      async run({ input }) {
-        return await callFocusService(
-          userId,
-          convexUrl,
-          options,
-          'list_tasks',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callFocusService(userId, convexUrl, options, 'list_tasks', data),
+        }
       },
     }),
 
@@ -90,14 +83,10 @@ export function createBeeTools(
           v.pipe(v.string(), v.description('Clear definition of the intended outcome')),
         ),
       }),
-      async run({ input }) {
-        return await callFocusService(
-          userId,
-          convexUrl,
-          options,
-          'create_goal',
-          input,
-        )
+      async run({ data }) {
+        return {
+          output: await callFocusService(userId, convexUrl, options, 'create_goal', data),
+        }
       },
     }),
 
@@ -110,17 +99,13 @@ export function createBeeTools(
         title: v.pipe(v.string(), v.description('Project title')),
         recurrence: v.optional(recurrenceInput),
       }),
-      async run({ input }) {
-        return await callFocusService(
-          userId,
-          convexUrl,
-          options,
-          'create_project',
-          {
-            ...input,
-            recurrence: recurrencePayload(input.recurrence),
-          },
-        )
+      async run({ data }) {
+        return {
+          output: await callFocusService(userId, convexUrl, options, 'create_project', {
+            ...data,
+            recurrence: recurrencePayload(data.recurrence),
+          }),
+        }
       },
     }),
 
@@ -139,19 +124,15 @@ export function createBeeTools(
         ),
         recurrence: v.optional(recurrenceInput),
       }),
-      async run({ input }) {
-        const { dueAt, ...rest } = input
-        return await callFocusService(
-          userId,
-          convexUrl,
-          options,
-          'create_task',
-          {
+      async run({ data }) {
+        const { dueAt, ...rest } = data
+        return {
+          output: await callFocusService(userId, convexUrl, options, 'create_task', {
             ...rest,
             dueDate: dueAt ? isoTimestamp(dueAt, 'Due date') : undefined,
-            recurrence: recurrencePayload(input.recurrence),
-          },
-        )
+            recurrence: recurrencePayload(data.recurrence),
+          }),
+        }
       },
     }),
 

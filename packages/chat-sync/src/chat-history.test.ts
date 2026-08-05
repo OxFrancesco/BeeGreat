@@ -12,10 +12,12 @@ function message(
   role: 'user' | 'assistant',
   text: string,
   submissionId?: string,
-): FlueConversationMessage {
+): FlueConversationMessage & { role: 'user' | 'assistant' } {
   return {
     id,
     role,
+    purpose: role,
+    display: 'visible',
     ...(submissionId ? { submissionId } : {}),
     parts: [{ type: 'text', text, state: 'done' }],
   };

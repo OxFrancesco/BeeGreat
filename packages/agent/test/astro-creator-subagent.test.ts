@@ -1,24 +1,27 @@
 import { describe, expect, test } from 'bun:test'
 import {
   astroCreatorSubagent,
+  astroCreatorTools,
   callBeeSitesService,
 } from '../src/shared/bee-sites/astro-creator.ts'
 
 describe('Astro Creator subagent', () => {
   test('uses Terra High and exposes only the guarded site workspace tools', () => {
-    const profile = astroCreatorSubagent({
+    const options = {
       userId: 'user_creator',
       model: 'openrouter/openai/gpt-5.6-terra',
       convexUrl: 'https://bee.convex.cloud',
       brokerSecret: 'broker-secret',
       sandbox: {} as never,
       bucket: {} as never,
-    })
+    }
+    const definition = astroCreatorSubagent(options)
 
-    expect(profile.name).toBe('astro-creator')
-    expect(profile.model).toBe('openrouter/openai/gpt-5.6-terra')
-    expect(profile.thinkingLevel).toBe('high')
-    expect(profile.tools?.map((tool) => tool.name)).toEqual([
+    expect(definition.name).toBe('astro-creator')
+    expect(definition.model).toBe('openrouter/openai/gpt-5.6-terra')
+    expect(definition.thinkingLevel).toBe('high')
+    // The delegate mounts its tools during its render; the same factory feeds it.
+    expect(astroCreatorTools(options).map((tool) => tool.name)).toEqual([
       'list_bee_sites',
       'prepare_site_workspace',
       'read_site_file',

@@ -1,10 +1,11 @@
 import { createLinearChannel } from '@flue/linear'
 import { dispatch } from '@flue/runtime'
-import bee from '../agents/bee.ts'
+import { Bee } from '../agents/bee.ts'
 import {
   beennectorAgentId,
   channelSecret,
   claimBeennectorDelivery,
+  signalAttributes,
 } from '../shared/beennectors/channel.ts'
 
 export const channel = createLinearChannel({
@@ -32,25 +33,31 @@ export const channel = createLinearChannel({
       event.data && typeof event.data === 'object'
         ? (event.data as Record<string, unknown>)
         : undefined
-    await dispatch(bee, {
+    const type = `linear.${String(event.type ?? 'event')}`
+    const action = String(event.action ?? 'updated')
+    const identifier =
+      typeof data?.identifier === 'string' ? data.identifier : null
+    const title = typeof data?.title === 'string' ? data.title : null
+    const body = typeof data?.body === 'string' ? data.body : null
+    await dispatch(Bee, {
       id: beennectorAgentId(claim.userId, 'linear'),
-      input: {
-        type: `linear.${String(event.type ?? 'event')}`,
-        deliveryId,
-        action: String(event.action ?? 'updated'),
-        organizationId: workspaceId ?? null,
-        actor: typeof actor?.name === 'string' ? actor.name : null,
-        item: data
-          ? {
-              id: typeof data.id === 'string' ? data.id : null,
-              identifier:
-                typeof data.identifier === 'string' ? data.identifier : null,
-              title: typeof data.title === 'string' ? data.title : null,
-              body: typeof data.body === 'string' ? data.body : null,
-              issueId: typeof data.issueId === 'string' ? data.issueId : null,
-              url: typeof data.url === 'string' ? data.url : null,
-            }
-          : null,
+      message: {
+        kind: 'signal',
+        type,
+        body:
+          body ||
+          `${action}${identifier ? ` ${identifier}` : ''}${title ? `: ${title}` : ''}`,
+        attributes: signalAttributes({
+          deliveryId,
+          action,
+          organizationId: workspaceId ?? null,
+          actor: typeof actor?.name === 'string' ? actor.name : null,
+          itemId: typeof data?.id === 'string' ? data.id : null,
+          identifier,
+          title,
+          issueId: typeof data?.issueId === 'string' ? data.issueId : null,
+          url: typeof data?.url === 'string' ? data.url : null,
+        }),
       },
     })
   },

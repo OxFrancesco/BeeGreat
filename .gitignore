@@ -12,6 +12,10 @@ build/
 resources/
 .wrangler/
 
+# flue 2.x vite build intermediates (generated per build)
+.flue-vite/
+.flue-vite.wrangler.jsonc
+
 # bee-3d regenerable render intermediates
 assets/bee-3d/previews/turntable-frames/
 assets/bee-3d/previews/animations/*/
