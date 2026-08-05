@@ -7,7 +7,7 @@ function deletionEnv(calls: string[], deletedSiteKeys: string[] = []) {
     ELEVENLABS_API_KEY: 'unused',
     CLERK_JWT_ISSUER_DOMAIN: 'https://unused.clerk.accounts.dev',
     AGENT_CREDENTIAL_BROKER_SECRET: 'broker-secret',
-    FLUE_BEE_AGENT: {
+    FLUE_BEE_V2_AGENT: {
       getByName(name: string) {
         return {
           async deleteAccountData() {

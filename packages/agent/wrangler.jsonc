@@ -42,15 +42,16 @@
     },
     // Flue 2.0 upgrade: beta-era persisted stores are reset-only. FlueRegistry
     // is gone from the framework, and beta FlueBeeAgent storage (schema v5) is
-    // rejected by the 2.0 runtime, so the class is drained and recreated.
-    // Convex keeps the user-visible chat history.
+    // rejected by the 2.0 runtime. Cloudflare cannot delete and recreate the
+    // same class in one deploy, so the agent moves to a new durable identity
+    // (bee-v2 -> FlueBeeV2Agent). Convex keeps the user-visible chat history.
     {
       "tag": "v3",
       "deleted_classes": ["FlueRegistry", "FlueBeeAgent"]
     },
     {
       "tag": "v4",
-      "new_sqlite_classes": ["FlueBeeAgent"]
+      "new_sqlite_classes": ["FlueBeeV2Agent"]
     }
   ]
 }

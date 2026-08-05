@@ -34,7 +34,7 @@ type Bindings = {
   SENTRY_ENVIRONMENT?: string
   SENTRY_RELEASE?: string
   WEB_ALLOWED_ORIGINS?: string
-  FLUE_BEE_AGENT: {
+  FLUE_BEE_V2_AGENT: {
     getByName(name: string): { deleteAccountData(): Promise<void> }
   }
   BEE_SITES_BUCKET: {
@@ -309,7 +309,7 @@ app.post('/internal/account-deletion', async (c) => {
     await Promise.all(
       conversationIds
         .slice(index, index + 20)
-        .map((id) => c.env.FLUE_BEE_AGENT.getByName(id).deleteAccountData()),
+        .map((id) => c.env.FLUE_BEE_V2_AGENT.getByName(id).deleteAccountData()),
     )
   }
   let siteObjectsDeleted = 0

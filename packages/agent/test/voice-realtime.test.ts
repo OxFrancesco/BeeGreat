@@ -18,7 +18,7 @@ function env(xaiApiKey?: string) {
     XAI_API_KEY: xaiApiKey,
     CLERK_JWT_ISSUER_DOMAIN: 'https://issuer.example.test',
     BRIDGE_SECRET: 'bridge-secret',
-    FLUE_BEE_AGENT: {
+    FLUE_BEE_V2_AGENT: {
       getByName() {
         return { async deleteAccountData() {} }
       },

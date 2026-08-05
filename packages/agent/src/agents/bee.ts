@@ -282,4 +282,8 @@ export function Bee({ id }: AgentProps) {
   const timeZone = snapshot?.timeZone ?? 'UTC'
   return `${instructions}\n\n## User time context\nThe user's IANA timezone is ${timeZone}. The current time is ${new Date().toISOString()}. Use that timezone and an explicit UTC offset when delegating due dates or recurrence start times.`
 }
-Bee.agentName = 'bee'
+// 'bee-v2': the beta-era 'bee' Durable Object storage (schema v5) is
+// reset-only under Flue 2, and Cloudflare cannot delete and recreate the same
+// DO class in one deploy — so the durable identity moves while the public
+// mount stays /agents/bee (see app.ts).
+Bee.agentName = 'bee-v2'
