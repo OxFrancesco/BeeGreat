@@ -597,7 +597,16 @@ function describeSugarExecution(
 }
 
 function executableSugarTransactions(plan: unknown) {
-  const steps = (Array.isArray(plan) ? plan : [plan]).filter(
+  // Transaction actions return { transactions, ...quote context }; unwrap the
+  // list while keeping compatibility with a bare transaction array.
+  const wrapped =
+    typeof plan === 'object' &&
+    plan !== null &&
+    !Array.isArray(plan) &&
+    Array.isArray((plan as { transactions?: unknown }).transactions)
+      ? (plan as { transactions: unknown[] }).transactions
+      : plan
+  const steps = (Array.isArray(wrapped) ? wrapped : [wrapped]).filter(
     (step): step is { to: string; data: string; value?: string } =>
       typeof step === 'object' &&
       step !== null &&
@@ -614,6 +623,68 @@ function executableSugarTransactions(plan: unknown) {
     data: step.data,
     value: typeof step.value === 'string' ? step.value : '0',
   }))
+}
+
+/**
+ * Human suffix built from the plan's quote context so the confirm card shows
+ * the expected outcome (not just the requested inputs) before the user signs.
+ */
+function describeSugarPlanOutcome(plan: unknown): string {
+  if (typeof plan !== 'object' || plan === null || Array.isArray(plan)) {
+    return ''
+  }
+  const record = plan as Record<string, unknown>
+  const decimal = (value: unknown) =>
+    typeof value === 'number' && Number.isFinite(value)
+      ? value.toLocaleString('en-US', { maximumFractionDigits: 6 })
+      : null
+  const symbolOf = (value: unknown) => {
+    const symbol =
+      typeof value === 'object' && value !== null
+        ? (value as { symbol?: unknown }).symbol
+        : undefined
+    return typeof symbol === 'string' ? symbol : null
+  }
+  const quote = record.quote
+  if (typeof quote === 'object' && quote !== null) {
+    const q = quote as Record<string, unknown>
+    const out = decimal(q.amount_out_decimal)
+    const toSymbol = symbolOf(q.to_token)
+    if (out && toSymbol) {
+      const min = decimal(q.min_amount_out_decimal)
+      const impact =
+        typeof q.price_impact_pct === 'number' &&
+        Number.isFinite(q.price_impact_pct)
+          ? `${q.price_impact_pct.toFixed(2)}% impact`
+          : null
+      const extras = [min ? `min ${min}` : null, impact]
+        .filter(Boolean)
+        .join(', ')
+      return ` → ≈${out} ${toSymbol}${extras ? ` (${extras})` : ''}`
+    }
+  }
+  const movement = record.deposit ?? record.withdrawal
+  if (typeof movement === 'object' && movement !== null) {
+    const m = movement as Record<string, unknown>
+    const pool =
+      typeof m.pool === 'object' && m.pool !== null
+        ? (m.pool as Record<string, unknown>)
+        : {}
+    const amount0 = decimal(m.amount0_decimal)
+    const amount1 = decimal(m.amount1_decimal)
+    const token0 = typeof pool.token0 === 'string' ? pool.token0 : null
+    const token1 = typeof pool.token1 === 'string' ? pool.token1 : null
+    const poolSymbol = typeof pool.symbol === 'string' ? pool.symbol : null
+    const parts = [
+      amount0 && token0 ? `${amount0} ${token0}` : null,
+      amount1 && token1 ? `${amount1} ${token1}` : null,
+    ].filter(Boolean)
+    if (parts.length > 0) {
+      const direction = record.deposit ? 'into' : 'out of'
+      return ` → ≈${parts.join(' + ')}${poolSymbol ? ` ${direction} ${poolSymbol}` : ''}`
+    }
+  }
+  return ''
 }
 
 /**
@@ -653,7 +724,9 @@ export const prepareSugarExecution = internalAction({
       sugarOptions(),
     )
     const transactions = executableSugarTransactions(plan)
-    const summary = describeSugarExecution(sugarAction, parameters)
+    const summary =
+      describeSugarExecution(sugarAction, parameters) +
+      describeSugarPlanOutcome(plan)
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
       await ctx.runMutation(internal.web3Actions.create, {
         userId,
@@ -716,10 +789,11 @@ export const prepareEoaSugarExecution = internalAction({
       sugarOptions(),
     )
     const transactions = executableSugarTransactions(plan)
-    const summary = describeSugarExecution(sugarAction, parameters, {
-      chainName,
-      walletLabel: 'your linked wallet',
-    })
+    const summary =
+      describeSugarExecution(sugarAction, parameters, {
+        chainName,
+        walletLabel: 'your linked wallet',
+      }) + describeSugarPlanOutcome(plan)
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
       await ctx.runMutation(internal.web3Actions.create, {
         userId,

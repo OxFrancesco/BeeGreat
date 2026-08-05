@@ -88,8 +88,13 @@ Sugar read tools: `sugar_pools`, `sugar_positions`, `sugar_epochs_latest`,
 
 Sugar unsigned-plan builders (default the linked EOA): `sugar_swap`,
 `sugar_deposit`, `sugar_withdraw`, `sugar_stake`, `sugar_unstake`,
-`sugar_claim_emissions`, `sugar_claim_fees`. Plans are ordered
-`{from,to,data,value}` JSON; the bridge has no private-key input.
+`sugar_claim_emissions`, `sugar_claim_fees`. Plans are
+`{transactions, ...context}` JSON — an ordered `{from,to,data,value}` list
+plus quote context (swap: quoted/minimum output and price impact; deposit
+and withdraw: quoted token amounts; position actions: the position id and
+pool). The bridge has no private-key input, and the prepare_* confirmation
+summary includes the quoted outcome so the user sees the expected result
+before signing.
 
 `prepare_sugar_execution` accepts only the seven transaction actions
 (`SUGAR_TX_ACTIONS` in `packages/sugar/src/contracts.ts`), rebuilds the plan

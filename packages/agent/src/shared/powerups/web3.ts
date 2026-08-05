@@ -526,7 +526,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'sugar_swap',
           description:
-            'Build an unsigned Velodrome/Aerodrome swap plan for a wallet the user signs with themselves (default the linked EOA). Returns approval first when needed, then the swap. Does not sign or broadcast; use prepare_sugar_execution to execute with the smart wallet instead.',
+            'Build an unsigned Velodrome/Aerodrome swap plan for a wallet the user signs with themselves (default the linked EOA). Returns { transactions, quote }: approvals first when needed, then the swap, plus the quoted output, minimum received, and price impact to report. Does not sign or broadcast; use prepare_sugar_execution to execute with the smart wallet instead.',
           input: v.object({
             chain: sugarChain,
             wallet: address(

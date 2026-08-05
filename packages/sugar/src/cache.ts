@@ -8,7 +8,7 @@ export type SugarCacheStoreOptions = {
 const DEFAULT_TTL_MS = 120_000
 
 function freshCaches(): SugarClientCaches {
-  return { rawPoolCache: new Map(), poolCache: new Map() }
+  return { rawPoolCache: new Map(), poolCache: new Map(), priceRateCache: new Map() }
 }
 
 /**

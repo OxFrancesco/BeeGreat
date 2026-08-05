@@ -5,8 +5,8 @@ import { getChainSettings } from './config'
 import { applySlippage, floatToUint256, getSalt, getUniqueString, nearestTick, parseEther, sqrtRatioX96FromPrice } from './helpers'
 import { BaseChain, getChain, getSimnetChain } from './chains'
 import { AsyncSuperswap, createSuperswapQuote, MockSuperswapRelayer, Superswap } from './superswap'
-import type { LiquidityPoolForSwap, Token } from './types'
-import type { SugarClient } from './client'
+import type { LiquidityPoolForSwap, Quote, Token, UnsignedTransaction } from './types'
+import { SugarClient } from './client'
 
 describe('SDK parity helpers', () => {
   test('matches Python slippage rounding and tick helpers', () => {
@@ -68,6 +68,70 @@ describe('native action seam', () => {
     await expect(executeSugarActionJson('pools', { chain: 8453, limit: 1 }, {
       clientFactory: () => fake,
     })).resolves.toBe(JSON.stringify(expected, null, 2))
+  })
+
+  test('returns swap transactions with quote context and applies the oracle sanity guard', async () => {
+    const wallet = '0x1111111111111111111111111111111111111111'
+    const from: Token = { chainId: 8453, chainName: 'Base', tokenAddress: '0x2222222222222222222222222222222222222222', symbol: 'AERO', decimals: 18, listed: true, emerging: false }
+    const to: Token = { chainId: 8453, chainName: 'Base', tokenAddress: '0x3333333333333333333333333333333333333333', symbol: 'USDC', decimals: 6, listed: true, emerging: false }
+    const pool: LiquidityPoolForSwap = {
+      chainId: 8453, chainName: 'Base', lp: '0x4444444444444444444444444444444444444444',
+      type: -1, token0Address: from.tokenAddress as Address, token1Address: to.tokenAddress as Address,
+      isCl: false, isStable: false, isBasic: true,
+    }
+    const transaction: UnsignedTransaction = { from: wallet, to: pool.lp, data: '0x00', value: 0n }
+    const makeClient = (amountOut: bigint) => ({
+      settings: { nativeTokenSymbol: 'ETH', stableTokenAddress: to.tokenAddress, swapSlippage: 0.01 },
+      getToken: async (reference: string) =>
+        [from, to].find((token) => token.tokenAddress.toLowerCase() === String(reference).toLowerCase()),
+      // 1 AERO is worth 2 USDC at the oracle, so outputs >= 4 USDC are suspect.
+      getPrices: async (tokens: Token[]) => tokens.map((token) => ({ token, price: token.symbol === 'AERO' ? 2 : 1 })),
+      getQuote: async (_f: Token, _t: Token, amountIn: bigint, filter?: (quote: Quote) => boolean) => {
+        const quote: Quote = { input: { fromToken: from, toToken: to, path: [{ pool, reversed: false }], amountIn }, amountOut }
+        return filter && !filter(quote) ? undefined : quote
+      },
+      swapFromQuote: async () => [transaction],
+    }) as unknown as SugarClient
+    const parameters = {
+      chain: 8453, wallet, from_token: from.tokenAddress, to_token: to.tokenAddress,
+      amount: '1', use_decimals: true,
+    }
+
+    const result = await executeSugarAction('swap', parameters, { clientFactory: () => makeClient(2_000_000n) }) as {
+      transactions: unknown[]
+      quote: { min_amount_out: string; min_amount_out_decimal: number; slippage: number; to_token: { symbol: string } }
+    }
+    expect(result.transactions).toHaveLength(1)
+    expect(result.quote.to_token.symbol).toBe('USDC')
+    expect(result.quote.slippage).toBe(0.01)
+    expect(result.quote.min_amount_out).toBe(String(applySlippage(2_000_000n, 0.01)))
+
+    await expect(executeSugarAction('swap', parameters, { clientFactory: () => makeClient(5_000_000n) }))
+      .rejects.toThrow('no quote found')
+  })
+
+  test('keeps only pools whose two sides can appear on a vetted route', () => {
+    const sugar = new SugarClient(10)
+    const from: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x2222222222222222222222222222222222222222', symbol: 'FROM', decimals: 18, listed: true, emerging: false }
+    const to: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x3333333333333333333333333333333333333333', symbol: 'TO', decimals: 18, listed: true, emerging: false }
+    const template: LiquidityPoolForSwap = {
+      chainId: 10, chainName: 'OP', lp: '0x4444444444444444444444444444444444444444',
+      type: -1, token0Address: from.tokenAddress as Address, token1Address: to.tokenAddress as Address,
+      isCl: false, isStable: false, isBasic: true,
+    }
+    const connector = sugar.settings.connectorTokenAddresses[0]
+    const longTail = '0x9999999999999999999999999999999999999999' as Address
+    const kept = [
+      template,
+      { ...template, token1Address: connector },
+      { ...template, token0Address: connector, token1Address: to.tokenAddress as Address },
+    ]
+    const dropped = [
+      { ...template, token1Address: longTail },
+      { ...template, token0Address: connector, token1Address: longTail },
+      { ...template, token0Address: longTail, token1Address: longTail },
+    ]
+    expect(sugar.filterPoolsForSwap([...kept, ...dropped], from, to)).toEqual(kept)
   })
 
   test('rejects concentrated-liquidity flags for basic deposits', async () => {

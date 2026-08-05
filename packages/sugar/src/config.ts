@@ -238,6 +238,10 @@ export function getChainSettings(
     excludedTokenAddresses: list(envValue(env, 'excludedTokenAddresses', chainId, raw.excludedTokenAddresses ?? '')),
     swapSlippage: Number(envValue(env, 'swapSlippage', chainId, 0.01)),
     quoteMaxPaths: Number(envValue(env, 'quoteMaxPaths', chainId, 3000)),
+    // Each quoteExactInput is a gas-heavy simulation; large multicall batches
+    // trip provider eth_call gas caps, failing the whole batch into the slow
+    // per-path fallback. The official sdk.js quotes 50 routes per batch.
+    quoteBatchSize: Number(envValue(env, 'quoteBatchSize', chainId, 64)),
     priceBatchSize: Number(envValue(env, 'priceBatchSize', chainId, 40)),
     priceThresholdFilter: Number(envValue(env, 'priceThresholdFilter', chainId, 10)),
     paginationLimit: Number(envValue(env, 'paginationLimit', chainId, 2000)),
