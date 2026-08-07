@@ -1,4 +1,5 @@
 import { describe, expect, mock, spyOn, test } from 'bun:test'
+import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 
 import app from '../src/app'
 import {
@@ -8,12 +9,9 @@ import {
 
 describe('trusted app-equivalent channel actions', () => {
   test('derives the same stable owner key as Clerk authentication', () => {
-    expect(
-      channelOwnerKey(
-        'https://issuer.example.test/',
-        'user_owner',
-      ),
-    ).toBe('https://issuer.example.test|user_owner')
+    expect(channelOwnerKey('https://issuer.example.test/', 'user_owner')).toBe(
+      'https://issuer.example.test|user_owner',
+    )
   })
 
   test('forwards only server-owned identity and action data to Convex', async () => {
@@ -158,6 +156,111 @@ describe('trusted app-equivalent channel actions', () => {
         env,
       )
       expect(unauthenticated.status).toBe(401)
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  test('the Worker registers a detached CLI thread for the trusted local client', async () => {
+    const fetcher = mock(async (_input: unknown, init?: RequestInit) => {
+      expect(JSON.parse(String(init?.body))).toEqual({
+        userId: 'user_owner',
+        operation: 'channel_create_cli_thread',
+        ownerKey: 'https://issuer.example.test|user_owner',
+      })
+      return Response.json({ threadId: 42 })
+    })
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+      fetcher as typeof fetch,
+    )
+    const env = {
+      ELEVENLABS_API_KEY: 'unused',
+      CLERK_JWT_ISSUER_DOMAIN: 'https://issuer.example.test',
+      CONVEX_URL: 'https://example.convex.cloud',
+      CONVEX_SITE_URL: 'https://example.convex.site',
+      AGENT_CREDENTIAL_BROKER_SECRET: 'broker-secret',
+      BRIDGE_SECRET: 'bridge-secret',
+      FLUE_BEE_V2_AGENT: {
+        getByName() {
+          return { async deleteAccountData() {} }
+        },
+      },
+    }
+    try {
+      const response = await app.request(
+        new Request('https://agent.example.test/bridge/channel', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-bridge-secret': 'bridge-secret',
+            'x-bridge-user': 'user_owner',
+          },
+          body: JSON.stringify({ action: 'create_cli_thread' }),
+        }),
+        undefined,
+        env,
+      )
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ threadId: 42 })
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  test('the Worker derives CLI ownership from a verified Clerk OAuth JWT', async () => {
+    const issuer = 'https://oauth-issuer.example.test'
+    const { privateKey, publicKey } = await generateKeyPair('RS256')
+    const publicJwk = await exportJWK(publicKey)
+    const token = await new SignJWT({ sub: 'user_clerk_cli' })
+      .setProtectedHeader({ alg: 'RS256', kid: 'cli-key', typ: 'JWT' })
+      .setIssuer(issuer)
+      .setAudience('bee-cli-client')
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey)
+    const fetcher = mock(async (input: unknown, init?: RequestInit) => {
+      const url = String(input)
+      if (url === `${issuer}/.well-known/jwks.json`) {
+        return Response.json({ keys: [{ ...publicJwk, kid: 'cli-key' }] })
+      }
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        userId: 'user_clerk_cli',
+        operation: 'channel_create_cli_thread',
+      })
+      return Response.json({ threadId: 84 })
+    })
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+      fetcher as typeof fetch,
+    )
+    try {
+      const response = await app.request(
+        new Request('https://agent.example.test/cli/channel', {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${token}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ action: 'create_cli_thread' }),
+        }),
+        undefined,
+        {
+          ELEVENLABS_API_KEY: 'unused',
+          CLERK_JWT_ISSUER_DOMAIN: issuer,
+          BEE_CLERK_CLIENT_ID: 'bee-cli-client',
+          CONVEX_URL: 'https://example.convex.cloud',
+          CONVEX_SITE_URL: 'https://example.convex.site',
+          AGENT_CREDENTIAL_BROKER_SECRET: 'broker-secret',
+          FLUE_BEE_V2_AGENT: {
+            getByName() {
+              return { async deleteAccountData() {} }
+            },
+          },
+        },
+      )
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ threadId: 84 })
     } finally {
       fetchSpy.mockRestore()
     }

@@ -286,6 +286,14 @@ http.route({
           ownerKey: channelOwnerKey!,
           source: body.source,
         })
+      } else if (body.operation === 'channel_create_cli_thread') {
+        result = await ctx.runMutation(
+          internal.channelActions.createCliThread,
+          {
+            userId: body.userId,
+            ownerKey: channelOwnerKey!,
+          },
+        )
       } else if (body.operation === 'channel_title_thread') {
         if (
           typeof body.threadId !== 'number' ||

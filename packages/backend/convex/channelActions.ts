@@ -9,6 +9,7 @@ import {
 import {
   channelThreadForIdentity,
   createChannelThreadForIdentity,
+  createDetachedThreadForIdentity,
   titleThreadForIdentity,
 } from './chat'
 import {
@@ -210,6 +211,17 @@ export const createThread = internalMutation({
       ),
     }
   },
+})
+
+export const createCliThread = internalMutation({
+  args: identityArgs,
+  returns: v.object({ threadId: v.number() }),
+  handler: async (ctx, args) => ({
+    threadId: await createDetachedThreadForIdentity(
+      ctx,
+      channelIdentity(args),
+    ),
+  }),
 })
 
 export const titleThread = internalMutation({

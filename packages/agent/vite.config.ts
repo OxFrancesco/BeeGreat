@@ -7,5 +7,9 @@ import { defineConfig } from 'vite'
 // generated Worker entry and the per-agent Durable Object bindings — while
 // Vite resolves this config, after flue() has scanned the project.
 export default defineConfig({
+  server: {
+    port: 3583,
+    strictPort: true,
+  },
   plugins: [flue(), cloudflare({ config: flueWorkerConfig() })],
 })

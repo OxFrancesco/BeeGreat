@@ -1,13 +1,12 @@
 import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { parseEnv } from 'node:util'
-import { refreshOpenAICodexToken } from '@earendil-works/pi-ai/oauth'
+import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-codex'
 import lockfile from 'proper-lockfile'
 
 const PROVIDER = 'openai-codex'
 const REFRESH_EARLY_MS = 5 * 60 * 1000
-// Flue 2.0 dev is `vite dev`; keep the spawned worker on Vite's default port.
-const AGENT_PORT = 5173
+// Keep every local BeeGreat client on the worker's dedicated Vite port.
+const AGENT_PORT = 3583
 const AUTH_LOCK_STALE_MS = 30_000
 
 interface OAuthCredential {
@@ -100,9 +99,7 @@ async function currentAccessToken(): Promise<string> {
   let auth = await readAuth(path)
   let credential = auth[PROVIDER]
   if (!isOAuthCredential(credential)) {
-    throw new Error(
-      `Pi is not logged into OpenAI Codex. Run \`pi\`, use \`/login\`, and select OpenAI Codex.`,
-    )
+    throw new Error(`Pi is not logged into OpenAI Codex. Run \`pi\`, use \`/login\`, and select OpenAI Codex.`)
   }
 
   if (credential.expires > Date.now() + REFRESH_EARLY_MS) return credential.access
@@ -117,16 +114,16 @@ async function currentAccessToken(): Promise<string> {
     if (credential.expires > Date.now() + REFRESH_EARLY_MS) return credential.access
 
     console.log('Refreshing Pi ChatGPT subscription credentials…')
-    const refreshed = await refreshOpenAICodexToken(credential.refresh)
-    auth[PROVIDER] = { type: 'oauth', ...refreshed }
+    // pi-ai 0.83 moved the refresh helper onto the provider's OAuth method.
+    const codexOAuth = openaiCodexProvider().auth.oauth
+    if (!codexOAuth) {
+      throw new Error('pi-ai no longer exposes the OpenAI Codex OAuth method.')
+    }
+    const refreshed = await codexOAuth.refresh(credential)
+    auth[PROVIDER] = refreshed
     await writeAuth(path, auth)
     return refreshed.access
   })
-}
-
-async function localAgentEnvironment(packageRoot: string): Promise<Record<string, string>> {
-  const file = Bun.file(join(packageRoot, '.dev.vars'))
-  return (await file.exists()) ? parseEnv(await file.text()) : {}
 }
 
 function assertAgentPortAvailable(): void {
@@ -146,24 +143,35 @@ async function main(): Promise<void> {
   assertAgentPortAvailable()
   const accessToken = await currentAccessToken()
   const packageRoot = dirname(dirname(import.meta.path))
-  const localEnv = await localAgentEnvironment(packageRoot)
-  const child = Bun.spawn({
-    cmd: ['bun', 'run', 'dev', '--port', String(AGENT_PORT)],
-    cwd: packageRoot,
-    env: {
-      ...localEnv,
-      ...process.env,
-      OPENAI_CODEX_ACCESS_TOKEN: accessToken,
-    },
-    stdin: 'inherit',
-    stdout: 'inherit',
-    stderr: 'inherit',
-  })
+  // Flue 2.0's Cloudflare dev runtime reads Worker env from .dev.vars, not
+  // from the spawning process env: merge the subscription token in for this
+  // run and restore the original file when the dev server exits.
+  const devVarsPath = join(packageRoot, '.dev.vars')
+  const devVarsFile = Bun.file(devVarsPath)
+  const originalDevVars = (await devVarsFile.exists()) ? await devVarsFile.text() : ''
+  const withoutToken = originalDevVars
+    .split('\n')
+    .filter((line) => !line.startsWith('OPENAI_CODEX_ACCESS_TOKEN='))
+    .join('\n')
+    .replace(/\n*$/, '\n')
+  await writeFile(devVarsPath, `${withoutToken}OPENAI_CODEX_ACCESS_TOKEN=${accessToken}\n`)
+  try {
+    const child = Bun.spawn({
+      cmd: ['bun', 'run', 'dev', '--port', String(AGENT_PORT)],
+      cwd: packageRoot,
+      env: process.env,
+      stdin: 'inherit',
+      stdout: 'inherit',
+      stderr: 'inherit',
+    })
 
-  const forward = (signal: NodeJS.Signals) => child.kill(signal)
-  process.once('SIGINT', () => forward('SIGINT'))
-  process.once('SIGTERM', () => forward('SIGTERM'))
-  process.exitCode = await child.exited
+    const forward = (signal: NodeJS.Signals) => child.kill(signal)
+    process.once('SIGINT', () => forward('SIGINT'))
+    process.once('SIGTERM', () => forward('SIGTERM'))
+    process.exitCode = await child.exited
+  } finally {
+    await writeFile(devVarsPath, originalDevVars)
+  }
 }
 
 main().catch((error) => {

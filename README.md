@@ -25,12 +25,12 @@ Codex was the main harness for building BeeGreat, mostly through the Codex deskt
 
 The Git history captures how this evolved:
 
-| Commit | Change |
-| ------ | ------ |
-| `b1e11d2` | Introduced Bee as a GPT-5.5 agent on OpenRouter. |
-| `d9f861d` | Added encrypted, per-user ChatGPT authentication and dynamic provider registration. |
+| Commit    | Change                                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| `b1e11d2` | Introduced Bee as a GPT-5.5 agent on OpenRouter.                                                       |
+| `d9f861d` | Added encrypted, per-user ChatGPT authentication and dynamic provider registration.                    |
 | `fd2455b` | Upgraded Bee to GPT-5.6 Sol and added the private streaming Codex adapter with an OpenRouter fallback. |
-| `e66f881` | Added GPT-5.6 Luna summaries and labels for the Mind bookmark library. |
+| `e66f881` | Added GPT-5.6 Luna summaries and labels for the Mind bookmark library.                                 |
 
 ## Quick start
 
@@ -59,6 +59,44 @@ bun run agent
 bun run web
 ```
 
+### Use Bee from the CLI
+
+The personal CLI uses the same Clerk identity, Bee, tools, and registered
+conversations as the apps. In Clerk, create a public OAuth application named
+`BeeGreat CLI`, require PKCE, add `http://127.0.0.1/callback` as its redirect
+URI, enable JWT access tokens, and grant `openid profile email offline_access`. Put its public client id
+in `packages/agent/.dev.vars` as `BEE_CLERK_CLIENT_ID`, then start Convex and the
+agent in separate terminals:
+
+```sh
+bun run backend
+bun run agent
+```
+
+Once both are ready, use the CLI:
+
+```sh
+bun run bee
+bun run bee -- ask "What should I focus on?"
+bun run bee -- new
+```
+
+Or launch Convex, the agent, and the interactive CLI together:
+
+```sh
+make bee
+```
+
+`make bee` securely syncs the existing Convex broker and model-provider
+credentials into the ignored local Worker environment before startup. It never
+prints secret values.
+
+The first run opens Clerk in your browser and returns through a one-shot local
+callback. Tokens refresh automatically and are stored in the macOS Keychain,
+with a mode-0600 file fallback when no keychain is available. Use `bun run bee
+-- logout` to revoke and remove the local session. For a deployed worker, set
+`BEE_AGENT_URL` in your shell.
+
 ## Environment
 
 | Service         | Template                                                                 | Notes                                             |
@@ -82,6 +120,8 @@ Never expose broker secrets, Clerk secret keys, or provider keys through `VITE_*
 | `bun run docs:deploy`                      | Build and deploy BeeDocs            |
 | `bun run backend`                          | Convex dev server                   |
 | `bun run agent`                            | Flue Bee agent on port 3583         |
+| `bun run bee`                              | Interactive Bee CLI                 |
+| `make bee`                                 | Convex, agent, and interactive CLI  |
 | `bun run --cwd apps/web build`             | Web production build and type check |
 | `bun run --cwd apps/web test`              | Web tests                           |
 | `bun run --cwd packages/backend typecheck` | Convex type check                   |
@@ -95,6 +135,7 @@ apps/web              TanStack Start client
 apps/beedocs          Astro documentation site
 apps/codex-adapter    ChatGPT authentication adapter
 apps/imessage-bridge  Optional messaging bridge
+apps/cli              Personal Bun CLI for Bee
 packages/backend      Shared Convex schema and functions
 packages/agent        Shared Flue Bee agent
 packages/observability

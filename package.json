@@ -21,6 +21,9 @@
     "docs:deploy": "bun run --cwd apps/beedocs deploy",
     "backend": "bun run --cwd packages/backend dev",
     "agent": "bun run --cwd packages/agent dev",
+    "bee": "bun --env-file=packages/agent/.dev.vars apps/cli/src/index.ts",
+    "bee:configure": "bun scripts/sync-agent-broker-secret.ts",
+    "bee:dev": "bun run bee:configure && concurrently -k --success first -n convex,agent,cli -c cyan,magenta,yellow --handle-input --default-input-target cli \"bun run backend\" \"bun run agent\" \"until curl -sS --connect-timeout 1 http://localhost:3583/ >/dev/null 2>&1; do sleep 1; done; BEE_CLI_INTERACTIVE=1 bun run bee\"",
     "imessage": "bun run --cwd apps/imessage-bridge dev",
     "dev": "bun run --filter '*' dev"
   },
