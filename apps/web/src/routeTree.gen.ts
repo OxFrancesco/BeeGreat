@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TapPublicIdRouteImport } from './routes/tap/$publicId'
+import { Route as AppVoiceRouteImport } from './routes/_app/voice'
 import { Route as AppSitesRouteImport } from './routes/_app/sites'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppMindRouteImport } from './routes/_app/mind'
@@ -40,6 +41,11 @@ const TapPublicIdRoute = TapPublicIdRouteImport.update({
   id: '/tap/$publicId',
   path: '/tap/$publicId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppVoiceRoute = AppVoiceRouteImport.update({
+  id: '/voice',
+  path: '/voice',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppSitesRoute = AppSitesRouteImport.update({
   id: '/sites',
@@ -120,6 +126,7 @@ export interface FileRoutesByFullPath {
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
   '/sites': typeof AppSitesRoute
+  '/voice': typeof AppVoiceRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
   '/sites': typeof AppSitesRoute
+  '/voice': typeof AppVoiceRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -157,6 +165,7 @@ export interface FileRoutesById {
   '/_app/mind': typeof AppMindRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/sites': typeof AppSitesRoute
+  '/_app/voice': typeof AppVoiceRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/_app/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
     | '/mind'
     | '/settings'
     | '/sites'
+    | '/voice'
     | '/tap/$publicId'
     | '/goals/$goalId'
     | '/health/tap-actions'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/mind'
     | '/settings'
     | '/sites'
+    | '/voice'
     | '/tap/$publicId'
     | '/goals/$goalId'
     | '/health/tap-actions'
@@ -213,6 +224,7 @@ export interface FileRouteTypes {
     | '/_app/mind'
     | '/_app/settings'
     | '/_app/sites'
+    | '/_app/voice'
     | '/tap/$publicId'
     | '/_app/goals/$goalId'
     | '/_app/health/tap-actions'
@@ -252,6 +264,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tap/$publicId'
       preLoaderRoute: typeof TapPublicIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/voice': {
+      id: '/_app/voice'
+      path: '/voice'
+      fullPath: '/voice'
+      preLoaderRoute: typeof AppVoiceRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/sites': {
       id: '/_app/sites'
@@ -381,6 +400,7 @@ interface AppRouteChildren {
   AppMindRoute: typeof AppMindRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSitesRoute: typeof AppSitesRoute
+  AppVoiceRoute: typeof AppVoiceRoute
   AppGoalsGoalIdRoute: typeof AppGoalsGoalIdRoute
   AppProjectsProjectIdRoute: typeof AppProjectsProjectIdRoute
   AppGoalsIndexRoute: typeof AppGoalsIndexRoute
@@ -393,6 +413,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppMindRoute: AppMindRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSitesRoute: AppSitesRoute,
+  AppVoiceRoute: AppVoiceRoute,
   AppGoalsGoalIdRoute: AppGoalsGoalIdRoute,
   AppProjectsProjectIdRoute: AppProjectsProjectIdRoute,
   AppGoalsIndexRoute: AppGoalsIndexRoute,

@@ -63,6 +63,326 @@
   }
 }
 
+/* Current mobile-parity additions: archived threads, message actions, and
+   browser-native live voice. */
+.thread-row {
+  display: grid;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  grid-template-columns: minmax(0, 1fr) 34px;
+}
+.thread-row:hover {
+  border-color: var(--line-soft);
+  background: var(--surface-muted);
+}
+.thread-row.is-active {
+  border-color: color-mix(in srgb, var(--honey-strong) 30%, var(--line-soft));
+  background: color-mix(in srgb, var(--honey) 38%, var(--surface));
+}
+.thread-row .thread-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+}
+.thread-row .thread-button:hover,
+.thread-row .thread-button[aria-current='page'] {
+  border-color: transparent;
+  background: transparent;
+}
+.thread-archive-button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--ink-soft);
+  opacity: 0;
+  place-items: center;
+  transition:
+    opacity 160ms ease,
+    background 160ms ease;
+}
+.thread-row:hover .thread-archive-button,
+.thread-archive-button:focus-visible,
+.thread-row.is-active .thread-archive-button {
+  opacity: 1;
+}
+.thread-archive-button:hover {
+  background: var(--surface-selected);
+}
+.thread-archive-button svg {
+  width: 15px;
+  height: 15px;
+}
+.archived-threads {
+  display: grid;
+  margin-top: 7px;
+  padding-top: 7px;
+  border-top: 1px solid var(--line-soft);
+  gap: 3px;
+}
+.archived-threads__toggle {
+  display: grid;
+  min-height: 42px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 12px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+  grid-template-columns: 17px minmax(0, 1fr) 15px;
+  gap: 8px;
+  text-align: left;
+}
+.archived-threads__toggle:hover {
+  background: var(--surface-muted);
+}
+.archived-threads__toggle svg {
+  width: 15px;
+  height: 15px;
+}
+.archived-threads__toggle[aria-expanded='true'] svg:last-child {
+  transform: rotate(180deg);
+}
+
+.message-content-stack {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+.message-actions {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  margin-top: 5px;
+  gap: 4px;
+}
+.message-actions button,
+.message-copy-action {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 650;
+  gap: 5px;
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+.message-actions button:hover,
+.message-copy-action:hover {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+.message-actions svg,
+.message-copy-action svg {
+  width: 13px;
+  height: 13px;
+}
+.tool-copy-action {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-self: start;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  font-weight: 700;
+  gap: 6px;
+}
+.tool-copy-action:hover {
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+.tool-copy-action svg {
+  width: 13px;
+  height: 13px;
+}
+.message-with-actions .message-copy-action {
+  opacity: 0;
+  transition:
+    opacity 160ms ease,
+    background 160ms ease;
+}
+.message-with-actions:hover .message-copy-action,
+.message-with-actions:focus-within .message-copy-action {
+  opacity: 1;
+}
+
+.realtime-voice-page {
+  height: 100dvh;
+  overflow-y: auto;
+  padding: 96px 16px 48px;
+  background:
+    radial-gradient(
+      circle at 50% 23%,
+      color-mix(in srgb, var(--honey) 55%, transparent),
+      transparent 31%
+    ),
+    var(--canvas);
+}
+.realtime-voice-card {
+  display: grid;
+  width: min(680px, 100%);
+  margin: 0 auto;
+  gap: 24px;
+}
+.voice-orb-stage {
+  display: grid;
+  justify-items: center;
+  padding: 30px 16px 10px;
+  text-align: center;
+  gap: 12px;
+}
+.voice-orb-stage > p {
+  max-width: 480px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.voice-orb {
+  position: relative;
+  display: grid;
+  width: 154px;
+  height: 154px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--honey) 55%, var(--surface));
+  place-items: center;
+  isolation: isolate;
+}
+.voice-orb__core {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--brown);
+  box-shadow: 0 14px 38px color-mix(in srgb, var(--brown) 24%, transparent);
+  animation: voice-breathe 2.8s ease-in-out infinite;
+}
+.voice-orb__ring {
+  position: absolute;
+  z-index: -1;
+  width: 116px;
+  height: 116px;
+  border: 2px solid color-mix(in srgb, var(--honey-strong) 56%, transparent);
+  border-radius: 50%;
+  animation: voice-ring 2.2s ease-out infinite;
+}
+.voice-orb--speaking .voice-orb__core {
+  animation-duration: 1.1s;
+}
+.voice-orb--error .voice-orb__core {
+  background: var(--danger);
+  animation: none;
+}
+.voice-orb--disconnected .voice-orb__core {
+  animation: none;
+}
+.voice-live-status {
+  display: flex;
+  min-height: 36px;
+  align-items: center;
+  padding: 0 15px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  font-size: 0.76rem;
+  gap: 8px;
+}
+.voice-live-status > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brown);
+}
+.voice-live-status > span.is-error {
+  background: var(--danger);
+}
+.voice-timeline {
+  display: grid;
+  gap: 8px;
+}
+.voice-turn {
+  display: grid;
+  max-width: 88%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  gap: 5px;
+}
+.voice-turn strong {
+  font-size: 0.72rem;
+}
+.voice-turn p {
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.voice-turn--user {
+  justify-self: end;
+  border-bottom-right-radius: 4px;
+  background: var(--honey);
+  color: var(--honey-ink);
+}
+.voice-turn--assistant {
+  justify-self: start;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.voice-conversation-error {
+  text-align: center;
+}
+.voice-conversation-action {
+  min-height: 44px;
+  justify-self: center;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: var(--brown);
+  color: var(--brown-ink);
+  font-size: 0.8rem;
+  font-weight: 750;
+}
+.voice-conversation-action.is-active {
+  border: 1px solid var(--line);
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+@keyframes voice-breathe {
+  0%,
+  100% {
+    transform: scale(0.94);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+@keyframes voice-ring {
+  from {
+    opacity: 0.7;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.28);
+  }
+}
+
+@media (hover: none) {
+  .thread-archive-button,
+  .message-with-actions .message-copy-action {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-orb__core,
+  .voice-orb__ring {
+    animation: none;
+  }
+}
+
 /* shadcn/ui + AI Elements token bridge — every shadcn variable resolves to a
    hive token above, so light/dark flips automatically with the media query. */
 :root {
@@ -861,6 +1181,8 @@ h3 {
 
 .message-viewport.is-empty {
   display: grid;
+  min-width: 0;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
@@ -2516,6 +2838,11 @@ h3 {
   .prompt-wrap,
   .composer-error {
     width: calc(100% - 24px);
+  }
+
+  .conversation-hero {
+    min-width: 0;
+    max-width: calc(100% - 24px);
   }
 
   .conversation-hero__copy h1 {

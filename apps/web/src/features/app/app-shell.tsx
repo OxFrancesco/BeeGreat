@@ -33,15 +33,23 @@ export function AppShell() {
   // after mount to keep server and client markup identical.
   const [showHints, setShowHints] = useState(false)
   const [navDocked, setNavDocked] = useState(false)
-  const voiceState = agent.recording
-    ? 'Listening'
-    : agent.transcribing || agent.busy
-      ? 'Thinking'
-      : agent.speaking
-        ? 'Speaking'
-        : agent.speechBlocked
-          ? 'Reply ready'
-          : undefined
+  const voiceState = agent.conversation.isActive
+    ? agent.conversation.status === 'connecting'
+      ? 'Connecting'
+      : agent.conversation.status === 'thinking'
+        ? 'Thinking'
+        : agent.conversation.status === 'speaking'
+          ? 'Speaking'
+          : 'Listening'
+    : agent.recording
+      ? 'Listening'
+      : agent.transcribing || agent.busy
+        ? 'Thinking'
+        : agent.speaking
+          ? 'Speaking'
+          : agent.speechBlocked
+            ? 'Reply ready'
+            : undefined
 
   useEffect(() => setShowHints(true), [])
 
@@ -74,14 +82,18 @@ export function AppShell() {
   }, [])
 
   useEffect(() => {
-    if (wasRecording.current && !agent.recording) {
+    if (
+      agent.voiceMode === 'voice-note' &&
+      wasRecording.current &&
+      !agent.recording
+    ) {
       void navigate({ to: '/bee' })
     }
     wasRecording.current = agent.recording
-  }, [agent.recording, navigate])
+  }, [agent.recording, agent.voiceMode, navigate])
 
   function startTalking() {
-    void navigate({ to: '/bee' })
+    if (agent.voiceMode === 'voice-note') void navigate({ to: '/bee' })
     void agent.toggleRecording()
   }
 
@@ -186,7 +198,11 @@ export function AppShell() {
           type="button"
           aria-live="polite"
           aria-label={`Bee voice status: ${voiceState}. Open Bee.`}
-          onClick={() => void navigate({ to: '/bee' })}
+          onClick={() =>
+            void navigate({
+              to: agent.conversation.isActive ? '/voice' : '/bee',
+            })
+          }
         >
           <span className="voice-island__dot" />
           {voiceState}

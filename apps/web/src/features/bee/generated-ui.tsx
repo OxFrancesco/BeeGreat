@@ -139,7 +139,7 @@ function GeneratedImageCard({
     setWorking('copy')
     try {
       const blob = await fetchGeneratedImage(url)
-      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+      if (!Reflect.has(window, 'ClipboardItem')) {
         throw new Error('Image clipboard is unavailable')
       }
       await navigator.clipboard.write([
@@ -380,7 +380,7 @@ function Web3ConfirmCard({
         ) : status === 'in_progress' ? (
           <p aria-live="polite">
             {isEoaAction
-              ? `${live?.result?.length ?? 0} of ${live?.eoaRequest?.stepCount ?? 1} transactions submitted…`
+              ? `${live.result?.length ?? 0} of ${live.eoaRequest?.stepCount ?? 1} transactions submitted…`
               : (live?.socketProgress?.detail ?? 'Moving funds…')}
           </p>
         ) : (

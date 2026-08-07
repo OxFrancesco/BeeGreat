@@ -1,4 +1,10 @@
-import { ChevronDownIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  CopyIcon,
+  RotateCcwIcon,
+} from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { extractBeeUI } from './bee-ui'
 import { GeneratedUI } from './generated-ui'
@@ -28,23 +34,45 @@ export function AgentMessage({
   isLast,
   busy,
   onReply,
+  onRetry,
 }: {
   message: FlueConversationMessage
   isLast: boolean
   busy: boolean
   onReply: (text: string) => Promise<void>
+  onRetry?: () => void | Promise<void>
 }) {
+  const [copied, setCopied] = useState(false)
+  const copyTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(copyTimer.current), [])
   const text = message.parts
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
     .join('\n')
 
+  const copyText = async (value: string) => {
+    if (!value.trim()) return
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    window.clearTimeout(copyTimer.current)
+    copyTimer.current = window.setTimeout(() => setCopied(false), 1_500)
+  }
+
   if (message.role === 'user') {
     return (
-      <Message from="user" className="max-w-[min(74%,620px)]">
-        <MessageContent className="whitespace-pre-wrap rounded-[20px_20px_5px_20px] px-[17px] py-3 text-[0.93rem] leading-[1.55] group-[.is-user]:text-secondary-foreground">
-          {text}
-        </MessageContent>
+      <Message
+        from="user"
+        className="message-with-actions max-w-[min(74%,620px)]"
+      >
+        <div className="message-content-stack">
+          <MessageContent className="whitespace-pre-wrap rounded-[20px_20px_5px_20px] px-[17px] py-3 text-[0.93rem] leading-[1.55] group-[.is-user]:text-secondary-foreground">
+            {text}
+          </MessageContent>
+          <MessageCopyAction
+            copied={copied}
+            onCopy={() => void copyText(text)}
+          />
+        </div>
       </Message>
     )
   }
@@ -119,8 +147,54 @@ export function AgentMessage({
             <GeneratedUI components={components} onReply={onReply} />
           </div>
         ) : null}
+        {hasResponse && !textStreaming ? (
+          <div className="message-actions">
+            {spoken ? (
+              <MessageCopyAction
+                copied={copied}
+                onCopy={() => void copyText(spoken)}
+              />
+            ) : null}
+            {isLast && !busy && onRetry ? (
+              <button
+                type="button"
+                aria-label="Retry this answer"
+                title="Retry answer"
+                onClick={() => void onRetry()}
+              >
+                <RotateCcwIcon aria-hidden="true" />
+                Retry
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </Message>
+  )
+}
+
+function MessageCopyAction({
+  copied,
+  onCopy,
+}: {
+  copied: boolean
+  onCopy: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="message-copy-action"
+      aria-label="Copy message"
+      title="Copy message"
+      onClick={onCopy}
+    >
+      {copied ? (
+        <CheckIcon aria-hidden="true" />
+      ) : (
+        <CopyIcon aria-hidden="true" />
+      )}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
   )
 }
 
@@ -129,6 +203,7 @@ function ToolActivity({
 }: {
   part: Extract<FlueConversationPart, { type: 'dynamic-tool' }>
 }) {
+  const [copied, setCopied] = useState(false)
   const running = part.state === 'input-available'
   const failed = part.state === 'output-error'
   const state = running ? 'running' : failed ? 'error' : 'done'
@@ -143,6 +218,21 @@ function ToolActivity({
     : failed
       ? 'is-failed'
       : 'is-complete'
+
+  const copyDetails = async () => {
+    const result = failed
+      ? `Error:\n${part.errorText}`
+      : `Result:\n${running ? 'Waiting for the result…' : formatToolValue('output' in part ? part.output : undefined)}`
+    await navigator.clipboard.writeText(
+      [
+        `Tool: ${part.toolName}`,
+        `Input:\n${formatToolValue(part.input)}`,
+        result,
+      ].join('\n\n'),
+    )
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 1_500)
+  }
   return (
     <Tool
       className={`tool-activity-card ${stateClass} mb-0 min-w-0 max-w-full overflow-hidden rounded-xl bg-card/70`}
@@ -165,9 +255,31 @@ function ToolActivity({
           output={'output' in part ? part.output : undefined}
           errorText={part.errorText}
         />
+        <button
+          type="button"
+          className="tool-copy-action"
+          onClick={() => void copyDetails()}
+        >
+          {copied ? (
+            <CheckIcon aria-hidden="true" />
+          ) : (
+            <CopyIcon aria-hidden="true" />
+          )}
+          {copied ? 'Copied' : 'Copy details'}
+        </button>
       </ToolContent>
     </Tool>
   )
+}
+
+function formatToolValue(value: unknown) {
+  if (typeof value === 'string') return value
+  if (value === undefined) return 'Not available'
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
 }
 
 export function ThinkingActivity() {

@@ -11,6 +11,7 @@ const CHAT_HISTORY_PAGE_SIZE = 100
 export type ChatThread = {
   id: number
   createdAt: number
+  archivedAt?: number
   source?: 'imessage'
   title?: string
 }
@@ -29,6 +30,7 @@ export function useChatThreadActions() {
   const create = useMutation(api.chat.createThread)
   const activate = useMutation(api.chat.setActiveThread)
   const title = useMutation(api.chat.setThreadTitle)
+  const archive = useMutation(api.chat.setThreadArchived)
 
   return {
     createThread: useCallback(() => create({}), [create]),
@@ -40,6 +42,10 @@ export function useChatThreadActions() {
       (threadId: number, nextTitle: string) =>
         title({ threadId, title: nextTitle }),
       [title],
+    ),
+    setThreadArchived: useCallback(
+      (threadId: number, archived: boolean) => archive({ threadId, archived }),
+      [archive],
     ),
   }
 }

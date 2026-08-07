@@ -2,9 +2,11 @@ import { api } from '@beegreat/backend/convex/_generated/api'
 import { useAuth } from '@clerk/tanstack-react-start'
 import { useFlueAgent } from '@flue/react'
 import { createFlueClient } from '@flue/sdk'
+import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { useVoiceMode } from '../preferences/voice-mode'
 import {
   confirmPendingFirstFocus,
   isFirstFocusConfirmation,
@@ -23,12 +25,16 @@ import {
   isAuthHiccup,
 } from './agent-error'
 import { BEE_AGENT_LIVE_MODE } from './flue-transport'
+import { getRetryableTurn } from './retry-turn'
+import { useRealtimeVoice } from './use-realtime-voice'
 import { captureWebFailure } from '~/lib/sentry'
 
 const BEE_AGENT_NAME = 'bee'
 
 export function useBeeAgent() {
   const { getToken, userId } = useAuth()
+  const navigate = useNavigate()
+  const voiceMode = useVoiceMode()
   const thread = useActiveChatThread()
   const { createThread, titleThread } = useChatThreadActions()
   const conversationId = userId
@@ -61,6 +67,7 @@ export function useBeeAgent() {
   const chatHistory = useConvexMessages(thread, agent.messages)
   const currentFirstFocus = useQuery(api.firstFocus.getCurrent, {})
   const completeHighlight = useMutation(api.firstFocus.completeHighlight)
+  const hideMessages = useMutation(api.chat.hideMessages)
   const syncTimeZone = useMutation(api.user.syncTimeZone)
   const [actionError, setActionError] = useState<string>()
   const stopSpeakingRef = useRef<() => void>(() => undefined)
@@ -163,6 +170,23 @@ export function useBeeAgent() {
     ],
   )
 
+  const retryLastReply = useCallback(async () => {
+    if (agent.status === 'submitted' || agent.status === 'streaming') return
+    const turn = getRetryableTurn(chatHistory.messages)
+    if (!turn) return
+
+    setActionError(undefined)
+    try {
+      await hideMessages({ threadId: thread, messageIds: turn.messageIds })
+      await sendText(turn.text)
+    } catch (error) {
+      captureWebFailure(error, 'chat.retry')
+      setActionError(
+        'The retry didn’t go through. Check your connection and try again.',
+      )
+    }
+  }, [agent.status, chatHistory.messages, hideMessages, sendText, thread])
+
   const busy = agent.status === 'submitted' || agent.status === 'streaming'
   const voice = useBrowserVoice({
     messages: agent.messages,
@@ -172,6 +196,15 @@ export function useBeeAgent() {
     getToken,
     sendText,
   })
+  const conversation = useRealtimeVoice(getToken)
+
+  const toggleRecording = useCallback(async () => {
+    if (voiceMode === 'conversation') {
+      await navigate({ to: '/voice' })
+      return
+    }
+    await voice.toggleRecording()
+  }, [navigate, voice.toggleRecording, voiceMode])
 
   useEffect(() => {
     stopSpeakingRef.current = voice.stopSpeaking
@@ -189,12 +222,16 @@ export function useBeeAgent() {
       currentFirstFocus,
       errorMessage:
         voice.voiceError ?? actionError ?? friendlyBeeErrorMessage(agent.error),
-      recording: voice.recording,
+      recording:
+        voiceMode === 'conversation' ? conversation.isActive : voice.recording,
       transcribing: voice.transcribing,
       speaking: voice.speaking,
       speechBlocked: voice.speechBlocked,
       replaySpeech: voice.replaySpeech,
-      toggleRecording: voice.toggleRecording,
+      voiceMode,
+      conversation,
+      toggleRecording,
+      retryLastReply,
       resetConversation,
       sendText,
     }),
@@ -205,13 +242,16 @@ export function useBeeAgent() {
       currentFirstFocus,
       chatHistory,
       resetConversation,
+      retryLastReply,
       sendText,
       thread,
+      toggleRecording,
+      conversation,
+      voiceMode,
       voice.recording,
       voice.replaySpeech,
       voice.speechBlocked,
       voice.speaking,
-      voice.toggleRecording,
       voice.transcribing,
       voice.voiceError,
     ],
