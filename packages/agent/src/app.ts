@@ -138,7 +138,7 @@ function captureWorkerFailure(
   })
 }
 
-app.get('/health', (c) => c.json({ ok: true }))
+app.get('/health', (c) => c.json({ ok: true, service: 'beegreat-agent' }))
 
 /** Maps an ElevenLabs error body to a message the app can show as-is. */
 function voiceErrorMessage(fallback: string, detail: string) {

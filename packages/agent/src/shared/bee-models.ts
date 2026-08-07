@@ -1,7 +1,7 @@
-export const BEE_ORCHESTRATOR_MODEL_ID = 'gpt-5.6-luna'
-// Coordination turns are routing + formatting work; low keeps replies fast.
-// Sol (the escalation subagent) stays at medium for genuinely hard requests.
-export const BEE_ORCHESTRATOR_THINKING_LEVEL = 'low' as const
+export const BEE_ORCHESTRATOR_MODEL_ID = 'gpt-5.6-terra'
+// Terra medium keeps the first response capable without paying the Sol cost.
+// Sol remains the escalation path for genuinely hard requests.
+export const BEE_ORCHESTRATOR_THINKING_LEVEL = 'medium' as const
 export const BEE_ESCALATION_MODEL_ID = 'gpt-5.6-sol'
 export const BEE_ESCALATION_THINKING_LEVEL = 'medium' as const
 export const BEE_SITE_CREATOR_MODEL_ID = 'gpt-5.6-terra'

@@ -1,8 +1,20 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseBeeReply, projectBeeReply } from "./reply";
+import {
+  parseBeeReply,
+  projectBeeReply,
+  projectStreamingBeeReply,
+} from "./reply";
 
 describe("Bee CLI replies", () => {
+  test("does not expose an incomplete generative UI payload while streaming", () => {
+    expect(
+      projectStreamingBeeReply(
+        'Here is your plan.\n```beeui\n{"components":[{"type":"tasks","items":[{"id":"task_machine_id',
+      ),
+    ).toBe("Here is your plan.");
+  });
+
   test("renders generated task UI without exposing machine ids or raw JSON", () => {
     const reply = projectBeeReply(`Here is your next focus.
 

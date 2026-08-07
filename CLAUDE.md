@@ -21,6 +21,7 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/velodrome-sdk-js` — Official Velodrome/Aerodrome sdk.js — TypeScript Sugar SDK for pools, positions, swaps, staking, rewards, and voting
 - `resources/gogcli` — OpenClaw Google Workspace CLI — commands, auth, JSON schema, agent safety profiles, and container deployment
 - `resources/firecrawl` — Firecrawl monorepo: TypeScript SDK and API patterns for search, scrape, crawl, map, and structured extraction
+- `resources/opencode` — Official OpenCode source — CLI model discovery, run flags, and reasoning variants
 
 <!-- codeview:end -->
 

@@ -4,6 +4,68 @@ import type { FlueClient } from "@flue/sdk";
 import { createBeeSession, type ThreadStateStore } from "./session";
 
 describe("Bee CLI session", () => {
+  test("returns only the final agent step when Flue accumulates multiple text steps", async () => {
+    const session = createBeeSession(
+      {
+        agentUrl: "https://agent.example.test",
+        userId: "user_owner",
+        getToken: async () => "clerk-token",
+      },
+      { load: async () => 7, save: async () => undefined },
+      {
+        fetch: async () => Response.json(null),
+        createClient: () =>
+          ({
+            send: async () => ({ submissionId: "submission-1" }),
+            read: async (_admission: unknown, options: { onEvent?: (event: unknown) => void }) => {
+              const emit = options.onEvent;
+              emit?.({
+                type: "message-started",
+                conversationId: "conversation-1",
+                messageId: "message-1",
+                position: { batch: 1, index: 0 },
+              });
+              emit?.({
+                type: "message-delta",
+                conversationId: "conversation-1",
+                messageId: "message-1",
+                kind: "text",
+                delta: "I'm doing well, thanks! How are you?",
+                position: { batch: 1, index: 1 },
+              });
+              emit?.({
+                type: "message-started",
+                conversationId: "conversation-1",
+                messageId: "message-1",
+                position: { batch: 1, index: 2 },
+              });
+              emit?.({
+                type: "message-delta",
+                conversationId: "conversation-1",
+                messageId: "message-1",
+                kind: "text",
+                delta: "I'm doing great—thanks! What's on your mind?",
+                position: { batch: 1, index: 3 },
+              });
+              emit?.({
+                type: "message-completed",
+                conversationId: "conversation-1",
+                messageId: "message-1",
+                position: { batch: 1, index: 4 },
+              });
+              return {
+                text: "I'm doing well, thanks! How are you?\n\nI'm doing great—thanks! What's on your mind?",
+              };
+            },
+          }) as unknown as FlueClient,
+      },
+    );
+
+    await expect(session.ask("How are you?")).resolves.toBe(
+      "I'm doing great—thanks! What's on your mind?",
+    );
+  });
+
   test("identifies a non-Bee service at the configured agent URL", async () => {
     const session = createBeeSession(
       {

@@ -66,20 +66,20 @@ conversations as the apps. In Clerk, create a public OAuth application named
 `BeeGreat CLI`, require PKCE, add `http://127.0.0.1/callback` as its redirect
 URI, enable JWT access tokens, and grant `openid profile email offline_access`. Put its public client id
 in `packages/agent/.dev.vars` as `BEE_CLERK_CLIENT_ID`, then start Convex and the
-agent in separate terminals:
+CLI:
 
 ```sh
 bun run backend
-bun run agent
-```
-
-Once both are ready, use the CLI:
-
-```sh
 bun run bee
 bun run bee -- ask "What should I focus on?"
 bun run bee -- new
 ```
+
+The CLI starts its local Bee agent automatically and waits for its health check.
+The first launch may take longer while Cloudflare builds the local sandbox
+image. Set `BEE_AGENT_AUTOSTART=0` to manage the agent yourself, or configure
+`BEE_AGENT_URL` to use a deployed worker. A global launcher outside the
+repository must set `BEE_PROJECT_ROOT` to this checkout.
 
 Or launch Convex, the agent, and the interactive CLI together:
 
@@ -94,8 +94,7 @@ prints secret values.
 The first run opens Clerk in your browser and returns through a one-shot local
 callback. Tokens refresh automatically and are stored in the macOS Keychain,
 with a mode-0600 file fallback when no keychain is available. Use `bun run bee
--- logout` to revoke and remove the local session. For a deployed worker, set
-`BEE_AGENT_URL` in your shell.
+-- logout` to revoke and remove the local session.
 
 ## Environment
 

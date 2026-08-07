@@ -11,8 +11,23 @@ describe("Bee CLI configuration", () => {
       }),
     ).toMatchObject({
       agentUrl: "http://localhost:3583",
+      autoStartAgent: true,
       clerkIssuer: "https://clerk.example.test",
       clerkClientId: "oauth-client-id",
+    });
+  });
+
+  test("allows local automatic startup to be disabled explicitly", () => {
+    expect(
+      resolveBeeCliConfig({
+        CLERK_JWT_ISSUER_DOMAIN: "https://clerk.example.test",
+        BEE_CLERK_CLIENT_ID: "oauth-client-id",
+        BEE_AGENT_AUTOSTART: "0",
+        BEE_PROJECT_ROOT: "/opt/beegreat",
+      }),
+    ).toMatchObject({
+      autoStartAgent: false,
+      projectRoot: "/opt/beegreat",
     });
   });
 

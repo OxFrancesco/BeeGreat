@@ -187,11 +187,31 @@ export function createBeeSession(
       const admission = await target.send({
         message: { kind: "user", body: deliveredPrompt },
       });
-      const result = await target.read(admission, { onEvent });
-      const parsed = parseBeeReply(result.text);
+      let currentStepText = "";
+      let finalStepText = "";
+      const result = await target.read(admission, {
+        onEvent(event) {
+          if (event.type === "message-started") {
+            currentStepText = "";
+          } else if (event.type === "message-delta" && event.kind === "text") {
+            currentStepText += event.delta;
+          } else if (
+            event.type === "message-completed" &&
+            currentStepText.trim()
+          ) {
+            finalStepText = currentStepText;
+          }
+          onEvent?.(event);
+        },
+      });
+      // Flue deliberately accumulates every agent step in one assistant
+      // message. A CLI chat should present the final spoken step, otherwise a
+      // pre-tool draft and the final answer look like duplicated responses.
+      const replyText = (finalStepText || currentStepText).trim() || result.text;
+      const parsed = parseBeeReply(replyText);
       pendingFirstFocus = parsed.firstFocus;
       pendingWeb3 = parsed.web3Confirmation;
-      return result.text;
+      return replyText;
     },
 
     async newConversation() {

@@ -8,9 +8,12 @@ type Environment = Record<string, string | undefined>;
 
 export type ResolvedBeeCliConfig = {
   agentUrl: string;
+  autoStartAgent: boolean;
+  projectRoot?: string;
   clerkIssuer: string;
   clerkClientId: string;
   statePath: string;
+  historyPath: string;
   credentialPath: string;
 };
 
@@ -50,10 +53,17 @@ export function resolveBeeCliConfig(
   const beeConfigHome = join(configHome, "beegreat");
   return {
     agentUrl,
+    autoStartAgent: environment.BEE_AGENT_AUTOSTART !== "0",
+    ...(environment.BEE_PROJECT_ROOT?.trim()
+      ? { projectRoot: environment.BEE_PROJECT_ROOT.trim() }
+      : {}),
     clerkIssuer,
     clerkClientId,
     statePath:
       environment.BEE_CLI_STATE_PATH?.trim() || join(beeConfigHome, "cli.json"),
+    historyPath:
+      environment.BEE_CLI_HISTORY_PATH?.trim() ||
+      join(beeConfigHome, "prompt-history.jsonl"),
     credentialPath:
       environment.BEE_CLI_CREDENTIAL_PATH?.trim() ||
       join(beeConfigHome, "credentials.json"),

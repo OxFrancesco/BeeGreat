@@ -1,14 +1,15 @@
 #!/usr/bin/env bun
 
-import { createInterface } from "node:readline/promises";
-
+import { ensureBeeAgent } from "./agent-runtime";
 import { createClerkCliAuth } from "./clerk-auth";
 import { parseCommand } from "./command";
 import { createThreadStateStore, resolveBeeCliConfig } from "./config";
 import { createCredentialStore } from "./credential-store";
 import { createTerminalProgress } from "./progress";
-import { projectBeeReply } from "./reply";
+import { createPromptHistory } from "./prompt-history";
+import { projectBeeReply, projectStreamingBeeReply } from "./reply";
 import { createBeeSession } from "./session";
+import { runBeeTui } from "./tui";
 
 const HELP = `BeeGreat CLI
 
@@ -23,11 +24,16 @@ Usage:
 
 Interactive commands:
   /new                        Start a fresh conversation
+  /clear                      Clear the visible conversation
+  /help                       Show commands and shortcuts
   /exit                       Leave Bee
 
 Configuration:
   BEE_AGENT_URL               Agent URL (default: http://localhost:3583)
+  BEE_AGENT_AUTOSTART         Set to 0 to disable local agent startup
+  BEE_PROJECT_ROOT            BeeGreat repository path for local startup
   BEE_CLERK_CLIENT_ID         Public Clerk OAuth application client id
+  BEE_CLI_HISTORY_PATH        Override prompt history storage
 `;
 
 function friendlyError(error: unknown) {
@@ -37,10 +43,10 @@ function friendlyError(error: unknown) {
       message,
     )
   ) {
-    return "Could not reach Bee. Start the agent with `bun run agent` or set BEE_AGENT_URL.";
+    return "Bee could not reach its agent. Check BEE_AGENT_URL or the local BeeGreat installation.";
   }
   if (/401|sign in|unauthorized/i.test(message)) {
-    return "Your Clerk session was rejected. Run `bun run bee -- login` again.";
+    return "Your Clerk session was rejected. Run `bee login` again.";
   }
   return message;
 }
@@ -78,6 +84,12 @@ async function main() {
     console.log("Signed in to BeeGreat CLI.");
     return;
   }
+  await ensureBeeAgent({
+    agentUrl: config.agentUrl,
+    autoStart: config.autoStartAgent,
+    projectRoot: config.projectRoot,
+    onStatus: (message) => console.error(`  ${message}`),
+  });
   const session = createBeeSession(
     {
       agentUrl: config.agentUrl,
@@ -90,9 +102,12 @@ async function main() {
       statePath: config.statePath,
     }),
   );
-  const progress = createTerminalProgress((line) => console.error(`  ${line}`));
-
-  async function ask(prompt: string) {
+  async function ask(
+    prompt: string,
+    writeProgress: (line: string) => void = (line) =>
+      console.error(`  ${line}`),
+  ) {
+    const progress = createTerminalProgress(writeProgress);
     console.error("  Bee is thinking…");
     const raw = await session.ask(prompt, progress);
     return projectBeeReply(raw) || "Bee finished without a text reply.";
@@ -108,30 +123,31 @@ async function main() {
     return;
   }
 
-  console.log("BeeGreat CLI — type /help for commands or /exit to leave.\n");
-  const terminal = createInterface({
-    input: process.stdin,
-    output: process.stdout,
+  await runBeeTui({
+    history: await createPromptHistory(config.historyPath),
+    ask: async (prompt, onProgress, onReply) => {
+      const progress = createTerminalProgress(onProgress);
+      let streamedStep = "";
+      const raw = await session.ask(prompt, (event) => {
+        progress(event);
+        if (event.type === "message-started") {
+          streamedStep = "";
+          onReply({ type: "reset" });
+        } else if (event.type === "message-delta" && event.kind === "text") {
+          streamedStep += event.delta;
+          onReply({
+            type: "replace",
+            text: projectStreamingBeeReply(streamedStep),
+          });
+        }
+      });
+      return projectBeeReply(raw) || "Bee finished without a text reply.";
+    },
+    newConversation: async () => {
+      await session.newConversation();
+    },
+    friendlyError,
   });
-  try {
-    while (true) {
-      const prompt = (await terminal.question("You › ")).trim();
-      if (!prompt) continue;
-      if (prompt === "/exit" || prompt === "/quit") break;
-      if (prompt === "/help") {
-        console.log("\n/new  Start a fresh conversation\n/exit Leave Bee\n");
-        continue;
-      }
-      if (prompt === "/new") {
-        await session.newConversation();
-        console.log("\nNew conversation started.\n");
-        continue;
-      }
-      console.log(`\nBee › ${await ask(prompt)}\n`);
-    }
-  } finally {
-    terminal.close();
-  }
 }
 
 try {

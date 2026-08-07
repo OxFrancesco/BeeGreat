@@ -203,3 +203,9 @@ export function parseBeeReply(raw: string): BeeReply {
 export function projectBeeReply(raw: string): string {
   return parseBeeReply(raw).text;
 }
+
+/** Projects only complete spoken text while a beeui fence is still streaming. */
+export function projectStreamingBeeReply(raw: string): string {
+  const fence = raw.search(/```beeui/i);
+  return projectBeeReply(fence === -1 ? raw : raw.slice(0, fence));
+}

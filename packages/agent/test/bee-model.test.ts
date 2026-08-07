@@ -13,17 +13,17 @@ import {
 import { solEscalationSubagent } from '../src/shared/sol-escalation-subagent.ts'
 
 describe('Bee orchestrator model', () => {
-  test('uses GPT-5.6 Luna with low reasoning through OpenRouter', () => {
-    expect(BEE_ORCHESTRATOR_MODEL_ID).toBe('gpt-5.6-luna')
-    expect(BEE_ORCHESTRATOR_THINKING_LEVEL).toBe('low')
+  test('uses GPT-5.6 Terra with medium reasoning through OpenRouter', () => {
+    expect(BEE_ORCHESTRATOR_MODEL_ID).toBe('gpt-5.6-terra')
+    expect(BEE_ORCHESTRATOR_THINKING_LEVEL).toBe('medium')
     expect(resolveBeeOrchestratorModel()).toBe(
-      'openrouter/openai/gpt-5.6-luna',
+      'openrouter/openai/gpt-5.6-terra',
     )
   })
 
-  test('uses the same Luna model for a user-scoped Codex provider', () => {
+  test('uses the same Terra model for a user-scoped Codex provider', () => {
     expect(resolveBeeOrchestratorModel('openai-codex-user')).toBe(
-      'openai-codex-user/gpt-5.6-luna',
+      'openai-codex-user/gpt-5.6-terra',
     )
   })
 
