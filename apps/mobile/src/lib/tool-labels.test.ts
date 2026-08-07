@@ -21,6 +21,9 @@ describe('specialist tool labels', () => {
     expect(getToolCopy('task', 'running', { agent: 'imagine' }).specialist).toBe(
       'Imagine',
     );
+    expect(
+      getToolCopy('task', 'running', { agent: 'google-workspace' }).specialist,
+    ).toBe('Google Workspace');
     expect(getToolCopy('task', 'running', { agent: 'imagine' }).powerup).toBeNull();
   });
 
@@ -46,7 +49,6 @@ describe('specialist tool labels', () => {
     });
   });
 });
-
 describe('Mind tool labels', () => {
   test('presents bookmark mutations as first-class Bee activity', () => {
     expect(getToolCopy('update_bookmark', 'done')).toMatchObject({

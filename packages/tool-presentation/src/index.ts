@@ -18,6 +18,7 @@ const POWERUP_AGENTS: Record<string, string> = {
 
 const BUILT_IN_SPECIALISTS: Record<string, string> = {
   imagine: "Imagine",
+  "google-workspace": "Google Workspace",
 };
 
 const TOOL_COPY: Record<string, ToolCopy> = {

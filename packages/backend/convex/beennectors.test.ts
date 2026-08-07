@@ -49,6 +49,39 @@ test('Beennector connection state is separate and reconnect sessions take preced
   })
 })
 
+test('Google Workspace is available as a connection and keeps its account identity', async () => {
+  const t = convexTest(schema, modules)
+  const userId = 'user_google_workspace'
+  const owner = t.withIdentity({
+    subject: userId,
+    tokenIdentifier: `https://issuer.example.test|${userId}`,
+  })
+  await t.run(async (ctx) => {
+    await ctx.db.insert('beennectorCredentials', {
+      userId,
+      provider: 'google',
+      status: 'connected',
+      encryptedAccess: encryptedFixture,
+      encryptedRefresh: encryptedFixture,
+      expiresAt: Date.now() + 60_000,
+      scopes: ['https://www.googleapis.com/auth/drive'],
+      externalAccountId: 'google-subject',
+      externalAccountName: 'bee@example.com',
+      updatedAt: Date.now(),
+    })
+  })
+
+  expect(
+    (await owner.query(api.beennectors.list, {})).find(
+      (item) => item.provider === 'google',
+    ),
+  ).toMatchObject({
+    name: 'Google Workspace',
+    state: 'connected',
+    accountName: 'bee@example.com',
+  })
+})
+
 test('verified delivery claims map conservatively and deduplicate provider ids', async () => {
   const t = convexTest(schema, modules)
   await t.run(async (ctx) => {

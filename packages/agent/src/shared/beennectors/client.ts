@@ -1,4 +1,4 @@
-export type BeennectorProvider = 'github' | 'linear' | 'notion'
+export type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google'
 
 export type ConnectedBeennector = {
   provider: BeennectorProvider
@@ -64,4 +64,3 @@ export async function callBeennectorService<T>(
     clearTimeout(timeout)
   }
 }
-

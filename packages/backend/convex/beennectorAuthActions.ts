@@ -338,3 +338,16 @@ export async function resolveBeennectorAccessToken(
       : new Error(`${provider} is temporarily unavailable. Try again shortly.`)
   }
 }
+
+/**
+ * Server-to-server credential handoff for the guarded gog CLI sandbox.
+ * The token is never returned by a public Convex function or exposed to the
+ * specialist model; the agent worker injects it into one command's env only.
+ */
+export const googleAccessTokenForAgent = internalAction({
+  args: { userId: v.string() },
+  returns: v.object({ accessToken: v.string() }),
+  handler: async (ctx, args) => ({
+    accessToken: await resolveBeennectorAccessToken(ctx, args.userId, 'google'),
+  }),
+})

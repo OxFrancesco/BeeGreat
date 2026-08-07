@@ -2,11 +2,13 @@
 import {
   defineTool,
   useAgentStart,
+  useMcpConnection,
   useModel,
   useSubagent,
   useTool,
   type AgentProps,
   type SubagentDefinition,
+  type ToolDefinition,
 } from '@flue/runtime'
 import * as v from 'valibot'
 import {
@@ -25,6 +27,7 @@ import { callFocusService } from '../shared/focus-client.ts'
 import { createMindTools } from '../shared/mind-tools.ts'
 import { loadBeennectorSubagent } from '../shared/beennectors/index.ts'
 import { imagineSubagent } from '../shared/imagine-subagent.ts'
+import { loadGoogleWorkspaceSubagent } from '../shared/google-workspace-subagent.ts'
 import {
   astroCreatorSubagent,
   type BeeSitesBucket,
@@ -38,6 +41,12 @@ import {
 import { loadPowerups } from '../shared/powerups/index.ts'
 import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
 import { createTtlCache } from '../shared/ttl-cache.ts'
+import {
+  FIRECRAWL_MCP_TIMEOUT_MS,
+  FIRECRAWL_MCP_URL,
+  firecrawlSubagent,
+  loadFirecrawlTools,
+} from '../shared/firecrawl-subagent.ts'
 import instructions from './bee.md'
 
 export {
@@ -60,6 +69,7 @@ interface Env {
   OPENAI_CODEX_ACCESS_TOKEN?: string
   CODEX_ADAPTER_URL?: string
   CODEX_ADAPTER_SECRET?: string
+  FIRECRAWL_API_KEY?: string
   Sandbox?: unknown
   BEE_SITES_BUCKET?: BeeSitesBucket
 }
@@ -115,8 +125,10 @@ type BeeSnapshot = {
   timeZone: string
   powerups: SubagentDefinition[]
   beennectors: SubagentDefinition[]
+  googleWorkspace: SubagentDefinition[]
   providerId?: string
   sandboxSdk: typeof import('@cloudflare/sandbox') | null
+  firecrawlTools: ToolDefinition[]
 }
 const snapshots = new Map<string, BeeSnapshot>()
 
@@ -186,7 +198,14 @@ async function warmSnapshot(userId: string, env: Env): Promise<void> {
   }
   // The lookups are independent; run them concurrently so warming costs one
   // round trip instead of four.
-  const [timeZone, powerups, beennectors, providerId, sandboxSdk] =
+  const [
+    timeZone,
+    powerups,
+    beennectors,
+    providerId,
+    sandboxSdk,
+    firecrawlTools,
+  ] =
     await Promise.all([
       loadTimeZone(userId, env.CONVEX_URL, focusOptions),
       // Opt-in power-ups: one specialist subagent each, loaded per user per message.
@@ -207,16 +226,40 @@ async function warmSnapshot(userId: string, env: Env): Promise<void> {
         return undefined
       }),
       // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
-      env.Sandbox && env.BEE_SITES_BUCKET
+      env.Sandbox
         ? import('@cloudflare/sandbox')
         : Promise.resolve(null),
+      loadFirecrawlTools(env.FIRECRAWL_API_KEY).catch((error) => {
+        Sentry.captureException(error, {
+          tags: {
+            service: 'agent-worker',
+            operation: 'firecrawl.discover_tools',
+            handled: 'true',
+          },
+        })
+        return []
+      }),
     ])
+  const googleWorkspace =
+    sandboxSdk && env.Sandbox
+      ? await loadGoogleWorkspaceSubagent({
+          userId,
+          convexUrl: env.CONVEX_URL,
+          runtime: focusOptions,
+          sandbox: sandboxSdk.getSandbox(
+            env.Sandbox as Parameters<typeof sandboxSdk.getSandbox>[0],
+            `google-workspace-${userId}`,
+          ),
+        })
+      : []
   snapshots.set(userId, {
     timeZone,
     powerups,
     beennectors,
+    googleWorkspace,
     providerId,
     sandboxSdk,
+    firecrawlTools,
   })
 }
 
@@ -238,6 +281,19 @@ export function Bee({ id }: AgentProps) {
   useAgentStart(async () => {
     await warmSnapshot(userId, env)
   })
+  if (env.FIRECRAWL_API_KEY?.trim()) {
+    // This root mount makes Firecrawl available on a cold isolate's first turn.
+    // The warmed snapshot gives the same live catalog to the crawler delegate on
+    // subsequent renders, where Flue does not permit useMcpConnection directly.
+    useMcpConnection({
+      name: 'firecrawl',
+      url: FIRECRAWL_MCP_URL,
+      auth: env.FIRECRAWL_API_KEY.trim(),
+      timeoutMs: FIRECRAWL_MCP_TIMEOUT_MS,
+      resetTimeoutOnProgress: true,
+      optional: true,
+    })
+  }
 
   const focusOptions = {
     convexSiteUrl: env.CONVEX_SITE_URL,
@@ -289,10 +345,15 @@ export function Bee({ id }: AgentProps) {
           }),
         ]
       : []
+  const crawlerSubagents = snapshot?.firecrawlTools.length
+    ? [firecrawlSubagent(snapshot.firecrawlTools)]
+    : []
   const domainSubagents = [
     goalsSubagent(userId, env.CONVEX_URL, focusOptions),
     imagineSubagent(env.CONVEX_URL, focusOptions),
     ...sitesSubagents,
+    ...crawlerSubagents,
+    ...(snapshot?.googleWorkspace ?? []),
     ...(snapshot?.beennectors ?? []),
     ...(snapshot?.powerups ?? []),
   ]

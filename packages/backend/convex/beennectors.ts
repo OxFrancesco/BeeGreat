@@ -30,6 +30,11 @@ const CATALOG = {
     name: 'Notion',
     description: 'Search and read the pages shared with Bee.',
   },
+  google: {
+    name: 'Google Workspace',
+    description:
+      'Gmail, Calendar, Drive, Docs, Sheets, Slides, Contacts, and Tasks.',
+  },
 } as const
 
 export const list = query({
@@ -39,7 +44,7 @@ export const list = query({
     const userId = await requireUserId(ctx)
     const now = Date.now()
     return await Promise.all(
-      (['github', 'linear', 'notion'] as const).map(async (provider) => {
+      (['github', 'linear', 'notion', 'google'] as const).map(async (provider) => {
         const [credential, sessions] = await Promise.all([
           ctx.db
             .query('beennectorCredentials')
@@ -92,7 +97,6 @@ export const list = query({
     )
   },
 })
-
 export const createSession = internalMutation({
   args: {
     userId: v.string(),
