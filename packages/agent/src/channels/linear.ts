@@ -27,7 +27,7 @@ export const channel = createLinearChannel({
       actorId,
       workspaceId,
     })
-    if (claim.status !== 'accepted') return
+    if (claim.status !== 'accepted') return undefined
 
     const data =
       event.data && typeof event.data === 'object'
@@ -60,5 +60,6 @@ export const channel = createLinearChannel({
         }),
       },
     })
+    return undefined
   },
 })

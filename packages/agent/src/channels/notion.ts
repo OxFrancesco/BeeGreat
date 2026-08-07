@@ -29,7 +29,7 @@ export const channel = createNotionChannel({
       actorId,
       workspaceId,
     })
-    if (claim.status !== 'accepted') return
+    if (claim.status !== 'accepted') return undefined
 
     const entity =
       payload.entity && typeof payload.entity === 'object'
@@ -60,5 +60,6 @@ export const channel = createNotionChannel({
         }),
       },
     })
+    return undefined
   },
 })

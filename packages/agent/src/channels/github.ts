@@ -17,7 +17,7 @@ export const channel = createGitHubChannel({
       delivery.name !== 'pull_request' &&
       delivery.name !== 'pull_request_review_comment'
     ) {
-      return
+      return undefined
     }
     const payload = delivery.payload
     const claim = await claimBeennectorDelivery({
@@ -25,7 +25,7 @@ export const channel = createGitHubChannel({
       deliveryId: delivery.deliveryId,
       actorId: String(payload.sender.id),
     })
-    if (claim.status !== 'accepted') return
+    if (claim.status !== 'accepted') return undefined
 
     const repository = payload.repository
     const issue = 'issue' in payload ? payload.issue : undefined
@@ -61,5 +61,6 @@ export const channel = createGitHubChannel({
         }),
       },
     })
+    return undefined
   },
 })
