@@ -4,6 +4,7 @@ import {
   parseBeeReply,
   projectBeeReply,
   projectStreamingBeeReply,
+  resolveQuestionAnswer,
 } from "./reply";
 
 describe("Bee CLI replies", () => {
@@ -60,5 +61,45 @@ describe("Bee CLI replies", () => {
       summary: "Swap 10 USDC for ETH",
     });
     expect(reply.text).not.toContain("action_123456789");
+  });
+
+  test("renders numbered question choices and resolves a selected answer", () => {
+    const reply = parseBeeReply(`One detail first.
+\`\`\`beeui
+{"components":[{"type":"question","questions":[{"header":"Network","question":"Which network should I use?","options":[{"label":"Base","description":"Use the Base position."},{"label":"Arbitrum","description":"Use Arbitrum instead."}]}]}]}
+\`\`\``);
+
+    expect(reply.text).toContain("Network — Which network should I use?");
+    expect(reply.text).toContain("[1] Base — Use the Base position.");
+    expect(reply.text).toContain("[2] Arbitrum — Use Arbitrum instead.");
+    expect(reply.text).toContain("Reply with a number or type your own answer.");
+    expect(resolveQuestionAnswer(reply.question, "2")).toBe(
+      'For “Which network should I use?”, my answer is “Arbitrum”.',
+    );
+    expect(resolveQuestionAnswer(reply.question, "A different chain")).toBe(
+      "A different chain",
+    );
+  });
+
+  test("resolves one numbered choice for each question", () => {
+    const reply = parseBeeReply(`Choose both.
+\`\`\`beeui
+{"components":[{"type":"question","questions":[{"header":"Network","question":"Which network?","options":[{"label":"Base"},{"label":"Arbitrum"}]},{"header":"Speed","question":"Which speed?","options":[{"label":"Fast"},{"label":"Careful"}]}]}]}
+\`\`\``);
+
+    expect(reply.text).toContain("Reply with one number per question");
+    expect(resolveQuestionAnswer(reply.question, "1, 4")).toBe(
+      'For “Which network?”, my answer is “Base”.\nFor “Which speed?”, my answer is “Careful”.',
+    );
+    expect(resolveQuestionAnswer(reply.question, "1")).toBe("1");
+  });
+
+  test("drops malformed question cards instead of presenting invalid choices", () => {
+    const reply = parseBeeReply(`Please choose.
+\`\`\`beeui
+{"components":[{"type":"question","questions":[{"header":"Network","question":"Which network?","options":[{"label":"Base"}]}]}]}
+\`\`\``);
+
+    expect(reply).toEqual({ text: "Please choose." });
   });
 });

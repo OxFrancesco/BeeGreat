@@ -32,6 +32,20 @@ export async function loadPowerups(
   convexUrl: string,
   runtime: PowerupRuntime = {},
 ): Promise<SubagentDefinition[]> {
+  return (await loadPowerupDefinitions(userId, convexUrl)).map((powerup) =>
+    powerup.profile(userId, convexUrl, runtime),
+  )
+}
+
+/**
+ * Loads entitlement-gated definitions without binding them to one conversation.
+ * Bee binds the exact root conversation id synchronously during render so an
+ * asynchronous power-up action can wake the conversation that created it.
+ */
+export async function loadPowerupDefinitions(
+  userId: string,
+  convexUrl: string,
+): Promise<PowerupDefinition[]> {
   let enabledIds: string[]
   try {
     const convex = new ConvexHttpClient(convexUrl)
@@ -54,5 +68,4 @@ export async function loadPowerups(
   return enabledIds
     .map((id) => REGISTRY[id])
     .filter((powerup): powerup is PowerupDefinition => powerup !== undefined)
-    .map((powerup) => powerup.profile(userId, convexUrl, runtime))
 }

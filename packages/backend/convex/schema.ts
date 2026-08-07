@@ -953,6 +953,13 @@ export default defineSchema({
   // mode can auto-confirm smart-wallet actions, but never EOA actions.
   web3Actions: defineTable({
     userId: v.string(),
+    // Captured when Bee prepares the action so settlement wakes the exact
+    // originating conversation, including detached CLI threads. Optional for
+    // actions created before this field was introduced.
+    conversationId: v.optional(v.string()),
+    // A short, model-authored description of the already-authorized work that
+    // remains after this action settles. It never appears in client views.
+    continuation: v.optional(v.string()),
     summary: v.string(),
     payload: web3ActionPayloadValidator,
     status: web3ActionStatusValidator,

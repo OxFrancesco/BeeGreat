@@ -20,4 +20,30 @@ describe('extractBeeUI image output', () => {
       ],
     });
   });
+
+  test('validates and scrubs a structured question card', () => {
+    const result = extractBeeUI(`One detail first.
+\`\`\`beeui
+{"components":[{"type":"question","questions":[{"header":"Network","question":"Which network for request ID: request_123456789?","options":[{"label":"Base","description":"Use request ID: request_123456789."},{"label":"Arbitrum","description":"Use the other network."}]}]}]}
+\`\`\``);
+
+    expect(result).toEqual({
+      spoken: 'One detail first.',
+      components: [
+        {
+          type: 'question',
+          questions: [
+            {
+              header: 'Network',
+              question: 'Which network for?',
+              options: [
+                { label: 'Base', description: 'Use.' },
+                { label: 'Arbitrum', description: 'Use the other network.' },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
 });

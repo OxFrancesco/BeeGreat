@@ -368,6 +368,7 @@ app.post('/internal/web3-settled', async (c) => {
     kind?: unknown
     status?: unknown
     summary?: unknown
+    continuation?: unknown
     detail?: unknown
     error?: unknown
     explorerLink?: unknown
@@ -382,6 +383,11 @@ app.post('/internal/web3-settled', async (c) => {
       !new RegExp(`^${body.userId}~[0-9]+$`).test(body.conversationId)) ||
     typeof body.actionId !== 'string' ||
     typeof body.summary !== 'string' ||
+    (body.continuation !== undefined &&
+      body.continuation !== null &&
+      (typeof body.continuation !== 'string' ||
+        body.continuation.length < 1 ||
+        body.continuation.length > 1_000)) ||
     (status !== 'executed' &&
       status !== 'failed' &&
       status !== 'refunded' &&
@@ -391,6 +397,9 @@ app.post('/internal/web3-settled', async (c) => {
   }
   const attributes: Record<string, string> = { actionId: body.actionId, status }
   if (typeof body.kind === 'string') attributes.kind = body.kind
+  if (typeof body.continuation === 'string') {
+    attributes.continuation = body.continuation
+  }
   if (typeof body.detail === 'string') attributes.detail = body.detail
   if (typeof body.error === 'string') attributes.error = body.error
   if (typeof body.explorerLink === 'string') {

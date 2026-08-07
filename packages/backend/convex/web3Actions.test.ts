@@ -3,7 +3,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 
 import { api, internal } from './_generated/api'
-import { ACTION_TTL_MS } from './web3Actions'
+import {
+  ACTION_TTL_MS,
+  MAX_WEB3_CONTINUATION_LENGTH,
+} from './web3Actions'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -78,6 +81,77 @@ afterEach(() => {
 })
 
 describe('web3 action confirmation gate', () => {
+  test('preparation durably binds a continuation to its originating conversation', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      conversationId: `${owner}~42`,
+      continuation: 'After the withdrawal settles, swap the received USDC to ETH.',
+      summary: 'Withdraw the full Aerodrome position',
+      payload: sendPayload,
+    })
+
+    const action = await t.query(internal.web3Actions.get, {
+      actionId: created.id,
+    })
+    expect(action).toMatchObject({
+      conversationId: `${owner}~42`,
+      continuation:
+        'After the withdrawal settles, swap the received USDC to ETH.',
+    })
+
+    const publicStatus = await t
+      .withIdentity(identity(owner))
+      .query(api.web3Actions.status, { actionId: created.id })
+    expect(publicStatus).not.toHaveProperty('conversationId')
+    expect(publicStatus).not.toHaveProperty('continuation')
+  })
+
+  test('preparation rejects a conversation that does not belong to the user', async () => {
+    const t = convexTest(schema, modules)
+
+    await expect(
+      t.mutation(internal.web3Actions.create, {
+        userId: owner,
+        conversationId: `${stranger}~42`,
+        continuation: 'Continue moving funds.',
+        summary: 'Send funds',
+        payload: sendPayload,
+      }),
+    ).rejects.toThrow('originating conversation')
+  })
+
+  test('preparation requires an origin and bounds the private continuation', async () => {
+    const t = convexTest(schema, modules)
+    const base = {
+      userId: owner,
+      summary: 'Send funds',
+      payload: sendPayload,
+    }
+
+    await expect(
+      t.mutation(internal.web3Actions.create, {
+        ...base,
+        continuation: 'Continue moving funds.',
+      }),
+    ).rejects.toThrow('originating conversation')
+    await expect(
+      t.mutation(internal.web3Actions.create, {
+        ...base,
+        conversationId: owner,
+        continuation: 'x'.repeat(MAX_WEB3_CONTINUATION_LENGTH + 1),
+      }),
+    ).rejects.toThrow('too long')
+  })
+
   test('confirm requires the signed-in owner and schedules execution exactly once', async () => {
     const t = convexTest(schema, modules)
     const created = await prepare(t)

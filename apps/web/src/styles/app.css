@@ -1827,6 +1827,70 @@ h3 {
   flex: 1;
 }
 
+.question-card {
+  border-color: color-mix(in srgb, var(--honey-strong) 42%, var(--line));
+  gap: 16px;
+}
+
+.question-card__prompt {
+  display: grid;
+  gap: 8px;
+}
+
+.question-card__prompt + .question-card__prompt {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.question-card__header {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.question-card__options {
+  display: grid;
+  gap: 8px;
+}
+
+.question-card__option {
+  display: grid;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    background 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 100ms cubic-bezier(0.23, 1, 0.32, 1);
+  gap: 2px;
+}
+
+.question-card__option:hover,
+.question-card__option:focus-visible,
+.question-card__option.is-selected {
+  border-color: var(--honey-strong);
+  background: var(--surface-selected);
+}
+
+.question-card__option:active {
+  transform: scale(0.97);
+}
+
+.question-card__option small,
+.question-card__custom {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.question-card__submit {
+  width: 100%;
+}
+
 .devin-card {
   display: grid;
   overflow: hidden;

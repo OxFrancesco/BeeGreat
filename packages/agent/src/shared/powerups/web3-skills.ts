@@ -58,7 +58,10 @@ export const aerodromeLiquiditySkill = defineSkill({
   or CL position (\`burn\`/\`unwrap_native\` optional).
 - Recommended LP flow: deposit → stake → (later) claim_emissions →
   unstake → withdraw. Prepare each as its own action; wait for the previous
-  action's settled event before preparing the next.
+  action's settled event before preparing the next. Whenever another step is
+  still required, set the prepare tool's private \`continuation\` to the exact
+  remaining work. For example, withdrawing a pool before swapping its USDC
+  should say to inspect the settled balances and swap all received USDC to ETH.
 
 ## Quotes and swaps
 - \`sugar_quote\` is read-only; do NOT call it right before
@@ -117,6 +120,7 @@ export const crossChainSwapSkill = defineSkill({
 
 ## Chaining bridge → next step (e.g. bridge then LP on Base/Arbitrum)
 1. Prepare the swap, have Bee render the confirm card, stop.
+   Set \`continuation\` to the exact next step that must run after settlement.
 2. On \`web3.action_settled\` executed: continue immediately with the next
    step using the ACTUAL arrived amount (check \`get_wallet_balance\` on the
    destination chain rather than assuming the estimate).

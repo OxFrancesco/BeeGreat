@@ -270,6 +270,7 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
 | `devin` | `{title, status, statusDetail?, sessionId, sessionUrl, summary?, pullRequests[]}` | Devin cloud-task status; live-updates from Convex; session id is machine-only |
 | `first_focus` | `{requestId, goalTitle, projectTitle, taskTitle}` | Editable, uncommitted first-focus preview; app owns the atomic write |
 | `confirm` | `{summary, action, payload?}` | Before destructive/costly actions; renders Yes/No that reply into the chat |
+| `question` | `{questions:[{header, question, options?:[{label, description?}]}]}` | Pause an unfinished request for 1–3 essential answers; option lists have 2–3 choices and custom typed answers remain available |
 
 ### Card anatomy rules
 
@@ -278,6 +279,11 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
 - Interactive cards reply **through the conversation** (`onReply`) or deep-link
   (`Linking.openURL`) — they never mutate silently, except live task toggles
   which write through the same Convex mutation the Goals screens use.
+- `question` card: one quiet card containing short prompts separated by hairlines;
+  option rows are 44px targets on muted surfaces, the selected choice gets the
+  region's single honey accent, and the footer always makes the custom typed
+  answer path explicit. A choice is sent as a normal reply so the unfinished
+  request resumes in the same conversation.
 - `bookmark` card: one row — site favicon (22px, rounded 6) · single-line
   title · `↗` — with the one-sentence note (or the host as fallback) below;
   the whole card opens the URL. No label chips, no kind badges.

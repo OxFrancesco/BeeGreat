@@ -13,6 +13,7 @@ import {
   executeSugarAction,
   executeSugarActionJson,
   type SugarClientOptions,
+  type SugarRpcObserver,
 } from '@beegreat/sugar'
 import {
   SUGAR_ACTIONS,
@@ -106,6 +107,13 @@ const SUGAR_RPC_POLICY = { baseDelayMs: 500, maxRetries: 5 }
 // instead of backing off until the throughput window resets.
 const BASE_FALLBACK_RPC_URL = 'https://base-rpc.publicnode.com'
 
+// Deliberately low-cardinality: the SDK never includes RPC URLs, addresses,
+// parameters, or calldata in these events, so production logs can expose the
+// slow phase without leaking wallet activity.
+const reportSugarRpcEvent: SugarRpcObserver = (event) => {
+  console.info('Sugar RPC', event)
+}
+
 function sugarOptions() {
   const environment = sugarEnvironment()
   const baseRpcUrl = environment.SUGAR_RPC_URI_8453
@@ -113,6 +121,7 @@ function sugarOptions() {
   return {
     cacheStore: sugarCacheStore,
     env: environment,
+    onRpcEvent: reportSugarRpcEvent,
     rpcPolicy: SUGAR_RPC_POLICY,
     ...(useFallback
       ? {
@@ -125,7 +134,7 @@ function sugarOptions() {
                     transport: createSugarFailoverTransport([
                       baseRpcUrl,
                       BASE_FALLBACK_RPC_URL,
-                    ]),
+                    ], { onRpcEvent: reportSugarRpcEvent }),
                   }
                 : options,
             ),
@@ -435,6 +444,8 @@ export const quoteSocketSwap = internalAction({
 export const prepareSocketSwap = internalAction({
   args: {
     userId: v.string(),
+    conversationId: v.optional(v.string()),
+    continuation: v.optional(v.string()),
     originChain: socketChainValidator,
     destinationChain: socketChainValidator,
     inputToken: socketTokenValidator,
@@ -469,6 +480,8 @@ export const prepareSocketSwap = internalAction({
       autoConfirmed: boolean
     } = await ctx.runMutation(internal.web3Actions.create, {
       userId: args.userId,
+      ...(args.conversationId ? { conversationId: args.conversationId } : {}),
+      ...(args.continuation ? { continuation: args.continuation } : {}),
       summary,
       payload: {
         kind: 'socket_swap',
@@ -520,11 +533,16 @@ const DECIMAL_AMOUNT = /^(?:\d+\.?\d*|\.\d+)$/
 export const prepareSendTokens = internalAction({
   args: {
     userId: v.string(),
+    conversationId: v.optional(v.string()),
+    continuation: v.optional(v.string()),
     recipient: v.string(),
     token: v.string(),
     amount: v.string(),
   },
-  handler: async (ctx, { userId, recipient, token, amount }) => {
+  handler: async (
+    ctx,
+    { userId, conversationId, continuation, recipient, token, amount },
+  ) => {
     await requireWeb3(ctx, userId)
     if (!EVM_ADDRESS.test(recipient.trim())) {
       throw new Error('Recipient must be a 0x wallet address.')
@@ -546,6 +564,8 @@ export const prepareSendTokens = internalAction({
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
       await ctx.runMutation(internal.web3Actions.create, {
         userId,
+        ...(conversationId ? { conversationId } : {}),
+        ...(continuation ? { continuation } : {}),
         summary,
         payload: {
           kind: 'send_tokens',
@@ -696,13 +716,18 @@ function describeSugarPlanOutcome(plan: unknown): string {
 export const prepareSugarExecution = internalAction({
   args: {
     userId: v.string(),
+    conversationId: v.optional(v.string()),
+    continuation: v.optional(v.string()),
     sugarAction: v.union(...SUGAR_TX_ACTIONS.map((name) => v.literal(name))),
     parameters: v.record(
       v.string(),
       v.union(v.string(), v.number(), v.boolean()),
     ),
   },
-  handler: async (ctx, { userId, sugarAction, parameters }) => {
+  handler: async (
+    ctx,
+    { userId, conversationId, continuation, sugarAction, parameters },
+  ) => {
     await requireWeb3(ctx, userId)
     if (!isProduction()) {
       throw new Error(
@@ -730,6 +755,8 @@ export const prepareSugarExecution = internalAction({
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
       await ctx.runMutation(internal.web3Actions.create, {
         userId,
+        ...(conversationId ? { conversationId } : {}),
+        ...(continuation ? { continuation } : {}),
         summary,
         payload: {
           kind: 'execute_plan',
@@ -759,6 +786,8 @@ export const prepareSugarExecution = internalAction({
 export const prepareEoaSugarExecution = internalAction({
   args: {
     userId: v.string(),
+    conversationId: v.optional(v.string()),
+    continuation: v.optional(v.string()),
     chainId: v.number(),
     sugarAction: v.union(...SUGAR_TX_ACTIONS.map((name) => v.literal(name))),
     parameters: v.record(
@@ -766,7 +795,17 @@ export const prepareEoaSugarExecution = internalAction({
       v.union(v.string(), v.number(), v.boolean()),
     ),
   },
-  handler: async (ctx, { userId, chainId, sugarAction, parameters }) => {
+  handler: async (
+    ctx,
+    {
+      userId,
+      conversationId,
+      continuation,
+      chainId,
+      sugarAction,
+      parameters,
+    },
+  ) => {
     await requireWeb3(ctx, userId)
     const chainName = SUGAR_CHAIN_NAMES[chainId]
     if (!chainName) throw new Error('That Sugar chain is not supported.')
@@ -797,6 +836,8 @@ export const prepareEoaSugarExecution = internalAction({
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
       await ctx.runMutation(internal.web3Actions.create, {
         userId,
+        ...(conversationId ? { conversationId } : {}),
+        ...(continuation ? { continuation } : {}),
         summary,
         payload: {
           kind: 'execute_eoa_plan',

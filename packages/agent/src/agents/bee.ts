@@ -2,6 +2,8 @@
 import {
   defineTool,
   useAgentStart,
+  useDelivery,
+  useAgentFinish,
   useMcpConnection,
   useModel,
   useSubagent,
@@ -25,6 +27,7 @@ import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
 import { createMindTools } from '../shared/mind-tools.ts'
+import { createQuestionTool } from '../shared/question-tool.ts'
 import { loadBeennectorSubagent } from '../shared/beennectors/index.ts'
 import { imagineSubagent } from '../shared/imagine-subagent.ts'
 import { loadGoogleWorkspaceSubagent } from '../shared/google-workspace-subagent.ts'
@@ -38,7 +41,11 @@ import {
   resolveBeeOrchestratorModel,
   resolveBeeSiteCreatorModel,
 } from '../shared/bee-models.ts'
-import { loadPowerups } from '../shared/powerups/index.ts'
+import {
+  loadPowerupDefinitions,
+  type PowerupDefinition,
+} from '../shared/powerups/index.ts'
+import { completionAuditSignal } from '../shared/completion-policy.ts'
 import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
 import { createTtlCache } from '../shared/ttl-cache.ts'
 import {
@@ -123,7 +130,7 @@ const chatGptCredentialCache = createTtlCache<{ accessToken: string }>()
  */
 type BeeSnapshot = {
   timeZone: string
-  powerups: SubagentDefinition[]
+  powerups: PowerupDefinition[]
   beennectors: SubagentDefinition[]
   googleWorkspace: SubagentDefinition[]
   providerId?: string
@@ -209,11 +216,7 @@ async function warmSnapshot(userId: string, env: Env): Promise<void> {
     await Promise.all([
       loadTimeZone(userId, env.CONVEX_URL, focusOptions),
       // Opt-in power-ups: one specialist subagent each, loaded per user per message.
-      loadPowerups(userId, env.CONVEX_URL, {
-        convexSiteUrl: env.CONVEX_SITE_URL,
-        credentialBrokerSecret:
-          env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
-      }),
+      loadPowerupDefinitions(userId, env.CONVEX_URL),
       loadBeennectorSubagent(userId, env.CONVEX_URL, focusOptions),
       registerCodexProvider(userId, env).catch((error) => {
         Sentry.captureException(error, {
@@ -274,12 +277,17 @@ export function Bee({ id }: AgentProps) {
   const env = workerEnv()
   const snapshot = snapshots.get(userId)
   const providerId = snapshot?.providerId
+  const delivery = useDelivery()
 
   useModel(resolveBeeOrchestratorModel(providerId), {
     thinkingLevel: BEE_ORCHESTRATOR_THINKING_LEVEL,
   })
   useAgentStart(async () => {
     await warmSnapshot(userId, env)
+  })
+  useAgentFinish(({ response, append }) => {
+    const signal = completionAuditSignal(delivery, response.toolCalls)
+    if (signal) append(signal)
   })
   if (env.FIRECRAWL_API_KEY?.trim()) {
     // This root mount makes Firecrawl available on a cold isolate's first turn.
@@ -301,6 +309,7 @@ export function Bee({ id }: AgentProps) {
   }
   const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
   for (const tool of mindTools) useTool(tool)
+  useTool(createQuestionTool())
 
   // The instruction document must stay stable across renders — Flue 2 diffs
   // it every turn and narrates any change to the model ("System instructions
@@ -355,7 +364,14 @@ export function Bee({ id }: AgentProps) {
     ...crawlerSubagents,
     ...(snapshot?.googleWorkspace ?? []),
     ...(snapshot?.beennectors ?? []),
-    ...(snapshot?.powerups ?? []),
+    ...(snapshot?.powerups.map((powerup) =>
+      powerup.profile(userId, env.CONVEX_URL, {
+        convexSiteUrl: env.CONVEX_SITE_URL,
+        credentialBrokerSecret:
+          env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+        conversationId: id,
+      }),
+    ) ?? []),
   ]
   for (const subagent of domainSubagents) useSubagent(subagent)
   useSubagent(

@@ -9,6 +9,7 @@ import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { env, httpAction } from './_generated/server'
 import { isClerkUserId, parseRevenueCatWebhook } from './revenueCatWebhook'
+import { web3ActionContext } from './web3Actions'
 
 const http = httpRouter()
 
@@ -1334,6 +1335,12 @@ const WEB3_WALLET_OPS = [
   'action_status',
 ] as const
 type Web3WalletOp = (typeof WEB3_WALLET_OPS)[number]
+const WEB3_PREPARE_OPS = new Set<Web3WalletOp>([
+  'prepare_send',
+  'prepare_socket_swap',
+  'prepare_execution',
+  'prepare_eoa_execution',
+])
 
 // Authenticated bridge for every wallet-side Web3 tool. The Convex functions
 // behind it are internal on purpose: agent identity is the broker secret, and
@@ -1377,6 +1384,26 @@ http.route({
     const op = body.op as Web3WalletOp
     const str = (name: string) =>
       typeof params[name] === 'string' ? (params[name] as string) : ''
+    let actionContext: ReturnType<typeof web3ActionContext> = {}
+    if (WEB3_PREPARE_OPS.has(op)) {
+      if (
+        (body.conversationId !== undefined &&
+          typeof body.conversationId !== 'string') ||
+        (params.continuation !== undefined &&
+          typeof params.continuation !== 'string')
+      ) {
+        return jsonResponse({ error: 'Invalid Web3 action origin' }, 400)
+      }
+      try {
+        actionContext = web3ActionContext(
+          userId,
+          body.conversationId as string | undefined,
+          params.continuation as string | undefined,
+        )
+      } catch {
+        return jsonResponse({ error: 'Invalid Web3 action origin' }, 400)
+      }
+    }
     try {
       switch (op) {
         case 'create_wallet':
@@ -1427,6 +1454,7 @@ http.route({
           return jsonResponse(
             await ctx.runAction(internal.web3.prepareSendTokens, {
               userId,
+              ...actionContext,
               recipient: str('recipient'),
               token: str('token'),
               amount: str('amount'),
@@ -1449,6 +1477,7 @@ http.route({
           }
           const request = {
             userId,
+            ...(op === 'prepare_socket_swap' ? actionContext : {}),
             originChain: originChain as 'base' | 'arbitrum',
             destinationChain: destinationChain as 'base' | 'arbitrum',
             inputToken: inputToken as 'eth' | 'usdc',
@@ -1487,6 +1516,7 @@ http.route({
             op === 'prepare_execution'
               ? await ctx.runAction(internal.web3.prepareSugarExecution, {
                   userId,
+                  ...actionContext,
                   sugarAction,
                   parameters: sugarParameters as Record<
                     string,
@@ -1495,6 +1525,7 @@ http.route({
                 })
               : await ctx.runAction(internal.web3.prepareEoaSugarExecution, {
                   userId,
+                  ...actionContext,
                   chainId:
                     typeof params.chainId === 'number' ? params.chainId : 0,
                   sugarAction,

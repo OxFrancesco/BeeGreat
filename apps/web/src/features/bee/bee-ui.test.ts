@@ -104,4 +104,39 @@ describe('extractBeeUI', () => {
       ],
     })
   })
+
+  test('accepts structured questions and scrubs ids from every visible field', () => {
+    const result = extractBeeUI(`I need one detail before I continue.
+\`\`\`beeui
+{"components":[{"type":"question","questions":[{"header":"Network","question":"Which network should I use for j970mfwm36h24y655hz3pcke3s8apxap?","options":[{"label":"Base","description":"Use position ID: j970mfwm36h24y655hz3pcke3s8apxap."},{"label":"Arbitrum","description":"Use the other network."}]}]}]}
+\`\`\``)
+
+    expect(result).toEqual({
+      spoken: 'I need one detail before I continue.',
+      components: [
+        {
+          type: 'question',
+          questions: [
+            {
+              header: 'Network',
+              question: 'Which network should I use for?',
+              options: [
+                { label: 'Base', description: 'Use position.' },
+                { label: 'Arbitrum', description: 'Use the other network.' },
+              ],
+            },
+          ],
+        },
+      ],
+    })
+  })
+
+  test('drops question cards with invalid question or option counts', () => {
+    const result = extractBeeUI(`Please choose.
+\`\`\`beeui
+{"components":[{"type":"question","questions":[{"header":"Network","question":"Which network?","options":[{"label":"Base"}]}]}]}
+\`\`\``)
+
+    expect(result).toEqual({ spoken: 'Please choose.', components: [] })
+  })
 })

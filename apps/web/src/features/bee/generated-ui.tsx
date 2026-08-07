@@ -1,7 +1,7 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { sameEvmAddress, sendEoaTransactions } from '@beegreat/wallet-connect'
 import { useMutation, useQuery } from 'convex/react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { FirstFocusPreviewCard } from './first-focus-preview'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { ReactNode } from 'react'
@@ -105,7 +105,110 @@ function UIComponentView({
         </Card>
       )
     }
+    case 'question':
+      return <QuestionCard {...component} onReply={onReply} />
   }
+}
+
+function questionAnswer(question: string, answer: string) {
+  return `For “${question}”, my answer is “${answer}”.`
+}
+
+function QuestionCard({
+  questions,
+  onReply,
+}: Extract<UIComponent, { type: 'question' }> & {
+  onReply?: (text: string) => void | Promise<void>
+}) {
+  const [answers, setAnswers] = useState<Record<number, string>>({})
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const questionId = useId()
+  const allOptionQuestionsAnswered =
+    questions.length > 1 &&
+    questions.every(
+      (question, index) => question.options?.length && answers[index],
+    )
+
+  const reply = async (text: string) => {
+    if (!onReply || sending || sent) return
+    setSending(true)
+    try {
+      await onReply(text)
+      setSent(true)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const choose = (questionIndex: number, prompt: string, label: string) => {
+    if (questions.length === 1) {
+      void reply(questionAnswer(prompt, label))
+      return
+    }
+    setAnswers((current) => ({ ...current, [questionIndex]: label }))
+  }
+
+  return (
+    <Card className="question-card">
+      {questions.map((question, questionIndex) => (
+        <section
+          className="question-card__prompt"
+          key={`${question.header}-${questionIndex}`}
+          aria-labelledby={`${questionId}-${questionIndex}`}
+        >
+          <p className="question-card__header">{question.header}</p>
+          <p id={`${questionId}-${questionIndex}`}>{question.question}</p>
+          {question.options?.length ? (
+            <div className="question-card__options">
+              {question.options.map((option) => {
+                const selected = answers[questionIndex] === option.label
+                return (
+                  <button
+                    className={`question-card__option${selected ? ' is-selected' : ''}`}
+                    type="button"
+                    key={option.label}
+                    disabled={!onReply || sending || sent}
+                    aria-pressed={selected}
+                    onClick={() =>
+                      choose(questionIndex, question.question, option.label)
+                    }
+                  >
+                    <span>{option.label}</span>
+                    {option.description ? (
+                      <small>{option.description}</small>
+                    ) : null}
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
+        </section>
+      ))}
+      {allOptionQuestionsAnswered ? (
+        <button
+          className="button button--primary question-card__submit"
+          type="button"
+          disabled={!onReply || sending || sent}
+          onClick={() =>
+            void reply(
+              questions
+                .map((question, index) =>
+                  questionAnswer(question.question, answers[index] ?? ''),
+                )
+                .join('\n'),
+            )
+          }
+        >
+          {sending ? 'Sending…' : sent ? 'Answered' : 'Continue'}
+        </button>
+      ) : (
+        <p className="question-card__custom">
+          {sent ? 'Answer sent.' : 'Or type your own answer below.'}
+        </p>
+      )}
+    </Card>
+  )
 }
 
 function generatedImageFileName(url: string) {

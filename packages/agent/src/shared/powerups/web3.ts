@@ -45,6 +45,16 @@ const poolPosition = {
   ),
 }
 const slippage = v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(1)))
+const continuation = v.optional(
+  v.pipe(
+    v.string(),
+    v.minLength(1),
+    v.maxLength(1_000),
+    v.description(
+      'Private remaining-plan description to resume after this action settles. Set it whenever this action is not the final step; omit only when settlement fully satisfies the request.',
+    ),
+  ),
+)
 
 const INSTRUCTIONS = `You are the Web3 specialist inside BeeGreat, working for Bee
 (the coordinator). You manage the user's wallets and help with Velodrome/Aerodrome
@@ -89,6 +99,12 @@ Moving funds is TWO-PHASE and you only ever run phase one:
   re-checks ownership, expiry, entitlement, and pending status before execution.
 
 Long-running, multi-step plans (e.g. bridge, then open a pool position):
+- Every prepare_* tool has a private \`continuation\` input. If more work is
+  required after settlement, describe that remaining work precisely. It is
+  bound to the originating conversation by the runtime and returned only in
+  the private settled signal; never put conversation or action ids in it.
+- Omit \`continuation\` only when the prepared action's successful settlement
+  fully satisfies the user's request.
 - You do NOT need to poll a moving action. The backend follows it for its
   whole settlement window (a cross-chain swap for its full monitoring window)
   and Bee receives a \`web3.action_settled\` event the moment it reaches
@@ -188,7 +204,14 @@ export const web3: PowerupDefinition = {
     ) => bridgePost('/internal/web3/sugar', { userId, sugarAction, parameters })
 
     const runWallet = (op: string, params: Record<string, unknown> = {}) =>
-      bridgePost('/internal/web3/wallet', { userId, op, params })
+      bridgePost('/internal/web3/wallet', {
+        userId,
+        ...(runtime.conversationId
+          ? { conversationId: runtime.conversationId }
+          : {}),
+        op,
+        params,
+      })
 
     const tools = [
         defineTool({
@@ -259,6 +282,7 @@ export const web3: PowerupDefinition = {
           description:
             'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
           input: v.object({
+            continuation,
             recipient: address('Recipient 0x wallet address'),
             token: v.pipe(
               v.string(),
@@ -303,6 +327,7 @@ export const web3: PowerupDefinition = {
           description:
             'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user authorizes the exact confirmation in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Source gas is sponsored; output ETH gives the destination native gas.',
           input: v.object({
+            continuation,
             origin_chain: socketChain,
             destination_chain: socketChain,
             input_token: socketToken,
@@ -316,6 +341,7 @@ export const web3: PowerupDefinition = {
               inputToken: data.input_token,
               outputToken: data.output_token,
               amount: data.amount,
+              continuation: data.continuation,
             })
           },
         }),
@@ -325,6 +351,7 @@ export const web3: PowerupDefinition = {
           description:
             'Phase one of executing an Aerodrome action (swap, deposit/create pool, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
           input: v.object({
+            continuation,
             sugar_action: v.picklist(
               [
                 'swap',
@@ -351,6 +378,7 @@ export const web3: PowerupDefinition = {
             return await runWallet('prepare_execution', {
               sugarAction: data.sugar_action,
               parameters: data.parameters,
+              continuation: data.continuation,
             })
           },
         }),
@@ -360,6 +388,7 @@ export const web3: PowerupDefinition = {
           description:
             'Build an allowlisted Velodrome/Aerodrome action for the verified linked EOA on a supported Sugar chain and return a pending actionId. NOTHING moves until the user confirms in the signed-in BeeGreat app and the matching WalletConnect wallet signs every transaction. Never eligible for YOLO or iMessage confirmation.',
           input: v.object({
+            continuation,
             chain: sugarChain,
             sugar_action: v.picklist(
               [
@@ -388,6 +417,7 @@ export const web3: PowerupDefinition = {
               chainId: data.chain,
               sugarAction: data.sugar_action,
               parameters: data.parameters,
+              continuation: data.continuation,
             })
           },
         }),

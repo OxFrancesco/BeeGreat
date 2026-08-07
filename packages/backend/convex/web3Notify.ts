@@ -57,10 +57,15 @@ export const notifyActionSettled = internalAction({
     )
     if (!action || !TERMINAL_STATUSES.has(action.status)) return null
 
-    const conversationId: string = await ctx.runQuery(
-      internal.web3Notify.activeConversation,
-      { userId: action.userId },
-    )
+    // New actions are bound to their origin at preparation time. The active
+    // app thread is only a migration fallback for rows created before that
+    // field existed; looking it up for a new action can misroute detached CLI
+    // work when the app happens to have another thread selected.
+    const conversationId: string =
+      action.conversationId ??
+      (await ctx.runQuery(internal.web3Notify.activeConversation, {
+        userId: action.userId,
+      }))
     const explorerLink =
       action.socketProgress?.destinationExplorerLink ??
       [...(action.result ?? [])].reverse().find((item) => item.explorerLink)
@@ -86,6 +91,7 @@ export const notifyActionSettled = internalAction({
           detail: action.socketProgress?.detail ?? null,
           error: action.error ?? null,
           explorerLink,
+          continuation: action.continuation ?? null,
         }),
         signal: controller.signal,
       })

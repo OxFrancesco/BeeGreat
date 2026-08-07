@@ -4,6 +4,41 @@ import type { FlueClient } from "@flue/sdk";
 import { createBeeSession, type ThreadStateStore } from "./session";
 
 describe("Bee CLI session", () => {
+  test("resumes the same conversation when a numbered question option is chosen", async () => {
+    const prompts: string[] = [];
+    const replies = [
+      `One detail first.\n\`\`\`beeui\n{"components":[{"type":"question","questions":[{"header":"Network","question":"Which network should I use?","options":[{"label":"Base"},{"label":"Arbitrum"}]}]}]}\n\`\`\``,
+      "Continuing on Arbitrum.",
+    ];
+    const session = createBeeSession(
+      {
+        agentUrl: "https://agent.example.test",
+        userId: "user_owner",
+        getToken: async () => "clerk-token",
+      },
+      { load: async () => 7, save: async () => undefined },
+      {
+        fetch: async () => Response.json(null),
+        createClient: () =>
+          ({
+            send: async ({ message }: { message: { body: string } }) => {
+              prompts.push(message.body);
+              return { submissionId: `submission-${prompts.length}` };
+            },
+            read: async () => ({ text: replies.shift() ?? "Done." }),
+          }) as unknown as FlueClient,
+      },
+    );
+
+    await session.ask("Move the position");
+    await session.ask("2");
+
+    expect(prompts).toEqual([
+      "Move the position",
+      'For “Which network should I use?”, my answer is “Arbitrum”.',
+    ]);
+  });
+
   test("returns only the final agent step when Flue accumulates multiple text steps", async () => {
     const session = createBeeSession(
       {

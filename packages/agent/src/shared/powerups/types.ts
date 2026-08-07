@@ -26,4 +26,10 @@ export interface PowerupDefinition {
 export interface PowerupRuntime {
   convexSiteUrl?: string
   credentialBrokerSecret?: string
+  /**
+   * Exact private Flue conversation currently preparing an asynchronous
+   * action. Runtime plumbing supplies this from Bee({ id }); it is never a
+   * model input or user-visible tool argument.
+   */
+  conversationId?: string
 }

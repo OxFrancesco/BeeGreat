@@ -7,6 +7,8 @@ import {
 
 import {
   parseBeeReply,
+  resolveQuestionAnswer,
+  type BeeQuestion,
   type FirstFocusConfirmation,
   type Web3Confirmation,
 } from "./reply";
@@ -57,6 +59,7 @@ export function createBeeSession(
   let client: FlueClient | undefined;
   let pendingFirstFocus: FirstFocusConfirmation | undefined;
   let pendingWeb3: Web3Confirmation | undefined;
+  let pendingQuestion: BeeQuestion | undefined;
 
   async function channelAction<T>(body: Record<string, unknown>): Promise<T> {
     const response = await fetcher(`${agentUrl}/cli/channel`, {
@@ -127,7 +130,8 @@ export function createBeeSession(
       prompt: string,
       onEvent?: (event: ConversationStreamChunk) => void,
     ) {
-      let deliveredPrompt = prompt;
+      let deliveredPrompt = resolveQuestionAnswer(pendingQuestion, prompt);
+      pendingQuestion = undefined;
       const confirms =
         /^(yes|yep|confirm|confirmed|looks good|create it|do it)[.!]?$/i.test(
           prompt.trim(),
@@ -211,12 +215,14 @@ export function createBeeSession(
       const parsed = parseBeeReply(replyText);
       pendingFirstFocus = parsed.firstFocus;
       pendingWeb3 = parsed.web3Confirmation;
+      pendingQuestion = parsed.question;
       return replyText;
     },
 
     async newConversation() {
       pendingFirstFocus = undefined;
       pendingWeb3 = undefined;
+      pendingQuestion = undefined;
       return await createThread();
     },
   };

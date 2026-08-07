@@ -39,8 +39,11 @@ import {
 
 /** Pending actions die after 10 minutes so stale confirm cards are inert. */
 export const ACTION_TTL_MS = 10 * 60 * 1000
+/** Keeps the private continuation small enough for a single settled signal. */
+export const MAX_WEB3_CONTINUATION_LENGTH = 1_000
 
 const EVM_HASH = /^0x[0-9a-fA-F]{64}$/
+const THREAD_SUFFIX = /^[1-9]\d{0,15}$/
 const EOA_CHAIN_EXPLORERS: Record<number, string> = {
   10: 'https://optimistic.etherscan.io/tx/',
   130: 'https://uniscan.xyz/tx/',
@@ -94,6 +97,47 @@ function withExpiry(action: Doc<'web3Actions'>, now: number) {
   return action
 }
 
+function belongsToUserConversation(userId: string, conversationId: string) {
+  if (conversationId === userId) return true
+  const prefix = `${userId}~`
+  return (
+    conversationId.startsWith(prefix) &&
+    THREAD_SUFFIX.test(conversationId.slice(prefix.length))
+  )
+}
+
+/**
+ * Validate and normalize the private routing context captured by every
+ * prepared action. Both the broker HTTP boundary and the durable create seam
+ * call this so an action can never be routed across users.
+ */
+export function web3ActionContext(
+  userId: string,
+  conversationId?: string,
+  continuation?: string,
+) {
+  if (
+    conversationId !== undefined &&
+    !belongsToUserConversation(userId, conversationId)
+  ) {
+    throw new Error('The originating conversation does not belong to this user.')
+  }
+  const cleanContinuation = continuation?.trim()
+  if (cleanContinuation && !conversationId) {
+    throw new Error('A continuation requires its originating conversation.')
+  }
+  if (
+    cleanContinuation &&
+    cleanContinuation.length > MAX_WEB3_CONTINUATION_LENGTH
+  ) {
+    throw new Error('The Web3 continuation is too long.')
+  }
+  return {
+    ...(conversationId ? { conversationId } : {}),
+    ...(cleanContinuation ? { continuation: cleanContinuation } : {}),
+  }
+}
+
 /**
  * Agent/internal: create an action awaiting client confirmation. When the
  * signed-in user pre-authorized YOLO mode, a smart-wallet action is confirmed
@@ -103,10 +147,20 @@ function withExpiry(action: Doc<'web3Actions'>, now: number) {
 export const create = internalMutation({
   args: {
     userId: v.string(),
+    conversationId: v.optional(v.string()),
+    continuation: v.optional(v.string()),
     summary: v.string(),
     payload: web3ActionPayloadValidator,
   },
-  handler: async (ctx, { userId, summary, payload }) => {
+  handler: async (
+    ctx,
+    { userId, conversationId, continuation, summary, payload },
+  ) => {
+    const actionContext = web3ActionContext(
+      userId,
+      conversationId,
+      continuation,
+    )
     const now = Date.now()
     const actionExpiresAt = now + ACTION_TTL_MS
     const autoConfirm =
@@ -115,6 +169,7 @@ export const create = internalMutation({
       (await isPowerupEnabled(ctx, userId, 'web3'))
     const id = await ctx.db.insert('web3Actions', {
       userId,
+      ...actionContext,
       summary,
       payload,
       status: autoConfirm ? 'confirmed' : 'pending',

@@ -8,6 +8,17 @@ const httpsUrlSchema = z
   .url()
   .refine((url) => url.startsWith('https://'), 'Expected an HTTPS URL');
 
+const questionOptionSchema = z.object({
+  label: z.string().trim().min(1).max(40),
+  description: z.string().trim().min(1).max(120).optional(),
+});
+
+const questionPromptSchema = z.object({
+  header: z.string().trim().min(1).max(24),
+  question: z.string().trim().min(1).max(180),
+  options: z.array(questionOptionSchema).min(2).max(3).optional(),
+});
+
 /**
  * The generative UI vocabulary shared with the Bee agent
  * (see packages/agent/src/agents/bee.md).
@@ -77,6 +88,10 @@ export const uiComponentSchema = z.discriminatedUnion('type', [
     action: z.string(),
     payload: z.record(z.string(), z.unknown()).optional(),
   }),
+  z.object({
+    type: z.literal('question'),
+    questions: z.array(questionPromptSchema).min(1).max(3),
+  }),
 ]);
 
 export type UIComponent = z.infer<typeof uiComponentSchema>;
@@ -127,6 +142,22 @@ function scrubComponent(component: UIComponent): UIComponent {
       };
     case 'confirm':
       return { ...component, summary: scrubIdentifiers(component.summary) };
+    case 'question':
+      return {
+        ...component,
+        questions: component.questions.map((question) => ({
+          ...question,
+          header: scrubIdentifiers(question.header),
+          question: scrubIdentifiers(question.question),
+          options: question.options?.map((option) => ({
+            ...option,
+            label: scrubIdentifiers(option.label),
+            description: option.description
+              ? scrubIdentifiers(option.description)
+              : option.description,
+          })),
+        })),
+      };
     default:
       return component;
   }
