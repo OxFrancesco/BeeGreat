@@ -7,6 +7,7 @@ export const beennectorProviderValidator = v.union(
   v.literal('github'),
   v.literal('linear'),
   v.literal('notion'),
+  v.literal('google'),
 )
 
 export const beennectorSessionStatusValidator = v.union(
@@ -62,5 +63,4 @@ export const beennectorDeliveryClaimValidator = v.union(
   v.object({ status: v.literal('ambiguous') }),
 )
 
-export type BeennectorProvider = 'github' | 'linear' | 'notion'
-
+export type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google'

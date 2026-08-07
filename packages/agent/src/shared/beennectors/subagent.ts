@@ -54,6 +54,7 @@ export async function loadBeennectorSubagent(
     })
     return []
   }
+  connected = connected.filter(({ provider }) => provider !== 'google')
   if (!connected.length) return []
   const connectedNames = connected
     .map(({ provider, accountName, workspaceName }) =>
@@ -129,4 +130,3 @@ export async function loadBeennectorSubagent(
 }
 
 export type { BeennectorProvider }
-

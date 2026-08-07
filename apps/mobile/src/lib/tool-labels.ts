@@ -70,6 +70,7 @@ function taskSymbol(input: unknown) {
   )
     return "bolt.fill";
   if (agent === "imagine") return "wand.and.stars";
+  if (agent === "google-workspace") return "tray.full";
   return "sparkles";
 }
 

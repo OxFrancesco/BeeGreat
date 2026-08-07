@@ -258,6 +258,11 @@ export const execute = internalAction({
       if (provider === 'linear') {
         return await linearRequest(token, args.operation, args)
       }
+      if (provider === 'google') {
+        throw new Error(
+          'Google Workspace operations run through the guarded gog specialist.',
+        )
+      }
       return await notionRequest(token, args.operation, args)
     } catch (error) {
       if (error instanceof BeennectorApiError && error.status === 401) {

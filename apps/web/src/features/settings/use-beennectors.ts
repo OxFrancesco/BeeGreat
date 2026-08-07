@@ -2,7 +2,7 @@ import { api } from '@beegreat/backend/convex/_generated/api'
 import { useAction, useQuery } from 'convex/react'
 import { useCallback, useEffect, useRef } from 'react'
 
-export type BeennectorProvider = 'github' | 'linear' | 'notion'
+export type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google'
 
 const STATUS_SETTLE_MS = 1_500
 

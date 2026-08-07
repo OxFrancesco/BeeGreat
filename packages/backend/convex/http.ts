@@ -854,7 +854,7 @@ http.route({
     const code = url.searchParams.get('code')
     const oauthError = url.searchParams.get('error')
     let connected = false
-    let provider: 'github' | 'linear' | 'notion' | undefined
+    let provider: 'github' | 'linear' | 'notion' | 'google' | undefined
     if (state) {
       const result = await ctx.runAction(
         internal.beennectorAuthActions.completeAuthorization,
@@ -909,7 +909,8 @@ http.route({
       provider !== undefined &&
       provider !== 'github' &&
       provider !== 'linear' &&
-      provider !== 'notion'
+      provider !== 'notion' &&
+      provider !== 'google'
     ) {
       return jsonResponse({ error: 'Invalid Beennector provider' }, 400)
     }
@@ -964,6 +965,13 @@ http.route({
         )
         return jsonResponse(result, 200)
       }
+      if (body.operation === 'google_access_token') {
+        const result = await ctx.runAction(
+          internal.beennectorAuthActions.googleAccessTokenForAgent,
+          { userId: body.userId },
+        )
+        return jsonResponse(result, 200)
+      }
       if (
         body.operation !== 'list' &&
         body.operation !== 'search' &&
@@ -974,6 +982,7 @@ http.route({
       }
       if (
         !provider ||
+        provider === 'google' ||
         (body.query !== undefined && typeof body.query !== 'string') ||
         (body.ref !== undefined && typeof body.ref !== 'string') ||
         (body.body !== undefined && typeof body.body !== 'string') ||

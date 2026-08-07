@@ -19,6 +19,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/chat` — Vercel Chat SDK — cross-platform adapters, identity/event models, state, and examples
 - `resources/buddy-imagine-v2` — BuddyImagineV2 reference for FAL image and video generation and editing
 - `resources/velodrome-sdk-js` — Official Velodrome/Aerodrome sdk.js — TypeScript Sugar SDK for pools, positions, swaps, staking, rewards, and voting
+- `resources/gogcli` — OpenClaw Google Workspace CLI — commands, auth, JSON schema, agent safety profiles, and container deployment
+- `resources/firecrawl` — Firecrawl monorepo: TypeScript SDK and API patterns for search, scrape, crawl, map, and structured extraction
 
 <!-- codeview:end -->
 

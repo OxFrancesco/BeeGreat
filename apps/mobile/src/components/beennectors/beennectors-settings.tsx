@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   GitHubLogo,
+  GoogleLogo,
   LinearLogo,
   NotionLogo,
 } from '@/components/beennectors/beennector-logos';
@@ -16,18 +17,20 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { captureMobileFailure } from '@/lib/sentry';
 
-type BeennectorProvider = 'github' | 'linear' | 'notion';
+type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google';
 
 const APP_REDIRECT_URI = 'beegreat://profile';
 const MARKS: Record<BeennectorProvider, ReactNode> = {
   github: <GitHubLogo size={22} />,
   linear: <LinearLogo size={20} />,
   notion: <NotionLogo size={20} />,
+  google: <GoogleLogo size={22} />,
 };
 const BRAND_COLORS: Record<BeennectorProvider, string> = {
   github: '#24292F',
   linear: '#5E6AD2',
   notion: '#FFFFFF',
+  google: '#FFFFFF',
 };
 
 export function BeennectorsSettings() {
@@ -110,7 +113,9 @@ export function BeennectorsSettings() {
                 style={[
                   styles.mark,
                   { backgroundColor: BRAND_COLORS[connection.provider] },
-                  connection.provider === 'notion' && styles.notionMark,
+                  (connection.provider === 'notion' ||
+                    connection.provider === 'google') &&
+                    styles.notionMark,
                 ]}
               >
                 {MARKS[connection.provider]}
@@ -285,4 +290,3 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
 });
-

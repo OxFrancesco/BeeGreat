@@ -498,7 +498,9 @@ export default defineSchema({
 
   // Beennectors are durable account/workspace connections, not optional
   // PowerBee capability packs. OAuth state and credentials therefore live in
-  // their own domain and tokens never reach app clients or the agent worker.
+  // their own domain and tokens never reach app clients. Google access tokens
+  // may cross the private broker only as per-command env for the guarded gog
+  // sandbox; they never enter model context or tool arguments.
   beennectorAuthSessions: defineTable({
     userId: v.string(),
     provider: beennectorProviderValidator,

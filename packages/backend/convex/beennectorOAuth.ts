@@ -13,6 +13,26 @@ const LINEAR_API_URL = 'https://api.linear.app/graphql'
 const NOTION_AUTHORIZE_URL = 'https://api.notion.com/v1/oauth/authorize'
 const NOTION_TOKEN_URL = 'https://api.notion.com/v1/oauth/token'
 const NOTION_VERSION = '2026-03-11'
+const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+const GOOGLE_REVOCATION_URL = 'https://oauth2.googleapis.com/revoke'
+const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo'
+const GOOGLE_WORKSPACE_SCOPES = [
+  'openid',
+  'email',
+  'profile',
+  'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/gmail.compose',
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/documents',
+  'https://www.googleapis.com/auth/spreadsheets',
+  'https://www.googleapis.com/auth/presentations',
+  'https://www.googleapis.com/auth/contacts.readonly',
+  'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/forms.body.readonly',
+  'https://www.googleapis.com/auth/forms.responses.readonly',
+] as const
 
 const PROVIDER_CONFIG = {
   github: {
@@ -29,6 +49,11 @@ const PROVIDER_CONFIG = {
     label: 'Notion',
     clientId: 'NOTION_BEENNECTOR_CLIENT_ID',
     clientSecret: 'NOTION_BEENNECTOR_CLIENT_SECRET',
+  },
+  google: {
+    label: 'Google Workspace',
+    clientId: 'GOOGLE_BEENNECTOR_CLIENT_ID',
+    clientSecret: 'GOOGLE_BEENNECTOR_CLIENT_SECRET',
   },
 } as const
 
@@ -85,7 +110,8 @@ function pkceChallenge(verifier: string) {
 export function createBeennectorAuthorization(provider: BeennectorProvider) {
   const { clientId, redirectUri } = credentials(provider)
   const state = randomBeennectorValue()
-  const codeVerifier = provider === 'notion' ? undefined : randomBeennectorValue(48)
+  const codeVerifier =
+    provider === 'notion' ? undefined : randomBeennectorValue(48)
   let url: URL
 
   if (provider === 'github') {
@@ -112,7 +138,7 @@ export function createBeennectorAuthorization(provider: BeennectorProvider) {
       code_challenge_method: 'S256',
       prompt: 'consent',
     }).toString()
-  } else {
+  } else if (provider === 'notion') {
     url = new URL(NOTION_AUTHORIZE_URL)
     url.search = new URLSearchParams({
       client_id: clientId,
@@ -120,6 +146,20 @@ export function createBeennectorAuthorization(provider: BeennectorProvider) {
       response_type: 'code',
       owner: 'user',
       state,
+    }).toString()
+  } else {
+    url = new URL(GOOGLE_AUTHORIZE_URL)
+    url.search = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: GOOGLE_WORKSPACE_SCOPES.join(' '),
+      state,
+      code_challenge: pkceChallenge(codeVerifier!),
+      code_challenge_method: 'S256',
+      access_type: 'offline',
+      include_granted_scopes: 'true',
+      prompt: 'consent select_account',
     }).toString()
   }
 
@@ -149,7 +189,9 @@ async function requestToken(
       ? GITHUB_TOKEN_URL
       : provider === 'linear'
         ? LINEAR_TOKEN_URL
-        : NOTION_TOKEN_URL
+        : provider === 'notion'
+          ? NOTION_TOKEN_URL
+          : GOOGLE_TOKEN_URL
   const notion = provider === 'notion'
   let response: Response
   try {
@@ -168,7 +210,11 @@ async function requestToken(
           },
       body: notion
         ? JSON.stringify(input)
-        : new URLSearchParams({ client_id: clientId, client_secret: clientSecret, ...input }).toString(),
+        : new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            ...input,
+          }).toString(),
     })
   } catch {
     throw new BeennectorOAuthError(
@@ -200,7 +246,9 @@ function scopes(value: TokenBody['scope']) {
   return value?.split(/[ ,]+/).filter(Boolean) ?? []
 }
 
-async function fetchGitHubIdentity(accessToken: string): Promise<BeennectorIdentity> {
+async function fetchGitHubIdentity(
+  accessToken: string,
+): Promise<BeennectorIdentity> {
   const response = await fetch(`${GITHUB_API_URL}/user`, {
     headers: {
       accept: 'application/vnd.github+json',
@@ -228,7 +276,9 @@ async function fetchGitHubIdentity(accessToken: string): Promise<BeennectorIdent
   }
 }
 
-async function fetchLinearIdentity(accessToken: string): Promise<BeennectorIdentity> {
+async function fetchLinearIdentity(
+  accessToken: string,
+): Promise<BeennectorIdentity> {
   const response = await fetch(LINEAR_API_URL, {
     method: 'POST',
     headers: {
@@ -251,7 +301,8 @@ async function fetchLinearIdentity(accessToken: string): Promise<BeennectorIdent
   const organization = body.data?.organization
   if (!response.ok || !viewer?.id || !organization?.id) {
     throw new BeennectorOAuthError(
-      body.errors?.[0]?.message ?? 'Could not read the connected Linear workspace',
+      body.errors?.[0]?.message ??
+        'Could not read the connected Linear workspace',
       `linear_identity_${response.status}`,
       response.status === 429 || response.status >= 500,
     )
@@ -261,6 +312,32 @@ async function fetchLinearIdentity(accessToken: string): Promise<BeennectorIdent
     externalAccountName: viewer.name,
     workspaceId: organization.id,
     workspaceName: organization.name,
+  }
+}
+
+async function fetchGoogleIdentity(
+  accessToken: string,
+): Promise<BeennectorIdentity> {
+  const response = await fetch(GOOGLE_USERINFO_URL, {
+    headers: { authorization: `Bearer ${accessToken}` },
+  })
+  const body = (await response.json().catch(() => ({}))) as {
+    sub?: string
+    email?: string
+    name?: string
+    error_description?: string
+  }
+  if (!response.ok || !body.sub || !body.email) {
+    throw new BeennectorOAuthError(
+      body.error_description ?? 'Could not read the connected Google account',
+      `google_identity_${response.status}`,
+      response.status === 429 || response.status >= 500,
+    )
+  }
+  return {
+    externalAccountId: body.sub,
+    externalAccountName: body.email,
+    workspaceName: body.name,
   }
 }
 
@@ -276,20 +353,21 @@ export async function exchangeBeennectorCode(
     redirect_uri: redirectUri,
     ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
   })
-  const identity =
-    provider === 'github'
-      ? await fetchGitHubIdentity(body.access_token!)
-      : provider === 'linear'
-        ? await fetchLinearIdentity(body.access_token!)
-        : {
-            externalAccountId:
-              body.owner?.user?.id ?? body.bot_id ?? body.workspace_id!,
-            externalAccountName: body.owner?.user?.name,
-            workspaceId: body.workspace_id,
-            workspaceName: body.workspace_name,
-            botId: body.bot_id,
-          }
-  if (!identity.externalAccountId) {
+  const identity = (() => {
+    if (provider === 'github') return fetchGitHubIdentity(body.access_token!)
+    if (provider === 'linear') return fetchLinearIdentity(body.access_token!)
+    if (provider === 'google') return fetchGoogleIdentity(body.access_token!)
+    return Promise.resolve({
+      externalAccountId:
+        body.owner?.user?.id ?? body.bot_id ?? body.workspace_id!,
+      externalAccountName: body.owner?.user?.name,
+      workspaceId: body.workspace_id,
+      workspaceName: body.workspace_name,
+      botId: body.bot_id,
+    })
+  })()
+  const resolvedIdentity = await identity
+  if (!resolvedIdentity.externalAccountId) {
     throw new BeennectorOAuthError(
       `Could not identify the connected ${PROVIDER_CONFIG[provider].label} account`,
       'missing_identity',
@@ -302,7 +380,7 @@ export async function exchangeBeennectorCode(
       ? Date.now() + body.expires_in * 1_000
       : undefined,
     scopes: scopes(body.scope),
-    identity,
+    identity: resolvedIdentity,
   }
 }
 
@@ -359,7 +437,7 @@ export async function revokeBeennectorToken(
         client_secret: clientSecret,
       }).toString(),
     })
-  } else {
+  } else if (provider === 'notion') {
     response = await fetch('https://api.notion.com/v1/oauth/revoke', {
       method: 'POST',
       headers: {
@@ -368,6 +446,12 @@ export async function revokeBeennectorToken(
         'notion-version': NOTION_VERSION,
       },
       body: JSON.stringify({ token: accessToken }),
+    })
+  } else {
+    response = await fetch(GOOGLE_REVOCATION_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token: accessToken }).toString(),
     })
   }
   if (!response.ok && response.status !== 400 && response.status !== 404) {

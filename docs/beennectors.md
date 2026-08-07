@@ -1,6 +1,6 @@
 # BeeGreat Beennectors
 
-GitHub, Linear, and Notion are account/workspace connections called
+GitHub, Linear, Notion, and Google Workspace are account/workspace connections called
 **Beennectors**. They are intentionally separate from Power-ups: there is no
 PowerBee toggle, entitlement row, or power-up loader involved.
 
@@ -8,12 +8,15 @@ PowerBee toggle, entitlement row, or power-up loader involved.
 
 - Convex owns OAuth state, encrypted credentials, refresh leases, provider API
   calls, account/workspace routing, and delivery deduplication.
-- The Bee Worker receives only filtered API results through the authenticated
-  `/internal/beennectors` broker. OAuth tokens never reach web, mobile, or the
-  agent runtime.
+- The Bee Worker receives filtered provider results through the authenticated
+  `/internal/beennectors` broker. For Google Workspace only, it receives a
+  short-lived access token for a single guarded `gog` invocation. The token is
+  injected as command environment, redacted from output, and never reaches web,
+  mobile, the model prompt, or tool arguments.
 - `@flue/github`, `@flue/linear`, and `@flue/notion` verify the exact webhook
   body before a delivery can be mapped and dispatched to Bee.
-- Bee loads one `beennectors` specialist when at least one provider is linked.
+- Bee loads one `beennectors` specialist when GitHub, Linear, or Notion is linked,
+  and a separate `google-workspace` specialist when Google is linked.
   GitHub/Linear comments require an explicit user request; Notion is read-only.
 
 ## Provider setup
@@ -29,6 +32,12 @@ Set the Convex variables listed in
 credential key must decode to exactly 32 bytes. GitHub requests `read:user` and
 `repo`; Linear requests `read` and `comments:create`; Notion access is limited
 to the pages selected in its authorization picker.
+
+For Google Workspace, create a Web OAuth client with the same callback and set
+`GOOGLE_BEENNECTOR_CLIENT_ID` / `GOOGLE_BEENNECTOR_CLIENT_SECRET`. Enable the
+Gmail, Calendar, Drive, Docs, Sheets, Slides, People, Tasks, and Forms APIs. The
+consent request includes offline access so Convex can refresh the encrypted
+per-user credential without keeping a CLI keyring.
 
 Configure these signed webhook endpoints on the deployed Bee Worker:
 
@@ -61,6 +70,19 @@ BeeGreat user. Ambiguous events are acknowledged but never dispatched.
 - Read a GitHub issue/PR and comments, a Linear issue and comments, or a Notion
   page plus its first 100 blocks.
 - Add GitHub or Linear comments after an explicit user request.
+- Search and read Gmail, Calendar, Drive, Docs, Sheets, Slides, Contacts, Forms,
+  and Tasks through `gog`; create drafts and selected recoverable changes after
+  an explicit request.
+
+## Google CLI safety
+
+The agent container builds `openclaw/gogcli` at the commit pinned in
+`packages/agent/Dockerfile` and compiles its `agent-safe` safety profile into
+`/usr/local/bin/gog-agent-safe`. The specialist has one argv-based tool, not a
+general shell. BeeGreat fixes `--json`, `--no-input`, `--wrap-untrusted`, and the
+connected account, and rejects attempts to override those flags. The baked
+profile blocks email sends, deletes, sharing changes, admin commands, and auth
+writes before a Google handler runs.
 
 Disconnecting removes the encrypted credential and makes a best-effort request
 to revoke the upstream token.
