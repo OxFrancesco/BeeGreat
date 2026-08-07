@@ -67,12 +67,29 @@ export type SugarRpcPolicyOptions = {
   maxRetries?: number
 }
 
+export type SugarRpcEvent = Readonly<{
+  /** Stable operation name such as `positions` or `quoteExactInput.multicall`. */
+  operation: string
+  phase: 'batch' | 'pagination' | 'read' | 'transport'
+  status: 'error' | 'success'
+  attemptCount: number
+  durationMs?: number
+  itemCount?: number
+  pageCount?: number
+  /** Present for transport events where endpoint selection is observable. */
+  failoverUsed?: boolean
+}>
+
+/** Receives low-cardinality RPC telemetry. Request parameters are never included. */
+export type SugarRpcObserver = (event: SugarRpcEvent) => void
+
 export type SugarClientOptions = {
   account?: Address
   rpcUrl?: string
   transport?: Transport
   publicClient?: PublicClient
   env?: Record<string, string | undefined>
+  onRpcEvent?: SugarRpcObserver
   rpcPolicy?: SugarRpcPolicyOptions
   settings?: Partial<ChainSettings>
   cacheStore?: SugarCacheStore

@@ -118,6 +118,7 @@ SDK interface):
 
 ```ts
 const sugar = new SugarClient(8453, {
+  onRpcEvent: (event) => telemetry.record(event),
   rpcPolicy: {
     maxRetries: 2,
     baseDelayMs: 250,
@@ -125,6 +126,12 @@ const sugar = new SugarClient(8453, {
   },
 })
 ```
+
+`onRpcEvent` is optional and silent by default. It reports operation/phase,
+duration, aggregate attempts, and pagination item/page counts without wallet
+addresses or calldata. Pass the same callback in the options to
+`createSugarFailoverTransport(rpcUrls, { onRpcEvent })` to record whether a
+backup RPC endpoint was used; endpoint URLs are not included.
 
 Expected RPC failures reject with `SugarRpcError`, whose `code` is one of
 `RPC_TIMEOUT`, `RPC_RATE_LIMITED`, `RPC_UNAVAILABLE`, or `RPC_READ_FAILED`.

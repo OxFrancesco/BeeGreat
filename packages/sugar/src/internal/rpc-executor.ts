@@ -2,7 +2,7 @@ import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Schedule from 'effect/Schedule'
 import { SugarRpcError, type SugarRpcErrorCode } from '../errors'
-import type { SugarRpcPolicyOptions } from '../types'
+import type { SugarRpcEvent, SugarRpcObserver, SugarRpcPolicyOptions } from '../types'
 
 export type RpcReadTask<A> = (signal: AbortSignal) => PromiseLike<A>
 
@@ -120,6 +120,14 @@ function nonNegativeInteger(value: number, name: string): number {
 function positiveInteger(value: number, name: string): number {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`)
   return value
+}
+
+function emitRpcEvent(observer: SugarRpcObserver | undefined, event: SugarRpcEvent): void {
+  try {
+    observer?.(event)
+  } catch {
+    // Observability must never alter an RPC result.
+  }
 }
 
 function resolveRpcPolicy(options: SugarRpcPolicyOptions = {}): RpcPolicy {
@@ -266,21 +274,47 @@ export type RpcReadExecutor = Readonly<{
   ): Promise<Array<RpcReadResult<A>>>
 }>
 
-export function makeRpcReadExecutor(options: SugarRpcPolicyOptions = {}): RpcReadExecutor {
+export function makeRpcReadExecutor(
+  options: SugarRpcPolicyOptions = {},
+  observer?: SugarRpcObserver,
+): RpcReadExecutor {
   const policy = resolveRpcPolicy(options)
   return {
     policy,
     deadline: (operation) => makeDeadline(operation, policy),
-    read: (operation, task, requestedDeadline) => {
+    read: async (operation, task, requestedDeadline) => {
       const deadline = requestedDeadline ?? makeDeadline(operation, policy)
       const program = attemptProgram(operation, task, policy, deadline)
-      return runReadProgram(withDeadline(program.effect, deadline))
+      const startedAt = Date.now()
+      try {
+        const value = await runReadProgram(withDeadline(program.effect, deadline))
+        emitRpcEvent(observer, {
+          attemptCount: deadline.attempts,
+          durationMs: Date.now() - startedAt,
+          itemCount: 1,
+          operation,
+          phase: 'read',
+          status: 'success',
+        })
+        return value
+      } catch (error) {
+        emitRpcEvent(observer, {
+          attemptCount: deadline.attempts,
+          durationMs: Date.now() - startedAt,
+          itemCount: 1,
+          operation,
+          phase: 'read',
+          status: 'error',
+        })
+        throw error
+      }
     },
-    forEachRead: (operation, items, task, concurrency, requestedDeadline) => {
+    forEachRead: async (operation, items, task, concurrency, requestedDeadline) => {
       const limit = positiveInteger(concurrency, 'requestConcurrency')
       const deadline = requestedDeadline ?? makeDeadline(operation, policy)
+      const inputs = [...items]
       const program = Effect.forEach(
-        items,
+        inputs,
         (item, index) => {
           return attemptProgram(
             operation,
@@ -291,13 +325,36 @@ export function makeRpcReadExecutor(options: SugarRpcPolicyOptions = {}): RpcRea
         },
         { concurrency: limit },
       )
-      return runReadProgram(withDeadline(program, deadline))
+      const startedAt = Date.now()
+      try {
+        const values = await runReadProgram(withDeadline(program, deadline))
+        emitRpcEvent(observer, {
+          attemptCount: deadline.attempts,
+          durationMs: Date.now() - startedAt,
+          itemCount: inputs.length,
+          operation,
+          phase: 'batch',
+          status: 'success',
+        })
+        return values
+      } catch (error) {
+        emitRpcEvent(observer, {
+          attemptCount: deadline.attempts,
+          durationMs: Date.now() - startedAt,
+          itemCount: inputs.length,
+          operation,
+          phase: 'batch',
+          status: 'error',
+        })
+        throw error
+      }
     },
-    forEachReadResult: (operation, items, task, concurrency, requestedDeadline) => {
+    forEachReadResult: async (operation, items, task, concurrency, requestedDeadline) => {
       const limit = positiveInteger(concurrency, 'requestConcurrency')
       const deadline = requestedDeadline ?? makeDeadline(operation, policy)
+      const inputs = [...items]
       const program = Effect.forEach(
-        items,
+        inputs,
         (item, index) => {
           const itemProgram = attemptProgram(
             operation,
@@ -309,7 +366,29 @@ export function makeRpcReadExecutor(options: SugarRpcPolicyOptions = {}): RpcRea
         },
         { concurrency: limit },
       )
-      return runReadProgram(withDeadline(program, deadline))
+      const startedAt = Date.now()
+      try {
+        const values = await runReadProgram(withDeadline(program, deadline))
+        emitRpcEvent(observer, {
+          attemptCount: deadline.attempts,
+          durationMs: Date.now() - startedAt,
+          itemCount: inputs.length,
+          operation,
+          phase: 'batch',
+          status: 'success',
+        })
+        return values
+      } catch (error) {
+        emitRpcEvent(observer, {
+          attemptCount: deadline.attempts,
+          durationMs: Date.now() - startedAt,
+          itemCount: inputs.length,
+          operation,
+          phase: 'batch',
+          status: 'error',
+        })
+        throw error
+      }
     },
   }
 }
