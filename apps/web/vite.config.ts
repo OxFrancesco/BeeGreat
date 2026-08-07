@@ -5,6 +5,19 @@ import tailwindcss from '@tailwindcss/vite'
 import viteReact from '@vitejs/plugin-react'
 import { sentryTanstackStart } from '@sentry/tanstackstart-react/vite'
 import { nitro } from 'nitro/vite'
+import { cp, mkdir, realpath } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
+
+const require = createRequire(import.meta.url)
+
+async function includeReactRuntime(serverDir: string) {
+  const source = await realpath(dirname(require.resolve('react/package.json')))
+  const destination = resolve(serverDir, 'node_modules/react')
+
+  await mkdir(dirname(destination), { recursive: true })
+  await cp(source, destination, { recursive: true })
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -20,6 +33,9 @@ export default defineConfig(({ mode }) => {
       }),
       tanstackStart(),
       nitro({
+        hooks: {
+          compiled: ({ options }) => includeReactRuntime(options.output.serverDir),
+        },
         rollupConfig: {
           external: [/^@coinbase\/cdp-sdk(?:\/.*)?$/],
         },
