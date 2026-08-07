@@ -4,6 +4,7 @@ import { useMutation, useQuery } from 'convex/react'
 import { useEffect, useRef, useState } from 'react'
 
 import { useEoaWallet } from '~/features/web3/use-eoa-wallet'
+import { HoneyQrCode } from '~/components/honey-qr-code'
 
 /** Wallet settings for Bee's smart wallet and a verified WalletConnect EOA. */
 export function WalletSettings() {
@@ -12,10 +13,15 @@ export function WalletSettings() {
   const linkEoa = useMutation(api.wallets.linkEoa)
   const unlinkEoa = useMutation(api.wallets.unlinkEoa)
   const connectedWallet = useEoaWallet()
+  const yoloPrefs = useQuery(api.web3Prefs.get)
+  const setYolo = useMutation(api.web3Prefs.setYolo)
   const [linkRequested, setLinkRequested] = useState(false)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string>()
   const [copied, setCopied] = useState(false)
+  const [showQr, setShowQr] = useState(false)
+  const [yoloWorking, setYoloWorking] = useState(false)
+  const [yoloError, setYoloError] = useState<string>()
   const linking = useRef(false)
 
   const linkedAddress = wallets?.eoa?.address
@@ -121,6 +127,19 @@ export function WalletSettings() {
     }
   }
 
+  const toggleYolo = async (enabled: boolean) => {
+    if (yoloWorking) return
+    setYoloWorking(true)
+    setYoloError(undefined)
+    try {
+      await setYolo({ enabled })
+    } catch (cause) {
+      setYoloError(walletError(cause, 'Couldn’t update YOLO mode.'))
+    } finally {
+      setYoloWorking(false)
+    }
+  }
+
   return (
     <div className="wallet-settings-card">
       <div className="wallet-settings-row">
@@ -133,15 +152,45 @@ export function WalletSettings() {
           </p>
         </div>
         {wallets.smartWallet ? (
+          <div className="wallet-settings-actions">
+            <button
+              className="button button--quiet"
+              type="button"
+              aria-expanded={showQr}
+              onClick={() => setShowQr((visible) => !visible)}
+            >
+              {showQr ? 'Hide QR' : 'Show QR'}
+            </button>
+            <button
+              className="button button--quiet"
+              type="button"
+              onClick={() => copyAddress(wallets.smartWallet!.address)}
+            >
+              {copied ? 'Copied ✓' : 'Copy'}
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {showQr && wallets.smartWallet ? (
+        <div className="wallet-qr-card">
+          <div className="wallet-qr-frame">
+            <HoneyQrCode
+              value={wallets.smartWallet.address}
+              label="Bee smart wallet QR code"
+              className="wallet-qr-code"
+            />
+          </div>
           <button
-            className="button button--quiet"
             type="button"
             onClick={() => copyAddress(wallets.smartWallet!.address)}
           >
-            {copied ? 'Copied ✓' : 'Copy'}
+            {copied
+              ? 'Copied ✓'
+              : `${shorten(wallets.smartWallet.address)} · ${wallets.smartWallet.supportedChains.map(formatChain).join(' · ')}`}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <div className="wallet-settings-row">
         <div>
@@ -187,6 +236,36 @@ export function WalletSettings() {
       {error ? (
         <p className="inline-error" aria-live="polite">
           {error}
+        </p>
+      ) : null}
+
+      <div className="wallet-settings-divider" />
+
+      <div className="wallet-settings-row">
+        <div>
+          <h3>YOLO mode</h3>
+          <p>
+            {yoloPrefs?.yoloEnabled
+              ? 'Bee auto-approves Bee smart-wallet transactions only'
+              : 'Bee asks before every transaction'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`switch${yoloPrefs?.yoloEnabled ? ' is-on' : ''}`}
+          role="switch"
+          aria-label="YOLO mode: auto-approve Bee smart-wallet transactions"
+          aria-checked={yoloPrefs?.yoloEnabled ?? false}
+          disabled={yoloWorking || yoloPrefs === undefined}
+          onClick={() => void toggleYolo(!(yoloPrefs?.yoloEnabled ?? false))}
+        >
+          <span />
+        </button>
+      </div>
+
+      {yoloError ? (
+        <p className="inline-error" aria-live="polite">
+          {yoloError}
         </p>
       ) : null}
     </div>
