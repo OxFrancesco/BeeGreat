@@ -6,6 +6,7 @@ import { Link } from '@tanstack/react-router'
 
 import { ChatGptSettings } from '../auth/chatgpt-auth'
 import { setSpeakReplies, useSpeakReplies } from '../preferences/speak-replies'
+import { setVoiceMode, useVoiceMode } from '../preferences/voice-mode'
 import { useGoogleHealth } from './use-google-health'
 import { BeennectorsSettings } from './beennectors-settings'
 import { HotkeySettings } from './hotkey-settings'
@@ -26,6 +27,7 @@ export function SettingsPage() {
   const { user } = useUser()
   const { signOut } = useClerk()
   const speakReplies = useSpeakReplies()
+  const voiceMode = useVoiceMode()
   const powerups = useQuery(api.powerups.list)
   const setPowerup = useMutation(api.powerups.setEnabled)
   const googleHealth = useGoogleHealth()
@@ -154,11 +156,47 @@ export function SettingsPage() {
                   preview, and publishes only when you say so.
                 </p>
               </div>
-              <Link to="/sites">Open site studio <span aria-hidden="true">→</span></Link>
+              <Link to="/sites">
+                Open site studio <span aria-hidden="true">→</span>
+              </Link>
             </div>
           </SettingsSection>
 
           <SettingsSection label="Preferences">
+            <SettingRow
+              title="Voice mode"
+              description={
+                voiceMode === 'voice-note'
+                  ? 'Transcribe, then send to Bee'
+                  : 'Talk live with Grok Voice'
+              }
+              control={
+                <div
+                  className="voice-mode-control"
+                  role="group"
+                  aria-label="Voice mode"
+                >
+                  <button
+                    type="button"
+                    className={voiceMode === 'voice-note' ? 'is-selected' : ''}
+                    aria-pressed={voiceMode === 'voice-note'}
+                    onClick={() => setVoiceMode('voice-note')}
+                  >
+                    Voice note
+                  </button>
+                  <button
+                    type="button"
+                    className={
+                      voiceMode === 'conversation' ? 'is-selected' : ''
+                    }
+                    aria-pressed={voiceMode === 'conversation'}
+                    onClick={() => setVoiceMode('conversation')}
+                  >
+                    Live
+                  </button>
+                </div>
+              }
+            />
             <SettingRow
               title="Speak replies"
               description={

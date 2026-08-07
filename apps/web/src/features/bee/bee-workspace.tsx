@@ -1,5 +1,11 @@
 import { useUser } from '@clerk/tanstack-react-start'
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import {
+  ArchiveIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  RotateCcwIcon,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useStickToBottomContext } from 'use-stick-to-bottom'
 
@@ -25,13 +31,19 @@ const HERO_SUGGESTIONS = [
 export function BeeWorkspace() {
   const agent = useBeeAgentContext()
   const threads = useChatThreads()
-  const { activateThread } = useChatThreadActions()
+  const { activateThread, setThreadArchived } = useChatThreadActions()
   const { user } = useUser()
   const [railOpen, setRailOpen] = useState(true)
   const [compactShell, setCompactShell] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
   const historyButtonRef = useRef<HTMLButtonElement>(null)
   const hive = agent.currentFirstFocus?.hive
   const highlight = agent.currentFirstFocus?.activeHighlight
+  const sortedThreads = [...threads].sort(
+    (left, right) => right.createdAt - left.createdAt,
+  )
+  const currentThreads = sortedThreads.filter((thread) => !thread.archivedAt)
+  const archivedThreads = sortedThreads.filter((thread) => thread.archivedAt)
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 1120px)')
@@ -105,19 +117,48 @@ export function BeeWorkspace() {
 
         <nav className="thread-nav" aria-label="Conversations">
           <div className="thread-list">
-            {[...threads]
-              .sort((left, right) => right.createdAt - left.createdAt)
-              .map((thread) => (
-                <ThreadButton
-                  key={thread.id}
-                  thread={thread}
-                  active={thread.id === agent.thread}
-                  onSelect={() => {
-                    void activateThread(thread.id)
-                    closeRail()
-                  }}
-                />
-              ))}
+            {currentThreads.map((thread) => (
+              <ThreadButton
+                key={thread.id}
+                thread={thread}
+                active={thread.id === agent.thread}
+                onSelect={() => {
+                  void activateThread(thread.id)
+                  closeRail()
+                }}
+                onArchive={() => void setThreadArchived(thread.id, true)}
+              />
+            ))}
+            {archivedThreads.length > 0 ? (
+              <div className="archived-threads">
+                <button
+                  type="button"
+                  className="archived-threads__toggle"
+                  aria-expanded={showArchived}
+                  onClick={() => setShowArchived((visible) => !visible)}
+                >
+                  <ArchiveIcon aria-hidden="true" />
+                  Archived ({archivedThreads.length})
+                  <ChevronDownIcon aria-hidden="true" />
+                </button>
+                {showArchived
+                  ? archivedThreads.map((thread) => (
+                      <ThreadButton
+                        key={thread.id}
+                        thread={thread}
+                        active={thread.id === agent.thread}
+                        onSelect={() => {
+                          void activateThread(thread.id)
+                          closeRail()
+                        }}
+                        onArchive={() =>
+                          void setThreadArchived(thread.id, false)
+                        }
+                      />
+                    ))
+                  : null}
+              </div>
+            ) : null}
           </div>
         </nav>
       </aside>
@@ -183,27 +224,44 @@ function ThreadButton({
   thread,
   active,
   onSelect,
+  onArchive,
 }: {
   thread: ChatThread
   active: boolean
   onSelect: () => void
+  onArchive: () => void
 }) {
   const title = thread.title?.trim() || 'New focus'
   return (
-    <button
-      type="button"
-      className={`thread-button${active ? ' is-active' : ''}`}
-      aria-current={active ? 'page' : undefined}
-      onClick={onSelect}
-    >
-      <span>
-        <strong>{title}</strong>
-        <small>
-          {thread.source === 'imessage' ? 'iMessage · ' : ''}
-          {formatThreadDate(thread.createdAt)}
-        </small>
-      </span>
-    </button>
+    <div className={`thread-row${active ? ' is-active' : ''}`}>
+      <button
+        type="button"
+        className="thread-button"
+        aria-current={active ? 'page' : undefined}
+        onClick={onSelect}
+      >
+        <span>
+          <strong>{title}</strong>
+          <small>
+            {thread.source === 'imessage' ? 'iMessage · ' : ''}
+            {formatThreadDate(thread.createdAt)}
+          </small>
+        </span>
+      </button>
+      <button
+        type="button"
+        className="thread-archive-button"
+        aria-label={`${thread.archivedAt ? 'Unarchive' : 'Archive'} ${title}`}
+        title={thread.archivedAt ? 'Unarchive' : 'Archive'}
+        onClick={onArchive}
+      >
+        {thread.archivedAt ? (
+          <RotateCcwIcon aria-hidden="true" />
+        ) : (
+          <ArchiveIcon aria-hidden="true" />
+        )}
+      </button>
+    </div>
   )
 }
 
@@ -291,6 +349,7 @@ function Conversation({
                 isLast={index === agent.messages.length - 1}
                 busy={agent.busy}
                 onReply={sendAndFollow}
+                onRetry={agent.retryLastReply}
               />
             ))}
             {awaitingReply ? <ThinkingActivity /> : null}

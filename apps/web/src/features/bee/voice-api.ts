@@ -1,6 +1,6 @@
-// Flue 2.0 dev serves through Vite (5173); beta's flue dev used 3583.
+// BeeGreat keeps its Flue worker on a dedicated local port to avoid Vite collisions.
 export const AGENT_URL =
-  import.meta.env.VITE_AGENT_URL ?? 'http://localhost:5173'
+  import.meta.env.VITE_AGENT_URL ?? 'http://localhost:3583'
 
 type GetToken = () => Promise<string | null>
 
@@ -47,4 +47,17 @@ export async function synthesizeSpeech(text: string, getToken: GetToken) {
     throw new Error(await readError(response, 'Speech synthesis failed.'))
   }
   return (await response.json()) as { audio: string; mimeType?: string }
+}
+
+export async function createRealtimeVoiceToken(getToken: GetToken) {
+  const response = await fetch(`${AGENT_URL}/voice/realtime-token`, {
+    method: 'POST',
+    headers: await authHeaders(getToken),
+  })
+  if (!response.ok) {
+    throw new Error(
+      await readError(response, 'Conversational voice could not start.'),
+    )
+  }
+  return (await response.json()) as { token: string; expiresAt: number }
 }
