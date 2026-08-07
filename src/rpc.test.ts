@@ -8,7 +8,7 @@ import {
 import { abis } from './abis'
 import { SugarClient } from './client'
 import { SugarRpcError } from './errors'
-import type { PathHop, Token } from './types'
+import type { PathHop, SugarRpcEvent, Token } from './types'
 
 function quoteFixture(): { fromToken: Token; rawPool: unknown[]; toToken: Token } {
   const fromToken: Token = {
@@ -135,6 +135,7 @@ describe('Sugar RPC policy', () => {
 
   test('retries transient reads and resolves through the Promise interface', async () => {
     let attempts = 0
+    const events: SugarRpcEvent[] = []
     const unavailable = new HttpRequestError({
       body: { method: 'eth_call' },
       status: 503,
@@ -148,11 +149,53 @@ describe('Sugar RPC policy', () => {
           return 123n
         },
       } as unknown as PublicClient,
+      onRpcEvent: (event) => events.push(event),
       rpcPolicy: { baseDelayMs: 0, deadlineMs: 1_000, maxRetries: 2 },
     })
 
     await expect(sugar.getBridgeFee(130)).resolves.toBe(123n)
     expect(attempts).toBe(3)
+    expect(events).toEqual([
+      expect.objectContaining({
+        attemptCount: 3,
+        itemCount: 1,
+        operation: 'quoteGasPayment',
+        phase: 'read',
+        status: 'success',
+      }),
+    ])
+    expect(events[0]?.durationMs).toBeGreaterThanOrEqual(0)
+    expect(Object.keys(events[0] ?? {})).not.toContain('params')
+  })
+
+  test('reports pagination page and result counts without request data', async () => {
+    const events: SugarRpcEvent[] = []
+    const sugar = new SugarClient(10, {
+      onRpcEvent: (event) => events.push(event),
+      publicClient: {
+        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+          if (request.functionName === 'count') return 2n
+          if (request.functionName === 'all') {
+            return Number(request.args?.[1]) === 0 ? [['first'], ['second']] : []
+          }
+          throw new Error(`Unexpected read: ${request.functionName}`)
+        },
+      } as unknown as PublicClient,
+    })
+
+    await expect(sugar.getRawPools()).resolves.toEqual([['first'], ['second']])
+
+    expect(events.filter((event) => event.phase === 'pagination')).toEqual([
+      expect.objectContaining({
+        attemptCount: 3,
+        itemCount: 2,
+        operation: 'all',
+        pageCount: 2,
+        phase: 'pagination',
+        status: 'success',
+      }),
+    ])
+    expect(events.every((event) => !('params' in event) && !('calldata' in event))).toBe(true)
   })
 
   test('preserves the upstream error after transient retries are exhausted', async () => {

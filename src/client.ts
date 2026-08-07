@@ -57,6 +57,8 @@ import {
   type Position,
   type Price,
   type Quote,
+  type SugarRpcEvent,
+  type SugarRpcObserver,
   type SugarClientCaches,
   type SugarClientOptions,
   type Token,
@@ -77,11 +79,13 @@ export class SugarClient {
   readonly publicClient: PublicClient
   private readonly rpc: RpcReadExecutor
   private readonly caches: SugarClientCaches
+  private readonly onRpcEvent?: SugarRpcObserver
 
   constructor(chainId: ChainId | number, options: SugarClientOptions = {}) {
     this.settings = getChainSettings(chainId, { env: options.env, overrides: { ...options.settings, rpcUrl: options.rpcUrl ?? options.settings?.rpcUrl } })
     this.account = options.account ? normalizeAddress(options.account) : undefined
-    this.rpc = makeRpcReadExecutor(options.rpcPolicy)
+    this.onRpcEvent = options.onRpcEvent
+    this.rpc = makeRpcReadExecutor(options.rpcPolicy, this.onRpcEvent)
     this.caches = options.cacheStore?.cachesFor(this.settings.chainId, this.settings.rpcUrl)
       ?? { rawPoolCache: new Map(), poolCache: new Map(), priceRateCache: new Map() }
     this.publicClient = options.publicClient ?? createPublicClient({
@@ -165,16 +169,50 @@ export class SugarClient {
     reader: (limit: number, offset: number) => RpcReadTask<T[]>,
     deadline = this.rpc.deadline(operation),
   ): Promise<T[]> {
-    const count = await this.getPoolCountWithin(deadline)
-    const requests = this.getPoolPaginator(count)
-    const pages = await this.rpc.forEachRead(
-      operation,
-      requests,
-      ({ limit, offset }, _index, signal) => reader(limit, offset)(signal),
-      this.settings.requestConcurrency,
-      deadline,
-    )
-    return pages.flat()
+    const startedAt = Date.now()
+    let pageCount = 0
+    try {
+      const count = await this.getPoolCountWithin(deadline)
+      const requests = this.getPoolPaginator(count)
+      pageCount = requests.length
+      const pages = await this.rpc.forEachRead(
+        operation,
+        requests,
+        ({ limit, offset }, _index, signal) => reader(limit, offset)(signal),
+        this.settings.requestConcurrency,
+        deadline,
+      )
+      const results = pages.flat()
+      this.emitRpcEvent({
+        attemptCount: deadline.attempts,
+        durationMs: Date.now() - startedAt,
+        itemCount: results.length,
+        operation,
+        pageCount,
+        phase: 'pagination',
+        status: 'success',
+      })
+      return results
+    } catch (error) {
+      this.emitRpcEvent({
+        attemptCount: deadline.attempts,
+        durationMs: Date.now() - startedAt,
+        itemCount: 0,
+        operation,
+        pageCount,
+        phase: 'pagination',
+        status: 'error',
+      })
+      throw error
+    }
+  }
+
+  private emitRpcEvent(event: SugarRpcEvent): void {
+    try {
+      this.onRpcEvent?.(event)
+    } catch {
+      // Observability must never alter an SDK result.
+    }
   }
 
   private getPoolCountWithin(deadline: RpcDeadline): Promise<number> {
@@ -395,10 +433,23 @@ export class SugarClient {
 
   async getPositions(owner = this.account): Promise<Position[]> {
     if (!owner) throw new Error('Owner address is required to list positions')
-    const [raw, pools] = await Promise.all([
+    const [raw, rawPools, tokens] = await Promise.all([
       this.paginate('positions', (limit, offset) => this.readTask<unknown[]>(this.settings.sugarContractAddress, abis.sugar, 'positions', [limit, offset, owner])),
-      this.getPools(),
+      this.getRawPools(false),
+      this.getAllTokens(),
     ])
+    const poolAddresses = new Set(raw.map((position) => addressKey(String(tupleValues(position)[1]))))
+    const positionPools = rawPools.filter((pool) => poolAddresses.has(addressKey(String(tupleValues(pool)[0]))))
+    const neededTokens = new Set<string>([
+      addressKey(this.settings.stableTokenAddress),
+      addressKey(this.settings.nativeTokenSymbol),
+    ])
+    positionPools.forEach((pool) => {
+      const values = tupleValues(pool)
+      ;[values[7], values[10], values[20]].forEach((address) => neededTokens.add(addressKey(String(address))))
+    })
+    const prices = await this.getPrices(tokens.filter((token) => neededTokens.has(addressKey(token.tokenAddress))))
+    const pools = preparePools(positionPools, tokens, prices, this.settings)
     const poolMap = new Map(pools.map((pool) => [addressKey(pool.lp), pool]))
     return raw.map((position) => positionFromTuple(position, poolMap, this.settings)).filter((position): position is Position => position !== undefined)
   }
