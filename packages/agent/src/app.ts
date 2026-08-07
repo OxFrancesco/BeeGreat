@@ -6,7 +6,7 @@ import {
   toError,
 } from '@beegreat/observability'
 import * as Sentry from '@sentry/cloudflare'
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { cors } from 'hono/cors'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { Bee } from './agents/bee.ts'
@@ -24,6 +24,7 @@ type Bindings = {
   ELEVENLABS_VOICE_ID?: string
   XAI_API_KEY?: string
   CLERK_JWT_ISSUER_DOMAIN: string
+  BEE_CLERK_CLIENT_ID?: string
   CONVEX_URL?: string
   CONVEX_SITE_URL?: string
   AGENT_CREDENTIAL_BROKER_SECRET?: string
@@ -87,7 +88,10 @@ function toBase64(buffer: ArrayBuffer) {
   return btoa(binary)
 }
 
-const app = new Hono<{ Bindings: Bindings; Variables: Variables }>()
+type AppEnvironment = { Bindings: Bindings; Variables: Variables }
+type AppContext = Context<AppEnvironment>
+
+const app = new Hono<AppEnvironment>()
 
 function isAllowedWebOrigin(env: Bindings, origin: string) {
   const configured = binding(env, 'WEB_ALLOWED_ORIGINS')
@@ -209,6 +213,19 @@ app.use('*', async (c, next) => {
     try {
       const { payload } = await jwtVerify(token, jwks, { issuer })
       if (!payload.sub) throw new Error('Token has no subject')
+      const oauthClientId = binding(c.env, 'BEE_CLERK_CLIENT_ID')
+      const audiences = Array.isArray(payload.aud)
+        ? payload.aud
+        : payload.aud
+          ? [payload.aud]
+          : []
+      if (
+        audiences.length > 0 &&
+        oauthClientId &&
+        !audiences.includes(oauthClientId)
+      ) {
+        throw new Error('OAuth token has the wrong audience')
+      }
       c.set('userId', payload.sub)
       c.set('authKind', 'clerk')
     } catch {
@@ -391,14 +408,8 @@ app.post('/internal/web3-settled', async (c) => {
   return c.json({ dispatched: true })
 })
 
-/**
- * Gives trusted text-channel adapters the same intent-level client actions as
- * the signed-in apps while keeping all writes inside Convex transactions.
- */
-app.post('/bridge/channel', async (c) => {
-  if (c.get('authKind') !== 'bridge') {
-    return c.json({ error: 'Trusted bridge authentication is required.' }, 403)
-  }
+/** Keeps text-client writes inside the same guarded Convex transactions. */
+async function handleChannelAction(c: AppContext) {
   const body = (await c.req.json().catch(() => null)) as Record<
     string,
     unknown
@@ -410,7 +421,10 @@ app.post('/bridge/channel', async (c) => {
 
   let channelAction: ChannelActionName
   let input: Record<string, unknown>
-  if (action === 'context' || action === 'create_thread') {
+  if (action === 'create_cli_thread') {
+    channelAction = action
+    input = {}
+  } else if (action === 'context' || action === 'create_thread') {
     if (body?.source !== 'imessage') {
       return c.json({ error: 'Send a valid channel source.' }, 400)
     }
@@ -486,7 +500,7 @@ app.post('/bridge/channel', async (c) => {
   if (!convexUrl || !clerkIssuer) {
     captureWorkerFailure(
       new Error('Channel actions are not configured'),
-      'bridge.channel.configuration',
+      `${c.get('authKind')}.channel.configuration`,
     )
     return c.json({ error: 'Channel actions are not configured.' }, 503)
   }
@@ -509,7 +523,7 @@ app.post('/bridge/channel', async (c) => {
       'cache-control': 'no-store',
     })
   } catch (error) {
-    captureWorkerFailure(error, `bridge.channel.${channelAction}`)
+    captureWorkerFailure(error, `${c.get('authKind')}.channel.${channelAction}`)
     return c.json(
       {
         error:
@@ -520,6 +534,20 @@ app.post('/bridge/channel', async (c) => {
       400,
     )
   }
+}
+
+app.post('/bridge/channel', async (c) => {
+  if (c.get('authKind') !== 'bridge') {
+    return c.json({ error: 'Trusted bridge authentication is required.' }, 403)
+  }
+  return await handleChannelAction(c)
+})
+
+app.post('/cli/channel', async (c) => {
+  if (c.get('authKind') !== 'clerk') {
+    return c.json({ error: 'Clerk authentication is required.' }, 403)
+  }
+  return await handleChannelAction(c)
 })
 
 // Speech-to-text: raw audio bytes in, proxied to ElevenLabs Scribe.

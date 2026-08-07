@@ -20,6 +20,25 @@ afterEach(() => {
 })
 
 describe('trusted channel actions', () => {
+  test('registers a CLI conversation without replacing the app active thread', async () => {
+    const t = convexTest(schema, modules)
+    const app = t.withIdentity({
+      subject: owner.userId,
+      tokenIdentifier: owner.ownerKey,
+    })
+
+    const thread = await t.mutation(
+      internal.channelActions.createCliThread,
+      owner,
+    )
+
+    expect(thread.threadId).toBe(Date.now())
+    await expect(app.query(api.chat.listThreads, {})).resolves.toEqual([
+      expect.objectContaining({ id: thread.threadId }),
+    ])
+    await expect(app.query(api.chat.getActiveThread, {})).resolves.toBe(0)
+  })
+
   test('registers a durable iMessage conversation without replacing the app active thread', async () => {
     const t = convexTest(schema, modules)
     const app = t.withIdentity({

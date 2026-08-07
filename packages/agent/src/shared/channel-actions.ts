@@ -5,6 +5,7 @@ import { callFocusService } from './focus-client'
 export type ChannelActionName =
   | 'context'
   | 'create_thread'
+  | 'create_cli_thread'
   | 'title_thread'
   | 'confirm_first_focus'
   | 'cancel_first_focus'

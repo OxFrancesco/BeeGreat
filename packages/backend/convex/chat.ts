@@ -258,6 +258,14 @@ async function insertThreadForIdentity(
   return threadId
 }
 
+/** Registers a conversation owned by another Bee client without selecting it in the apps. */
+export async function createDetachedThreadForIdentity(
+  ctx: MutationCtx,
+  identity: ChatIdentity,
+) {
+  return await insertThreadForIdentity(ctx, identity)
+}
+
 export async function createThreadForIdentity(
   ctx: MutationCtx,
   identity: ChatIdentity,

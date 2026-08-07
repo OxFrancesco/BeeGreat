@@ -1,8 +1,8 @@
 import { getClerkInstance } from '@clerk/clerk-expo';
 import { createFlueClient } from '@flue/sdk';
 
-// Flue 2.0 dev serves through Vite (5173); beta's flue dev used 3583.
-export const AGENT_URL = process.env.EXPO_PUBLIC_AGENT_URL ?? 'http://localhost:5173';
+// BeeGreat keeps its Flue worker on a dedicated local port to avoid Vite collisions.
+export const AGENT_URL = process.env.EXPO_PUBLIC_AGENT_URL ?? 'http://localhost:3583';
 
 export const BEE_AGENT_NAME = 'bee';
 
