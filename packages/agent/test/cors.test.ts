@@ -8,7 +8,7 @@ function env() {
     ELEVENLABS_API_KEY: 'unused',
     CLERK_JWT_ISSUER_DOMAIN: 'https://unused.clerk.accounts.dev',
     WEB_ALLOWED_ORIGINS: allowedOrigin,
-    FLUE_BEE_AGENT: {
+    FLUE_BEE_V2_AGENT: {
       getByName() {
         return { async deleteAccountData() {} }
       },

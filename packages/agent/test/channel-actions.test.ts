@@ -118,7 +118,7 @@ describe('trusted app-equivalent channel actions', () => {
       CONVEX_SITE_URL: 'https://example.convex.site',
       AGENT_CREDENTIAL_BROKER_SECRET: 'broker-secret',
       BRIDGE_SECRET: 'bridge-secret',
-      FLUE_BEE_AGENT: {
+      FLUE_BEE_V2_AGENT: {
         getByName() {
           return { async deleteAccountData() {} }
         },
@@ -183,7 +183,7 @@ describe('trusted app-equivalent channel actions', () => {
       CONVEX_SITE_URL: 'https://example.convex.site',
       AGENT_CREDENTIAL_BROKER_SECRET: 'broker-secret',
       BRIDGE_SECRET: 'bridge-secret',
-      FLUE_BEE_AGENT: {
+      FLUE_BEE_V2_AGENT: {
         getByName() {
           return { async deleteAccountData() {} }
         },
@@ -237,7 +237,7 @@ describe('trusted app-equivalent channel actions', () => {
       CONVEX_SITE_URL: 'https://example.convex.site',
       AGENT_CREDENTIAL_BROKER_SECRET: 'broker-secret',
       BRIDGE_SECRET: 'bridge-secret',
-      FLUE_BEE_AGENT: {
+      FLUE_BEE_V2_AGENT: {
         getByName() {
           return { async deleteAccountData() {} }
         },
