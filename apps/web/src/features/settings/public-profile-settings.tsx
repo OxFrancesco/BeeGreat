@@ -1,10 +1,10 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { useUser } from '@clerk/tanstack-react-start'
 import { useMutation, useQuery } from 'convex/react'
-import createQr from 'qrcode-generator'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { captureWebFailure } from '~/lib/sentry'
+import { HoneyQrCode } from '~/components/honey-qr-code'
 
 const PROVIDERS = [
   'instagram',
@@ -40,44 +40,6 @@ function newLink(): EditableLink {
   }
 }
 
-function ProfileQr({ value }: { value: string }) {
-  const matrix = useMemo(() => {
-    const qr = createQr(0, 'M')
-    qr.addData(value)
-    qr.make()
-    const count = qr.getModuleCount()
-    const cells: { x: number; y: number }[] = []
-    for (let row = 0; row < count; row += 1) {
-      for (let column = 0; column < count; column += 1) {
-        if (qr.isDark(row, column)) cells.push({ x: column + 4, y: row + 4 })
-      }
-    }
-    return { count: count + 8, cells }
-  }, [value])
-
-  return (
-    <svg
-      className="public-profile-qr"
-      viewBox={`0 0 ${matrix.count} ${matrix.count}`}
-      role="img"
-      aria-label="Permanent public profile QR code"
-    >
-      <rect width={matrix.count} height={matrix.count} rx="1.5" fill="#fff9ec" />
-      {matrix.cells.map((cell) => (
-        <rect
-          key={`${cell.x}-${cell.y}`}
-          x={cell.x}
-          y={cell.y}
-          width="1.04"
-          height="1.04"
-          rx="0.25"
-          fill="#43230f"
-        />
-      ))}
-    </svg>
-  )
-}
-
 export function PublicProfileSettings() {
   const { user } = useUser()
   const profile = useQuery(api.publicProfiles.mine)
@@ -89,7 +51,7 @@ export function PublicProfileSettings() {
   const [handle, setHandle] = useState('')
   const [bio, setBio] = useState('')
   const [published, setPublished] = useState(false)
-  const [links, setLinks] = useState<EditableLink[]>([])
+  const [links, setLinks] = useState<Array<EditableLink>>([])
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [message, setMessage] = useState<string>()
@@ -173,10 +135,14 @@ export function PublicProfileSettings() {
           ...link,
         })),
       )
-      setMessage(saved.published ? 'Profile saved and published.' : 'Draft saved.')
+      setMessage(
+        saved.published ? 'Profile saved and published.' : 'Draft saved.',
+      )
     } catch (cause) {
       captureWebFailure(cause, 'public_profile.save')
-      setError(cause instanceof Error ? cause.message : 'Could not save your profile.')
+      setError(
+        cause instanceof Error ? cause.message : 'Could not save your profile.',
+      )
     } finally {
       setSaving(false)
     }
@@ -191,7 +157,7 @@ export function PublicProfileSettings() {
 
   async function shareProfile() {
     if (!profile) return
-    if (navigator.share) {
+    if (Reflect.has(navigator, 'share')) {
       await navigator.share({
         title: `${displayName} on BeeGreat`,
         text: 'Find me on BeeGreat',
@@ -215,7 +181,11 @@ export function PublicProfileSettings() {
     <div className="public-profile-editor">
       <div className="public-profile-share-card">
         <div className="public-profile-qr-wrap">
-          <ProfileQr value={profile.qrUrl} />
+          <HoneyQrCode
+            value={profile.qrUrl}
+            label="Permanent public profile QR code"
+            className="public-profile-qr"
+          />
         </div>
         <div className="public-profile-share-copy">
           <span className={`profile-status${published ? ' is-published' : ''}`}>
@@ -227,7 +197,11 @@ export function PublicProfileSettings() {
             <button type="button" onClick={() => void shareProfile()}>
               Share profile
             </button>
-            <button type="button" className="quiet" onClick={() => void copyLink()}>
+            <button
+              type="button"
+              className="quiet"
+              onClick={() => void copyLink()}
+            >
               {copied ? 'Copied ✓' : 'Copy link'}
             </button>
           </div>
@@ -258,7 +232,9 @@ export function PublicProfileSettings() {
           </div>
         </label>
         <label className="public-profile-bio-field">
-          <span>Bio <small>{bio.length}/180</small></span>
+          <span>
+            Bio <small>{bio.length}/180</small>
+          </span>
           <textarea
             value={bio}
             maxLength={180}
@@ -272,7 +248,9 @@ export function PublicProfileSettings() {
       <div className="public-profile-links-heading">
         <div>
           <h3>Socials & links</h3>
-          <p>Add up to 12 HTTPS links, then arrange them in the order people see.</p>
+          <p>
+            Add up to 12 HTTPS links, then arrange them in the order people see.
+          </p>
         </div>
         <button
           type="button"
@@ -291,7 +269,9 @@ export function PublicProfileSettings() {
               aria-label={`Link ${index + 1} provider`}
               value={link.provider}
               onChange={(event) =>
-                updateLink(link.id, { provider: event.target.value as Provider })
+                updateLink(link.id, {
+                  provider: event.target.value as Provider,
+                })
               }
             >
               {PROVIDERS.map((provider) => (
@@ -305,7 +285,9 @@ export function PublicProfileSettings() {
               placeholder="Label"
               maxLength={40}
               value={link.label}
-              onChange={(event) => updateLink(link.id, { label: event.target.value })}
+              onChange={(event) =>
+                updateLink(link.id, { label: event.target.value })
+              }
             />
             <input
               aria-label={`Link ${index + 1} URL`}
@@ -313,7 +295,9 @@ export function PublicProfileSettings() {
               inputMode="url"
               placeholder="https://…"
               value={link.url}
-              onChange={(event) => updateLink(link.id, { url: event.target.value })}
+              onChange={(event) =>
+                updateLink(link.id, { url: event.target.value })
+              }
             />
             <div className="public-profile-link-actions">
               <button
@@ -337,7 +321,9 @@ export function PublicProfileSettings() {
                 className="remove"
                 aria-label={`Remove ${link.label || `link ${index + 1}`}`}
                 onClick={() =>
-                  setLinks((current) => current.filter((item) => item.id !== link.id))
+                  setLinks((current) =>
+                    current.filter((item) => item.id !== link.id),
+                  )
                 }
               >
                 Remove
@@ -368,8 +354,16 @@ export function PublicProfileSettings() {
         </button>
       </div>
 
-      {error ? <p className="inline-error" role="alert">{error}</p> : null}
-      {message ? <p className="public-profile-success" role="status">{message}</p> : null}
+      {error ? (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="public-profile-success" role="status">
+          {message}
+        </p>
+      ) : null}
 
       <div className="public-profile-footer-actions">
         <button type="button" disabled={saving} onClick={() => void save()}>

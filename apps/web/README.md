@@ -29,14 +29,16 @@ bun run web
 
 The authenticated product routes are:
 
-- `/bee` — streaming Bee chat, conversation history, generated UI, voice input,
-  and spoken replies
+- `/bee` — streaming Bee chat, archivable conversation history, answer retry,
+  generated UI, voice notes, and spoken replies
+- `/voice` — live browser speech-to-speech through the same ephemeral Grok
+  Voice token flow as mobile
 - `/goals`, `/goals/:goalId`, `/projects/:projectId` — the complete Goal,
   Project, Task, Subtask, due-date, and target-date workflow
 - `/hive` — balances, Honey vessel, current Highlight, GolieBee, completion
   feedback, and Achievements
-- `/settings` — profile, ChatGPT, power-ups, Google Health, spoken replies, and
-  sign-out
+- `/settings` — profile, ChatGPT, power-ups, Google Health, voice mode, wallets,
+  YOLO consent, and sign-out
 
 The web app does not proxy or fork backend functionality. Every mobile Convex
 operation is called directly by the web client, conversation history uses the

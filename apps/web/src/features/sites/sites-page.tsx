@@ -1,11 +1,11 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
-import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import { useMutation, useQuery } from 'convex/react'
 import { ExternalLinkIcon, Globe2Icon, SparklesIcon } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
 import { useBeeAgentContext } from '../bee/bee-agent-context'
+import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import { captureWebFailure } from '~/lib/sentry'
 
 type BeeSite = {
@@ -74,8 +74,8 @@ export function SitesPage() {
           <p className="utility-label">Bee Sites</p>
           <h1>A little corner of the web, made with Bee.</h1>
           <p>
-            Describe the page you need. Astro Creator designs it, checks it,
-            and gives you a private preview before anything goes live.
+            Describe the page you need. Astro Creator designs it, checks it, and
+            gives you a private preview before anything goes live.
           </p>
         </div>
       </header>
@@ -151,7 +151,9 @@ export function SitesPage() {
             <h2 id="your-sites-heading">Bee Sites</h2>
           </div>
           {result ? (
-            <span>{result.limits.tier === 'pro' ? 'Pro studio' : 'Free studio'}</span>
+            <span>
+              {result.limits.tier === 'pro' ? 'Pro studio' : 'Free studio'}
+            </span>
           ) : null}
         </div>
 
@@ -312,10 +314,18 @@ function SiteCard({
             />
           </label>
           <div className="site-details-editor__actions">
-            <button type="button" disabled={working} onClick={() => setEditing(false)}>
+            <button
+              type="button"
+              disabled={working}
+              onClick={() => setEditing(false)}
+            >
               Cancel
             </button>
-            <button type="button" disabled={working} onClick={() => void saveDetails()}>
+            <button
+              type="button"
+              disabled={working}
+              onClick={() => void saveDetails()}
+            >
               {working ? 'Saving…' : 'Save details'}
             </button>
           </div>

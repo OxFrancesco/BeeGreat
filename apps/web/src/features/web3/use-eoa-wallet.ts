@@ -1,4 +1,3 @@
-import type { Eip1193Provider } from '@beegreat/wallet-connect'
 import {
   useAppKit,
   useAppKitAccount,
@@ -6,6 +5,7 @@ import {
   useDisconnect,
 } from '@reown/appkit/react'
 
+import type { Eip1193Provider } from '@beegreat/wallet-connect'
 import { isWalletConnectConfigured } from '~/lib/wallet-connect'
 
 export function useEoaWallet() {
