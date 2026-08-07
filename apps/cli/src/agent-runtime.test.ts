@@ -84,6 +84,50 @@ describe("Bee local agent runtime", () => {
     expect(statuses).toEqual(["Waking up the local Bee agent…"]);
   });
 
+  test("keeps self-started agent output in the configured diagnostics log", async () => {
+    let checks = 0;
+    let stdout: "ignore" | number = "ignore";
+    let stderr: "ignore" | number = "ignore";
+    let openedPath = "";
+    let closed = false;
+    await expect(
+      ensureBeeAgent(
+        {
+          agentUrl: "http://localhost:3583",
+          autoStart: true,
+          projectRoot,
+          logPath: "/tmp/beegreat-agent-test.log",
+        },
+        {
+          fetch: async () => {
+            checks += 1;
+            if (checks < 2) throw new Error("connection refused");
+            return Response.json({ ok: true, service: "beegreat-agent" });
+          },
+          openLog: async (path) => {
+            openedPath = path;
+            return {
+              fd: 42,
+              close: async () => {
+                closed = true;
+              },
+            };
+          },
+          spawn: (_command, options) => {
+            stdout = options.stdout;
+            stderr = options.stderr;
+            return { unref() {} };
+          },
+          sleep: async () => undefined,
+        },
+      ),
+    ).resolves.toBe("started");
+    expect(openedPath).toBe("/tmp/beegreat-agent-test.log");
+    expect(stdout as "ignore" | number).toBe(42);
+    expect(stderr as "ignore" | number).toBe(42);
+    expect(closed).toBeTrue();
+  });
+
   test("does not start over another service", async () => {
     await expect(
       ensureBeeAgent(

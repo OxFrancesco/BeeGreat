@@ -1,4 +1,4 @@
-import { access } from "node:fs/promises";
+import { access, mkdir, open } from "node:fs/promises";
 import { dirname, join, parse } from "node:path";
 
 type AgentHealth = "ready" | "unreachable" | "occupied";
@@ -13,14 +13,20 @@ type AgentSpawnOptions = {
   detached: true;
   env: NodeJS.ProcessEnv;
   stdin: "ignore";
-  stdout: "ignore";
-  stderr: "ignore";
+  stdout: "ignore" | number;
+  stderr: "ignore" | number;
+};
+
+type AgentLogHandle = {
+  fd: number;
+  close(): Promise<void>;
 };
 
 type AgentRuntimeDependencies = {
   fetch(input: string | URL | Request, init?: RequestInit): Promise<Response>;
   spawn(command: string[], options: AgentSpawnOptions): SpawnedAgent;
   findProjectRoot(): Promise<string | undefined>;
+  openLog(path: string): Promise<AgentLogHandle>;
   sleep(milliseconds: number): Promise<void>;
 };
 
@@ -28,6 +34,7 @@ export type EnsureBeeAgentOptions = {
   agentUrl: string;
   autoStart: boolean;
   projectRoot?: string;
+  logPath?: string;
   onStatus?(message: string): void;
 };
 
@@ -101,6 +108,10 @@ const defaultDependencies: AgentRuntimeDependencies = {
   fetch,
   spawn: (command, options) => Bun.spawn(command, options),
   findProjectRoot: findBeeProjectRoot,
+  openLog: async (path) => {
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    return await open(path, "a", 0o600);
+  },
   sleep: (milliseconds) => Bun.sleep(milliseconds),
 };
 
@@ -134,14 +145,22 @@ export async function ensureBeeAgent(
   }
 
   options.onStatus?.("Waking up the local Bee agent…");
-  const child = runtime.spawn(["bun", "run", "agent"], {
-    cwd: projectRoot,
-    detached: true,
-    env: process.env,
-    stdin: "ignore",
-    stdout: "ignore",
-    stderr: "ignore",
-  });
+  const log = options.logPath
+    ? await runtime.openLog(options.logPath)
+    : undefined;
+  let child: SpawnedAgent;
+  try {
+    child = runtime.spawn(["bun", "run", "agent"], {
+      cwd: projectRoot,
+      detached: true,
+      env: process.env,
+      stdin: "ignore",
+      stdout: log?.fd ?? "ignore",
+      stderr: log?.fd ?? "ignore",
+    });
+  } finally {
+    await log?.close();
+  }
   let exitCode: number | undefined;
   void child.exited?.then((code) => {
     exitCode = code;

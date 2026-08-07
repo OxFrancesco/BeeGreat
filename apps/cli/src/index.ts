@@ -32,6 +32,7 @@ Configuration:
   BEE_AGENT_URL               Agent URL (default: http://localhost:3583)
   BEE_AGENT_AUTOSTART         Set to 0 to disable local agent startup
   BEE_PROJECT_ROOT            BeeGreat repository path for local startup
+  BEE_AGENT_LOG_PATH          Override local agent diagnostics log
   BEE_CLERK_CLIENT_ID         Public Clerk OAuth application client id
   BEE_CLI_HISTORY_PATH        Override prompt history storage
 `;
@@ -88,6 +89,7 @@ async function main() {
     agentUrl: config.agentUrl,
     autoStart: config.autoStartAgent,
     projectRoot: config.projectRoot,
+    logPath: config.agentLogPath,
     onStatus: (message) => console.error(`  ${message}`),
   });
   const session = createBeeSession(

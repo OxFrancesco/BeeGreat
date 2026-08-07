@@ -15,6 +15,7 @@ export type ResolvedBeeCliConfig = {
   statePath: string;
   historyPath: string;
   credentialPath: string;
+  agentLogPath: string;
 };
 
 export function resolveBeeCliConfig(
@@ -67,6 +68,8 @@ export function resolveBeeCliConfig(
     credentialPath:
       environment.BEE_CLI_CREDENTIAL_PATH?.trim() ||
       join(beeConfigHome, "credentials.json"),
+    agentLogPath:
+      environment.BEE_AGENT_LOG_PATH?.trim() || join(beeConfigHome, "agent.log"),
   };
 }
 

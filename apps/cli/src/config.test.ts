@@ -31,6 +31,23 @@ describe("Bee CLI configuration", () => {
     });
   });
 
+  test("resolves a private diagnostics log for the self-started agent", () => {
+    expect(
+      resolveBeeCliConfig({
+        CLERK_JWT_ISSUER_DOMAIN: "https://clerk.example.test",
+        BEE_CLERK_CLIENT_ID: "oauth-client-id",
+        XDG_CONFIG_HOME: "/tmp/bee-config",
+      }).agentLogPath,
+    ).toBe("/tmp/bee-config/beegreat/agent.log");
+    expect(
+      resolveBeeCliConfig({
+        CLERK_JWT_ISSUER_DOMAIN: "https://clerk.example.test",
+        BEE_CLERK_CLIENT_ID: "oauth-client-id",
+        BEE_AGENT_LOG_PATH: "/tmp/custom-bee.log",
+      }).agentLogPath,
+    ).toBe("/tmp/custom-bee.log");
+  });
+
   test("explains the required public OAuth configuration", () => {
     expect(() => resolveBeeCliConfig({})).toThrow("CLERK_JWT_ISSUER_DOMAIN");
     expect(() =>
