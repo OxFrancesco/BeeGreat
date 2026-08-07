@@ -33,9 +33,16 @@ export default defineConfig(({ mode }) => {
       }),
       tanstackStart(),
       nitro({
-        hooks: {
-          compiled: ({ options }) => includeReactRuntime(options.output.serverDir),
-        },
+        modules: [
+          {
+            name: 'beegreat-react-runtime',
+            setup(nitro) {
+              nitro.hooks.hook('compiled', ({ options }) =>
+                includeReactRuntime(options.output.serverDir),
+              )
+            },
+          },
+        ],
         rollupConfig: {
           external: [/^@coinbase\/cdp-sdk(?:\/.*)?$/],
         },
