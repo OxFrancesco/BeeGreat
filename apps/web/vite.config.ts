@@ -4,6 +4,7 @@ import tsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import viteReact from '@vitejs/plugin-react'
 import { sentryTanstackStart } from '@sentry/tanstackstart-react/vite'
+import { nitro } from 'nitro/vite'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -18,6 +19,11 @@ export default defineConfig(({ mode }) => {
         projects: ['./tsconfig.json'],
       }),
       tanstackStart(),
+      nitro({
+        rollupConfig: {
+          external: [/^@coinbase\/cdp-sdk(?:\/.*)?$/],
+        },
+      }),
       viteReact(),
       sentryTanstackStart({
         org: env.SENTRY_ORG,
