@@ -11,11 +11,16 @@ import permit2Json from './abis/permit2.json'
 import poolBasicJson from './abis/pool_basic.json'
 import priceOracleJson from './abis/price_oracle.json'
 import quoterJson from './abis/quoter.json'
+import rewardsDistributorJson from './abis/rewards_distributor.json'
 import routerJson from './abis/router.json'
 import slipstreamJson from './abis/slipstream.json'
 import sugarJson from './abis/sugar.json'
 import sugarRewardsJson from './abis/sugar_rewards.json'
 import swapperJson from './abis/swapper.json'
+import veSugarJson from './abis/ve_sugar.json'
+import voterJson from './abis/voter.json'
+import votingRewardJson from './abis/voting_reward.json'
+import votingEscrowJson from './abis/voting_escrow.json'
 
 export const abis = {
   bridgeGetFee: bridgeGetFeeJson as Abi,
@@ -30,9 +35,14 @@ export const abis = {
   poolBasic: poolBasicJson as Abi,
   priceOracle: priceOracleJson as Abi,
   quoter: quoterJson as Abi,
+  rewardsDistributor: rewardsDistributorJson as Abi,
   router: routerJson as Abi,
   slipstream: slipstreamJson as Abi,
   sugar: sugarJson as Abi,
   sugarRewards: sugarRewardsJson as Abi,
   swapper: swapperJson as Abi,
+  veSugar: veSugarJson as Abi,
+  voter: voterJson as Abi,
+  votingReward: votingRewardJson as Abi,
+  votingEscrow: votingEscrowJson as Abi,
 } as const

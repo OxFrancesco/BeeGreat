@@ -18,6 +18,8 @@ type RawChain = {
   messageModuleContractAddress: string
   sugarContractAddress: string
   sugarRewardsContractAddress: string
+  veSugarContractAddress?: string
+  voterContractAddress: string
   slipstreamContractAddress: string
   slipstreamFactoryAddress: string
   oldSlipstreamFactoryAddress: string
@@ -43,6 +45,7 @@ const SUPERCHAIN = {
   routerContractAddress: '0x3a63171DD9BebF4D07BC782FECC7eb0b890C2A45',
   quoterContractAddress: '0x910c887157A0B6F048dA241e013fedbd5323851F',
   swapperContractAddress: '0xcAF22ce31298CF2BF1D152862F80216478ad7c67',
+  voterContractAddress: '0x97cDBCe21B6fd0585d29E539B1B99dAd328a1123',
 } as const
 
 const RAW_CHAINS: Record<ChainId, RawChain> = {
@@ -56,6 +59,8 @@ const RAW_CHAINS: Record<ChainId, RawChain> = {
     messageModuleContractAddress: '0x2BbA7515F7cF114B45186274981888D8C2fBA15E',
     sugarContractAddress: '0x347512180804A8B40AA7525AE932a31198F074aA',
     sugarRewardsContractAddress: '0x62CCFB2496f49A80B0184AD720379B529E9152fB',
+    veSugarContractAddress: '0x94f913362b232e31daB49a1aFB775cfd25DaA6a1',
+    voterContractAddress: '0x41C914ee0c7E1A5edCD0295623e6dC557B5aBf3C',
     slipstreamContractAddress: '0xD45624bf2CB9f65ecbdF3067d21992b099b56202',
     slipstreamFactoryAddress: '0xe13Dd1fbA721Aa81a1826D9523AC9BC7d260c879',
     oldSlipstreamFactoryAddress: '0xCc0bDDB707055e04e497aB22a59c2aF4391cd12F',
@@ -79,6 +84,8 @@ const RAW_CHAINS: Record<ChainId, RawChain> = {
     messageModuleContractAddress: '0x2BbA7515F7cF114B45186274981888D8C2fBA15E',
     sugarContractAddress: '0x69dD9db6d8f8E7d83887A704f447b1a584b599A1',
     sugarRewardsContractAddress: '0x1b121EfDaF4ABb8785a315C51D29BCE0552A7678',
+    veSugarContractAddress: '0x4c5d3925fe65DFeB5A079485136e4De09cb664A5',
+    voterContractAddress: '0x16613524e02ad97eDfeF371bC883F2F5d6C480A5',
     slipstreamContractAddress: '0x9c62ab10577fB3C20A22E231b7703Ed6D456CC7a',
     slipstreamFactoryAddress: '0xf8f2eB4940CFE7d13603DDDD87f123820Fc061Ef',
     oldSlipstreamFactoryAddress: '0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A',
@@ -158,6 +165,8 @@ const RAW_CHAINS: Record<ChainId, RawChain> = {
 const ADDRESS_FIELDS = [
   'wrappedNativeTokenAddress', 'interchainRouterContractAddress', 'bridgeContractAddress', 'bridgeTokenAddress',
   'messageModuleContractAddress', 'sugarContractAddress', 'sugarRewardsContractAddress', 'slipstreamContractAddress',
+  'veSugarContractAddress',
+  'voterContractAddress',
   'slipstreamFactoryAddress', 'oldSlipstreamFactoryAddress', 'nfpmContractAddress', 'priceOracleContractAddress',
   'routerContractAddress', 'quoterContractAddress', 'swapperContractAddress', 'tokenAddress', 'stableTokenAddress',
 ] as const
@@ -176,6 +185,8 @@ const PYTHON_SETTING_NAMES: Record<string, string> = {
   messageModuleContractAddress: 'MESSAGE_MODULE_CONTRACT_ADDR',
   sugarContractAddress: 'SUGAR_CONTRACT_ADDR',
   sugarRewardsContractAddress: 'SUGAR_REWARDS_CONTRACT_ADDR',
+  veSugarContractAddress: 'VE_SUGAR_CONTRACT_ADDR',
+  voterContractAddress: 'VOTER_CONTRACT_ADDR',
   slipstreamContractAddress: 'SLIPSTREAM_CONTRACT_ADDR',
   slipstreamFactoryAddress: 'SLIPSTREAM_FACTORY_ADDR',
   oldSlipstreamFactoryAddress: 'OLD_SLIPSTREAM_FACTORY_ADDR',
@@ -224,6 +235,8 @@ export function getChainSettings(
     messageModuleContractAddress: raw.messageModuleContractAddress as Address,
     sugarContractAddress: raw.sugarContractAddress as Address,
     sugarRewardsContractAddress: raw.sugarRewardsContractAddress as Address,
+    veSugarContractAddress: raw.veSugarContractAddress as Address | undefined,
+    voterContractAddress: raw.voterContractAddress as Address,
     slipstreamContractAddress: raw.slipstreamContractAddress as Address,
     slipstreamFactoryAddress: raw.slipstreamFactoryAddress as Address,
     oldSlipstreamFactoryAddress: raw.oldSlipstreamFactoryAddress as Address,

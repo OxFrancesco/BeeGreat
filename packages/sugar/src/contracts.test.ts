@@ -14,10 +14,12 @@ describe('Sugar action contract', () => {
       'unstake',
       'claim_emissions',
       'claim_fees',
+      'create_venft',
       'quote',
       'swap',
     ])
     expect(isSugarAction('quote')).toBe(true)
+    expect(isSugarAction('create_venft')).toBe(true)
     expect(isSugarAction('send-private-key')).toBe(false)
   })
 })

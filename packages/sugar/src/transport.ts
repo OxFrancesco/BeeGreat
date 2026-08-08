@@ -5,9 +5,24 @@ import type { SugarRpcEvent, SugarRpcObserver } from './types'
 export type SugarFailoverTransportOptions = {
   /** Per-attempt HTTP timeout for each endpoint. */
   timeoutMs?: number
+  /** Minimum delay between request starts across all endpoints. */
+  minIntervalMs?: number
   /** Optional low-cardinality telemetry callback. URLs and parameters are omitted. */
   onRpcEvent?: SugarRpcObserver
 }
+
+export class SugarRpcConsistencyError extends Error {
+  override readonly name = 'SugarRpcConsistencyError'
+
+  constructor(cause: unknown) {
+    super('RPC endpoints disagreed after failover; retrying on a consistent endpoint', {
+      cause,
+    })
+  }
+}
+
+const STALE_STATE_REVERT =
+  /insufficient (?:allowance|balance)|transfer amount exceeds balance|nonce too low/i
 
 function emitRpcEvent(observer: SugarRpcObserver | undefined, event: SugarRpcEvent): void {
   try {
@@ -32,6 +47,24 @@ export function createSugarFailoverTransport(
   if (rpcUrls.length === 0) {
     throw new Error('createSugarFailoverTransport requires at least one RPC URL')
   }
+  const minIntervalMs = options.minIntervalMs ?? 0
+  if (!Number.isFinite(minIntervalMs) || minIntervalMs < 0) {
+    throw new Error('minIntervalMs must be a non-negative finite number')
+  }
+  let requestQueue = Promise.resolve()
+  let nextRequestAt = 0
+  const pace = <A>(task: () => Promise<A>): Promise<A> => {
+    if (minIntervalMs === 0) return task()
+    const start = requestQueue.then(async () => {
+      const delayMs = Math.max(0, nextRequestAt - Date.now())
+      if (delayMs > 0) {
+        await new Promise<void>((resolve) => setTimeout(resolve, delayMs))
+      }
+      nextRequestAt = Date.now() + minIntervalMs
+    })
+    requestQueue = start.then(() => undefined, () => undefined)
+    return start.then(task)
+  }
   const httpOptions = { retryCount: 0, timeout: options.timeoutMs ?? 30_000 }
   const transport = fallback(
     rpcUrls.map((url, index) => http(url, { ...httpOptions, key: `sugar-rpc-${index}` })),
@@ -52,6 +85,22 @@ export function createSugarFailoverTransport(
         status,
       })
     })
+    const request = configured.request
+    configured.request = async (requestParameters) => {
+      try {
+        return await pace(() => request(requestParameters))
+      } catch (error) {
+        if (
+          rpcUrls.length > 1 &&
+          STALE_STATE_REVERT.test(
+            error instanceof Error ? error.message : String(error),
+          )
+        ) {
+          throw new SugarRpcConsistencyError(error)
+        }
+        throw error
+      }
+    }
     return configured
   }) as Transport
 }

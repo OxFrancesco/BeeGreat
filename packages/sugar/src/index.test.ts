@@ -98,6 +98,28 @@ describe('Sugar command boundary', () => {
     ).toThrow('stake requires pool or position')
   })
 
+  test('validates first-class veNFT creation parameters', () => {
+    expect(validateSugarRequest('create_venft', {
+      chain: 8453,
+      wallet: '0x1111111111111111111111111111111111111111',
+      amount: '1.25',
+      lock_duration_seconds: 31_536_000,
+      use_decimals: true,
+    })).toEqual({
+      chain: 8453,
+      wallet: '0x1111111111111111111111111111111111111111',
+      amount: '1.25',
+      lock_duration_seconds: 31_536_000,
+      use_decimals: true,
+    })
+    expect(() => validateSugarRequest('create_venft', {
+      chain: 8453,
+      wallet: '0x1111111111111111111111111111111111111111',
+      amount: '1',
+      lock_duration_seconds: 0,
+    })).toThrow('lock_duration_seconds')
+  })
+
   test('preserves NFT position ids above JavaScript safe integer range', () => {
     const parameters = validateSugarRequest('claim_fees', {
       chain: 8453,
