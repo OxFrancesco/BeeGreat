@@ -77,8 +77,120 @@ function positionTuple(lp: Address): unknown[] {
 }
 
 describe('Sugar positions', () => {
+  test('uses a verified persisted pool locator without a global scan', async () => {
+    const reads: string[] = []
+    const sugar = new SugarClient(10, {
+      account: OWNER,
+      poolLocatorStore: {
+        get: async () => ({ offset: 7 }),
+        set: async () => undefined,
+        delete: async () => undefined,
+      },
+      publicClient: {
+        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+          reads.push(request.functionName)
+          const limit = Number(request.args?.[0] ?? 0)
+          const offset = Number(request.args?.[1] ?? 0)
+          if (request.functionName === 'count') {
+            throw new Error('global scan should not run')
+          }
+          if (request.functionName === 'all') {
+            expect({ limit, offset }).toEqual({ limit: 1, offset: 7 })
+            return [poolTuple(POSITION_POOL, TOKEN_A, TOKEN_B)]
+          }
+          if (request.functionName === 'positions') {
+            expect({ limit, offset }).toEqual({ limit: 1, offset: 7 })
+            return [positionTuple(POSITION_POOL)]
+          }
+          if (request.functionName === 'tokens') {
+            return [
+              tokenTuple(STABLE_TOKEN, 'USDC', 6),
+              tokenTuple(TOKEN_A, 'A'),
+              tokenTuple(TOKEN_B, 'B'),
+            ]
+          }
+          if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
+            return (request.args?.[0] as string[]).map(() => 10n ** 18n)
+          }
+          throw new Error(`Unexpected read: ${request.functionName}`)
+        },
+      } as unknown as PublicClient,
+      settings: { stableTokenAddress: STABLE_TOKEN },
+    })
+
+    const position = await sugar.getPositionByPool(POSITION_POOL)
+
+    expect(position?.pool.lp).toBe(POSITION_POOL)
+    expect(reads).not.toContain('count')
+    expect(reads.filter((name) => name === 'all')).toHaveLength(1)
+  })
+
+  test('invalidates a stale locator and persists the newly verified offset', async () => {
+    const deleted: number[] = []
+    const stored: number[] = []
+    const sugar = new SugarClient(10, {
+      account: OWNER,
+      poolLocatorStore: {
+        get: async () => ({ offset: 7 }),
+        set: async (_key, locator) => {
+          stored.push(locator.offset)
+        },
+        delete: async () => {
+          deleted.push(7)
+        },
+      },
+      publicClient: {
+        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+          const limit = Number(request.args?.[0] ?? 0)
+          const offset = Number(request.args?.[1] ?? 0)
+          if (request.functionName === 'count') return 2n
+          if (request.functionName === 'all') {
+            if (limit === 1 && offset === 7) {
+              return [poolTuple(IRRELEVANT_POOL, TOKEN_C, TOKEN_D)]
+            }
+            if (limit === 1 && offset === 1) {
+              return [poolTuple(POSITION_POOL, TOKEN_A, TOKEN_B)]
+            }
+            if (offset === 0) {
+              return [
+                poolTuple(IRRELEVANT_POOL, TOKEN_C, TOKEN_D),
+                poolTuple(POSITION_POOL, TOKEN_A, TOKEN_B),
+              ]
+            }
+            return []
+          }
+          if (request.functionName === 'tokens') {
+            return [
+              tokenTuple(STABLE_TOKEN, 'USDC', 6),
+              tokenTuple(TOKEN_A, 'A'),
+              tokenTuple(TOKEN_B, 'B'),
+            ]
+          }
+          if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
+            return (request.args?.[0] as string[]).map(() => 10n ** 18n)
+          }
+          throw new Error(`Unexpected read: ${request.functionName}`)
+        },
+      } as unknown as PublicClient,
+      settings: {
+        stableTokenAddress: STABLE_TOKEN,
+        poolPaginationMinSize: 5,
+        poolPaginationMaxSize: 5,
+        poolPaginationTargetCalls: 1,
+      },
+    })
+
+    const pool = await sugar.getPoolByAddress(POSITION_POOL)
+
+    expect(pool?.lp).toBe(POSITION_POOL)
+    expect(deleted).toEqual([7])
+    expect(stored).toEqual([1])
+  })
+
   test("hydrates and prices only the topology required by the owner's positions", async () => {
     const pricedTokenBatches: string[][] = []
+    const metadataRequests: string[][] = []
+    const positionReads: Array<{ limit: number; offset: number }> = []
     const sugar = new SugarClient(10, {
       account: OWNER,
       publicClient: {
@@ -86,6 +198,10 @@ describe('Sugar positions', () => {
           const offset = Number(request.args?.[1] ?? 0)
           if (request.functionName === 'count') return 2n
           if (request.functionName === 'positions') {
+            positionReads.push({
+              limit: Number(request.args?.[0] ?? 0),
+              offset,
+            })
             return offset === 0 ? [positionTuple(POSITION_POOL)] : []
           }
           if (request.functionName === 'all') {
@@ -94,15 +210,12 @@ describe('Sugar positions', () => {
               : []
           }
           if (request.functionName === 'tokens') {
-            return offset === 0
-              ? [
-                  tokenTuple(STABLE_TOKEN, 'USDC', 6),
-                  tokenTuple(TOKEN_A, 'A'),
-                  tokenTuple(TOKEN_B, 'B'),
-                  tokenTuple(TOKEN_C, 'C'),
-                  tokenTuple(TOKEN_D, 'D'),
-                ]
-              : []
+            metadataRequests.push([...(request.args?.[3] as string[])])
+            return [
+              tokenTuple(STABLE_TOKEN, 'USDC', 6),
+              tokenTuple(TOKEN_A, 'A'),
+              tokenTuple(TOKEN_B, 'B'),
+            ]
           }
           if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
             const addresses = [...(request.args?.[0] as string[])]
@@ -112,13 +225,34 @@ describe('Sugar positions', () => {
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
       } as unknown as PublicClient,
-      settings: { stableTokenAddress: STABLE_TOKEN },
+      settings: {
+        stableTokenAddress: STABLE_TOKEN,
+        poolPaginationMinSize: 1,
+        poolPaginationMaxSize: 5,
+        poolPaginationTargetCalls: 1,
+      },
     })
 
     const positions = await sugar.getPositions()
+    const targetedPosition = await sugar.getPositionByPool(POSITION_POOL)
 
     expect(positions).toHaveLength(1)
+    expect(targetedPosition?.pool.lp).toBe(POSITION_POOL)
+    // Position results are sparse across pool offsets, so pagination must not
+    // stop on the empty middle page. It should use the largest safe scan page.
+    expect(positionReads.slice(0, -1).map(({ offset }) => offset)).toEqual([0, 5, 10])
+    expect(positionReads.at(-1)).toEqual({ limit: 1, offset: 0 })
     expect(positions[0]?.pool.lp).toBe(POSITION_POOL)
+    expect(metadataRequests).toHaveLength(2)
+    expect(metadataRequests[0]?.map((address) => address.toLowerCase())).toEqual(
+      expect.arrayContaining([
+        STABLE_TOKEN.toLowerCase(),
+        TOKEN_A.toLowerCase(),
+        TOKEN_B.toLowerCase(),
+      ]),
+    )
+    expect(metadataRequests[0]).toHaveLength(3)
+    expect(metadataRequests[1]).toHaveLength(3)
     const pricedTokens = pricedTokenBatches.flat().map((address) => address.toLowerCase())
     expect(pricedTokens).toEqual(expect.arrayContaining([
       sugar.settings.wrappedNativeTokenAddress.toLowerCase(),

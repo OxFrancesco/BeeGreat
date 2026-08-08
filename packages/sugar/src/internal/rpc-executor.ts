@@ -45,6 +45,7 @@ const TRANSPORT_ERROR_NAMES = new Set([
   'SocketClosedError',
   'TimeoutError',
   'WebSocketRequestError',
+  'SugarRpcConsistencyError',
 ])
 
 function errorChain(cause: unknown): unknown[] {
@@ -70,6 +71,25 @@ function errorName(value: unknown): string | undefined {
   return typeof value === 'object' && value !== null && 'name' in value && typeof value.name === 'string'
     ? value.name
     : undefined
+}
+
+function publicRpcCause(value: unknown): Readonly<Record<string, unknown>> {
+  const status = numericField(value, 'status')
+  const code = numericField(value, 'code')
+  const name = errorName(value)
+  const message = typeof value === 'object' && value !== null &&
+      'message' in value && typeof value.message === 'string'
+    ? value.message.replace(
+        /(https?:\/\/[^/\s]+\/(?:v2|v3)\/)[^/\s)"']+/gi,
+        '$1[REDACTED]',
+      )
+    : 'RPC request failed'
+  return Object.freeze({
+    ...(code === undefined ? {} : { code }),
+    message,
+    ...(name === undefined ? {} : { name }),
+    ...(status === undefined ? {} : { status }),
+  })
 }
 
 /** Whether a failure is transient (throttling, outage, timeout) rather than deterministic. */
@@ -161,7 +181,7 @@ function attemptProgram<A>(
         error: new SugarRpcError({
           ...classification,
           attempts: attempts.count,
-          cause,
+          cause: publicRpcCause(cause),
           operation,
         }),
         retryAfterMs: getRetryAfterMs(cause),
@@ -236,7 +256,9 @@ function withDeadline<A, E>(
 function toDeadlineError(failure: RpcDeadlineFailure): SugarRpcError {
   return new SugarRpcError({
     attempts: failure.attempts,
-    cause: failure.cause,
+    cause: failure.cause === undefined
+      ? undefined
+      : publicRpcCause(failure.cause),
     code: 'RPC_TIMEOUT',
     message: `RPC read ${failure.operation} exceeded its ${failure.deadlineMs}ms deadline`,
     operation: failure.operation,

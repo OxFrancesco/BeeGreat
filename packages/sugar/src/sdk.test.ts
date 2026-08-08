@@ -43,6 +43,57 @@ describe('SDK parity helpers', () => {
 })
 
 describe('native action seam', () => {
+  test('hydrates one addressed pool without loading the global token catalog', async () => {
+    const lp = '0x4444444444444444444444444444444444444444' as Address
+    const weth = '0x4200000000000000000000000000000000000006' as Address
+    const aero = '0x940181a94A35A4569E4529A3CDfB74e38FD98631' as Address
+    const usdc = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address
+    const rawPool = [
+      lp, 'vAMM-WETH/AERO', 18, 1_000n, -1, 0, 0n,
+      weth, 500n, 0n, aero, 1_000n, 0n,
+      '0x5555555555555555555555555555555555555555', 0n, true,
+      '0x0000000000000000000000000000000000000000',
+      '0x0000000000000000000000000000000000000000',
+      '0x6666666666666666666666666666666666666666',
+      0n, aero, 0n, 30n, 0n, 0n, 0n, 0n, 0n, 0,
+      '0x0000000000000000000000000000000000000000',
+      '0x0000000000000000000000000000000000000000',
+      '0x0000000000000000000000000000000000000000',
+    ]
+    const tokenRequests: (readonly unknown[])[] = []
+    const sugar = new SugarClient(8453, {
+      publicClient: {
+        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+          if (request.functionName === 'count') return 1n
+          if (request.functionName === 'all') return Number(request.args?.[1]) === 0 ? [rawPool] : []
+          if (request.functionName === 'tokens') {
+            tokenRequests.push(request.args ?? [])
+            const wanted = request.args?.[3] as Address[]
+            return wanted.map((tokenAddress) => [
+              tokenAddress,
+              tokenAddress.toLowerCase() === usdc.toLowerCase() ? 'USDC' : tokenAddress.toLowerCase() === aero.toLowerCase() ? 'AERO' : 'WETH',
+              tokenAddress.toLowerCase() === usdc.toLowerCase() ? 6 : 18,
+              0n,
+              true,
+              false,
+            ])
+          }
+          if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
+            return (request.args?.[0] as Address[]).map(() => 10n ** 30n)
+          }
+          throw new Error(`Unexpected read: ${request.functionName}`)
+        },
+      } as unknown as import('viem').PublicClient,
+    })
+
+    const pool = await sugar.getPoolByAddress(lp)
+
+    expect(pool?.lp).toBe(lp)
+    expect(tokenRequests).toHaveLength(1)
+    expect((tokenRequests[0]?.[3] as Address[]).map((value) => value.toLowerCase()).sort())
+      .toEqual([weth, aero, usdc].map((value) => value.toLowerCase()).sort())
+  })
+
   test('executes a CLI-compatible action without a Python process', async () => {
     const pool: LiquidityPoolForSwap = {
       chainId: 8453,
@@ -97,17 +148,78 @@ describe('native action seam', () => {
       amount: '1', use_decimals: true,
     }
 
-    const result = await executeSugarAction('swap', parameters, { clientFactory: () => makeClient(2_000_000n) }) as {
+    const result = await executeSugarAction('swap', parameters, { clientFactory: () => makeClient(2_000_000n) }) as unknown as {
       transactions: unknown[]
+      transaction_steps: Array<{
+        role: string
+        transaction: Omit<UnsignedTransaction, 'value'> & { value: string }
+      }>
       quote: { min_amount_out: string; min_amount_out_decimal: number; slippage: number; to_token: { symbol: string } }
     }
     expect(result.transactions).toHaveLength(1)
+    expect(result.transaction_steps).toEqual([
+      { role: 'action', transaction: { ...transaction, value: '0' } },
+    ])
     expect(result.quote.to_token.symbol).toBe('USDC')
     expect(result.quote.slippage).toBe(0.01)
     expect(result.quote.min_amount_out).toBe(String(applySlippage(2_000_000n, 0.01)))
 
     await expect(executeSugarAction('swap', parameters, { clientFactory: () => makeClient(5_000_000n) }))
       .rejects.toThrow('no quote found')
+  })
+
+  test('labels prerequisite approvals separately from the final action', async () => {
+    const wallet = '0x1111111111111111111111111111111111111111'
+    const approval: UnsignedTransaction = {
+      from: wallet,
+      to: '0x2222222222222222222222222222222222222222',
+      data: '0x01',
+      value: 0n,
+    }
+    const action: UnsignedTransaction = {
+      from: wallet,
+      to: '0x3333333333333333333333333333333333333333',
+      data: '0x02',
+      value: 0n,
+    }
+    const fake = {
+      getVeNftContracts: async () => ({
+        governanceToken: approval.to,
+      }),
+      getToken: async () => ({
+        chainId: 8453,
+        chainName: 'Base',
+        tokenAddress: approval.to,
+        symbol: 'AERO',
+        decimals: 18,
+        listed: true,
+        emerging: false,
+      }),
+      createVeNft: async () => [approval, action],
+    } as unknown as SugarClient
+
+    const result = await executeSugarAction('create_venft', {
+      chain: 8453,
+      wallet,
+      amount: '1',
+      lock_duration_seconds: 31_536_000,
+      use_decimals: true,
+    }, { clientFactory: () => fake }) as unknown as {
+      transaction_steps: Array<{
+        role: string
+        transaction: Omit<UnsignedTransaction, 'value'> & { value: string }
+      }>
+      ve_nft: { amount: string; lock_duration_seconds: number }
+    }
+
+    expect(result.transaction_steps).toEqual([
+      { role: 'approval', transaction: { ...approval, value: '0' } },
+      { role: 'action', transaction: { ...action, value: '0' } },
+    ])
+    expect(result.ve_nft).toMatchObject({
+      amount: '1000000000000000000',
+      lock_duration_seconds: 31_536_000,
+    })
   })
 
   test('keeps only pools whose two sides can appear on a vetted route', () => {

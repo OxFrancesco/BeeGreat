@@ -164,6 +164,44 @@ describe('unsigned transaction builders', () => {
     expect(permit2Reads).toBe(1)
   })
 
+  test('builds explicit zero-allowance cleanup for ERC20 and Permit2 approvals', async () => {
+    const baseClient = new SugarClient(8453, {
+      account,
+      publicClient: {
+        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+          if (request.functionName === 'PERMIT2') return permit2
+          if (request.functionName === 'allowance' && request.args?.length === 3) {
+            return [123n, 9999999999n, 0n]
+          }
+          if (request.functionName === 'allowance') return 456n
+          return 0n
+        },
+      } as unknown as PublicClient,
+    })
+
+    expect(await baseClient.revokeTokenAllowance(token0, pool().gauge)).toHaveLength(1)
+    const permitCleanup = await baseClient.revokePermit2Allowance(token0)
+    expect(permitCleanup.map(({ to }) => to)).toEqual([
+      token0.tokenAddress as Address,
+      permit2,
+    ])
+
+    const expiredPermitClient = new SugarClient(8453, {
+      account,
+      publicClient: {
+        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+          if (request.functionName === 'PERMIT2') return permit2
+          if (request.functionName === 'allowance' && request.args?.length === 3) {
+            return [0n, 9999999999n, 7n]
+          }
+          if (request.functionName === 'allowance') return 0n
+          return 0n
+        },
+      } as unknown as PublicClient,
+    })
+    expect(await expiredPermitClient.revokePermit2Allowance(token0)).toHaveLength(0)
+  })
+
   test('caches oracle rates for the configured pricing window', async () => {
     let oracleCalls = 0
     const sugar = new SugarClient(10, {

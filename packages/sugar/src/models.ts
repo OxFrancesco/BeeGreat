@@ -1,6 +1,6 @@
 import type { Address } from 'viem'
 import { addressKey, createAmount, normalizeAddress, poolSymbol, tupleValues } from './helpers'
-import { ADDRESS_ZERO, type Amount, type ChainSettings, type DepositQuote, type LiquidityPool, type LiquidityPoolEpoch, type LiquidityPoolForSwap, type Position, type Price, type Token, type Withdrawal } from './types'
+import { ADDRESS_ZERO, type Amount, type ChainSettings, type DepositQuote, type LiquidityPool, type LiquidityPoolEpoch, type LiquidityPoolForSwap, type Position, type Price, type Token, type VeNft, type VeNftReward, type VeNftState, type Withdrawal } from './types'
 
 const asBigint = (value: unknown): bigint => typeof value === 'bigint' ? value : BigInt(value as string | number)
 const asNumber = (value: unknown): number => typeof value === 'number' ? value : Number(value)
@@ -171,6 +171,47 @@ export function epochFromTuple(raw: unknown, pools: Map<string, LiquidityPool>, 
     totalFees: sumStable(fees),
     totalIncentives: sumStable(incentives),
     epochDate: new Date(ts * 1000).toISOString(),
+  }
+}
+
+export function veNftFromTuple(raw: unknown, stateValue: unknown, settings: ChainSettings): VeNft {
+  const t = tupleValues(raw)
+  const states: VeNftState[] = ['normal', 'locked', 'managed']
+  const state = states[asNumber(stateValue)]
+  if (!state) throw new Error(`Unknown veNFT escrow type: ${String(stateValue)}`)
+  return {
+    chainId: settings.chainId,
+    chainName: settings.chainName,
+    id: asBigint(t[0]),
+    owner: normalizeAddress(String(t[1])),
+    decimals: asNumber(t[2]),
+    lockedAmount: asBigint(t[3]),
+    votingPower: asBigint(t[4]),
+    governancePower: asBigint(t[5]),
+    claimableRebase: asBigint(t[6]),
+    expiresAt: asNumber(t[7]),
+    votedAt: asNumber(t[8]),
+    votes: (t[9] as unknown[]).map((vote) => {
+      const [pool, weight] = tupleValues(vote)
+      return { pool: normalizeAddress(String(pool)), weight: asBigint(weight) }
+    }),
+    governanceToken: normalizeAddress(String(t[10])),
+    permanent: Boolean(t[11]),
+    delegateId: asBigint(t[12]),
+    managedId: asBigint(t[13]),
+    state,
+  }
+}
+
+export function veNftRewardFromTuple(raw: unknown): VeNftReward {
+  const t = tupleValues(raw)
+  return {
+    veNftId: asBigint(t[0]),
+    pool: normalizeAddress(String(t[1])),
+    amount: asBigint(t[2]),
+    token: normalizeAddress(String(t[3])),
+    feeVotingReward: normalizeAddress(String(t[4])),
+    incentiveVotingReward: normalizeAddress(String(t[5])),
   }
 }
 
