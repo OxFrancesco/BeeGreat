@@ -40,6 +40,8 @@ import {
   preparePools,
   preparePrices,
   prepareTokens,
+  veNftFromTuple,
+  veNftRewardFromTuple,
   validateDepositQuote,
 } from './models'
 import { setupPlanner } from './planner'
@@ -54,15 +56,22 @@ import {
   type LiquidityPoolEpoch,
   type LiquidityPoolForSwap,
   type PathHop,
+  type PoolRewardContracts,
   type Position,
   type Price,
   type Quote,
   type SugarRpcEvent,
   type SugarRpcObserver,
+  type SugarPoolLocatorKey,
+  type SugarPoolLocatorStore,
   type SugarClientCaches,
   type SugarClientOptions,
   type Token,
   type UnsignedTransaction,
+  type VeNft,
+  type VeNftContracts,
+  type VeNftReward,
+  type VeNftVote,
   type Withdrawal,
 } from './types'
 
@@ -80,11 +89,18 @@ export class SugarClient {
   private readonly rpc: RpcReadExecutor
   private readonly caches: SugarClientCaches
   private readonly onRpcEvent?: SugarRpcObserver
+  private readonly poolLocatorStore?: SugarPoolLocatorStore
+  private readonly resolvedPoolLocators = new Map<
+    string,
+    Promise<{ offset: number; rawPool: unknown } | undefined>
+  >()
+  private veNftContractsCache?: Promise<VeNftContracts>
 
   constructor(chainId: ChainId | number, options: SugarClientOptions = {}) {
     this.settings = getChainSettings(chainId, { env: options.env, overrides: { ...options.settings, rpcUrl: options.rpcUrl ?? options.settings?.rpcUrl } })
     this.account = options.account ? normalizeAddress(options.account) : undefined
     this.onRpcEvent = options.onRpcEvent
+    this.poolLocatorStore = options.poolLocatorStore
     this.rpc = makeRpcReadExecutor(options.rpcPolicy, this.onRpcEvent)
     this.caches = options.cacheStore?.cachesFor(this.settings.chainId, this.settings.rpcUrl)
       ?? { rawPoolCache: new Map(), poolCache: new Map(), priceRateCache: new Map() }
@@ -117,6 +133,40 @@ export class SugarClient {
   private signer(): Address {
     if (!this.account) throw new Error('This operation requires an account address')
     return this.account
+  }
+
+  supportsVeNfts(): boolean {
+    return this.settings.veSugarContractAddress !== undefined
+  }
+
+  private requireVeSugar(): Address {
+    if (!this.settings.veSugarContractAddress) {
+      throw new Error(`veNFTs are not supported on ${this.settings.chainName}`)
+    }
+    return this.settings.veSugarContractAddress
+  }
+
+  getVeNftContracts(): Promise<VeNftContracts> {
+    const veSugar = this.requireVeSugar()
+    if (!this.veNftContractsCache) {
+      const pending = Promise.all([
+        this.read<Address>(veSugar, abis.veSugar, 'voter'),
+        this.read<Address>(veSugar, abis.veSugar, 've'),
+        this.read<Address>(veSugar, abis.veSugar, 'token'),
+        this.read<Address>(veSugar, abis.veSugar, 'dist'),
+      ]).then(([voter, votingEscrow, governanceToken, rewardsDistributor]) => ({
+        veSugar,
+        voter: normalizeAddress(voter),
+        votingEscrow: normalizeAddress(votingEscrow),
+        governanceToken: normalizeAddress(governanceToken),
+        rewardsDistributor: normalizeAddress(rewardsDistributor),
+      }))
+      this.veNftContractsCache = pending
+      void pending.catch(() => {
+        if (this.veNftContractsCache === pending) this.veNftContractsCache = undefined
+      })
+    }
+    return this.veNftContractsCache
   }
 
   private tx(to: Address, data: Hex, value = 0n): UnsignedTransaction {
@@ -155,8 +205,21 @@ export class SugarClient {
     return [...this.poolPageRequests(poolCount)]
   }
 
-  private *poolPageRequests(poolCount: number): Generator<{ offset: number; limit: number }> {
-    const limit = this.pageSize(poolCount)
+  private *poolPageRequests(
+    poolCount: number,
+    requestedLimit?: number,
+  ): Generator<{ offset: number; limit: number }> {
+    const defaultLimit = this.pageSize(poolCount)
+    const limit = requestedLimit ?? defaultLimit
+    if (
+      !Number.isSafeInteger(limit)
+      || limit <= 0
+      || limit > this.settings.poolPaginationMaxSize
+    ) {
+      throw new RangeError(
+        `Sugar pagination limit must be a positive safe integer no greater than ${this.settings.poolPaginationMaxSize}`,
+      )
+    }
     const pageCount = Math.ceil((poolCount + 10) / limit)
     if (!Number.isSafeInteger(pageCount) || pageCount > MAX_PAGINATION_REQUESTS) {
       throw new RangeError(`Sugar pagination allows at most ${MAX_PAGINATION_REQUESTS} requests`)
@@ -168,12 +231,15 @@ export class SugarClient {
     operation: string,
     reader: (limit: number, offset: number) => RpcReadTask<T[]>,
     deadline = this.rpc.deadline(operation),
+    pageLimit?: number,
   ): Promise<T[]> {
     const startedAt = Date.now()
     let pageCount = 0
     try {
       const count = await this.getPoolCountWithin(deadline)
-      const requests = this.getPoolPaginator(count)
+      const requests = pageLimit === undefined
+        ? this.getPoolPaginator(count)
+        : [...this.poolPageRequests(count, pageLimit)]
       pageCount = requests.length
       const pages = await this.rpc.forEachRead(
         operation,
@@ -388,7 +454,113 @@ export class SugarClient {
   }
 
   async getPoolByAddress(address: Address | string): Promise<LiquidityPool | undefined> {
-    return (await this.getPools()).find((pool) => addressKey(pool.lp) === addressKey(address))
+    const resolved = await this.resolvePoolLocator(normalizeAddress(address))
+    if (!resolved) return undefined
+    const rawPool = resolved.rawPool
+
+    const values = tupleValues(rawPool)
+    const requestedAddresses = [
+      String(values[7]),
+      String(values[10]),
+      String(values[20]),
+      this.settings.stableTokenAddress,
+    ]
+      .filter((value) => /^0x[0-9a-fA-F]{40}$/.test(value))
+      .map(normalizeAddress)
+    const addresses = [
+      ...new Map(requestedAddresses.map((value) => [addressKey(value), value])).values(),
+    ]
+    const rawTokens = await this.read<unknown[]>(
+      this.settings.sugarContractAddress,
+      abis.sugar,
+      'tokens',
+      [BigInt(addresses.length), 0n, ADDRESS_ZERO, addresses],
+    )
+    const tokens = prepareTokens(rawTokens, this.settings)
+    const pools = preparePools(
+      [rawPool],
+      tokens,
+      await this.getPrices(tokens),
+      this.settings,
+    )
+    return pools[0]
+  }
+
+  private poolLocatorKey(poolAddress: Address): SugarPoolLocatorKey {
+    return {
+      chainId: this.settings.chainId,
+      sugarContractAddress: this.settings.sugarContractAddress,
+      poolAddress,
+    }
+  }
+
+  private async rawPoolAtOffset(offset: number): Promise<unknown | undefined> {
+    if (!Number.isSafeInteger(offset) || offset < 0) return undefined
+    const page = await this.read<unknown[]>(
+      this.settings.sugarContractAddress,
+      abis.sugar,
+      'all',
+      [1, offset, 0],
+    )
+    return page[0]
+  }
+
+  private rawPoolMatches(rawPool: unknown, poolAddress: Address): boolean {
+    return addressKey(String(tupleValues(rawPool)[0])) === addressKey(poolAddress)
+  }
+
+  private async resolvePoolLocator(
+    poolAddress: Address,
+  ): Promise<{ offset: number; rawPool: unknown } | undefined> {
+    const cacheKey = addressKey(poolAddress)
+    const cached = this.resolvedPoolLocators.get(cacheKey)
+    if (cached) return cached
+
+    const pending = (async () => {
+      const key = this.poolLocatorKey(poolAddress)
+      let storedOffset: number | undefined
+      try {
+        storedOffset = (await this.poolLocatorStore?.get(key))?.offset
+      } catch {
+        // A cache outage must not make on-chain reads unavailable.
+      }
+      if (storedOffset !== undefined) {
+        const storedPool = await this.rawPoolAtOffset(storedOffset)
+        if (storedPool && this.rawPoolMatches(storedPool, poolAddress)) {
+          return { offset: storedOffset, rawPool: storedPool }
+        }
+        try {
+          await this.poolLocatorStore?.delete(key)
+        } catch {
+          // Best-effort invalidation; the verified fallback below is safe.
+        }
+      }
+
+      const rawPools = await this.getRawPools(false)
+      const offset = rawPools.findIndex((pool) =>
+        this.rawPoolMatches(pool, poolAddress),
+      )
+      if (offset < 0) return undefined
+      const verifiedPool = await this.rawPoolAtOffset(offset)
+      if (!verifiedPool || !this.rawPoolMatches(verifiedPool, poolAddress)) {
+        throw new Error(
+          `Sugar pool ${poolAddress} could not be verified at its discovered offset`,
+        )
+      }
+      try {
+        await this.poolLocatorStore?.set(key, { offset })
+      } catch {
+        // Persistence is an optimization; verified reads remain correct.
+      }
+      return { offset, rawPool: verifiedPool }
+    })()
+    this.resolvedPoolLocators.set(cacheKey, pending)
+    void pending.catch(() => {
+      if (this.resolvedPoolLocators.get(cacheKey) === pending) {
+        this.resolvedPoolLocators.delete(cacheKey)
+      }
+    })
+    return pending
   }
 
   private epochMaps(pools: LiquidityPool[], tokens: Token[], prices: Price[]) {
@@ -431,27 +603,380 @@ export class SugarClient {
     return rawEpochs.map((epoch) => epochFromTuple(epoch, maps.pools, maps.tokens, maps.prices))
   }
 
-  async getPositions(owner = this.account): Promise<Position[]> {
-    if (!owner) throw new Error('Owner address is required to list positions')
-    const [raw, rawPools, tokens] = await Promise.all([
-      this.paginate('positions', (limit, offset) => this.readTask<unknown[]>(this.settings.sugarContractAddress, abis.sugar, 'positions', [limit, offset, owner])),
-      this.getRawPools(false),
-      this.getAllTokens(),
+  async getVeNfts(owner = this.account): Promise<VeNft[]> {
+    const veSugar = this.requireVeSugar()
+    if (!owner) throw new Error('Owner address is required to list veNFTs')
+    const [contracts, raw] = await Promise.all([
+      this.getVeNftContracts(),
+      this.read<unknown[]>(veSugar, abis.veSugar, 'byAccount', [normalizeAddress(owner)]),
     ])
+    const states = await this.rpc.forEachRead(
+      'escrowType',
+      raw,
+      (item, _index, signal) => this.readTask<number>(
+        contracts.votingEscrow,
+        abis.votingEscrow,
+        'escrowType',
+        [BigInt(String(tupleValues(item)[0]))],
+      )(signal),
+      this.settings.requestConcurrency,
+    )
+    return raw.map((item, index) => veNftFromTuple(item, states[index], this.settings))
+  }
+
+  async getVeNft(tokenId: bigint): Promise<VeNft | undefined> {
+    this.assertVeNftId(tokenId)
+    const veSugar = this.requireVeSugar()
+    const [contracts, raw] = await Promise.all([
+      this.getVeNftContracts(),
+      this.read<unknown>(veSugar, abis.veSugar, 'byId', [tokenId]),
+    ])
+    const values = tupleValues(raw)
+    if (BigInt(String(values[0])) === 0n || normalizeAddress(String(values[1])) === ADDRESS_ZERO) {
+      return undefined
+    }
+    const state = await this.read<number>(
+      contracts.votingEscrow,
+      abis.votingEscrow,
+      'escrowType',
+      [tokenId],
+    )
+    return veNftFromTuple(raw, state, this.settings)
+  }
+
+  async getVeNftRewards(tokenId: bigint, pool?: Address): Promise<VeNftReward[]> {
+    this.assertVeNftId(tokenId)
+    this.requireVeSugar()
+    const rewardsSugar = this.settings.sugarRewardsContractAddress
+    if (pool) {
+      const raw = await this.read<unknown[]>(
+        rewardsSugar,
+        abis.sugarRewards,
+        'rewardsByAddress',
+        [tokenId, normalizeAddress(pool)],
+      )
+      return raw.map(veNftRewardFromTuple)
+    }
+    const rawLimit = await this.read<bigint>(rewardsSugar, abis.sugarRewards, 'MAX_REWARDS')
+    const limit = Number(rawLimit)
+    if (!Number.isSafeInteger(limit) || limit <= 0) throw new Error('Invalid RewardsSugar page limit')
+    const results: unknown[] = []
+    for (let offset = 0; offset < 10_000; offset += limit) {
+      const page = await this.read<unknown[]>(
+        rewardsSugar,
+        abis.sugarRewards,
+        'rewards',
+        [BigInt(limit), BigInt(offset), tokenId],
+      )
+      results.push(...page)
+      if (page.length < limit) return results.map(veNftRewardFromTuple)
+    }
+    throw new Error('veNFT reward pagination exceeded 10,000 entries')
+  }
+
+  async createVeNft(amount: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
+    if (amount <= 0n) throw new Error('veNFT amount must be positive')
+    if (!Number.isSafeInteger(lockDurationSeconds) || lockDurationSeconds <= 0) {
+      throw new Error('veNFT lock duration must be a positive integer number of seconds')
+    }
+    const contracts = await this.getVeNftContracts()
+    const approval = await this.approveAddressIfNeeded(
+      contracts.governanceToken,
+      contracts.votingEscrow,
+      amount,
+    )
+    const create = this.tx(
+      contracts.votingEscrow,
+      this.encode(abis.votingEscrow, 'createLock', [amount, BigInt(lockDurationSeconds)]),
+    )
+    return [approval, create].filter((transaction): transaction is UnsignedTransaction => transaction !== undefined)
+  }
+
+  async increaseVeNftAmount(tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
+    if (tokenId <= 0n) throw new Error('veNFT token id must be positive')
+    if (amount <= 0n) throw new Error('veNFT amount must be positive')
+    const contracts = await this.getVeNftContracts()
+    const approval = await this.approveAddressIfNeeded(
+      contracts.governanceToken,
+      contracts.votingEscrow,
+      amount,
+    )
+    const increase = this.tx(
+      contracts.votingEscrow,
+      this.encode(abis.votingEscrow, 'increaseAmount', [tokenId, amount]),
+    )
+    return [approval, increase].filter((transaction): transaction is UnsignedTransaction => transaction !== undefined)
+  }
+
+  private assertVeNftId(tokenId: bigint, label = 'veNFT token id'): void {
+    if (tokenId <= 0n) throw new Error(`${label} must be positive`)
+  }
+
+  private async buildVeNftCall(functionName: string, args: readonly unknown[]): Promise<UnsignedTransaction[]> {
+    const { votingEscrow } = await this.getVeNftContracts()
+    return [this.tx(votingEscrow, this.encode(abis.votingEscrow, functionName, args))]
+  }
+
+  async extendVeNftLock(tokenId: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    if (!Number.isSafeInteger(lockDurationSeconds) || lockDurationSeconds <= 0) {
+      throw new Error('veNFT lock duration must be a positive integer number of seconds')
+    }
+    return this.buildVeNftCall('increaseUnlockTime', [tokenId, BigInt(lockDurationSeconds)])
+  }
+
+  async withdrawVeNft(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    return this.buildVeNftCall('withdraw', [tokenId])
+  }
+
+  async mergeVeNfts(fromTokenId: bigint, intoTokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(fromTokenId, 'source veNFT token id')
+    this.assertVeNftId(intoTokenId, 'destination veNFT token id')
+    if (fromTokenId === intoTokenId) throw new Error('source and destination veNFTs must differ')
+    return this.buildVeNftCall('merge', [fromTokenId, intoTokenId])
+  }
+
+  async splitVeNft(tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    if (amount <= 0n) throw new Error('veNFT split amount must be positive')
+    return this.buildVeNftCall('split', [tokenId, amount])
+  }
+
+  async setVeNftPermanent(tokenId: bigint, permanent: boolean): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    return this.buildVeNftCall(permanent ? 'lockPermanent' : 'unlockPermanent', [tokenId])
+  }
+
+  async delegateVeNft(tokenId: bigint, delegateTokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    if (delegateTokenId < 0n) throw new Error('delegate veNFT token id must not be negative')
+    return this.buildVeNftCall('delegate', [tokenId, delegateTokenId])
+  }
+
+  private async buildVoterCall(functionName: string, args: readonly unknown[]): Promise<UnsignedTransaction[]> {
+    const { voter } = await this.getVeNftContracts()
+    return [this.tx(voter, this.encode(abis.voter, functionName, args))]
+  }
+
+  async voteVeNft(tokenId: bigint, votes: readonly VeNftVote[]): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    if (votes.length === 0) throw new Error('veNFT vote requires at least one pool vote')
+    const pools = votes.map(({ pool }) => normalizeAddress(pool))
+    if (new Set(pools.map(addressKey)).size !== pools.length) {
+      throw new Error('veNFT vote pools must be unique')
+    }
+    if (votes.some(({ weight }) => weight <= 0n)) {
+      throw new Error('veNFT vote weights must be positive')
+    }
+    return this.buildVoterCall('vote', [tokenId, pools, votes.map(({ weight }) => weight)])
+  }
+
+  async resetVeNftVotes(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    return this.buildVoterCall('reset', [tokenId])
+  }
+
+  async pokeVeNftVotes(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    return this.buildVoterCall('poke', [tokenId])
+  }
+
+  async depositVeNftIntoManaged(tokenId: bigint, managedTokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    this.assertVeNftId(managedTokenId, 'managed veNFT token id')
+    if (tokenId === managedTokenId) throw new Error('veNFT and managed veNFT token ids must differ')
+    return this.buildVoterCall('depositManaged', [tokenId, managedTokenId])
+  }
+
+  async withdrawVeNftFromManaged(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    return this.buildVoterCall('withdrawManaged', [tokenId])
+  }
+
+  async claimVeNftRewards(tokenId: bigint, pool?: Address): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    const rewards = (await this.getVeNftRewards(tokenId, pool)).filter(({ amount }) => amount > 0n)
+    const group = (field: 'feeVotingReward' | 'incentiveVotingReward') => {
+      const grouped = new Map<string, { contract: Address; tokens: Map<string, Address> }>()
+      for (const reward of rewards) {
+        const contract = reward[field]
+        if (contract === ADDRESS_ZERO) continue
+        const key = addressKey(contract)
+        const entry = grouped.get(key) ?? { contract, tokens: new Map<string, Address>() }
+        entry.tokens.set(addressKey(reward.token), reward.token)
+        grouped.set(key, entry)
+      }
+      const entries = [...grouped.values()]
+      return {
+        contracts: entries.map((entry) => entry.contract),
+        tokens: entries.map((entry) => [...entry.tokens.values()]),
+      }
+    }
+    const incentives = group('incentiveVotingReward')
+    const fees = group('feeVotingReward')
+    const { voter } = await this.getVeNftContracts()
+    const transactions: UnsignedTransaction[] = []
+    if (incentives.contracts.length > 0) {
+      transactions.push(this.tx(voter, this.encode(abis.voter, 'claimBribes', [
+        incentives.contracts,
+        incentives.tokens,
+        tokenId,
+      ])))
+    }
+    if (fees.contracts.length > 0) {
+      transactions.push(this.tx(voter, this.encode(abis.voter, 'claimFees', [
+        fees.contracts,
+        fees.tokens,
+        tokenId,
+      ])))
+    }
+    return transactions
+  }
+
+  async getVeNftRebase(tokenId: bigint): Promise<bigint> {
+    this.assertVeNftId(tokenId)
+    const { rewardsDistributor } = await this.getVeNftContracts()
+    return this.read<bigint>(rewardsDistributor, abis.rewardsDistributor, 'claimable', [tokenId])
+  }
+
+  async claimVeNftRebase(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    this.assertVeNftId(tokenId)
+    const { rewardsDistributor } = await this.getVeNftContracts()
+    return [this.tx(
+      rewardsDistributor,
+      this.encode(abis.rewardsDistributor, 'claim', [tokenId]),
+    )]
+  }
+
+  async claimVeNftRebases(tokenIds: readonly bigint[]): Promise<UnsignedTransaction[]> {
+    if (tokenIds.length === 0) throw new Error('veNFT rebase claim requires at least one token id')
+    tokenIds.forEach((tokenId) => this.assertVeNftId(tokenId))
+    if (new Set(tokenIds).size !== tokenIds.length) {
+      throw new Error('veNFT rebase token ids must be unique')
+    }
+    const { rewardsDistributor } = await this.getVeNftContracts()
+    return [this.tx(
+      rewardsDistributor,
+      this.encode(abis.rewardsDistributor, 'claimMany', [[...tokenIds]]),
+    )]
+  }
+
+  async getPoolRewardContracts(pool: LiquidityPool): Promise<PoolRewardContracts> {
+    if (pool.chainId !== this.settings.chainId) {
+      throw new Error(`Pool chain ${pool.chainId} does not match client chain ${this.settings.chainId}`)
+    }
+    const gauge = normalizeAddress(pool.gauge)
+    if (gauge === ADDRESS_ZERO) throw new Error(`pool ${pool.symbol} has no gauge`)
+    const incentiveFunction = this.supportsVeNfts() ? 'gaugeToBribe' : 'gaugeToIncentive'
+    const [feeVotingReward, incentiveVotingReward] = await Promise.all([
+      this.read<Address>(this.settings.voterContractAddress, abis.voter, 'gaugeToFees', [gauge]),
+      this.read<Address>(this.settings.voterContractAddress, abis.voter, incentiveFunction, [gauge]),
+    ])
+    return {
+      gauge,
+      feeVotingReward: normalizeAddress(feeVotingReward),
+      incentiveVotingReward: normalizeAddress(incentiveVotingReward),
+    }
+  }
+
+  async incentivizePool(
+    pool: LiquidityPool,
+    token: Token,
+    amount: bigint,
+  ): Promise<UnsignedTransaction[]> {
+    if (token.chainId !== this.settings.chainId) {
+      throw new Error(`Reward token chain ${token.chainId} does not match client chain ${this.settings.chainId}`)
+    }
+    if (amount <= 0n) throw new Error('Pool incentive amount must be positive')
+    const { incentiveVotingReward } = await this.getPoolRewardContracts(pool)
+    if (incentiveVotingReward === ADDRESS_ZERO) {
+      throw new Error(`pool ${pool.symbol} has no incentive voting reward contract`)
+    }
+    const tokenAddress = tokenContractAddress(token)
+    const approval = await this.approveAddressIfNeeded(tokenAddress, incentiveVotingReward, amount)
+    const notify = this.tx(
+      incentiveVotingReward,
+      this.encode(abis.votingReward, 'notifyRewardAmount', [tokenAddress, amount]),
+    )
+    return [approval, notify].filter((transaction): transaction is UnsignedTransaction => transaction !== undefined)
+  }
+
+  private async hydratePositions(
+    raw: unknown[],
+    rawPools: unknown[],
+  ): Promise<Position[]> {
     const poolAddresses = new Set(raw.map((position) => addressKey(String(tupleValues(position)[1]))))
     const positionPools = rawPools.filter((pool) => poolAddresses.has(addressKey(String(tupleValues(pool)[0]))))
-    const neededTokens = new Set<string>([
-      addressKey(this.settings.stableTokenAddress),
-      addressKey(this.settings.nativeTokenSymbol),
+    const neededTokenAddresses = new Map<string, Address>([
+      [addressKey(this.settings.stableTokenAddress), normalizeAddress(this.settings.stableTokenAddress)],
     ])
     positionPools.forEach((pool) => {
       const values = tupleValues(pool)
-      ;[values[7], values[10], values[20]].forEach((address) => neededTokens.add(addressKey(String(address))))
+      ;[values[7], values[10], values[20]].forEach((address) => {
+        const normalized = normalizeAddress(String(address))
+        neededTokenAddresses.set(addressKey(normalized), normalized)
+      })
     })
-    const prices = await this.getPrices(tokens.filter((token) => neededTokens.has(addressKey(token.tokenAddress))))
+    const addresses = [...neededTokenAddresses.values()]
+    const rawTokens = await this.read<unknown[]>(
+      this.settings.sugarContractAddress,
+      abis.sugar,
+      'tokens',
+      [BigInt(addresses.length), 0n, ADDRESS_ZERO, addresses],
+    )
+    const tokens = prepareTokens(rawTokens, this.settings)
+    const prices = await this.getPrices(tokens)
     const pools = preparePools(positionPools, tokens, prices, this.settings)
     const poolMap = new Map(pools.map((pool) => [addressKey(pool.lp), pool]))
     return raw.map((position) => positionFromTuple(position, poolMap, this.settings)).filter((position): position is Position => position !== undefined)
+  }
+
+  async getPositions(owner = this.account): Promise<Position[]> {
+    if (!owner) throw new Error('Owner address is required to list positions')
+    const [raw, rawPools] = await Promise.all([
+      // `positions` scans pool offsets and returns only matches for the owner,
+      // so an empty/short response cannot safely terminate pagination: a later
+      // pool may still contain a position. Use the configured maximum scan
+      // window to preserve complete results with far fewer sparse RPC reads.
+      this.paginate(
+        'positions',
+        (limit, offset) => this.readTask<unknown[]>(
+          this.settings.sugarContractAddress,
+          abis.sugar,
+          'positions',
+          [limit, offset, owner],
+        ),
+        this.rpc.deadline('positions'),
+        this.settings.poolPaginationMaxSize,
+      ),
+      this.getRawPools(false),
+    ])
+    return this.hydratePositions(raw, rawPools)
+  }
+
+  async getPositionByPool(
+    poolAddress: Address,
+    owner = this.account,
+  ): Promise<Position | undefined> {
+    if (!owner) throw new Error('Owner address is required to get a position')
+    const normalizedPool = normalizeAddress(poolAddress)
+    const resolved = await this.resolvePoolLocator(normalizedPool)
+    if (!resolved) return undefined
+
+    // Sugar's offset is the pool index. Once the pool catalog is cached, a
+    // known basic-pool position is one bounded read instead of a global scan.
+    const raw = await this.read<unknown[]>(
+      this.settings.sugarContractAddress,
+      abis.sugar,
+      'positions',
+      [1, resolved.offset, owner],
+    )
+    const matches = raw.filter((position) =>
+      addressKey(String(tupleValues(position)[1])) === addressKey(normalizedPool),
+    )
+    if (matches.length === 0) return undefined
+    return (await this.hydratePositions(matches, [resolved.rawPool]))[0]
   }
 
   filterPoolsForSwap(pools: LiquidityPoolForSwap[], fromToken: Token, toToken: Token): LiquidityPoolForSwap[] {
@@ -602,6 +1127,54 @@ export class SugarClient {
 
   async setTokenAllowance(token: Token, spender: Address, amount: bigint): Promise<UnsignedTransaction | undefined> {
     return this.approveAddressIfNeeded(tokenContractAddress(token), spender, amount)
+  }
+
+  async revokeTokenAllowance(
+    token: Token,
+    spender: Address,
+  ): Promise<UnsignedTransaction[]> {
+    const tokenAddress = tokenContractAddress(token)
+    const allowance = await this.read<bigint>(
+      tokenAddress,
+      abis.erc20,
+      'allowance',
+      [this.signer(), spender],
+    )
+    return allowance === 0n
+      ? []
+      : [this.tx(tokenAddress, this.encode(abis.erc20, 'approve', [spender, 0n]))]
+  }
+
+  async revokePermit2Allowance(token: Token): Promise<UnsignedTransaction[]> {
+    if (token.wrappedTokenAddress) return []
+    const tokenAddress = tokenContractAddress(token)
+    const permit2 = await this.getPermit2Address()
+    const [tokenAllowance, permit2Allowance] = await Promise.all([
+      this.read<bigint>(tokenAddress, abis.erc20, 'allowance', [this.signer(), permit2]),
+      this.read<readonly [bigint, bigint, bigint]>(permit2, abis.permit2, 'allowance', [
+        this.signer(), tokenAddress, this.settings.swapperContractAddress,
+      ]),
+    ])
+    const transactions: UnsignedTransaction[] = []
+    if (tokenAllowance > 0n) {
+      transactions.push(
+        this.tx(tokenAddress, this.encode(abis.erc20, 'approve', [permit2, 0n])),
+      )
+    }
+    // Permit2 stores an expiration even after amount is cleared (an input of
+    // zero may be normalized to the current block timestamp). Only a non-zero
+    // spendable amount needs another revocation transaction.
+    if (permit2Allowance[0] > 0n) {
+      transactions.push(
+        this.tx(permit2, this.encode(abis.permit2, 'approve', [
+          tokenAddress,
+          this.settings.swapperContractAddress,
+          0n,
+          0,
+        ])),
+      )
+    }
+    return transactions
   }
 
   async bridge(fromToken: Token, amount: bigint, domain: number): Promise<UnsignedTransaction[]> {

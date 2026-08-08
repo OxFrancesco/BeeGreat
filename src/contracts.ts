@@ -9,6 +9,7 @@ export const SUGAR_ACTIONS = [
   'unstake',
   'claim_emissions',
   'claim_fees',
+  'create_venft',
   'quote',
   'swap',
 ] as const
@@ -30,6 +31,7 @@ export const SUGAR_TX_ACTIONS = [
   'unstake',
   'claim_emissions',
   'claim_fees',
+  'create_venft',
 ] as const
 
 export type SugarTxAction = (typeof SUGAR_TX_ACTIONS)[number]

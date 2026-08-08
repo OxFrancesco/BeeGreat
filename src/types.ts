@@ -34,6 +34,8 @@ export type ChainSettings = {
   messageModuleContractAddress: Address
   sugarContractAddress: Address
   sugarRewardsContractAddress: Address
+  veSugarContractAddress?: Address
+  voterContractAddress: Address
   slipstreamContractAddress: Address
   slipstreamFactoryAddress: Address
   oldSlipstreamFactoryAddress: Address
@@ -93,6 +95,22 @@ export type SugarClientOptions = {
   rpcPolicy?: SugarRpcPolicyOptions
   settings?: Partial<ChainSettings>
   cacheStore?: SugarCacheStore
+  poolLocatorStore?: SugarPoolLocatorStore
+}
+
+export type SugarPoolLocatorKey = Readonly<{
+  chainId: number
+  sugarContractAddress: Address
+  poolAddress: Address
+}>
+
+export type SugarPoolLocator = Readonly<{ offset: number }>
+
+/** Durable address-to-Sugar-offset cache. Every hit is verified on-chain. */
+export type SugarPoolLocatorStore = {
+  get(key: SugarPoolLocatorKey): Promise<SugarPoolLocator | undefined>
+  set(key: SugarPoolLocatorKey, locator: SugarPoolLocator): Promise<void>
+  delete(key: SugarPoolLocatorKey): Promise<void>
 }
 
 /** Mutable read caches a SugarClient consults before hitting the RPC. */
@@ -196,6 +214,56 @@ export type LiquidityPoolEpoch = {
   totalFees: number
   totalIncentives: number
   epochDate: string
+}
+
+export type VeNftState = 'normal' | 'locked' | 'managed'
+
+export type VeNftVote = {
+  pool: Address
+  weight: bigint
+}
+
+export type VeNft = {
+  chainId: ChainId
+  chainName: string
+  id: bigint
+  owner: Address
+  decimals: number
+  lockedAmount: bigint
+  votingPower: bigint
+  governancePower: bigint
+  claimableRebase: bigint
+  expiresAt: number
+  votedAt: number
+  votes: VeNftVote[]
+  governanceToken: Address
+  permanent: boolean
+  delegateId: bigint
+  managedId: bigint
+  state: VeNftState
+}
+
+export type VeNftContracts = {
+  veSugar: Address
+  voter: Address
+  votingEscrow: Address
+  governanceToken: Address
+  rewardsDistributor: Address
+}
+
+export type VeNftReward = {
+  veNftId: bigint
+  pool: Address
+  amount: bigint
+  token: Address
+  feeVotingReward: Address
+  incentiveVotingReward: Address
+}
+
+export type PoolRewardContracts = {
+  gauge: Address
+  feeVotingReward: Address
+  incentiveVotingReward: Address
 }
 
 export type Position = {

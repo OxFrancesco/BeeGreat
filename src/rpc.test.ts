@@ -139,7 +139,7 @@ describe('Sugar RPC policy', () => {
     const unavailable = new HttpRequestError({
       body: { method: 'eth_call' },
       status: 503,
-      url: 'https://rpc.example.invalid',
+      url: 'https://rpc.example.invalid/v2/test-secret-key',
     })
     const sugar = new SugarClient(10, {
       publicClient: {
@@ -226,7 +226,13 @@ describe('Sugar RPC policy', () => {
       name: 'SugarRpcError',
       retryable: true,
     })
-    expect((error as SugarRpcError).cause).toBe(unavailable)
+    expect((error as SugarRpcError).cause).toMatchObject({
+      name: 'HttpRequestError',
+      status: 503,
+    })
+    expect(JSON.stringify((error as SugarRpcError).cause)).not.toContain(
+      'test-secret-key',
+    )
   })
 
   test('does not retry a deterministic price-oracle revert', async () => {
@@ -273,7 +279,9 @@ describe('Sugar RPC policy', () => {
       operation: 'getManyRatesToEthWithCustomConnectors',
       retryable: false,
     })
-    expect((error as SugarRpcError).cause).toBe(upstream)
+    expect((error as SugarRpcError).cause).toMatchObject({
+      name: 'ContractFunctionExecutionError',
+    })
   })
 
   test('stops scheduling queued price batches after one batch fails', async () => {
@@ -820,7 +828,10 @@ describe('Sugar RPC policy', () => {
       code: 'RPC_TIMEOUT',
       name: 'SugarRpcError',
     })
-    expect((error as SugarRpcError).cause).toBe(rateLimited)
+    expect((error as SugarRpcError).cause).toMatchObject({
+      name: 'HttpRequestError',
+      status: 429,
+    })
   })
 
   test('does not attach a recovered sibling failure to a later timeout', async () => {

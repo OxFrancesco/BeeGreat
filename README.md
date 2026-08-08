@@ -42,11 +42,46 @@ const unsignedTransactions = quote
 - mixed V2/V3 path discovery, quotes, and swaps;
 - pool specs and basic/concentrated deposit quotes;
 - deposit, withdrawal, stake, unstake, fee, and emission builders;
+- native veNFT reads, lock lifecycle, voting, managed delegation, rebases, and voting-reward claims;
+- pool voting-reward discovery and incentive funding;
 - bridge fees, ICA reads, bridge transaction builders, and allowances.
 
 Every transaction result is `{ from, to, data, value }`. `value` and other
 on-chain integers are `bigint` in the SDK and decimal strings after JSON
 serialization.
+
+## veNFTs and voting rewards
+
+Native veNFT management is available on the two governance-root deployments:
+Optimism (Velodrome) and Base (Aerodrome). Superchain leaf deployments support
+pool gauges and voting incentives, but do not expose a local VotingEscrow; veNFT
+methods reject locally on those chains instead of returning unusable calldata.
+
+```ts
+const sugar = new SugarClient(8453, { account: wallet })
+
+const locks = await sugar.getVeNfts()
+const pools = await sugar.getPools()
+if (!locks[0] || !pools[0]) throw new Error('veNFT or pool unavailable')
+const create = await sugar.createVeNft(amount, 4 * 365 * 24 * 60 * 60)
+const vote = await sugar.voteVeNft(locks[0].id, [
+  { pool: pools[0].lp, weight: 1n },
+])
+const rewards = await sugar.getVeNftRewards(locks[0].id)
+const claims = await sugar.claimVeNftRewards(locks[0].id)
+const rebase = await sugar.claimVeNftRebase(locks[0].id)
+```
+
+The lifecycle surface also includes `getVeNft`, `increaseVeNftAmount`,
+`extendVeNftLock`, `withdrawVeNft`, `mergeVeNfts`, `splitVeNft`,
+`setVeNftPermanent`, `delegateVeNft`, `resetVeNftVotes`, `pokeVeNftVotes`,
+`depositVeNftIntoManaged`, `withdrawVeNftFromManaged`, and batched rebase claims.
+
+Pool incentive funding is chain-agnostic. `incentivizePool(pool, token, amount)`
+resolves the correct BribeVotingReward/IncentiveVotingReward contract for the
+chain, adds an ERC-20 approval only when required, and returns the unsigned
+`notifyRewardAmount` transaction. Existing `stake`, `unstake`,
+`claimEmissions`, and `claimFees` methods continue to manage LP rewards.
 
 ## CLI-compatible action seam
 
@@ -136,6 +171,24 @@ backup RPC endpoint was used; endpoint URLs are not included.
 Expected RPC failures reject with `SugarRpcError`, whose `code` is one of
 `RPC_TIMEOUT`, `RPC_RATE_LIMITED`, `RPC_UNAVAILABLE`, or `RPC_READ_FAILED`.
 The original Viem error remains available as `cause`.
+
+Addressed pool and position reads can avoid a cold global pool scan by
+providing a durable `poolLocatorStore`. A stored offset is never trusted
+blindly: every new client verifies it with `Sugar.all(1, offset)` and deletes
+it before falling back to discovery when the pool no longer matches.
+
+```ts
+const sugar = new SugarClient(8453, {
+  poolLocatorStore: {
+    get: (key) => database.poolOffsets.get(key),
+    set: (key, locator) => database.poolOffsets.set(key, locator),
+    delete: (key) => database.poolOffsets.delete(key),
+  },
+})
+```
+
+The store is an optimization only. Store errors fall back to verified on-chain
+reads and cannot make Sugar unavailable.
 
 When injecting a custom `transport` or `publicClient`, configure its own retry
 count to zero if Sugar should remain the sole retry owner. Effect can interrupt

@@ -82,6 +82,16 @@ function positionPoolJson(pool: LiquidityPool) {
   }
 }
 
+function transactionPlan(transactions: Awaited<ReturnType<SugarClient['stake']>>) {
+  return {
+    transactions,
+    transaction_steps: transactions.map((transaction, index) => ({
+      role: index === transactions.length - 1 ? 'action' as const : 'approval' as const,
+      transaction,
+    })),
+  }
+}
+
 function poolJson(pool: LiquidityPool, full: true): unknown
 function poolJson(pool: Awaited<ReturnType<SugarClient['getPoolsForSwaps']>>[number], full: false): unknown
 function poolJson(pool: LiquidityPool | Awaited<ReturnType<SugarClient['getPoolsForSwaps']>>[number], full: boolean) {
@@ -119,7 +129,12 @@ async function findPosition(client: SugarClient, parameters: SugarParameters): P
   if (!pool && position === undefined) throw new Error('requires pool or position')
   const id = position === undefined ? 0n : BigInt(position)
   if (id === 0n && !pool) throw new Error('position=0 is ambiguous; pass pool too')
-  const match = (await client.getPositions()).find((candidate) => candidate.id === id && (!pool || candidate.pool.lp.toLowerCase() === pool))
+  const candidates = pool
+    ? [await client.getPositionByPool(pool as Address)].filter(
+        (candidate): candidate is Position => candidate !== undefined,
+      )
+    : await client.getPositions()
+  const match = candidates.find((candidate) => candidate.id === id)
   if (!match) throw new Error('position not found')
   return match
 }
@@ -224,7 +239,7 @@ async function execute(client: SugarClient, action: SugarAction, p: SugarParamet
     const transactions = await client.swapFromQuote(quote, slippage)
     const minAmountOut = applySlippage(quote.amountOut, slippage)
     return {
-      transactions,
+      ...transactionPlan(transactions),
       quote: {
         ...(await quoteJson(client, quote)),
         slippage,
@@ -263,7 +278,7 @@ async function execute(client: SugarClient, action: SugarAction, p: SugarParamet
     } else quote = await client.quoteBasicDeposit(pool, { amountToken0, amountToken1 })
     const transactions = await client.deposit(quote, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01)
     return {
-      transactions,
+      ...transactionPlan(transactions),
       deposit: {
         pool: positionPoolJson(pool),
         creates_pool: pool.lp === ADDRESS_ZERO,
@@ -277,12 +292,40 @@ async function execute(client: SugarClient, action: SugarAction, p: SugarParamet
     }
   }
 
+
+  if (action === 'create_venft') {
+    const contracts = await client.getVeNftContracts()
+    const governanceToken = await client.getToken(contracts.governanceToken)
+    if (!governanceToken) {
+      throw new Error(`governance token not found: ${contracts.governanceToken}`)
+    }
+    const rawAmount = stringValue(p, 'amount')!
+    const veNftAmount = booleanValue(p, 'use_decimals')
+      ? parseTokenUnits(governanceToken, rawAmount)
+      : BigInt(rawAmount)
+    const lockDurationSeconds = numberValue(p, 'lock_duration_seconds')!
+    const transactions = await client.createVeNft(
+      veNftAmount,
+      lockDurationSeconds,
+    )
+    return {
+      ...transactionPlan(transactions),
+      ve_nft: {
+        amount: veNftAmount,
+        amount_decimal: tokenToNumber(governanceToken, veNftAmount),
+        governance_token: governanceToken.tokenAddress,
+        governance_symbol: governanceToken.symbol,
+        lock_duration_seconds: lockDurationSeconds,
+      },
+    }
+  }
+
   const position = await findPosition(client, p)
   if (action === 'withdraw') {
     const withdrawal = withdrawalFromPosition(position, { fraction: stringValue(p, 'fraction'), burn: booleanValue(p, 'burn') })
     const transactions = await client.withdraw(withdrawal, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01, booleanValue(p, 'collect', true), booleanValue(p, 'unwrap_native'))
     return {
-      transactions,
+      ...transactionPlan(transactions),
       withdrawal: {
         pool: positionPoolJson(position.pool),
         position: position.id,
@@ -296,10 +339,10 @@ async function execute(client: SugarClient, action: SugarAction, p: SugarParamet
     }
   }
   const context = { position: { id: position.id, pool: positionPoolJson(position.pool) } }
-  if (action === 'stake') return { transactions: await client.stake(position), ...context }
-  if (action === 'unstake') return { transactions: await client.unstake(position, bigintValue(p, 'amount')), ...context }
-  if (action === 'claim_emissions') return { transactions: await client.claimEmissions(position), ...context }
-  return { transactions: await client.claimFees(position, booleanValue(p, 'burn'), booleanValue(p, 'unwrap_native')), ...context }
+  if (action === 'stake') return { ...transactionPlan(await client.stake(position)), ...context }
+  if (action === 'unstake') return { ...transactionPlan(await client.unstake(position, bigintValue(p, 'amount'))), ...context }
+  if (action === 'claim_emissions') return { ...transactionPlan(await client.claimEmissions(position)), ...context }
+  return { ...transactionPlan(await client.claimFees(position, booleanValue(p, 'burn'), booleanValue(p, 'unwrap_native'))), ...context }
 }
 
 export async function executeSugarAction(action: SugarAction, rawParameters: unknown, options: SugarExecutionOptions = {}): Promise<SugarJson> {
