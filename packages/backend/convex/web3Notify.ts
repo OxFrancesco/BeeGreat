@@ -83,6 +83,7 @@ export const notifyActionSettled = internalAction({
         },
         body: JSON.stringify({
           userId: action.userId,
+          jobRunId: action.jobRunId ?? null,
           conversationId,
           actionId,
           kind: action.payload.kind,

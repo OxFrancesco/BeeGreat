@@ -5,6 +5,17 @@ import {
 
 const TOOL_SYMBOLS: Record<string, string> = {
   search_mind: "magnifyingglass",
+  telegram_connection_status: "paperplane",
+  send_telegram_message: "paperplane.fill",
+  create_agent_job: "clock.badge.checkmark",
+  list_agent_jobs: "clock",
+  update_agent_job: "pencil",
+  pause_agent_job: "pause.circle",
+  resume_agent_job: "play.circle",
+  cancel_agent_job: "xmark.circle",
+  run_now_agent_job: "bolt.circle",
+  complete_agent_job_run: "checkmark.circle",
+  wait_for_agent_job_external: "clock.arrow.circlepath",
   list_bookmarks: "bookmark",
   get_bookmark: "bookmark",
   save_bookmark: "bookmark.fill",

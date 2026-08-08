@@ -184,7 +184,9 @@ test('account erasure cancels a waiting crawl without resurrecting work', async 
         // Start at bookmarkCrawlRuns so this assertion inspects the crawl
         // cancellation boundary without first advancing through unrelated
         // privacy stages.
-        stageIndex: 26,
+        // Agent Job runs, grants, and definitions now precede their detached
+        // chat threads in the child-before-parent deletion order.
+        stageIndex: 29,
         updatedAt: Date.now(),
       }),
     )

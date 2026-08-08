@@ -87,6 +87,10 @@ Moving funds is TWO-PHASE and you only ever run phase one:
   Execution has already started: still tell Bee to render the same confirm card
   (it shows live progress instead of buttons) and do NOT ask the user to
   confirm.
+- Scheduled Agent Job turns never inherit YOLO. They carry a private run id and
+  may auto-confirm only when Convex verifies an active app-approved grant for the
+  Bee smart wallet, Base, the exact Aerodrome pool, and this action. A granted
+  action returns confirmed just like YOLO; tell Bee settlement is now pending.
 - Linked-wallet actions are NEVER eligible for YOLO or iMessage confirmation.
   The matching EOA must be connected in the signed-in web or mobile app, and
   its wallet UI asks the user to sign each transaction.
@@ -209,6 +213,7 @@ export const web3: PowerupDefinition = {
         ...(runtime.conversationId
           ? { conversationId: runtime.conversationId }
           : {}),
+        ...(runtime.jobRunId ? { jobRunId: runtime.jobRunId } : {}),
         op,
         params,
       })
@@ -349,7 +354,7 @@ export const web3: PowerupDefinition = {
         defineTool({
           name: 'prepare_sugar_execution',
           description:
-            'Phase one of executing an Aerodrome action (swap, deposit/create pool, withdraw, stake, unstake, claim_emissions, claim_fees) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
+            'Phase one of executing an Aerodrome action (swap, deposit/create pool, withdraw, stake, unstake, claim_emissions, claim_fees, create_venft) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
           input: v.object({
             continuation,
             sugar_action: v.picklist(
@@ -361,6 +366,7 @@ export const web3: PowerupDefinition = {
                 'unstake',
                 'claim_emissions',
                 'claim_fees',
+                'create_venft',
               ],
               'Aerodrome action to execute on Base',
             ),
@@ -399,6 +405,7 @@ export const web3: PowerupDefinition = {
                 'unstake',
                 'claim_emissions',
                 'claim_fees',
+                'create_venft',
               ],
               'Velodrome/Aerodrome transaction-building action',
             ),
@@ -617,6 +624,30 @@ export const web3: PowerupDefinition = {
           }),
           async run({ data }) {
             return await runSugar('deposit', data)
+          },
+        }),
+
+        defineTool({
+          name: 'sugar_create_venft',
+          description:
+            'Build an unsigned veNFT creation plan that locks AERO/VELO for an exact duration. The lock is irreversible until expiry.',
+          input: v.object({
+            chain: sugarChain,
+            wallet: address(
+              'Public address that will externally sign the transaction plan',
+            ),
+            amount: amount(
+              'Governance-token amount, raw units unless use_decimals is true',
+            ),
+            lock_duration_seconds: v.pipe(
+              v.number(),
+              v.integer(),
+              v.minValue(1),
+            ),
+            use_decimals: v.optional(v.boolean()),
+          }),
+          async run({ data }) {
+            return await runSugar('create_venft', data)
           },
         }),
 

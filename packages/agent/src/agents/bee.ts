@@ -28,6 +28,12 @@ import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
 import { createMindTools } from '../shared/mind-tools.ts'
 import { createQuestionTool } from '../shared/question-tool.ts'
+import { createTelegramTools } from '../shared/telegram-tools.ts'
+import {
+  createAgentJobCompletionTool,
+  createAgentJobTools,
+  createAgentJobWaitingTool,
+} from '../shared/agent-job-tools.ts'
 import { loadBeennectorSubagent } from '../shared/beennectors/index.ts'
 import { imagineSubagent } from '../shared/imagine-subagent.ts'
 import { loadGoogleWorkspaceSubagent } from '../shared/google-workspace-subagent.ts'
@@ -278,6 +284,14 @@ export function Bee({ id }: AgentProps) {
   const snapshot = snapshots.get(userId)
   const providerId = snapshot?.providerId
   const delivery = useDelivery()
+  const jobRunId =
+    delivery.kind === 'signal'
+      ? delivery.type === 'job.scheduled'
+        ? delivery.attributes?.runId
+        : delivery.type === 'web3.action_settled'
+          ? delivery.attributes?.jobRunId
+          : undefined
+      : undefined
 
   useModel(resolveBeeOrchestratorModel(providerId), {
     thinkingLevel: BEE_ORCHESTRATOR_THINKING_LEVEL,
@@ -309,6 +323,34 @@ export function Bee({ id }: AgentProps) {
   }
   const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
   for (const tool of mindTools) useTool(tool)
+  const telegramTools = createTelegramTools(
+    userId,
+    env.CONVEX_URL,
+    focusOptions,
+  )
+  for (const tool of telegramTools) useTool(tool)
+  const agentJobTools = createAgentJobTools(
+    userId,
+    env.CONVEX_URL,
+    focusOptions,
+  )
+  for (const tool of agentJobTools) useTool(tool)
+  useTool(
+    createAgentJobCompletionTool(
+      userId,
+      env.CONVEX_URL,
+      focusOptions,
+      delivery,
+    ),
+  )
+  useTool(
+    createAgentJobWaitingTool(
+      userId,
+      env.CONVEX_URL,
+      focusOptions,
+      delivery,
+    ),
+  )
   useTool(createQuestionTool())
 
   // The instruction document must stay stable across renders — Flue 2 diffs
@@ -370,6 +412,7 @@ export function Bee({ id }: AgentProps) {
         credentialBrokerSecret:
           env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
         conversationId: id,
+        ...(jobRunId ? { jobRunId } : {}),
       }),
     ) ?? []),
   ]

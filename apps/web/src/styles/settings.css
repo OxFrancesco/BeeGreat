@@ -737,6 +737,13 @@
   background: #fff;
   color: #202020;
 }
+.connection-mark--telegram {
+  background: #229ed9;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  transform: rotate(-12deg);
+}
 .beennector-status {
   flex: 0 0 auto;
   padding: 5px 8px;

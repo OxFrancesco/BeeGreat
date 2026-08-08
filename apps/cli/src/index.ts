@@ -10,6 +10,7 @@ import { createPromptHistory } from "./prompt-history";
 import { projectBeeReply, projectStreamingBeeReply } from "./reply";
 import { createBeeSession } from "./session";
 import { runBeeTui } from "./tui";
+import { runBuddyTg, runTelegramCommand } from "./telegram";
 
 const HELP = `BeeGreat CLI
 
@@ -20,6 +21,11 @@ Usage:
   bee new                     Start a fresh CLI conversation
   bee login                   Sign in through Clerk in your browser
   bee logout                  Revoke and remove the local Clerk session
+  bee telegram connect        Connect BeeGreat to your Telegram account
+  bee telegram status         Show the BeeGreat Telegram connection
+  bee telegram notify <text>  Send yourself a Telegram message through Bee
+  bee telegram disconnect     Remove the BeeGreat Telegram connection
+  bee buddytg <args...>       Run the full local BuddyTG CLI (macOS Keychain)
   bee help                    Show this help
 
 Interactive commands:
@@ -64,6 +70,10 @@ async function main() {
     console.log(HELP);
     return;
   }
+  if (command.kind === "buddytg") {
+    await runBuddyTg(command.args);
+    return;
+  }
 
   const config = resolveBeeCliConfig(process.env);
   const credentialStore = createCredentialStore({
@@ -83,6 +93,22 @@ async function main() {
   const clerk = await auth.session({ forceLogin: command.kind === "login" });
   if (command.kind === "login") {
     console.log("Signed in to BeeGreat CLI.");
+    return;
+  }
+  if (command.kind === "telegram") {
+    await ensureBeeAgent({
+      agentUrl: config.agentUrl,
+      autoStart: config.autoStartAgent,
+      projectRoot: config.projectRoot,
+      logPath: config.agentLogPath,
+      onStatus: (message) => console.error(`  ${message}`),
+    });
+    console.log(
+      await runTelegramCommand(command, {
+        agentUrl: config.agentUrl,
+        accessToken: clerk.accessToken,
+      }),
+    );
     return;
   }
   await ensureBeeAgent({

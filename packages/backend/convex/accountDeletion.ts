@@ -42,6 +42,9 @@ const DATA_STAGES = [
   'memoryRevisions',
   'memories',
   'chatMessages',
+  'agentJobRuns',
+  'agentJobGrants',
+  'agentJobs',
   'chatThreads',
   'chatPreferences',
   'userPreferences',
@@ -70,6 +73,8 @@ const DATA_STAGES = [
   'chatgptGatePreferences',
   'googleHealthAuthSessions',
   'googleHealthCredentials',
+  'telegramAuthSessions',
+  'telegramConnections',
   'journalAttachments',
   'journalEntries',
   'healthJournalEntries',
@@ -171,6 +176,36 @@ async function removeDataBatch(
         await ctx.db
           .query('chatMessages')
           .withIndex('by_owner_key_and_thread_id_and_created_at', (q) =>
+            q.eq('ownerKey', ownerKey),
+          )
+          .take(BATCH_SIZE),
+      )
+    case 'agentJobRuns':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('agentJobRuns')
+          .withIndex('by_owner_key_and_created_at', (q) =>
+            q.eq('ownerKey', ownerKey),
+          )
+          .take(BATCH_SIZE),
+      )
+    case 'agentJobGrants':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('agentJobGrants')
+          .withIndex('by_owner_key_and_requested_at', (q) =>
+            q.eq('ownerKey', ownerKey),
+          )
+          .take(BATCH_SIZE),
+      )
+    case 'agentJobs':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('agentJobs')
+          .withIndex('by_owner_key_and_created_at', (q) =>
             q.eq('ownerKey', ownerKey),
           )
           .take(BATCH_SIZE),
@@ -414,6 +449,22 @@ async function removeDataBatch(
         ctx,
         await ctx.db
           .query('googleHealthCredentials')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'telegramAuthSessions':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('telegramAuthSessions')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'telegramConnections':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('telegramConnections')
           .withIndex('by_user', (q) => q.eq('userId', userId))
           .take(BATCH_SIZE),
       )

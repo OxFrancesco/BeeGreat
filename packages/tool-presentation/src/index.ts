@@ -52,6 +52,61 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     done: "Deleted the bookmark",
     failed: "Couldn’t delete the bookmark",
   },
+  telegram_connection_status: {
+    running: "Checking Telegram…",
+    done: "Checked Telegram",
+    failed: "Couldn’t check Telegram",
+  },
+  send_telegram_message: {
+    running: "Sending to Telegram…",
+    done: "Sent to Telegram",
+    failed: "Couldn’t send to Telegram",
+  },
+  create_agent_job: {
+    running: "Scheduling the Job…",
+    done: "Scheduled the Job",
+    failed: "Couldn’t schedule the Job",
+  },
+  list_agent_jobs: {
+    running: "Checking your Jobs…",
+    done: "Checked your Jobs",
+    failed: "Couldn’t read your Jobs",
+  },
+  update_agent_job: {
+    running: "Updating the Job…",
+    done: "Updated the Job",
+    failed: "Couldn’t update the Job",
+  },
+  pause_agent_job: {
+    running: "Pausing the Job…",
+    done: "Paused the Job",
+    failed: "Couldn’t pause the Job",
+  },
+  resume_agent_job: {
+    running: "Resuming the Job…",
+    done: "Resumed the Job",
+    failed: "Couldn’t resume the Job",
+  },
+  cancel_agent_job: {
+    running: "Cancelling the Job…",
+    done: "Cancelled the Job",
+    failed: "Couldn’t cancel the Job",
+  },
+  run_now_agent_job: {
+    running: "Starting the Job…",
+    done: "Started the Job",
+    failed: "Couldn’t start the Job",
+  },
+  complete_agent_job_run: {
+    running: "Saving the Job result…",
+    done: "Saved the Job result",
+    failed: "Couldn’t save the Job result",
+  },
+  wait_for_agent_job_external: {
+    running: "Tracking the on-chain action…",
+    done: "Tracking the on-chain action",
+    failed: "Couldn’t track the on-chain action",
+  },
   get_goals: {
     running: "Checking your goals…",
     done: "Checked your goals",

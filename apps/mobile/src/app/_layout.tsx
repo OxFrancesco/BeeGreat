@@ -131,6 +131,17 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen
+          name="jobs"
+          options={{
+            headerShown: true,
+            title: 'Agent Jobs',
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.75, 1],
+            sheetGrabberVisible: true,
+            contentStyle: { height: '100%' },
+          }}
+        />
+        <Stack.Screen
           name="public-profile"
           options={{
             headerShown: true,

@@ -73,6 +73,9 @@ bun run backend
 bun run bee
 bun run bee -- ask "What should I focus on?"
 bun run bee -- new
+bun run bee -- telegram connect
+bun run bee -- telegram notify "My next focus"
+bun run bee -- buddytg whoami
 ```
 
 The CLI starts its local Bee agent automatically and waits for its health check.
@@ -95,6 +98,12 @@ The first run opens Clerk in your browser and returns through a one-shot local
 callback. Tokens refresh automatically and are stored in the macOS Keychain,
 with a mode-0600 file fallback when no keychain is available. Use `bun run bee
 -- logout` to revoke and remove the local session.
+
+`bee telegram connect` uses Telegram OIDC to authorize BeeGreat's bot to send
+direct messages to the signed-in user across the agent, mobile app, web app,
+and CLI. `bee buddytg …` passes arguments directly to the installed local
+BuddyTG executable for full personal-account features such as chats, Saved
+Messages, and file transfer; those MTProto credentials remain in macOS Keychain.
 
 ## Environment
 

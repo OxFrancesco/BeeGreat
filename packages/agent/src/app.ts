@@ -17,6 +17,7 @@ import {
   callChannelAction,
   type ChannelActionName,
 } from './shared/channel-actions'
+import { callTelegramService } from './shared/telegram-tools'
 import { checkPaidSubscription } from './subscription-gate'
 
 type Bindings = {
@@ -177,7 +178,8 @@ app.use('*', async (c, next) => {
   // settled-action wake-ups arrive without any user session at all.
   if (
     c.req.path === '/internal/account-deletion' ||
-    c.req.path === '/internal/web3-settled'
+    c.req.path === '/internal/web3-settled' ||
+    c.req.path === '/internal/job-run'
   ) {
     await next()
     return
@@ -372,6 +374,7 @@ app.post('/internal/web3-settled', async (c) => {
     detail?: unknown
     error?: unknown
     explorerLink?: unknown
+    jobRunId?: unknown
   } | null
   const status = body?.status
   if (
@@ -388,6 +391,9 @@ app.post('/internal/web3-settled', async (c) => {
       (typeof body.continuation !== 'string' ||
         body.continuation.length < 1 ||
         body.continuation.length > 1_000)) ||
+    (body.jobRunId !== undefined &&
+      body.jobRunId !== null &&
+      typeof body.jobRunId !== 'string') ||
     (status !== 'executed' &&
       status !== 'failed' &&
       status !== 'refunded' &&
@@ -405,6 +411,7 @@ app.post('/internal/web3-settled', async (c) => {
   if (typeof body.explorerLink === 'string') {
     attributes.explorerLink = body.explorerLink
   }
+  if (typeof body.jobRunId === 'string') attributes.jobRunId = body.jobRunId
   await dispatch(Bee, {
     id: body.conversationId,
     message: {
@@ -415,6 +422,74 @@ app.post('/internal/web3-settled', async (c) => {
     },
   })
   return c.json({ dispatched: true })
+})
+
+/** Convex dispatches one idempotent signal for each materialized Job run. */
+app.post('/internal/job-run', async (c) => {
+  const configuredSecret = binding(c.env, 'AGENT_CREDENTIAL_BROKER_SECRET')
+  const suppliedSecret = c.req.header('authorization')?.match(/^Bearer ([^\s]+)$/i)?.[1]
+  if (
+    !configuredSecret ||
+    !suppliedSecret ||
+    !secretsMatch(configuredSecret, suppliedSecret)
+  ) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  const body = (await c.req.json().catch(() => null)) as {
+    runId?: unknown
+    jobId?: unknown
+    userId?: unknown
+    threadId?: unknown
+    title?: unknown
+    instruction?: unknown
+    delivery?: unknown
+    scheduledFor?: unknown
+    dispatchId?: unknown
+  } | null
+  if (
+    !body ||
+    typeof body.runId !== 'string' ||
+    typeof body.jobId !== 'string' ||
+    typeof body.userId !== 'string' ||
+    !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
+    typeof body.threadId !== 'number' ||
+    !Number.isSafeInteger(body.threadId) ||
+    body.threadId < 1 ||
+    typeof body.title !== 'string' ||
+    body.title.length > 80 ||
+    typeof body.instruction !== 'string' ||
+    body.instruction.length > 8_000 ||
+    typeof body.scheduledFor !== 'number' ||
+    typeof body.dispatchId !== 'string' ||
+    body.dispatchId.length > 256 ||
+    !Array.isArray(body.delivery) ||
+    body.delivery.length > 2 ||
+    body.delivery.some(
+      (destination) => destination !== 'app' && destination !== 'telegram',
+    )
+  ) {
+    return c.json({ error: 'Invalid Job run' }, 400)
+  }
+  const destinations = body.delivery as Array<'app' | 'telegram'>
+  const deliveryInstruction = destinations.includes('telegram')
+    ? 'Before settling the run, send a concise useful result to the user with send_telegram_message.'
+    : 'The result remains in this Job thread.'
+  const receipt = await dispatch(Bee, {
+    id: `${body.userId}~${body.threadId}`,
+    idempotencyKey: body.dispatchId,
+    message: {
+      kind: 'signal',
+      type: 'job.scheduled',
+      body: `Run the scheduled Job “${body.title}”. ${body.instruction}\n\n${deliveryInstruction} Call complete_agent_job_run exactly once with the truthful outcome. If an approval or user decision blocks completion, settle it as needs_attention.`,
+      attributes: {
+        runId: body.runId,
+        jobId: body.jobId,
+        scheduledFor: String(body.scheduledFor),
+        delivery: destinations.join(','),
+      },
+    },
+  })
+  return c.json({ submissionId: receipt.submissionId })
 })
 
 /** Keeps text-client writes inside the same guarded Convex transactions. */
@@ -557,6 +632,67 @@ app.post('/cli/channel', async (c) => {
     return c.json({ error: 'Clerk authentication is required.' }, 403)
   }
   return await handleChannelAction(c)
+})
+
+app.post('/cli/telegram', async (c) => {
+  if (c.get('authKind') !== 'clerk') {
+    return c.json({ error: 'Clerk authentication is required.' }, 403)
+  }
+  const body = (await c.req.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null
+  const action = body?.action
+  const telegramText = body?.text
+  if (
+    action !== 'connect' &&
+    action !== 'status' &&
+    action !== 'disconnect' &&
+    action !== 'notify'
+  ) {
+    return c.json({ error: 'Invalid Telegram action.' }, 400)
+  }
+  if (
+    action === 'notify' &&
+    (typeof telegramText !== 'string' ||
+      !telegramText.trim() ||
+      [...telegramText.trim()].length > 4096)
+  ) {
+    return c.json({ error: 'Send a Telegram message of 4,096 characters or fewer.' }, 400)
+  }
+  const convexUrl = binding(c.env, 'CONVEX_URL')
+  if (!convexUrl) {
+    return c.json({ error: 'Telegram is not configured.' }, 503)
+  }
+  try {
+    const result = await callTelegramService(
+      c.get('userId'),
+      convexUrl,
+      {
+        convexSiteUrl: binding(c.env, 'CONVEX_SITE_URL'),
+        brokerSecret:
+          binding(c.env, 'AGENT_CREDENTIAL_BROKER_SECRET') ??
+          binding(c.env, 'BRIDGE_SECRET'),
+      },
+      action === 'notify' ? 'send' : action,
+      action === 'notify' ? { text: String(telegramText) } : {},
+    )
+    return c.body(JSON.stringify(result), 200, {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+    })
+  } catch (error) {
+    captureWorkerFailure(error, `clerk.telegram.${action}`)
+    return c.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Telegram request failed.',
+      },
+      400,
+    )
+  }
 })
 
 // Speech-to-text: raw audio bytes in, proxied to ElevenLabs Scribe.

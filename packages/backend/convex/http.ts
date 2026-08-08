@@ -847,6 +847,144 @@ http.route({
 })
 
 http.route({
+  path: '/telegram/oauth/callback',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url)
+    const state = url.searchParams.get('state')
+    const code = url.searchParams.get('code')
+    const oauthError = url.searchParams.get('error')
+    let connected = false
+    let client: 'mobile' | 'browser' | undefined
+    if (state) {
+      const result = await ctx.runAction(
+        internal.telegramAuthActions.completeAuthorization,
+        {
+          state,
+          ...(code ? { code } : {}),
+          ...(oauthError ? { errorCode: oauthError } : {}),
+        },
+      )
+      connected = result.ok
+      client = result.client
+    }
+    if (client === 'mobile') {
+      const appUrl = new URL(
+        env.TELEGRAM_APP_REDIRECT_URI?.trim() || 'beegreat://profile',
+      )
+      appUrl.searchParams.set('telegram', connected ? 'connected' : 'failed')
+      return Response.redirect(appUrl.toString(), 302)
+    }
+    return new Response(
+      `<!doctype html><title>BeeGreat</title><main style="font:16px system-ui;max-width:36rem;margin:15vh auto;padding:2rem"><h1>${connected ? 'Telegram connected' : 'Telegram connection failed'}</h1><p>${connected ? 'You can close this tab and return to BeeGreat.' : 'Return to BeeGreat and try again.'}</p></main><script>if(window.opener)setTimeout(()=>window.close(),700)</script>`,
+      {
+        status: connected ? 200 : 400,
+        headers: {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+        },
+      },
+    )
+  }),
+})
+
+http.route({
+  path: '/internal/telegram',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    if (!request.headers.get('content-type')?.includes('application/json')) {
+      return jsonResponse(
+        { error: 'Content-Type must be application/json' },
+        415,
+      )
+    }
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    if (
+      !body ||
+      typeof body.userId !== 'string' ||
+      !isClerkUserId(body.userId) ||
+      (body.operation !== 'status' &&
+        body.operation !== 'connect' &&
+        body.operation !== 'disconnect' &&
+        body.operation !== 'send')
+    ) {
+      return jsonResponse({ error: 'Invalid Telegram request' }, 400)
+    }
+    if (body.operation === 'status') {
+      const connection = await ctx.runQuery(
+        internal.telegram.getConnectionForAgent,
+        { userId: body.userId },
+      )
+      return jsonResponse(
+        connection.status === 'connected'
+          ? {
+              status: connection.status,
+              displayName: connection.displayName,
+              ...(connection.username ? { username: connection.username } : {}),
+            }
+          : connection,
+        200,
+      )
+    }
+    if (body.operation === 'connect') {
+      const result = await ctx.runAction(
+        internal.telegramAuthActions.beginAuthorizationForAgent,
+        { userId: body.userId, client: 'browser' },
+      )
+      return jsonResponse(result, 200)
+    }
+    if (body.operation === 'disconnect') {
+      await ctx.runMutation(internal.telegram.disconnectForAgent, {
+        userId: body.userId,
+      })
+      return jsonResponse({ disconnected: true }, 200)
+    }
+    if (
+      typeof body.text !== 'string' ||
+      !body.text.trim() ||
+      [...body.text.trim()].length > 4096
+    ) {
+      return jsonResponse({ error: 'Invalid Telegram message' }, 400)
+    }
+    try {
+      const result = await ctx.runAction(
+        internal.telegramAuthActions.sendForAgent,
+        {
+          userId: body.userId,
+          text: body.text,
+          ...(typeof body.silent === 'boolean' ? { silent: body.silent } : {}),
+        },
+      )
+      return jsonResponse(result, 200)
+    } catch (error) {
+      return jsonResponse(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Telegram message could not be sent',
+        },
+        409,
+      )
+    }
+  }),
+})
+
+http.route({
   path: '/beennectors/oauth/callback',
   method: 'GET',
   handler: httpAction(async (ctx, request) => {
@@ -1321,6 +1459,159 @@ http.route({
   }),
 })
 
+// Private Job bridge used by Bee's natural-language tools and by the Job run
+// itself to settle its Convex ledger row. App clients use authenticated Convex
+// functions directly and never receive this shared secret.
+http.route({
+  path: '/internal/jobs',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const configuredSecret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
+    const suppliedSecret = request.headers
+      .get('authorization')
+      ?.match(/^Bearer ([^\s]+)$/i)?.[1]
+    if (
+      !configuredSecret ||
+      !suppliedSecret ||
+      !secretsMatch(configuredSecret, suppliedSecret)
+    ) {
+      return jsonResponse({ error: 'Unauthorized' }, 401)
+    }
+    const body = (await request.json().catch(() => null)) as Record<
+      string,
+      unknown
+    > | null
+    if (
+      !body ||
+      typeof body.userId !== 'string' ||
+      !isClerkUserId(body.userId) ||
+      typeof body.operation !== 'string'
+    ) {
+      return jsonResponse({ error: 'Invalid Job request' }, 400)
+    }
+    try {
+      switch (body.operation) {
+        case 'list':
+          return jsonResponse(
+            await ctx.runQuery(internal.agentJobs.listForAgent, {
+              userId: body.userId,
+            }),
+            200,
+          )
+        case 'create': {
+          if (
+            typeof body.title !== 'string' ||
+            typeof body.instruction !== 'string' ||
+            !Array.isArray(body.delivery) ||
+            !body.schedule ||
+            typeof body.schedule !== 'object' ||
+            Array.isArray(body.schedule)
+          ) {
+            return jsonResponse({ error: 'Invalid Job definition' }, 400)
+          }
+          return jsonResponse(
+            await ctx.runMutation(internal.agentJobs.createForAgent, {
+              userId: body.userId,
+              title: body.title,
+              instruction: body.instruction,
+              schedule: body.schedule as never,
+              delivery: body.delivery as never,
+            }),
+            200,
+          )
+        }
+        case 'update': {
+          if (typeof body.jobId !== 'string') {
+            return jsonResponse({ error: 'Invalid Job id' }, 400)
+          }
+          return jsonResponse(
+            await ctx.runMutation(internal.agentJobs.updateForAgent, {
+              userId: body.userId,
+              jobId: body.jobId as Id<'agentJobs'>,
+              ...(typeof body.title === 'string' ? { title: body.title } : {}),
+              ...(typeof body.instruction === 'string'
+                ? { instruction: body.instruction }
+                : {}),
+              ...(body.schedule &&
+              typeof body.schedule === 'object' &&
+              !Array.isArray(body.schedule)
+                ? { schedule: body.schedule as never }
+                : {}),
+              ...(Array.isArray(body.delivery)
+                ? { delivery: body.delivery as never }
+                : {}),
+            }),
+            200,
+          )
+        }
+        case 'pause':
+        case 'resume':
+        case 'cancel':
+        case 'run_now': {
+          if (typeof body.jobId !== 'string') {
+            return jsonResponse({ error: 'Invalid Job id' }, 400)
+          }
+          const result = await ctx.runMutation(
+            internal.agentJobs.manageForAgent,
+            {
+              userId: body.userId,
+              jobId: body.jobId as Id<'agentJobs'>,
+              operation: body.operation,
+            },
+          )
+          return jsonResponse({ ok: true, result }, 200)
+        }
+        case 'finish': {
+          if (
+            typeof body.runId !== 'string' ||
+            (body.status !== 'succeeded' &&
+              body.status !== 'failed' &&
+              body.status !== 'needs_attention')
+          ) {
+            return jsonResponse({ error: 'Invalid Job completion' }, 400)
+          }
+          await ctx.runMutation(internal.agentJobRuns.finishForAgent, {
+            userId: body.userId,
+            runId: body.runId as Id<'agentJobRuns'>,
+            status: body.status,
+            ...(typeof body.summary === 'string'
+              ? { summary: body.summary }
+              : {}),
+            ...(typeof body.error === 'string' ? { error: body.error } : {}),
+          })
+          return jsonResponse({ ok: true }, 200)
+        }
+        case 'waiting_external': {
+          if (typeof body.runId !== 'string') {
+            return jsonResponse({ error: 'Invalid Job run id' }, 400)
+          }
+          await ctx.runMutation(
+            internal.agentJobRuns.markWaitingExternalForAgent,
+            {
+              userId: body.userId,
+              runId: body.runId as Id<'agentJobRuns'>,
+              ...(typeof body.summary === 'string'
+                ? { summary: body.summary }
+                : {}),
+            },
+          )
+          return jsonResponse({ ok: true }, 200)
+        }
+        default:
+          return jsonResponse({ error: 'Unknown Job operation' }, 400)
+      }
+    } catch (error) {
+      return jsonResponse(
+        {
+          error:
+            error instanceof Error ? error.message : 'Job request failed',
+        },
+        400,
+      )
+    }
+  }),
+})
+
 const WEB3_WALLET_OPS = [
   'create_wallet',
   'balances',
@@ -1390,9 +1681,19 @@ http.route({
         (body.conversationId !== undefined &&
           typeof body.conversationId !== 'string') ||
         (params.continuation !== undefined &&
-          typeof params.continuation !== 'string')
+          typeof params.continuation !== 'string') ||
+        (body.jobRunId !== undefined && typeof body.jobRunId !== 'string')
       ) {
         return jsonResponse({ error: 'Invalid Web3 action origin' }, 400)
+      }
+      if (body.jobRunId !== undefined && op !== 'prepare_execution') {
+        return jsonResponse(
+          {
+            error:
+              'Scheduled wallet grants support only scoped Aerodrome smart-wallet actions',
+          },
+          409,
+        )
       }
       try {
         actionContext = web3ActionContext(
@@ -1516,6 +1817,11 @@ http.route({
             op === 'prepare_execution'
               ? await ctx.runAction(internal.web3.prepareSugarExecution, {
                   userId,
+                  ...(typeof body.jobRunId === 'string'
+                    ? {
+                        jobRunId: body.jobRunId as Id<'agentJobRuns'>,
+                      }
+                    : {}),
                   ...actionContext,
                   sugarAction,
                   parameters: sugarParameters as Record<

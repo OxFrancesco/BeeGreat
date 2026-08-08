@@ -7,6 +7,7 @@ node_modules/
 dist/
 build/
 .expo/
+packages/backend/.artifacts/
 
 # codeview reference codebases
 resources/

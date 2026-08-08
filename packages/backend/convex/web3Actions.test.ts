@@ -283,6 +283,71 @@ describe('web3 action confirmation gate', () => {
     expect(status?.error).toBe('insufficient funds')
   })
 
+  test('durably records Crossmint ids before approval and advances one fresh step at a time', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Stake an Aerodrome LP',
+      payload: {
+        kind: 'execute_plan',
+        chainId: 8453,
+        transactions: [{
+          to: '0x00000000000000000000000000000000000000aa',
+          data: '0x1234',
+          value: '0',
+        }],
+        intent: {
+          sugarAction: 'stake',
+          parameters: {
+            chain: 8453,
+            wallet: '0x00000000000000000000000000000000000000bb',
+            pool: '0x00000000000000000000000000000000000000cc',
+          },
+          bounds: {},
+        },
+      },
+    })
+    await t.withIdentity(identity(owner)).mutation(api.web3Actions.confirm, {
+      actionId: created.id,
+    })
+
+    await t.mutation(internal.web3Actions.recordCrossmintPrepared, {
+      actionId: created.id,
+      role: 'approval',
+      transactionId: 'crossmint-approval-1',
+    })
+    let action = await t.run(async (ctx) => await ctx.db.get(created.id))
+    expect(action).toMatchObject({
+      status: 'in_progress',
+      crossmintExecution: [{
+        role: 'approval',
+        transactionId: 'crossmint-approval-1',
+        status: 'prepared',
+      }],
+    })
+
+    const hash = `0x${'ab'.repeat(32)}`
+    await t.mutation(internal.web3Actions.recordCrossmintSuccess, {
+      actionId: created.id,
+      transactionId: 'crossmint-approval-1',
+      hash,
+      explorerLink: `https://basescan.org/tx/${hash}`,
+    })
+    action = await t.run(async (ctx) => await ctx.db.get(created.id))
+    expect(action?.status).toBe('confirmed')
+    expect(action?.crossmintExecution?.[0]).toMatchObject({
+      status: 'success',
+      hash,
+    })
+  })
+
   test('the agent-facing status view is scoped to the requesting user', async () => {
     const t = convexTest(schema, modules)
     const created = await prepare(t)
@@ -700,6 +765,7 @@ describe('YOLO mode', () => {
         actionId: created.id,
         index: 0,
         hash: `0x${'aa'.repeat(32)}`,
+        role: 'approval',
       }),
     ).toEqual({ done: false })
     expect(
@@ -707,6 +773,7 @@ describe('YOLO mode', () => {
         actionId: created.id,
         index: 1,
         hash: `0x${'bb'.repeat(32)}`,
+        role: 'action',
       }),
     ).toEqual({ done: true })
 

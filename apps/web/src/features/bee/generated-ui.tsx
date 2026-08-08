@@ -1,6 +1,6 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
-import { sameEvmAddress, sendEoaTransactions } from '@beegreat/wallet-connect'
-import { useMutation, useQuery } from 'convex/react'
+import { sameEvmAddress, sendFreshEoaTransactions } from '@beegreat/wallet-connect'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import { useId, useState } from 'react'
 import { FirstFocusPreviewCard } from './first-focus-preview'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
@@ -334,6 +334,7 @@ function Web3ConfirmCard({
   const confirmAction = useMutation(api.web3Actions.confirm)
   const cancelAction = useMutation(api.web3Actions.cancel)
   const beginEoaExecution = useMutation(api.web3Actions.beginEoaExecution)
+  const refreshEoaExecution = useAction(api.web3.refreshEoaSugarExecution)
   const recordEoaSubmission = useMutation(api.web3Actions.recordEoaSubmission)
   const reportEoaFailure = useMutation(api.web3Actions.reportEoaFailure)
   const connectedWallet = useEoaWallet()
@@ -382,16 +383,22 @@ function Web3ConfirmCard({
         })
         eoaClaimed = true
         try {
-          await sendEoaTransactions({
+          await sendFreshEoaTransactions({
             provider: connectedWallet.provider!,
             address: plan.walletAddress,
             chainId: plan.chainId,
-            transactions: plan.transactions,
-            onSubmitted: async ({ index, hash }) => {
+            buildPlan: async () => {
+              const refreshed = await refreshEoaExecution({
+                actionId: actionId as Id<'web3Actions'>,
+              })
+              return refreshed.transactionSteps
+            },
+            onSubmitted: async ({ index, hash, role }) => {
               await recordEoaSubmission({
                 actionId: actionId as Id<'web3Actions'>,
                 index,
                 hash,
+                role,
               })
             },
           })

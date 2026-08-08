@@ -22,6 +22,9 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/gogcli` — OpenClaw Google Workspace CLI — commands, auth, JSON schema, agent safety profiles, and container deployment
 - `resources/firecrawl` — Firecrawl monorepo: TypeScript SDK and API patterns for search, scrape, crawl, map, and structured extraction
 - `resources/opencode` — Official OpenCode source — CLI model discovery, run flags, and reasoning variants
+- `resources/aerodrome-contracts` — Official Aerodrome protocol contracts — VotingEscrow, Voter, voting rewards, gauges, managed veNFTs, and deployment addresses
+- `resources/velodrome-contracts` — Official Velodrome protocol contracts — Optimism VotingEscrow, Voter, voting rewards, gauges, and deployment interfaces
+- `resources/buddytg` — Francesco's local-first Telegram CLI — MTProto login, messaging, files, bookmarks, bot notifications, approvals, and secure session handling
 
 <!-- codeview:end -->
 

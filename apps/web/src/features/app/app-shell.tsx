@@ -8,18 +8,13 @@ import goalsIcon from '../../../../mobile/assets/icons/honeycomb.svg?url'
 import hiveIcon from '../../../../mobile/assets/icons/hive.svg?url'
 import { useHotkeyBindings } from '../preferences/hotkeys'
 import { useBeeAgentContext } from '../bee/bee-agent-context'
-import type { HotkeyAction } from '../preferences/hotkeys'
 
 const NAVIGATION = [
   { to: '/goals', label: 'Goals', icon: goalsIcon, action: 'goals' },
   { to: '/hive', label: 'Hive', icon: hiveIcon, action: 'hive' },
   { to: '/mind', label: 'Mind', icon: goalsIcon, action: 'mind' },
-] as const satisfies ReadonlyArray<{
-  to: string
-  label: string
-  icon: string
-  action: HotkeyAction
-}>
+  { to: '/jobs', label: 'Jobs', icon: beeIcon },
+] as const
 
 export function AppShell() {
   const agent = useBeeAgentContext()
@@ -143,14 +138,14 @@ export function AppShell() {
               className="glass-nav__link"
               activeProps={{ className: 'glass-nav__link is-active' }}
               title={
-                showHints
+                showHints && 'action' in item
                   ? `${item.label} — ${formatForDisplay(bindings[item.action])}`
                   : item.label
               }
             >
               <img src={item.icon} alt="" />
               <span>{item.label}</span>
-              {showHints ? (
+              {showHints && 'action' in item ? (
                 <kbd aria-hidden="true">
                   {formatForDisplay(bindings[item.action])}
                 </kbd>

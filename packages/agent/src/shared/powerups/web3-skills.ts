@@ -63,6 +63,13 @@ export const aerodromeLiquiditySkill = defineSkill({
   remaining work. For example, withdrawing a pool before swapping its USDC
   should say to inspect the settled balances and swap all received USDC to ETH.
 
+## veNFT creation
+- Use \`create_venft\` only after the user specifies an exact governance-token
+  amount and lock duration. The lock cannot be unwound before expiry.
+- For the Bee smart wallet, call \`prepare_sugar_execution\` with
+  \`sugar_action: "create_venft"\`; pass \`amount\`, \`lock_duration_seconds\`, and
+  preferably \`use_decimals: true\`.
+
 ## Quotes and swaps
 - \`sugar_quote\` is read-only; do NOT call it right before
   \`prepare_sugar_execution\` with sugar_action "swap" — the prepare rebuilds

@@ -50,6 +50,12 @@ type Env = {
   readonly REVENUECAT_WEBHOOK_SECRET: string | undefined;
   readonly SOCKET_API_KEY: string | undefined;
   readonly SUGAR_RPC_URI_8453: string | undefined;
+  readonly TELEGRAM_APP_REDIRECT_URI: string | undefined;
+  readonly TELEGRAM_BOT_TOKEN: string | undefined;
+  readonly TELEGRAM_CONNECTION_KEY: string | undefined;
+  readonly TELEGRAM_OIDC_CLIENT_ID: string | undefined;
+  readonly TELEGRAM_OIDC_CLIENT_SECRET: string | undefined;
+  readonly TELEGRAM_OIDC_REDIRECT_URI: string | undefined;
   readonly TWITTERAPI_IO_API_KEY: string | undefined;
 };
 

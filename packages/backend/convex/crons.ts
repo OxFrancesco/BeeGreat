@@ -40,4 +40,11 @@ crons.interval(
   {},
 )
 
+crons.interval(
+  'repair stalled Agent Jobs',
+  { minutes: 15 },
+  internal.agentJobRuns.watchdog,
+  {},
+)
+
 export default crons
