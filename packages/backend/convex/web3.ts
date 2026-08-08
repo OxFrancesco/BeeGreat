@@ -13,6 +13,7 @@ import {
   executeSugarAction,
   executeSugarActionJson,
   type SugarClientOptions,
+  type SugarExecutionOptions,
   type SugarRpcObserver,
 } from '@beegreat/sugar'
 import {
@@ -22,7 +23,7 @@ import {
 } from '@beegreat/sugar/contracts'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
-import { env, internalAction } from './_generated/server'
+import { action, env, internalAction } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -40,6 +41,16 @@ import {
   normalizeSugarAgentParameters,
   sugarRuntimeEnvironment,
 } from './sugarRuntime'
+import {
+  CrossmintTransactionPendingError,
+  assertSugarBounds,
+  captureSugarBounds,
+  executeSmartWalletIntent,
+  prepareAndApproveCrossmintBatch,
+  reconcileCrossmintTransaction,
+  sugarTransactionSteps,
+  type SugarTransactionStep,
+} from './web3Execution'
 
 // Web3 power-up: per-user wallets via Crossmint plus Velodrome/Aerodrome DeFi
 // through the native TypeScript Sugar SDK (packages/sugar).
@@ -102,11 +113,6 @@ const sugarCacheStore = createSugarCacheStore({ ttlMs: 5 * 60_000 })
 // up before the window resets, so retry longer within the same deadline.
 const SUGAR_RPC_POLICY = { baseDelayMs: 500, maxRetries: 5 }
 
-// When the dedicated Base RPC throttles a burst (full pool scans are
-// gas-heavy eth_calls), fail over to the public endpoint for that request
-// instead of backing off until the throughput window resets.
-const BASE_FALLBACK_RPC_URL = 'https://base-rpc.publicnode.com'
-
 // Deliberately low-cardinality: the SDK never includes RPC URLs, addresses,
 // parameters, or calldata in these events, so production logs can expose the
 // slow phase without leaking wallet activity.
@@ -114,16 +120,30 @@ const reportSugarRpcEvent: SugarRpcObserver = (event) => {
   console.info('Sugar RPC', event)
 }
 
-function sugarOptions() {
+function sugarOptions(ctx: ActionCtx): SugarExecutionOptions {
   const environment = sugarEnvironment()
   const baseRpcUrl = environment.SUGAR_RPC_URI_8453
-  const useFallback = baseRpcUrl && baseRpcUrl !== BASE_FALLBACK_RPC_URL
   return {
     cacheStore: sugarCacheStore,
     env: environment,
     onRpcEvent: reportSugarRpcEvent,
+    poolLocatorStore: {
+      get: async (key) => {
+        const locator = await ctx.runQuery(internal.sugarPoolLocators.get, key)
+        return locator ?? undefined
+      },
+      set: async (key, locator) => {
+        await ctx.runMutation(internal.sugarPoolLocators.put, {
+          ...key,
+          offset: locator.offset,
+        })
+      },
+      delete: async (key) => {
+        await ctx.runMutation(internal.sugarPoolLocators.remove, key)
+      },
+    },
     rpcPolicy: SUGAR_RPC_POLICY,
-    ...(useFallback
+    ...(baseRpcUrl
       ? {
           clientFactory: (chainId: number, options: SugarClientOptions) =>
             new SugarClient(
@@ -131,10 +151,20 @@ function sugarOptions() {
               chainId === BASE_MAINNET_CHAIN_ID
                 ? {
                     ...options,
-                    transport: createSugarFailoverTransport([
-                      baseRpcUrl,
-                      BASE_FALLBACK_RPC_URL,
-                    ], { onRpcEvent: reportSugarRpcEvent }),
+                    // Execution reads stay pinned to the authenticated RPC.
+                    // A lagging anonymous fallback can report state older than
+                    // a just-confirmed approval and produce false reverts.
+                    transport: createSugarFailoverTransport([baseRpcUrl], {
+                      minIntervalMs: 250,
+                      onRpcEvent: reportSugarRpcEvent,
+                    }),
+                    settings: {
+                      ...options.settings,
+                      requestConcurrency: Math.min(
+                        options.settings?.requestConcurrency ?? 2,
+                        2,
+                      ),
+                    },
                   }
                 : options,
             ),
@@ -617,32 +647,7 @@ function describeSugarExecution(
 }
 
 function executableSugarTransactions(plan: unknown) {
-  // Transaction actions return { transactions, ...quote context }; unwrap the
-  // list while keeping compatibility with a bare transaction array.
-  const wrapped =
-    typeof plan === 'object' &&
-    plan !== null &&
-    !Array.isArray(plan) &&
-    Array.isArray((plan as { transactions?: unknown }).transactions)
-      ? (plan as { transactions: unknown[] }).transactions
-      : plan
-  const steps = (Array.isArray(wrapped) ? wrapped : [wrapped]).filter(
-    (step): step is { to: string; data: string; value?: string } =>
-      typeof step === 'object' &&
-      step !== null &&
-      typeof (step as { to?: unknown }).to === 'string' &&
-      typeof (step as { data?: unknown }).data === 'string',
-  )
-  if (steps.length === 0) {
-    throw new Error(
-      'Sugar returned no executable transactions for this request.',
-    )
-  }
-  return steps.map((step) => ({
-    to: step.to,
-    data: step.data,
-    value: typeof step.value === 'string' ? step.value : '0',
-  }))
+  return sugarTransactionSteps(plan).map(({ transaction }) => transaction)
 }
 
 /**
@@ -716,6 +721,7 @@ function describeSugarPlanOutcome(plan: unknown): string {
 export const prepareSugarExecution = internalAction({
   args: {
     userId: v.string(),
+    jobRunId: v.optional(v.id('agentJobRuns')),
     conversationId: v.optional(v.string()),
     continuation: v.optional(v.string()),
     sugarAction: v.union(...SUGAR_TX_ACTIONS.map((name) => v.literal(name))),
@@ -726,7 +732,14 @@ export const prepareSugarExecution = internalAction({
   },
   handler: async (
     ctx,
-    { userId, conversationId, continuation, sugarAction, parameters },
+    {
+      userId,
+      jobRunId,
+      conversationId,
+      continuation,
+      sugarAction,
+      parameters,
+    },
   ) => {
     await requireWeb3(ctx, userId)
     if (!isProduction()) {
@@ -746,7 +759,7 @@ export const prepareSugarExecution = internalAction({
     const plan = await executeSugarAction(
       sugarAction,
       planParameters,
-      sugarOptions(),
+      sugarOptions(ctx),
     )
     const transactions = executableSugarTransactions(plan)
     const summary =
@@ -755,6 +768,16 @@ export const prepareSugarExecution = internalAction({
     const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
       await ctx.runMutation(internal.web3Actions.create, {
         userId,
+        ...(jobRunId
+          ? {
+              jobRunId,
+              jobSugarAction: sugarAction,
+              jobPoolAddress:
+                typeof parameters.pool === 'string'
+                  ? parameters.pool
+                  : undefined,
+            }
+          : {}),
         ...(conversationId ? { conversationId } : {}),
         ...(continuation ? { continuation } : {}),
         summary,
@@ -762,6 +785,11 @@ export const prepareSugarExecution = internalAction({
           kind: 'execute_plan',
           chainId: BASE_MAINNET_CHAIN_ID,
           transactions,
+          intent: {
+            sugarAction,
+            parameters: planParameters,
+            bounds: captureSugarBounds(plan),
+          },
         },
       })
     return {
@@ -825,7 +853,7 @@ export const prepareEoaSugarExecution = internalAction({
         chain: chainId,
         wallet: wallets.eoa.address,
       },
-      sugarOptions(),
+      sugarOptions(ctx),
     )
     const transactions = executableSugarTransactions(plan)
     const summary =
@@ -844,6 +872,15 @@ export const prepareEoaSugarExecution = internalAction({
           chainId,
           walletAddress: wallets.eoa.address,
           transactions,
+          intent: {
+            sugarAction,
+            parameters: {
+              ...normalizeSugarAgentParameters(parameters),
+              chain: chainId,
+              wallet: wallets.eoa.address,
+            },
+            bounds: captureSugarBounds(plan),
+          },
         },
       })
     return {
@@ -856,6 +893,66 @@ export const prepareEoaSugarExecution = internalAction({
       status: 'pending' as const,
       autoConfirmed: false,
       note: 'Open BeeGreat and confirm this action. Your connected wallet will show every transaction before signing.',
+    }
+  },
+})
+
+/**
+ * Authenticated EOA plan refresh. The app calls this after claiming the
+ * confirmation and again after each mined approval, so it never signs stale
+ * quote/deadline calldata.
+ */
+export const refreshEoaSugarExecution = action({
+  args: { actionId: v.id('web3Actions') },
+  returns: v.object({
+    walletAddress: v.string(),
+    chainId: v.number(),
+    transactionSteps: v.array(v.object({
+      role: v.union(v.literal('approval'), v.literal('action')),
+      transaction: v.object({
+        to: v.string(),
+        data: v.string(),
+        value: v.string(),
+      }),
+    })),
+  }),
+  handler: async (ctx, { actionId }): Promise<{
+    walletAddress: string
+    chainId: number
+    transactionSteps: SugarTransactionStep[]
+  }> => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error('Not signed in')
+    await requireWeb3(ctx, identity.subject)
+    const confirmed: Doc<'web3Actions'> | null = await ctx.runQuery(
+      internal.web3Actions.get,
+      { actionId },
+    )
+    if (
+      !confirmed ||
+      confirmed.userId !== identity.subject ||
+      confirmed.payload.kind !== 'execute_eoa_plan' ||
+      (confirmed.status !== 'confirmed' && confirmed.status !== 'in_progress')
+    ) {
+      throw new Error('This linked-wallet execution is no longer available.')
+    }
+    if (!confirmed.payload.intent) {
+      throw new Error('This older wallet plan cannot be refreshed. Ask Bee to prepare it again.')
+    }
+    const plan = await executeSugarAction(
+      confirmed.payload.intent.sugarAction,
+      {
+        ...confirmed.payload.intent.parameters,
+        chain: confirmed.payload.chainId,
+        wallet: confirmed.payload.walletAddress,
+      },
+      sugarOptions(ctx),
+    )
+    assertSugarBounds(plan, confirmed.payload.intent.bounds)
+    return {
+      walletAddress: confirmed.payload.walletAddress,
+      chainId: confirmed.payload.chainId,
+      transactionSteps: sugarTransactionSteps(plan),
     }
   },
 })
@@ -893,16 +990,70 @@ export const executeConfirmedAction = internalAction({
           explorerLink: transaction.explorerLink ?? null,
         })
       } else if (action.payload.kind === 'execute_plan') {
+        const chainId = action.payload.chainId
         const chain =
-          action.payload.chainId === SOCKET_CHAINS.arbitrum.chainId
+          chainId === SOCKET_CHAINS.arbitrum.chainId
             ? ('arbitrum' as const)
-            : action.payload.chainId === BASE_MAINNET_CHAIN_ID
+            : chainId === BASE_MAINNET_CHAIN_ID
               ? ('base' as const)
               : null
         if (!chain)
           throw new Error('The confirmed plan targets an unsupported chain.')
         const wallet = await walletForUser(action.userId, chain)
         const evmWallet = EVMWallet.from(wallet)
+        if (action.payload.intent) {
+          const intent = action.payload.intent
+          try {
+            const settled = await executeSmartWalletIntent({
+              buildPlan: () => executeSugarAction(
+                intent.sugarAction,
+                {
+                  ...intent.parameters,
+                  chain: chainId,
+                  wallet: wallet.address,
+                },
+                sugarOptions(ctx),
+              ),
+              bounds: intent.bounds,
+              executeBatch: (steps) => prepareAndApproveCrossmintBatch({
+                wallet: evmWallet,
+                steps,
+                onPrepared: async (transactionId) => {
+                  await ctx.runMutation(
+                    internal.web3Actions.recordCrossmintPrepared,
+                    {
+                      actionId,
+                      // The approvals and final action now settle atomically.
+                      role: 'action',
+                      transactionId,
+                    },
+                  )
+                },
+              }),
+            })
+            await ctx.runMutation(
+              internal.web3Actions.recordCrossmintSuccess,
+              {
+                actionId,
+                transactionId: settled.transactionId,
+                hash: settled.hash,
+                explorerLink: settled.explorerLink,
+              },
+            )
+          } catch (error) {
+            if (error instanceof CrossmintTransactionPendingError) return null
+            await ctx.runMutation(
+              internal.web3Actions.recordCrossmintFailure,
+              {
+                actionId,
+                error: error instanceof Error ? error.message : 'Execution failed',
+              },
+            )
+          }
+          return null
+        }
+        // Compatibility for confirmations prepared before semantic intents
+        // were deployed. New actions always use the durable path above.
         for (const step of action.payload.transactions) {
           const transaction = await evmWallet.sendTransaction({
             to: step.to,
@@ -1011,6 +1162,78 @@ export const executeConfirmedAction = internalAction({
         actionId,
         result: results.length > 0 ? results : undefined,
         error: error instanceof Error ? error.message : 'Execution failed',
+      })
+    }
+    return null
+  },
+})
+
+/** Reconcile a prepared Crossmint operation after a timeout or worker restart. */
+export const reconcileCrossmintAction = internalAction({
+  args: { actionId: v.id('web3Actions') },
+  returns: v.null(),
+  handler: async (ctx, { actionId }) => {
+    const action: Doc<'web3Actions'> | null = await ctx.runQuery(
+      internal.web3Actions.get,
+      { actionId },
+    )
+    if (
+      !action ||
+      action.status !== 'in_progress' ||
+      action.payload.kind !== 'execute_plan'
+    ) return null
+    const pending = action.crossmintExecution?.findLast(
+      (step) => step.status === 'prepared',
+    )
+    if (!pending) return null
+    if (Date.now() > (action.confirmedAt ?? action.createdAt) + 15 * 60_000) {
+      await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
+        actionId,
+        transactionId: pending.transactionId,
+        error: 'Crossmint did not settle the transaction within 15 minutes.',
+      })
+      return null
+    }
+    const chain =
+      action.payload.chainId === SOCKET_CHAINS.arbitrum.chainId
+        ? ('arbitrum' as const)
+        : action.payload.chainId === BASE_MAINNET_CHAIN_ID
+          ? ('base' as const)
+          : null
+    if (!chain) {
+      await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
+        actionId,
+        transactionId: pending.transactionId,
+        error: 'The confirmed plan targets an unsupported chain.',
+      })
+      return null
+    }
+    try {
+      const wallet = EVMWallet.from(await walletForUser(action.userId, chain))
+      const status = reconcileCrossmintTransaction(
+        await wallet.transaction(pending.transactionId),
+      )
+      if (status.status === 'success') {
+        await ctx.runMutation(internal.web3Actions.recordCrossmintSuccess, {
+          actionId,
+          transactionId: pending.transactionId,
+          hash: status.result.hash,
+          explorerLink: status.result.explorerLink,
+        })
+      } else if (status.status === 'failed') {
+        await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
+          actionId,
+          transactionId: pending.transactionId,
+          error: 'Crossmint reported that the transaction failed.',
+        })
+      } else {
+        await ctx.scheduler.runAfter(15_000, internal.web3.reconcileCrossmintAction, {
+          actionId,
+        })
+      }
+    } catch {
+      await ctx.scheduler.runAfter(15_000, internal.web3.reconcileCrossmintAction, {
+        actionId,
       })
     }
     return null
@@ -1150,7 +1373,7 @@ export const runSugar = internalAction({
     return executeSugarActionJson(
       sugarAction as SugarAction,
       normalizeSugarAgentParameters(parameters),
-      sugarOptions(),
+      sugarOptions(ctx),
     )
   },
 })

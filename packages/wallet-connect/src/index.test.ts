@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   chainIdHex,
+  sendFreshEoaTransactions,
   sendEoaTransactions,
   signWalletLink,
   weiHex,
@@ -43,12 +44,21 @@ describe('wallet connect client', () => {
       params?: readonly unknown[] | object
     }> = []
     const hashes = [`0x${'aa'.repeat(32)}`, `0x${'bb'.repeat(32)}`]
+    const receipts = new Map<string, number>()
     const provider: Eip1193Provider = {
       async request(request) {
         requests.push(request)
         if (request.method === 'eth_accounts') return [address] as never
         if (request.method === 'eth_sendTransaction') {
-          return hashes.shift() as never
+          const hash = hashes.shift()!
+          receipts.set(hash, 0)
+          return hash as never
+        }
+        if (request.method === 'eth_getTransactionReceipt') {
+          const hash = (request.params as readonly string[])[0]
+          const attempts = receipts.get(hash) ?? 0
+          receipts.set(hash, attempts + 1)
+          return (attempts === 0 ? null : { status: '0x1' }) as never
         }
         return null as never
       },
@@ -74,6 +84,7 @@ describe('wallet connect client', () => {
       onSubmitted: (transaction) => {
         submitted.push(transaction)
       },
+      receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },
     })
 
     expect(result).toEqual(submitted)
@@ -94,6 +105,8 @@ describe('wallet connect client', () => {
           },
         ],
       },
+      { method: 'eth_getTransactionReceipt', params: [`0x${'aa'.repeat(32)}`] },
+      { method: 'eth_getTransactionReceipt', params: [`0x${'aa'.repeat(32)}`] },
       {
         method: 'eth_sendTransaction',
         params: [
@@ -105,7 +118,71 @@ describe('wallet connect client', () => {
           },
         ],
       },
+      { method: 'eth_getTransactionReceipt', params: [`0x${'bb'.repeat(32)}`] },
+      { method: 'eth_getTransactionReceipt', params: [`0x${'bb'.repeat(32)}`] },
     ])
+  })
+
+  test('stops the plan when a submitted transaction reverts', async () => {
+    const provider: Eip1193Provider = {
+      async request(request) {
+        if (request.method === 'eth_accounts') return [address] as never
+        if (request.method === 'eth_sendTransaction') return `0x${'aa'.repeat(32)}` as never
+        if (request.method === 'eth_getTransactionReceipt') return { status: '0x0' } as never
+        return null as never
+      },
+    }
+
+    await expect(sendEoaTransactions({
+      provider,
+      address,
+      chainId: 8453,
+      transactions: [{
+        to: '0x2222222222222222222222222222222222222222',
+        data: '0x',
+        value: '0',
+      }],
+      receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },
+    })).rejects.toThrow('reverted')
+  })
+
+  test('rebuilds an EOA plan after approval before signing the final action', async () => {
+    let builds = 0
+    const sentData: string[] = []
+    const provider: Eip1193Provider = {
+      async request(request) {
+        if (request.method === 'eth_accounts') return [address] as never
+        if (request.method === 'eth_sendTransaction') {
+          const data = (request.params as Array<{ data: string }>)[0].data
+          sentData.push(data)
+          return `0x${String(sentData.length).padStart(64, '0')}` as never
+        }
+        if (request.method === 'eth_getTransactionReceipt') return { status: '0x1' } as never
+        return null as never
+      },
+    }
+
+    const result = await sendFreshEoaTransactions({
+      provider,
+      address,
+      chainId: 8453,
+      buildPlan: async () => {
+        builds += 1
+        return builds === 1
+          ? [
+              { role: 'approval' as const, transaction: { to: address, data: '0x01', value: '0' } },
+              { role: 'action' as const, transaction: { to: address, data: '0x02', value: '0' } },
+            ]
+          : [
+              { role: 'action' as const, transaction: { to: address, data: '0x03', value: '0' } },
+            ]
+      },
+      receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },
+    })
+
+    expect(builds).toBe(2)
+    expect(sentData).toEqual(['0x01', '0x03'])
+    expect(result.map(({ role }) => role)).toEqual(['approval', 'action'])
   })
 
   test('stops before signing when a different account is active', async () => {

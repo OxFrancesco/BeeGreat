@@ -8,6 +8,7 @@
 @import './settings.css';
 @import './health.css';
 @import './sites.css';
+@import './jobs.css';
 
 :root {
   color-scheme: light;

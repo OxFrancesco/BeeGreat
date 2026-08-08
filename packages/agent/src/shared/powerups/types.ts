@@ -32,4 +32,6 @@ export interface PowerupRuntime {
    * model input or user-visible tool argument.
    */
   conversationId?: string
+  /** Exact scheduled Job occurrence, injected by Bee and never model-authored. */
+  jobRunId?: string
 }

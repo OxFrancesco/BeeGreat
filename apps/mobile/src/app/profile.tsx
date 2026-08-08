@@ -24,6 +24,7 @@ import { ChatGptAuthSettings } from '@/components/chatgpt/chatgpt-auth';
 import { BeennectorsSettings } from '@/components/beennectors/beennectors-settings';
 import { WalletSettings } from '@/components/web3/wallet-settings';
 import { useGoogleHealthAuth } from '@/components/google-health/google-health-auth';
+import { TelegramAuthSettings } from '@/components/telegram/telegram-auth';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSubscription } from '@/components/subscription/subscription-provider';
@@ -244,6 +245,45 @@ export default function ProfileScreen() {
           </Pressable>
         </Section>
 
+        <Section label="Automation">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Manage Agent Jobs"
+            onPress={() => {
+              if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
+              // Expo Router's generated route union refreshes on the next dev
+              // server start; the file route itself is present now.
+              router.push('/jobs' as never);
+            }}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { backgroundColor: theme.card, borderColor: theme.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            <View style={[styles.powerupIcon, { backgroundColor: theme.secondary }]}>
+              <SymbolView
+                name="clock.badge.checkmark"
+                size={18}
+                tintColor={theme.secondaryForeground}
+                fallback={<ThemedText style={{ color: theme.secondaryForeground }}>⌁</ThemedText>}
+              />
+            </View>
+            <View style={styles.settingCopy}>
+              <ThemedText type="default">Agent Jobs</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                See, pause, or run Bee’s scheduled instructions.
+              </ThemedText>
+            </View>
+            <SymbolView
+              name="chevron.right"
+              size={14}
+              tintColor={theme.textSecondary}
+              fallback={<ThemedText themeColor="textSecondary">›</ThemedText>}
+            />
+          </Pressable>
+        </Section>
+
         <Section label="Preferences">
           <View
             style={[
@@ -301,6 +341,7 @@ export default function ProfileScreen() {
 
         <Section label="Connections">
           <ChatGptAuthSettings />
+          <TelegramAuthSettings />
         </Section>
 
         <Section label="Beennectors">

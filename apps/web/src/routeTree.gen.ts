@@ -16,6 +16,7 @@ import { Route as AppVoiceRouteImport } from './routes/_app/voice'
 import { Route as AppSitesRouteImport } from './routes/_app/sites'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppMindRouteImport } from './routes/_app/mind'
+import { Route as AppJobsRouteImport } from './routes/_app/jobs'
 import { Route as AppHiveRouteImport } from './routes/_app/hive'
 import { Route as AppHealthRouteImport } from './routes/_app/health'
 import { Route as AppBeeRouteImport } from './routes/_app/bee'
@@ -60,6 +61,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppMindRoute = AppMindRouteImport.update({
   id: '/mind',
   path: '/mind',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppJobsRoute = AppJobsRouteImport.update({
+  id: '/jobs',
+  path: '/jobs',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHiveRoute = AppHiveRouteImport.update({
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/bee': typeof AppBeeRoute
   '/health': typeof AppHealthRouteWithChildren
   '/hive': typeof AppHiveRoute
+  '/jobs': typeof AppJobsRoute
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
   '/sites': typeof AppSitesRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/bee': typeof AppBeeRoute
   '/hive': typeof AppHiveRoute
+  '/jobs': typeof AppJobsRoute
   '/mind': typeof AppMindRoute
   '/settings': typeof AppSettingsRoute
   '/sites': typeof AppSitesRoute
@@ -162,6 +170,7 @@ export interface FileRoutesById {
   '/_app/bee': typeof AppBeeRoute
   '/_app/health': typeof AppHealthRouteWithChildren
   '/_app/hive': typeof AppHiveRoute
+  '/_app/jobs': typeof AppJobsRoute
   '/_app/mind': typeof AppMindRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/sites': typeof AppSitesRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/bee'
     | '/health'
     | '/hive'
+    | '/jobs'
     | '/mind'
     | '/settings'
     | '/sites'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
     | '/'
     | '/bee'
     | '/hive'
+    | '/jobs'
     | '/mind'
     | '/settings'
     | '/sites'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/_app/bee'
     | '/_app/health'
     | '/_app/hive'
+    | '/_app/jobs'
     | '/_app/mind'
     | '/_app/settings'
     | '/_app/sites'
@@ -291,6 +303,13 @@ declare module '@tanstack/react-router' {
       path: '/mind'
       fullPath: '/mind'
       preLoaderRoute: typeof AppMindRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/jobs': {
+      id: '/_app/jobs'
+      path: '/jobs'
+      fullPath: '/jobs'
+      preLoaderRoute: typeof AppJobsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/hive': {
@@ -397,6 +416,7 @@ interface AppRouteChildren {
   AppBeeRoute: typeof AppBeeRoute
   AppHealthRoute: typeof AppHealthRouteWithChildren
   AppHiveRoute: typeof AppHiveRoute
+  AppJobsRoute: typeof AppJobsRoute
   AppMindRoute: typeof AppMindRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSitesRoute: typeof AppSitesRoute
@@ -410,6 +430,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppBeeRoute: AppBeeRoute,
   AppHealthRoute: AppHealthRouteWithChildren,
   AppHiveRoute: AppHiveRoute,
+  AppJobsRoute: AppJobsRoute,
   AppMindRoute: AppMindRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSitesRoute: AppSitesRoute,

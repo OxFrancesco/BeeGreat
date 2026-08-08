@@ -102,6 +102,19 @@ server-side with the chain pinned to Base (8453) and the wallet pinned to the
 smart wallet, so the agent can never inject raw calldata. Execution is mainnet
 only — Aerodrome has no public testnet deployment.
 
+Immediately before signing, the executor rebuilds the semantic Sugar intent
+and re-checks the output/deposit/withdrawal/veNFT bounds captured by the user's
+confirmation. Its prerequisite approvals and final action are submitted as one
+ordered Crossmint `calls[]` transaction. This makes the intent all-or-nothing,
+uses one durable Crossmint operation id, and avoids stale quotes or allowances
+between separate approval transactions. State-dependent lifecycle actions
+(deposit, stake, withdraw, swap-back) remain separate semantic intents.
+
+Cold Convex action isolates persist the verified Sugar pool offset in
+`sugarPoolLocators`. Each SDK client checks `all(1, offset)` on-chain before
+using it and invalidates a stale row, so common position actions avoid a full
+Aerodrome pool-catalog scan without trusting derived data.
+
 `prepare_linked_wallet_execution` applies the same server-side allowlist but
 pins the plan to the verified EOA and selected supported Sugar chain. The
 client then submits it through WalletConnect after explicit confirmation.
@@ -163,3 +176,18 @@ bun run --cwd packages/sugar typecheck
 bun run --cwd packages/backend typecheck
 bun run --cwd packages/agent build
 ```
+
+### Atomic Base mainnet verification (2026-08-08)
+
+The Francesco Oddo Crossmint wallet completed and unwound the WETH/AERO
+lifecycle under the $5 cap. Approval-dependent operations were verified as
+single smart-wallet transactions:
+
+- deposit, 2 calls: `0x7e1fcd2e603cce71db23dd5e873a4e9adc21edb4d71a35135ad10a287e8232a9`;
+- stake, 2 calls: `0x178f254a3a0a27316fee1e431f9329f78ec0f79af336d41b1a7b32ee3f2b791d`;
+- withdraw, 2 calls: `0x0c17f199ecbd9079dec427ff9718319bfa15621537a615cb48b8f0a3710bc6fb`;
+- AERO-to-ETH cleanup, 3 calls: `0x02d355689c7a2aa28907222571da8e49b1d07ff29ce872fcb786d40bb2a8a81f`.
+
+The final audit found zero liquid AERO, WETH, LP liquidity, staked LP, and
+relevant allowances. Net ETH spent was `0.000005496705892972`; existing veNFT
+`#130435` remained locked with `2.281406549154201269 AERO`.

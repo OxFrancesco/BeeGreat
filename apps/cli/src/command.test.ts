@@ -20,10 +20,32 @@ describe("Bee CLI commands", () => {
     expect(parseCommand(["new"])).toEqual({ kind: "new" });
     expect(parseCommand(["login"])).toEqual({ kind: "login" });
     expect(parseCommand(["logout"])).toEqual({ kind: "logout" });
+    expect(parseCommand(["telegram"])).toEqual({
+      kind: "telegram",
+      action: "connect",
+    });
+    expect(parseCommand(["telegram", "notify", "Focus", "now"])).toEqual({
+      kind: "telegram",
+      action: "notify",
+      message: "Focus now",
+    });
+    expect(parseCommand(["buddytg", "whoami"])).toEqual({
+      kind: "buddytg",
+      args: ["whoami"],
+    });
     expect(parseCommand(["--help"])).toEqual({ kind: "help" });
   });
 
   test("rejects an empty explicit prompt", () => {
     expect(() => parseCommand(["ask"])).toThrow("Tell Bee what to do");
+  });
+
+  test("validates Telegram subcommands", () => {
+    expect(() => parseCommand(["telegram", "notify"])).toThrow(
+      "Tell Bee what to send",
+    );
+    expect(() => parseCommand(["telegram", "wat"])).toThrow(
+      "telegram connect|status|disconnect|notify",
+    );
   });
 });

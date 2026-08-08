@@ -19,6 +19,7 @@ import {
   web3ActionResultValidator,
   web3TransactionValidator,
 } from './web3ActionValidators'
+import { authorizeAgentJobWeb3Action } from './agentJobGrants'
 
 // Server-side confirmation gate for Web3 actions that move funds.
 //
@@ -147,14 +148,31 @@ export function web3ActionContext(
 export const create = internalMutation({
   args: {
     userId: v.string(),
+    jobRunId: v.optional(v.id('agentJobRuns')),
+    jobSugarAction: v.optional(v.string()),
+    jobPoolAddress: v.optional(v.string()),
     conversationId: v.optional(v.string()),
     continuation: v.optional(v.string()),
     summary: v.string(),
     payload: web3ActionPayloadValidator,
   },
+  returns: v.object({
+    id: v.id('web3Actions'),
+    expiresAt: v.number(),
+    autoConfirmed: v.boolean(),
+  }),
   handler: async (
     ctx,
-    { userId, conversationId, continuation, summary, payload },
+    {
+      userId,
+      jobRunId,
+      jobSugarAction,
+      jobPoolAddress,
+      conversationId,
+      continuation,
+      summary,
+      payload,
+    },
   ) => {
     const actionContext = web3ActionContext(
       userId,
@@ -163,12 +181,27 @@ export const create = internalMutation({
     )
     const now = Date.now()
     const actionExpiresAt = now + ACTION_TTL_MS
-    const autoConfirm =
-      payload.kind !== 'execute_eoa_plan' &&
-      (await yoloEnabledForUser(ctx, userId)) &&
-      (await isPowerupEnabled(ctx, userId, 'web3'))
+    if (jobRunId) {
+      if (payload.kind !== 'execute_plan' || !jobSugarAction) {
+        throw new Error(
+          'Scheduled wallet grants support only scoped Aerodrome smart-wallet actions',
+        )
+      }
+      await authorizeAgentJobWeb3Action(ctx, {
+        userId,
+        jobRunId,
+        sugarAction: jobSugarAction,
+        poolAddress: jobPoolAddress,
+      })
+    }
+    const autoConfirm = jobRunId
+      ? true
+      : payload.kind !== 'execute_eoa_plan' &&
+        (await yoloEnabledForUser(ctx, userId)) &&
+        (await isPowerupEnabled(ctx, userId, 'web3'))
     const id = await ctx.db.insert('web3Actions', {
       userId,
+      ...(jobRunId ? { jobRunId } : {}),
       ...actionContext,
       summary,
       payload,
@@ -321,9 +354,10 @@ export const recordEoaSubmission = mutation({
     actionId: v.id('web3Actions'),
     index: v.number(),
     hash: v.string(),
+    role: v.optional(v.union(v.literal('approval'), v.literal('action'))),
   },
   returns: v.object({ done: v.boolean() }),
-  handler: async (ctx, { actionId, index, hash }) => {
+  handler: async (ctx, { actionId, index, hash, role }) => {
     const userId = await requireUserId(ctx)
     const action = await ctx.db.get(actionId)
     if (
@@ -351,7 +385,8 @@ export const recordEoaSubmission = mutation({
       ...(action.result ?? []),
       { hash, explorerLink: `${explorer}${hash}` },
     ]
-    const done = result.length === action.payload.transactions.length
+    const done = role === 'action' ||
+      (role === undefined && result.length === action.payload.transactions.length)
     await ctx.db.patch(actionId, {
       result,
       status: done ? 'executed' : 'in_progress',
@@ -503,10 +538,127 @@ export const recordResult = internalMutation({
   },
   handler: async (ctx, { actionId, result, error }) => {
     const action = await ctx.db.get(actionId)
-    if (!action || action.status !== 'confirmed') return null
+    if (
+      !action ||
+      (action.status !== 'confirmed' && action.status !== 'in_progress')
+    ) return null
     await ctx.db.patch(actionId, {
       status: error === undefined ? 'executed' : 'failed',
       result,
+      error,
+    })
+    await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
+      actionId,
+    })
+    return null
+  },
+})
+
+/** Persist the Crossmint operation id before approving it. */
+export const recordCrossmintPrepared = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    role: v.union(v.literal('approval'), v.literal('action')),
+    transactionId: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, { actionId, role, transactionId }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.payload.kind !== 'execute_plan' ||
+      (action.status !== 'confirmed' && action.status !== 'in_progress')
+    ) return null
+    if (!transactionId.trim()) throw new Error('Crossmint transaction id is empty.')
+    const execution = action.crossmintExecution ?? []
+    const existing = execution.find((step) => step.transactionId === transactionId)
+    if (existing) return null
+    if (execution.some((step) => step.status === 'prepared')) {
+      throw new Error('A Crossmint transaction is already pending for this action.')
+    }
+    await ctx.db.patch(actionId, {
+      status: 'in_progress',
+      crossmintExecution: [
+        ...execution,
+        { role, transactionId, status: 'prepared' as const },
+      ],
+    })
+    await ctx.scheduler.runAfter(70_000, internal.web3.reconcileCrossmintAction, {
+      actionId,
+    })
+    return null
+  },
+})
+
+/** Settle one durable Crossmint step and continue only after an approval. */
+export const recordCrossmintSuccess = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    transactionId: v.string(),
+    hash: v.string(),
+    explorerLink: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, { actionId, transactionId, hash, explorerLink }) => {
+    const action = await ctx.db.get(actionId)
+    if (!action || action.payload.kind !== 'execute_plan') return null
+    const execution = action.crossmintExecution ?? []
+    const index = execution.findIndex(
+      (step) => step.transactionId === transactionId,
+    )
+    if (index < 0) return null
+    if (execution[index].status === 'success') return null
+    const settled = execution.map((step, stepIndex) =>
+      stepIndex === index
+        ? { ...step, status: 'success' as const, hash, explorerLink }
+        : step,
+    )
+    const result = [
+      ...(action.result ?? []),
+      { hash, explorerLink: explorerLink || null },
+    ]
+    const finalAction = execution[index].role === 'action'
+    await ctx.db.patch(actionId, {
+      crossmintExecution: settled,
+      result,
+      status: finalAction ? 'executed' : 'confirmed',
+    })
+    if (finalAction) {
+      await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
+        actionId,
+      })
+    } else {
+      await ctx.scheduler.runAfter(0, internal.web3.executeConfirmedAction, {
+        actionId,
+      })
+    }
+    return null
+  },
+})
+
+/** Close a durable Crossmint step only after Crossmint reports failure. */
+export const recordCrossmintFailure = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    transactionId: v.optional(v.string()),
+    error: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, { actionId, transactionId, error }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.payload.kind !== 'execute_plan' ||
+      (action.status !== 'confirmed' && action.status !== 'in_progress')
+    ) return null
+    const execution = (action.crossmintExecution ?? []).map((step) =>
+      transactionId && step.transactionId === transactionId
+        ? { ...step, status: 'failed' as const }
+        : step,
+    )
+    await ctx.db.patch(actionId, {
+      crossmintExecution: execution,
+      status: 'failed',
       error,
     })
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {

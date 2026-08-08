@@ -4,6 +4,12 @@ export type BeeCommand =
   | { kind: "new" }
   | { kind: "login" }
   | { kind: "logout" }
+  | {
+      kind: "telegram";
+      action: "connect" | "status" | "disconnect" | "notify";
+      message?: string;
+    }
+  | { kind: "buddytg"; args: string[] }
   | { kind: "help" };
 
 export function parseCommand(args: string[]): BeeCommand {
@@ -12,6 +18,29 @@ export function parseCommand(args: string[]): BeeCommand {
   if (command === "new") return { kind: "new" };
   if (command === "login") return { kind: "login" };
   if (command === "logout") return { kind: "logout" };
+  if (command === "buddytg") return { kind: "buddytg", args: rest };
+  if (command === "telegram") {
+    const [action = "connect", ...telegramArgs] = rest;
+    if (
+      action !== "connect" &&
+      action !== "status" &&
+      action !== "disconnect" &&
+      action !== "notify"
+    ) {
+      throw new Error(
+        "Use `bee telegram connect|status|disconnect|notify <message>`."
+      );
+    }
+    if (action === "notify") {
+      const message = telegramArgs.join(" ").trim();
+      if (!message) throw new Error("Tell Bee what to send to Telegram.");
+      return { kind: "telegram", action, message };
+    }
+    if (telegramArgs.length) {
+      throw new Error(`\`bee telegram ${action}\` does not accept arguments.`);
+    }
+    return { kind: "telegram", action };
+  }
   if (command === "help" || command === "--help" || command === "-h") {
     return { kind: "help" };
   }

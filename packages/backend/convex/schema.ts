@@ -15,6 +15,10 @@ import {
   googleHealthSessionStatusValidator,
 } from './googleHealthValidators'
 import {
+  telegramCredentialStatusValidator,
+  telegramSessionStatusValidator,
+} from './telegramValidators'
+import {
   beennectorCredentialStatusValidator,
   beennectorProviderValidator,
   beennectorSessionStatusValidator,
@@ -28,11 +32,22 @@ import {
   nfcActionOutcomeValidator,
 } from './nfcActionValidators'
 import {
+  crossmintExecutionStepValidator,
   socketProgressValidator,
   web3ActionPayloadValidator,
   web3ActionResultValidator,
   web3ActionStatusValidator,
 } from './web3ActionValidators'
+import {
+  agentJobDeliveryValidator,
+  agentJobRunStatusValidator,
+  agentJobScheduleValidator,
+  agentJobStatusValidator,
+} from './agentJobValidators'
+import {
+  agentJobGrantActionValidator,
+  agentJobGrantStatusValidator,
+} from './agentJobGrantValidators'
 
 export default defineSchema({
   posts: defineTable({
@@ -222,6 +237,79 @@ export default defineSchema({
     .index('by_owner_key', ['ownerKey'])
     // Internal lookups (web3Notify) resolve the active conversation by user.
     .index('by_user', ['userId']),
+
+  // A Job is a durable natural-language instruction with its own detached Bee
+  // thread. Convex owns the next occurrence; Flue only executes the turn.
+  agentJobs: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    title: v.string(),
+    instruction: v.string(),
+    schedule: agentJobScheduleValidator,
+    status: agentJobStatusValidator,
+    delivery: v.array(agentJobDeliveryValidator),
+    threadId: v.number(),
+    nextRunAt: v.optional(v.number()),
+    lastRunAt: v.optional(v.number()),
+    activeRunId: v.optional(v.id('agentJobRuns')),
+    consecutiveFailures: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
+    .index('by_owner_key_and_status_and_created_at', [
+      'ownerKey',
+      'status',
+      'createdAt',
+    ])
+    .index('by_user_id_and_created_at', ['userId', 'createdAt'])
+    .index('by_status_and_next_run_at', ['status', 'nextRunAt']),
+
+  // Each scheduled occurrence has one immutable identity. Retries update this
+  // row instead of creating another agent turn.
+  agentJobRuns: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    jobId: v.id('agentJobs'),
+    scheduledFor: v.number(),
+    trigger: v.union(v.literal('schedule'), v.literal('manual')),
+    status: agentJobRunStatusValidator,
+    attempt: v.number(),
+    dispatchId: v.string(),
+    submissionId: v.optional(v.string()),
+    summary: v.optional(v.string()),
+    error: v.optional(v.string()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_job_id_and_scheduled_for', ['jobId', 'scheduledFor'])
+    .index('by_job_id_and_created_at', ['jobId', 'createdAt'])
+    .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
+    .index('by_status_and_updated_at', ['status', 'updatedAt']),
+
+  // A recurring financial Job never inherits broad YOLO mode. The signed-in
+  // user may approve this exact smart-wallet + Base + Aerodrome pool scope.
+  agentJobGrants: defineTable({
+    ownerKey: v.string(),
+    userId: v.string(),
+    jobId: v.id('agentJobs'),
+    kind: v.literal('aerodrome_pool'),
+    walletKind: v.literal('smart_wallet'),
+    chainId: v.literal(8453),
+    poolAddress: v.string(),
+    allowedActions: v.array(agentJobGrantActionValidator),
+    maxActionsPerRun: v.number(),
+    status: agentJobGrantStatusValidator,
+    requestedAt: v.number(),
+    approvedAt: v.optional(v.number()),
+    expiresAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index('by_job_id', ['jobId'])
+    .index('by_owner_key_and_requested_at', ['ownerKey', 'requestedAt']),
 
   userPreferences: defineTable({
     ownerKey: v.string(),
@@ -493,6 +581,34 @@ export default defineSchema({
     scopes: v.array(v.string()),
     refreshLeaseId: v.optional(v.string()),
     refreshLeaseExpiresAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index('by_user', ['userId']),
+
+  // Short-lived PKCE + nonce state for Telegram's OIDC connection flow.
+  telegramAuthSessions: defineTable({
+    userId: v.string(),
+    client: v.union(v.literal('mobile'), v.literal('browser')),
+    stateHash: v.string(),
+    status: telegramSessionStatusValidator,
+    encryptedCodeVerifier: v.optional(encryptedSecretValidator),
+    encryptedNonce: v.optional(encryptedSecretValidator),
+    expiresAt: v.number(),
+    errorCode: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index('by_user', ['userId'])
+    .index('by_state_hash', ['stateHash']),
+
+  // The OIDC grant authorizes BeeGreat's bot to message this Telegram user.
+  // No MTProto session or Telegram token is stored in BeeGreat.
+  telegramConnections: defineTable({
+    userId: v.string(),
+    status: telegramCredentialStatusValidator,
+    telegramUserId: v.string(),
+    displayName: v.string(),
+    username: v.optional(v.string()),
+    photoUrl: v.optional(v.string()),
+    connectedAt: v.number(),
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
 
@@ -953,6 +1069,9 @@ export default defineSchema({
   // mode can auto-confirm smart-wallet actions, but never EOA actions.
   web3Actions: defineTable({
     userId: v.string(),
+    // Set only for a scheduled Agent Job. It binds auto-authorization to the
+    // exact run and lets the grant enforce a per-run action ceiling.
+    jobRunId: v.optional(v.id('agentJobRuns')),
     // Captured when Bee prepares the action so settlement wakes the exact
     // originating conversation, including detached CLI threads. Optional for
     // actions created before this field was introduced.
@@ -968,9 +1087,14 @@ export default defineSchema({
     confirmedAt: v.optional(v.number()),
     autoConfirmed: v.optional(v.boolean()),
     result: v.optional(web3ActionResultValidator),
+    // Durable Crossmint operation ids make retries/restarts idempotent. The
+    // field is optional while pre-hardening action rows age out.
+    crossmintExecution: v.optional(v.array(crossmintExecutionStepValidator)),
     socketProgress: v.optional(socketProgressValidator),
     error: v.optional(v.string()),
-  }).index('by_user', ['userId', 'status']),
+  })
+    .index('by_user', ['userId', 'status'])
+    .index('by_job_run', ['jobRunId']),
 
   // Per-user Web3 preferences, settable only by the signed-in app. YOLO mode
   // is a standing opt-in that auto-confirms prepared smart-wallet actions, so
@@ -980,6 +1104,20 @@ export default defineSchema({
     yoloEnabled: v.boolean(),
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
+
+  // Verified Sugar pool offsets avoid global catalog scans in cold action
+  // isolates. The SDK validates `all(1, offset)` before every persisted hit.
+  sugarPoolLocators: defineTable({
+    chainId: v.number(),
+    sugarContractAddress: v.string(),
+    poolAddress: v.string(),
+    offset: v.number(),
+    updatedAt: v.number(),
+  }).index('by_chain_contract_pool', [
+    'chainId',
+    'sugarContractAddress',
+    'poolAddress',
+  ]),
 
   tasks: defineTable({
     userId: v.string(),

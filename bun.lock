@@ -271,6 +271,7 @@
         "@sentry/node": "^10.65.0",
         "convex": "^1.36.1",
         "effect": "3.21.4",
+        "jose": "^6.2.8",
         "viem": "2.33.1",
         "youtubei.js": "^17.2.0",
       },
@@ -4652,6 +4653,8 @@
     "@base-org/account/clsx": ["clsx@1.2.1", "", {}, "sha512-EcR6r5a8bj6pu3ycsa/E/cKVGuTgZJZdsyUYHOksG/UHIiKfjxzRxYJpyVBwYaQeOvghal9fcc4PidlgzugAQg=="],
 
     "@base-org/account/viem": ["viem@2.54.3", "", { "dependencies": { "@noble/curves": "1.9.1", "@noble/hashes": "1.8.0", "@scure/bip32": "1.7.0", "@scure/bip39": "1.6.0", "abitype": "1.2.3", "isows": "1.0.7", "ox": "0.14.30", "ws": "8.21.0" }, "peerDependencies": { "typescript": ">=5.0.4" }, "optionalPeers": ["typescript"] }, "sha512-hHXV/MLeGx+A/kHwEejf4TBSmpq2rtpxR3qMH21+BL62CQBLfCoMxQ0RV3V3QLQ1mKC/sAFEci1u83JEq1TQ6g=="],
+
+    "@beegreat/backend/jose": ["jose@6.2.8", "", {}, "sha512-Bsdjwm3Qsd/P0jR+BHDe3LytDfY7WBq2HmCCLIwuVRHMuEC9ae7/R474GIUdF1NgCyZjzVo/A9DOiOBtXq8ZoQ=="],
 
     "@beegreat/backend/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
