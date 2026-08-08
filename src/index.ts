@@ -106,6 +106,16 @@ const ACTION_SPECS: Record<SugarAction, ActionSpec> = {
       unwrap_native: 'boolean',
     },
   },
+  create_venft: {
+    required: ['chain', 'wallet', 'amount', 'lock_duration_seconds'],
+    allowed: {
+      chain: 'number',
+      wallet: 'address',
+      amount: 'string',
+      lock_duration_seconds: 'number',
+      use_decimals: 'boolean',
+    },
+  },
   quote: {
     required: ['chain', 'from_token', 'to_token', 'amount'],
     allowed: {
@@ -140,6 +150,7 @@ const INTEGER_PARAMETERS = new Set([
   'tick_lower',
   'tick_spacing',
   'tick_upper',
+  'lock_duration_seconds',
 ])
 const POSITION_ACTIONS = new Set<SugarAction>([
   'withdraw',
@@ -219,6 +230,16 @@ export function validateSugarRequest(
   }
   for (const name of spec.required) {
     if (!(name in output)) throw new Error(`${action} requires ${name}`)
+  }
+  if (action === 'create_venft') {
+    const duration = output.lock_duration_seconds
+    if (
+      typeof duration !== 'number' ||
+      !Number.isSafeInteger(duration) ||
+      duration <= 0
+    ) {
+      throw new Error('lock_duration_seconds must be a positive integer')
+    }
   }
 
   if (!isSupportedChainId(output.chain as number)) {
