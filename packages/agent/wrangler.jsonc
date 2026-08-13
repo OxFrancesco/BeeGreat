@@ -25,7 +25,11 @@
   "containers": [
     {
       "class_name": "Sandbox",
-      "image": "./Dockerfile"
+      "image": "./Dockerfile",
+      // Keep sandbox capacity inside the Workers Paid included tier under
+      // normal use and cap the maximum concurrent burn during traffic spikes.
+      "instance_type": "lite",
+      "max_instances": 3
     }
   ],
   "r2_buckets": [
