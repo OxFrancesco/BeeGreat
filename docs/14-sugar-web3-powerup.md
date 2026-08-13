@@ -41,6 +41,12 @@ Anything that moves funds is two-phase via the `web3Actions` table:
    become `executed` when Socket reports destination completion. Refunds are
    surfaced separately.
 
+Every pending action has a scheduled expiry mutation; expiry is therefore a
+durable state transition rather than a read-time illusion. Execution,
+submission, and settlement timestamps provide low-cardinality stage timing.
+Terminal transitions wake the originating Bee conversation and, when that
+origin is iMessage, enqueue a lease-based outbound delivery.
+
 Ordinary agent chat can never move funds: the agent has no confirm/execute path.
 The iMessage exception lives outside the agent loop and is bound to the exact
 action id and server-owned summary in the latest rendered confirmation, so
@@ -52,7 +58,10 @@ web/mobile client claims that exact pending action, switches the connected
 wallet to the required chain, submits each transaction in order, and records
 the returned hashes in Convex. EOA actions are never eligible for YOLO mode,
 the Crossmint server signer, or iMessage confirmation; each transaction stays
-visible in the user's wallet approval UI.
+visible in the user's wallet approval UI. A submitted hash is not success:
+web/mobile record it as `submitted`, wait for a successful receipt, and only
+then record that step as `success`. The action settles after the final action
+receipt, so a reverted or rejected later step cannot be reported as complete.
 
 ## Base ↔ Arbitrum with Socket
 
@@ -74,6 +83,18 @@ Socket calldata is never rebuilt: the executor submits the exact V3
 `txData.object`. ERC-20 approval is limited to Socket's quoted amount and
 spender. The backend validates chain IDs, token addresses, expiry, wallet
 address, and EVM transaction shape before an action can be confirmed.
+
+When Socket requires ERC-20 approval, the approval calldata and exact quoted
+route calldata are prepared as one ordered Crossmint `calls[]` batch. Its
+operation id is persisted before approval; a scheduled reconciler resumes a
+pending Crossmint operation after timeout or restart. Only successful origin
+settlement starts Socket destination polling, which continues independently to
+`COMPLETED`, `REFUNDED`, `FAILED`, or `EXPIRED`.
+
+Power-up entitlement loading retains the last verified definition snapshot
+during a transient Convex failure. A successful empty entitlement result still
+removes the specialist on the next turn, so availability does not flap while
+user disablement remains immediate.
 
 ## Action coverage
 
