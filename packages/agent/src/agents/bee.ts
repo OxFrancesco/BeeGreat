@@ -263,6 +263,11 @@ async function warmSnapshot(userId: string, env: BeeRuntimeEnv): Promise<void> {
           sandbox: sandboxSdk.getSandbox(
             env.Sandbox as Parameters<typeof sandboxSdk.getSandbox>[0],
             `google-workspace-${userId}`,
+            {
+              // Google commands are stateless; release idle capacity quickly.
+              sleepAfter: '2m',
+              labels: { workload: 'google-workspace' },
+            },
           ),
         })
       : []
@@ -436,6 +441,12 @@ export function Bee({ id }: AgentProps) {
                 typeof snapshot.sandboxSdk.getSandbox
               >[0],
               `bee-sites-${userId}`,
+              {
+                // Site creation is multi-step, so retain the workspace between
+                // tool calls while still guaranteeing automatic scale-to-zero.
+                sleepAfter: '10m',
+                labels: { workload: 'bee-sites' },
+              },
             ),
             bucket: env.BEE_SITES_BUCKET,
           }),
