@@ -25,6 +25,13 @@ const messageValidator = v.object({
   updatedAt: v.number(),
 })
 
+export const chatMessageSyncValidator = v.object({
+  id: v.string(),
+  role: v.union(v.literal('user'), v.literal('assistant')),
+  contentJson: v.string(),
+  createdAt: v.number(),
+})
+
 type JsonObject = Record<string, unknown>
 
 function isJsonObject(value: unknown): value is JsonObject {
@@ -60,7 +67,8 @@ const TOOL_PROGRESS_KEYS = new Set(['state'])
 
 function isAssistantPartProgression(previous: unknown, next: unknown): boolean {
   if (!isJsonObject(previous) || !isJsonObject(next)) return false
-  if (previous.type !== next.type || typeof previous.type !== 'string') return false
+  if (previous.type !== next.type || typeof previous.type !== 'string')
+    return false
 
   if (previous.type === 'text' || previous.type === 'reasoning') {
     if (
@@ -160,7 +168,10 @@ function isAssistantEnvelopeProgression(
 async function requireIdentity(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
-    throw new ConvexError({ code: 'UNAUTHENTICATED', message: 'Authentication required' })
+    throw new ConvexError({
+      code: 'UNAUTHENTICATED',
+      message: 'Authentication required',
+    })
   }
   return {
     ownerKey: identity.tokenIdentifier,
@@ -190,7 +201,10 @@ async function requireThread(
 ) {
   if (threadId === 0) return
   if (!(await findThread(ctx, ownerKey, threadId))) {
-    throw new ConvexError({ code: 'NOT_FOUND', message: 'Conversation not found' })
+    throw new ConvexError({
+      code: 'NOT_FOUND',
+      message: 'Conversation not found',
+    })
   }
 }
 
@@ -201,7 +215,9 @@ export const listThreads = query({
     const { ownerKey } = await requireIdentity(ctx)
     const rows = await ctx.db
       .query('chatThreads')
-      .withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))
+      .withIndex('by_owner_key_and_created_at', (q) =>
+        q.eq('ownerKey', ownerKey),
+      )
       .order('asc')
       .collect()
     if (rows.length === 0) return [{ id: 0, createdAt: 0 }]
@@ -419,7 +435,10 @@ export const setThreadArchived = mutation({
         updatedAt: now,
       })
     } else {
-      throw new ConvexError({ code: 'NOT_FOUND', message: 'Conversation not found' })
+      throw new ConvexError({
+        code: 'NOT_FOUND',
+        message: 'Conversation not found',
+      })
     }
     return null
   },
@@ -439,7 +458,10 @@ export const hideMessages = mutation({
     const identity = await requireIdentity(ctx)
     await requireThread(ctx, identity.ownerKey, args.threadId)
     if (args.messageIds.length > MAX_MESSAGES_PER_HIDE) {
-      throw new ConvexError({ code: 'TOO_LARGE', message: 'Too many messages to hide' })
+      throw new ConvexError({
+        code: 'TOO_LARGE',
+        message: 'Too many messages to hide',
+      })
     }
     const now = Date.now()
     for (const messageId of args.messageIds) {
@@ -528,66 +550,83 @@ export const listMessagesPage = query({
 export const syncMessages = mutation({
   args: {
     threadId: v.number(),
-    messages: v.array(
-      v.object({
-        id: v.string(),
-        role: v.union(v.literal('user'), v.literal('assistant')),
-        contentJson: v.string(),
-        createdAt: v.number(),
-      }),
-    ),
+    messages: v.array(chatMessageSyncValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx)
-    await requireThread(ctx, identity.ownerKey, args.threadId)
-    if (args.messages.length > MAX_MESSAGES_PER_SYNC) {
-      throw new ConvexError({ code: 'TOO_LARGE', message: 'Too many messages to sync' })
-    }
-    const now = Date.now()
-    for (const message of args.messages) {
-      if (!message.id || new TextEncoder().encode(message.contentJson).length > MAX_MESSAGE_JSON_BYTES) {
-        throw new ConvexError({ code: 'TOO_LARGE', message: 'Message is too large to sync' })
-      }
-      const existing = await ctx.db
-        .query('chatMessages')
-        .withIndex('by_owner_key_and_thread_id_and_message_id', (q) =>
-          q
-            .eq('ownerKey', identity.ownerKey)
-            .eq('threadId', args.threadId)
-            .eq('messageId', message.id),
-        )
-        .unique()
-      if (existing) {
-        if (existing.contentJson !== message.contentJson) {
-          if (
-            existing.role !== message.role ||
-            (existing.role === 'assistant' &&
-              !isAssistantEnvelopeProgression(
-                existing.contentJson,
-                message.contentJson,
-                message.id,
-              ))
-          ) {
-            continue
-          }
-          await ctx.db.patch('chatMessages', existing._id, {
-            contentJson: message.contentJson,
-            updatedAt: now,
-          })
-        }
-      } else {
-        await ctx.db.insert('chatMessages', {
-          ...identity,
-          threadId: args.threadId,
-          messageId: message.id,
-          role: message.role,
-          contentJson: message.contentJson,
-          createdAt: message.createdAt,
-          updatedAt: now,
-        })
-      }
-    }
+    await syncMessagesForIdentity(ctx, identity, args.threadId, args.messages)
     return null
   },
 })
+
+export async function syncMessagesForIdentity(
+  ctx: MutationCtx,
+  identity: ChatIdentity,
+  threadId: number,
+  messages: Array<{
+    id: string
+    role: 'user' | 'assistant'
+    contentJson: string
+    createdAt: number
+  }>,
+) {
+  await requireThread(ctx, identity.ownerKey, threadId)
+  if (messages.length > MAX_MESSAGES_PER_SYNC) {
+    throw new ConvexError({
+      code: 'TOO_LARGE',
+      message: 'Too many messages to sync',
+    })
+  }
+  const now = Date.now()
+  for (const message of messages) {
+    if (
+      !message.id ||
+      new TextEncoder().encode(message.contentJson).length >
+        MAX_MESSAGE_JSON_BYTES
+    ) {
+      throw new ConvexError({
+        code: 'TOO_LARGE',
+        message: 'Message is too large to sync',
+      })
+    }
+    const existing = await ctx.db
+      .query('chatMessages')
+      .withIndex('by_owner_key_and_thread_id_and_message_id', (q) =>
+        q
+          .eq('ownerKey', identity.ownerKey)
+          .eq('threadId', threadId)
+          .eq('messageId', message.id),
+      )
+      .unique()
+    if (existing) {
+      if (existing.contentJson !== message.contentJson) {
+        if (
+          existing.role !== message.role ||
+          (existing.role === 'assistant' &&
+            !isAssistantEnvelopeProgression(
+              existing.contentJson,
+              message.contentJson,
+              message.id,
+            ))
+        ) {
+          continue
+        }
+        await ctx.db.patch('chatMessages', existing._id, {
+          contentJson: message.contentJson,
+          updatedAt: now,
+        })
+      }
+    } else {
+      await ctx.db.insert('chatMessages', {
+        ...identity,
+        threadId,
+        messageId: message.id,
+        role: message.role,
+        contentJson: message.contentJson,
+        createdAt: message.createdAt,
+        updatedAt: now,
+      })
+    }
+  }
+}

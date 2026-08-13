@@ -10,6 +10,15 @@ export const beennectorProviderValidator = v.union(
   v.literal('google'),
 )
 
+export const googleWorkspaceServiceValidator = v.union(
+  v.literal('mail'),
+  v.literal('calendar'),
+  v.literal('drive'),
+  v.literal('contacts'),
+  v.literal('tasks'),
+  v.literal('forms'),
+)
+
 export const beennectorSessionStatusValidator = v.union(
   v.literal('pending'),
   v.literal('connected'),
@@ -64,3 +73,10 @@ export const beennectorDeliveryClaimValidator = v.union(
 )
 
 export type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google'
+export type GoogleWorkspaceService =
+  | 'mail'
+  | 'calendar'
+  | 'drive'
+  | 'contacts'
+  | 'tasks'
+  | 'forms'

@@ -67,6 +67,35 @@ describe('xAI realtime client secrets', () => {
     }
   })
 
+  test('trims a secret pasted with a trailing newline before building the header', async () => {
+    const fetcher = mock(async (_input: string | URL | Request, init?: RequestInit) => {
+      expect(init?.headers).toEqual({
+        authorization: 'Bearer long-lived-xai-key',
+        'content-type': 'application/json',
+      })
+      return Response.json({
+        value: 'xai-client-secret.short-lived',
+        expires_at: 1_800_000_000,
+      })
+    })
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
+      fetcher as typeof fetch,
+    )
+
+    try {
+      const response = await app.request(
+        request(),
+        undefined,
+        env('long-lived-xai-key\n'),
+      )
+
+      expect(response.status).toBe(200)
+      expect(fetcher).toHaveBeenCalledTimes(1)
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
   test('fails before contacting xAI when the Worker key is missing', async () => {
     const fetcher = mock(async () => Response.json({}))
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(

@@ -1,6 +1,5 @@
 import { createNotionChannel } from '@flue/notion'
-import { dispatch } from '@flue/runtime'
-import { Bee } from '../agents/bee.ts'
+import { dispatchBee } from '../agents/bee.ts'
 import {
   beennectorAgentId,
   channelSecret,
@@ -44,7 +43,7 @@ export const channel = createNotionChannel({
         ? (data.parent as Record<string, string | null>)
         : undefined
     const type = String(payload.type ?? 'notion.event')
-    await dispatch(Bee, {
+    await dispatchBee({
       id: beennectorAgentId(claim.userId, 'notion'),
       message: {
         kind: 'signal',

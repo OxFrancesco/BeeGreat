@@ -13,12 +13,7 @@ import type { Doc } from './_generated/dataModel'
 // Delivery is best-effort: the confirm card already shows live status in the
 // app, so a missed wake-up degrades to today's behavior (the user nudges Bee).
 
-const TERMINAL_STATUSES = new Set([
-  'executed',
-  'failed',
-  'refunded',
-  'expired',
-])
+const TERMINAL_STATUSES = new Set(['executed', 'failed', 'refunded', 'expired'])
 
 /**
  * The Flue conversation the app is currently showing for this user: thread 0
@@ -47,6 +42,8 @@ export const notifyActionSettled = internalAction({
   args: { actionId: v.id('web3Actions') },
   returns: v.null(),
   handler: async (ctx, { actionId }) => {
+    // Durable iMessage delivery is independent from the optional agent wake-up.
+    await ctx.runMutation(internal.imessageOutbox.enqueueAction, { actionId })
     const baseUrl = env.AGENT_URL?.trim()
     const secret = env.AGENT_CREDENTIAL_BROKER_SECRET?.trim()
     if (!baseUrl || !secret) return null
@@ -56,6 +53,18 @@ export const notifyActionSettled = internalAction({
       { actionId },
     )
     if (!action || !TERMINAL_STATUSES.has(action.status)) return null
+
+    console.info('Web3 action settled.', {
+      kind: action.payload.kind,
+      status: action.status,
+      totalMs: Math.max(0, (action.settledAt ?? Date.now()) - action.createdAt),
+      executionMs: action.executionStartedAt
+        ? Math.max(
+            0,
+            (action.settledAt ?? Date.now()) - action.executionStartedAt,
+          )
+        : undefined,
+    })
 
     // New actions are bound to their origin at preparation time. The active
     // app thread is only a migration fallback for rows created before that

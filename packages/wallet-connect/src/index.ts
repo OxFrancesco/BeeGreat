@@ -20,6 +20,8 @@ export type SubmittedTransaction = {
   hash: string
 }
 
+export type ConfirmedTransaction = SubmittedTransaction
+
 export type EoaTransactionStep = {
   role: 'approval' | 'action'
   transaction: EoaTransaction
@@ -80,6 +82,7 @@ export async function sendEoaTransactions({
   chainId,
   transactions,
   onSubmitted,
+  onConfirmed,
   receiptPolling,
 }: {
   provider: Eip1193Provider
@@ -87,6 +90,7 @@ export async function sendEoaTransactions({
   chainId: number
   transactions: readonly EoaTransaction[]
   onSubmitted?: (transaction: SubmittedTransaction) => void | Promise<void>
+  onConfirmed?: (transaction: ConfirmedTransaction) => void | Promise<void>
   receiptPolling?: ReceiptPollingOptions
 }) {
   assertAddress(address)
@@ -128,6 +132,7 @@ export async function sendEoaTransactions({
     submitted.push(result)
     await onSubmitted?.(result)
     await waitForSuccessfulReceipt(provider, hash, receiptPolling)
+    await onConfirmed?.(result)
   }
   return submitted
 }
@@ -143,6 +148,7 @@ export async function sendFreshEoaTransactions({
   chainId,
   buildPlan,
   onSubmitted,
+  onConfirmed,
   receiptPolling,
   maxBuilds = 8,
 }: {
@@ -150,9 +156,8 @@ export async function sendFreshEoaTransactions({
   address: string
   chainId: number
   buildPlan: () => Promise<readonly EoaTransactionStep[]>
-  onSubmitted?: (
-    transaction: SubmittedFreshTransaction,
-  ) => void | Promise<void>
+  onSubmitted?: (transaction: SubmittedFreshTransaction) => void | Promise<void>
+  onConfirmed?: (transaction: SubmittedFreshTransaction) => void | Promise<void>
   receiptPolling?: ReceiptPollingOptions
   maxBuilds?: number
 }) {
@@ -171,7 +176,7 @@ export async function sendFreshEoaTransactions({
 
   const submitted: SubmittedFreshTransaction[] = []
   for (let build = 0; build < maxBuilds; build += 1) {
-    const plan = [...await buildPlan()]
+    const plan = [...(await buildPlan())]
     if (
       plan.length === 0 ||
       plan.filter(({ role }) => role === 'action').length !== 1 ||
@@ -183,12 +188,14 @@ export async function sendFreshEoaTransactions({
     const step = plan.find(({ role }) => role === 'approval') ?? plan.at(-1)!
     const hash = await provider.request<string>({
       method: 'eth_sendTransaction',
-      params: [{
-        from: address,
-        to: step.transaction.to,
-        data: step.transaction.data,
-        value: weiHex(step.transaction.value),
-      }],
+      params: [
+        {
+          from: address,
+          to: step.transaction.to,
+          data: step.transaction.data,
+          value: weiHex(step.transaction.value),
+        },
+      ],
     })
     if (!EVM_HASH.test(hash)) {
       throw new Error('The wallet returned an invalid transaction hash.')
@@ -197,9 +204,12 @@ export async function sendFreshEoaTransactions({
     submitted.push(result)
     await onSubmitted?.(result)
     await waitForSuccessfulReceipt(provider, hash, receiptPolling)
+    await onConfirmed?.(result)
     if (step.role === 'action') return submitted
   }
-  throw new Error('The wallet plan still requires approvals after repeated refreshes.')
+  throw new Error(
+    'The wallet plan still requires approvals after repeated refreshes.',
+  )
 }
 
 async function waitForSuccessfulReceipt(

@@ -3,10 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 import { privateKeyToAccount } from 'viem/accounts'
 
 import { api, internal } from './_generated/api'
-import {
-  ACTION_TTL_MS,
-  MAX_WEB3_CONTINUATION_LENGTH,
-} from './web3Actions'
+import { ACTION_TTL_MS, MAX_WEB3_CONTINUATION_LENGTH } from './web3Actions'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -94,7 +91,8 @@ describe('web3 action confirmation gate', () => {
     const created = await t.mutation(internal.web3Actions.create, {
       userId: owner,
       conversationId: `${owner}~42`,
-      continuation: 'After the withdrawal settles, swap the received USDC to ETH.',
+      continuation:
+        'After the withdrawal settles, swap the received USDC to ETH.',
       summary: 'Withdraw the full Aerodrome position',
       payload: sendPayload,
     })
@@ -298,11 +296,13 @@ describe('web3 action confirmation gate', () => {
       payload: {
         kind: 'execute_plan',
         chainId: 8453,
-        transactions: [{
-          to: '0x00000000000000000000000000000000000000aa',
-          data: '0x1234',
-          value: '0',
-        }],
+        transactions: [
+          {
+            to: '0x00000000000000000000000000000000000000aa',
+            data: '0x1234',
+            value: '0',
+          },
+        ],
         intent: {
           sugarAction: 'stake',
           parameters: {
@@ -326,11 +326,13 @@ describe('web3 action confirmation gate', () => {
     let action = await t.run(async (ctx) => await ctx.db.get(created.id))
     expect(action).toMatchObject({
       status: 'in_progress',
-      crossmintExecution: [{
-        role: 'approval',
-        transactionId: 'crossmint-approval-1',
-        status: 'prepared',
-      }],
+      crossmintExecution: [
+        {
+          role: 'approval',
+          transactionId: 'crossmint-approval-1',
+          status: 'prepared',
+        },
+      ],
     })
 
     const hash = `0x${'ab'.repeat(32)}`
@@ -447,6 +449,54 @@ describe('web3 action confirmation gate', () => {
     })
     expect(status?.status).toBe('executed')
     expect(status?.socketProgress?.destinationTxHash).toBe(destinationTxHash)
+  })
+
+  test('Socket persists one atomic approval plus route operation before settlement', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Swap Base USDC for Arbitrum ETH',
+      payload: socketPayload,
+    })
+    const app = t.withIdentity(identity(owner))
+    await app.mutation(api.web3Actions.confirm, { actionId: created.id })
+
+    await t.mutation(internal.web3Actions.recordSocketPrepared, {
+      actionId: created.id,
+      transactionId: 'crossmint-socket-batch-1',
+    })
+    let row = await t.run(async (ctx) => await ctx.db.get(created.id))
+    expect(row).toMatchObject({
+      status: 'in_progress',
+      crossmintExecution: [
+        {
+          role: 'action',
+          transactionId: 'crossmint-socket-batch-1',
+          status: 'prepared',
+        },
+      ],
+    })
+
+    const sourceTxHash = `0x${'ef'.repeat(32)}`
+    await t.mutation(internal.web3Actions.recordSocketOriginSuccess, {
+      actionId: created.id,
+      transactionId: 'crossmint-socket-batch-1',
+      hash: sourceTxHash,
+      explorerLink: `https://basescan.org/tx/${sourceTxHash}`,
+    })
+    row = await t.run(async (ctx) => await ctx.db.get(created.id))
+    expect(row).toMatchObject({
+      status: 'in_progress',
+      crossmintExecution: [{ status: 'success', hash: sourceTxHash }],
+      socketProgress: { status: 'PENDING', originTxHash: sourceTxHash },
+    })
   })
 
   test('a Socket confirmation gets the full action TTL even if its quote is shorter', async () => {
@@ -769,11 +819,31 @@ describe('YOLO mode', () => {
       }),
     ).toEqual({ done: false })
     expect(
+      await app.mutation(api.web3Actions.recordEoaReceipt, {
+        actionId: created.id,
+        index: 0,
+        hash: `0x${'aa'.repeat(32)}`,
+      }),
+    ).toEqual({ done: false })
+    expect(
       await app.mutation(api.web3Actions.recordEoaSubmission, {
         actionId: created.id,
         index: 1,
         hash: `0x${'bb'.repeat(32)}`,
         role: 'action',
+      }),
+    ).toEqual({ done: false })
+
+    const submittedStatus = await app.query(api.web3Actions.status, {
+      actionId: created.id,
+    })
+    expect(submittedStatus?.status).toBe('in_progress')
+
+    expect(
+      await app.mutation(api.web3Actions.recordEoaReceipt, {
+        actionId: created.id,
+        index: 1,
+        hash: `0x${'bb'.repeat(32)}`,
       }),
     ).toEqual({ done: true })
 
@@ -784,6 +854,62 @@ describe('YOLO mode', () => {
     expect(status?.result?.[1]?.explorerLink).toBe(
       `https://basescan.org/tx/0x${'bb'.repeat(32)}`,
     )
+  })
+
+  test('a submitted final linked-wallet step can still fail before its receipt', async () => {
+    const t = convexTest(schema, modules)
+    await t.run(async (ctx) => {
+      await ctx.db.insert('powerups', {
+        userId: owner,
+        powerupId: 'web3',
+        enabled: true,
+      })
+      await ctx.db.insert('wallets', {
+        userId: owner,
+        chain: 'evm',
+        address: firstEoa.address,
+        kind: 'eoa',
+      })
+    })
+    const created = await t.mutation(internal.web3Actions.create, {
+      userId: owner,
+      summary: 'Aerodrome action from your linked wallet',
+      payload: {
+        kind: 'execute_eoa_plan',
+        chainId: 8453,
+        walletAddress: firstEoa.address,
+        transactions: [
+          {
+            to: '0x00000000000000000000000000000000000000aa',
+            data: '0x1234',
+            value: '0',
+          },
+        ],
+      },
+    })
+    const app = t.withIdentity(identity(owner))
+    await app.mutation(api.web3Actions.beginEoaExecution, {
+      actionId: created.id,
+    })
+    await app.mutation(api.web3Actions.recordEoaSubmission, {
+      actionId: created.id,
+      index: 0,
+      hash: `0x${'aa'.repeat(32)}`,
+      role: 'action',
+    })
+    expect(
+      (await app.query(api.web3Actions.status, { actionId: created.id }))
+        ?.status,
+    ).toBe('in_progress')
+
+    await app.mutation(api.web3Actions.reportEoaFailure, {
+      actionId: created.id,
+      reason: 'wallet_error',
+    })
+    expect(
+      (await app.query(api.web3Actions.status, { actionId: created.id }))
+        ?.status,
+    ).toBe('failed')
   })
 
   test('a rejected first linked-wallet request is cancelled without a hash', async () => {

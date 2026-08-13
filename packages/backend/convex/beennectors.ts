@@ -12,6 +12,7 @@ import {
   beennectorDeliveryClaimValidator,
   beennectorProviderValidator,
   encryptedSecretValidator,
+  googleWorkspaceServiceValidator,
 } from './beennectorValidators'
 
 const REFRESH_LEASE_MS = 15_000
@@ -33,7 +34,7 @@ const CATALOG = {
   google: {
     name: 'Google Workspace',
     description:
-      'Gmail, Calendar, Drive, Docs, Sheets, Slides, Contacts, and Tasks.',
+      'Choose Gmail, Calendar, Drive, Docs, Sheets, Slides, Contacts, Tasks, or Forms.',
   },
 } as const
 
@@ -104,6 +105,11 @@ export const createSession = internalMutation({
     stateHash: v.string(),
     encryptedCodeVerifier: v.optional(encryptedSecretValidator),
     expiresAt: v.number(),
+    disclosureVersion: v.optional(v.string()),
+    disclosureAcceptedAt: v.optional(v.number()),
+    requestedGoogleServices: v.optional(
+      v.array(googleWorkspaceServiceValidator),
+    ),
   },
   returns: v.id('beennectorAuthSessions'),
   handler: async (ctx, args) => {
@@ -144,6 +150,9 @@ export const getSessionByStateHash = internalQuery({
       provider: beennectorProviderValidator,
       status: v.string(),
       encryptedCodeVerifier: v.optional(encryptedSecretValidator),
+      requestedGoogleServices: v.optional(
+        v.array(googleWorkspaceServiceValidator),
+      ),
       expiresAt: v.number(),
     }),
   ),
@@ -159,6 +168,7 @@ export const getSessionByStateHash = internalQuery({
       provider: session.provider,
       status: session.status,
       encryptedCodeVerifier: session.encryptedCodeVerifier,
+      requestedGoogleServices: session.requestedGoogleServices,
       expiresAt: session.expiresAt,
     }
   },
@@ -171,6 +181,7 @@ export const completeAuthorization = internalMutation({
     encryptedRefresh: v.optional(encryptedSecretValidator),
     expiresAt: v.optional(v.number()),
     scopes: v.array(v.string()),
+    googleServices: v.optional(v.array(googleWorkspaceServiceValidator)),
     externalAccountId: v.string(),
     externalAccountName: v.optional(v.string()),
     workspaceId: v.optional(v.string()),
@@ -200,6 +211,7 @@ export const completeAuthorization = internalMutation({
       encryptedRefresh: args.encryptedRefresh,
       expiresAt: args.expiresAt,
       scopes: args.scopes,
+      googleServices: args.googleServices,
       externalAccountId: args.externalAccountId,
       externalAccountName: args.externalAccountName,
       workspaceId: args.workspaceId,
@@ -278,6 +290,7 @@ export const listConnectedForAgent = internalQuery({
       provider: beennectorProviderValidator,
       accountName: v.optional(v.string()),
       workspaceName: v.optional(v.string()),
+      googleServices: v.optional(v.array(googleWorkspaceServiceValidator)),
     }),
   ),
   handler: async (ctx, args) => {
@@ -291,6 +304,7 @@ export const listConnectedForAgent = internalQuery({
         provider: credential.provider,
         accountName: credential.externalAccountName,
         workspaceName: credential.workspaceName,
+        googleServices: credential.googleServices,
       }))
   },
 })

@@ -48,7 +48,11 @@ test('GitHub, Linear, and Google use PKCE while Notion uses scoped page selectio
   const github = createBeennectorAuthorization('github')
   const linear = createBeennectorAuthorization('linear')
   const notion = createBeennectorAuthorization('notion')
-  const google = createBeennectorAuthorization('google')
+  const google = createBeennectorAuthorization('google', [
+    'mail',
+    'calendar',
+    'drive',
+  ])
   const githubUrl = new URL(github.authorizationUrl)
   const linearUrl = new URL(linear.authorizationUrl)
   const notionUrl = new URL(notion.authorizationUrl)
@@ -79,13 +83,20 @@ test('GitHub, Linear, and Google use PKCE while Notion uses scoped page selectio
     'https://accounts.google.com/o/oauth2/v2/auth',
   )
   expect(googleUrl.searchParams.get('access_type')).toBe('offline')
+  expect(googleUrl.searchParams.has('include_granted_scopes')).toBe(false)
   expect(googleUrl.searchParams.get('code_challenge_method')).toBe('S256')
   expect(googleUrl.searchParams.get('scope')).toContain(
     'https://www.googleapis.com/auth/gmail.modify',
   )
   expect(googleUrl.searchParams.get('scope')).toContain(
-    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/drive.readonly',
   )
+  expect(googleUrl.searchParams.get('scope')).not.toContain(
+    'https://www.googleapis.com/auth/gmail.compose',
+  )
+  const googleScopes = googleUrl.searchParams.get('scope')?.split(' ') ?? []
+  expect(googleScopes).not.toContain('https://www.googleapis.com/auth/drive')
+  expect(googleScopes).not.toContain('https://www.googleapis.com/auth/calendar')
   expect(google.codeVerifier).toBeTruthy()
   expect(
     new Set([github.state, linear.state, notion.state, google.state]).size,
@@ -153,7 +164,7 @@ test('Google exchanges a PKCE code and resolves the connected account identity',
   )
 })
 
-test('Google refreshes and revokes brokered access tokens', async () => {
+test('Google refreshes and revokes the durable refresh grant', async () => {
   const fetchMock = vi
     .spyOn(globalThis, 'fetch')
     .mockResolvedValueOnce(
@@ -181,10 +192,16 @@ test('Google refreshes and revokes brokered access tokens', async () => {
   expect(refreshBody.get('grant_type')).toBe('refresh_token')
   expect(refreshBody.get('refresh_token')).toBe('google-refresh')
 
-  await revokeBeennectorToken('google', 'google-access-2')
+  await revokeBeennectorToken('google', 'google-refresh')
   const [revokeUrl, revokeInit] = fetchMock.mock.calls[1]!
   expect(String(revokeUrl)).toBe('https://oauth2.googleapis.com/revoke')
   expect(new URLSearchParams(String(revokeInit?.body)).get('token')).toBe(
-    'google-access-2',
+    'google-refresh',
+  )
+})
+
+test('Google requires an explicit service selection', () => {
+  expect(() => createBeennectorAuthorization('google')).toThrow(
+    'Choose at least one Google Workspace service',
   )
 })

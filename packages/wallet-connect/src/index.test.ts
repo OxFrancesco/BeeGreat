@@ -64,6 +64,7 @@ describe('wallet connect client', () => {
       },
     }
     const submitted: Array<{ index: number; hash: string }> = []
+    const confirmed: Array<{ index: number; hash: string }> = []
 
     const result = await sendEoaTransactions({
       provider,
@@ -84,10 +85,14 @@ describe('wallet connect client', () => {
       onSubmitted: (transaction) => {
         submitted.push(transaction)
       },
+      onConfirmed: (transaction) => {
+        confirmed.push(transaction)
+      },
       receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },
     })
 
     expect(result).toEqual(submitted)
+    expect(confirmed).toEqual(submitted)
     expect(requests).toEqual([
       {
         method: 'wallet_switchEthereumChain',
@@ -124,26 +129,38 @@ describe('wallet connect client', () => {
   })
 
   test('stops the plan when a submitted transaction reverts', async () => {
+    const submitted: Array<{ index: number; hash: string }> = []
+    const confirmed: Array<{ index: number; hash: string }> = []
     const provider: Eip1193Provider = {
       async request(request) {
         if (request.method === 'eth_accounts') return [address] as never
-        if (request.method === 'eth_sendTransaction') return `0x${'aa'.repeat(32)}` as never
-        if (request.method === 'eth_getTransactionReceipt') return { status: '0x0' } as never
+        if (request.method === 'eth_sendTransaction')
+          return `0x${'aa'.repeat(32)}` as never
+        if (request.method === 'eth_getTransactionReceipt')
+          return { status: '0x0' } as never
         return null as never
       },
     }
 
-    await expect(sendEoaTransactions({
-      provider,
-      address,
-      chainId: 8453,
-      transactions: [{
-        to: '0x2222222222222222222222222222222222222222',
-        data: '0x',
-        value: '0',
-      }],
-      receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },
-    })).rejects.toThrow('reverted')
+    await expect(
+      sendEoaTransactions({
+        provider,
+        address,
+        chainId: 8453,
+        transactions: [
+          {
+            to: '0x2222222222222222222222222222222222222222',
+            data: '0x',
+            value: '0',
+          },
+        ],
+        onSubmitted: (transaction) => submitted.push(transaction),
+        onConfirmed: (transaction) => confirmed.push(transaction),
+        receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },
+      }),
+    ).rejects.toThrow('reverted')
+    expect(submitted).toHaveLength(1)
+    expect(confirmed).toHaveLength(0)
   })
 
   test('rebuilds an EOA plan after approval before signing the final action', async () => {
@@ -157,7 +174,8 @@ describe('wallet connect client', () => {
           sentData.push(data)
           return `0x${String(sentData.length).padStart(64, '0')}` as never
         }
-        if (request.method === 'eth_getTransactionReceipt') return { status: '0x1' } as never
+        if (request.method === 'eth_getTransactionReceipt')
+          return { status: '0x1' } as never
         return null as never
       },
     }
@@ -170,11 +188,20 @@ describe('wallet connect client', () => {
         builds += 1
         return builds === 1
           ? [
-              { role: 'approval' as const, transaction: { to: address, data: '0x01', value: '0' } },
-              { role: 'action' as const, transaction: { to: address, data: '0x02', value: '0' } },
+              {
+                role: 'approval' as const,
+                transaction: { to: address, data: '0x01', value: '0' },
+              },
+              {
+                role: 'action' as const,
+                transaction: { to: address, data: '0x02', value: '0' },
+              },
             ]
           : [
-              { role: 'action' as const, transaction: { to: address, data: '0x03', value: '0' } },
+              {
+                role: 'action' as const,
+                transaction: { to: address, data: '0x03', value: '0' },
+              },
             ]
       },
       receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },

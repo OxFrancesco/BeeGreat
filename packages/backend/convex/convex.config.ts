@@ -24,6 +24,7 @@ const app = defineApp({
     TELEGRAM_OIDC_CLIENT_SECRET: v.optional(v.string()),
     TELEGRAM_OIDC_REDIRECT_URI: v.optional(v.string()),
     TELEGRAM_APP_REDIRECT_URI: v.optional(v.string()),
+    WEB_APP_URL: v.optional(v.string()),
     DEVIN_API_KEY: v.optional(v.string()),
     DEVIN_ORG_ID: v.optional(v.string()),
     FAL_KEY: v.optional(v.string()),

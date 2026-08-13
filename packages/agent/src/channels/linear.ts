@@ -1,6 +1,5 @@
 import { createLinearChannel } from '@flue/linear'
-import { dispatch } from '@flue/runtime'
-import { Bee } from '../agents/bee.ts'
+import { dispatchBee } from '../agents/bee.ts'
 import {
   beennectorAgentId,
   channelSecret,
@@ -39,7 +38,7 @@ export const channel = createLinearChannel({
       typeof data?.identifier === 'string' ? data.identifier : null
     const title = typeof data?.title === 'string' ? data.title : null
     const body = typeof data?.body === 'string' ? data.body : null
-    await dispatch(Bee, {
+    await dispatchBee({
       id: beennectorAgentId(claim.userId, 'linear'),
       message: {
         kind: 'signal',

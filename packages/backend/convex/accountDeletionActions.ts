@@ -30,6 +30,7 @@ type ExternalCleanupPayload = {
   beennectorCredentials: Array<{
     provider: BeennectorProvider
     encryptedAccess?: EncryptedBeennectorSecret
+    encryptedRefresh?: EncryptedBeennectorSecret
   }>
 }
 
@@ -266,11 +267,19 @@ export const cleanup = internalAction({
     }
 
     for (const credential of payload.beennectorCredentials) {
-      if (!credential.encryptedAccess) continue
+      const encryptedToken =
+        credential.provider === 'google'
+          ? (credential.encryptedRefresh ?? credential.encryptedAccess)
+          : credential.encryptedAccess
+      if (!encryptedToken) continue
       try {
+        const kind =
+          credential.provider === 'google' && credential.encryptedRefresh
+            ? 'refresh'
+            : 'access'
         const token = decryptBeennectorSecret(
-          credential.encryptedAccess,
-          credentialAad(payload.userId, credential.provider, 'access'),
+          encryptedToken,
+          credentialAad(payload.userId, credential.provider, kind),
         )
         await revokeBeennectorToken(credential.provider, token)
       } catch (error) {

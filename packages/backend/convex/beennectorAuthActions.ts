@@ -19,12 +19,14 @@ import {
 } from './beennectorOAuth'
 import {
   beennectorProviderValidator,
+  googleWorkspaceServiceValidator,
   type BeennectorProvider,
 } from './beennectorValidators'
 import { captureHandledConvexException } from './sentryNode'
 
 const SESSION_TTL_MS = 10 * 60 * 1_000
 const MIN_ACCESS_VALIDITY_MS = 5 * 60 * 1_000
+export const GOOGLE_WORKSPACE_DISCLOSURE_VERSION = '2026-08-13'
 
 function verifierAad(
   userId: string,
@@ -43,13 +45,26 @@ function credentialAad(
 }
 
 export const beginAuthorization = action({
-  args: { provider: beennectorProviderValidator },
+  args: {
+    provider: beennectorProviderValidator,
+    googleServices: v.optional(v.array(googleWorkspaceServiceValidator)),
+    googleDisclosureVersion: v.optional(v.string()),
+  },
   returns: v.object({ authorizationUrl: v.string() }),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not signed in')
     const userId = identity.subject
-    const authorization = createBeennectorAuthorization(args.provider)
+    if (
+      args.provider === 'google' &&
+      args.googleDisclosureVersion !== GOOGLE_WORKSPACE_DISCLOSURE_VERSION
+    ) {
+      throw new Error('Review and accept the Google Workspace data disclosure.')
+    }
+    const authorization = createBeennectorAuthorization(
+      args.provider,
+      args.googleServices,
+    )
     const stateHash = hashBeennectorValue(authorization.state)
     await ctx.runMutation(internal.beennectors.createSession, {
       userId,
@@ -64,6 +79,13 @@ export const beginAuthorization = action({
           }
         : {}),
       expiresAt: Date.now() + SESSION_TTL_MS,
+      ...(args.provider === 'google'
+        ? {
+            disclosureVersion: GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
+            disclosureAcceptedAt: Date.now(),
+            requestedGoogleServices: args.googleServices,
+          }
+        : {}),
     })
     return { authorizationUrl: authorization.authorizationUrl }
   },
@@ -100,6 +122,9 @@ export const completeAuthorization = internalAction({
         ciphertext: string
         tag: string
       }
+      requestedGoogleServices?: Array<
+        'mail' | 'calendar' | 'drive' | 'contacts' | 'tasks' | 'forms'
+      >
       expiresAt: number
     } | null = await ctx.runQuery(internal.beennectors.getSessionByStateHash, {
       stateHash,
@@ -166,6 +191,9 @@ export const completeAuthorization = internalAction({
             : {}),
           ...(tokens.expiresAt ? { expiresAt: tokens.expiresAt } : {}),
           scopes: tokens.scopes,
+          ...(session.provider === 'google'
+            ? { googleServices: session.requestedGoogleServices }
+            : {}),
           ...tokens.identity,
         },
       )
@@ -216,11 +244,19 @@ export const disconnect = action({
       internal.beennectors.getCredentialForDisconnect,
       { userId, provider: args.provider },
     )
-    if (credential?.encryptedAccess) {
+    const encryptedRevocationToken =
+      args.provider === 'google'
+        ? (credential?.encryptedRefresh ?? credential?.encryptedAccess)
+        : credential?.encryptedAccess
+    if (encryptedRevocationToken) {
       try {
+        const revocationKind =
+          args.provider === 'google' && credential?.encryptedRefresh
+            ? 'refresh'
+            : 'access'
         const token = decryptBeennectorSecret(
-          credential.encryptedAccess,
-          credentialAad(userId, args.provider, 'access'),
+          encryptedRevocationToken,
+          credentialAad(userId, args.provider, revocationKind),
         )
         await revokeBeennectorToken(args.provider, token)
       } catch (error) {

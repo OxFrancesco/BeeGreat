@@ -19,9 +19,14 @@ import {
   telegramSessionStatusValidator,
 } from './telegramValidators'
 import {
+  imessageAddressKindValidator,
+  imessageSessionStatusValidator,
+} from './imessageValidators'
+import {
   beennectorCredentialStatusValidator,
   beennectorProviderValidator,
   beennectorSessionStatusValidator,
+  googleWorkspaceServiceValidator,
 } from './beennectorValidators'
 import {
   bookmarkCrawlCacheValidator,
@@ -33,6 +38,7 @@ import {
 } from './nfcActionValidators'
 import {
   crossmintExecutionStepValidator,
+  eoaExecutionStepValidator,
   socketProgressValidator,
   web3ActionPayloadValidator,
   web3ActionResultValidator,
@@ -215,12 +221,17 @@ export default defineSchema({
     userId: v.string(),
     threadId: v.number(),
     source: v.optional(v.literal('imessage')),
+    // The address that most recently used this iMessage thread. Deliveries
+    // resolve the current connection row at send time, so the raw address is
+    // not copied into Web3 actions or transcript rows.
+    imessageConnectionId: v.optional(v.id('imessageConnections')),
     title: v.optional(v.string()),
     archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index('by_owner_key_and_thread_id', ['ownerKey', 'threadId'])
+    .index('by_user_id_and_thread_id', ['userId', 'threadId'])
     .index('by_owner_key_and_created_at', ['ownerKey', 'createdAt'])
     .index('by_owner_key_and_source_and_created_at', [
       'ownerKey',
@@ -463,6 +474,9 @@ export default defineSchema({
     label: v.string(),
     enabled: v.boolean(),
     definition: nfcActionDefinitionValidator,
+    // Non-undone taps for every action type, kept here so listing never
+    // scans executions. Optional for docs created before the counter existed.
+    completionCount: v.optional(v.number()),
     lastExecutionId: v.optional(v.id('nfcActionExecutions')),
     lastExecutedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -612,6 +626,77 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
 
+  // Short-lived magic-link sessions for connecting an iMessage sender to a
+  // BeeGreat account. The raw token travels only inside the link Bee texts to
+  // that exact address; only its SHA-256 hash is stored here.
+  imessageLinkSessions: defineTable({
+    address: v.string(),
+    addressKind: imessageAddressKindValidator,
+    tokenHash: v.string(),
+    status: imessageSessionStatusValidator,
+    userId: v.optional(v.string()),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_token_hash', ['tokenHash'])
+    .index('by_address', ['address'])
+    .index('by_user', ['userId']),
+
+  // Links one normalized iMessage sender address (phone or email) to a Clerk
+  // user. The bridge resolves inbound senders here; presenting a valid magic
+  // link proves control of the address, so a re-link moves it to the new user.
+  imessageConnections: defineTable({
+    userId: v.string(),
+    address: v.string(),
+    addressKind: imessageAddressKindValidator,
+    connectedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_address', ['address'])
+    .index('by_user', ['userId']),
+
+  // Terminal Web3 updates are delivered by the Railway bridge from this
+  // lease-based outbox. One action/status pair is enqueued once; a bridge
+  // crash leaves the lease recoverable instead of losing the iMessage.
+  imessageDeliveries: defineTable({
+    userId: v.string(),
+    threadId: v.number(),
+    imessageConnectionId: v.optional(v.id('imessageConnections')),
+    actionId: v.id('web3Actions'),
+    actionStatus: v.union(
+      v.literal('executed'),
+      v.literal('failed'),
+      v.literal('refunded'),
+      v.literal('expired'),
+    ),
+    kind: v.union(
+      v.literal('send_tokens'),
+      v.literal('execute_plan'),
+      v.literal('execute_eoa_plan'),
+      v.literal('socket_swap'),
+    ),
+    summary: v.string(),
+    detail: v.optional(v.string()),
+    error: v.optional(v.string()),
+    explorerLink: v.optional(v.string()),
+    status: v.union(
+      v.literal('pending'),
+      v.literal('leased'),
+      v.literal('delivered'),
+    ),
+    attempts: v.number(),
+    nextAttemptAt: v.number(),
+    leaseId: v.optional(v.string()),
+    leaseExpiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deliveredAt: v.optional(v.number()),
+  })
+    .index('by_action_and_status', ['actionId', 'actionStatus'])
+    .index('by_status_and_next_attempt', ['status', 'nextAttemptAt'])
+    .index('by_status_and_lease_expiry', ['status', 'leaseExpiresAt'])
+    .index('by_user', ['userId']),
+
   // Beennectors are durable account/workspace connections, not optional
   // PowerBee capability packs. OAuth state and credentials therefore live in
   // their own domain and tokens never reach app clients. Google access tokens
@@ -623,6 +708,11 @@ export default defineSchema({
     stateHash: v.string(),
     status: beennectorSessionStatusValidator,
     encryptedCodeVerifier: v.optional(encryptedSecretValidator),
+    disclosureVersion: v.optional(v.string()),
+    disclosureAcceptedAt: v.optional(v.number()),
+    requestedGoogleServices: v.optional(
+      v.array(googleWorkspaceServiceValidator),
+    ),
     expiresAt: v.number(),
     errorCode: v.optional(v.string()),
     updatedAt: v.number(),
@@ -640,6 +730,7 @@ export default defineSchema({
     encryptedRefresh: v.optional(encryptedSecretValidator),
     expiresAt: v.optional(v.number()),
     scopes: v.array(v.string()),
+    googleServices: v.optional(v.array(googleWorkspaceServiceValidator)),
     externalAccountId: v.string(),
     externalAccountName: v.optional(v.string()),
     workspaceId: v.optional(v.string()),
@@ -1085,11 +1176,17 @@ export default defineSchema({
     createdAt: v.number(),
     expiresAt: v.number(),
     confirmedAt: v.optional(v.number()),
+    executionStartedAt: v.optional(v.number()),
+    submittedAt: v.optional(v.number()),
+    settledAt: v.optional(v.number()),
     autoConfirmed: v.optional(v.boolean()),
     result: v.optional(web3ActionResultValidator),
     // Durable Crossmint operation ids make retries/restarts idempotent. The
     // field is optional while pre-hardening action rows age out.
     crossmintExecution: v.optional(v.array(crossmintExecutionStepValidator)),
+    // Linked-wallet hashes are submissions until the client reports a
+    // successful receipt. This prevents a reverted final step from settling.
+    eoaExecution: v.optional(v.array(eoaExecutionStepValidator)),
     socketProgress: v.optional(socketProgressValidator),
     error: v.optional(v.string()),
   })

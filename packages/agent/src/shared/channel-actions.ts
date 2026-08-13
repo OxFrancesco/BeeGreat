@@ -7,6 +7,7 @@ export type ChannelActionName =
   | 'create_thread'
   | 'create_cli_thread'
   | 'title_thread'
+  | 'sync_transcript'
   | 'confirm_first_focus'
   | 'cancel_first_focus'
   | 'complete_highlight'

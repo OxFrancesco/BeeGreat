@@ -22,27 +22,28 @@ const actionValidator = v.object({
   label: v.string(),
   enabled: v.boolean(),
   definition: nfcActionDefinitionValidator,
+  completionCount: v.number(),
   tagUrl: v.string(),
   lastExecutedAt: v.union(v.number(), v.null()),
   createdAt: v.number(),
   updatedAt: v.number(),
 })
 
+const executedActionValidator = v.object({
+  label: v.string(),
+  definition: nfcActionDefinitionValidator,
+  completionCount: v.number(),
+})
+
 const executionResultValidator = v.object({
   duplicate: v.boolean(),
   executionId: v.id('nfcActionExecutions'),
-  action: v.object({
-    label: v.string(),
-    definition: nfcActionDefinitionValidator,
-  }),
+  action: executedActionValidator,
   outcome: nfcActionOutcomeValidator,
 })
 
 const undoResultValidator = v.object({
-  action: v.object({
-    label: v.string(),
-    definition: nfcActionDefinitionValidator,
-  }),
+  action: executedActionValidator,
   outcome: nfcActionOutcomeValidator,
   undoneAt: v.number(),
 })
@@ -83,16 +84,20 @@ function normalizeLabel(label: string) {
 }
 
 function validateDefinition(definition: Doc<'nfcActions'>['definition']) {
-  const actionType: 'hydration' = definition.type
-  if (
-    actionType === 'hydration' &&
-    (!Number.isSafeInteger(definition.amountMl) ||
-      definition.amountMl < MIN_HYDRATION_ML ||
-      definition.amountMl > MAX_HYDRATION_ML)
-  ) {
-    invalidArgument(
-      `hydration amount must be an integer between ${MIN_HYDRATION_ML} and ${MAX_HYDRATION_ML} millilitres`,
-    )
+  switch (definition.type) {
+    case 'hydration':
+      if (
+        !Number.isSafeInteger(definition.amountMl) ||
+        definition.amountMl < MIN_HYDRATION_ML ||
+        definition.amountMl > MAX_HYDRATION_ML
+      ) {
+        invalidArgument(
+          `hydration amount must be an integer between ${MIN_HYDRATION_ML} and ${MAX_HYDRATION_ML} millilitres`,
+        )
+      }
+      break
+    case 'reminder':
+      break
   }
 }
 
@@ -111,6 +116,7 @@ function normalizeAction(action: Doc<'nfcActions'>) {
     label: action.label,
     enabled: action.enabled,
     definition: action.definition,
+    completionCount: action.completionCount ?? 0,
     tagUrl: tagUrl(action.publicId),
     lastExecutedAt: action.lastExecutedAt ?? null,
     createdAt: action.createdAt,
@@ -121,6 +127,7 @@ function normalizeAction(action: Doc<'nfcActions'>) {
 function executionResult(
   execution: Doc<'nfcActionExecutions'>,
   duplicate: boolean,
+  completionCount: number,
 ) {
   return {
     duplicate,
@@ -128,6 +135,7 @@ function executionResult(
     action: {
       label: execution.actionLabel,
       definition: execution.definition,
+      completionCount,
     },
     outcome: execution.outcome,
   }
@@ -186,6 +194,7 @@ export const create = mutation({
       label,
       enabled: true,
       definition: args.definition,
+      completionCount: 0,
       createdAt: now,
       updatedAt: now,
     })
@@ -266,7 +275,7 @@ export const execute = mutation({
         previous.ownerKey === identity.ownerKey &&
         !previous.undoneAt
       ) {
-        return executionResult(previous, true)
+        return executionResult(previous, true, action.completionCount ?? 0)
       }
     }
 
@@ -286,6 +295,15 @@ export const execute = mutation({
         }
         break
       }
+      case 'reminder': {
+        outcome = {
+          type: 'reminder',
+          localDate: args.localDate,
+          timeZone: args.timeZone,
+          appliedCount: 1,
+        }
+        break
+      }
     }
 
     const executionId = await ctx.db.insert('nfcActionExecutions', {
@@ -296,13 +314,15 @@ export const execute = mutation({
       outcome,
       executedAt: now,
     })
+    const completionCount = (action.completionCount ?? 0) + 1
     await ctx.db.patch('nfcActions', action._id, {
+      completionCount,
       lastExecutionId: executionId,
       lastExecutedAt: now,
     })
     const execution = await ctx.db.get('nfcActionExecutions', executionId)
     if (!execution) throw new Error('NFC action execution disappeared')
-    return executionResult(execution, false)
+    return executionResult(execution, false, completionCount)
   },
 })
 
@@ -338,6 +358,20 @@ export const undo = mutation({
         }
         break
       }
+      case 'reminder': {
+        outcome = {
+          ...execution.outcome,
+          appliedCount: -execution.outcome.appliedCount,
+        }
+        break
+      }
+    }
+
+    const action = await ctx.db.get('nfcActions', execution.actionId)
+    let completionCount = 0
+    if (action && action.ownerKey === identity.ownerKey) {
+      completionCount = Math.max(0, (action.completionCount ?? 0) - 1)
+      await ctx.db.patch('nfcActions', action._id, { completionCount })
     }
 
     await ctx.db.patch('nfcActionExecutions', execution._id, { undoneAt: now })
@@ -345,6 +379,7 @@ export const undo = mutation({
       action: {
         label: execution.actionLabel,
         definition: execution.definition,
+        completionCount,
       },
       outcome,
       undoneAt: now,
