@@ -35,7 +35,7 @@ describe("Bee CLI session", () => {
 
     expect(prompts).toEqual([
       "Move the position",
-      'For “Which network should I use?”, my answer is “Arbitrum”.',
+      "For “Which network should I use?”, my answer is “Arbitrum”.",
     ]);
   });
 
@@ -52,7 +52,10 @@ describe("Bee CLI session", () => {
         createClient: () =>
           ({
             send: async () => ({ submissionId: "submission-1" }),
-            read: async (_admission: unknown, options: { onEvent?: (event: unknown) => void }) => {
+            read: async (
+              _admission: unknown,
+              options: { onEvent?: (event: unknown) => void },
+            ) => {
               const emit = options.onEvent;
               emit?.({
                 type: "message-started",
@@ -281,8 +284,65 @@ describe("Bee CLI session", () => {
     const prompts: string[] = [];
     const replies = [
       `Confirm this.\n\`\`\`beeui\n{"components":[{"type":"confirm","summary":"Swap 10 USDC for ETH","action":"web3","payload":{"web3ActionId":"action-1"}}]}\n\`\`\``,
-      "The swap is in progress.",
     ];
+    let status = "pending";
+    const session = createBeeSession(
+      {
+        agentUrl: "https://agent.example.test",
+        userId: "user_owner",
+        getToken: async () => "clerk-token",
+      },
+      { load: async () => 7, save: async () => undefined },
+      {
+        fetch: async (_input, init) => {
+          const action = JSON.parse(String(init?.body)) as Record<
+            string,
+            unknown
+          >;
+          actions.push(action);
+          if (action.action === "confirm_web3") status = "confirmed";
+          return action.action === "get_web3_action"
+            ? Response.json({
+                id: "action-1",
+                summary: "Swap 10 USDC for ETH",
+                kind: "socket_swap",
+                status,
+                autoConfirmed: false,
+              })
+            : Response.json(null);
+        },
+        createClient: () =>
+          ({
+            send: async ({ message }: { message: { body: string } }) => {
+              prompts.push(message.body);
+              return { submissionId: `submission-${prompts.length}` };
+            },
+            read: async () => ({ text: replies.shift() ?? "" }),
+          }) as unknown as FlueClient,
+      },
+    );
+
+    expect(await session.ask("Prepare the swap")).toContain(
+      "Needs your confirmation",
+    );
+    expect(await session.ask("yes")).toContain("Web3 action in progress");
+
+    expect(actions).toEqual([
+      { action: "get_web3_action", actionId: "action-1" },
+      { action: "get_web3_action", actionId: "action-1" },
+      {
+        action: "confirm_web3",
+        actionId: "action-1",
+        summary: "Swap 10 USDC for ETH",
+      },
+      { action: "get_web3_action", actionId: "action-1" },
+    ]);
+    expect(prompts).toEqual(["Prepare the swap"]);
+  });
+
+  test("does not arm text confirmation for a linked-wallet action", async () => {
+    const actions: Record<string, unknown>[] = [];
+    const prompts: string[] = [];
     const session = createBeeSession(
       {
         agentUrl: "https://agent.example.test",
@@ -299,8 +359,9 @@ describe("Bee CLI session", () => {
           actions.push(action);
           return action.action === "get_web3_action"
             ? Response.json({
-                id: "action-1",
-                summary: "Swap 10 USDC for ETH",
+                id: "action-eoa",
+                summary: "Claim fees from your linked wallet",
+                kind: "execute_eoa_plan",
                 status: "pending",
                 autoConfirmed: false,
               })
@@ -312,22 +373,22 @@ describe("Bee CLI session", () => {
               prompts.push(message.body);
               return { submissionId: `submission-${prompts.length}` };
             },
-            read: async () => ({ text: replies.shift() ?? "" }),
+            read: async () => ({
+              text: `\`\`\`beeui\n{"components":[{"type":"confirm","summary":"Claim fees","action":"web3","payload":{"web3ActionId":"action-eoa"}}]}\n\`\`\``,
+            }),
           }) as unknown as FlueClient,
       },
     );
 
-    await session.ask("Prepare the swap");
+    expect(await session.ask("Claim my fees")).toContain(
+      "Open BeeGreat to sign",
+    );
     await session.ask("yes");
 
     expect(actions).toEqual([
-      { action: "get_web3_action", actionId: "action-1" },
-      {
-        action: "confirm_web3",
-        actionId: "action-1",
-        summary: "Swap 10 USDC for ETH",
-      },
+      { action: "get_web3_action", actionId: "action-eoa" },
+      { action: "get_web3_action", actionId: "action-eoa" },
     ]);
-    expect(prompts[1]).toContain("explicitly authorized the exact Web3 action");
+    expect(prompts).toEqual(["Claim my fees"]);
   });
 });

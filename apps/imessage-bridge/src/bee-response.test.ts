@@ -7,8 +7,10 @@ import {
   isWeb3Cancellation,
   isWeb3Confirmation,
   latestFirstFocusPreview,
+  latestQuestion,
   latestWeb3Confirmation,
   projectWeb3Action,
+  resolveQuestionAnswer,
 } from './bee-response'
 
 describe('iMessage Bee response projection', () => {
@@ -25,21 +27,17 @@ describe('iMessage Bee response projection', () => {
     {"type":"highlight","title":"Today","body":"Ship the bridge"},
     {"type":"bookmark","title":"Spectrum docs","url":"https://photon.codes/spectrum","note":"Messaging reference."},
     {"type":"devin","title":"Parity work","status":"running","statusDetail":"Implementing","sessionId":"devin-secret123","sessionUrl":"https://app.devin.ai/sessions/example","summary":"Working through the adapter.","pullRequests":[{"url":"https://github.com/example/repo/pull/1","state":"open"}]},
+    {"type":"question","questions":[{"header":"Fees","question":"What should I do?","options":[{"label":"Claim","description":"Claim the fees."},{"label":"Leave staked"}]}]},
     {"type":"confirm","summary":"Send 5 USDC","action":"send_tokens","payload":{"web3ActionId":"0x123","recipient":"0x456"}}
   ]
 }
 \`\`\``)
 
     expect(response.spoken).toBe('Here is the useful part.')
-    expect(response.markdown).toContain('**Open tasks:** 3 — down 2')
-    expect(response.markdown).toContain('**This week**')
-    expect(response.markdown).toContain('Mon: 2 tasks')
-    expect(response.markdown).toContain('☐ Ship the bridge — Friday')
-    expect(response.markdown).toContain('**Today**')
-    expect(response.markdown).toContain('**Needs your confirmation**')
-    expect(response.markdown).toContain(
-      'Reply **yes** to authorize this exact action or **no** to cancel it.',
-    )
+    expect(response.markdown).toContain('Fees — What should I do?')
+    expect(response.markdown).toContain('[1] Claim — Claim the fees.')
+    expect(response.markdown).not.toContain('Open tasks')
+    expect(response.markdown).not.toContain('Needs your confirmation')
     expect(response.markdown).not.toContain('j970123456789012345678901234567')
     expect(response.markdown).not.toContain('devin-secret123')
     expect(response.markdown).not.toContain('0x123')
@@ -47,6 +45,9 @@ describe('iMessage Bee response projection', () => {
       actionId: '0x123',
       summary: 'Send 5 USDC',
     })
+    expect(response.question?.questions[0]?.options?.[1]?.label).toBe(
+      'Leave staked',
+    )
     expect(response.links).toEqual([
       'https://photon.codes/spectrum',
       'https://app.devin.ai/sessions/example',
@@ -62,7 +63,9 @@ describe('iMessage Bee response projection', () => {
 
     expect(response.markdown).toContain('**Your first focus**')
     expect(response.markdown).toContain('Goal: Launch BeeGreat')
-    expect(response.markdown).toContain('Reply **yes** to create it or **no** to cancel.')
+    expect(response.markdown).toContain(
+      'Reply **yes** to create it or **no** to cancel.',
+    )
     expect(response.markdown).not.toContain('first-focus-secret')
     expect(response.firstFocus).toEqual({
       type: 'first_focus',
@@ -110,9 +113,27 @@ describe('iMessage Bee response projection', () => {
       status: 'confirmed',
       autoConfirmed: true,
     })
-    expect(automatic.markdown).toContain('**Auto-approved · YOLO mode**')
-    expect(automatic.markdown).not.toContain('Reply **yes**')
+    expect(automatic.markdown).toContain('Auto-approved · YOLO mode')
+    expect(automatic.markdown).not.toContain('Reply yes')
     expect(automatic.web3Confirmation).toBeUndefined()
+  })
+
+  test('routes linked-wallet confirmations to BeeGreat instead of accepting yes', () => {
+    const prepared = extractBeeResponse(
+      '```beeui\n{"components":[{"type":"confirm","summary":"Claim fees from your linked wallet","action":"claim_fees","payload":{"web3ActionId":"action-id"}}]}\n```',
+    )
+
+    const projected = projectWeb3Action(prepared, {
+      kind: 'execute_eoa_plan',
+      summary: 'Claim fees from your linked wallet',
+      status: 'pending',
+      autoConfirmed: false,
+    })
+
+    expect(projected.markdown).toContain('Open BeeGreat to sign')
+    expect(projected.markdown).not.toContain('Reply yes')
+    expect(projected.web3Confirmation).toBeUndefined()
+    expect(projected.links).toContain('https://beegreat.app')
   })
 })
 
@@ -224,5 +245,28 @@ describe('iMessage app-equivalent commands', () => {
     ])
 
     expect(confirmation).toBeUndefined()
+  })
+
+  test('keeps the blocking question from an accumulated assistant envelope', () => {
+    const messages = [
+      {
+        role: 'assistant',
+        parts: [
+          { type: 'text', text: 'The claim has started.' },
+          { type: 'text', text: 'The emissions claim completed.' },
+          {
+            type: 'text',
+            text: '```beeui\n{"components":[{"type":"question","questions":[{"header":"LP fees","question":"Should I unstake, claim, and restake?","options":[{"label":"Yes"},{"label":"Leave staked"}]}]}]}\n```',
+          },
+          { type: 'text', text: 'A completion audit ran.' },
+        ],
+      },
+    ]
+
+    const question = latestQuestion(messages)
+    expect(question?.questions[0]?.question).toContain('unstake')
+    expect(resolveQuestionAnswer(question, '1')).toBe(
+      'For “Should I unstake, claim, and restake?”, my answer is “Yes”.',
+    )
   })
 })

@@ -1,4 +1,10 @@
 import { useState } from 'react'
+import {
+  GOOGLE_WORKSPACE_DISCLOSURE,
+  GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
+  GOOGLE_WORKSPACE_SERVICES,
+  type GoogleWorkspaceService,
+} from '@beegreat/tool-presentation'
 import { useBeennectors } from './use-beennectors'
 import type { ReactNode } from 'react'
 import type { BeennectorProvider } from './use-beennectors'
@@ -68,33 +74,60 @@ const MARKS: Record<BeennectorProvider, ReactNode> = {
   notion: <NotionLogo />,
   google: <GoogleLogo />,
 }
+const PROVIDER_NAMES: Record<BeennectorProvider, string> = {
+  github: 'GitHub',
+  linear: 'Linear',
+  notion: 'Notion',
+  google: 'Google Workspace',
+}
 
 export function BeennectorsSettings() {
   const beennectors = useBeennectors()
   const [working, setWorking] = useState<BeennectorProvider>()
   const [info, setInfo] = useState<BeennectorProvider>()
-  const [error, setError] = useState<string>()
+  const [googleDisclosureOpen, setGoogleDisclosureOpen] = useState(false)
+  const [googleServices, setGoogleServices] = useState<GoogleWorkspaceService[]>([])
+  const [error, setError] = useState<{
+    provider: BeennectorProvider
+    message: string
+  }>()
 
   if (!beennectors.connections) {
     return <div className="settings-skeleton">Loading Beennectors…</div>
   }
 
-  async function toggle(provider: BeennectorProvider, connected: boolean) {
+  async function toggle(provider: BeennectorProvider, disconnecting: boolean) {
     if (working) return
+    if (provider === 'google' && !disconnecting && !googleDisclosureOpen) {
+      setGoogleDisclosureOpen(true)
+      setInfo(undefined)
+      return
+    }
     setWorking(provider)
     setError(undefined)
     try {
-      if (connected) await beennectors.disconnect(provider)
-      else await beennectors.connect(provider)
+      if (disconnecting) await beennectors.disconnect(provider)
+      else
+        await beennectors.connect(
+          provider,
+          provider === 'google'
+            ? {
+                services: googleServices,
+                disclosureVersion: GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
+              }
+            : undefined,
+        )
     } catch (cause) {
       captureWebFailure(cause, 'beennector.connection', { provider })
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : `Could not update the ${provider} Beennector.`,
-      )
+      setError({
+        provider,
+        message: disconnecting
+          ? `Could not disconnect ${PROVIDER_NAMES[provider]}. Try again.`
+          : `Could not start ${PROVIDER_NAMES[provider]} sign-in. Try again.`,
+      })
     } finally {
       setWorking(undefined)
+      if (provider === 'google') setGoogleDisclosureOpen(false)
     }
   }
 
@@ -156,17 +189,63 @@ export function BeennectorsSettings() {
                 receives the results of approved Beennector operations.
               </p>
             ) : null}
+            {connection.provider === 'google' && googleDisclosureOpen ? (
+              <div className="google-workspace-disclosure">
+                <strong>Choose what BeeGreat may access</strong>
+                <div className="google-workspace-services">
+                  {GOOGLE_WORKSPACE_SERVICES.map((service) => {
+                    const selected = googleServices.includes(service.id)
+                    return (
+                      <label className="google-workspace-service" key={service.id}>
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() =>
+                            setGoogleServices((current) =>
+                              selected
+                                ? current.filter((item) => item !== service.id)
+                                : [...current, service.id],
+                            )
+                          }
+                        />
+                        <span>
+                          <strong>{service.name}</strong>
+                          <small>{service.access}</small>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="settings-help">{GOOGLE_WORKSPACE_DISCLOSURE}</p>
+                <p className="settings-help">
+                  By continuing, you consent to this access and processing. See
+                  BeeGreat’s Privacy Policy for full details.
+                </p>
+              </div>
+            ) : null}
             {connection.message ? (
               <p className="inline-error" role="alert">
                 {connection.message}
+              </p>
+            ) : null}
+            {error?.provider === connection.provider ? (
+              <p className="inline-error" role="alert">
+                {error.message}
               </p>
             ) : null}
             <div className="connection-card__actions">
               <button
                 className={`button ${connected ? 'button--danger' : 'button--primary'}`}
                 type="button"
-                disabled={Boolean(working) || pending}
-                onClick={() => void toggle(connection.provider, connected)}
+                disabled={
+                  Boolean(working) ||
+                  (connection.provider === 'google' &&
+                    googleDisclosureOpen &&
+                    googleServices.length === 0)
+                }
+                onClick={() =>
+                  void toggle(connection.provider, connected || pending)
+                }
               >
                 {working === connection.provider
                   ? connected
@@ -175,18 +254,17 @@ export function BeennectorsSettings() {
                   : connected
                     ? `Disconnect ${connection.name}`
                     : pending
-                      ? `Waiting for ${connection.name}…`
-                      : `Connect ${connection.name}`}
+                      ? `Cancel ${connection.name}`
+                      : connection.provider === 'google' && googleDisclosureOpen
+                        ? googleServices.length
+                          ? 'I understand — continue to Google'
+                          : 'Choose at least one service'
+                        : `Connect ${connection.name}`}
               </button>
             </div>
           </article>
         )
       })}
-      {error ? (
-        <p className="inline-error" role="alert">
-          {error}
-        </p>
-      ) : null}
     </>
   )
 }

@@ -11,7 +11,7 @@ import {
   useAudioRecorder,
 } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { OrbState } from '@/components/agent/voice-orb';
 import { useBeeLiveActivity } from '@/hooks/use-live-activity';
@@ -61,10 +61,11 @@ export function useVoiceAgent() {
   const conversationId = userId ? (thread > 0 ? `${userId}~${thread}` : userId) : 'signed-out';
   // Flue 2.0 clients are conversation-scoped, so a thread switch needs a
   // client addressed at the new conversation URL.
-  const [client, setClient] = useState(() => createBeeFlueClient(conversationId));
-  useEffect(() => {
-    setClient(createBeeFlueClient(conversationId));
-  }, [conversationId]);
+  const [reconnectVersion, setReconnectVersion] = useState(0);
+  const client = useMemo(
+    () => createBeeFlueClient(conversationId, reconnectVersion),
+    [conversationId, reconnectVersion],
+  );
   const agent = useFlueAgent({
     live: BEE_AGENT_LIVE_MODE,
     client,
@@ -96,7 +97,7 @@ export function useVoiceAgent() {
     }
     const delay = Math.min(1500 * 2 ** reconnectAttempts.current++, 15000);
     const timer = setTimeout(
-      () => setClient(createBeeFlueClient(conversationId)),
+      () => setReconnectVersion((version) => version + 1),
       delay,
     );
     return () => clearTimeout(timer);

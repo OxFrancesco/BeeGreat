@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -135,14 +136,24 @@ export default function VoiceConversationScreen() {
         ) : null}
 
         {conversation.errorMessage ? (
-          <ThemedText
-            selectable
-            type="small"
-            themeColor="destructive"
-            style={styles.error}
+          <View
+            style={[
+              styles.errorCard,
+              { backgroundColor: theme.card, borderColor: theme.border },
+            ]}
           >
-            {conversation.errorMessage}
-          </ThemedText>
+            <SymbolView
+              name="exclamationmark.bubble.fill"
+              size={18}
+              tintColor={theme.destructive}
+            />
+            <View style={styles.errorCopy}>
+              <ThemedText type="smallBold">Bee couldn’t connect</ThemedText>
+              <ThemedText selectable type="small" themeColor="textSecondary">
+                {conversation.errorMessage}
+              </ThemedText>
+            </View>
+          </View>
         ) : null}
 
         <Pressable
@@ -237,9 +248,16 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     borderWidth: StyleSheet.hairlineWidth,
   },
-  error: {
-    textAlign: 'center',
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.two,
+    padding: Spacing.three,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 16,
+    borderCurve: 'continuous',
   },
+  errorCopy: { flex: 1, gap: Spacing.one },
   action: {
     minHeight: 48,
     alignItems: 'center',

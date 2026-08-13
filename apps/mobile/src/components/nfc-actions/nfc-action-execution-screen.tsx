@@ -2,8 +2,10 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import { useMutation } from 'convex/react';
 import * as Haptics from 'expo-haptics';
+import type { Href } from 'expo-router';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
+import type { SymbolViewProps } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -13,7 +15,71 @@ import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { useCurrentLocalDay } from '@/hooks/use-current-local-day';
 import { useTheme } from '@/hooks/use-theme';
 
+import { completionCopy } from './reminder-actions-screen';
+
 type Execution = FunctionReturnType<typeof api.nfcActions.execute>;
+type UndoResult = FunctionReturnType<typeof api.nfcActions.undo>;
+type ActionType = Execution['action']['definition']['type'];
+type Theme = ReturnType<typeof useTheme>;
+
+function appliedMl(result: Execution) {
+  return result.outcome.type === 'hydration' ? result.outcome.appliedMl : 0;
+}
+
+function undoneMl(undone: UndoResult) {
+  const removed =
+    undone.outcome.type === 'hydration' ? Math.abs(undone.outcome.appliedMl) : 0;
+  const configured =
+    undone.action.definition.type === 'hydration' ? undone.action.definition.amountMl : 0;
+  return removed || configured;
+}
+
+/** Per-action-type copy and styling; everything else in this screen is the
+ * shared run → success/duplicate → undo flow. */
+const PRESENTATIONS: Record<
+  ActionType,
+  {
+    symbol: SymbolViewProps['name'];
+    glyph: string;
+    colors: (theme: Theme) => { background: string; foreground: string };
+    route: Href;
+    cta: string;
+    duplicateTitle: string;
+    successTitle: (result: Execution) => string;
+    successBody: (result: Execution) => string;
+    undoneTitle: string;
+    undoneBody: (undone: UndoResult) => string;
+  }
+> = {
+  hydration: {
+    symbol: 'drop.fill',
+    glyph: '●',
+    colors: () => ({ background: '#DDF3FA', foreground: '#2F8795' }),
+    route: '/bee-healthy/water',
+    cta: 'View Water',
+    duplicateTitle: 'Already logged',
+    successTitle: (result) => `Added ${appliedMl(result)} ml`,
+    successBody: (result) => `${result.action.label} updated today’s water.`,
+    undoneTitle: 'Water entry undone',
+    undoneBody: (undone) => `Removed ${undoneMl(undone)} ml from today’s water.`,
+  },
+  reminder: {
+    symbol: 'checkmark.circle.fill',
+    glyph: '✓',
+    colors: (theme) => ({
+      background: theme.secondary,
+      foreground: theme.secondaryForeground,
+    }),
+    route: '/goals/reminders',
+    cta: 'View Reminders',
+    duplicateTitle: 'Already counted',
+    successTitle: (result) => `${result.action.label} counted`,
+    successBody: (result) => `Completion ${result.action.completionCount} is saved.`,
+    undoneTitle: 'Reminder count undone',
+    undoneBody: (undone) =>
+      `${undone.action.label} is back to ${completionCopy(undone.action.completionCount)}.`,
+  },
+};
 
 export function NfcActionExecutionScreen() {
   const theme = useTheme();
@@ -25,6 +91,7 @@ export function NfcActionExecutionScreen() {
   const undo = useMutation(api.nfcActions.undo);
   const started = useRef(false);
   const [result, setResult] = useState<Execution | null>(null);
+  const [undone, setUndone] = useState<UndoResult | null>(null);
   const [status, setStatus] = useState<'running' | 'success' | 'undone' | 'error'>(
     validPublicId ? 'running' : 'error',
   );
@@ -44,9 +111,15 @@ export function NfcActionExecutionScreen() {
       .catch(() => setStatus('error'));
   }, [execute, localDate, publicId, timeZone, validPublicId]);
 
-  const amount = result?.outcome.type === 'hydration' ? result.outcome.appliedMl : 0;
-  const configuredAmount =
-    result?.action.definition.type === 'hydration' ? result.action.definition.amountMl : 0;
+  const presentation = result ? PRESENTATIONS[result.action.definition.type] : undefined;
+  const iconColors = presentation?.colors(theme);
+  const canUndo =
+    status === 'success' &&
+    result !== null &&
+    !result.duplicate &&
+    (result.outcome.type === 'hydration'
+      ? result.outcome.appliedMl > 0
+      : result.outcome.appliedCount > 0);
 
   return (
     <ThemedView style={styles.container}>
@@ -60,7 +133,7 @@ export function NfcActionExecutionScreen() {
               <ActivityIndicator size="large" color={theme.primary} />
               <ThemedText style={styles.title}>Running tap action…</ThemedText>
             </>
-          ) : status === 'error' ? (
+          ) : status === 'error' || !result || !presentation ? (
             <>
               <View style={[styles.icon, { backgroundColor: theme.backgroundElement }]}>
                 <SymbolView
@@ -75,7 +148,7 @@ export function NfcActionExecutionScreen() {
                 It may be disabled, deleted, or registered to another BeeGreat account.
               </ThemedText>
             </>
-          ) : status === 'undone' ? (
+          ) : status === 'undone' && undone ? (
             <>
               <View style={[styles.icon, { backgroundColor: theme.backgroundElement }]}>
                 <SymbolView
@@ -85,35 +158,41 @@ export function NfcActionExecutionScreen() {
                   fallback={<ThemedText>↶</ThemedText>}
                 />
               </View>
-              <ThemedText style={styles.title}>Water entry undone</ThemedText>
+              <ThemedText style={styles.title}>{presentation.undoneTitle}</ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.body}>
-                Removed {amount || configuredAmount} ml from today’s water.
+                {presentation.undoneBody(undone)}
               </ThemedText>
             </>
           ) : (
             <>
-              <View style={[styles.icon, { backgroundColor: '#DDF3FA' }]}>
+              <View style={[styles.icon, { backgroundColor: iconColors?.background }]}>
                 <SymbolView
-                  name="drop.fill"
+                  name={presentation.symbol}
                   size={30}
-                  tintColor="#2F8795"
-                  fallback={<ThemedText style={{ color: '#2F8795' }}>●</ThemedText>}
+                  tintColor={iconColors?.foreground}
+                  fallback={
+                    <ThemedText style={{ color: iconColors?.foreground }}>
+                      {presentation.glyph}
+                    </ThemedText>
+                  }
                 />
               </View>
               <ThemedText style={styles.title}>
-                {result?.duplicate ? 'Already logged' : `Added ${amount} ml`}
+                {result.duplicate
+                  ? presentation.duplicateTitle
+                  : presentation.successTitle(result)}
               </ThemedText>
               <ThemedText themeColor="textSecondary" style={styles.body}>
-                {result?.duplicate
+                {result.duplicate
                   ? `The repeated tap was ignored. ${result.action.label} already ran.`
-                  : `${result?.action.label ?? 'Your NFC action'} updated today’s water.`}
+                  : presentation.successBody(result)}
               </ThemedText>
             </>
           )}
 
           {status !== 'running' ? (
             <View style={styles.actions}>
-              {status === 'success' && result && !result.duplicate && amount > 0 ? (
+              {canUndo && result ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityState={{ busy: undoing }}
@@ -121,7 +200,10 @@ export function NfcActionExecutionScreen() {
                   onPress={() => {
                     setUndoing(true);
                     void undo({ executionId: result.executionId })
-                      .then(() => setStatus('undone'))
+                      .then((undoResult) => {
+                        setUndone(undoResult);
+                        setStatus('undone');
+                      })
                       .catch(() => setStatus('error'))
                       .finally(() => setUndoing(false));
                   }}
@@ -140,7 +222,7 @@ export function NfcActionExecutionScreen() {
               ) : null}
               <Pressable
                 accessibilityRole="button"
-                onPress={() => router.replace('/bee-healthy/water')}
+                onPress={() => router.replace(presentation?.route ?? '/goals')}
                 style={({ pressed }) => [
                   styles.primaryButton,
                   { backgroundColor: theme.primary },
@@ -148,7 +230,7 @@ export function NfcActionExecutionScreen() {
                 ]}
               >
                 <ThemedText type="smallBold" style={{ color: theme.primaryForeground }}>
-                  View Water
+                  {presentation?.cta ?? 'Open Goals'}
                 </ThemedText>
               </Pressable>
             </View>

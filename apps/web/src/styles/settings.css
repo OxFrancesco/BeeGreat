@@ -697,6 +697,28 @@
   font-size: 0.73rem;
   line-height: 1.5;
 }
+
+.google-workspace-disclosure,
+.google-workspace-services {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.google-workspace-service {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.google-workspace-service span,
+.google-workspace-service small {
+  display: grid;
+  gap: 0.25rem;
+}
 .beennector-card {
   position: relative;
   min-height: 214px;
@@ -743,6 +765,30 @@
   font-size: 1rem;
   font-weight: 800;
   transform: rotate(-12deg);
+}
+.connection-mark--imessage {
+  background: #34c759;
+  color: #fff;
+}
+.imessage-address-list {
+  display: grid;
+  padding: 0;
+  margin: 0;
+  gap: 8px;
+  list-style: none;
+}
+.imessage-address-list li {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  border-radius: 14px;
+  background: var(--surface-muted);
+  gap: 12px;
+}
+.imessage-address-list li span {
+  font-variant-numeric: tabular-nums;
 }
 .beennector-status {
   flex: 0 0 auto;

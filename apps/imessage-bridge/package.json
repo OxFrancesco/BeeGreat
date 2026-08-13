@@ -9,6 +9,7 @@
     "check:types": "tsc --noEmit"
   },
   "dependencies": {
+    "@beegreat/chat-sync": "workspace:*",
     "@beegreat/observability": "workspace:*",
     "@beegreat/tool-presentation": "workspace:*",
     "@flue/sdk": "2.0.3",

@@ -1,4 +1,6 @@
 import { toError } from '@beegreat/observability'
+import { changedMessagesForConvexSync } from '@beegreat/chat-sync'
+import { projectTextWeb3Action } from '@beegreat/tool-presentation'
 import {
   createFlueClient,
   FlueApiError,
@@ -6,13 +8,7 @@ import {
   type FlueClient,
 } from '@flue/sdk'
 import * as Sentry from '@sentry/bun'
-import {
-  markdown,
-  richlink,
-  type Space,
-  Spectrum,
-  text,
-} from 'spectrum-ts'
+import { markdown, richlink, type Space, Spectrum, text } from 'spectrum-ts'
 import { effect, imessage } from 'spectrum-ts/providers/imessage'
 import { promptFailureReply } from './agent-error'
 import {
@@ -23,18 +19,23 @@ import {
   isWeb3Cancellation,
   isWeb3Confirmation,
   latestFirstFocusPreview,
+  latestQuestion,
   latestWeb3Confirmation,
   projectWeb3Action,
+  resolveQuestionAnswer,
   type FirstFocusPreview,
   type Web3ActionProjection,
 } from './bee-response'
+import { createIdentityClient, normalizeAddress } from './identity'
 import { createIMessageProgressReporter } from './progress'
 
 // Bridges iMessage (via Spectrum Cloud) to the BeeGreat Flue agent worker.
-// Only senders in IMESSAGE_USER_MAP are answered; everyone else is ignored.
+// Senders linked in Convex are answered as their BeeGreat user; unknown
+// senders get one magic link to sign in or sign up and link this address.
 
 const BEE_AGENT_NAME = 'bee'
 const NEW_CONVERSATION_COMMANDS = new Set(['/clear', '/new'])
+const UNLINK_COMMANDS = new Set(['/unlink', '/disconnect'])
 
 type ChannelContext = {
   threadId: number
@@ -54,6 +55,29 @@ type IncomingPrompt = {
 
 type BeeReply = ReturnType<typeof extractBeeResponse>
 
+type ClaimedDelivery = {
+  deliveryId: string
+  leaseId: string
+  address: string
+  action: {
+    summary: string
+    kind: NonNullable<Web3ActionProjection['kind']>
+    status: 'executed' | 'failed' | 'refunded' | 'expired'
+    detail?: string
+    error?: string
+    explorerLink?: string
+  }
+}
+
+function replyForWeb3Action(action: Web3ActionProjection): BeeReply {
+  const projected = projectTextWeb3Action(action)
+  return {
+    spoken: '',
+    markdown: projected.text,
+    links: projected.links,
+  }
+}
+
 function captureBridgeFailure(
   error: unknown,
   operation: string,
@@ -68,12 +92,21 @@ function captureBridgeFailure(
   })
 }
 
-const REQUIRED_ENV = ['PROJECT_ID', 'PROJECT_SECRET', 'AGENT_URL', 'BRIDGE_SECRET', 'IMESSAGE_USER_MAP']
+const REQUIRED_ENV = [
+  'PROJECT_ID',
+  'PROJECT_SECRET',
+  'AGENT_URL',
+  'BRIDGE_SECRET',
+]
 const missing = REQUIRED_ENV.filter((name) => !process.env[name])
 if (missing.length > 0) {
-  console.warn(`imessage-bridge: not configured (missing ${missing.join(', ')}); see .env.example`)
+  console.warn(
+    `imessage-bridge: not configured (missing ${missing.join(', ')}); see .env.example`,
+  )
   captureBridgeFailure(
-    new Error(`iMessage bridge configuration is incomplete: ${missing.join(', ')}`),
+    new Error(
+      `iMessage bridge configuration is incomplete: ${missing.join(', ')}`,
+    ),
     'startup.configuration',
   )
   await Sentry.flush(2_000)
@@ -86,31 +119,10 @@ const bridgeHeaders = {
   'x-bridge-secret': BRIDGE_SECRET,
 }
 
-/** Phone numbers compare without formatting; emails compare lowercased. */
-function normalizeAddress(address: string) {
-  const trimmed = address.trim().toLowerCase()
-  return trimmed.includes('@') ? trimmed : trimmed.replace(/[\s().-]/g, '')
-}
-
-function parseUserMap(raw: string) {
-  const map = new Map<string, string>()
-  for (const pair of raw.split(',')) {
-    const [address, userId] = pair.split('=').map((part) => part.trim())
-    if (address && userId) map.set(normalizeAddress(address), userId)
-  }
-  return map
-}
-
-const userMap = parseUserMap(process.env.IMESSAGE_USER_MAP!)
-if (userMap.size === 0) {
-  console.warn('imessage-bridge: IMESSAGE_USER_MAP has no valid `sender=clerkUserId` pairs')
-  captureBridgeFailure(
-    new Error('IMESSAGE_USER_MAP has no valid entries'),
-    'startup.user_map',
-  )
-  await Sentry.flush(2_000)
-  process.exit(1)
-}
+const identity = createIdentityClient({
+  agentUrl: AGENT_URL,
+  bridgeSecret: BRIDGE_SECRET,
+})
 
 function conversationId(userId: string, threadId: number) {
   return threadId > 0 ? `${userId}~${threadId}` : userId
@@ -137,18 +149,22 @@ async function channelAction<T>(
   userId: string,
   body: Record<string, unknown>,
 ): Promise<T> {
-  const response = await fetch(`${AGENT_URL.replace(/\/$/, '')}/bridge/channel`, {
-    method: 'POST',
-    headers: {
-      ...bridgeHeaders,
-      'x-bridge-user': userId,
-      'content-type': 'application/json',
+  const response = await fetch(
+    `${AGENT_URL.replace(/\/$/, '')}/bridge/channel`,
+    {
+      method: 'POST',
+      headers: {
+        ...bridgeHeaders,
+        'x-bridge-user': userId,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  })
-  const result = (await response.json().catch(() => null)) as
-    | Record<string, unknown>
-    | null
+  )
+  const result = (await response.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null
   if (!response.ok) {
     const message =
       result && typeof result.error === 'string'
@@ -162,6 +178,25 @@ async function channelAction<T>(
   return result as T
 }
 
+async function outboxAction<T>(
+  action: 'claim_delivery' | 'complete_delivery' | 'retry_delivery',
+  input: Record<string, unknown>,
+): Promise<T> {
+  const response = await fetch(
+    `${AGENT_URL.replace(/\/$/, '')}/bridge/outbox`,
+    {
+      method: 'POST',
+      headers: { ...bridgeHeaders, 'content-type': 'application/json' },
+      body: JSON.stringify({ action, ...input }),
+    },
+  )
+  const result = (await response.json().catch(() => null)) as T
+  if (!response.ok) {
+    throw new Error(`iMessage outbox failed (HTTP ${response.status})`)
+  }
+  return result
+}
+
 async function web3ActionFor(userId: string, actionId: string) {
   return await channelAction<(Web3ActionProjection & { id: string }) | null>(
     userId,
@@ -170,6 +205,50 @@ async function web3ActionFor(userId: string, actionId: string) {
       actionId,
     },
   )
+}
+
+async function syncDirectExchange(
+  userId: string,
+  threadId: number,
+  messageId: string,
+  prompt: string,
+  reply: BeeReply,
+  createdAt: number,
+) {
+  const assistantText = reply.markdown || reply.spoken
+  if (!assistantText) return
+  const messages = [
+    {
+      id: `imessage:${messageId}:user`,
+      role: 'user' as const,
+      text: prompt,
+      createdAt,
+    },
+    {
+      id: `imessage:${messageId}:assistant`,
+      role: 'assistant' as const,
+      text: assistantText,
+      createdAt: createdAt + 1,
+    },
+  ].map(({ id, role, text: body, createdAt: timestamp }) => ({
+    id,
+    role,
+    contentJson: JSON.stringify({
+      id,
+      role,
+      parts: [{ type: 'text', text: body, state: 'done' }],
+      metadata: {
+        timestamp: new Date(timestamp).toISOString(),
+        channel: 'imessage',
+      },
+    }),
+    createdAt: timestamp,
+  }))
+  await channelAction(userId, {
+    action: 'sync_transcript',
+    threadId,
+    messages,
+  })
 }
 
 /** Sends one prompt to Bee and returns both spoken copy and projected UI. */
@@ -193,12 +272,45 @@ async function askBee(
         ...(images.length ? { attachments: images } : {}),
       },
     })
+    let currentStepText = ''
+    let finalStepText = ''
     // read() awaits settlement and resolves with the reply; wait() alone no
     // longer carries the assistant text in Flue 2.0.
     const result = await client.read(admission, {
-      onEvent: (event) => progress.event(event),
+      onEvent: (event) => {
+        progress.event(event)
+        if (event.type === 'message-started') {
+          currentStepText = ''
+        } else if (event.type === 'message-delta' && event.kind === 'text') {
+          currentStepText += event.delta
+        } else if (
+          event.type === 'message-completed' &&
+          currentStepText.trim()
+        ) {
+          finalStepText = currentStepText
+        }
+      },
     })
-    return extractBeeResponse(result.text)
+    try {
+      const messages = changedMessagesForConvexSync(
+        (await client.history()).messages,
+        new Map(),
+      ).slice(-200)
+      await channelAction(userId, {
+        action: 'sync_transcript',
+        threadId,
+        messages,
+      })
+    } catch (error) {
+      // A transcript mirror outage must not suppress an otherwise valid reply.
+      captureBridgeFailure(error, 'transcript.sync', userId)
+    }
+    // Flue accumulates tool stages in one envelope. The final completed text
+    // step is the coherent user-facing stage; fall back only for transports
+    // that do not emit text deltas.
+    return extractBeeResponse(
+      (finalStepText || currentStepText).trim() || result.text,
+    )
   } finally {
     await progress.stop()
   }
@@ -212,13 +324,14 @@ async function latestInteractiveReply(userId: string, threadId: number) {
     // Flue 2 only creates a conversation's stream on its first prompt, so a
     // fresh thread has no history yet — that just means nothing interactive.
     if (error instanceof FlueApiError && error.status === 404) {
-      return { firstFocus: undefined, web3: undefined }
+      return { firstFocus: undefined, web3: undefined, question: undefined }
     }
     throw error
   }
   return {
     firstFocus: latestFirstFocusPreview(messages),
     web3: latestWeb3Confirmation(messages),
+    question: latestQuestion(messages),
   }
 }
 
@@ -243,11 +356,7 @@ async function transcribeVoice(
     text?: unknown
     error?: unknown
   } | null
-  if (
-    !response.ok ||
-    !result ||
-    typeof result.text !== 'string'
-  ) {
+  if (!response.ok || !result || typeof result.text !== 'string') {
     const message =
       result && typeof result.error === 'string'
         ? result.error
@@ -326,9 +435,7 @@ async function promptFromContent(
         .filter(Boolean)
         .join('\n'),
       images: parts.flatMap((part) => part.images),
-      unsupportedAttachment: parts.some(
-        (part) => part.unsupportedAttachment,
-      ),
+      unsupportedAttachment: parts.some((part) => part.unsupportedAttachment),
     }
   }
   return { text: '', images: [], unsupportedAttachment: true }
@@ -385,34 +492,136 @@ const app = await Spectrum({
   providers: [imessage.config()],
 })
 
-console.log(`imessage-bridge: connected; answering ${userMap.size} allowlisted sender(s) via ${AGENT_URL}`)
+let deliveryPollActive = false
+async function pollTerminalDeliveries() {
+  if (deliveryPollActive) return
+  deliveryPollActive = true
+  const leaseId = crypto.randomUUID()
+  let delivery: ClaimedDelivery | null = null
+  try {
+    delivery = await outboxAction<ClaimedDelivery | null>('claim_delivery', {
+      leaseId,
+    })
+    if (!delivery) return
+    const projected = projectTextWeb3Action({
+      summary: delivery.action.summary,
+      kind: delivery.action.kind,
+      status: delivery.action.status,
+      autoConfirmed: false,
+      error: delivery.action.error,
+      socketProgress: delivery.action.detail
+        ? {
+            detail: delivery.action.detail,
+            destinationExplorerLink: delivery.action.explorerLink,
+          }
+        : null,
+      result: delivery.action.explorerLink
+        ? [{ hash: null, explorerLink: delivery.action.explorerLink }]
+        : null,
+    })
+    const im = imessage(app)
+    const dm = await im.space.create(await im.user(delivery.address))
+    await dm.send(markdown(projected.text))
+    for (const link of projected.links) await dm.send(richlink(link))
+    await outboxAction('complete_delivery', {
+      deliveryId: delivery.deliveryId,
+      leaseId: delivery.leaseId,
+    })
+  } catch (error) {
+    captureBridgeFailure(error, 'outbox.deliver')
+    if (delivery) {
+      await outboxAction('retry_delivery', {
+        deliveryId: delivery.deliveryId,
+        leaseId: delivery.leaseId,
+      }).catch(() => {})
+    }
+  } finally {
+    deliveryPollActive = false
+  }
+}
 
-// `--greet` opens a DM with each allowlisted sender so they learn Bee's
-// number (Spectrum's shared pool assigns it on first contact).
-if (process.argv.includes('--greet')) {
+const deliveryTimer = setInterval(() => void pollTerminalDeliveries(), 3_000)
+deliveryTimer.unref()
+void pollTerminalDeliveries()
+
+console.log(`imessage-bridge: connected; resolving senders via ${AGENT_URL}`)
+
+// `--greet <address...>` opens a DM with each given address so they learn
+// Bee's number (Spectrum's shared pool assigns it on first contact).
+const greetFlagIndex = process.argv.indexOf('--greet')
+if (greetFlagIndex !== -1) {
   const im = imessage(app)
-  const greeted = new Set<string>()
-  for (const [address, userId] of userMap) {
-    // Skip bare national-format duplicates; greet each user once.
-    const isEmail = address.includes('@')
-    if (greeted.has(userId) || (!isEmail && !address.startsWith('+'))) continue
+  const addresses = process.argv
+    .slice(greetFlagIndex + 1)
+    .filter((value) => !value.startsWith('--'))
+  for (const address of addresses) {
     try {
       const dm = await im.space.create(await im.user(address))
-      await dm.send(text("Bee here 🐝 Text me anytime — I'm connected to your BeeGreat goals."))
-      greeted.add(userId)
+      await dm.send(
+        text(
+          "Bee here 🐝 Text me anytime — I'm connected to your BeeGreat goals.",
+        ),
+      )
       console.log(`imessage-bridge: greeted ${address}`)
     } catch (error) {
-      captureBridgeFailure(error, 'greeting.send', userId)
+      captureBridgeFailure(error, 'greeting.send')
       console.error(`imessage-bridge: greeting ${address} failed`, error)
     }
   }
 }
 
+/** One magic link (or a gentle throttle) for a sender Bee doesn't know yet. */
+async function welcomeUnknownSender(space: Space, address: string) {
+  const link = await identity.beginLink(address)
+  if (link.status === 'throttled') return
+  if (link.status === 'rate_limited') {
+    await space.send(
+      text(
+        'Too many link attempts from this address for now. Try again in an hour.',
+      ),
+    )
+    return
+  }
+  if (link.status === 'invalid') {
+    await space.send(
+      text(
+        "I couldn't create a sign-in link for this address. Try again soon.",
+      ),
+    )
+    return
+  }
+  await space.send(
+    text(
+      "Hi, I'm Bee 🐝 — your BeeGreat personal agent. Open this link to sign in (or create your account) and connect this number. It's valid for 15 minutes; text me again after connecting.",
+    ),
+  )
+  await space.send(richlink(link.url))
+}
+
 for await (const [space, message] of app.messages) {
   // For iMessage the sender's cross-provider id is their address (phone/email).
-  const address = message.sender?.id
-  const userId = address ? userMap.get(normalizeAddress(address)) : undefined
-  if (!userId) continue
+  const rawAddress = message.sender?.id
+  if (!rawAddress) continue
+  const senderAddress = normalizeAddress(rawAddress)
+
+  let userId: string | null
+  try {
+    userId = await identity.resolve(senderAddress)
+  } catch (error) {
+    captureBridgeFailure(error, 'identity.resolve')
+    console.error('imessage-bridge: sender resolution failed', error)
+    continue
+  }
+
+  if (!userId) {
+    try {
+      await welcomeUnknownSender(space, senderAddress)
+    } catch (error) {
+      captureBridgeFailure(error, 'identity.begin_link')
+      console.error('imessage-bridge: welcome link failed', error)
+    }
+    continue
+  }
 
   try {
     // Tapback 👀 so the sender knows Bee is on it (replies can take a while).
@@ -438,20 +647,32 @@ for await (const [space, message] of app.messages) {
     }
     const prompt =
       incoming.text ||
-      (incoming.images.length
-        ? 'Please help me with the image I sent.'
-        : '')
+      (incoming.images.length ? 'Please help me with the image I sent.' : '')
     if (!prompt) continue
+
+    const command = prompt.trim().toLowerCase()
+    if (UNLINK_COMMANDS.has(command)) {
+      const disconnected = await identity.unlink(senderAddress)
+      await space.send(
+        text(
+          disconnected
+            ? 'This number is no longer linked to your BeeGreat account. Text me anytime to link it again.'
+            : "This number wasn't linked, so there was nothing to disconnect.",
+        ),
+      )
+      continue
+    }
 
     const context = await channelAction<ChannelContext>(userId, {
       action: 'context',
       source: 'imessage',
+      sourceAddress: senderAddress,
     })
-    const command = prompt.trim().toLowerCase()
     if (NEW_CONVERSATION_COMMANDS.has(command)) {
       await channelAction(userId, {
         action: 'create_thread',
         source: 'imessage',
+        sourceAddress: senderAddress,
       })
       await space.send(
         text('New conversation started. What would you like to work on?'),
@@ -468,14 +689,19 @@ for await (const [space, message] of app.messages) {
 
     let reply: BeeReply
     let celebrate = false
-    if (
-      isFirstFocusConfirmation(prompt) ||
-      isFirstFocusCancellation(prompt)
-    ) {
-      const interactive = await latestInteractiveReply(
-        userId,
-        context.threadId,
-      )
+    let directWeb3Reply = false
+    const numberedQuestionReply = /^\s*\[?\d+\]?\s*(?:,\s*\[?\d+\]?\s*)*$/.test(
+      prompt,
+    )
+    const questionReply = numberedQuestionReply
+      ? await latestInteractiveReply(userId, context.threadId)
+      : undefined
+    const deliveredPrompt = resolveQuestionAnswer(
+      questionReply?.question,
+      prompt,
+    )
+    if (isFirstFocusConfirmation(prompt) || isFirstFocusCancellation(prompt)) {
+      const interactive = await latestInteractiveReply(userId, context.threadId)
       const preview = interactive.firstFocus
       if (preview) {
         if (isFirstFocusConfirmation(prompt)) {
@@ -508,49 +734,47 @@ for await (const [space, message] of app.messages) {
           (isWeb3Confirmation(prompt) || isWeb3Cancellation(prompt))
         ) {
           const confirmed = isWeb3Confirmation(prompt)
-          const current = await web3ActionFor(
-            userId,
-            web3Confirmation.actionId,
-          )
+          const current = await web3ActionFor(userId, web3Confirmation.actionId)
           if (!current) {
             throw new Error('This Web3 confirmation is no longer available.')
           }
           if (current.status === 'pending') {
-            await channelAction(userId, {
-              action: confirmed ? 'confirm_web3' : 'cancel_web3',
-              actionId: web3Confirmation.actionId,
-              summary: current.summary,
-            })
-            reply = await askBee(
-              space,
-              userId,
-              context.threadId,
-              confirmed
-                ? `[BeeGreat trusted iMessage event] The user explicitly authorized the exact Web3 action "${current.summary}" and Convex accepted confirmation for action ${web3Confirmation.actionId}. Delegate to the Web3 specialist and check that exact action now. Report its current execution status without preparing a replacement or asking for another confirmation.`
-                : `[BeeGreat trusted iMessage event] The user declined the exact Web3 action "${current.summary}". Convex cancelled action ${web3Confirmation.actionId}; no funds moved. Acknowledge the cancellation without preparing a replacement.`,
-            )
+            if (current.kind === 'execute_eoa_plan' && confirmed) {
+              reply = replyForWeb3Action(current)
+              directWeb3Reply = true
+            } else {
+              await channelAction(userId, {
+                action: confirmed ? 'confirm_web3' : 'cancel_web3',
+                actionId: web3Confirmation.actionId,
+                summary: current.summary,
+              })
+              const updated = await web3ActionFor(
+                userId,
+                web3Confirmation.actionId,
+              )
+              reply = replyForWeb3Action(
+                updated ?? {
+                  ...current,
+                  status: confirmed ? 'confirmed' : 'cancelled',
+                },
+              )
+              directWeb3Reply = true
+            }
           } else {
-            reply = await askBee(
-              space,
-              userId,
-              context.threadId,
-              `[BeeGreat trusted iMessage event] The user replied to Web3 action "${current.summary}", but Convex reports it is already ${current.status}; no new decision was applied. Check action ${web3Confirmation.actionId} and report its current status without preparing a replacement.`,
-            )
+            reply = replyForWeb3Action(current)
+            directWeb3Reply = true
           }
         } else {
           reply = await askBee(
             space,
             userId,
             context.threadId,
-            prompt,
+            deliveredPrompt,
             incoming.images,
           )
         }
       }
-    } else if (
-      isHighlightCompletion(prompt) &&
-      context.activeHighlight
-    ) {
+    } else if (isHighlightCompletion(prompt) && context.activeHighlight) {
       const highlight = context.activeHighlight
       const completion = await channelAction<{
         status: 'completed' | 'already_completed'
@@ -573,12 +797,24 @@ for await (const [space, message] of app.messages) {
         space,
         userId,
         context.threadId,
-        prompt,
+        deliveredPrompt,
         incoming.images,
       )
     }
 
     await sendReply(space, reply, userId, celebrate)
+    if (directWeb3Reply) {
+      await syncDirectExchange(
+        userId,
+        context.threadId,
+        message.id,
+        prompt,
+        reply,
+        message.timestamp.getTime(),
+      ).catch((error) =>
+        captureBridgeFailure(error, 'transcript.sync_direct', userId),
+      )
+    }
   } catch (error) {
     captureBridgeFailure(error, 'prompt.handle', userId)
     console.error('imessage-bridge: prompt failed', error)

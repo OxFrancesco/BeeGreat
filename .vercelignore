@@ -1,0 +1,8 @@
+# Read-only codeview reference clones — never part of a deployment, and
+# their broken symlinks abort Vercel's archive extraction.
+resources
+
+# Native build trees (CocoaPods xcframework symlinks also break extraction).
+# The web build only needs apps/mobile/assets for shared brand images.
+apps/mobile/ios
+apps/mobile/android

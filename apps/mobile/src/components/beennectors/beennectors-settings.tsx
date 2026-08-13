@@ -1,4 +1,10 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
+import {
+  GOOGLE_WORKSPACE_DISCLOSURE,
+  GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
+  GOOGLE_WORKSPACE_SERVICES,
+  type GoogleWorkspaceService,
+} from '@beegreat/tool-presentation';
 import { useAction, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
@@ -32,6 +38,12 @@ const BRAND_COLORS: Record<BeennectorProvider, string> = {
   notion: '#FFFFFF',
   google: '#FFFFFF',
 };
+const PROVIDER_NAMES: Record<BeennectorProvider, string> = {
+  github: 'GitHub',
+  linear: 'Linear',
+  notion: 'Notion',
+  google: 'Google Workspace',
+};
 
 export function BeennectorsSettings() {
   const theme = useTheme();
@@ -42,45 +54,81 @@ export function BeennectorsSettings() {
   const disconnect = useAction(api.beennectorAuthActions.disconnect);
   const [working, setWorking] = useState<BeennectorProvider | null>(null);
   const [openInfo, setOpenInfo] = useState<BeennectorProvider | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [googleDisclosureOpen, setGoogleDisclosureOpen] = useState(false);
+  const [googleServices, setGoogleServices] = useState<GoogleWorkspaceService[]>([]);
+  const [error, setError] = useState<{
+    provider: BeennectorProvider;
+    message: string;
+  } | null>(null);
+
+  const cancelPending = async (provider: BeennectorProvider) => {
+    try {
+      await disconnect({ provider });
+    } catch (cause) {
+      captureMobileFailure(cause, 'beennector.cancel', { provider });
+    }
+  };
 
   const connect = async (provider: BeennectorProvider) => {
-    const { authorizationUrl } = await beginAuthorization({ provider });
+    const { authorizationUrl } = await beginAuthorization({
+      provider,
+      ...(provider === 'google'
+        ? {
+            googleServices,
+            googleDisclosureVersion: GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
+          }
+        : {}),
+    });
     const result = await WebBrowser.openAuthSessionAsync(
       authorizationUrl,
       APP_REDIRECT_URI,
     );
-    if (result.type === 'cancel' || result.type === 'dismiss') return false;
+    if (result.type === 'cancel' || result.type === 'dismiss') {
+      await cancelPending(provider);
+      return false;
+    }
     if (result.type !== 'success') {
-      throw new Error(`${provider} did not finish connecting. Try again.`);
+      await cancelPending(provider);
+      throw new Error(`${PROVIDER_NAMES[provider]} did not finish connecting.`);
     }
     const callback = new URL(result.url);
     if (
       callback.searchParams.get('beennector') !== provider ||
       callback.searchParams.get('status') !== 'connected'
     ) {
-      throw new Error(`${provider} authorization did not complete. Try again.`);
+      throw new Error(
+        `${PROVIDER_NAMES[provider]} authorization did not complete.`,
+      );
     }
     return true;
   };
 
-  const toggle = async (provider: BeennectorProvider, connected: boolean) => {
+  const toggle = async (provider: BeennectorProvider, disconnecting: boolean) => {
     if (working) return;
+    if (provider === 'google' && !disconnecting && !googleDisclosureOpen) {
+      setGoogleDisclosureOpen(true);
+      setOpenInfo(null);
+      return;
+    }
     setWorking(provider);
     setError(null);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (process.env.EXPO_OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     try {
-      if (connected) await disconnect({ provider });
+      if (disconnecting) await disconnect({ provider });
       else await connect(provider);
     } catch (cause) {
       captureMobileFailure(cause, 'beennector.connection', { provider });
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : `Could not update the ${provider} Beennector.`,
-      );
+      setError({
+        provider,
+        message: disconnecting
+          ? `Could not disconnect ${PROVIDER_NAMES[provider]}. Try again.`
+          : `Could not start ${PROVIDER_NAMES[provider]} sign-in. Try again.`,
+      });
     } finally {
       setWorking(null);
+      if (provider === 'google') setGoogleDisclosureOpen(false);
     }
   };
 
@@ -167,9 +215,53 @@ export function BeennectorsSettings() {
                 only the results of approved Beennector operations.
               </ThemedText>
             ) : null}
+            {connection.provider === 'google' && googleDisclosureOpen ? (
+              <View style={styles.disclosure}>
+                <ThemedText type="small">
+                  Choose what BeeGreat may access
+                </ThemedText>
+                {GOOGLE_WORKSPACE_SERVICES.map((service) => {
+                  const selected = googleServices.includes(service.id);
+                  return (
+                    <Pressable
+                      key={service.id}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      onPress={() =>
+                        setGoogleServices((current) =>
+                          selected
+                            ? current.filter((item) => item !== service.id)
+                            : [...current, service.id],
+                        )
+                      }
+                      style={[styles.service, { borderColor: theme.border }]}
+                    >
+                      <ThemedText type="small">
+                        {selected ? '✓' : '○'} {service.name}
+                      </ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {service.access}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+                <ThemedText type="small" themeColor="textSecondary">
+                  {GOOGLE_WORKSPACE_DISCLOSURE}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  By continuing, you consent to this access and processing. Read
+                  the Privacy Policy in Profile for full details.
+                </ThemedText>
+              </View>
+            ) : null}
             {connection.message ? (
               <ThemedText type="small" themeColor="destructive">
                 {connection.message}
+              </ThemedText>
+            ) : null}
+            {error?.provider === connection.provider ? (
+              <ThemedText type="small" themeColor="destructive" selectable>
+                {error.message}
               </ThemedText>
             ) : null}
             <Pressable
@@ -177,10 +269,19 @@ export function BeennectorsSettings() {
               accessibilityLabel={
                 connected
                   ? `Disconnect ${connection.name}`
-                  : `Connect ${connection.name}`
+                  : pending
+                    ? `Cancel ${connection.name} connection`
+                    : `Connect ${connection.name}`
               }
-              disabled={Boolean(working) || pending}
-              onPress={() => void toggle(connection.provider, connected)}
+              disabled={
+                Boolean(working) ||
+                (connection.provider === 'google' &&
+                  googleDisclosureOpen &&
+                  googleServices.length === 0)
+              }
+              onPress={() =>
+                void toggle(connection.provider, connected || pending)
+              }
               style={({ pressed }) => [
                 styles.button,
                 connected
@@ -205,19 +306,18 @@ export function BeennectorsSettings() {
                   {connected
                     ? `Disconnect ${connection.name}`
                     : pending
-                      ? `Waiting for ${connection.name}…`
-                      : `Connect ${connection.name}`}
+                      ? `Cancel ${connection.name}`
+                      : connection.provider === 'google' && googleDisclosureOpen
+                        ? googleServices.length
+                          ? 'I understand — continue to Google'
+                          : 'Choose at least one service'
+                        : `Connect ${connection.name}`}
                 </ThemedText>
               )}
             </Pressable>
           </View>
         );
       })}
-      {error ? (
-        <ThemedText type="small" themeColor="destructive">
-          {error}
-        </ThemedText>
-      ) : null}
     </View>
   );
 }
@@ -229,6 +329,15 @@ const styles = StyleSheet.create({
   intro: {
     paddingHorizontal: Spacing.one,
     lineHeight: 19,
+  },
+  disclosure: {
+    gap: Spacing.two,
+  },
+  service: {
+    gap: Spacing.half,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    padding: Spacing.two,
   },
   card: {
     gap: Spacing.three,

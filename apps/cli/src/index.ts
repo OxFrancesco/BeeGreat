@@ -10,6 +10,7 @@ import { createPromptHistory } from "./prompt-history";
 import { projectBeeReply, projectStreamingBeeReply } from "./reply";
 import { createBeeSession } from "./session";
 import { runBeeTui } from "./tui";
+import { runImessageCommand } from "./imessage";
 import { runBuddyTg, runTelegramCommand } from "./telegram";
 
 const HELP = `BeeGreat CLI
@@ -25,6 +26,8 @@ Usage:
   bee telegram status         Show the BeeGreat Telegram connection
   bee telegram notify <text>  Send yourself a Telegram message through Bee
   bee telegram disconnect     Remove the BeeGreat Telegram connection
+  bee imessage status         Show the iMessage senders linked to your account
+  bee imessage disconnect     Unlink iMessage senders (optionally one address)
   bee buddytg <args...>       Run the full local BuddyTG CLI (macOS Keychain)
   bee help                    Show this help
 
@@ -95,7 +98,7 @@ async function main() {
     console.log("Signed in to BeeGreat CLI.");
     return;
   }
-  if (command.kind === "telegram") {
+  if (command.kind === "telegram" || command.kind === "imessage") {
     await ensureBeeAgent({
       agentUrl: config.agentUrl,
       autoStart: config.autoStartAgent,
@@ -103,11 +106,14 @@ async function main() {
       logPath: config.agentLogPath,
       onStatus: (message) => console.error(`  ${message}`),
     });
+    const credentials = {
+      agentUrl: config.agentUrl,
+      accessToken: clerk.accessToken,
+    };
     console.log(
-      await runTelegramCommand(command, {
-        agentUrl: config.agentUrl,
-        accessToken: clerk.accessToken,
-      }),
+      command.kind === "telegram"
+        ? await runTelegramCommand(command, credentials)
+        : await runImessageCommand(command, credentials),
     );
     return;
   }

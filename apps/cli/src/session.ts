@@ -6,6 +6,11 @@ import {
 } from "@flue/sdk";
 
 import {
+  projectTextWeb3Action,
+  type TextWeb3Action,
+} from "@beegreat/tool-presentation";
+
+import {
   parseBeeReply,
   resolveQuestionAnswer,
   type BeeQuestion,
@@ -28,6 +33,11 @@ type BeeSessionDependencies = {
   fetch(input: string | URL | Request, init?: RequestInit): Promise<Response>;
   createClient(options: CreateFlueClientOptions): FlueClient;
 };
+
+function canonicalWeb3Reply(action: TextWeb3Action) {
+  const projected = projectTextWeb3Action(action);
+  return [projected.text, ...projected.links].filter(Boolean).join("\n");
+}
 
 function normalizedUrl(value: string) {
   return value.replace(/\/$/, "");
@@ -153,7 +163,9 @@ export function createBeeSession(
         (/^yes[.!]?$/i.test(prompt.trim()) || /^no[.!]?$/i.test(prompt.trim()))
       ) {
         const confirmed = /^yes[.!]?$/i.test(prompt.trim());
-        const current = await channelAction<Record<string, unknown> | null>({
+        const current = await channelAction<
+          (TextWeb3Action & { id: string }) | null
+        >({
           action: "get_web3_action",
           actionId: pendingWeb3.actionId,
         });
@@ -164,19 +176,41 @@ export function createBeeSession(
         ) {
           throw new Error("This Web3 confirmation is no longer available.");
         }
+        if (
+          current.status === "pending" &&
+          confirmed &&
+          current.kind === "execute_eoa_plan"
+        ) {
+          pendingWeb3 = undefined;
+          return canonicalWeb3Reply(current);
+        }
         if (current.status === "pending") {
           await channelAction({
             action: confirmed ? "confirm_web3" : "cancel_web3",
             actionId: pendingWeb3.actionId,
             summary: current.summary,
           });
-          deliveredPrompt = confirmed
-            ? `[BeeGreat trusted CLI event] The user explicitly authorized the exact Web3 action ${JSON.stringify(current.summary)} and Convex accepted confirmation for action ${pendingWeb3.actionId}. Delegate to the Web3 specialist and check that exact action now. Report its current execution status without preparing a replacement or asking for another confirmation.`
-            : `[BeeGreat trusted CLI event] The user declined the exact Web3 action ${JSON.stringify(current.summary)}. Convex cancelled action ${pendingWeb3.actionId}; no funds moved. Acknowledge the cancellation without preparing a replacement.`;
-        } else {
-          deliveredPrompt = `[BeeGreat trusted CLI event] The user replied to Web3 action ${JSON.stringify(current.summary)}, but Convex reports it is already ${current.status}; no new decision was applied. Check action ${pendingWeb3.actionId} and report its current status without preparing a replacement.`;
         }
         pendingWeb3 = undefined;
+        const decisionApplied =
+          current.status === "pending" &&
+          !(confirmed && current.kind === "execute_eoa_plan");
+        const updated = await channelAction<
+          (TextWeb3Action & { id: string }) | null
+        >({
+          action: "get_web3_action",
+          actionId: current.id,
+        });
+        return canonicalWeb3Reply(
+          updated ?? {
+            ...current,
+            status: decisionApplied
+              ? confirmed
+                ? "confirmed"
+                : "cancelled"
+              : current.status,
+          },
+        );
       }
       const target = await conversation();
       const id = await currentThread();
@@ -211,11 +245,30 @@ export function createBeeSession(
       // Flue deliberately accumulates every agent step in one assistant
       // message. A CLI chat should present the final spoken step, otherwise a
       // pre-tool draft and the final answer look like duplicated responses.
-      const replyText = (finalStepText || currentStepText).trim() || result.text;
+      const replyText =
+        (finalStepText || currentStepText).trim() || result.text;
       const parsed = parseBeeReply(replyText);
       pendingFirstFocus = parsed.firstFocus;
-      pendingWeb3 = parsed.web3Confirmation;
       pendingQuestion = parsed.question;
+      if (parsed.web3Confirmation) {
+        const current = await channelAction<
+          (TextWeb3Action & { id: string }) | null
+        >({
+          action: "get_web3_action",
+          actionId: parsed.web3Confirmation.actionId,
+        });
+        if (current) {
+          pendingWeb3 =
+            current.status === "pending"
+              ? {
+                  actionId: parsed.web3Confirmation.actionId,
+                  summary: current.summary,
+                }
+              : undefined;
+          return canonicalWeb3Reply(current);
+        }
+      }
+      pendingWeb3 = parsed.web3Confirmation;
       return replyText;
     },
 

@@ -1,9 +1,9 @@
 import { getToolCopy } from '@beegreat/tool-presentation'
 import type { ConversationStreamChunk } from '@flue/sdk'
 
-const FIRST_HEARTBEAT_MS = 4_000
-const LONG_HEARTBEAT_MS = 18_000
-const MAX_PROGRESS_MESSAGES = 6
+const FIRST_HEARTBEAT_MS = 8_000
+const LONG_HEARTBEAT_MS = 30_000
+const MAX_PROGRESS_MESSAGES = 4
 
 type ToolActivity = {
   input: unknown
@@ -26,12 +26,15 @@ function presentedToolActivity(
 export function createIMessageProgressProjector(startedAt = Date.now()) {
   const tools = new Map<string, ToolActivity>()
   const seenEvents = new Set<string>()
+  const seenCopy = new Set<string>()
   let firstHeartbeatSent = false
   let longHeartbeatSent = false
   let sent = 0
 
   function take(message: string) {
     if (sent >= MAX_PROGRESS_MESSAGES) return undefined
+    if (seenCopy.has(message)) return undefined
+    seenCopy.add(message)
     sent += 1
     return message
   }
@@ -47,21 +50,17 @@ export function createIMessageProgressProjector(startedAt = Date.now()) {
         return take(presentedToolActivity(activity, 'running'))
       }
 
-      if (
-        chunk.type === 'tool-output' ||
-        chunk.type === 'tool-output-error'
-      ) {
+      if (chunk.type === 'tool-output' || chunk.type === 'tool-output-error') {
         const activity = tools.get(chunk.toolCallId)
         if (!activity) return undefined
         const eventKey = `output:${chunk.toolCallId}`
         if (seenEvents.has(eventKey)) return undefined
         seenEvents.add(eventKey)
-        return take(
-          presentedToolActivity(
-            activity,
-            chunk.type === 'tool-output-error' ? 'error' : 'done',
-          ),
-        )
+        // Successful tool completion is folded into Bee's final answer. Only
+        // failures warrant another interruption in a text conversation.
+        return chunk.type === 'tool-output-error'
+          ? take(presentedToolActivity(activity, 'error'))
+          : undefined
       }
 
       return undefined
@@ -75,9 +74,7 @@ export function createIMessageProgressProjector(startedAt = Date.now()) {
       }
       if (!longHeartbeatSent && elapsed >= LONG_HEARTBEAT_MS) {
         longHeartbeatSent = true
-        return take(
-          'This is taking a little longer — I’m still working on it.',
-        )
+        return take('This is taking a little longer — I’m still working on it.')
       }
       return undefined
     },

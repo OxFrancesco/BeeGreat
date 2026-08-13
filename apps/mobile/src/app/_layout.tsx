@@ -142,6 +142,17 @@ function RootNavigator() {
           }}
         />
         <Stack.Screen
+          name="connections"
+          options={{
+            headerShown: true,
+            title: 'Work connectors',
+            presentation: 'formSheet',
+            sheetAllowedDetents: [1],
+            sheetGrabberVisible: true,
+            contentStyle: { height: '100%' },
+          }}
+        />
+        <Stack.Screen
           name="public-profile"
           options={{
             headerShown: true,

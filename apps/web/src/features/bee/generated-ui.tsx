@@ -1,5 +1,8 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
-import { sameEvmAddress, sendFreshEoaTransactions } from '@beegreat/wallet-connect'
+import {
+  sameEvmAddress,
+  sendFreshEoaTransactions,
+} from '@beegreat/wallet-connect'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useId, useState } from 'react'
 import { FirstFocusPreviewCard } from './first-focus-preview'
@@ -336,6 +339,7 @@ function Web3ConfirmCard({
   const beginEoaExecution = useMutation(api.web3Actions.beginEoaExecution)
   const refreshEoaExecution = useAction(api.web3.refreshEoaSugarExecution)
   const recordEoaSubmission = useMutation(api.web3Actions.recordEoaSubmission)
+  const recordEoaReceipt = useMutation(api.web3Actions.recordEoaReceipt)
   const reportEoaFailure = useMutation(api.web3Actions.reportEoaFailure)
   const connectedWallet = useEoaWallet()
   const [decision, setDecision] = useState<
@@ -399,6 +403,13 @@ function Web3ConfirmCard({
                 index,
                 hash,
                 role,
+              })
+            },
+            onConfirmed: async ({ index, hash }) => {
+              await recordEoaReceipt({
+                actionId: actionId as Id<'web3Actions'>,
+                index,
+                hash,
               })
             },
           })
