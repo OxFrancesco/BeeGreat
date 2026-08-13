@@ -99,6 +99,7 @@ Continuous fatigue retains fractional accrual server-side and materializes only 
 - Built with **Flue** (`@flue/runtime`): agent defined via `defineAgent(...)` with instructions, tools, and skills; durable streams give session recovery for free
 - Voice session: client streams audio → ElevenLabs STT → Flue agent loop (OpenRouter models) → response as text + ElevenLabs TTS + **UI spec** (structured JSON the client renders as cards/charts/lists)
 - Deployed to Cloudflare Workers; Durable Objects for per-user session state; R2 for media
+- Every Bee admission resolves the user's current provider, Power-up, and Beennector snapshot before Flue's first synchronous render; direct chat and dispatched signals share this boundary so a cold Worker exposes the same specialists as a warm one.
 - Agent tools: query Convex and propose commands, but user-facing writes that create the first plan require an editable preview and explicit confirmation
 - Memory: Convex is the canonical long-term store for user facts, preferences, and Goal context; a future semantic service may only be a deletable, rebuildable derived index
 
@@ -110,8 +111,10 @@ Continuous fatigue retains fractional accrual server-side and materializes only 
 - iMessage resolves the account-wide active chat thread before every turn. `/new` and `/clear` create a normal numeric thread, so conversation state is shared with mobile/web and included in account deletion instead of living in a bridge-only session.
 - Text, voice notes, images, and mixed message groups reach Bee. Unsupported files receive a readable fallback without creating an agent turn.
 - Every current `beeui` component has a Messages projection. Text, metrics, charts, Tasks, Highlights, first-focus previews, and confirmations become styled accessible text; bookmarks, Devin sessions, and pull requests also receive native iMessage link cards. Malformed UI is dropped without exposing raw JSON or machine ids.
+- Blocking `question` components render as numbered choices and resolve back to labels before the next Bee turn. The bridge syncs completed Flue history into Convex `chatMessages`, so mobile/web and iMessage share the durable transcript instead of relying on a best-effort mirror.
 - First-focus confirmation/cancellation and Highlight completion cross the Worker's trusted `/bridge/channel` seam and reuse the exact Convex transactions and idempotency keys used by mobile/web. Confetti is sent only after server-confirmed completion, never from keyword matching.
 - Smart-wallet Web3 confirmations are action-bound: before sending the card, the bridge replaces model-written copy with the canonical Convex summary and current state. An exact yes/no reply can affect only the action id in the latest rendered Web3 card. The trusted bridge passes that id and canonical summary through `/bridge/channel`; Convex rechecks the binding, mapped ownership, expiry, power-up entitlement, and pending status before using the same executor as mobile/web. Generic confirmations, ambiguous multi-card replies, stale cards, and raw agent text cannot move funds. YOLO actions render as already auto-approved instead of asking for a redundant reply. Linked-EOA actions are never eligible for iMessage or YOLO authorization: they must be opened in a signed-in app and approved in the connected wallet.
+- Terminal Web3 status uses a Convex lease-based iMessage outbox. Delivery survives Railway restarts, retries with backoff, and remains separate from the best-effort Flue continuation signal.
 - 👀 remains the immediate activity acknowledgement while Bee works.
 - **Can't run on Cloudflare Workers**: outbound sends use Node gRPC (`@grpc/grpc-js`), which the Workers runtime doesn't support. Needs a long-lived host.
 

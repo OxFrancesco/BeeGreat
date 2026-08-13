@@ -1,0 +1,11 @@
+{
+  "name": "beegreat-social-assets",
+  "private": true,
+  "scripts": {
+    "render": "bun source/render-carousel.ts",
+    "render:brand": "bun source/render-brand-assets.ts"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

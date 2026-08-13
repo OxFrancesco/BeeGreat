@@ -33,11 +33,23 @@ credential key must decode to exactly 32 bytes. GitHub requests `read:user` and
 `repo`; Linear requests `read` and `comments:create`; Notion access is limited
 to the pages selected in its authorization picker.
 
-For Google Workspace, create a Web OAuth client with the same callback and set
+On mobile, Profile exposes **Work connectors** near the top of the sheet. It
+opens one dedicated screen for GitHub, Linear, Notion, and Google Workspace so
+each account is one tap away without scrolling through the rest of Profile.
+The web twin keeps the same connect, status, and disconnect actions in Settings;
+CLI and iMessage hand users the matching `/connect/:provider` web route.
+
+For Google Workspace, create a separate **testing** Cloud project for local and
+simulator use and a production project with only production domains/callbacks.
+Create a Web OAuth client with the applicable callback and set
 `GOOGLE_BEENNECTOR_CLIENT_ID` / `GOOGLE_BEENNECTOR_CLIENT_SECRET`. Enable the
 Gmail, Calendar, Drive, Docs, Sheets, Slides, People, Tasks, and Forms APIs. The
 consent request includes offline access so Convex can refresh the encrypted
-per-user credential without keeping a CLI keyring.
+per-user credential without keeping a CLI keyring. Users select service groups
+before authorization; the backend rejects Google OAuth without the current
+disclosure version and at least one selected group. Google-derived model turns
+use a dedicated OpenRouter provider route with `data_collection: deny` and
+`zdr: true`.
 
 Configure these signed webhook endpoints on the deployed Bee Worker:
 
@@ -71,8 +83,10 @@ BeeGreat user. Ambiguous events are acknowledged but never dispatched.
   page plus its first 100 blocks.
 - Add GitHub or Linear comments after an explicit user request.
 - Search and read Gmail, Calendar, Drive, Docs, Sheets, Slides, Contacts, Forms,
-  and Tasks through `gog`; create drafts and selected recoverable changes after
-  an explicit request.
+  and Tasks through `gog`; organize Gmail, prepare drafts, change Calendar
+  events, and change Tasks after a direct, explicit request. Drive/editor data
+  and Contacts/Forms are read-only; email sends, deletes, sharing, admin, and
+  auth changes are blocked in the compiled CLI profile.
 
 ## Google CLI safety
 
@@ -85,4 +99,7 @@ profile blocks email sends, deletes, sharing changes, admin commands, and auth
 writes before a Google handler runs.
 
 Disconnecting removes the encrypted credential and makes a best-effort request
-to revoke the upstream token.
+to revoke the upstream token. For Google, the durable refresh grant is revoked
+instead of only the short-lived access token. Public Google Workspace launch is
+blocked until an owned domain is verified, brand/scope verification completes,
+and the restricted-scope security assessment is accepted.

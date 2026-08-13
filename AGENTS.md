@@ -34,3 +34,42 @@ Before building or styling any UI (mobile screens, web pages, or Bee's `beeui`
 generative-UI components), read `docs/design-system.md` — it defines the
 tokens, motion, navigation patterns, component recipes, and the generative-UI
 vocabulary with its content rules (e.g. machine ids never reach the user).
+
+## Hit every surface
+
+The most common defect in this repo is a change that works on the path you
+tested and is missing everywhere else. The CLI, iMessage integration, web app,
+and mobile app must ALWAYS be at feature parity. Before calling a change done,
+walk this list and say which entries applied:
+
+- **Clients.** Mobile (`apps/mobile`, Expo), web (`apps/web`, TanStack — the
+  "web twin"), CLI (`apps/cli`), and iMessage (`apps/imessage-bridge`). A Bee
+  behavior reachable from one client is usually reachable from all of them;
+  fixing one is not fixing the feature. Shared chat logic lives in
+  `packages/chat-sync` and shared tool rendering in
+  `packages/tool-presentation` — prefer fixing there over patching one client.
+- **Entry points.** A behavior reachable from the chat view is usually also
+  reachable from voice (ElevenLabs), settings, deep links, and the Hive/goal
+  screens. Fixing one entry point is not fixing the feature.
+- **Channel presentation.** `beeui` components render richly on mobile/web but
+  iMessage is plain text and the CLI is a terminal. Every generative-UI or
+  tool-output change needs an explicit rendering decision per channel, even if
+  the decision is "degrade to text here".
+- **Providers.** Bee runs on OpenRouter by default and on the user's
+  ChatGPT/Codex subscription via `apps/codex-adapter`. Model- or
+  transport-shaped features need a decision per provider path, even if the
+  decision is "not supported here".
+- **Contracts.** Anything crossing the wire is typed in the Convex backend
+  (`packages/backend`) or the agent's `beeui` contract (`packages/agent`).
+  Change the schema/contract first and the agent, web, mobile, CLI, and
+  iMessage all follow; never fork a shape in one client.
+- **Reverse states.** If you added a way in, add the way out and the way to
+  see it. Snooze needs unsnooze, connect (power-ups, ChatGPT, Telegram) needs
+  disconnect, archive needs unarchive. A one-way door is a bug.
+- **Deploy targets.** A single feature often spans Convex functions, the
+  Cloudflare agent worker (`beegreat-agent`), and the Railway iMessage bridge.
+  Shipping one target and not the others leaves production half-migrated —
+  follow the `deploy` skill for order and verification.
+- **Docs.** Behavior changes a user would notice belong in the numbered docs
+  under `docs/`; design/UI vocabulary in `docs/design-system.md`; architectural
+  decisions in `docs/adr/`.

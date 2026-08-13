@@ -7,6 +7,7 @@ const sections = [
   { href: '#sources', label: 'Where data comes from' },
   { href: '#how-we-use-data', label: 'How we use data' },
   { href: '#ai-and-voice', label: 'AI and voice processing' },
+  { href: '#google-workspace', label: 'Google Workspace data' },
   { href: '#health-data', label: 'Health data' },
   { href: '#sharing', label: 'How data is shared' },
   { href: '#legal-bases', label: 'Legal bases' },
@@ -21,7 +22,7 @@ const sections = [
   title="Privacy Policy"
   description="What BeeGreat collects, why it is needed, where it goes, and the controls you have over your information."
   eyebrow="Privacy at BeeGreat"
-  updated="July 16, 2026"
+  updated="August 13, 2026"
   sections={sections}
 >
   <section aria-labelledby="scope">
@@ -65,7 +66,7 @@ const sections = [
       </div>
       <div class="policy-row" role="listitem">
         <strong>Optional connections</strong>
-        <p>Connection status, authorized scopes, account or workspace identifiers and names, and encrypted access credentials for services you connect, which may include ChatGPT, Google Health, GitHub, Linear, and Notion.</p>
+        <p>Connection status, authorized scopes, account or workspace identifiers and names, and encrypted access credentials for services you connect, which may include ChatGPT, Google Health, Google Workspace, GitHub, Linear, and Notion. For Google Workspace, BeeGreat can process the Gmail, Calendar, Drive, Docs, Sheets, Slides, Contacts, Tasks, and Forms content you select and ask Bee to use.</p>
       </div>
       <div class="policy-row" role="listitem">
         <strong>Optional health data</strong>
@@ -132,6 +133,22 @@ const sections = [
     <p>
       Automated systems generate Bee’s output, but BeeGreat does not make legal or similarly significant decisions about you solely through Bee’s output.
     </p>
+    <p>
+      When you directly ask Bee to use Google Workspace, the minimum relevant Google result is passed through Cloudflare-hosted BeeGreat infrastructure and an AI provider configured to deny data collection and require zero retention. BeeGreat does not permit Google Workspace data—including raw, aggregated, anonymized, or derived data—to be used to create, train, or improve a generalized or non-personalized AI or machine-learning model. Google-derived excerpts or summaries included in Bee’s answer can become part of your saved conversation, which you can delete in BeeGreat or remove through account deletion.
+    </p>
+  </section>
+
+  <section aria-labelledby="google-workspace">
+    <h2 id="google-workspace">Google Workspace data</h2>
+    <p>
+      Google Workspace is optional. Before Google’s consent screen, BeeGreat asks you to choose services and explains the exact access: Gmail can be read, organized, and drafted but not sent; Calendar events can be read, created, or updated but not deleted or shared; Drive, Docs, Sheets, Slides, Contacts, and Forms are read-only; and Tasks can be read, created, or updated but not deleted. Bee accesses a connected service only for a direct, unambiguous request from you—not for advertising, surveillance, eligibility decisions, unrelated analytics, or proactive browsing.
+    </p>
+    <p>
+      BeeGreat’s use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Workspace data is transferred only to service providers needed to answer your request, under controls intended to prevent model training and retention. Human access is prohibited except with your specific consent, for security or legal response where permitted, or for anonymized internal operations allowed by Google’s policy.
+    </p>
+    <p>
+      OAuth access and refresh credentials are encrypted. You can disconnect Google Workspace at any time to revoke future access and remove BeeGreat’s credentials, and you can also revoke BeeGreat from your Google Account. Account deletion removes Google-derived saved conversations from active BeeGreat systems and attempts to revoke the durable Google grant before deleting the encrypted credentials; protected backups age out under the retention cycle described below.
+    </p>
   </section>
 
   <section aria-labelledby="health-data">
@@ -151,8 +168,8 @@ const sections = [
     <h2 id="sharing">How data is shared</h2>
     <p>We disclose information only as needed for the purposes described above:</p>
     <ul>
-      <li><strong>Infrastructure and product providers:</strong> Clerk for authentication; Convex for application data; Cloudflare for network and agent infrastructure; Apple and RevenueCat for subscriptions; Sentry for filtered diagnostics; ElevenLabs for voice; OpenAI or OpenRouter for AI; FAL for an enabled image/video generation feature; and Crossmint for an enabled wallet feature.</li>
-      <li><strong>Services you connect:</strong> Google Health, GitHub, Linear, Notion, ChatGPT, or another integration you deliberately authorize. Data is exchanged according to the requested action and granted scopes.</li>
+      <li><strong>Infrastructure and product providers:</strong> Clerk for authentication; Convex for application data; Cloudflare for network and agent infrastructure; Apple and RevenueCat for subscriptions; Sentry for filtered diagnostics; ElevenLabs for voice; OpenAI or OpenRouter for AI; FAL for an enabled image/video generation feature; and Crossmint for an enabled wallet feature. Google Workspace data reaches AI infrastructure only for the requested feature and through routing configured to deny data collection and require zero retention.</li>
+      <li><strong>Services you connect:</strong> Google Health, Google Workspace, GitHub, Linear, Notion, ChatGPT, or another integration you deliberately authorize. Data is exchanged according to the requested action and granted scopes.</li>
       <li><strong>Professional advisers and authorities:</strong> when reasonably necessary for legal compliance, audits, security, fraud prevention, or the establishment or defense of legal claims.</li>
       <li><strong>Business transfers:</strong> in connection with a merger, financing, acquisition, reorganization, or sale of assets, subject to appropriate confidentiality and notice obligations.</li>
       <li><strong>With your direction:</strong> when you ask us to share information or clearly consent.</li>
@@ -183,7 +200,7 @@ const sections = [
       You can start account deletion in BeeGreat from your profile. If you cannot sign in, email <a href="mailto:oddofrancesco000@gmail.com?subject=BeeGreat%20account%20deletion">oddofrancesco000@gmail.com</a> from the address associated with your account. We may verify your identity before acting. In-app deletion first removes the BeeGreat sign-in account, then starts background deletion from BeeGreat active systems. That cleanup normally begins immediately when the device and services are online. A minimal deletion tombstone is retained for repeated safety sweeps, which may continue for up to 30 days to catch delayed writes; the tombstone does not contain your product content. Protected backups age out under our backup cycle. We may retain limited records where required for security, fraud prevention, legal compliance, dispute resolution, or financial reporting.
     </p>
     <p>
-      During deletion, BeeGreat attempts to remove its RevenueCat customer record and revoke supported Google Health, GitHub, Linear, and Notion credentials before erasing the encrypted local credentials. A provider may independently retain information under its own policy, and a provider outage may prevent immediate revocation. Account deletion does not erase public blockchain records, the Crossmint smart wallet or its on-chain history, Apple purchase history, or information controlled independently by a connected service. Disconnect or contact those providers separately.
+      During deletion, BeeGreat attempts to remove its RevenueCat customer record and revoke supported Google Health, Google Workspace, GitHub, Linear, and Notion credentials before erasing the encrypted local credentials. A provider may independently retain information under its own policy, and a provider outage may prevent immediate revocation. Account deletion does not erase public blockchain records, the Crossmint smart wallet or its on-chain history, Apple purchase history, or information controlled independently by a connected service. Disconnect or contact those providers separately.
     </p>
     <p>
       Deleting an account does not cancel your Apple subscription. Manage or cancel it through Apple Subscriptions. BeeGreat attempts to revoke any available Sign in with Apple token before deletion. If the authorization remains visible afterward, you can remove BeeGreat under your Apple Account’s Sign in with Apple settings.
