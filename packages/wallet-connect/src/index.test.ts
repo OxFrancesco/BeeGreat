@@ -154,8 +154,12 @@ describe('wallet connect client', () => {
             value: '0',
           },
         ],
-        onSubmitted: (transaction) => submitted.push(transaction),
-        onConfirmed: (transaction) => confirmed.push(transaction),
+        onSubmitted: (transaction) => {
+          submitted.push(transaction)
+        },
+        onConfirmed: (transaction) => {
+          confirmed.push(transaction)
+        },
         receiptPolling: { intervalMs: 0, timeoutMs: 1_000 },
       }),
     ).rejects.toThrow('reverted')

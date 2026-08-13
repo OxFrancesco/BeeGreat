@@ -12,6 +12,7 @@ packages/backend/.artifacts/
 # codeview reference codebases
 resources/
 .wrangler/
+.vercel/
 
 # flue 2.x vite build intermediates (generated per build)
 .flue-vite/
