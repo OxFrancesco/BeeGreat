@@ -10,7 +10,14 @@ import type { FunctionReturnType } from 'convex/server'
 
 const WATER_AMOUNTS = [250, 330, 500, 750] as const
 type TapAction = FunctionReturnType<typeof api.nfcActions.list>[number]
+type HydrationTapAction = TapAction & {
+  definition: { type: 'hydration'; amountMl: number }
+}
 type TapExecution = FunctionReturnType<typeof api.nfcActions.execute>
+
+function isHydrationAction(action: TapAction): action is HydrationTapAction {
+  return action.definition.type === 'hydration'
+}
 
 declare global {
   interface Window {
@@ -33,8 +40,9 @@ export function TapActionsPage() {
   const [message, setMessage] = useState<string>()
   const [error, setError] = useState<string>()
   const supportsWebNfc = hasWebNfc()
+  const hydrationActions = actions?.filter(isHydrationAction)
 
-  async function writeTag(action: TapAction) {
+  async function writeTag(action: Pick<TapAction, 'label' | 'tagUrl'>) {
     setError(undefined)
     setMessage(undefined)
     try {
@@ -106,11 +114,11 @@ export function TapActionsPage() {
           without rewriting the tag.
         </p>
       </div>
-      {actions === undefined ? (
+      {hydrationActions === undefined ? (
         <HealthLoading label="Loading your tap actions…" />
-      ) : actions.length ? (
+      ) : hydrationActions.length ? (
         <div className="tap-action-list">
-          {actions.map((action) => (
+          {hydrationActions.map((action) => (
             <TapActionCard
               key={action._id}
               action={action}
@@ -192,7 +200,7 @@ function TapActionCard({
   onUpdate,
   onRemove,
 }: {
-  action: TapAction
+  action: HydrationTapAction
   onWrite: () => void
   onUpdate: (patch: {
     label?: string
@@ -358,6 +366,44 @@ export function PublicTapPage({ publicId }: { publicId: string }) {
   )
 }
 
+/** Per-action-type copy; the run → success/duplicate → undo flow is shared. */
+const TAP_PRESENTATIONS: Record<
+  TapExecution['action']['definition']['type'],
+  {
+    glyph: string
+    glyphClass: string
+    duplicateTitle: string
+    successTitle: (result: TapExecution) => string
+    successBody: (result: TapExecution) => string
+    undoneTitle: string
+    undoneBody: string
+    cta: { to: string; label: string }
+  }
+> = {
+  hydration: {
+    glyph: '●',
+    glyphClass: 'tap-result-icon is-water',
+    duplicateTitle: 'Already logged',
+    successTitle: (result) =>
+      `Added ${result.outcome.type === 'hydration' ? result.outcome.appliedMl : 0} ml`,
+    successBody: (result) => `${result.action.label} updated today’s water.`,
+    undoneTitle: 'Water entry undone',
+    undoneBody: 'The water from this tap was removed.',
+    cta: { to: '/health/water', label: 'View Water' },
+  },
+  reminder: {
+    glyph: '✓',
+    glyphClass: 'tap-result-icon',
+    duplicateTitle: 'Already counted',
+    successTitle: (result) => `${result.action.label} counted`,
+    successBody: (result) =>
+      `Completion ${result.action.completionCount} is saved.`,
+    undoneTitle: 'Reminder count undone',
+    undoneBody: 'The completion from this tap was removed.',
+    cta: { to: '/goals', label: 'Open Goals' },
+  },
+}
+
 function TapExecution({ publicId }: { publicId: string }) {
   const { localDate, timeZone } = useMemo(currentLocalDay, [])
   const execute = useMutation(api.nfcActions.execute)
@@ -381,7 +427,7 @@ function TapExecution({ publicId }: { publicId: string }) {
   }, [execute, localDate, publicId, timeZone])
 
   if (status === 'running') return <HealthLoading label="Running tap action…" />
-  if (status === 'error')
+  if (status === 'error' || !result)
     return (
       <>
         <h1>Tap action unavailable</h1>
@@ -394,29 +440,37 @@ function TapExecution({ publicId }: { publicId: string }) {
         </Link>
       </>
     )
+  const presentation = TAP_PRESENTATIONS[result.action.definition.type]
   if (status === 'undone')
     return (
       <>
         <div className="tap-result-icon">↶</div>
-        <h1>Water entry undone</h1>
-        <p>The water from this tap was removed.</p>
-        <Link className="button button--primary" to="/health/water">
-          View Water
+        <h1>{presentation.undoneTitle}</h1>
+        <p>{presentation.undoneBody}</p>
+        <Link className="button button--primary" to={presentation.cta.to}>
+          {presentation.cta.label}
         </Link>
       </>
     )
-  const amount =
-    result?.outcome.type === 'hydration' ? result.outcome.appliedMl : 0
+  const canUndo =
+    !result.duplicate &&
+    (result.outcome.type === 'hydration'
+      ? result.outcome.appliedMl > 0
+      : result.outcome.appliedCount > 0)
   return (
     <>
-      <div className="tap-result-icon is-water">●</div>
-      <h1>{result?.duplicate ? 'Already logged' : `Added ${amount} ml`}</h1>
+      <div className={presentation.glyphClass}>{presentation.glyph}</div>
+      <h1>
+        {result.duplicate
+          ? presentation.duplicateTitle
+          : presentation.successTitle(result)}
+      </h1>
       <p>
-        {result?.duplicate
+        {result.duplicate
           ? 'The repeated tap was ignored.'
-          : `${result?.action.label ?? 'Your tap action'} updated today’s water.`}
+          : presentation.successBody(result)}
       </p>
-      {result && !result.duplicate && amount > 0 ? (
+      {canUndo ? (
         <button
           className="button button--quiet"
           type="button"
@@ -432,8 +486,8 @@ function TapExecution({ publicId }: { publicId: string }) {
           {undoing ? 'Undoing…' : 'Undo'}
         </button>
       ) : null}
-      <Link className="button button--primary" to="/health/water">
-        View Water
+      <Link className="button button--primary" to={presentation.cta.to}>
+        {presentation.cta.label}
       </Link>
     </>
   )

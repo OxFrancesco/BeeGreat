@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TapPublicIdRouteImport } from './routes/tap/$publicId'
+import { Route as LinkImessageRouteImport } from './routes/link.imessage'
+import { Route as ConnectProviderRouteImport } from './routes/connect.$provider'
 import { Route as AppVoiceRouteImport } from './routes/_app/voice'
 import { Route as AppSitesRouteImport } from './routes/_app/sites'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
@@ -41,6 +43,16 @@ const IndexRoute = IndexRouteImport.update({
 const TapPublicIdRoute = TapPublicIdRouteImport.update({
   id: '/tap/$publicId',
   path: '/tap/$publicId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LinkImessageRoute = LinkImessageRouteImport.update({
+  id: '/link/imessage',
+  path: '/link/imessage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectProviderRoute = ConnectProviderRouteImport.update({
+  id: '/connect/$provider',
+  path: '/connect/$provider',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppVoiceRoute = AppVoiceRouteImport.update({
@@ -134,6 +146,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRoute
   '/sites': typeof AppSitesRoute
   '/voice': typeof AppVoiceRoute
+  '/connect/$provider': typeof ConnectProviderRoute
+  '/link/imessage': typeof LinkImessageRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -153,6 +167,8 @@ export interface FileRoutesByTo {
   '/settings': typeof AppSettingsRoute
   '/sites': typeof AppSitesRoute
   '/voice': typeof AppVoiceRoute
+  '/connect/$provider': typeof ConnectProviderRoute
+  '/link/imessage': typeof LinkImessageRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -175,6 +191,8 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRoute
   '/_app/sites': typeof AppSitesRoute
   '/_app/voice': typeof AppVoiceRoute
+  '/connect/$provider': typeof ConnectProviderRoute
+  '/link/imessage': typeof LinkImessageRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
   '/_app/health/tap-actions': typeof AppHealthTapActionsRoute
@@ -197,6 +215,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sites'
     | '/voice'
+    | '/connect/$provider'
+    | '/link/imessage'
     | '/tap/$publicId'
     | '/goals/$goalId'
     | '/health/tap-actions'
@@ -216,6 +236,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sites'
     | '/voice'
+    | '/connect/$provider'
+    | '/link/imessage'
     | '/tap/$publicId'
     | '/goals/$goalId'
     | '/health/tap-actions'
@@ -237,6 +259,8 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/sites'
     | '/_app/voice'
+    | '/connect/$provider'
+    | '/link/imessage'
     | '/tap/$publicId'
     | '/_app/goals/$goalId'
     | '/_app/health/tap-actions'
@@ -251,6 +275,8 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  ConnectProviderRoute: typeof ConnectProviderRoute
+  LinkImessageRoute: typeof LinkImessageRoute
   TapPublicIdRoute: typeof TapPublicIdRoute
 }
 
@@ -275,6 +301,20 @@ declare module '@tanstack/react-router' {
       path: '/tap/$publicId'
       fullPath: '/tap/$publicId'
       preLoaderRoute: typeof TapPublicIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/link/imessage': {
+      id: '/link/imessage'
+      path: '/link/imessage'
+      fullPath: '/link/imessage'
+      preLoaderRoute: typeof LinkImessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/$provider': {
+      id: '/connect/$provider'
+      path: '/connect/$provider'
+      fullPath: '/connect/$provider'
+      preLoaderRoute: typeof ConnectProviderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/voice': {
@@ -445,6 +485,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  ConnectProviderRoute: ConnectProviderRoute,
+  LinkImessageRoute: LinkImessageRoute,
   TapPublicIdRoute: TapPublicIdRoute,
 }
 export const routeTree = rootRouteImport

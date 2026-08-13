@@ -4,7 +4,7 @@ import type { FunctionReturnType } from "convex/server";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { SymbolView } from "expo-symbols";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -59,6 +59,17 @@ export default function JobsScreen() {
   const revokeGrant = useMutation(api.agentJobGrants.revoke);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const refreshCurrentTime = () => setCurrentTime(Date.now());
+    const initialRefresh = setTimeout(refreshCurrentTime, 0);
+    const refreshInterval = setInterval(refreshCurrentTime, 60_000);
+    return () => {
+      clearTimeout(initialRefresh);
+      clearInterval(refreshInterval);
+    };
+  }, []);
 
   const perform = async (
     job: Job,
@@ -140,8 +151,13 @@ export default function JobsScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+    // collapsable={false} keeps this wrapper in the native tree so the form
+    // sheet can find the ScrollView (react-native-screens#2424).
+    <ThemedView style={styles.container} collapsable={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         <View style={styles.intro}>
           <ThemedText
             type="small"
@@ -216,7 +232,8 @@ export default function JobsScreen() {
               const grantStatus =
                 grant?.status === "active" &&
                 grant.expiresAt !== undefined &&
-                grant.expiresAt <= Date.now()
+                currentTime > 0 &&
+                grant.expiresAt <= currentTime
                   ? "expired"
                   : grant?.status;
               return (
@@ -423,6 +440,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: Fonts.rounded,
     fontSize: 32,
+    lineHeight: 38,
     fontWeight: "700",
     letterSpacing: -1,
   },

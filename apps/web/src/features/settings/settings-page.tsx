@@ -10,6 +10,7 @@ import { setVoiceMode, useVoiceMode } from '../preferences/voice-mode'
 import { useGoogleHealth } from './use-google-health'
 import { BeennectorsSettings } from './beennectors-settings'
 import { HotkeySettings } from './hotkey-settings'
+import { ImessageSettings } from './imessage-settings'
 import { TelegramSettings } from './telegram-settings'
 import { WalletSettings } from './wallet-settings'
 import { PublicProfileSettings } from './public-profile-settings'
@@ -228,6 +229,7 @@ export function SettingsPage() {
           >
             <ChatGptSettings />
             <TelegramSettings />
+            <ImessageSettings />
           </SettingsSection>
 
           <SettingsSection

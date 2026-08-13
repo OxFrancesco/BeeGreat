@@ -21,10 +21,10 @@ import { HexAvatar, makeHexPath } from '@/components/hex-avatar';
 import { Hive } from '@/components/hex-button';
 import { InfoButton } from '@/components/info-button';
 import { ChatGptAuthSettings } from '@/components/chatgpt/chatgpt-auth';
-import { BeennectorsSettings } from '@/components/beennectors/beennectors-settings';
 import { WalletSettings } from '@/components/web3/wallet-settings';
 import { useGoogleHealthAuth } from '@/components/google-health/google-health-auth';
 import { TelegramAuthSettings } from '@/components/telegram/telegram-auth';
+import { ImessageSettings } from '@/components/imessage/imessage-settings';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSubscription } from '@/components/subscription/subscription-provider';
@@ -109,6 +109,7 @@ export default function ProfileScreen() {
   const speakReplies = useSpeakReplies();
   const voiceMode = useVoiceMode();
   const powerups = useQuery(api.powerups.list);
+  const beennectors = useQuery(api.beennectors.list);
   const setPowerupEnabled = useMutation(api.powerups.setEnabled);
   const googleHealth = useGoogleHealthAuth();
   const [signingOut, setSigningOut] = useState(false);
@@ -188,6 +189,7 @@ export default function ProfileScreen() {
           so the sheet always offers an explicit close button. */}
       <HexCloseButton onPress={() => router.back()} />
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -284,6 +286,50 @@ export default function ProfileScreen() {
           </Pressable>
         </Section>
 
+        <Section label="Connections">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Manage work connectors"
+            onPress={() => {
+              if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
+              router.push('/connections' as never);
+            }}
+            style={({ pressed }) => [
+              styles.settingRow,
+              { backgroundColor: theme.card, borderColor: theme.border },
+              pressed && styles.pressed,
+            ]}
+          >
+            <View
+              style={[styles.powerupIcon, { backgroundColor: theme.secondary }]}
+            >
+              <SymbolView
+                name="link"
+                size={18}
+                tintColor={theme.secondaryForeground}
+                fallback={<ThemedText style={{ color: theme.secondaryForeground }}>↗</ThemedText>}
+              />
+            </View>
+            <View style={styles.settingCopy}>
+              <ThemedText type="default">Work connectors</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                {beennectors
+                  ? `${beennectors.filter((connection) => connection.state === 'connected').length} of ${beennectors.length} connected`
+                  : 'GitHub, Linear, Notion, and Google Workspace'}
+              </ThemedText>
+            </View>
+            <SymbolView
+              name="chevron.right"
+              size={14}
+              tintColor={theme.textSecondary}
+              fallback={<ThemedText themeColor="textSecondary">›</ThemedText>}
+            />
+          </Pressable>
+          <ChatGptAuthSettings />
+          <TelegramAuthSettings />
+          <ImessageSettings />
+        </Section>
+
         <Section label="Preferences">
           <View
             style={[
@@ -337,15 +383,6 @@ export default function ProfileScreen() {
               trackColor={{ true: theme.primary }}
             />
           </View>
-        </Section>
-
-        <Section label="Connections">
-          <ChatGptAuthSettings />
-          <TelegramAuthSettings />
-        </Section>
-
-        <Section label="Beennectors">
-          <BeennectorsSettings />
         </Section>
 
         {powerups && powerups.length > 0 ? (

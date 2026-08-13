@@ -1,4 +1,12 @@
-import { scrubIdentifiers } from '@beegreat/tool-presentation'
+import {
+  parseBeeQuestion,
+  projectTextWeb3Action,
+  renderBeeQuestion,
+  resolveBeeQuestionAnswer,
+  scrubIdentifiers,
+  type BeeQuestion,
+  type TextWeb3Action,
+} from '@beegreat/tool-presentation'
 
 export type FirstFocusPreview = {
   type: 'first_focus'
@@ -14,20 +22,7 @@ export type Web3Confirmation = {
   summary: string
 }
 
-export type Web3ActionProjection = {
-  summary: string
-  status:
-    | 'pending'
-    | 'confirmed'
-    | 'in_progress'
-    | 'executed'
-    | 'failed'
-    | 'refunded'
-    | 'cancelled'
-    | 'expired'
-  autoConfirmed: boolean
-  error?: string | null
-}
+export type Web3ActionProjection = TextWeb3Action
 
 type BeeComponent =
   | { type: 'text'; body: string }
@@ -58,6 +53,8 @@ type BeeComponent =
     }
   | FirstFocusPreview
   | { type: 'confirm'; summary: string; action: string; payload?: unknown }
+  | ({ type: 'question' } & BeeQuestion)
+  | { type: 'unsupported' }
 
 export type BeeResponseProjection = {
   spoken: string
@@ -65,6 +62,7 @@ export type BeeResponseProjection = {
   links: string[]
   firstFocus?: FirstFocusPreview
   web3Confirmation?: Web3Confirmation
+  question?: BeeQuestion
 }
 
 type ConversationMessageLike = {
@@ -133,7 +131,9 @@ function parseComponent(value: unknown): BeeComponent | undefined {
     const data = input.data.flatMap((item) => {
       const row = record(item)
       const label = nonEmpty(row?.label)
-      return label && typeof row?.value === 'number' && Number.isFinite(row.value)
+      return label &&
+        typeof row?.value === 'number' &&
+        Number.isFinite(row.value)
         ? [{ label, value: row.value }]
         : []
     })
@@ -253,7 +253,11 @@ function parseComponent(value: unknown): BeeComponent | undefined {
         }
       : undefined
   }
-  return undefined
+  if (type === 'question') {
+    const question = parseBeeQuestion(input)
+    return question ? { type, ...question } : undefined
+  }
+  return { type: 'unsupported' }
 }
 
 function parseComponents(source: string): BeeComponent[] {
@@ -385,6 +389,14 @@ function renderComponent(component: BeeComponent): {
         ].join('\n'),
         links: [],
       }
+    case 'question':
+      return { markdown: renderBeeQuestion(component), links: [] }
+    case 'unsupported':
+      return {
+        markdown:
+          'Bee shared an interactive card that Messages cannot display. Open BeeGreat to continue.',
+        links: ['https://beegreat.app'],
+      }
   }
 }
 
@@ -397,9 +409,19 @@ export function extractBeeResponse(text: string): BeeResponseProjection {
     }),
   )
   const rendered = components.map(renderComponent)
-  const markdown = [spoken, ...rendered.map((item) => item.markdown)]
-    .filter(Boolean)
-    .join('\n\n')
+  const questionComponent = [...components]
+    .reverse()
+    .find(
+      (component): component is Extract<BeeComponent, { type: 'question' }> =>
+        component.type === 'question',
+    )
+  // A blocking decision is the latest coherent stage. Earlier drafts and
+  // progress copy in Flue's accumulated envelope must not compete with it.
+  const markdown = questionComponent
+    ? renderComponent(questionComponent).markdown
+    : [spoken, ...rendered.map((item) => item.markdown)]
+        .filter(Boolean)
+        .join('\n\n')
   const firstFocus = components.find(
     (component): component is FirstFocusPreview =>
       component.type === 'first_focus',
@@ -414,11 +436,12 @@ export function extractBeeResponse(text: string): BeeResponseProjection {
   return {
     spoken,
     markdown,
-    links: [
-      ...new Set(rendered.flatMap((item) => item.links)),
-    ],
+    links: [...new Set(rendered.flatMap((item) => item.links))],
     ...(firstFocus ? { firstFocus } : {}),
     ...(pendingWeb3 ? { web3Confirmation: pendingWeb3 } : {}),
+    ...(questionComponent
+      ? { question: { questions: questionComponent.questions } }
+      : {}),
   }
 }
 
@@ -438,47 +461,15 @@ export function projectWeb3Action(
     actionId: confirmation.actionId,
     summary: action.summary,
   }
-
-  if (action.status === 'pending') {
-    const replacement = renderComponent({
-      type: 'confirm',
-      summary: action.summary,
-      action: 'web3',
-      payload: { web3ActionId: confirmation.actionId },
-    }).markdown
-    return {
-      ...response,
-      markdown: response.markdown.replace(original, replacement),
-      web3Confirmation: canonical,
-    }
-  }
-
-  const terminalTitles: Partial<
-    Record<Web3ActionProjection['status'], string>
-  > = {
-    executed: '**Web3 action complete**',
-    failed: '**Web3 action failed**',
-    refunded: '**Web3 action refunded**',
-    cancelled: '**Web3 action cancelled**',
-    expired: '**Web3 confirmation expired**',
-  }
-  const title =
-    action.autoConfirmed && action.status === 'confirmed'
-      ? '**Auto-approved · YOLO mode**'
-      : terminalTitles[action.status] ?? '**Web3 action in progress**'
-  const detail =
-    action.status === 'failed' && action.error
-      ? clean(action.error)
-      : action.status === 'confirmed' || action.status === 'in_progress'
-        ? 'Execution has started. Ask Bee for the latest status anytime.'
-        : ''
-  const replacement = [title, clean(action.summary), detail]
-    .filter(Boolean)
-    .join('\n')
+  const projected = projectTextWeb3Action(action)
   const { web3Confirmation: _confirmation, ...withoutConfirmation } = response
   return {
     ...withoutConfirmation,
-    markdown: response.markdown.replace(original, replacement),
+    markdown: response.markdown.replace(original, projected.text),
+    links: [...new Set([...response.links, ...projected.links])],
+    ...(projected.requiresTextConfirmation
+      ? { web3Confirmation: canonical }
+      : {}),
   }
 }
 
@@ -489,11 +480,18 @@ function latestAssistantProjection(
     .reverse()
     .find((message) => message.role === 'assistant')
   if (!latestAssistant) return undefined
-  const text = (latestAssistant.parts ?? [])
+  const projections = (latestAssistant.parts ?? [])
     .filter((part) => part.type === 'text' && typeof part.text === 'string')
-    .map((part) => part.text)
-    .join('\n')
-  return extractBeeResponse(text)
+    .map((part) => extractBeeResponse(part.text!))
+  return (
+    [...projections].reverse().find((projection) => projection.question) ??
+    [...projections]
+      .reverse()
+      .find(
+        (projection) => projection.web3Confirmation || projection.firstFocus,
+      ) ??
+    projections.at(-1)
+  )
 }
 
 export function latestFirstFocusPreview(
@@ -506,6 +504,17 @@ export function latestWeb3Confirmation(
   messages: readonly ConversationMessageLike[],
 ) {
   return latestAssistantProjection(messages)?.web3Confirmation
+}
+
+export function latestQuestion(messages: readonly ConversationMessageLike[]) {
+  return latestAssistantProjection(messages)?.question
+}
+
+export function resolveQuestionAnswer(
+  question: BeeQuestion | undefined,
+  answer: string,
+) {
+  return resolveBeeQuestionAnswer(question, answer)
 }
 
 export function isFirstFocusConfirmation(text: string): boolean {
@@ -535,8 +544,6 @@ export function isHighlightCompletion(text: string): boolean {
     /^(complete|finish) ((my|the|this) )?(highlight|task)[.!]?$/i.test(
       command,
     ) ||
-    /^mark ((my|the|this) )?(highlight|task|it)( as)? done[.!]?$/i.test(
-      command,
-    )
+    /^mark ((my|the|this) )?(highlight|task|it)( as)? done[.!]?$/i.test(command)
   )
 }

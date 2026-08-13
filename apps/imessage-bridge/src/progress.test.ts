@@ -60,7 +60,7 @@ describe('iMessage agent progress projection', () => {
         }),
         3_000,
       ),
-    ).toBe('Web3: Finished')
+    ).toBeUndefined()
   })
 
   test('coalesces repeats and emits bounded silence heartbeats', () => {
@@ -73,14 +73,16 @@ describe('iMessage agent progress projection', () => {
       input: { token: 'USDC' },
     })
 
-    expect(progress.heartbeat(3_999)).toBeUndefined()
-    expect(progress.heartbeat(4_000)).toBe('Still working on it…')
-    expect(progress.heartbeat(5_000)).toBeUndefined()
-    expect(progress.event(toolInput, 6_000)).toBe('Web3: Getting a swap quote…')
-    expect(progress.event(toolInput, 7_000)).toBeUndefined()
-    expect(progress.heartbeat(18_000)).toBe(
+    expect(progress.heartbeat(7_999)).toBeUndefined()
+    expect(progress.heartbeat(8_000)).toBe('Still working on it…')
+    expect(progress.heartbeat(9_000)).toBeUndefined()
+    expect(progress.event(toolInput, 10_000)).toBe(
+      'Web3: Getting a swap quote…',
+    )
+    expect(progress.event(toolInput, 11_000)).toBeUndefined()
+    expect(progress.heartbeat(30_000)).toBe(
       'This is taking a little longer — I’m still working on it.',
     )
-    expect(progress.heartbeat(30_000)).toBeUndefined()
+    expect(progress.heartbeat(45_000)).toBeUndefined()
   })
 })

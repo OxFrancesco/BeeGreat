@@ -274,7 +274,7 @@ function LabelRow({ labels }: { labels: string[] }) {
     <View style={styles.labels}>
       {labels.map((label) => (
         <View key={label} style={styles.label}>
-          <ThemedText type="small" numberOfLines={1}>
+          <ThemedText type="small" numberOfLines={1} style={styles.labelText}>
             {label}
           </ThemedText>
         </View>
@@ -325,6 +325,9 @@ const styles = StyleSheet.create({
   cardCopy: { gap: 7, padding: 12 },
   labels: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   label: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#FFDFB5' },
+  // The chip's honey fill is fixed, so the ink must be fixed too — the
+  // themed text color is near-white in dark mode and vanishes on it.
+  labelText: { color: '#6D4B0D' },
   row: {
     minHeight: 68,
     flexDirection: 'row',

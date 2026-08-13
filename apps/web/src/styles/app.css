@@ -3291,3 +3291,99 @@ h3 {
     filter: none;
   }
 }
+
+/* Gate pages: /link/imessage and /connect/$provider — standalone landing
+   cards opened from links Bee sends over text channels. */
+.gate-page {
+  display: grid;
+  min-height: 100dvh;
+  padding: max(16px, env(safe-area-inset-top)) 16px
+    max(16px, env(safe-area-inset-bottom));
+  background: var(--canvas);
+  color: var(--ink);
+  place-items: center;
+}
+
+.gate-card {
+  display: grid;
+  width: min(430px, 100%);
+  padding: 32px 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  gap: 16px;
+  justify-items: center;
+  text-align: center;
+}
+
+.gate-card h1 {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.gate-card p {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.gate-bee {
+  width: 72px;
+  height: 70px;
+  object-fit: contain;
+}
+
+.gate-button {
+  display: grid;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--brown);
+  color: var(--brown-ink);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  place-items: center;
+  text-decoration: none;
+  transition:
+    opacity 100ms ease,
+    transform 100ms ease;
+}
+
+.gate-button:hover {
+  opacity: 0.9;
+}
+
+.gate-button:active {
+  transform: scale(0.99);
+}
+
+.gate-button:disabled {
+  background: var(--surface-muted);
+  color: var(--ink-soft);
+}
+
+.gate-button--quiet {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.gate-note {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.gate-disclosure {
+  margin-block: 1rem;
+  text-align: left;
+}
+
+.gate-note a {
+  color: inherit;
+  text-decoration: underline;
+}

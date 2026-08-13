@@ -1,6 +1,9 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
-import { sameEvmAddress, sendFreshEoaTransactions } from '@beegreat/wallet-connect';
+import {
+  sameEvmAddress,
+  sendFreshEoaTransactions,
+} from '@beegreat/wallet-connect';
 import { useAction, useMutation, useQuery } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
 import { File, Paths } from 'expo-file-system';
@@ -161,7 +164,10 @@ function QuestionCard({
                   <Pressable
                     key={option.label}
                     accessibilityRole="button"
-                    accessibilityState={{ selected, disabled: !onReply || sent }}
+                    accessibilityState={{
+                      selected,
+                      disabled: !onReply || sent,
+                    }}
                     accessibilityLabel={
                       option.description
                         ? `${option.label}. ${option.description}`
@@ -807,6 +813,7 @@ function Web3ConfirmCard({
   const beginEoaExecution = useMutation(api.web3Actions.beginEoaExecution);
   const refreshEoaExecution = useAction(api.web3.refreshEoaSugarExecution);
   const recordEoaSubmission = useMutation(api.web3Actions.recordEoaSubmission);
+  const recordEoaReceipt = useMutation(api.web3Actions.recordEoaReceipt);
   const reportEoaFailure = useMutation(api.web3Actions.reportEoaFailure);
   const connectedWallet = useEoaWallet();
   const [decision, setDecision] = useState<
@@ -873,6 +880,13 @@ function Web3ConfirmCard({
                 index,
                 hash,
                 role,
+              });
+            },
+            onConfirmed: async ({ index, hash }) => {
+              await recordEoaReceipt({
+                actionId: actionId as Id<'web3Actions'>,
+                index,
+                hash,
               });
             },
           });

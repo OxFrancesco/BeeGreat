@@ -1,6 +1,7 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { useAction, useQuery } from 'convex/react'
 import { useCallback, useEffect, useRef } from 'react'
+import type { GoogleWorkspaceService } from '@beegreat/tool-presentation'
 
 export type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google'
 
@@ -13,6 +14,7 @@ export function useBeennectors() {
   )
   const disconnectAction = useAction(api.beennectorAuthActions.disconnect)
   const popupRef = useRef<Window | null>(null)
+  const pendingProviderRef = useRef<BeennectorProvider | undefined>(undefined)
   const timerRef = useRef<number | undefined>(undefined)
   const connectionsRef = useRef(connections)
   connectionsRef.current = connections
@@ -21,12 +23,22 @@ export function useBeennectors() {
     () => () => {
       popupRef.current?.close()
       if (timerRef.current) window.clearInterval(timerRef.current)
+      if (pendingProviderRef.current) {
+        void disconnectAction({ provider: pendingProviderRef.current })
+        pendingProviderRef.current = undefined
+      }
     },
-    [],
+    [disconnectAction],
   )
 
   const connect = useCallback(
-    async (provider: BeennectorProvider) => {
+    async (
+      provider: BeennectorProvider,
+      google?: {
+        services: GoogleWorkspaceService[]
+        disclosureVersion: string
+      },
+    ) => {
       const popup = window.open(
         'about:blank',
         `beegreat-beennector-${provider}`,
@@ -37,7 +49,15 @@ export function useBeennectors() {
       popupRef.current = popup
       let authorizationUrl: string
       try {
-        ;({ authorizationUrl } = await beginAuthorization({ provider }))
+        ;({ authorizationUrl } = await beginAuthorization({
+          provider,
+          ...(provider === 'google' && google
+            ? {
+                googleServices: google.services,
+                googleDisclosureVersion: google.disclosureVersion,
+              }
+            : {}),
+        }))
       } catch (error) {
         popup.close()
         popupRef.current = null
@@ -45,6 +65,7 @@ export function useBeennectors() {
       }
       if (popup.closed) return false
       popup.location.assign(authorizationUrl)
+      pendingProviderRef.current = provider
 
       if (timerRef.current) window.clearInterval(timerRef.current)
       return await new Promise<boolean>((resolve, reject) => {
@@ -53,7 +74,17 @@ export function useBeennectors() {
           if (timerRef.current) window.clearInterval(timerRef.current)
           timerRef.current = undefined
           popupRef.current = null
+          pendingProviderRef.current = undefined
           resolve(connected)
+        }
+        const cancel = () => {
+          if (timerRef.current) window.clearInterval(timerRef.current)
+          timerRef.current = undefined
+          popupRef.current = null
+          pendingProviderRef.current = undefined
+          void disconnectAction({ provider })
+            .catch(() => undefined)
+            .finally(() => resolve(false))
         }
         timerRef.current = window.setInterval(() => {
           const connection = connectionsRef.current?.find(
@@ -77,12 +108,12 @@ export function useBeennectors() {
           }
           if (popup.closed || Date.now() - startedAt > 10 * 60 * 1_000) {
             popup.close()
-            finish(false)
+            cancel()
           }
         }, 500)
       })
     },
-    [beginAuthorization],
+    [beginAuthorization, disconnectAction],
   )
 
   return {

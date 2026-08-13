@@ -32,6 +32,12 @@ import { useScreenshotFixture } from '@/lib/screenshot-fixture';
 const MAX_GOALS = 3;
 
 type GoalSummary = FunctionReturnType<typeof api.goals.list>[number];
+type NfcAction = FunctionReturnType<typeof api.nfcActions.list>[number];
+
+type ReminderSummary = {
+  reminderCount: number;
+  completionCount: number;
+};
 
 export default function GoalsScreen() {
   const fixture = useScreenshotFixture();
@@ -50,7 +56,9 @@ export default function GoalsScreen() {
 
 function LiveGoalsScreen() {
   const goals = useQuery(api.goals.list);
+  const nfcActions = useQuery(api.nfcActions.list);
   const createGoal = useMutation(api.goals.create);
+  const reminderSummary = summarizeReminders(nfcActions);
 
   const addGoal = async (title: string) => {
     try {
@@ -60,16 +68,36 @@ function LiveGoalsScreen() {
     }
   };
 
-  return <GoalsScreenView goals={goals} onAddGoal={addGoal} />;
+  return (
+    <GoalsScreenView
+      goals={goals}
+      reminderSummary={reminderSummary}
+      onAddGoal={addGoal}
+    />
+  );
+}
+
+function summarizeReminders(actions: NfcAction[] | undefined): ReminderSummary | undefined {
+  if (actions === undefined) return undefined;
+  const reminders = actions.filter((action) => action.definition.type === 'reminder');
+  return {
+    reminderCount: reminders.length,
+    completionCount: reminders.reduce(
+      (total, reminder) => total + reminder.completionCount,
+      0,
+    ),
+  };
 }
 
 function GoalsScreenView({
   goals,
   healthSummary,
+  reminderSummary,
   onAddGoal,
 }: {
   goals: GoalSummary[] | undefined;
   healthSummary?: string;
+  reminderSummary?: ReminderSummary;
   onAddGoal: (title: string) => void | Promise<void>;
 }) {
   return (
@@ -98,6 +126,12 @@ function GoalsScreenView({
                 <BeeHealthyCard />
               )}
             </View>
+            <View style={styles.section}>
+              <ThemedText type="smallBold" themeColor="textSecondary">
+                Reminders
+              </ThemedText>
+              <ReminderOverviewCard summary={reminderSummary} />
+            </View>
             {goals === undefined ? (
               <ActivityIndicator style={styles.loading} />
             ) : (
@@ -119,6 +153,48 @@ function GoalsScreenView({
         </KeyboardAvoidingView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+function ReminderOverviewCard({ summary }: { summary?: ReminderSummary }) {
+  const theme = useTheme();
+  const meta =
+    summary && summary.reminderCount > 0
+      ? `${summary.reminderCount} ${summary.reminderCount === 1 ? 'reminder' : 'reminders'} · ${summary.completionCount.toLocaleString()} ${summary.completionCount === 1 ? 'completion' : 'completions'}`
+      : 'Turn repeated chores into one-tap completions';
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Open NFC reminders"
+      onPress={() => router.push('/goals/reminders')}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: theme.card, borderColor: theme.border },
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={[styles.reminderIcon, { backgroundColor: theme.secondary }]}>
+        <SymbolView
+          name="checkmark.circle.fill"
+          size={22}
+          tintColor={theme.secondaryForeground}
+          fallback={<ThemedText style={{ color: theme.secondaryForeground }}>✓</ThemedText>}
+        />
+      </View>
+      <View style={styles.cardBody}>
+        <ThemedText numberOfLines={1}>NFC reminders</ThemedText>
+        <ThemedText
+          type="small"
+          themeColor="textSecondary"
+          numberOfLines={2}
+          style={styles.counter}
+        >
+          {meta}
+        </ThemedText>
+      </View>
+      <SymbolView name="chevron.right" size={14} tintColor={theme.textSecondary} />
+    </Pressable>
   );
 }
 
@@ -264,6 +340,17 @@ const styles = StyleSheet.create({
   cardBody: {
     flex: 1,
     gap: Spacing.half,
+  },
+  reminderIcon: {
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderCurve: 'continuous',
+  },
+  counter: {
+    fontVariant: ['tabular-nums'],
   },
   pressed: {
     opacity: 0.7,

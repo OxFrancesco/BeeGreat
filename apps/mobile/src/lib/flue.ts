@@ -30,7 +30,10 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
  * (the agent's mount path plus the conversation id). Each client owns its own
  * live subscriptions; a fresh one forces a reconnect.
  */
-export function createBeeFlueClient(conversationId: string) {
+export function createBeeFlueClient(
+  conversationId: string,
+  _reconnectVersion = 0,
+) {
   return createFlueClient({
     url: `${AGENT_URL}/agents/${BEE_AGENT_NAME}/${conversationId}`,
     headers: getAuthHeaders,

@@ -48,4 +48,30 @@ describe("Bee CLI commands", () => {
       "telegram connect|status|disconnect|notify",
     );
   });
+
+  test("parses iMessage subcommands", () => {
+    expect(parseCommand(["imessage"])).toEqual({
+      kind: "imessage",
+      action: "status",
+    });
+    expect(parseCommand(["imessage", "status"])).toEqual({
+      kind: "imessage",
+      action: "status",
+    });
+    expect(parseCommand(["imessage", "disconnect"])).toEqual({
+      kind: "imessage",
+      action: "disconnect",
+    });
+    expect(parseCommand(["imessage", "disconnect", "+15551234567"])).toEqual({
+      kind: "imessage",
+      action: "disconnect",
+      address: "+15551234567",
+    });
+    expect(() => parseCommand(["imessage", "wat"])).toThrow(
+      "imessage status|disconnect",
+    );
+    expect(() => parseCommand(["imessage", "status", "extra"])).toThrow(
+      "does not accept arguments",
+    );
+  });
 });

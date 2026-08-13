@@ -3,12 +3,14 @@ import { Canvas, Group, ImageSVG, useSVG } from '@shopify/react-native-skia';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as AuthSession from 'expo-auth-session';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GoogleLogo } from '@/components/beennectors/beennector-logos';
 import { FloatingBee } from '@/components/floating-bee';
 import { HexButton, Hive } from '@/components/hex-button';
 import { MotionDuration } from '@/constants/motion';
@@ -29,6 +31,7 @@ const SVG_WIDTH = 607;
 const SVG_HEIGHT = 1080;
 /** The branch + hanging hive live in the top ~450 units of the scene. */
 const ART_HEIGHT = 450;
+const SIGN_IN_BEE_HEIGHT = 132;
 
 export default function SignInScreen() {
   const svg = useSVG(require('../../assets/images/honeypot.svg'));
@@ -143,7 +146,7 @@ export default function SignInScreen() {
           }
           style={styles.copy}
         >
-          <FloatingBee style={styles.bee} />
+          <FloatingBee height={SIGN_IN_BEE_HEIGHT} style={styles.bee} />
           <Text style={styles.wordmark}>BeeGreat</Text>
           <Text style={styles.tagline}>
             One hive for your goals.{'\n'}Talk, plan, and make every day count.
@@ -158,21 +161,32 @@ export default function SignInScreen() {
           }
           style={styles.actions}
         >
-          {appleAuthenticationAvailable ? (
-            <AppleAuthentication.AppleAuthenticationButton
-              accessibilityLabel="Sign in with Apple"
-              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-              cornerRadius={12}
-              onPress={() => void signInWithApple()}
-              style={styles.appleButton}
+          <View style={styles.authCluster}>
+            {appleAuthenticationAvailable ? (
+              <HexButton
+                label="Sign in with Apple"
+                busy={pending === 'apple'}
+                disabled={pending !== null}
+                icon={
+                  <Image
+                    accessibilityElementsHidden
+                    importantForAccessibility="no"
+                    source="sf:apple.logo"
+                    style={styles.providerIcon}
+                  />
+                }
+                onPress={() => void signInWithApple()}
+              />
+            ) : null}
+            <HexButton
+              label="Sign in with Google"
+              busy={pending === 'google'}
+              disabled={pending !== null}
+              icon={<GoogleLogo size={20} />}
+              variant="secondary"
+              onPress={() => void signInWithGoogle()}
             />
-          ) : null}
-          <HexButton
-            label="Sign in with Google"
-            busy={pending === 'google'}
-            onPress={() => void signInWithGoogle()}
-          />
+          </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <Text style={styles.legal}>
             By continuing you agree to our{' '}
@@ -240,9 +254,15 @@ const styles = StyleSheet.create({
     gap: Spacing.three,
     paddingHorizontal: Spacing.four,
   },
-  appleButton: {
-    width: '100%',
-    height: 52,
+  authCluster: {
+    gap: Spacing.two,
+  },
+  providerIcon: {
+    width: 20,
+    height: 20,
+    color: Hive.cream,
+    fontSize: 19,
+    fontWeight: '600',
   },
   error: {
     fontFamily: Fonts?.sans,
