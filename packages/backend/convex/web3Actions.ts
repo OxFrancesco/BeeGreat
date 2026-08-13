@@ -121,7 +121,9 @@ export function web3ActionContext(
     conversationId !== undefined &&
     !belongsToUserConversation(userId, conversationId)
   ) {
-    throw new Error('The originating conversation does not belong to this user.')
+    throw new Error(
+      'The originating conversation does not belong to this user.',
+    )
   }
   const cleanContinuation = continuation?.trim()
   if (cleanContinuation && !conversationId) {
@@ -208,14 +210,49 @@ export const create = internalMutation({
       status: autoConfirm ? 'confirmed' : 'pending',
       createdAt: now,
       expiresAt: actionExpiresAt,
-      ...(autoConfirm ? { confirmedAt: now, autoConfirmed: true } : {}),
+      ...(autoConfirm
+        ? {
+            confirmedAt: now,
+            executionStartedAt: now,
+            autoConfirmed: true,
+          }
+        : {}),
     })
     if (autoConfirm) {
       await ctx.scheduler.runAfter(0, internal.web3.executeConfirmedAction, {
         actionId: id,
       })
+    } else {
+      await ctx.scheduler.runAt(
+        actionExpiresAt,
+        internal.web3Actions.expirePending,
+        {
+          actionId: id,
+        },
+      )
     }
     return { id, expiresAt: actionExpiresAt, autoConfirmed: autoConfirm }
+  },
+})
+
+/** Materializes expiry so channel outboxes and subscriptions see a transition. */
+export const expirePending = internalMutation({
+  args: { actionId: v.id('web3Actions') },
+  returns: v.null(),
+  handler: async (ctx, { actionId }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.status !== 'pending' ||
+      action.expiresAt > Date.now()
+    ) {
+      return null
+    }
+    await ctx.db.patch(actionId, { status: 'expired', settledAt: Date.now() })
+    await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
+      actionId,
+    })
+    return null
   },
 })
 
@@ -274,7 +311,10 @@ export async function confirmWeb3Action(
   await requirePowerup(ctx, userId, 'web3')
   const now = Date.now()
   if (action.status === 'pending' && action.expiresAt <= now) {
-    await ctx.db.patch(actionId, { status: 'expired' })
+    await ctx.db.patch(actionId, { status: 'expired', settledAt: now })
+    await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
+      actionId,
+    })
     throw new Error('This confirmation expired. Ask Bee to prepare it again.')
   }
   if (action.status !== 'pending') {
@@ -285,7 +325,11 @@ export async function confirmWeb3Action(
       'This action must be signed in BeeGreat with the linked wallet.',
     )
   }
-  await ctx.db.patch(actionId, { status: 'confirmed', confirmedAt: now })
+  await ctx.db.patch(actionId, {
+    status: 'confirmed',
+    confirmedAt: now,
+    executionStartedAt: now,
+  })
   await ctx.scheduler.runAfter(0, internal.web3.executeConfirmedAction, {
     actionId,
   })
@@ -339,7 +383,11 @@ export const beginEoaExecution = mutation({
     ) {
       throw new Error('Reconnect the wallet shown in this confirmation.')
     }
-    await ctx.db.patch(actionId, { status: 'confirmed', confirmedAt: now })
+    await ctx.db.patch(actionId, {
+      status: 'confirmed',
+      confirmedAt: now,
+      executionStartedAt: now,
+    })
     return {
       walletAddress: action.payload.walletAddress,
       chainId: action.payload.chainId,
@@ -348,7 +396,7 @@ export const beginEoaExecution = mutation({
   },
 })
 
-/** Record each WalletConnect submission in strict plan order. */
+/** Record each WalletConnect hash as submitted, never as settled. */
 export const recordEoaSubmission = mutation({
   args: {
     actionId: v.id('web3Actions'),
@@ -370,10 +418,8 @@ export const recordEoaSubmission = mutation({
     if (action.status !== 'confirmed' && action.status !== 'in_progress') {
       throw new Error(`This action was already ${action.status}.`)
     }
-    if (
-      !Number.isSafeInteger(index) ||
-      index !== (action.result?.length ?? 0)
-    ) {
+    const execution = action.eoaExecution ?? []
+    if (!Number.isSafeInteger(index) || index !== execution.length) {
       throw new Error('Wallet transactions must be submitted in plan order.')
     }
     if (!EVM_HASH.test(hash)) {
@@ -381,15 +427,84 @@ export const recordEoaSubmission = mutation({
     }
     const explorer = EOA_CHAIN_EXPLORERS[action.payload.chainId]
     if (!explorer) throw new Error('This EVM chain is not supported.')
+    const now = Date.now()
     const result = [
       ...(action.result ?? []),
       { hash, explorerLink: `${explorer}${hash}` },
     ]
-    const done = role === 'action' ||
-      (role === undefined && result.length === action.payload.transactions.length)
     await ctx.db.patch(actionId, {
       result,
+      status: 'in_progress',
+      submittedAt: action.submittedAt ?? now,
+      eoaExecution: [
+        ...execution,
+        {
+          index,
+          ...(role ? { role } : {}),
+          hash,
+          status: 'submitted' as const,
+          submittedAt: now,
+        },
+      ],
+    })
+    return { done: false }
+  },
+})
+
+/** Settle a linked-wallet step only after its successful on-chain receipt. */
+export const recordEoaReceipt = mutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    index: v.number(),
+    hash: v.string(),
+  },
+  returns: v.object({ done: v.boolean() }),
+  handler: async (ctx, { actionId, index, hash }) => {
+    const userId = await requireUserId(ctx)
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.userId !== userId ||
+      action.payload.kind !== 'execute_eoa_plan'
+    ) {
+      throw new Error('This wallet receipt is no longer available.')
+    }
+    if (action.status !== 'confirmed' && action.status !== 'in_progress') {
+      if (action.status === 'executed') return { done: true }
+      throw new Error(`This action was already ${action.status}.`)
+    }
+    if (!Number.isSafeInteger(index) || !EVM_HASH.test(hash)) {
+      throw new Error('The wallet returned an invalid receipt.')
+    }
+    const execution = action.eoaExecution ?? []
+    const step = execution[index]
+    if (!step || step.hash.toLowerCase() !== hash.toLowerCase()) {
+      throw new Error('The wallet receipt does not match the submitted plan.')
+    }
+    if (step.status === 'success') {
+      const alreadyDone =
+        step.role === 'action' ||
+        (step.role === undefined &&
+          execution.filter((item) => item.status === 'success').length ===
+            action.payload.transactions.length)
+      return { done: alreadyDone }
+    }
+
+    const now = Date.now()
+    const settled = execution.map((item, stepIndex) =>
+      stepIndex === index
+        ? { ...item, status: 'success' as const, confirmedAt: now }
+        : item,
+    )
+    const done =
+      step.role === 'action' ||
+      (step.role === undefined &&
+        settled.filter((item) => item.status === 'success').length ===
+          action.payload.transactions.length)
+    await ctx.db.patch(actionId, {
+      eoaExecution: settled,
       status: done ? 'executed' : 'in_progress',
+      ...(done ? { settledAt: now } : {}),
     })
     if (done) {
       await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
@@ -422,7 +537,7 @@ export const reportEoaFailure = mutation({
     ) {
       return null
     }
-    const submitted = action.result?.length ?? 0
+    const submitted = action.eoaExecution?.length ?? 0
     const cancelled = reason === 'user_rejected' && submitted === 0
     const error =
       reason === 'account_changed'
@@ -437,6 +552,7 @@ export const reportEoaFailure = mutation({
     await ctx.db.patch(actionId, {
       status: cancelled ? 'cancelled' : 'failed',
       error,
+      ...(!cancelled ? { settledAt: Date.now() } : {}),
     })
     if (!cancelled) {
       await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
@@ -541,11 +657,13 @@ export const recordResult = internalMutation({
     if (
       !action ||
       (action.status !== 'confirmed' && action.status !== 'in_progress')
-    ) return null
+    )
+      return null
     await ctx.db.patch(actionId, {
       status: error === undefined ? 'executed' : 'failed',
       result,
       error,
+      settledAt: Date.now(),
     })
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
       actionId,
@@ -568,24 +686,36 @@ export const recordCrossmintPrepared = internalMutation({
       !action ||
       action.payload.kind !== 'execute_plan' ||
       (action.status !== 'confirmed' && action.status !== 'in_progress')
-    ) return null
-    if (!transactionId.trim()) throw new Error('Crossmint transaction id is empty.')
+    )
+      return null
+    if (!transactionId.trim())
+      throw new Error('Crossmint transaction id is empty.')
     const execution = action.crossmintExecution ?? []
-    const existing = execution.find((step) => step.transactionId === transactionId)
+    const existing = execution.find(
+      (step) => step.transactionId === transactionId,
+    )
     if (existing) return null
     if (execution.some((step) => step.status === 'prepared')) {
-      throw new Error('A Crossmint transaction is already pending for this action.')
+      throw new Error(
+        'A Crossmint transaction is already pending for this action.',
+      )
     }
     await ctx.db.patch(actionId, {
       status: 'in_progress',
+      executionStartedAt: action.executionStartedAt ?? Date.now(),
+      submittedAt: action.submittedAt ?? Date.now(),
       crossmintExecution: [
         ...execution,
         { role, transactionId, status: 'prepared' as const },
       ],
     })
-    await ctx.scheduler.runAfter(70_000, internal.web3.reconcileCrossmintAction, {
-      actionId,
-    })
+    await ctx.scheduler.runAfter(
+      70_000,
+      internal.web3.reconcileCrossmintAction,
+      {
+        actionId,
+      },
+    )
     return null
   },
 })
@@ -622,6 +752,7 @@ export const recordCrossmintSuccess = internalMutation({
       crossmintExecution: settled,
       result,
       status: finalAction ? 'executed' : 'confirmed',
+      ...(finalAction ? { settledAt: Date.now() } : {}),
     })
     if (finalAction) {
       await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
@@ -650,7 +781,8 @@ export const recordCrossmintFailure = internalMutation({
       !action ||
       action.payload.kind !== 'execute_plan' ||
       (action.status !== 'confirmed' && action.status !== 'in_progress')
-    ) return null
+    )
+      return null
     const execution = (action.crossmintExecution ?? []).map((step) =>
       transactionId && step.transactionId === transactionId
         ? { ...step, status: 'failed' as const }
@@ -660,9 +792,136 @@ export const recordCrossmintFailure = internalMutation({
       crossmintExecution: execution,
       status: 'failed',
       error,
+      settledAt: Date.now(),
     })
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
       actionId,
+    })
+    return null
+  },
+})
+
+/** Persist Socket's single approval+route batch before Crossmint approval. */
+export const recordSocketPrepared = internalMutation({
+  args: { actionId: v.id('web3Actions'), transactionId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { actionId, transactionId }) => {
+    const action = await ctx.db.get(actionId)
+    if (
+      !action ||
+      action.payload.kind !== 'socket_swap' ||
+      (action.status !== 'confirmed' && action.status !== 'in_progress')
+    )
+      return null
+    if (!transactionId.trim())
+      throw new Error('Crossmint transaction id is empty.')
+    const execution = action.crossmintExecution ?? []
+    if (execution.some((step) => step.transactionId === transactionId))
+      return null
+    if (execution.some((step) => step.status === 'prepared')) {
+      throw new Error('A Socket origin transaction is already pending.')
+    }
+    const now = Date.now()
+    await ctx.db.patch(actionId, {
+      status: 'in_progress',
+      executionStartedAt: action.executionStartedAt ?? now,
+      submittedAt: action.submittedAt ?? now,
+      crossmintExecution: [
+        ...execution,
+        { role: 'action', transactionId, status: 'prepared' as const },
+      ],
+      socketProgress: {
+        status: 'PENDING',
+        detail: 'Submitting the approval and route atomically…',
+        updatedAt: now,
+      },
+    })
+    await ctx.scheduler.runAfter(
+      70_000,
+      internal.web3.reconcileSocketCrossmintAction,
+      { actionId },
+    )
+    return null
+  },
+})
+
+/** Origin settlement starts Socket's independent destination status poller. */
+export const recordSocketOriginSuccess = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    transactionId: v.string(),
+    hash: v.string(),
+    explorerLink: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const action = await ctx.db.get(args.actionId)
+    if (!action || action.payload.kind !== 'socket_swap') return null
+    const execution = action.crossmintExecution ?? []
+    const index = execution.findIndex(
+      (step) => step.transactionId === args.transactionId,
+    )
+    if (index < 0 || execution[index].status === 'success') return null
+    const now = Date.now()
+    await ctx.db.patch(args.actionId, {
+      status: 'in_progress',
+      crossmintExecution: execution.map((step, stepIndex) =>
+        stepIndex === index
+          ? {
+              ...step,
+              status: 'success' as const,
+              hash: args.hash,
+              explorerLink: args.explorerLink,
+            }
+          : step,
+      ),
+      result: [
+        ...(action.result ?? []),
+        { hash: args.hash, explorerLink: args.explorerLink || null },
+      ],
+      socketProgress: {
+        status: 'PENDING',
+        detail: `Moving funds to ${action.payload.destinationChain === 'base' ? 'Base' : 'Arbitrum'}…`,
+        originTxHash: args.hash,
+        updatedAt: now,
+      },
+    })
+    await ctx.scheduler.runAfter(
+      action.payload.statusIntervalSeconds * 1_000,
+      internal.web3.pollSocketSwapStatus,
+      { actionId: args.actionId },
+    )
+    return null
+  },
+})
+
+export const recordSocketOriginFailure = internalMutation({
+  args: {
+    actionId: v.id('web3Actions'),
+    transactionId: v.optional(v.string()),
+    error: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const action = await ctx.db.get(args.actionId)
+    if (
+      !action ||
+      action.payload.kind !== 'socket_swap' ||
+      (action.status !== 'confirmed' && action.status !== 'in_progress')
+    )
+      return null
+    await ctx.db.patch(args.actionId, {
+      status: 'failed',
+      settledAt: Date.now(),
+      error: args.error,
+      crossmintExecution: (action.crossmintExecution ?? []).map((step) =>
+        !args.transactionId || step.transactionId === args.transactionId
+          ? { ...step, status: 'failed' as const }
+          : step,
+      ),
+    })
+    await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
+      actionId: args.actionId,
     })
     return null
   },
@@ -687,6 +946,8 @@ export const recordSocketSubmitted = internalMutation({
     }
     await ctx.db.patch(actionId, {
       status: 'in_progress',
+      executionStartedAt: action.executionStartedAt ?? Date.now(),
+      submittedAt: action.submittedAt ?? Date.now(),
       result,
       socketProgress: {
         status: 'PENDING',
@@ -733,6 +994,7 @@ export const recordSocketProgress = internalMutation({
       status,
       socketProgress: progress,
       ...(result ? { result } : {}),
+      ...(status !== 'in_progress' ? { settledAt: Date.now() } : {}),
       ...(status === 'failed'
         ? {
             error:

@@ -5,27 +5,42 @@ import { describe, expect, test } from 'vitest'
 import schema from './schema'
 import { modules } from './test.setup'
 
-type Definition = { type: 'hydration'; amountMl: number }
+type Definition =
+  | { type: 'hydration'; amountMl: number }
+  | { type: 'reminder' }
 type Action = {
   _id: Id<'nfcActions'>
   label: string
   enabled: boolean
   definition: Definition
+  completionCount: number
   tagUrl: string
   lastExecutedAt: number | null
   createdAt: number
   updatedAt: number
 }
-type Outcome = {
-  type: 'hydration'
-  localDate: string
-  timeZone: string
-  appliedMl: number
+type Outcome =
+  | {
+      type: 'hydration'
+      localDate: string
+      timeZone: string
+      appliedMl: number
+    }
+  | {
+      type: 'reminder'
+      localDate: string
+      timeZone: string
+      appliedCount: number
+    }
+type ExecutedAction = {
+  label: string
+  definition: Definition
+  completionCount: number
 }
 type Execution = {
   duplicate: boolean
   executionId: Id<'nfcActionExecutions'>
-  action: { label: string; definition: Definition }
+  action: ExecutedAction
   outcome: Outcome
 }
 
@@ -48,6 +63,11 @@ const nfcActions = {
     },
     Action
   >('nfcActions:update'),
+  remove: makeFunctionReference<
+    'mutation',
+    { actionId: Id<'nfcActions'> },
+    null
+  >('nfcActions:remove'),
   execute: makeFunctionReference<
     'mutation',
     { publicId: string; localDate: string; timeZone: string },
@@ -56,7 +76,7 @@ const nfcActions = {
   undo: makeFunctionReference<
     'mutation',
     { executionId: Id<'nfcActionExecutions'> },
-    { action: Execution['action']; outcome: Outcome; undoneAt: number }
+    { action: ExecutedAction; outcome: Outcome; undoneAt: number }
   >('nfcActions:undo'),
 }
 
@@ -123,6 +143,7 @@ describe('NFC actions', () => {
       action: {
         label: 'Kitchen glass',
         definition: { type: 'hydration', amountMl: 250 },
+        completionCount: 1,
       },
       outcome: { type: 'hydration', appliedMl: 250 },
     })
@@ -130,6 +151,9 @@ describe('NFC actions', () => {
     expect(
       await owner.query(healthJournal.getByDate, { localDate: args.localDate }),
     ).toMatchObject({ hydrationMl: 250 })
+    expect(await owner.query(nfcActions.list, {})).toMatchObject([
+      { _id: action._id, completionCount: 1 },
+    ])
   })
 
   test('undo uses the execution snapshot and restores hydration', async () => {
@@ -149,15 +173,90 @@ describe('NFC actions', () => {
     })
 
     expect(undone).toMatchObject({
-      action: { label: 'Gym bottle' },
+      action: { label: 'Gym bottle', completionCount: 0 },
       outcome: { type: 'hydration', appliedMl: 750 },
     })
     expect(
       await owner.query(healthJournal.getByDate, { localDate: '2026-07-19' }),
     ).toMatchObject({ hydrationMl: 0 })
+    expect(await owner.query(nfcActions.list, {})).toMatchObject([
+      { _id: action._id, completionCount: 0 },
+    ])
     await expect(
       owner.mutation(nfcActions.undo, { executionId: executed.executionId }),
     ).rejects.toThrow('already been undone')
+  })
+
+  test('counts reminder taps, suppresses duplicates, and supports undo', async () => {
+    const t = convexTest(schema, modules)
+    const owner = t.withIdentity(identity('reminder-tag-owner'))
+    const action = await owner.mutation(nfcActions.create, {
+      label: 'Water the plants',
+      definition: { type: 'reminder' },
+    })
+    const args = {
+      publicId: publicId(action),
+      localDate: '2026-07-19',
+      timeZone: 'Europe/Rome',
+    }
+
+    const first = await owner.mutation(nfcActions.execute, args)
+    const duplicate = await owner.mutation(nfcActions.execute, args)
+
+    expect(first).toMatchObject({
+      duplicate: false,
+      action: {
+        label: 'Water the plants',
+        definition: { type: 'reminder' },
+        completionCount: 1,
+      },
+      outcome: {
+        type: 'reminder',
+        appliedCount: 1,
+      },
+    })
+    expect(duplicate).toEqual({ ...first, duplicate: true })
+    expect(await owner.query(nfcActions.list, {})).toMatchObject([
+      { _id: action._id, completionCount: 1 },
+    ])
+
+    const undone = await owner.mutation(nfcActions.undo, {
+      executionId: first.executionId,
+    })
+    expect(undone).toMatchObject({
+      action: { completionCount: 0 },
+      outcome: {
+        type: 'reminder',
+        appliedCount: -1,
+      },
+    })
+    expect(await owner.query(nfcActions.list, {})).toMatchObject([
+      { _id: action._id, completionCount: 0 },
+    ])
+  })
+
+  test('undo survives action deletion and clamps the counter at zero', async () => {
+    const t = convexTest(schema, modules)
+    const owner = t.withIdentity(identity('deleted-reminder-owner'))
+    const action = await owner.mutation(nfcActions.create, {
+      label: 'Take out the bins',
+      definition: { type: 'reminder' },
+    })
+    const executed = await owner.mutation(nfcActions.execute, {
+      publicId: publicId(action),
+      localDate: '2026-07-19',
+      timeZone: 'Europe/Rome',
+    })
+    await owner.mutation(nfcActions.remove, { actionId: action._id })
+
+    const undone = await owner.mutation(nfcActions.undo, {
+      executionId: executed.executionId,
+    })
+    expect(undone).toMatchObject({
+      action: { label: 'Take out the bins', completionCount: 0 },
+      outcome: { type: 'reminder', appliedCount: -1 },
+    })
+    expect(await owner.query(nfcActions.list, {})).toEqual([])
   })
 
   test("does not reveal or execute another owner's tag", async () => {

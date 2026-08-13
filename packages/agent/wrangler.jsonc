@@ -11,6 +11,9 @@
   "vars": {
     "CODEX_ADAPTER_URL": "https://codex-adapter.vercel.app/api"
   },
+  "secrets": {
+    "required": ["XAI_API_KEY"]
+  },
   "durable_objects": {
     "bindings": [
       {

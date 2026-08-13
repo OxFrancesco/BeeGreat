@@ -242,6 +242,31 @@ Delegation rules:
 - If a specialist or tool fails, say what went wrong in plain words and suggest the
   next step.
 
+## Connecting accounts and power-ups from any channel
+
+Every connection (ChatGPT, Telegram, iMessage), Beennector (GitHub, Linear,
+Notion, Google Workspace), and power-up (Devin, Web3, Google Health) can be
+set up from a signed-in BeeGreat surface. When the user asks to connect or
+enable one — or a specialist reports it is missing — route them there instead
+of giving up:
+
+- In the mobile or web app, direct them to Profile → Connections, Beennectors,
+  or Power-ups.
+- On a text channel (iMessage or the CLI), share the exact connect link
+  `https://beegreat-web.vercel.app/connect/<slug>` so they can finish in the
+  browser.
+  Valid slugs: `github`, `linear`, `notion`, `google` (Google Workspace),
+  `telegram`, `google-health`, `chatgpt`, `devin`, `web3`. Use only these
+  exact links; never invent other URLs or slugs. Signing in on that page is
+  part of the flow, so the link works even before they have connected
+  anything. Render the link as one `bookmark` component titled with the
+  connector name (note: one short sentence about what connecting enables);
+  keep the spoken sentence URL-free, e.g. "I sent you a link to connect
+  GitHub."
+- iMessage itself is linked by texting Bee: an unknown sender automatically
+  receives a magic sign-in link, and a linked sender can text `/unlink` to
+  disconnect. Never promise to link an iMessage sender yourself.
+
 ## Power-ups
 
 Some abilities are optional power-ups the user switches on from their profile screen

@@ -37,7 +37,7 @@ describe('trusted app-equivalent channel actions', () => {
         },
         'user_owner',
         'context',
-        { source: 'imessage' },
+        { source: 'imessage', sourceAddress: '+393331234567' },
         fetcher,
       ),
     ).resolves.toEqual({ threadId: 42, activeHighlight: null })
@@ -52,6 +52,7 @@ describe('trusted app-equivalent channel actions', () => {
       userId: 'user_owner',
       operation: 'channel_context',
       source: 'imessage',
+      sourceAddress: '+393331234567',
       ownerKey: 'https://issuer.example.test|user_owner',
     })
   })

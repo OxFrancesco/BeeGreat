@@ -1,6 +1,7 @@
 'use agent'
 import {
   defineTool,
+  dispatch,
   useAgentStart,
   useDelivery,
   useAgentFinish,
@@ -8,6 +9,7 @@ import {
   useModel,
   useSubagent,
   useTool,
+  type AgentDispatchRequest,
   type AgentProps,
   type SubagentDefinition,
   type ToolDefinition,
@@ -23,6 +25,10 @@ import {
   codexProviderIdForUser,
   registerFlueCodexProvider,
 } from '../providers/pi-chatgpt.ts'
+import {
+  PRIVATE_OPENROUTER_PROVIDER_ID,
+  registerPrivateOpenRouterProvider,
+} from '../providers/private-openrouter.ts'
 import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
@@ -48,7 +54,7 @@ import {
   resolveBeeSiteCreatorModel,
 } from '../shared/bee-models.ts'
 import {
-  loadPowerupDefinitions,
+  loadPowerupDefinitionsResult,
   type PowerupDefinition,
 } from '../shared/powerups/index.ts'
 import { completionAuditSignal } from '../shared/completion-policy.ts'
@@ -62,6 +68,8 @@ import {
 } from '../shared/firecrawl-subagent.ts'
 import instructions from './bee.md'
 
+registerPrivateOpenRouterProvider()
+
 export {
   BEE_ESCALATION_MODEL_ID,
   BEE_ESCALATION_THINKING_LEVEL,
@@ -74,7 +82,7 @@ export {
   resolveBeeSiteCreatorModel,
 } from '../shared/bee-models.ts'
 
-interface Env {
+export interface BeeRuntimeEnv {
   CONVEX_URL: string
   CONVEX_SITE_URL?: string
   AGENT_CREDENTIAL_BROKER_SECRET?: string
@@ -88,16 +96,16 @@ interface Env {
 }
 
 /** Worker env for the current request; process.env under `flue run` and tests. */
-function workerEnv(): Env {
+function workerEnv(): BeeRuntimeEnv {
   try {
-    return getCloudflareContext().env as unknown as Env
+    return getCloudflareContext().env as unknown as BeeRuntimeEnv
   } catch {
     return (
       (
         globalThis as unknown as {
-          process?: { env?: Env }
+          process?: { env?: BeeRuntimeEnv }
         }
-      ).process?.env ?? ({} as Env)
+      ).process?.env ?? ({} as BeeRuntimeEnv)
     )
   }
 }
@@ -174,7 +182,7 @@ async function loadTimeZone(
 /** Registers the user's Codex provider and returns its id, if connected. */
 async function registerCodexProvider(
   userId: string,
-  env: Env,
+  env: BeeRuntimeEnv,
 ): Promise<string | undefined> {
   const localCodexAccessToken = env.OPENAI_CODEX_ACCESS_TOKEN?.trim()
   if (localCodexAccessToken) {
@@ -204,7 +212,7 @@ async function registerCodexProvider(
 }
 
 /** One warm pass per delivered message; every loader fails open on its own. */
-async function warmSnapshot(userId: string, env: Env): Promise<void> {
+async function warmSnapshot(userId: string, env: BeeRuntimeEnv): Promise<void> {
   const focusOptions = {
     convexSiteUrl: env.CONVEX_SITE_URL,
     brokerSecret: env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
@@ -213,42 +221,39 @@ async function warmSnapshot(userId: string, env: Env): Promise<void> {
   // round trip instead of four.
   const [
     timeZone,
-    powerups,
+    powerupLoad,
     beennectors,
     providerId,
     sandboxSdk,
     firecrawlTools,
-  ] =
-    await Promise.all([
-      loadTimeZone(userId, env.CONVEX_URL, focusOptions),
-      // Opt-in power-ups: one specialist subagent each, loaded per user per message.
-      loadPowerupDefinitions(userId, env.CONVEX_URL),
-      loadBeennectorSubagent(userId, env.CONVEX_URL, focusOptions),
-      registerCodexProvider(userId, env).catch((error) => {
-        Sentry.captureException(error, {
-          tags: {
-            service: 'agent-worker',
-            operation: 'codex.register_provider',
-            handled: 'true',
-          },
-        })
-        return undefined
-      }),
-      // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
-      env.Sandbox
-        ? import('@cloudflare/sandbox')
-        : Promise.resolve(null),
-      loadFirecrawlTools(env.FIRECRAWL_API_KEY).catch((error) => {
-        Sentry.captureException(error, {
-          tags: {
-            service: 'agent-worker',
-            operation: 'firecrawl.discover_tools',
-            handled: 'true',
-          },
-        })
-        return []
-      }),
-    ])
+  ] = await Promise.all([
+    loadTimeZone(userId, env.CONVEX_URL, focusOptions),
+    // Opt-in power-ups: one specialist subagent each, loaded per user per message.
+    loadPowerupDefinitionsResult(userId, env.CONVEX_URL),
+    loadBeennectorSubagent(userId, env.CONVEX_URL, focusOptions),
+    registerCodexProvider(userId, env).catch((error) => {
+      Sentry.captureException(error, {
+        tags: {
+          service: 'agent-worker',
+          operation: 'codex.register_provider',
+          handled: 'true',
+        },
+      })
+      return undefined
+    }),
+    // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
+    env.Sandbox ? import('@cloudflare/sandbox') : Promise.resolve(null),
+    loadFirecrawlTools(env.FIRECRAWL_API_KEY).catch((error) => {
+      Sentry.captureException(error, {
+        tags: {
+          service: 'agent-worker',
+          operation: 'firecrawl.discover_tools',
+          handled: 'true',
+        },
+      })
+      return []
+    }),
+  ])
   const googleWorkspace =
     sandboxSdk && env.Sandbox
       ? await loadGoogleWorkspaceSubagent({
@@ -263,13 +268,53 @@ async function warmSnapshot(userId: string, env: Env): Promise<void> {
       : []
   snapshots.set(userId, {
     timeZone,
-    powerups,
+    // A transport outage is not evidence that the user disabled every
+    // power-up. Keep the last verified snapshot until Convex answers again;
+    // a successful empty list still removes every optional specialist.
+    powerups:
+      powerupLoad.status === 'available'
+        ? powerupLoad.definitions
+        : (snapshots.get(userId)?.powerups ?? []),
     beennectors,
     googleWorkspace,
-    providerId,
+    // Workspace results are allowed to reach only a provider route that
+    // enforces no collection and zero retention on every request. A connected
+    // ChatGPT/Codex subscription is intentionally bypassed for these turns.
+    providerId: googleWorkspace.length
+      ? PRIVATE_OPENROUTER_PROVIDER_ID
+      : providerId,
     sandboxSdk,
     firecrawlTools,
   })
+}
+
+const snapshotPreparations = new Map<string, Promise<void>>()
+
+/**
+ * Resolves user-scoped resources before Flue performs its synchronous first
+ * render. Concurrent admissions for one user share the same preparation.
+ */
+export async function prepareBeeForRequest(
+  id: string,
+  env: BeeRuntimeEnv = workerEnv(),
+): Promise<void> {
+  const userId = id.split('~')[0]
+  const active = snapshotPreparations.get(userId)
+  if (active) return await active
+
+  const preparation = warmSnapshot(userId, env).finally(() => {
+    if (snapshotPreparations.get(userId) === preparation) {
+      snapshotPreparations.delete(userId)
+    }
+  })
+  snapshotPreparations.set(userId, preparation)
+  await preparation
+}
+
+/** Dispatch boundary for Bee signals that do not enter through its HTTP router. */
+export async function dispatchBee(request: AgentDispatchRequest) {
+  await prepareBeeForRequest(request.id)
+  return await dispatch(Bee, request)
 }
 
 // Bee is an orchestrator: it owns the conversation and the voice/beeui contract,
@@ -297,7 +342,9 @@ export function Bee({ id }: AgentProps) {
     thinkingLevel: BEE_ORCHESTRATOR_THINKING_LEVEL,
   })
   useAgentStart(async () => {
-    await warmSnapshot(userId, env)
+    // Production entry points prepare before this synchronous render. Keep a
+    // fallback for direct runtime callers without duplicating normal lookups.
+    if (!snapshot) await prepareBeeForRequest(id, env)
   })
   useAgentFinish(({ response, append }) => {
     const signal = completionAuditSignal(delivery, response.toolCalls)
@@ -344,12 +391,7 @@ export function Bee({ id }: AgentProps) {
     ),
   )
   useTool(
-    createAgentJobWaitingTool(
-      userId,
-      env.CONVEX_URL,
-      focusOptions,
-      delivery,
-    ),
+    createAgentJobWaitingTool(userId, env.CONVEX_URL, focusOptions, delivery),
   )
   useTool(createQuestionTool())
 
@@ -369,7 +411,10 @@ export function Bee({ id }: AgentProps) {
         return {
           output: {
             utc: now.toISOString(),
-            local: now.toLocaleString('en-US', { timeZone, timeZoneName: 'longOffset' }),
+            local: now.toLocaleString('en-US', {
+              timeZone,
+              timeZoneName: 'longOffset',
+            }),
             timeZone,
           },
         }

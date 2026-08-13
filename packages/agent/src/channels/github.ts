@@ -1,6 +1,5 @@
 import { createGitHubChannel } from '@flue/github'
-import { dispatch } from '@flue/runtime'
-import { Bee } from '../agents/bee.ts'
+import { dispatchBee } from '../agents/bee.ts'
 import {
   beennectorAgentId,
   channelSecret,
@@ -38,7 +37,7 @@ export const channel = createGitHubChannel({
     const title = issue?.title ?? pullRequest?.title ?? null
     const commentBody =
       comment && 'body' in comment ? (comment.body ?? '') : null
-    await dispatch(Bee, {
+    await dispatchBee({
       id: beennectorAgentId(claim.userId, 'github'),
       message: {
         kind: 'signal',

@@ -10,6 +10,9 @@ export const nfcActionDefinitionValidator = v.union(
     type: v.literal('hydration'),
     amountMl: v.number(),
   }),
+  v.object({
+    type: v.literal('reminder'),
+  }),
 )
 
 /** Durable results make generic undo possible without teaching the client how
@@ -20,5 +23,11 @@ export const nfcActionOutcomeValidator = v.union(
     localDate: v.string(),
     timeZone: v.string(),
     appliedMl: v.number(),
+  }),
+  v.object({
+    type: v.literal('reminder'),
+    localDate: v.string(),
+    timeZone: v.string(),
+    appliedCount: v.number(),
   }),
 )

@@ -4,7 +4,16 @@ export type ConnectedBeennector = {
   provider: BeennectorProvider
   accountName?: string
   workspaceName?: string
+  googleServices?: GoogleWorkspaceService[]
 }
+
+export type GoogleWorkspaceService =
+  | 'mail'
+  | 'calendar'
+  | 'drive'
+  | 'contacts'
+  | 'tasks'
+  | 'forms'
 
 export type BeennectorRuntime = {
   convexSiteUrl?: string

@@ -1,4 +1,22 @@
 export { scrubIdentifiers } from "./scrub-identifiers";
+export {
+  GOOGLE_WORKSPACE_DISCLOSURE,
+  GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
+  GOOGLE_WORKSPACE_SERVICES,
+  type GoogleWorkspaceService,
+} from "./google-workspace-disclosure";
+export {
+  parseBeeQuestion,
+  renderBeeQuestion,
+  resolveBeeQuestionAnswer,
+  type BeeQuestion,
+} from "./bee-question";
+export {
+  humanizeWeb3Summary,
+  projectTextWeb3Action,
+  type TextWeb3Action,
+  type TextWeb3Projection,
+} from "./web3-text";
 
 export type ToolActivityState = "running" | "done" | "error";
 

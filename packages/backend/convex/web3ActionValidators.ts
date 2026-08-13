@@ -38,6 +38,15 @@ export const crossmintExecutionStepValidator = v.object({
   explorerLink: v.optional(v.string()),
 })
 
+export const eoaExecutionStepValidator = v.object({
+  index: v.number(),
+  role: v.optional(v.union(v.literal('approval'), v.literal('action'))),
+  hash: v.string(),
+  status: v.union(v.literal('submitted'), v.literal('success')),
+  submittedAt: v.number(),
+  confirmedAt: v.optional(v.number()),
+})
+
 export const socketApprovalValidator = v.object({
   tokenAddress: v.string(),
   spenderAddress: v.string(),

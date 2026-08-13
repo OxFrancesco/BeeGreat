@@ -1,7 +1,10 @@
 'use node'
 
 import { createHash } from 'node:crypto'
-import type { BeennectorProvider } from './beennectorValidators'
+import type {
+  BeennectorProvider,
+  GoogleWorkspaceService,
+} from './beennectorValidators'
 import { randomBeennectorValue } from './beennectorCrypto'
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize'
@@ -17,22 +20,34 @@ const GOOGLE_AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_REVOCATION_URL = 'https://oauth2.googleapis.com/revoke'
 const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo'
-const GOOGLE_WORKSPACE_SCOPES = [
+const GOOGLE_IDENTITY_SCOPES = [
   'openid',
   'email',
   'profile',
-  'https://www.googleapis.com/auth/gmail.modify',
-  'https://www.googleapis.com/auth/gmail.compose',
-  'https://www.googleapis.com/auth/calendar',
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/spreadsheets',
-  'https://www.googleapis.com/auth/presentations',
-  'https://www.googleapis.com/auth/contacts.readonly',
-  'https://www.googleapis.com/auth/tasks',
-  'https://www.googleapis.com/auth/forms.body.readonly',
-  'https://www.googleapis.com/auth/forms.responses.readonly',
 ] as const
+const GOOGLE_WORKSPACE_SERVICE_SCOPES: Record<
+  GoogleWorkspaceService,
+  readonly string[]
+> = {
+  mail: ['https://www.googleapis.com/auth/gmail.modify'],
+  calendar: [
+    'https://www.googleapis.com/auth/calendar.events',
+    'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
+    'https://www.googleapis.com/auth/calendar.freebusy',
+  ],
+  drive: [
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/documents.readonly',
+    'https://www.googleapis.com/auth/spreadsheets.readonly',
+    'https://www.googleapis.com/auth/presentations.readonly',
+  ],
+  contacts: ['https://www.googleapis.com/auth/contacts.readonly'],
+  tasks: ['https://www.googleapis.com/auth/tasks'],
+  forms: [
+    'https://www.googleapis.com/auth/forms.body.readonly',
+    'https://www.googleapis.com/auth/forms.responses.readonly',
+  ],
+}
 
 const PROVIDER_CONFIG = {
   github: {
@@ -107,7 +122,10 @@ function pkceChallenge(verifier: string) {
   return createHash('sha256').update(verifier).digest('base64url')
 }
 
-export function createBeennectorAuthorization(provider: BeennectorProvider) {
+export function createBeennectorAuthorization(
+  provider: BeennectorProvider,
+  googleServices: GoogleWorkspaceService[] = [],
+) {
   const { clientId, redirectUri } = credentials(provider)
   const state = randomBeennectorValue()
   const codeVerifier =
@@ -148,17 +166,29 @@ export function createBeennectorAuthorization(provider: BeennectorProvider) {
       state,
     }).toString()
   } else {
+    if (googleServices.length === 0) {
+      throw new BeennectorOAuthError(
+        'Choose at least one Google Workspace service',
+        'google_services_required',
+        false,
+      )
+    }
+    const requestedScopes = [
+      ...GOOGLE_IDENTITY_SCOPES,
+      ...googleServices.flatMap(
+        (service) => GOOGLE_WORKSPACE_SERVICE_SCOPES[service],
+      ),
+    ]
     url = new URL(GOOGLE_AUTHORIZE_URL)
     url.search = new URLSearchParams({
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: GOOGLE_WORKSPACE_SCOPES.join(' '),
+      scope: [...new Set(requestedScopes)].join(' '),
       state,
       code_challenge: pkceChallenge(codeVerifier!),
       code_challenge_method: 'S256',
       access_type: 'offline',
-      include_granted_scopes: 'true',
       prompt: 'consent select_account',
     }).toString()
   }

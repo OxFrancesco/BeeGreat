@@ -68,10 +68,10 @@ describe('trusted channel actions', () => {
     ])
     await expect(app.query(api.chat.getActiveThread, {})).resolves.toBe(0)
 
-    const thread = await t.mutation(
-      internal.channelActions.createThread,
-      { ...owner, source: 'imessage' },
-    )
+    const thread = await t.mutation(internal.channelActions.createThread, {
+      ...owner,
+      source: 'imessage',
+    })
     expect(thread.threadId).toBe(Date.now() + 1)
 
     await expect(
@@ -81,6 +81,52 @@ describe('trusted channel actions', () => {
       }),
     ).resolves.toMatchObject({ threadId: thread.threadId })
     await expect(app.query(api.chat.getActiveThread, {})).resolves.toBe(0)
+  })
+
+  test('binds the linked sender and mirrors its transcript into Convex', async () => {
+    const t = convexTest(schema, modules)
+    const sourceAddress = '+393331234567'
+    const connectionId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert('imessageConnections', {
+          userId: owner.userId,
+          address: sourceAddress,
+          addressKind: 'phone',
+          connectedAt: Date.now(),
+          updatedAt: Date.now(),
+        }),
+    )
+    const context = await t.mutation(internal.channelActions.getContext, {
+      ...owner,
+      source: 'imessage',
+      sourceAddress,
+    })
+    await t.mutation(internal.channelActions.syncTranscript, {
+      ...owner,
+      threadId: context.threadId,
+      messages: [
+        {
+          id: 'message-1',
+          role: 'user',
+          contentJson: JSON.stringify({ id: 'message-1', role: 'user' }),
+          createdAt: Date.now(),
+        },
+      ],
+    })
+
+    const stored = await t.run(async (ctx) => {
+      const thread = await ctx.db
+        .query('chatThreads')
+        .withIndex('by_owner_key_and_thread_id', (q) =>
+          q.eq('ownerKey', owner.ownerKey).eq('threadId', context.threadId),
+        )
+        .unique()
+      const messages = await ctx.db.query('chatMessages').collect()
+      return { thread, messages }
+    })
+    expect(stored.thread?.imessageConnectionId).toBe(connectionId)
+    expect(stored.messages).toHaveLength(1)
+    expect(stored.messages[0].messageId).toBe('message-1')
   })
 
   test('confirms first focus and completes its Highlight through the same transactions as the app', async () => {
@@ -108,10 +154,10 @@ describe('trusted channel actions', () => {
       Date.parse('2026-10-01T21:59:59.999Z'),
     )
 
-    const context = await t.mutation(
-      internal.channelActions.getContext,
-      { ...owner, source: 'imessage' },
-    )
+    const context = await t.mutation(internal.channelActions.getContext, {
+      ...owner,
+      source: 'imessage',
+    })
     expect(context.activeHighlight).toMatchObject({
       title: 'Finish iMessage parity',
     })
@@ -197,22 +243,23 @@ describe('trusted channel actions', () => {
     ).resolves.toBe('cancelled')
   })
 
-  test('cannot confirm another user\'s Web3 action through iMessage', async () => {
+  test("cannot confirm another user's Web3 action through iMessage", async () => {
     const t = convexTest(schema, modules)
-    const actionId = await t.run(async (ctx) =>
-      await ctx.db.insert('web3Actions', {
-        userId: 'user_someone_else',
-        summary: 'Send 1 ETH',
-        payload: {
-          kind: 'send_tokens',
-          recipient: '0x00000000000000000000000000000000000000aa',
-          token: 'eth',
-          amount: '1',
-        },
-        status: 'pending',
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 60_000,
-      }),
+    const actionId = await t.run(
+      async (ctx) =>
+        await ctx.db.insert('web3Actions', {
+          userId: 'user_someone_else',
+          summary: 'Send 1 ETH',
+          payload: {
+            kind: 'send_tokens',
+            recipient: '0x00000000000000000000000000000000000000aa',
+            token: 'eth',
+            amount: '1',
+          },
+          status: 'pending',
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 60_000,
+        }),
     )
 
     await expect(

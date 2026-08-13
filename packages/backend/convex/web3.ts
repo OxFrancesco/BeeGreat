@@ -22,6 +22,7 @@ import {
   type SugarAction,
 } from '@beegreat/sugar/contracts'
 import { v } from 'convex/values'
+import { encodeFunctionData } from 'viem'
 import { internal } from './_generated/api'
 import { action, env, internalAction } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
@@ -732,14 +733,7 @@ export const prepareSugarExecution = internalAction({
   },
   handler: async (
     ctx,
-    {
-      userId,
-      jobRunId,
-      conversationId,
-      continuation,
-      sugarAction,
-      parameters,
-    },
+    { userId, jobRunId, conversationId, continuation, sugarAction, parameters },
   ) => {
     await requireWeb3(ctx, userId)
     if (!isProduction()) {
@@ -825,14 +819,7 @@ export const prepareEoaSugarExecution = internalAction({
   },
   handler: async (
     ctx,
-    {
-      userId,
-      conversationId,
-      continuation,
-      chainId,
-      sugarAction,
-      parameters,
-    },
+    { userId, conversationId, continuation, chainId, sugarAction, parameters },
   ) => {
     await requireWeb3(ctx, userId)
     const chainName = SUGAR_CHAIN_NAMES[chainId]
@@ -907,16 +894,21 @@ export const refreshEoaSugarExecution = action({
   returns: v.object({
     walletAddress: v.string(),
     chainId: v.number(),
-    transactionSteps: v.array(v.object({
-      role: v.union(v.literal('approval'), v.literal('action')),
-      transaction: v.object({
-        to: v.string(),
-        data: v.string(),
-        value: v.string(),
+    transactionSteps: v.array(
+      v.object({
+        role: v.union(v.literal('approval'), v.literal('action')),
+        transaction: v.object({
+          to: v.string(),
+          data: v.string(),
+          value: v.string(),
+        }),
       }),
-    })),
+    ),
   }),
-  handler: async (ctx, { actionId }): Promise<{
+  handler: async (
+    ctx,
+    { actionId },
+  ): Promise<{
     walletAddress: string
     chainId: number
     transactionSteps: SugarTransactionStep[]
@@ -937,7 +929,9 @@ export const refreshEoaSugarExecution = action({
       throw new Error('This linked-wallet execution is no longer available.')
     }
     if (!confirmed.payload.intent) {
-      throw new Error('This older wallet plan cannot be refreshed. Ask Bee to prepare it again.')
+      throw new Error(
+        'This older wallet plan cannot be refreshed. Ask Bee to prepare it again.',
+      )
     }
     const plan = await executeSugarAction(
       confirmed.payload.intent.sugarAction,
@@ -1005,50 +999,47 @@ export const executeConfirmedAction = internalAction({
           const intent = action.payload.intent
           try {
             const settled = await executeSmartWalletIntent({
-              buildPlan: () => executeSugarAction(
-                intent.sugarAction,
-                {
-                  ...intent.parameters,
-                  chain: chainId,
-                  wallet: wallet.address,
-                },
-                sugarOptions(ctx),
-              ),
+              buildPlan: () =>
+                executeSugarAction(
+                  intent.sugarAction,
+                  {
+                    ...intent.parameters,
+                    chain: chainId,
+                    wallet: wallet.address,
+                  },
+                  sugarOptions(ctx),
+                ),
               bounds: intent.bounds,
-              executeBatch: (steps) => prepareAndApproveCrossmintBatch({
-                wallet: evmWallet,
-                steps,
-                onPrepared: async (transactionId) => {
-                  await ctx.runMutation(
-                    internal.web3Actions.recordCrossmintPrepared,
-                    {
-                      actionId,
-                      // The approvals and final action now settle atomically.
-                      role: 'action',
-                      transactionId,
-                    },
-                  )
-                },
-              }),
+              executeBatch: (steps) =>
+                prepareAndApproveCrossmintBatch({
+                  wallet: evmWallet,
+                  steps,
+                  onPrepared: async (transactionId) => {
+                    await ctx.runMutation(
+                      internal.web3Actions.recordCrossmintPrepared,
+                      {
+                        actionId,
+                        // The approvals and final action now settle atomically.
+                        role: 'action',
+                        transactionId,
+                      },
+                    )
+                  },
+                }),
             })
-            await ctx.runMutation(
-              internal.web3Actions.recordCrossmintSuccess,
-              {
-                actionId,
-                transactionId: settled.transactionId,
-                hash: settled.hash,
-                explorerLink: settled.explorerLink,
-              },
-            )
+            await ctx.runMutation(internal.web3Actions.recordCrossmintSuccess, {
+              actionId,
+              transactionId: settled.transactionId,
+              hash: settled.hash,
+              explorerLink: settled.explorerLink,
+            })
           } catch (error) {
             if (error instanceof CrossmintTransactionPendingError) return null
-            await ctx.runMutation(
-              internal.web3Actions.recordCrossmintFailure,
-              {
-                actionId,
-                error: error instanceof Error ? error.message : 'Execution failed',
-              },
-            )
+            await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
+              actionId,
+              error:
+                error instanceof Error ? error.message : 'Execution failed',
+            })
           }
           return null
         }
@@ -1111,46 +1102,67 @@ export const executeConfirmedAction = internalAction({
           SOCKET_CHAINS[payload.originChain].crossmintChain,
         )
         const evmWallet = EVMWallet.from(wallet)
+        const steps: SugarTransactionStep[] = []
         if (payload.approval) {
-          const approval = await evmWallet.sendTransaction({
-            to: payload.approval.tokenAddress,
-            abi: [
-              {
-                type: 'function',
-                name: 'approve',
-                stateMutability: 'nonpayable',
-                inputs: [
-                  { name: 'spender', type: 'address' },
-                  { name: 'amount', type: 'uint256' },
+          steps.push({
+            role: 'approval',
+            transaction: {
+              to: payload.approval.tokenAddress,
+              value: '0',
+              data: encodeFunctionData({
+                abi: [
+                  {
+                    type: 'function',
+                    name: 'approve',
+                    stateMutability: 'nonpayable',
+                    inputs: [
+                      { name: 'spender', type: 'address' },
+                      { name: 'amount', type: 'uint256' },
+                    ],
+                    outputs: [{ name: '', type: 'bool' }],
+                  },
+                ] as const,
+                functionName: 'approve',
+                args: [
+                  payload.approval.spenderAddress as `0x${string}`,
+                  BigInt(payload.approval.amount),
                 ],
-                outputs: [{ name: '', type: 'bool' }],
-              },
-            ] as const,
-            functionName: 'approve',
-            args: [
-              payload.approval.spenderAddress as `0x${string}`,
-              BigInt(payload.approval.amount),
-            ],
-          })
-          results.push({
-            hash: approval.hash ?? null,
-            explorerLink: approval.explorerLink ?? null,
+              }),
+            },
           })
         }
-        const transaction = await evmWallet.sendTransaction({
-          to: payload.transaction.to,
-          data: payload.transaction.data as `0x${string}`,
-          value: BigInt(payload.transaction.value),
-        })
-        results.push({
-          hash: transaction.hash ?? null,
-          explorerLink: transaction.explorerLink ?? null,
-        })
-        await ctx.runMutation(internal.web3Actions.recordSocketSubmitted, {
-          actionId,
-          result: results,
-          ...(transaction.hash ? { originTxHash: transaction.hash } : {}),
-        })
+        steps.push({ role: 'action', transaction: payload.transaction })
+        try {
+          const settled = await prepareAndApproveCrossmintBatch({
+            wallet: evmWallet,
+            steps,
+            onPrepared: async (transactionId) => {
+              await ctx.runMutation(internal.web3Actions.recordSocketPrepared, {
+                actionId,
+                transactionId,
+              })
+            },
+          })
+          await ctx.runMutation(
+            internal.web3Actions.recordSocketOriginSuccess,
+            {
+              actionId,
+              transactionId: settled.transactionId,
+              hash: settled.hash,
+              explorerLink: settled.explorerLink,
+            },
+          )
+        } catch (error) {
+          if (error instanceof CrossmintTransactionPendingError) return null
+          await ctx.runMutation(
+            internal.web3Actions.recordSocketOriginFailure,
+            {
+              actionId,
+              error:
+                error instanceof Error ? error.message : 'Execution failed',
+            },
+          )
+        }
         return null
       }
       await ctx.runMutation(internal.web3Actions.recordResult, {
@@ -1181,7 +1193,8 @@ export const reconcileCrossmintAction = internalAction({
       !action ||
       action.status !== 'in_progress' ||
       action.payload.kind !== 'execute_plan'
-    ) return null
+    )
+      return null
     const pending = action.crossmintExecution?.findLast(
       (step) => step.status === 'prepared',
     )
@@ -1227,14 +1240,91 @@ export const reconcileCrossmintAction = internalAction({
           error: 'Crossmint reported that the transaction failed.',
         })
       } else {
-        await ctx.scheduler.runAfter(15_000, internal.web3.reconcileCrossmintAction, {
-          actionId,
-        })
+        await ctx.scheduler.runAfter(
+          15_000,
+          internal.web3.reconcileCrossmintAction,
+          {
+            actionId,
+          },
+        )
       }
     } catch {
-      await ctx.scheduler.runAfter(15_000, internal.web3.reconcileCrossmintAction, {
+      await ctx.scheduler.runAfter(
+        15_000,
+        internal.web3.reconcileCrossmintAction,
+        {
+          actionId,
+        },
+      )
+    }
+    return null
+  },
+})
+
+/** Recover an origin-chain Socket batch after a worker timeout or restart. */
+export const reconcileSocketCrossmintAction = internalAction({
+  args: { actionId: v.id('web3Actions') },
+  returns: v.null(),
+  handler: async (ctx, { actionId }) => {
+    const action: Doc<'web3Actions'> | null = await ctx.runQuery(
+      internal.web3Actions.get,
+      { actionId },
+    )
+    if (
+      !action ||
+      action.status !== 'in_progress' ||
+      action.payload.kind !== 'socket_swap'
+    )
+      return null
+    const pending = action.crossmintExecution?.findLast(
+      (step) => step.status === 'prepared',
+    )
+    if (!pending) return null
+    if (
+      Date.now() >
+      (action.executionStartedAt ?? action.createdAt) + 15 * 60_000
+    ) {
+      await ctx.runMutation(internal.web3Actions.recordSocketOriginFailure, {
         actionId,
+        transactionId: pending.transactionId,
+        error:
+          'Crossmint did not settle the origin transaction within 15 minutes.',
       })
+      return null
+    }
+    try {
+      const wallet = EVMWallet.from(
+        await walletForUser(action.userId, action.payload.originChain),
+      )
+      const status = reconcileCrossmintTransaction(
+        await wallet.transaction(pending.transactionId),
+      )
+      if (status.status === 'success') {
+        await ctx.runMutation(internal.web3Actions.recordSocketOriginSuccess, {
+          actionId,
+          transactionId: pending.transactionId,
+          hash: status.result.hash,
+          explorerLink: status.result.explorerLink,
+        })
+      } else if (status.status === 'failed') {
+        await ctx.runMutation(internal.web3Actions.recordSocketOriginFailure, {
+          actionId,
+          transactionId: pending.transactionId,
+          error: 'Crossmint reported that the origin transaction failed.',
+        })
+      } else {
+        await ctx.scheduler.runAfter(
+          15_000,
+          internal.web3.reconcileSocketCrossmintAction,
+          { actionId },
+        )
+      }
+    } catch {
+      await ctx.scheduler.runAfter(
+        15_000,
+        internal.web3.reconcileSocketCrossmintAction,
+        { actionId },
+      )
     }
     return null
   },

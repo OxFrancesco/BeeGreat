@@ -75,6 +75,9 @@ const DATA_STAGES = [
   'googleHealthCredentials',
   'telegramAuthSessions',
   'telegramConnections',
+  'imessageLinkSessions',
+  'imessageDeliveries',
+  'imessageConnections',
   'journalAttachments',
   'journalEntries',
   'healthJournalEntries',
@@ -178,6 +181,14 @@ async function removeDataBatch(
           .withIndex('by_owner_key_and_thread_id_and_created_at', (q) =>
             q.eq('ownerKey', ownerKey),
           )
+          .take(BATCH_SIZE),
+      )
+    case 'imessageDeliveries':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('imessageDeliveries')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
           .take(BATCH_SIZE),
       )
     case 'agentJobRuns':
@@ -465,6 +476,22 @@ async function removeDataBatch(
         ctx,
         await ctx.db
           .query('telegramConnections')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'imessageLinkSessions':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('imessageLinkSessions')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .take(BATCH_SIZE),
+      )
+    case 'imessageConnections':
+      return removeDocuments(
+        ctx,
+        await ctx.db
+          .query('imessageConnections')
           .withIndex('by_user', (q) => q.eq('userId', userId))
           .take(BATCH_SIZE),
       )
@@ -967,6 +994,7 @@ export const getExternalCleanupPayload = internalQuery({
         v.object({
           provider: beennectorProviderValidator,
           encryptedAccess: v.optional(beennectorEncryptedSecretValidator),
+          encryptedRefresh: v.optional(beennectorEncryptedSecretValidator),
         }),
       ),
     }),
@@ -1008,6 +1036,7 @@ export const getExternalCleanupPayload = internalQuery({
       beennectorCredentials: beennectorCredentials.map((credential) => ({
         provider: credential.provider,
         encryptedAccess: credential.encryptedAccess,
+        encryptedRefresh: credential.encryptedRefresh,
       })),
     }
   },

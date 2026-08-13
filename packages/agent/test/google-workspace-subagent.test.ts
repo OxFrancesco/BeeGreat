@@ -16,6 +16,7 @@ function options(
     convexUrl: 'https://bee.convex.cloud',
     runtime: { brokerSecret: 'broker-secret' },
     account: 'bee@example.com',
+    services: ['mail', 'drive'],
     sandbox: { exec } as ISandbox,
     getAccessToken,
   }
@@ -82,7 +83,26 @@ describe('Google Workspace subagent', () => {
     expect(executions).toBe(0)
   })
 
-  test('redacts credentials if a failed process echoes its environment', async () => {
+  test('rejects an unselected service before claiming a token', async () => {
+    let tokenClaims = 0
+    await expect(
+      executeGoogleWorkspaceCommand(
+        options(
+          async () => {
+            throw new Error('not reached')
+          },
+          async () => {
+            tokenClaims += 1
+            return 'access-secret'
+          },
+        ),
+        ['calendar', 'events'],
+      ),
+    ).rejects.toThrow('Google calendar access was not selected')
+    expect(tokenClaims).toBe(0)
+  })
+
+  test('does not place provider output or credentials in thrown diagnostics', async () => {
     await expect(
       executeGoogleWorkspaceCommand(
         options(
@@ -96,6 +116,6 @@ describe('Google Workspace subagent', () => {
         ),
         ['gmail', 'search', 'newer_than:1d'],
       ),
-    ).rejects.toThrow('diagnostic accidentally included [credential redacted]')
+    ).rejects.toThrow('Google command failed with exit code 2')
   })
 })

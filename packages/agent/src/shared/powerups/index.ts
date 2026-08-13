@@ -9,6 +9,10 @@ import { devin } from './devin.ts'
 
 export type { PowerupDefinition } from './types.ts'
 
+export type PowerupDefinitionLoad =
+  | { status: 'available'; definitions: PowerupDefinition[] }
+  | { status: 'unavailable' }
+
 /** Every power-up the agent knows how to load, keyed by catalog id. */
 const REGISTRY: Record<string, PowerupDefinition> = {
   [devin.id]: devin,
@@ -46,6 +50,15 @@ export async function loadPowerupDefinitions(
   userId: string,
   convexUrl: string,
 ): Promise<PowerupDefinition[]> {
+  const result = await loadPowerupDefinitionsResult(userId, convexUrl)
+  return result.status === 'available' ? result.definitions : []
+}
+
+/** Distinguishes a real empty entitlement list from a transient lookup failure. */
+export async function loadPowerupDefinitionsResult(
+  userId: string,
+  convexUrl: string,
+): Promise<PowerupDefinitionLoad> {
   let enabledIds: string[]
   try {
     const convex = new ConvexHttpClient(convexUrl)
@@ -62,10 +75,13 @@ export async function loadPowerupDefinitions(
       'powerups: failed to load enabled ids, continuing without',
       error,
     )
-    return []
+    return { status: 'unavailable' }
   }
 
-  return enabledIds
-    .map((id) => REGISTRY[id])
-    .filter((powerup): powerup is PowerupDefinition => powerup !== undefined)
+  return {
+    status: 'available',
+    definitions: enabledIds
+      .map((id) => REGISTRY[id])
+      .filter((powerup): powerup is PowerupDefinition => powerup !== undefined),
+  }
 }

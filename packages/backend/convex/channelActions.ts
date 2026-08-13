@@ -8,9 +8,11 @@ import {
 } from './_generated/server'
 import {
   channelThreadForIdentity,
+  chatMessageSyncValidator,
   createChannelThreadForIdentity,
   createDetachedThreadForIdentity,
   titleThreadForIdentity,
+  syncMessagesForIdentity,
 } from './chat'
 import {
   completeHighlightedTask,
@@ -18,6 +20,7 @@ import {
   type IdentityKeys,
 } from './firstFocus'
 import { cancelWeb3Action, confirmWeb3Action } from './web3Actions'
+import { connectionIdForBridgeAddress } from './imessage'
 
 const identityArgs = {
   ownerKey: v.string(),
@@ -69,10 +72,7 @@ function channelIdentity(args: IdentityKeys): IdentityKeys {
   return { ownerKey: args.ownerKey, userId: args.userId }
 }
 
-async function currentHighlight(
-  ctx: QueryCtx | MutationCtx,
-  ownerKey: string,
-) {
+async function currentHighlight(ctx: QueryCtx | MutationCtx, ownerKey: string) {
   const highlight = await ctx.db
     .query('highlights')
     .withIndex('by_owner_key_and_status', (q) =>
@@ -166,10 +166,7 @@ function endOfLocalDay(timestamp: number, timeZone: string) {
   return nextMidnight - 1
 }
 
-async function userTimeZone(
-  ctx: QueryCtx | MutationCtx,
-  ownerKey: string,
-) {
+async function userTimeZone(ctx: QueryCtx | MutationCtx, ownerKey: string) {
   const preference = await ctx.db
     .query('userPreferences')
     .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
@@ -181,6 +178,7 @@ export const getContext = internalMutation({
   args: {
     ...identityArgs,
     source: channelSourceValidator,
+    sourceAddress: v.optional(v.string()),
   },
   returns: v.object({
     threadId: v.number(),
@@ -188,8 +186,25 @@ export const getContext = internalMutation({
   }),
   handler: async (ctx, args) => {
     const identity = channelIdentity(args)
+    const threadId = await channelThreadForIdentity(ctx, identity, args.source)
+    const thread = await ctx.db
+      .query('chatThreads')
+      .withIndex('by_owner_key_and_thread_id', (q) =>
+        q.eq('ownerKey', identity.ownerKey).eq('threadId', threadId),
+      )
+      .unique()
+    if (thread && args.sourceAddress) {
+      await ctx.db.patch(thread._id, {
+        imessageConnectionId: await connectionIdForBridgeAddress(
+          ctx,
+          identity.userId,
+          args.sourceAddress,
+        ),
+        updatedAt: Date.now(),
+      })
+    }
     return {
-      threadId: await channelThreadForIdentity(ctx, identity, args.source),
+      threadId,
       activeHighlight: await currentHighlight(ctx, identity.ownerKey),
     }
   },
@@ -199,17 +214,46 @@ export const createThread = internalMutation({
   args: {
     ...identityArgs,
     source: channelSourceValidator,
+    sourceAddress: v.optional(v.string()),
   },
   returns: v.object({ threadId: v.number() }),
   handler: async (ctx, args) => {
     const identity = channelIdentity(args)
-    return {
-      threadId: await createChannelThreadForIdentity(
-        ctx,
-        identity,
-        args.source,
-      ),
+    const threadId = await createChannelThreadForIdentity(
+      ctx,
+      identity,
+      args.source,
+    )
+    const thread = await ctx.db
+      .query('chatThreads')
+      .withIndex('by_owner_key_and_thread_id', (q) =>
+        q.eq('ownerKey', identity.ownerKey).eq('threadId', threadId),
+      )
+      .unique()
+    if (thread && args.sourceAddress) {
+      await ctx.db.patch(thread._id, {
+        imessageConnectionId: await connectionIdForBridgeAddress(
+          ctx,
+          identity.userId,
+          args.sourceAddress,
+        ),
+      })
     }
+    return { threadId }
+  },
+})
+
+export const syncTranscript = internalMutation({
+  args: {
+    ...identityArgs,
+    threadId: v.number(),
+    messages: v.array(chatMessageSyncValidator),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = channelIdentity(args)
+    await syncMessagesForIdentity(ctx, identity, args.threadId, args.messages)
+    return null
   },
 })
 
@@ -217,10 +261,7 @@ export const createCliThread = internalMutation({
   args: identityArgs,
   returns: v.object({ threadId: v.number() }),
   handler: async (ctx, args) => ({
-    threadId: await createDetachedThreadForIdentity(
-      ctx,
-      channelIdentity(args),
-    ),
+    threadId: await createDetachedThreadForIdentity(ctx, channelIdentity(args)),
   }),
 })
 
@@ -233,12 +274,7 @@ export const titleThread = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const identity = channelIdentity(args)
-    await titleThreadForIdentity(
-      ctx,
-      identity,
-      args.threadId,
-      args.title,
-    )
+    await titleThreadForIdentity(ctx, identity, args.threadId, args.title)
     return null
   },
 })
@@ -258,10 +294,7 @@ export const confirmFirstFocus = internalMutation({
     const highlightExpiresAt =
       args.highlightExpiresAt && args.highlightExpiresAt > Date.now()
         ? args.highlightExpiresAt
-        : endOfLocalDay(
-            Date.now(),
-            await userTimeZone(ctx, identity.ownerKey),
-          )
+        : endOfLocalDay(Date.now(), await userTimeZone(ctx, identity.ownerKey))
     const result = await confirmFirstFocusPlan(ctx, identity, {
       requestId: args.requestId,
       confirmed: true,

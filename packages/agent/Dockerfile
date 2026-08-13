@@ -7,8 +7,9 @@ RUN apk add --no-cache bash ca-certificates git
 RUN git clone --filter=blob:none https://github.com/openclaw/gogcli.git /src/gogcli \
   && cd /src/gogcli \
   && git checkout "${GOGCLI_COMMIT}"
+COPY safety-profiles/google-workspace-agent-safe.yaml /src/gogcli/safety-profiles/google-workspace-agent-safe.yaml
 WORKDIR /src/gogcli
-RUN ./build-safe.sh safety-profiles/agent-safe.yaml -o /out/gog-agent-safe
+RUN ./build-safe.sh safety-profiles/google-workspace-agent-safe.yaml -o /out/gog-agent-safe
 
 FROM docker.io/cloudflare/sandbox:0.12.4
 

@@ -57,6 +57,7 @@ type Env = {
   readonly TELEGRAM_OIDC_CLIENT_SECRET: string | undefined;
   readonly TELEGRAM_OIDC_REDIRECT_URI: string | undefined;
   readonly TWITTERAPI_IO_API_KEY: string | undefined;
+  readonly WEB_APP_URL: string | undefined;
 };
 
 /**

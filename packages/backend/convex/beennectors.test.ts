@@ -65,6 +65,7 @@ test('Google Workspace is available as a connection and keeps its account identi
       encryptedRefresh: encryptedFixture,
       expiresAt: Date.now() + 60_000,
       scopes: ['https://www.googleapis.com/auth/drive'],
+      googleServices: ['drive'],
       externalAccountId: 'google-subject',
       externalAccountName: 'bee@example.com',
       updatedAt: Date.now(),
@@ -79,6 +80,14 @@ test('Google Workspace is available as a connection and keeps its account identi
     name: 'Google Workspace',
     state: 'connected',
     accountName: 'bee@example.com',
+  })
+
+  expect(
+    await t.query(internal.beennectors.listConnectedForAgent, { userId }),
+  ).toContainEqual({
+    provider: 'google',
+    accountName: 'bee@example.com',
+    googleServices: ['drive'],
   })
 })
 
@@ -117,4 +126,3 @@ test('verified delivery claims map conservatively and deduplicate provider ids',
     }),
   ).toEqual({ status: 'unmapped' })
 })
-
