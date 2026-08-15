@@ -43,6 +43,7 @@ export type BeeAgentStatus = "remote" | "ready" | "started";
 // The first Cloudflare sandbox launch can build its local container image.
 const READY_TIMEOUT_MS = 120_000;
 const POLL_INTERVAL_MS = 250;
+const STATUS_INTERVAL_MS = 15_000;
 
 function isLoopback(url: URL) {
   return (
@@ -167,9 +168,18 @@ export async function ensureBeeAgent(
   });
   child.unref();
 
-  const deadline = Date.now() + READY_TIMEOUT_MS;
+  const startedAt = Date.now();
+  const deadline = startedAt + READY_TIMEOUT_MS;
+  let lastStatusAt = startedAt;
   while (Date.now() < deadline) {
     await runtime.sleep(POLL_INTERVAL_MS);
+    if (Date.now() - lastStatusAt >= STATUS_INTERVAL_MS) {
+      lastStatusAt = Date.now();
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      options.onStatus?.(
+        `Still waking up the local Bee agent… ${seconds}s (the first start can take up to two minutes)`,
+      );
+    }
     if (exitCode !== undefined) {
       throw new Error(
         `Bee's local agent exited during startup (code ${exitCode}). Run \`bun run agent\` in the BeeGreat repository to inspect the error.`,

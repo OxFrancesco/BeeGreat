@@ -8,6 +8,7 @@ import { createCredentialStore } from "./credential-store";
 import {
   createTerminalProgress,
   createToolActivityTracker,
+  type ToolActivityUpdate,
 } from "./progress";
 import { createPromptHistory } from "./prompt-history";
 import { projectBeeReply, projectStreamingBeeReply } from "./reply";
@@ -101,14 +102,17 @@ async function main() {
     console.log("Signed in to BeeGreat CLI.");
     return;
   }
-  if (command.kind === "telegram" || command.kind === "imessage") {
-    await ensureBeeAgent({
+  const ensureAgent = (onStatus?: (message: string) => void) =>
+    ensureBeeAgent({
       agentUrl: config.agentUrl,
       autoStart: config.autoStartAgent,
       projectRoot: config.projectRoot,
       logPath: config.agentLogPath,
-      onStatus: (message) => console.error(`  ${message}`),
+      onStatus,
     });
+  const printStatus = (message: string) => console.error(`  ${message}`);
+  if (command.kind === "telegram" || command.kind === "imessage") {
+    await ensureAgent(printStatus);
     const credentials = {
       agentUrl: config.agentUrl,
       accessToken: clerk.accessToken,
@@ -120,13 +124,8 @@ async function main() {
     );
     return;
   }
-  await ensureBeeAgent({
-    agentUrl: config.agentUrl,
-    autoStart: config.autoStartAgent,
-    projectRoot: config.projectRoot,
-    logPath: config.agentLogPath,
-    onStatus: (message) => console.error(`  ${message}`),
-  });
+  // The chat TUI opens immediately and wakes the agent in the background.
+  if (command.kind !== "chat") await ensureAgent(printStatus);
   const session = createBeeSession(
     {
       agentUrl: config.agentUrl,
@@ -162,9 +161,46 @@ async function main() {
     return;
   }
 
+  let agentReady: Promise<void> | undefined;
+  const waitForAgent = (
+    onActivity: (update: ToolActivityUpdate) => void,
+  ): Promise<void> => {
+    if (!agentReady) {
+      let announced = false;
+      agentReady = ensureAgent((message) => {
+        announced = true;
+        onActivity({ id: "agent-boot", state: "running", label: message });
+      }).then(
+        () => {
+          if (announced) {
+            onActivity({
+              id: "agent-boot",
+              state: "done",
+              label: "Local Bee agent is ready",
+            });
+          }
+        },
+        (error) => {
+          // Allow the next message to retry the wake-up.
+          agentReady = undefined;
+          if (announced) {
+            onActivity({
+              id: "agent-boot",
+              state: "error",
+              label: "The local Bee agent could not start",
+            });
+          }
+          throw error;
+        },
+      );
+    }
+    return agentReady;
+  };
   await runBeeTui({
     history: await createPromptHistory(config.historyPath),
+    boot: (onActivity) => waitForAgent(onActivity),
     ask: async (prompt, onActivity, onReply) => {
+      await waitForAgent(onActivity);
       const progress = createToolActivityTracker(onActivity);
       let streamedStep = "";
       const result = await session.ask(prompt, (event) => {

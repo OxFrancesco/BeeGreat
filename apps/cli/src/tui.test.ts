@@ -286,6 +286,44 @@ describe("Bee OpenTUI", () => {
     expect(prompts[1]).toBe("use only half");
   });
 
+  test("shows background boot progress as a live activity line", async () => {
+    const setup = await createTestRenderer({ width: 80, height: 24 });
+    renderer = setup.renderer;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    createBeeTui(renderer, {
+      ask: async () => ({ text: "Done." }),
+      boot: async (onActivity) => {
+        onActivity({
+          id: "agent-boot",
+          state: "running",
+          label: "Waking up the local Bee agent…",
+        });
+        await gate;
+        onActivity({
+          id: "agent-boot",
+          state: "done",
+          label: "Local Bee agent is ready",
+        });
+      },
+      newConversation: async () => undefined,
+      friendlyError: String,
+    });
+
+    const booting = await setup.waitForFrame((frame) =>
+      frame.includes("Waking up the local Bee agent…"),
+    );
+    expect(booting).toContain("Message your personal assistant");
+
+    release();
+    const ready = await setup.waitForFrame((frame) =>
+      frame.includes("✓ Local Bee agent is ready"),
+    );
+    expect(ready).not.toContain("Waking up the local Bee agent…");
+  });
+
   test("queues a prompt typed while Bee is working", async () => {
     const setup = await createTestRenderer({ width: 80, height: 24 });
     renderer = setup.renderer;

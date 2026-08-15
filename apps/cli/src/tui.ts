@@ -84,6 +84,8 @@ export type BeeTuiOptions = {
     onActivity: (update: ToolActivityUpdate) => void,
     onReply: (update: BeeReplyUpdate) => void,
   ): Promise<BeeTuiReply>;
+  /** Background preparation (e.g. waking the local agent) shown as a live activity line. */
+  boot?(onActivity: (update: ToolActivityUpdate) => void): Promise<void>;
   newConversation(): Promise<void>;
   friendlyError(error: unknown): string;
   history?: PromptHistory;
@@ -149,6 +151,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   let historyDraft = "";
   const queue: string[] = [];
   let activePrompt: ActivePrompt | undefined;
+  let bootActive = false;
   let spinnerFrame = 0;
   let workStartedAt = 0;
   let ticker: ReturnType<typeof setInterval> | undefined;
@@ -592,7 +595,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   function setReady() {
     composer.borderColor = palette.line;
     input.placeholder = PLACEHOLDER;
-    stopTicker();
+    if (!bootActive) stopTicker();
     refreshFooter();
     if (!activePrompt) input.focus();
   }
@@ -908,6 +911,21 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     }
   });
   input.focus();
+
+  async function runBoot(boot: NonNullable<BeeTuiOptions["boot"]>) {
+    bootActive = true;
+    startTicker();
+    try {
+      await boot(onActivity);
+    } catch (error) {
+      if (!closed) addMessage("error", options.friendlyError(error));
+    } finally {
+      bootActive = false;
+      if (!busy) stopTicker();
+      if (!closed) refreshFooter();
+    }
+  }
+  if (options.boot) void runBoot(options.boot);
 
   return { close, exited, input, submitPrompt };
 }
