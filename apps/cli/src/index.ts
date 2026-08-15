@@ -5,7 +5,10 @@ import { createClerkCliAuth } from "./clerk-auth";
 import { parseCommand } from "./command";
 import { createThreadStateStore, resolveBeeCliConfig } from "./config";
 import { createCredentialStore } from "./credential-store";
-import { createTerminalProgress } from "./progress";
+import {
+  createTerminalProgress,
+  createToolActivityTracker,
+} from "./progress";
 import { createPromptHistory } from "./prompt-history";
 import { projectBeeReply, projectStreamingBeeReply } from "./reply";
 import { createBeeSession } from "./session";
@@ -143,8 +146,10 @@ async function main() {
   ) {
     const progress = createTerminalProgress(writeProgress);
     console.error("  Bee is thinking…");
-    const raw = await session.ask(prompt, progress);
-    return projectBeeReply(raw) || "Bee finished without a text reply.";
+    const result = await session.ask(prompt, progress);
+    return (
+      projectBeeReply(result.text) || "Bee finished without a text reply."
+    );
   }
 
   if (command.kind === "ask") {
@@ -159,10 +164,10 @@ async function main() {
 
   await runBeeTui({
     history: await createPromptHistory(config.historyPath),
-    ask: async (prompt, onProgress, onReply) => {
-      const progress = createTerminalProgress(onProgress);
+    ask: async (prompt, onActivity, onReply) => {
+      const progress = createToolActivityTracker(onActivity);
       let streamedStep = "";
-      const raw = await session.ask(prompt, (event) => {
+      const result = await session.ask(prompt, (event) => {
         progress(event);
         if (event.type === "message-started") {
           streamedStep = "";
@@ -175,7 +180,12 @@ async function main() {
           });
         }
       });
-      return projectBeeReply(raw) || "Bee finished without a text reply.";
+      return {
+        text:
+          projectBeeReply(result.text) ||
+          "Bee finished without a text reply.",
+        ...(result.followUp ? { followUp: result.followUp } : {}),
+      };
     },
     newConversation: async () => {
       await session.newConversation();

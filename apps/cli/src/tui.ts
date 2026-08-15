@@ -1,14 +1,22 @@
 import {
   BoxRenderable,
   type CliRenderer,
-  InputRenderable,
-  InputRenderableEvents,
+  MarkdownRenderable,
   ScrollBoxRenderable,
+  SelectRenderable,
+  SelectRenderableEvents,
+  type SelectOption,
+  SyntaxStyle,
   TextRenderable,
+  TextareaRenderable,
   createCliRenderer,
 } from "@opentui/core";
 
+import { scrubIdentifiers } from "@beegreat/tool-presentation";
+
+import type { ToolActivityUpdate } from "./progress";
 import type { PromptHistory } from "./prompt-history";
+import type { BeeFollowUp, BeeQuestion } from "./reply";
 
 const palette = {
   canvas: "#111111",
@@ -22,6 +30,13 @@ const palette = {
   honeyInk: "#ffe0c2",
   danger: "#f07858",
 } as const;
+
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const READY_HINT =
+  "  ⏎ send   ⇧⏎ newline   / commands   ↑↓ history   ctrl+c exit";
+const PROMPT_HINT = "  ↑↓ choose   ⏎ select   esc type your own answer";
+const PLACEHOLDER = "Message your personal assistant…";
+const CUSTOM_ANSWER = "__bee_custom_answer__";
 
 export const BEE_COMMANDS = [
   { name: "/new", description: "Start a fresh conversation" },
@@ -58,12 +73,17 @@ export function commandSuggestions(value: string): BeeCommand[] {
   });
 }
 
+export type BeeTuiReply = {
+  text: string;
+  followUp?: BeeFollowUp;
+};
+
 export type BeeTuiOptions = {
   ask(
     prompt: string,
-    onProgress: (message: string) => void,
+    onActivity: (update: ToolActivityUpdate) => void,
     onReply: (update: BeeReplyUpdate) => void,
-  ): Promise<string>;
+  ): Promise<BeeTuiReply>;
   newConversation(): Promise<void>;
   friendlyError(error: unknown): string;
   history?: PromptHistory;
@@ -75,6 +95,49 @@ export type BeeReplyUpdate =
 
 type MessageKind = "assistant" | "user" | "activity" | "error";
 
+type PromptStep = {
+  title: string;
+  options: SelectOption[];
+};
+
+type ActivePrompt = {
+  kind: "question" | "confirm";
+  steps: PromptStep[];
+  stepIndex: number;
+  values: string[];
+  displays: string[];
+};
+
+/** Builds sequential select steps with the shared global option numbering. */
+export function questionPromptSteps(
+  question: BeeQuestion,
+): PromptStep[] | undefined {
+  if (question.questions.some((prompt) => !prompt.options?.length)) {
+    return undefined;
+  }
+  let optionNumber = 0;
+  return question.questions.map((prompt) => ({
+    title: `${scrubIdentifiers(prompt.header)} — ${scrubIdentifiers(prompt.question)}`,
+    options: [
+      ...(prompt.options ?? []).map((option) => {
+        optionNumber += 1;
+        return {
+          name: scrubIdentifiers(option.label),
+          description: option.description
+            ? scrubIdentifiers(option.description)
+            : "",
+          value: String(optionNumber),
+        };
+      }),
+      {
+        name: "Type something else",
+        description: "Answer in your own words",
+        value: CUSTOM_ANSWER,
+      },
+    ],
+  }));
+}
+
 export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   let messageId = 0;
   let busy = false;
@@ -84,6 +147,15 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   const historyEntries = [...(options.history?.entries ?? [])];
   let historyIndex = historyEntries.length;
   let historyDraft = "";
+  const queue: string[] = [];
+  let activePrompt: ActivePrompt | undefined;
+  let spinnerFrame = 0;
+  let workStartedAt = 0;
+  let ticker: ReturnType<typeof setInterval> | undefined;
+  const runningActivities = new Map<
+    string,
+    { body: TextRenderable; label: string }
+  >();
   let resolveExit!: () => void;
   const exited = new Promise<void>((resolve) => {
     resolveExit = resolve;
@@ -91,6 +163,21 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
 
   renderer.setTerminalTitle("BeeGreat");
   renderer.setBackgroundColor(palette.canvas);
+
+  const markdownStyle = SyntaxStyle.fromStyles({
+    default: { fg: palette.ink },
+    conceal: { fg: palette.inkSoft },
+    "markup.heading": { fg: palette.honey, bold: true },
+    "markup.strong": { fg: palette.ink, bold: true },
+    "markup.italic": { fg: palette.ink, italic: true },
+    "markup.list": { fg: palette.honey },
+    "markup.quote": { fg: palette.inkSoft, italic: true },
+    "markup.raw": { fg: palette.honeyInk },
+    "markup.link": { fg: palette.honey, underline: true },
+    "markup.link.label": { fg: palette.honey },
+    "markup.link.url": { fg: palette.inkSoft, underline: true },
+    "markup.strikethrough": { fg: palette.inkSoft, dim: true },
+  });
 
   const screen = new BoxRenderable(renderer, {
     id: "bee-screen",
@@ -197,6 +284,34 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       );
     }
 
+    if (kind === "assistant") {
+      // Streaming stays enabled for the renderable's lifetime: OpenTUI 0.5
+      // blanks a MarkdownRenderable when streaming is turned off afterwards.
+      let current = content;
+      const body = new MarkdownRenderable(renderer, {
+        id: `body-${messageId}`,
+        content,
+        syntaxStyle: markdownStyle,
+        streaming: true,
+        flexGrow: 1,
+        height: "auto",
+      });
+      row.add(body);
+      transcript.add(row);
+      queueMicrotask(() => transcript.scrollTo(Number.MAX_SAFE_INTEGER));
+      const setText = (text: string) => {
+        if (text === current) return;
+        current = text;
+        body.content = text;
+      };
+      return {
+        row,
+        setText,
+        finalize: setText,
+        body: undefined as TextRenderable | undefined,
+      };
+    }
+
     const body = new TextRenderable(renderer, {
         id: `body-${messageId}`,
         content,
@@ -217,11 +332,21 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
 
     transcript.add(row);
     queueMicrotask(() => transcript.scrollTo(Number.MAX_SAFE_INTEGER));
-    return { row, body };
+    return {
+      row,
+      setText(text: string) {
+        body.content = text;
+      },
+      finalize(text: string) {
+        body.content = text;
+      },
+      body,
+    };
   }
 
   function clearTranscript() {
     for (const child of transcript.getChildren()) transcript.remove(child);
+    runningActivities.clear();
   }
 
   addMessage(
@@ -257,6 +382,50 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   });
   shell.add(autocomplete);
 
+  const promptPanel = new BoxRenderable(renderer, {
+    id: "bee-prompt",
+    width: "auto",
+    minWidth: 20,
+    height: "auto",
+    marginX: 2,
+    paddingX: 1,
+    border: true,
+    borderStyle: "rounded",
+    borderColor: palette.honey,
+    backgroundColor: palette.surface,
+    flexDirection: "column",
+    visible: false,
+  });
+  const promptTitle = new TextRenderable(renderer, {
+    id: "bee-prompt-title",
+    content: "",
+    fg: palette.honeyInk,
+    width: "100%",
+    height: 1,
+    wrapMode: "none",
+    truncate: true,
+  });
+  const promptSelect = new SelectRenderable(renderer, {
+    id: "bee-prompt-select",
+    width: "100%",
+    height: 2,
+    options: [],
+    backgroundColor: palette.surface,
+    focusedBackgroundColor: palette.surface,
+    textColor: palette.inkSoft,
+    focusedTextColor: palette.ink,
+    selectedBackgroundColor: palette.honeySurface,
+    selectedTextColor: palette.honeyInk,
+    descriptionColor: palette.inkSoft,
+    selectedDescriptionColor: palette.inkSoft,
+    showDescription: true,
+    showScrollIndicator: false,
+    wrapSelection: true,
+  });
+  promptPanel.add(promptTitle);
+  promptPanel.add(promptSelect);
+  shell.add(promptPanel);
+
   const composer = new BoxRenderable(renderer, {
     id: "bee-composer",
     width: "auto",
@@ -272,24 +441,30 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     flexDirection: "column",
     justifyContent: "center",
   });
-  const input = new InputRenderable(renderer, {
+  const input = new TextareaRenderable(renderer, {
     id: "bee-input",
     width: "100%",
-    value: "",
-    placeholder: "Message your personal assistant…",
+    height: 1,
+    placeholder: PLACEHOLDER,
     placeholderColor: palette.inkSoft,
     backgroundColor: palette.surface,
     focusedBackgroundColor: palette.surface,
     textColor: palette.ink,
     focusedTextColor: palette.ink,
     cursorColor: palette.honey,
+    keyBindings: [
+      { name: "return", shift: true, action: "newline" },
+      { name: "kpenter", shift: true, action: "newline" },
+      { name: "return", meta: true, action: "newline" },
+      { name: "kpenter", meta: true, action: "newline" },
+    ],
   });
   composer.add(input);
   shell.add(composer);
 
   const footer = new TextRenderable(renderer, {
     id: "bee-footer",
-    content: "  / commands   ↑↓ history   ↵ send   ctrl+c exit",
+    content: READY_HINT,
     fg: palette.inkSoft,
     width: "100%",
     height: 1,
@@ -299,6 +474,20 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   });
   shell.add(footer);
   renderer.root.add(screen);
+
+  const inputValue = () => input.plainText;
+
+  function setInputValue(value: string) {
+    input.setText(value);
+    input.cursorOffset = value.length;
+    autoGrowComposer();
+  }
+
+  function autoGrowComposer() {
+    const lines = Math.min(6, Math.max(1, inputValue().split("\n").length));
+    input.height = lines;
+    composer.height = lines + 2;
+  }
 
   function renderAutocomplete() {
     autocomplete.visible = suggestions.length > 0;
@@ -314,7 +503,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   }
 
   function updateAutocomplete() {
-    suggestions = commandSuggestions(input.value);
+    suggestions = commandSuggestions(inputValue());
     selectedSuggestion = 0;
     renderAutocomplete();
   }
@@ -328,53 +517,235 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   function completeSuggestion() {
     const suggestion = suggestions[selectedSuggestion];
     if (!suggestion) return false;
-    input.value = suggestion.name;
-    input.cursorOffset = suggestion.name.length;
+    setInputValue(suggestion.name);
     hideAutocomplete();
     return true;
   }
 
   function moveHistory(direction: -1 | 1) {
     if (!historyEntries.length) return;
-    if (historyIndex === historyEntries.length) historyDraft = input.value;
+    if (historyIndex === historyEntries.length) historyDraft = inputValue();
     historyIndex = Math.max(
       0,
       Math.min(historyEntries.length, historyIndex + direction),
     );
-    input.value =
+    setInputValue(
       historyIndex === historyEntries.length
         ? historyDraft
-        : (historyEntries[historyIndex] ?? "");
-    input.cursorOffset = input.value.length;
+        : (historyEntries[historyIndex] ?? ""),
+    );
     updateAutocomplete();
+  }
+
+  function refreshFooter() {
+    if (activePrompt) {
+      footer.content = PROMPT_HINT;
+      return;
+    }
+    if (busy) {
+      const frame = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length];
+      const elapsed = Math.max(
+        0,
+        Math.round((Date.now() - workStartedAt) / 1000),
+      );
+      const queued = queue.length ? `   ${queue.length} queued` : "";
+      footer.content = `  ${frame} Bee is working… ${elapsed}s${queued}   ctrl+c exit`;
+      return;
+    }
+    footer.content = READY_HINT;
+  }
+
+  function paintActivity(
+    body: TextRenderable,
+    update: Pick<ToolActivityUpdate, "state" | "label">,
+  ) {
+    if (update.state === "running") {
+      const frame = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length];
+      body.content = `${frame} ${update.label}`;
+      body.fg = palette.inkSoft;
+      return;
+    }
+    body.content = `${update.state === "done" ? "✓" : "✗"} ${update.label}`;
+    body.fg = update.state === "done" ? palette.inkSoft : palette.danger;
+  }
+
+  function startTicker() {
+    if (ticker) return;
+    ticker = setInterval(() => {
+      spinnerFrame += 1;
+      for (const activity of runningActivities.values()) {
+        paintActivity(activity.body, {
+          state: "running",
+          label: activity.label,
+        });
+      }
+      refreshFooter();
+    }, 120);
+  }
+
+  function stopTicker() {
+    if (!ticker) return;
+    clearInterval(ticker);
+    ticker = undefined;
   }
 
   function setReady() {
     composer.borderColor = palette.line;
-    input.placeholder = "Message your personal assistant…";
-    footer.content = "  / commands   ↑↓ history   ↵ send   ctrl+c exit";
-    input.focus();
+    input.placeholder = PLACEHOLDER;
+    stopTicker();
+    refreshFooter();
+    if (!activePrompt) input.focus();
   }
 
-  function setWorking(message = "Bee is working…") {
+  function setWorking() {
     composer.borderColor = palette.honey;
-    input.placeholder = message;
-    footer.content = `  ${message}`;
-    input.blur();
+    input.placeholder = "Bee is working — type to queue your next message…";
+    workStartedAt = Date.now();
+    startTicker();
+    refreshFooter();
   }
 
   function close() {
     if (closed) return;
     closed = true;
+    stopTicker();
     renderer.destroy();
     resolveExit();
   }
 
-  async function submitPrompt(rawPrompt: string) {
+  function dismissPrompt(focusInput = true) {
+    if (!activePrompt) return;
+    activePrompt = undefined;
+    promptPanel.visible = false;
+    promptSelect.blur();
+    if (focusInput && !closed) input.focus();
+    refreshFooter();
+  }
+
+  function showPromptStep() {
+    if (!activePrompt) return;
+    const step = activePrompt.steps[activePrompt.stepIndex];
+    if (!step) return;
+    const progress =
+      activePrompt.steps.length > 1
+        ? ` (${activePrompt.stepIndex + 1}/${activePrompt.steps.length})`
+        : "";
+    promptTitle.content = `${step.title}${progress}`;
+    promptSelect.options = step.options;
+    promptSelect.height = step.options.length * 2;
+    promptPanel.height = step.options.length * 2 + 3;
+    promptSelect.setSelectedIndex(0);
+    promptPanel.visible = true;
+    input.blur();
+    promptSelect.focus();
+    refreshFooter();
+  }
+
+  function showFollowUp(followUp: BeeFollowUp) {
+    if (closed || queue.length) return;
+    if (followUp.kind === "confirm") {
+      activePrompt = {
+        kind: "confirm",
+        steps: [
+          {
+            title: followUp.summary,
+            options: [
+              {
+                name: "Yes",
+                description: "Authorize this exact action",
+                value: "yes",
+              },
+              { name: "No", description: "Cancel it", value: "no" },
+            ],
+          },
+        ],
+        stepIndex: 0,
+        values: [],
+        displays: [],
+      };
+      showPromptStep();
+      return;
+    }
+    const steps = questionPromptSteps(followUp.question);
+    if (!steps) {
+      input.placeholder = "Type your answer…";
+      input.focus();
+      return;
+    }
+    activePrompt = {
+      kind: "question",
+      steps,
+      stepIndex: 0,
+      values: [],
+      displays: [],
+    };
+    showPromptStep();
+  }
+
+  function handlePromptSelection(option: SelectOption) {
+    if (!activePrompt) return;
+    if (option.value === CUSTOM_ANSWER) {
+      dismissPrompt();
+      input.placeholder = "Type your answer…";
+      return;
+    }
+    if (activePrompt.kind === "confirm") {
+      dismissPrompt();
+      void submitPrompt(String(option.value), option.name);
+      return;
+    }
+    activePrompt.values.push(String(option.value));
+    activePrompt.displays.push(option.name);
+    if (activePrompt.stepIndex + 1 < activePrompt.steps.length) {
+      activePrompt.stepIndex += 1;
+      showPromptStep();
+      return;
+    }
+    const values = activePrompt.values.join(", ");
+    const display = activePrompt.displays.join(" · ");
+    dismissPrompt();
+    void submitPrompt(values, display);
+  }
+
+  promptSelect.on(
+    SelectRenderableEvents.ITEM_SELECTED,
+    (_index: number, option: SelectOption) => {
+      handlePromptSelection(option);
+    },
+  );
+
+  function onActivity(update: ToolActivityUpdate) {
+    const existing = runningActivities.get(update.id);
+    if (existing) {
+      existing.label = update.label;
+      paintActivity(existing.body, update);
+      if (update.state !== "running") runningActivities.delete(update.id);
+      return;
+    }
+    const message = addMessage("activity", "");
+    if (!message.body) return;
+    paintActivity(message.body, update);
+    if (update.state === "running") {
+      runningActivities.set(update.id, {
+        body: message.body,
+        label: update.label,
+      });
+    }
+  }
+
+  async function submitPrompt(rawPrompt: string, display?: string) {
     const prompt = rawPrompt.trim();
-    if (!prompt || busy || closed) return;
-    input.value = "";
+    if (!prompt || closed) return;
+    if (busy) {
+      queue.push(prompt);
+      setInputValue("");
+      hideAutocomplete();
+      refreshFooter();
+      return;
+    }
+    setInputValue("");
     hideAutocomplete();
+    dismissPrompt(false);
     historyIndex = historyEntries.length;
     historyDraft = "";
 
@@ -384,20 +755,22 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     }
     if (prompt === "/clear") {
       clearTranscript();
+      input.focus();
       return;
     }
     if (prompt === "/help") {
       addMessage(
         "assistant",
         BEE_COMMANDS.map(
-          ({ name, description }) => `${name.padEnd(8)} ${description}`,
+          ({ name, description }) => `- \`${name}\` — ${description}`,
         ).join("\n"),
       );
+      input.focus();
       return;
     }
     if (prompt === "/new") {
       busy = true;
-      setWorking("Starting a fresh conversation…");
+      setWorking();
       try {
         await options.newConversation();
         clearTranscript();
@@ -411,22 +784,31 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       return;
     }
 
-    if (historyEntries.at(-1) !== prompt) historyEntries.push(prompt);
-    if (historyEntries.length > 50) historyEntries.shift();
-    historyIndex = historyEntries.length;
-    void options.history?.append(prompt);
+    // Select answers ("yes", "2") are transcript noise in prompt history.
+    if (!display) {
+      if (historyEntries.at(-1) !== prompt) historyEntries.push(prompt);
+      if (historyEntries.length > 50) historyEntries.shift();
+      historyIndex = historyEntries.length;
+      void options.history?.append(prompt);
+    }
 
     busy = true;
-    addMessage("user", prompt);
-    const thinking = addMessage("activity", "Thinking…");
+    addMessage("user", display ?? prompt);
+    const thinking = addMessage("activity", "✻ Thinking…");
     let thinkingVisible = true;
+    const removeThinking = () => {
+      if (!thinkingVisible) return;
+      transcript.remove(thinking.row);
+      thinkingVisible = false;
+    };
     let streamed: ReturnType<typeof addMessage> | undefined;
     setWorking();
     try {
       const reply = await options.ask(
         prompt,
-        (message) => {
-          addMessage("activity", message);
+        (update) => {
+          removeThinking();
+          onActivity(update);
         },
         (update) => {
           if (update.type === "reset") {
@@ -435,34 +817,52 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
             return;
           }
           if (!streamed && update.text) {
-            if (thinkingVisible) {
-              transcript.remove(thinking.row);
-              thinkingVisible = false;
-            }
+            removeThinking();
             streamed = addMessage("assistant", update.text);
           } else if (streamed) {
-            streamed.body.content = update.text;
+            streamed.setText(update.text);
           }
         },
       );
-      if (thinkingVisible) transcript.remove(thinking.row);
-      if (streamed) streamed.body.content = reply;
-      else addMessage("assistant", reply);
+      removeThinking();
+      if (streamed) streamed.finalize(reply.text);
+      else addMessage("assistant", reply.text);
+      if (reply.followUp) showFollowUp(reply.followUp);
     } catch (error) {
-      if (thinkingVisible) transcript.remove(thinking.row);
+      removeThinking();
       if (streamed) transcript.remove(streamed.row);
       addMessage("error", options.friendlyError(error));
     } finally {
       busy = false;
       setReady();
+      const next = queue.shift();
+      if (next !== undefined) void submitPrompt(next);
     }
   }
 
-  input.on(InputRenderableEvents.INPUT, updateAutocomplete);
+  input.onContentChange = () => {
+    autoGrowComposer();
+    updateAutocomplete();
+  };
   renderer.keyInput.on("keypress", (key) => {
     if (key.ctrl && key.name === "c") {
       key.preventDefault();
+      if (activePrompt) {
+        dismissPrompt();
+        return;
+      }
+      if (inputValue()) {
+        setInputValue("");
+        updateAutocomplete();
+        return;
+      }
       close();
+      return;
+    }
+    if (key.name === "escape" && activePrompt) {
+      key.preventDefault();
+      dismissPrompt();
+      input.placeholder = "Type your answer…";
       return;
     }
     if (!input.focused) return;
@@ -485,22 +885,26 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       key.preventDefault();
       return;
     }
-    if (key.name === "up" || key.name === "down") {
+    if (
+      (key.name === "up" || key.name === "down") &&
+      !inputValue().includes("\n")
+    ) {
       key.preventDefault();
       moveHistory(key.name === "up" ? -1 : 1);
       return;
     }
     if (
-      key.name === "return" ||
-      key.name === "linefeed" ||
-      key.name === "kpenter"
+      (key.name === "return" || key.name === "kpenter") &&
+      !key.shift &&
+      !key.meta &&
+      !key.ctrl
     ) {
       key.preventDefault();
-      if (suggestions.length && input.value !== suggestions[0]?.name) {
+      if (suggestions.length && inputValue() !== suggestions[0]?.name) {
         completeSuggestion();
         return;
       }
-      void submitPrompt(input.value);
+      void submitPrompt(inputValue());
     }
   });
   input.focus();

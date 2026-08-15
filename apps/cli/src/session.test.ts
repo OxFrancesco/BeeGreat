@@ -30,9 +30,21 @@ describe("Bee CLI session", () => {
       },
     );
 
-    await session.ask("Move the position");
+    const first = await session.ask("Move the position");
     await session.ask("2");
 
+    expect(first.followUp).toEqual({
+      kind: "question",
+      question: {
+        questions: [
+          {
+            header: "Network",
+            question: "Which network should I use?",
+            options: [{ label: "Base" }, { label: "Arbitrum" }],
+          },
+        ],
+      },
+    });
     expect(prompts).toEqual([
       "Move the position",
       "For “Which network should I use?”, my answer is “Arbitrum”.",
@@ -99,9 +111,9 @@ describe("Bee CLI session", () => {
       },
     );
 
-    await expect(session.ask("How are you?")).resolves.toBe(
-      "I'm doing great—thanks! What's on your mind?",
-    );
+    await expect(session.ask("How are you?")).resolves.toEqual({
+      text: "I'm doing great—thanks! What's on your mind?",
+    });
   });
 
   test("identifies a non-Bee service at the configured agent URL", async () => {
@@ -161,7 +173,9 @@ describe("Bee CLI session", () => {
       },
     );
 
-    await expect(session.ask("What is next?")).resolves.toBe("Keep going.");
+    await expect(session.ask("What is next?")).resolves.toEqual({
+      text: "Keep going.",
+    });
     expect(savedThread).toBe(42);
     expect(conversations).toEqual([
       "https://agent.example.test/agents/bee/user_owner~42",
@@ -264,8 +278,12 @@ describe("Bee CLI session", () => {
       },
     );
 
-    await session.ask("Help me begin");
-    await expect(session.ask("yes")).resolves.toBe("Created.");
+    const preview = await session.ask("Help me begin");
+    expect(preview.followUp).toEqual({
+      kind: "confirm",
+      summary: "Create this first-focus plan?",
+    });
+    await expect(session.ask("yes")).resolves.toEqual({ text: "Created." });
 
     expect(actions).toEqual([
       {
@@ -322,10 +340,15 @@ describe("Bee CLI session", () => {
       },
     );
 
-    expect(await session.ask("Prepare the swap")).toContain(
-      "Needs your confirmation",
-    );
-    expect(await session.ask("yes")).toContain("Web3 action in progress");
+    const pending = await session.ask("Prepare the swap");
+    expect(pending.text).toContain("Needs your confirmation");
+    expect(pending.followUp).toEqual({
+      kind: "confirm",
+      summary: "Swap 10 USDC for ETH",
+    });
+    const confirmed = await session.ask("yes");
+    expect(confirmed.text).toContain("Web3 action in progress");
+    expect(confirmed.followUp).toBeUndefined();
 
     expect(actions).toEqual([
       { action: "get_web3_action", actionId: "action-1" },
@@ -380,9 +403,9 @@ describe("Bee CLI session", () => {
       },
     );
 
-    expect(await session.ask("Claim my fees")).toContain(
-      "Open BeeGreat to sign",
-    );
+    const pending = await session.ask("Claim my fees");
+    expect(pending.text).toContain("Open BeeGreat to sign");
+    expect(pending.followUp).toBeUndefined();
     await session.ask("yes");
 
     expect(actions).toEqual([

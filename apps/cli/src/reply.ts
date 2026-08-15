@@ -22,10 +22,16 @@ export type Web3Confirmation = {
   summary: string;
 };
 
+/** Structured follow-up the terminal can answer with an interactive prompt. */
+export type BeeFollowUp =
+  | { kind: "question"; question: BeeQuestion }
+  | { kind: "confirm"; summary: string };
+
 export type BeeReply = {
   text: string;
   firstFocus?: FirstFocusConfirmation;
   web3Confirmation?: Web3Confirmation;
+  confirmation?: { summary: string };
   question?: BeeQuestion;
 };
 
@@ -99,15 +105,27 @@ function renderComponent(value: unknown): string {
       return [text(component.title), text(component.note), text(component.url)]
         .filter(Boolean)
         .join("\n");
-    case "devin":
+    case "devin": {
+      const pullRequests = Array.isArray(component.pullRequests)
+        ? component.pullRequests.flatMap((entry) => {
+            const pullRequest = object(entry);
+            const url = typeof pullRequest?.url === "string" ? pullRequest.url : "";
+            if (!url) return [];
+            const state = text(pullRequest?.state);
+            return [`Pull request${state ? ` — ${state}` : ""}: ${url}`];
+          })
+        : [];
       return [
         text(component.title),
         text(component.status),
         text(component.statusDetail),
         text(component.summary),
+        ...pullRequests,
+        typeof component.sessionUrl === "string" ? component.sessionUrl : "",
       ]
         .filter(Boolean)
         .join("\n");
+    }
     case "first_focus":
       return [
         "Your first focus",
@@ -129,7 +147,7 @@ function renderComponent(value: unknown): string {
       return parsed ? renderBeeQuestion(parsed) : "";
     }
     default:
-      return "";
+      return "Bee shared an interactive card the terminal can’t display. Open BeeGreat to continue.";
   }
 }
 
@@ -141,6 +159,7 @@ function renderBeeUi(
     if (!payload || !Array.isArray(payload.components)) return { rendered: "" };
     let firstFocus: FirstFocusConfirmation | undefined;
     let web3Confirmation: Web3Confirmation | undefined;
+    let confirmation: { summary: string } | undefined;
     let question: BeeQuestion | undefined;
     for (const value of payload.components) {
       const component = object(value);
@@ -172,6 +191,13 @@ function renderBeeUi(
           summary: component.summary,
         };
       }
+      if (
+        component.type === "confirm" &&
+        component.action !== "web3" &&
+        typeof component.summary === "string"
+      ) {
+        confirmation = { summary: scrubIdentifiers(component.summary) };
+      }
       question = parseBeeQuestion(component) ?? question;
     }
     const rendered = payload.components
@@ -182,6 +208,7 @@ function renderBeeUi(
       rendered,
       ...(firstFocus ? { firstFocus } : {}),
       ...(web3Confirmation ? { web3Confirmation } : {}),
+      ...(confirmation ? { confirmation } : {}),
       ...(question ? { question } : {}),
     };
   } catch {
@@ -194,6 +221,7 @@ export function parseBeeReply(raw: string): BeeReply {
   const cards: string[] = [];
   let firstFocus: FirstFocusConfirmation | undefined;
   let web3Confirmation: Web3Confirmation | undefined;
+  let confirmation: { summary: string } | undefined;
   let question: BeeQuestion | undefined;
   const spoken = raw.replace(
     /```beeui\s*([\s\S]*?)```/gi,
@@ -202,6 +230,7 @@ export function parseBeeReply(raw: string): BeeReply {
       if (parsed.rendered) cards.push(parsed.rendered);
       firstFocus = parsed.firstFocus ?? firstFocus;
       web3Confirmation = parsed.web3Confirmation ?? web3Confirmation;
+      confirmation = parsed.confirmation ?? confirmation;
       question = parsed.question ?? question;
       return "";
     },
@@ -214,6 +243,7 @@ export function parseBeeReply(raw: string): BeeReply {
     text: projected,
     ...(firstFocus ? { firstFocus } : {}),
     ...(web3Confirmation ? { web3Confirmation } : {}),
+    ...(confirmation ? { confirmation } : {}),
     ...(question ? { question } : {}),
   };
 }

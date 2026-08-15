@@ -6,6 +6,7 @@ import {
 } from "@flue/sdk";
 
 import {
+  humanizeWeb3Summary,
   projectTextWeb3Action,
   type TextWeb3Action,
 } from "@beegreat/tool-presentation";
@@ -13,10 +14,16 @@ import {
 import {
   parseBeeReply,
   resolveQuestionAnswer,
+  type BeeFollowUp,
   type BeeQuestion,
   type FirstFocusConfirmation,
   type Web3Confirmation,
 } from "./reply";
+
+export type BeeAskResult = {
+  text: string;
+  followUp?: BeeFollowUp;
+};
 
 export type BeeSessionConfig = {
   agentUrl: string;
@@ -34,9 +41,19 @@ type BeeSessionDependencies = {
   createClient(options: CreateFlueClientOptions): FlueClient;
 };
 
-function canonicalWeb3Reply(action: TextWeb3Action) {
+function canonicalWeb3Reply(action: TextWeb3Action): BeeAskResult {
   const projected = projectTextWeb3Action(action);
-  return [projected.text, ...projected.links].filter(Boolean).join("\n");
+  return {
+    text: [projected.text, ...projected.links].filter(Boolean).join("\n"),
+    ...(projected.requiresTextConfirmation
+      ? {
+          followUp: {
+            kind: "confirm" as const,
+            summary: humanizeWeb3Summary(action.summary),
+          },
+        }
+      : {}),
+  };
 }
 
 function normalizedUrl(value: string) {
@@ -139,7 +156,7 @@ export function createBeeSession(
     async ask(
       prompt: string,
       onEvent?: (event: ConversationStreamChunk) => void,
-    ) {
+    ): Promise<BeeAskResult> {
       let deliveredPrompt = resolveQuestionAnswer(pendingQuestion, prompt);
       pendingQuestion = undefined;
       const confirms =
@@ -269,7 +286,19 @@ export function createBeeSession(
         }
       }
       pendingWeb3 = parsed.web3Confirmation;
-      return replyText;
+      const followUp: BeeFollowUp | undefined = parsed.firstFocus
+        ? { kind: "confirm", summary: "Create this first-focus plan?" }
+        : parsed.web3Confirmation
+          ? {
+              kind: "confirm",
+              summary: humanizeWeb3Summary(parsed.web3Confirmation.summary),
+            }
+          : parsed.confirmation
+            ? { kind: "confirm", summary: parsed.confirmation.summary }
+            : parsed.question
+              ? { kind: "question", question: parsed.question }
+              : undefined;
+      return { text: replyText, ...(followUp ? { followUp } : {}) };
     },
 
     async newConversation() {

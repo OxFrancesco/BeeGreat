@@ -94,6 +94,40 @@ describe("Bee CLI replies", () => {
     expect(resolveQuestionAnswer(reply.question, "1")).toBe("1");
   });
 
+  test("extracts a generic confirmation for the interactive prompt", () => {
+    const reply = parseBeeReply(`Ready to publish.
+\`\`\`beeui
+{"components":[{"type":"confirm","summary":"Publish the release","action":"publish"}]}
+\`\`\``);
+
+    expect(reply.confirmation).toEqual({ summary: "Publish the release" });
+    expect(reply.web3Confirmation).toBeUndefined();
+  });
+
+  test("keeps Devin session and pull request links in the terminal projection", () => {
+    const reply = projectBeeReply(`Devin is on it.
+\`\`\`beeui
+{"components":[{"type":"devin","title":"Fix the flaky test","status":"working","sessionId":"devin-abc123456","sessionUrl":"https://app.devin.ai/sessions/abc123456","pullRequests":[{"url":"https://github.com/org/repo/pull/7","state":"open"}]}]}
+\`\`\``);
+
+    expect(reply).toContain("Fix the flaky test");
+    expect(reply).toContain("Pull request — open: https://github.com/org/repo/pull/7");
+    expect(reply).toContain("https://app.devin.ai/sessions/abc123456");
+    expect(reply).not.toContain("devin-abc123456");
+  });
+
+  test("degrades unknown components instead of silently dropping them", () => {
+    const reply = projectBeeReply(`Take a look.
+\`\`\`beeui
+{"components":[{"type":"hologram","body":"Something new"}]}
+\`\`\``);
+
+    expect(reply).toContain(
+      "Bee shared an interactive card the terminal can’t display. Open BeeGreat to continue.",
+    );
+    expect(reply).not.toContain("hologram");
+  });
+
   test("drops malformed question cards instead of presenting invalid choices", () => {
     const reply = parseBeeReply(`Please choose.
 \`\`\`beeui
