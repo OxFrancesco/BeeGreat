@@ -1,7 +1,7 @@
 import { ConvexError, v } from 'convex/values'
 import type { Doc, Id, TableNames } from './_generated/dataModel'
 import { internal } from './_generated/api'
-import type { MutationCtx } from './_generated/server'
+import type { MutationCtx, QueryCtx } from './_generated/server'
 import { internalMutation, internalQuery, mutation } from './_generated/server'
 import {
   beennectorProviderValidator,
@@ -122,553 +122,120 @@ async function removeDocuments<TableName extends TableNames>(
   return documents.length
 }
 
+// The eraser is data-driven end to end: DATA_STAGES fixes the deletion order
+// and STAGE_REMOVERS supplies one remover per stage. Keying the Record by
+// DataStage makes a missing (or extra) entry a compile error.
+type StageRemover = (
+  ctx: MutationCtx,
+  ownerKey: string,
+  userId: string,
+) => Promise<number>
+
+// Standard stages differ only in their table and owner-scoped index. Each
+// entry builds the index-scoped query — keeping `withIndex` fully typed per
+// table — while this shared driver applies take(BATCH_SIZE) and deletes.
+// Genuinely special stages (storage cascades, shared batch helpers) stay as
+// explicit custom removers below.
+function removesBatch(
+  buildQuery: (
+    ctx: MutationCtx,
+    ownerKey: string,
+    userId: string,
+  ) => { take(count: number): Promise<Doc<TableNames>[]> },
+): StageRemover {
+  return async (ctx, ownerKey, userId) =>
+    removeDocuments<TableNames>(
+      ctx,
+      await buildQuery(ctx, ownerKey, userId).take(BATCH_SIZE),
+    )
+}
+
+const STAGE_REMOVERS: Record<DataStage, StageRemover> = {
+  subscriptionEntitlements: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('subscriptionEntitlements').withIndex('by_user_and_entitlement', (q) => q.eq('userId', userId))),
+  subscriptionStatusChecks: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('subscriptionStatusChecks').withIndex('by_user', (q) => q.eq('userId', userId))),
+  memorySourceLinks: removesBatch((ctx, ownerKey) => ctx.db.query('memorySourceLinks').withIndex('by_owner_key_and_derived_memory_id', (q) => q.eq('ownerKey', ownerKey))),
+  memoryRevisions: removesBatch((ctx, ownerKey) => ctx.db.query('memoryRevisions').withIndex('by_owner_key_and_memory_id_and_revision', (q) => q.eq('ownerKey', ownerKey))),
+  memories: removesBatch((ctx, ownerKey) => ctx.db.query('memories').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+  chatMessages: removesBatch((ctx, ownerKey) => ctx.db.query('chatMessages').withIndex('by_owner_key_and_thread_id_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
+  imessageDeliveries: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('imessageDeliveries').withIndex('by_user', (q) => q.eq('userId', userId))),
+  agentJobRuns: removesBatch((ctx, ownerKey) => ctx.db.query('agentJobRuns').withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
+  agentJobGrants: removesBatch((ctx, ownerKey) => ctx.db.query('agentJobGrants').withIndex('by_owner_key_and_requested_at', (q) => q.eq('ownerKey', ownerKey))),
+  agentJobs: removesBatch((ctx, ownerKey) => ctx.db.query('agentJobs').withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
+  chatThreads: removesBatch((ctx, ownerKey) => ctx.db.query('chatThreads').withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
+  chatPreferences: removesBatch((ctx, ownerKey) => ctx.db.query('chatPreferences').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+  userPreferences: removesBatch((ctx, ownerKey) => ctx.db.query('userPreferences').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+  publicProfileLinks: removesBatch((ctx, ownerKey) => ctx.db.query('publicProfileLinks').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+  publicProfileAliases: removesBatch((ctx, ownerKey) => ctx.db.query('publicProfileAliases').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+  publicProfiles: removesBatch((ctx, ownerKey) => ctx.db.query('publicProfiles').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+  highlights: removesBatch((ctx, ownerKey) => ctx.db.query('highlights').withIndex('by_owner_key_and_status', (q) => q.eq('ownerKey', ownerKey))),
+  honeyLedgerEntries: removesBatch((ctx, ownerKey) => ctx.db.query('honeyLedgerEntries').withIndex('by_owner_key_and_goal_id', (q) => q.eq('ownerKey', ownerKey))),
+  firstFocusBundles: removesBatch((ctx, ownerKey) => ctx.db.query('firstFocusBundles').withIndex('by_owner_key_and_request_id', (q) => q.eq('ownerKey', ownerKey))),
+  goalEconomyStats: removesBatch((ctx, ownerKey) => ctx.db.query('goalEconomyStats').withIndex('by_owner_key_and_goal_id', (q) => q.eq('ownerKey', ownerKey))),
+  verifiedProgressEvents: removesBatch((ctx, ownerKey) => ctx.db.query('verifiedProgressEvents').withIndex('by_owner_key_and_occurred_at', (q) => q.eq('ownerKey', ownerKey))),
+  honeyEconomyEntries: removesBatch((ctx, ownerKey) => ctx.db.query('honeyEconomyEntries').withIndex('by_owner_key_and_occurred_at', (q) => q.eq('ownerKey', ownerKey))),
+  royalJellyLedgerEntries: removesBatch((ctx, ownerKey) => ctx.db.query('royalJellyLedgerEntries').withIndex('by_owner_key_and_occurred_at', (q) => q.eq('ownerKey', ownerKey))),
+  economyCommandReceipts: removesBatch((ctx, ownerKey) => ctx.db.query('economyCommandReceipts').withIndex('by_owner_key_and_request_id', (q) => q.eq('ownerKey', ownerKey))),
+  weeklyProgressRosters: removesBatch((ctx, ownerKey) => ctx.db.query('weeklyProgressRosters').withIndex('by_owner_key_and_started_at', (q) => q.eq('ownerKey', ownerKey))),
+  achievementUnlocks: removesBatch((ctx, ownerKey) => ctx.db.query('achievementUnlocks').withIndex('by_owner_key_and_unlocked_at', (q) => q.eq('ownerKey', ownerKey))),
+  achievementBackfillStates: removesBatch((ctx, ownerKey) => ctx.db.query('achievementBackfillStates').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+  boosterActivations: removesBatch((ctx, ownerKey) => ctx.db.query('boosterActivations').withIndex('by_owner_key_and_kind_and_expires_at', (q) => q.eq('ownerKey', ownerKey))),
+  anonymizedEconomyEvents: removesBatch((ctx, ownerKey) => ctx.db.query('anonymizedEconomyEvents').withIndex('by_owner_key_and_occurred_at', (q) => q.eq('ownerKey', ownerKey))),
+  recurrenceSchedules: removesBatch((ctx, ownerKey) => ctx.db.query('recurrenceSchedules').withIndex('by_owner_key_and_active', (q) => q.eq('ownerKey', ownerKey))),
+  // The bookmark-crawl module owns these batch helpers and their cascades.
+  bookmarkCrawlRuns: (ctx, ownerKey) =>
+    removeOwnerCrawlRunsBatch(ctx, ownerKey, BATCH_SIZE),
+  bookmarkCrawlCache: (ctx, ownerKey) =>
+    removeOwnerWebsiteCacheBatch(ctx, ownerKey, BATCH_SIZE),
+  bookmarks: removesBatch((ctx, ownerKey) => ctx.db.query('bookmarks').withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
+  chatgptAuthSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('chatgptAuthSessions').withIndex('by_user', (q) => q.eq('userId', userId))),
+  chatgptCredentials: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('chatgptCredentials').withIndex('by_user', (q) => q.eq('userId', userId))),
+  chatgptGatePreferences: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('chatgptGatePreferences').withIndex('by_user', (q) => q.eq('userId', userId))),
+  googleHealthAuthSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('googleHealthAuthSessions').withIndex('by_user', (q) => q.eq('userId', userId))),
+  googleHealthCredentials: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('googleHealthCredentials').withIndex('by_user', (q) => q.eq('userId', userId))),
+  telegramAuthSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('telegramAuthSessions').withIndex('by_user', (q) => q.eq('userId', userId))),
+  telegramConnections: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('telegramConnections').withIndex('by_user', (q) => q.eq('userId', userId))),
+  imessageLinkSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('imessageLinkSessions').withIndex('by_user', (q) => q.eq('userId', userId))),
+  imessageConnections: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('imessageConnections').withIndex('by_user', (q) => q.eq('userId', userId))),
+  // Cascades beyond the row: each attachment's stored blob is deleted too.
+  journalAttachments: async (ctx, ownerKey) => {
+    const attachments = await ctx.db
+      .query('journalAttachments')
+      .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
+      .take(BATCH_SIZE)
+    for (const attachment of attachments) {
+      await ctx.storage.delete(attachment.storageId)
+      await ctx.db.delete(attachment._id)
+    }
+    return attachments.length
+  },
+  journalEntries: removesBatch((ctx, ownerKey) => ctx.db.query('journalEntries').withIndex('by_owner_key_and_local_date_and_occurred_at', (q) => q.eq('ownerKey', ownerKey))),
+  healthJournalEntries: removesBatch((ctx, ownerKey) => ctx.db.query('healthJournalEntries').withIndex('by_owner_key_and_local_date', (q) => q.eq('ownerKey', ownerKey))),
+  nfcActionExecutions: removesBatch((ctx, ownerKey) => ctx.db.query('nfcActionExecutions').withIndex('by_owner_key_and_executed_at', (q) => q.eq('ownerKey', ownerKey))),
+  nfcActions: removesBatch((ctx, ownerKey) => ctx.db.query('nfcActions').withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
+  beennectorAuthSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beennectorAuthSessions').withIndex('by_user_and_provider', (q) => q.eq('userId', userId))),
+  beennectorCredentials: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beennectorCredentials').withIndex('by_user_and_provider', (q) => q.eq('userId', userId))),
+  beennectorDeliveries: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beennectorDeliveries').withIndex('by_user', (q) => q.eq('userId', userId))),
+  powerups: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('powerups').withIndex('by_user', (q) => q.eq('userId', userId))),
+  devinSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('devinSessions').withIndex('by_user_and_updated_at', (q) => q.eq('userId', userId))),
+  beeSiteDeployments: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beeSiteDeployments').withIndex('by_user_id_and_created_at', (q) => q.eq('userId', userId))),
+  beeSiteUsage: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beeSiteUsage').withIndex('by_user_id_and_month_key', (q) => q.eq('userId', userId))),
+  beeSites: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beeSites').withIndex('by_user_id_and_updated_at', (q) => q.eq('userId', userId))),
+  wallets: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('wallets').withIndex('by_user', (q) => q.eq('userId', userId))),
+  web3Actions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('web3Actions').withIndex('by_user', (q) => q.eq('userId', userId))),
+  tasks: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('tasks').withIndex('by_user', (q) => q.eq('userId', userId))),
+  projects: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('projects').withIndex('by_user', (q) => q.eq('userId', userId))),
+  golieBees: removesBatch((ctx, ownerKey) => ctx.db.query('golieBees').withIndex('by_owner_key_and_goal_id', (q) => q.eq('ownerKey', ownerKey))),
+  goals: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('goals').withIndex('by_user', (q) => q.eq('userId', userId))),
+  hives: removesBatch((ctx, ownerKey) => ctx.db.query('hives').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
+}
+
 async function removeDataBatch(
   ctx: MutationCtx,
   stage: DataStage,
   ownerKey: string,
   userId: string,
 ): Promise<number> {
-  switch (stage) {
-    case 'subscriptionEntitlements':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('subscriptionEntitlements')
-          .withIndex('by_user_and_entitlement', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'subscriptionStatusChecks':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('subscriptionStatusChecks')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'memorySourceLinks':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('memorySourceLinks')
-          .withIndex('by_owner_key_and_derived_memory_id', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'memoryRevisions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('memoryRevisions')
-          .withIndex('by_owner_key_and_memory_id_and_revision', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'memories':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('memories')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-    case 'chatMessages':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('chatMessages')
-          .withIndex('by_owner_key_and_thread_id_and_created_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'imessageDeliveries':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('imessageDeliveries')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'agentJobRuns':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('agentJobRuns')
-          .withIndex('by_owner_key_and_created_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'agentJobGrants':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('agentJobGrants')
-          .withIndex('by_owner_key_and_requested_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'agentJobs':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('agentJobs')
-          .withIndex('by_owner_key_and_created_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'chatThreads':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('chatThreads')
-          .withIndex('by_owner_key_and_created_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'chatPreferences':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('chatPreferences')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-    case 'userPreferences':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('userPreferences')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-    case 'publicProfileLinks':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('publicProfileLinks')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-    case 'publicProfileAliases':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('publicProfileAliases')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-    case 'publicProfiles':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('publicProfiles')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-    case 'highlights':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('highlights')
-          .withIndex('by_owner_key_and_status', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'honeyLedgerEntries':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('honeyLedgerEntries')
-          .withIndex('by_owner_key_and_goal_id', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'firstFocusBundles':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('firstFocusBundles')
-          .withIndex('by_owner_key_and_request_id', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'goalEconomyStats':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('goalEconomyStats')
-          .withIndex('by_owner_key_and_goal_id', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'verifiedProgressEvents':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('verifiedProgressEvents')
-          .withIndex('by_owner_key_and_occurred_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'honeyEconomyEntries':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('honeyEconomyEntries')
-          .withIndex('by_owner_key_and_occurred_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'royalJellyLedgerEntries':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('royalJellyLedgerEntries')
-          .withIndex('by_owner_key_and_occurred_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'economyCommandReceipts':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('economyCommandReceipts')
-          .withIndex('by_owner_key_and_request_id', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'weeklyProgressRosters':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('weeklyProgressRosters')
-          .withIndex('by_owner_key_and_started_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'achievementUnlocks':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('achievementUnlocks')
-          .withIndex('by_owner_key_and_unlocked_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'achievementBackfillStates':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('achievementBackfillStates')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-    case 'boosterActivations':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('boosterActivations')
-          .withIndex('by_owner_key_and_kind_and_expires_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'anonymizedEconomyEvents':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('anonymizedEconomyEvents')
-          .withIndex('by_owner_key_and_occurred_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'recurrenceSchedules':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('recurrenceSchedules')
-          .withIndex('by_owner_key_and_active', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'bookmarkCrawlRuns':
-      return removeOwnerCrawlRunsBatch(ctx, ownerKey, BATCH_SIZE)
-    case 'bookmarkCrawlCache':
-      return removeOwnerWebsiteCacheBatch(ctx, ownerKey, BATCH_SIZE)
-    case 'bookmarks':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('bookmarks')
-          .withIndex('by_owner_key_and_created_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'chatgptAuthSessions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('chatgptAuthSessions')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'chatgptCredentials':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('chatgptCredentials')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'chatgptGatePreferences':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('chatgptGatePreferences')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'googleHealthAuthSessions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('googleHealthAuthSessions')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'googleHealthCredentials':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('googleHealthCredentials')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'telegramAuthSessions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('telegramAuthSessions')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'telegramConnections':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('telegramConnections')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'imessageLinkSessions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('imessageLinkSessions')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'imessageConnections':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('imessageConnections')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'journalAttachments': {
-      const attachments = await ctx.db
-        .query('journalAttachments')
-        .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-        .take(BATCH_SIZE)
-      for (const attachment of attachments) {
-        await ctx.storage.delete(attachment.storageId)
-        await ctx.db.delete(attachment._id)
-      }
-      return attachments.length
-    }
-    case 'journalEntries':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('journalEntries')
-          .withIndex('by_owner_key_and_local_date_and_occurred_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'healthJournalEntries':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('healthJournalEntries')
-          .withIndex('by_owner_key_and_local_date', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'nfcActionExecutions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('nfcActionExecutions')
-          .withIndex('by_owner_key_and_executed_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'nfcActions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('nfcActions')
-          .withIndex('by_owner_key_and_created_at', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'beennectorAuthSessions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('beennectorAuthSessions')
-          .withIndex('by_user_and_provider', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'beennectorCredentials':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('beennectorCredentials')
-          .withIndex('by_user_and_provider', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'beennectorDeliveries':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('beennectorDeliveries')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'powerups':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('powerups')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'devinSessions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('devinSessions')
-          .withIndex('by_user_and_updated_at', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'beeSiteDeployments':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('beeSiteDeployments')
-          .withIndex('by_user_id_and_created_at', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'beeSiteUsage':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('beeSiteUsage')
-          .withIndex('by_user_id_and_month_key', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'beeSites':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('beeSites')
-          .withIndex('by_user_id_and_updated_at', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'wallets':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('wallets')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'web3Actions':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('web3Actions')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'tasks':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('tasks')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'projects':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('projects')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'golieBees':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('golieBees')
-          .withIndex('by_owner_key_and_goal_id', (q) =>
-            q.eq('ownerKey', ownerKey),
-          )
-          .take(BATCH_SIZE),
-      )
-    case 'goals':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('goals')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .take(BATCH_SIZE),
-      )
-    case 'hives':
-      return removeDocuments(
-        ctx,
-        await ctx.db
-          .query('hives')
-          .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
-          .take(BATCH_SIZE),
-      )
-  }
+  return STAGE_REMOVERS[stage](ctx, ownerKey, userId)
 }
 
 async function scheduleNext(
@@ -695,13 +262,66 @@ function activationTokensMatch(left: string, right: string) {
   return difference === 0
 }
 
+function invalidDeletionCapability() {
+  return new ConvexError({
+    code: 'INVALID_DELETION_TOKEN',
+    message: 'Invalid account-deletion capability',
+  })
+}
+
 function validateActivationToken(token: string) {
   if (!/^[A-Za-z0-9_-]{32,200}$/.test(token)) {
-    throw new ConvexError({
-      code: 'INVALID_DELETION_TOKEN',
-      message: 'Invalid account-deletion capability',
-    })
+    throw invalidDeletionCapability()
   }
+}
+
+type DeletionJobGuard = {
+  /** Ownership/status checks applied before the hash comparison. */
+  authorize?: (job: Doc<'accountDeletionJobs'>) => boolean
+}
+
+/**
+ * Shared deletion-capability guard for every job-scoped endpoint: validates
+ * the token shape, loads the job, applies the caller's ownership/status
+ * checks, then constant-time compares the activation-token hash. Every
+ * failure throws the same INVALID_DELETION_TOKEN error so callers leak
+ * nothing about which check failed.
+ */
+async function requireValidDeletionJob(
+  ctx: QueryCtx,
+  args: { jobId: Id<'accountDeletionJobs'>; activationToken: string },
+  options?: DeletionJobGuard,
+): Promise<Doc<'accountDeletionJobs'>>
+async function requireValidDeletionJob(
+  ctx: QueryCtx,
+  args: { jobId: Id<'accountDeletionJobs'>; activationToken: string },
+  options: DeletionJobGuard & {
+    /** `activate` treats a missing job as already-finished cleanup. */
+    allowMissingJob: true
+  },
+): Promise<Doc<'accountDeletionJobs'> | null>
+async function requireValidDeletionJob(
+  ctx: QueryCtx,
+  args: { jobId: Id<'accountDeletionJobs'>; activationToken: string },
+  options: DeletionJobGuard & { allowMissingJob?: boolean } = {},
+): Promise<Doc<'accountDeletionJobs'> | null> {
+  validateActivationToken(args.activationToken)
+  const job = await ctx.db.get('accountDeletionJobs', args.jobId)
+  if (!job) {
+    if (options.allowMissingJob) return null
+    throw invalidDeletionCapability()
+  }
+  if (options.authorize && !options.authorize(job)) {
+    throw invalidDeletionCapability()
+  }
+  if (!job.activationTokenHash) {
+    throw invalidDeletionCapability()
+  }
+  const suppliedHash = await hashActivationToken(args.activationToken)
+  if (!activationTokensMatch(job.activationTokenHash, suppliedHash)) {
+    throw invalidDeletionCapability()
+  }
+  return job
 }
 
 async function scheduleExternalCleanup(
@@ -819,27 +439,12 @@ export const authorizeAppleRevocation = internalQuery({
   },
   returns: v.object({ userId: v.string() }),
   handler: async (ctx, args) => {
-    validateActivationToken(args.activationToken)
-    const job = await ctx.db.get('accountDeletionJobs', args.jobId)
-    if (
-      !job ||
-      job.status !== 'awaiting_identity_deletion' ||
-      job.ownerKey !== args.ownerKey ||
-      job.userId !== args.userId ||
-      !job.activationTokenHash
-    ) {
-      throw new ConvexError({
-        code: 'INVALID_DELETION_TOKEN',
-        message: 'Invalid account-deletion capability',
-      })
-    }
-    const suppliedHash = await hashActivationToken(args.activationToken)
-    if (!activationTokensMatch(job.activationTokenHash, suppliedHash)) {
-      throw new ConvexError({
-        code: 'INVALID_DELETION_TOKEN',
-        message: 'Invalid account-deletion capability',
-      })
-    }
+    const job = await requireValidDeletionJob(ctx, args, {
+      authorize: (candidate) =>
+        candidate.status === 'awaiting_identity_deletion' &&
+        candidate.ownerKey === args.ownerKey &&
+        candidate.userId === args.userId,
+    })
     return { userId: job.userId }
   },
 })
@@ -855,27 +460,12 @@ export const completeAppleRevocation = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    validateActivationToken(args.activationToken)
-    const job = await ctx.db.get('accountDeletionJobs', args.jobId)
-    if (
-      !job ||
-      job.status !== 'awaiting_identity_deletion' ||
-      job.ownerKey !== args.ownerKey ||
-      job.userId !== args.userId ||
-      !job.activationTokenHash
-    ) {
-      throw new ConvexError({
-        code: 'INVALID_DELETION_TOKEN',
-        message: 'Invalid account-deletion capability',
-      })
-    }
-    const suppliedHash = await hashActivationToken(args.activationToken)
-    if (!activationTokensMatch(job.activationTokenHash, suppliedHash)) {
-      throw new ConvexError({
-        code: 'INVALID_DELETION_TOKEN',
-        message: 'Invalid account-deletion capability',
-      })
-    }
+    const job = await requireValidDeletionJob(ctx, args, {
+      authorize: (candidate) =>
+        candidate.status === 'awaiting_identity_deletion' &&
+        candidate.ownerKey === args.ownerKey &&
+        candidate.userId === args.userId,
+    })
     await ctx.db.patch(job._id, {
       appleRevocationStatus: args.status,
       appleRevocationCompletedAt: Date.now(),
@@ -895,19 +485,10 @@ export const activate = mutation({
     status: v.union(v.literal('scheduled'), v.literal('complete')),
   }),
   handler: async (ctx, args) => {
-    validateActivationToken(args.activationToken)
-    const job = await ctx.db.get('accountDeletionJobs', args.jobId)
+    const job = await requireValidDeletionJob(ctx, args, {
+      allowMissingJob: true,
+    })
     if (!job) return { status: 'complete' as const }
-    const suppliedHash = await hashActivationToken(args.activationToken)
-    if (
-      !job.activationTokenHash ||
-      !activationTokensMatch(job.activationTokenHash, suppliedHash)
-    ) {
-      throw new ConvexError({
-        code: 'INVALID_DELETION_TOKEN',
-        message: 'Invalid account-deletion capability',
-      })
-    }
     await activateJob(ctx, job)
     return { status: 'scheduled' as const }
   },
@@ -934,24 +515,10 @@ export const cancel = mutation({
         message: 'Authentication required',
       })
     }
-    validateActivationToken(args.activationToken)
-    const job = await ctx.db.get('accountDeletionJobs', args.jobId)
-    if (!job || job.ownerKey !== identity.tokenIdentifier) {
-      throw new ConvexError({
-        code: 'INVALID_DELETION_TOKEN',
-        message: 'Invalid account-deletion capability',
-      })
-    }
-    const suppliedHash = await hashActivationToken(args.activationToken)
-    if (
-      !job.activationTokenHash ||
-      !activationTokensMatch(job.activationTokenHash, suppliedHash)
-    ) {
-      throw new ConvexError({
-        code: 'INVALID_DELETION_TOKEN',
-        message: 'Invalid account-deletion capability',
-      })
-    }
+    const job = await requireValidDeletionJob(ctx, args, {
+      authorize: (candidate) =>
+        candidate.ownerKey === identity.tokenIdentifier,
+    })
     if (job.status !== 'awaiting_identity_deletion') {
       return { status: 'already_activated' as const }
     }
