@@ -322,6 +322,9 @@
     "packages/tool-presentation": {
       "name": "@beegreat/tool-presentation",
       "version": "0.1.0",
+      "dependencies": {
+        "zod": "^4.4.3",
+      },
     },
     "packages/wallet-connect": {
       "name": "@beegreat/wallet-connect",

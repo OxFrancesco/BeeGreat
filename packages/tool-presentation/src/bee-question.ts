@@ -1,6 +1,23 @@
+import { z } from "zod";
+
 import { scrubIdentifiers } from "./scrub-identifiers";
 
-type JsonObject = Record<string, unknown>;
+const questionOptionSchema = z.object({
+  label: z.string().trim().min(1).max(40),
+  description: z.string().trim().min(1).max(120).optional(),
+});
+
+const questionPromptSchema = z.object({
+  header: z.string().trim().min(1).max(24),
+  question: z.string().trim().min(1).max(180),
+  options: z.array(questionOptionSchema).min(2).max(3).optional(),
+});
+
+/** The bounded question contract shared by every channel. */
+export const questionComponentSchema = z.object({
+  type: z.literal("question"),
+  questions: z.array(questionPromptSchema).min(1).max(3),
+});
 
 export type BeeQuestion = {
   questions: Array<{
@@ -10,69 +27,10 @@ export type BeeQuestion = {
   }>;
 };
 
-function object(value: unknown): JsonObject | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as JsonObject)
-    : undefined;
-}
-
-function boundedText(value: unknown, maxLength: number): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 && trimmed.length <= maxLength
-    ? trimmed
-    : undefined;
-}
-
 /** Parses the bounded question contract shared by every text channel. */
 export function parseBeeQuestion(value: unknown): BeeQuestion | undefined {
-  const component = object(value);
-  if (
-    component?.type !== "question" ||
-    !Array.isArray(component.questions) ||
-    component.questions.length < 1 ||
-    component.questions.length > 3
-  ) {
-    return undefined;
-  }
-
-  const questions: BeeQuestion["questions"] = [];
-  for (const value of component.questions) {
-    const prompt = object(value);
-    const header = boundedText(prompt?.header, 24);
-    const question = boundedText(prompt?.question, 180);
-    if (!prompt || !header || !question) return undefined;
-
-    let options: BeeQuestion["questions"][number]["options"];
-    if (prompt.options !== undefined) {
-      if (
-        !Array.isArray(prompt.options) ||
-        prompt.options.length < 2 ||
-        prompt.options.length > 3
-      ) {
-        return undefined;
-      }
-      options = [];
-      for (const value of prompt.options) {
-        const option = object(value);
-        const label = boundedText(option?.label, 40);
-        const description =
-          option?.description === undefined
-            ? undefined
-            : boundedText(option.description, 120);
-        if (
-          !option ||
-          !label ||
-          (option.description !== undefined && !description)
-        ) {
-          return undefined;
-        }
-        options.push({ label, ...(description ? { description } : {}) });
-      }
-    }
-    questions.push({ header, question, ...(options ? { options } : {}) });
-  }
-  return { questions };
+  const parsed = questionComponentSchema.safeParse(value);
+  return parsed.success ? { questions: parsed.data.questions } : undefined;
 }
 
 /** Renders stable global option numbers so a short reply can be resolved. */

@@ -12,11 +12,52 @@ export {
   type BeeQuestion,
 } from "./bee-question";
 export {
+  BEEUI_FENCE_OPEN,
+  deriveBeeUiFollowUps,
+  extractBeeUi,
+  firstFocusPreviewSchema,
+  parseBeeUiBlock,
+  renderBeeUiMarkdown,
+  uiComponentSchema,
+  type BeeUiFollowUps,
+  type BeeUiMarkdown,
+  type FirstFocusPreview,
+  type ParsedBeeUiComponent,
+  type UIComponent,
+  type UnsupportedComponent,
+  type Web3Confirmation,
+} from "./beeui";
+export { endOfLocalDay, formatHighlightExpiry } from "./highlight-time";
+export {
   humanizeWeb3Summary,
   projectTextWeb3Action,
   type TextWeb3Action,
   type TextWeb3Projection,
 } from "./web3-text";
+export {
+  bookmarkHost,
+  eoaFailureReason,
+  generatedImageFileName,
+  questionAnswer,
+  type EoaFailureReason,
+} from "./beeui-card-logic";
+export { MOODS, type Mood, type MoodOption } from "./health-moods";
+export {
+  compareDrafts,
+  formatSaveState,
+  type JournalDraft,
+  type JournalSaveState,
+  type SaveStateLabels,
+} from "./journal-draft";
+export {
+  BOOKMARK_KIND_LABELS,
+  bookmarkKindGlyph,
+  bookmarkKindLabel,
+  bookmarkRelativeDate,
+  bookmarkSourceLabel,
+  type BookmarkKind,
+  type BookmarkSourceLabelOptions,
+} from "./bookmark-presentation";
 
 export type ToolActivityState = "running" | "done" | "error";
 
