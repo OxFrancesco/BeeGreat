@@ -12,11 +12,12 @@ import {
 } from "@beegreat/tool-presentation";
 
 import {
+  deriveFollowUp,
   parseBeeReply,
   resolveQuestionAnswer,
   type BeeFollowUp,
   type BeeQuestion,
-  type FirstFocusConfirmation,
+  type FirstFocusPreview,
   type Web3Confirmation,
 } from "./reply";
 
@@ -84,7 +85,7 @@ export function createBeeSession(
   let loaded = false;
   let needsTitle = false;
   let client: FlueClient | undefined;
-  let pendingFirstFocus: FirstFocusConfirmation | undefined;
+  let pendingFirstFocus: FirstFocusPreview | undefined;
   let pendingWeb3: Web3Confirmation | undefined;
   let pendingQuestion: BeeQuestion | undefined;
 
@@ -169,7 +170,13 @@ export function createBeeSession(
       if (pendingFirstFocus && (confirms || cancels)) {
         await channelAction({
           action: confirms ? "confirm_first_focus" : "cancel_first_focus",
-          ...pendingFirstFocus,
+          requestId: pendingFirstFocus.requestId,
+          goalTitle: pendingFirstFocus.goalTitle,
+          projectTitle: pendingFirstFocus.projectTitle,
+          taskTitle: pendingFirstFocus.taskTitle,
+          ...(pendingFirstFocus.highlightExpiresAt
+            ? { highlightExpiresAt: pendingFirstFocus.highlightExpiresAt }
+            : {}),
         });
         deliveredPrompt = confirms
           ? "[BeeGreat app event] The first-focus plan was confirmed and persisted successfully. Acknowledge it; do not create or mutate the plan again."
@@ -286,18 +293,7 @@ export function createBeeSession(
         }
       }
       pendingWeb3 = parsed.web3Confirmation;
-      const followUp: BeeFollowUp | undefined = parsed.firstFocus
-        ? { kind: "confirm", summary: "Create this first-focus plan?" }
-        : parsed.web3Confirmation
-          ? {
-              kind: "confirm",
-              summary: humanizeWeb3Summary(parsed.web3Confirmation.summary),
-            }
-          : parsed.confirmation
-            ? { kind: "confirm", summary: parsed.confirmation.summary }
-            : parsed.question
-              ? { kind: "question", question: parsed.question }
-              : undefined;
+      const followUp = deriveFollowUp(parsed);
       return { text: replyText, ...(followUp ? { followUp } : {}) };
     },
 

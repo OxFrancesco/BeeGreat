@@ -1,4 +1,5 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
+import { compareDrafts, formatSaveState } from '@beegreat/tool-presentation'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
@@ -19,6 +20,10 @@ import { HealthLoading } from './health-pages'
 import type { ChangeEvent } from 'react'
 import type { FunctionReturnType } from 'convex/server'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
+import type {
+  JournalDraft,
+  JournalSaveState,
+} from '@beegreat/tool-presentation'
 
 type JournalEntry = FunctionReturnType<
   typeof api.journalEntries.listRecent
@@ -343,8 +348,9 @@ function JournalCalendar({
   )
 }
 
-type Draft = { title: string; body: string; tags: Array<string> }
-type SaveState = 'loading' | 'saved' | 'unsaved' | 'saving' | 'error'
+// Draft comparison and save-state copy are shared with the mobile editor.
+type Draft = JournalDraft
+type SaveState = JournalSaveState
 
 export function JournalEditorPage({ entryId }: { entryId: string }) {
   const id = entryId as Id<'journalEntries'>
@@ -386,7 +392,7 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
   useEffect(() => {
     if (!entry || hydrated.current !== entry.id) return
     const draft = { title, body, tags }
-    if (sameDraft(draft, persisted.current)) {
+    if (compareDrafts(draft, persisted.current)) {
       setSaveState('saved')
       return
     }
@@ -728,18 +734,7 @@ function Photo({
   )
 }
 
-function sameDraft(left: Draft, right: Draft) {
-  return (
-    left.title === right.title &&
-    left.body === right.body &&
-    left.tags.join('\0') === right.tags.join('\0')
-  )
-}
-
 function saveStateLabel(state: SaveState) {
-  if (state === 'loading') return 'Loading…'
-  if (state === 'saving') return 'Saving…'
-  if (state === 'unsaved') return 'Unsaved changes'
-  if (state === 'error') return 'Not saved'
-  return 'Saved'
+  // Web's error copy stays "Not saved"; mobile says "Couldn’t save".
+  return formatSaveState(state, { error: 'Not saved' })
 }

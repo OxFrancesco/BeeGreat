@@ -1,4 +1,5 @@
 import type { api } from '@beegreat/backend/convex/_generated/api';
+import { bookmarkSourceLabel } from '@beegreat/tool-presentation';
 import type { FunctionReturnType } from 'convex/server';
 import {
   Canvas,
@@ -30,13 +31,9 @@ const KIND_SYMBOL = {
 } as const;
 
 function sourceLabel(bookmark: BookmarkItem) {
-  if (bookmark.meta?.handle) return `@${bookmark.meta.handle}`;
-  if (bookmark.meta?.author) return bookmark.meta.author;
-  try {
-    return new URL(bookmark.url).hostname.replace(/^www\./, '');
-  } catch {
-    return bookmark.kind;
-  }
+  // Mobile shows the stored handle verbatim and skips the crawled site name;
+  // web normalizes the handle and prefers the site name.
+  return bookmarkSourceLabel(bookmark, { unparseableUrlLabel: bookmark.kind });
 }
 
 /**

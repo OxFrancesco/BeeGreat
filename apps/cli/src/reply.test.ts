@@ -24,7 +24,7 @@ describe("Bee CLI replies", () => {
 \`\`\``);
 
     expect(reply).toBe(
-      "Here is your next focus.\n\nToday\n[ ] Draft the launch note — Friday",
+      "Here is your next focus.\n\n**Today**\n☐ Draft the launch note — Friday\nReply with the exact Task you want Bee to work with.",
     );
     expect(reply).not.toContain("j970");
     expect(reply).not.toContain('"components"');
@@ -39,10 +39,11 @@ describe("Bee CLI replies", () => {
 
     expect(reply).toContain("Your first focus");
     expect(reply).toContain("Goal: Ship BeeGreat");
-    expect(reply).toContain("Reply yes to create it or no to cancel.");
+    expect(reply).toContain("Reply **yes** to create it or **no** to cancel.");
     expect(reply).toContain("Publish the release");
     expect(reply).not.toContain("request_123456789");
     expect(parseBeeReply(raw).firstFocus).toEqual({
+      type: "first_focus",
       requestId: "request_123456789",
       goalTitle: "Ship BeeGreat",
       projectTitle: "CLI",
@@ -111,7 +112,8 @@ describe("Bee CLI replies", () => {
 \`\`\``);
 
     expect(reply).toContain("Fix the flaky test");
-    expect(reply).toContain("Pull request — open: https://github.com/org/repo/pull/7");
+    expect(reply).toContain("Pull request — open");
+    expect(reply).toContain("https://github.com/org/repo/pull/7");
     expect(reply).toContain("https://app.devin.ai/sessions/abc123456");
     expect(reply).not.toContain("devin-abc123456");
   });
@@ -123,7 +125,7 @@ describe("Bee CLI replies", () => {
 \`\`\``);
 
     expect(reply).toContain(
-      "Bee shared an interactive card the terminal can’t display. Open BeeGreat to continue.",
+      "Bee shared an interactive card that can’t be displayed here. Open BeeGreat to continue.",
     );
     expect(reply).not.toContain("hologram");
   });

@@ -1,4 +1,10 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
+import {
+  bookmarkKindGlyph as kindGlyph,
+  bookmarkKindLabel as kindLabel,
+  bookmarkRelativeDate as relativeDate,
+  bookmarkSourceLabel,
+} from '@beegreat/tool-presentation'
 import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
@@ -913,33 +919,13 @@ function sourceLabel(bookmark: {
     siteName?: string
   }
 }) {
-  if (bookmark.meta?.handle) return `@${bookmark.meta.handle.replace(/^@/, '')}`
-  if (bookmark.meta?.author) return bookmark.meta.author
-  if (bookmark.meta?.siteName) return bookmark.meta.siteName
-  try {
-    return new URL(bookmark.url).hostname.replace(/^www\./, '')
-  } catch {
-    return kindLabel(bookmark.kind)
-  }
-}
-
-function kindLabel(kind: BookmarkKind) {
-  return kind === 'website' ? 'Website' : kind === 'tweet' ? 'Tweet' : 'Video'
-}
-
-function kindGlyph(kind: BookmarkKind) {
-  return kind === 'website' ? '↗' : kind === 'tweet' ? '𝕏' : '▶'
-}
-
-function relativeDate(timestamp: number) {
-  const days = Math.floor((Date.now() - timestamp) / 86_400_000)
-  if (days <= 0) return 'today'
-  if (days === 1) return 'yesterday'
-  if (days < 30) return `${days}d ago`
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-  }).format(timestamp)
+  // Web strips a stored leading "@" and falls back to the crawled site name
+  // before the hostname; mobile shows the stored handle verbatim.
+  return bookmarkSourceLabel(bookmark, {
+    normalizeHandle: true,
+    preferSiteName: true,
+    unparseableUrlLabel: kindLabel(bookmark.kind),
+  })
 }
 
 function errorMessage(cause: unknown, fallback: string) {

@@ -1,26 +1,20 @@
 import {
-  parseBeeQuestion,
-  renderBeeQuestion,
+  BEEUI_FENCE_OPEN,
+  deriveBeeUiFollowUps,
+  extractBeeUi,
+  humanizeWeb3Summary,
+  renderBeeUiMarkdown,
   resolveBeeQuestionAnswer,
-  scrubIdentifiers,
   type BeeQuestion,
+  type FirstFocusPreview,
+  type Web3Confirmation,
 } from "@beegreat/tool-presentation";
 
-export type { BeeQuestion } from "@beegreat/tool-presentation";
-
-type JsonObject = Record<string, unknown>;
-
-export type FirstFocusConfirmation = {
-  requestId: string;
-  goalTitle: string;
-  projectTitle: string;
-  taskTitle: string;
-};
-
-export type Web3Confirmation = {
-  actionId: string;
-  summary: string;
-};
+export type {
+  BeeQuestion,
+  FirstFocusPreview,
+  Web3Confirmation,
+} from "@beegreat/tool-presentation";
 
 /** Structured follow-up the terminal can answer with an interactive prompt. */
 export type BeeFollowUp =
@@ -29,223 +23,44 @@ export type BeeFollowUp =
 
 export type BeeReply = {
   text: string;
-  firstFocus?: FirstFocusConfirmation;
+  firstFocus?: FirstFocusPreview;
   web3Confirmation?: Web3Confirmation;
   confirmation?: { summary: string };
   question?: BeeQuestion;
 };
 
-function object(value: unknown): JsonObject | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? (value as JsonObject)
-    : undefined;
-}
-
-function text(value: unknown) {
-  return typeof value === "string" ? scrubIdentifiers(value) : "";
-}
-
-function renderComponent(value: unknown): string {
-  const component = object(value);
-  if (!component || typeof component.type !== "string") return "";
-
-  switch (component.type) {
-    case "text":
-      return text(component.body);
-    case "metric": {
-      const label = text(component.label);
-      const metricValue = text(component.value);
-      const delta = text(component.delta);
-      return [label && `${label}: ${metricValue}`, delta]
-        .filter(Boolean)
-        .join(" — ");
-    }
-    case "chart": {
-      const title = text(component.title);
-      const unit = text(component.unit);
-      const rows = Array.isArray(component.data)
-        ? component.data.flatMap((entry) => {
-            const row = object(entry);
-            if (!row) return [];
-            const label = text(row.label);
-            const number =
-              typeof row.value === "number" ? String(row.value) : "";
-            return label && number
-              ? [`${label}: ${number}${unit ? ` ${unit}` : ""}`]
-              : [];
-          })
-        : [];
-      return [title, ...rows].filter(Boolean).join("\n");
-    }
-    case "tasks": {
-      const title = text(component.title);
-      const items = Array.isArray(component.items)
-        ? component.items.flatMap((entry) => {
-            const item = object(entry);
-            if (!item) return [];
-            const itemTitle = text(item.title);
-            if (!itemTitle) return [];
-            const due = text(item.due);
-            return [
-              `[${item.done === true ? "x" : " "}] ${itemTitle}${due ? ` — ${due}` : ""}`,
-            ];
-          })
-        : [];
-      return [title, ...items].filter(Boolean).join("\n");
-    }
-    case "highlight":
-      return [text(component.title), text(component.body)]
-        .filter(Boolean)
-        .join("\n");
-    case "image":
-      return [text(component.title) || text(component.alt), text(component.url)]
-        .filter(Boolean)
-        .join("\n");
-    case "bookmark":
-      return [text(component.title), text(component.note), text(component.url)]
-        .filter(Boolean)
-        .join("\n");
-    case "devin": {
-      const pullRequests = Array.isArray(component.pullRequests)
-        ? component.pullRequests.flatMap((entry) => {
-            const pullRequest = object(entry);
-            const url = typeof pullRequest?.url === "string" ? pullRequest.url : "";
-            if (!url) return [];
-            const state = text(pullRequest?.state);
-            return [`Pull request${state ? ` — ${state}` : ""}: ${url}`];
-          })
-        : [];
-      return [
-        text(component.title),
-        text(component.status),
-        text(component.statusDetail),
-        text(component.summary),
-        ...pullRequests,
-        typeof component.sessionUrl === "string" ? component.sessionUrl : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
-    }
-    case "first_focus":
-      return [
-        "Your first focus",
-        `Goal: ${text(component.goalTitle)}`,
-        `Project: ${text(component.projectTitle)}`,
-        `Task: ${text(component.taskTitle)}`,
-        "Reply yes to create it or no to cancel.",
-      ].join("\n");
-    case "confirm":
-      return [
-        "Needs your confirmation",
-        text(component.summary),
-        "Reply yes to continue or no to cancel.",
-      ]
-        .filter(Boolean)
-        .join("\n");
-    case "question": {
-      const parsed = parseBeeQuestion(component);
-      return parsed ? renderBeeQuestion(parsed) : "";
-    }
-    default:
-      return "Bee shared an interactive card the terminal can’t display. Open BeeGreat to continue.";
-  }
-}
-
-function renderBeeUi(
-  json: string,
-): Omit<BeeReply, "text"> & { rendered: string } {
-  try {
-    const payload = object(JSON.parse(json));
-    if (!payload || !Array.isArray(payload.components)) return { rendered: "" };
-    let firstFocus: FirstFocusConfirmation | undefined;
-    let web3Confirmation: Web3Confirmation | undefined;
-    let confirmation: { summary: string } | undefined;
-    let question: BeeQuestion | undefined;
-    for (const value of payload.components) {
-      const component = object(value);
-      if (!component) continue;
-      if (
-        component.type === "first_focus" &&
-        typeof component.requestId === "string" &&
-        typeof component.goalTitle === "string" &&
-        typeof component.projectTitle === "string" &&
-        typeof component.taskTitle === "string"
-      ) {
-        firstFocus = {
-          requestId: component.requestId,
-          goalTitle: component.goalTitle,
-          projectTitle: component.projectTitle,
-          taskTitle: component.taskTitle,
-        };
-      }
-      const payload = object(component.payload);
-      if (
-        component.type === "confirm" &&
-        component.action === "web3" &&
-        typeof component.summary === "string" &&
-        payload &&
-        typeof payload.web3ActionId === "string"
-      ) {
-        web3Confirmation = {
-          actionId: payload.web3ActionId,
-          summary: component.summary,
-        };
-      }
-      if (
-        component.type === "confirm" &&
-        component.action !== "web3" &&
-        typeof component.summary === "string"
-      ) {
-        confirmation = { summary: scrubIdentifiers(component.summary) };
-      }
-      question = parseBeeQuestion(component) ?? question;
-    }
-    const rendered = payload.components
-      .map(renderComponent)
-      .filter(Boolean)
-      .join("\n\n");
-    return {
-      rendered,
-      ...(firstFocus ? { firstFocus } : {}),
-      ...(web3Confirmation ? { web3Confirmation } : {}),
-      ...(confirmation ? { confirmation } : {}),
-      ...(question ? { question } : {}),
-    };
-  } catch {
-    return { rendered: "" };
-  }
-}
-
 /** Parses guarded action data while projecting only safe copy to the terminal. */
 export function parseBeeReply(raw: string): BeeReply {
-  const cards: string[] = [];
-  let firstFocus: FirstFocusConfirmation | undefined;
-  let web3Confirmation: Web3Confirmation | undefined;
-  let confirmation: { summary: string } | undefined;
-  let question: BeeQuestion | undefined;
-  const spoken = raw.replace(
-    /```beeui\s*([\s\S]*?)```/gi,
-    (_block, json: string) => {
-      const parsed = renderBeeUi(json.trim());
-      if (parsed.rendered) cards.push(parsed.rendered);
-      firstFocus = parsed.firstFocus ?? firstFocus;
-      web3Confirmation = parsed.web3Confirmation ?? web3Confirmation;
-      confirmation = parsed.confirmation ?? confirmation;
-      question = parsed.question ?? question;
-      return "";
-    },
-  );
-  const projected = [scrubIdentifiers(spoken), ...cards]
+  const { spoken, components } = extractBeeUi(raw);
+  const cards = components.map((component) => {
+    const { markdown, links } = renderBeeUiMarkdown(component);
+    return [markdown, ...links].filter(Boolean).join("\n");
+  });
+  const text = [spoken, ...cards]
     .map((part) => part.trim())
     .filter(Boolean)
     .join("\n\n");
-  return {
-    text: projected,
-    ...(firstFocus ? { firstFocus } : {}),
-    ...(web3Confirmation ? { web3Confirmation } : {}),
-    ...(confirmation ? { confirmation } : {}),
-    ...(question ? { question } : {}),
-  };
+  return { text, ...deriveBeeUiFollowUps(components) };
+}
+
+/** The one prompt the TUI should raise for a reply, in blocking-priority order. */
+export function deriveFollowUp(reply: BeeReply): BeeFollowUp | undefined {
+  if (reply.firstFocus) {
+    return { kind: "confirm", summary: "Create this first-focus plan?" };
+  }
+  if (reply.web3Confirmation) {
+    return {
+      kind: "confirm",
+      summary: humanizeWeb3Summary(reply.web3Confirmation.summary),
+    };
+  }
+  if (reply.confirmation) {
+    return { kind: "confirm", summary: reply.confirmation.summary };
+  }
+  if (reply.question) {
+    return { kind: "question", question: reply.question };
+  }
+  return undefined;
 }
 
 /** Maps a terminal option number back to a natural same-thread user answer. */
@@ -263,6 +78,6 @@ export function projectBeeReply(raw: string): string {
 
 /** Projects only complete spoken text while a beeui fence is still streaming. */
 export function projectStreamingBeeReply(raw: string): string {
-  const fence = raw.search(/```beeui/i);
+  const fence = raw.search(BEEUI_FENCE_OPEN);
   return projectBeeReply(fence === -1 ? raw : raw.slice(0, fence));
 }

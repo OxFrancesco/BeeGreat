@@ -1,16 +1,11 @@
-import { z } from 'zod';
-
-export const firstFocusPreviewSchema = z.object({
-  type: z.literal('first_focus'),
-  requestId: z.string().min(1),
-  goalTitle: z.string().min(1),
-  projectTitle: z.string().min(1),
-  taskTitle: z.string().min(1),
-  seed: z.string().min(1).optional(),
-  highlightExpiresAt: z.number().finite().optional(),
-});
-
-export type FirstFocusPreview = z.infer<typeof firstFocusPreviewSchema>;
+// The first-focus preview schema and highlight timing live in the shared
+// beeui contract (@beegreat/tool-presentation) used by every client.
+export {
+  endOfLocalDay,
+  firstFocusPreviewSchema,
+  formatHighlightExpiry,
+  type FirstFocusPreview,
+} from '@beegreat/tool-presentation';
 
 const GOLIE_BEE_NAMES = ['Melli', 'Pip', 'Nectar', 'Mochi', 'Sunny', 'Pollen', 'Bibi'] as const;
 
@@ -28,19 +23,4 @@ export function getStableGolieBeeSeed(value: unknown, fallback: string): string 
   if (!value || typeof value !== 'object' || !('seed' in value)) return fallback;
   const seed = value.seed;
   return typeof seed === 'string' && seed.trim() ? seed : fallback;
-}
-
-export function formatHighlightExpiry(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(timestamp);
-}
-
-export function endOfLocalDay(dayOffset = 0): number {
-  const date = new Date();
-  date.setDate(date.getDate() + dayOffset);
-  date.setHours(23, 59, 59, 999);
-  return date.getTime();
 }

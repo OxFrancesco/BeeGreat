@@ -1,5 +1,9 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
+import {
+  BOOKMARK_KIND_LABELS,
+  bookmarkHost as displayHost,
+} from '@beegreat/tool-presentation';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -22,18 +26,11 @@ import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 
 const KIND_DETAILS = {
-  website: { label: 'Website', symbol: 'safari.fill' },
+  website: { label: BOOKMARK_KIND_LABELS.website, symbol: 'safari.fill' },
+  // Mobile deliberately says "Post" where web says "Tweet"; keep that copy.
   tweet: { label: 'Post', symbol: 'bubble.left.and.bubble.right.fill' },
-  youtube: { label: 'Video', symbol: 'play.fill' },
+  youtube: { label: BOOKMARK_KIND_LABELS.youtube, symbol: 'play.fill' },
 } as const;
-
-function displayHost(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
 
 export default function BookmarkDetailScreen() {
   const { bookmarkId } = useLocalSearchParams<{ bookmarkId: string }>();

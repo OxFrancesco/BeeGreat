@@ -1,5 +1,11 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import {
+  bookmarkHost,
+  eoaFailureReason,
+  generatedImageFileName,
+  questionAnswer,
+} from '@beegreat/tool-presentation'
+import {
   sameEvmAddress,
   sendFreshEoaTransactions,
 } from '@beegreat/wallet-connect'
@@ -113,10 +119,6 @@ function UIComponentView({
   }
 }
 
-function questionAnswer(question: string, answer: string) {
-  return `For “${question}”, my answer is “${answer}”.`
-}
-
 function QuestionCard({
   questions,
   onReply,
@@ -212,18 +214,6 @@ function QuestionCard({
       )}
     </Card>
   )
-}
-
-function generatedImageFileName(url: string) {
-  try {
-    const sourceName = new URL(url).pathname.split('/').pop() ?? ''
-    if (/\.(?:avif|gif|jpe?g|png|webp)$/i.test(sourceName)) {
-      return sourceName
-    }
-  } catch {
-    // The schema validates generated URLs; keep a safe filename fallback.
-  }
-  return `bee-image-${Date.now()}.png`
 }
 
 async function fetchGeneratedImage(url: string) {
@@ -543,34 +533,6 @@ function Web3ConfirmCard({
       )}
     </Card>
   )
-}
-
-function eoaFailureReason(
-  cause: unknown,
-): 'user_rejected' | 'account_changed' | 'wallet_error' {
-  if (
-    typeof cause === 'object' &&
-    cause !== null &&
-    'code' in cause &&
-    cause.code === 4001
-  ) {
-    return 'user_rejected'
-  }
-  if (
-    cause instanceof Error &&
-    cause.message.toLowerCase().includes('connect the wallet shown')
-  ) {
-    return 'account_changed'
-  }
-  return 'wallet_error'
-}
-
-function bookmarkHost(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return url
-  }
 }
 
 function BookmarkCard({

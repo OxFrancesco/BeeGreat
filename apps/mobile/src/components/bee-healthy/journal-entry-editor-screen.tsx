@@ -1,5 +1,11 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
+import {
+  compareDrafts,
+  formatSaveState,
+  type JournalDraft,
+  type JournalSaveState,
+} from '@beegreat/tool-presentation';
 import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { Image as ExpoImage } from 'expo-image';
@@ -49,8 +55,9 @@ const PROMPTS: Record<Mood | 'unselected', string> = {
   unselected: 'What do you want to remember from today?',
 };
 
-type Draft = { title: string; body: string; tags: string[] };
-type SaveState = 'loading' | 'saved' | 'unsaved' | 'saving' | 'error';
+// Draft comparison and save-state copy are shared with the web editor.
+type Draft = JournalDraft;
+type SaveState = JournalSaveState;
 
 export function JournalEntryEditorScreen() {
   const theme = useTheme();
@@ -109,7 +116,7 @@ export function JournalEntryEditorScreen() {
   const save = useCallback(
     async (snapshot = latestDraft.current) => {
       if (!entryId || hydratedEntryId.current !== entryId) return false;
-      if (sameDraft(snapshot, persistedDraft.current)) {
+      if (compareDrafts(snapshot, persistedDraft.current)) {
         setSaveState('saved');
         return true;
       }
@@ -129,7 +136,7 @@ export function JournalEntryEditorScreen() {
           tags: updated.tags,
         };
         if (generation === saveGeneration.current) {
-          setSaveState(sameDraft(latestDraft.current, snapshot) ? 'saved' : 'unsaved');
+          setSaveState(compareDrafts(latestDraft.current, snapshot) ? 'saved' : 'unsaved');
         }
         return true;
       } catch {
@@ -143,7 +150,7 @@ export function JournalEntryEditorScreen() {
   useEffect(() => {
     if (!entry || hydratedEntryId.current !== entry.id) return;
     const snapshot = { title, body, tags };
-    if (sameDraft(snapshot, persistedDraft.current)) {
+    if (compareDrafts(snapshot, persistedDraft.current)) {
       setSaveState('saved');
       return;
     }
@@ -687,28 +694,9 @@ function EditorAction({
   );
 }
 
-function sameDraft(left: Draft, right: Draft) {
-  return (
-    left.title === right.title &&
-    left.body === right.body &&
-    left.tags.length === right.tags.length &&
-    left.tags.every((tag, index) => tag === right.tags[index])
-  );
-}
-
 function saveStateLabel(state: SaveState) {
-  switch (state) {
-    case 'loading':
-      return 'Loading…';
-    case 'saving':
-      return 'Saving…';
-    case 'unsaved':
-      return 'Unsaved changes';
-    case 'error':
-      return 'Couldn’t save';
-    default:
-      return 'Saved';
-  }
+  // Mobile's error copy stays "Couldn’t save"; web says "Not saved".
+  return formatSaveState(state, { error: 'Couldn’t save' });
 }
 
 const styles = StyleSheet.create({
