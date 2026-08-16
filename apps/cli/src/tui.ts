@@ -1,77 +1,36 @@
 import {
-  BoxRenderable,
   type CliRenderer,
-  MarkdownRenderable,
-  ScrollBoxRenderable,
-  SelectRenderable,
   SelectRenderableEvents,
   type SelectOption,
-  SyntaxStyle,
-  TextRenderable,
-  TextareaRenderable,
   createCliRenderer,
 } from "@opentui/core";
 
-import { scrubIdentifiers } from "@beegreat/tool-presentation";
-
-import type { ToolActivityUpdate } from "./progress";
 import type { PromptHistory } from "./prompt-history";
-import type { BeeFollowUp, BeeQuestion } from "./reply";
+import type { BeeFollowUp } from "./reply";
+import type { ToolActivityUpdate } from "./progress";
+import { createActivityLog } from "./tui/activity";
+import { createAutocomplete } from "./tui/autocomplete";
+import { BEE_COMMANDS } from "./tui/commands";
+import { createHistoryNavigator } from "./tui/history";
+import {
+  type ActivePrompt,
+  CUSTOM_ANSWER,
+  confirmPromptSteps,
+  questionPromptSteps,
+} from "./tui/prompt-steps";
+import {
+  PLACEHOLDER,
+  PROMPT_HINT,
+  READY_HINT,
+  SPINNER_FRAMES,
+  createMarkdownStyle,
+  palette,
+} from "./tui/theme";
+import { createTranscript } from "./tui/transcript";
+import { buildBeeWidgets } from "./tui/widgets";
 
-const palette = {
-  canvas: "#111111",
-  surface: "#191919",
-  surfaceMuted: "#222222",
-  line: "#35312c",
-  ink: "#eeeeee",
-  inkSoft: "#a7a7a7",
-  honey: "#dcae67",
-  honeySurface: "#2e2822",
-  honeyInk: "#ffe0c2",
-  danger: "#f07858",
-} as const;
-
-const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-const READY_HINT =
-  "  ⏎ send   ⇧⏎ newline   / commands   ↑↓ history   ctrl+c exit";
-const PROMPT_HINT = "  ↑↓ choose   ⏎ select   esc type your own answer";
-const PLACEHOLDER = "Message your personal assistant…";
-const CUSTOM_ANSWER = "__bee_custom_answer__";
-
-export const BEE_COMMANDS = [
-  { name: "/new", description: "Start a fresh conversation" },
-  { name: "/clear", description: "Clear the visible conversation" },
-  { name: "/help", description: "Show commands and shortcuts" },
-  { name: "/exit", description: "Leave Bee" },
-] as const;
-
-type BeeCommand = (typeof BEE_COMMANDS)[number];
-
-function fuzzyMatch(value: string, query: string) {
-  let queryIndex = 0;
-  for (const character of value) {
-    if (character === query[queryIndex]) queryIndex += 1;
-  }
-  return queryIndex === query.length;
-}
-
-export function commandSuggestions(value: string): BeeCommand[] {
-  if (!value.startsWith("/") || /\s/.test(value)) return [];
-  const query = value.toLowerCase();
-  const nameMatches = BEE_COMMANDS.filter(({ name }) =>
-    fuzzyMatch(name.toLowerCase(), query),
-  );
-  const matches = nameMatches.length
-    ? nameMatches
-    : BEE_COMMANDS.filter(({ name, description }) =>
-    fuzzyMatch(`${name} ${description}`.toLowerCase(), query),
-      );
-  return matches.sort((left, right) => {
-    const leftPrefix = left.name.startsWith(query) ? 0 : 1;
-    const rightPrefix = right.name.startsWith(query) ? 0 : 1;
-    return leftPrefix - rightPrefix || left.name.localeCompare(right.name);
-  });
-}
+export { BEE_COMMANDS, commandSuggestions } from "./tui/commands";
+export { questionPromptSteps } from "./tui/prompt-steps";
 
 export type BeeTuiReply = {
   text: string;
@@ -95,70 +54,15 @@ export type BeeReplyUpdate =
   | { type: "reset" }
   | { type: "replace"; text: string };
 
-type MessageKind = "assistant" | "user" | "activity" | "error";
-
-type PromptStep = {
-  title: string;
-  options: SelectOption[];
-};
-
-type ActivePrompt = {
-  kind: "question" | "confirm";
-  steps: PromptStep[];
-  stepIndex: number;
-  values: string[];
-  displays: string[];
-};
-
-/** Builds sequential select steps with the shared global option numbering. */
-export function questionPromptSteps(
-  question: BeeQuestion,
-): PromptStep[] | undefined {
-  if (question.questions.some((prompt) => !prompt.options?.length)) {
-    return undefined;
-  }
-  let optionNumber = 0;
-  return question.questions.map((prompt) => ({
-    title: `${scrubIdentifiers(prompt.header)} — ${scrubIdentifiers(prompt.question)}`,
-    options: [
-      ...(prompt.options ?? []).map((option) => {
-        optionNumber += 1;
-        return {
-          name: scrubIdentifiers(option.label),
-          description: option.description
-            ? scrubIdentifiers(option.description)
-            : "",
-          value: String(optionNumber),
-        };
-      }),
-      {
-        name: "Type something else",
-        description: "Answer in your own words",
-        value: CUSTOM_ANSWER,
-      },
-    ],
-  }));
-}
-
 export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
-  let messageId = 0;
   let busy = false;
   let closed = false;
-  let suggestions: BeeCommand[] = [];
-  let selectedSuggestion = 0;
-  const historyEntries = [...(options.history?.entries ?? [])];
-  let historyIndex = historyEntries.length;
-  let historyDraft = "";
   const queue: string[] = [];
   let activePrompt: ActivePrompt | undefined;
   let bootActive = false;
   let spinnerFrame = 0;
   let workStartedAt = 0;
   let ticker: ReturnType<typeof setInterval> | undefined;
-  const runningActivities = new Map<
-    string,
-    { body: TextRenderable; label: string }
-  >();
   let resolveExit!: () => void;
   const exited = new Promise<void>((resolve) => {
     resolveExit = resolve;
@@ -167,316 +71,22 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   renderer.setTerminalTitle("BeeGreat");
   renderer.setBackgroundColor(palette.canvas);
 
-  const markdownStyle = SyntaxStyle.fromStyles({
-    default: { fg: palette.ink },
-    conceal: { fg: palette.inkSoft },
-    "markup.heading": { fg: palette.honey, bold: true },
-    "markup.strong": { fg: palette.ink, bold: true },
-    "markup.italic": { fg: palette.ink, italic: true },
-    "markup.list": { fg: palette.honey },
-    "markup.quote": { fg: palette.inkSoft, italic: true },
-    "markup.raw": { fg: palette.honeyInk },
-    "markup.link": { fg: palette.honey, underline: true },
-    "markup.link.label": { fg: palette.honey },
-    "markup.link.url": { fg: palette.inkSoft, underline: true },
-    "markup.strikethrough": { fg: palette.inkSoft, dim: true },
-  });
-
-  const screen = new BoxRenderable(renderer, {
-    id: "bee-screen",
-    width: "100%",
-    height: "100%",
-    backgroundColor: palette.canvas,
-    flexDirection: "column",
-    alignItems: "center",
-  });
-  const shell = new BoxRenderable(renderer, {
-    id: "bee-shell",
-    width: "100%",
-    maxWidth: 100,
-    height: "100%",
-    backgroundColor: palette.canvas,
-    flexDirection: "column",
-  });
-  screen.add(shell);
-
-  const header = new BoxRenderable(renderer, {
-    id: "bee-header",
-    width: "100%",
-    height: 3,
-    backgroundColor: palette.canvas,
-    paddingX: 2,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 1,
-  });
-  header.add(
-    new TextRenderable(renderer, {
-      id: "bee-mark",
-      content: "⬡",
-      fg: palette.honey,
-      width: 1,
-      height: 1,
-    }),
+  const {
+    transcript,
+    autocomplete,
+    autocompleteRows,
+    promptPanel,
+    promptTitle,
+    promptSelect,
+    composer,
+    input,
+    footer,
+  } = buildBeeWidgets(renderer);
+  const { addMessage, clear: clearMessages } = createTranscript(
+    renderer,
+    transcript,
+    createMarkdownStyle(),
   );
-  header.add(
-    new TextRenderable(renderer, {
-      id: "bee-title",
-      content: "Bee",
-      fg: palette.ink,
-      width: 4,
-      height: 1,
-    }),
-  );
-  shell.add(header);
-
-  const transcript = new ScrollBoxRenderable(renderer, {
-    id: "bee-transcript",
-    width: "100%",
-    flexGrow: 1,
-    scrollY: true,
-    stickyScroll: true,
-    stickyStart: "bottom",
-    backgroundColor: palette.canvas,
-    paddingX: 2,
-    contentOptions: {
-      flexDirection: "column",
-      gap: 1,
-    },
-    scrollbarOptions: {
-      visible: false,
-      showArrows: false,
-      trackOptions: { backgroundColor: palette.canvas },
-    },
-  });
-  shell.add(transcript);
-
-  function addMessage(kind: MessageKind, content: string) {
-    messageId += 1;
-    const row = new BoxRenderable(renderer, {
-      id: `message-${messageId}`,
-      width: "100%",
-      height: "auto",
-      backgroundColor:
-        kind === "user" ? palette.honeySurface : palette.canvas,
-      ...(kind === "user"
-        ? { border: ["left"] as ["left"], borderColor: palette.honey }
-        : {}),
-      paddingLeft: kind === "user" ? 1 : 0,
-      paddingRight: kind === "user" ? 1 : 0,
-      flexDirection: "row",
-      alignItems: "flex-start",
-      gap: 1,
-    });
-
-    if (kind !== "user") {
-      row.add(
-        new TextRenderable(renderer, {
-          id: `mark-${messageId}`,
-          content:
-            kind === "assistant" ? "⬡" : kind === "error" ? "!" : "·",
-          fg:
-            kind === "error"
-              ? palette.danger
-              : kind === "assistant"
-                ? palette.honey
-                : palette.inkSoft,
-          width: 1,
-          height: 1,
-        }),
-      );
-    }
-
-    if (kind === "assistant") {
-      // Streaming stays enabled for the renderable's lifetime: OpenTUI 0.5
-      // blanks a MarkdownRenderable when streaming is turned off afterwards.
-      let current = content;
-      const body = new MarkdownRenderable(renderer, {
-        id: `body-${messageId}`,
-        content,
-        syntaxStyle: markdownStyle,
-        streaming: true,
-        flexGrow: 1,
-        height: "auto",
-      });
-      row.add(body);
-      transcript.add(row);
-      queueMicrotask(() => transcript.scrollTo(Number.MAX_SAFE_INTEGER));
-      const setText = (text: string) => {
-        if (text === current) return;
-        current = text;
-        body.content = text;
-      };
-      return {
-        row,
-        setText,
-        finalize: setText,
-        body: undefined as TextRenderable | undefined,
-      };
-    }
-
-    const body = new TextRenderable(renderer, {
-        id: `body-${messageId}`,
-        content,
-        fg:
-          kind === "user"
-            ? palette.honeyInk
-            : kind === "error"
-              ? palette.danger
-              : kind === "activity"
-                ? palette.inkSoft
-                : palette.ink,
-        flexGrow: 1,
-        height: "auto",
-        wrapMode: "word",
-        selectable: kind !== "activity",
-      });
-    row.add(body);
-
-    transcript.add(row);
-    queueMicrotask(() => transcript.scrollTo(Number.MAX_SAFE_INTEGER));
-    return {
-      row,
-      setText(text: string) {
-        body.content = text;
-      },
-      finalize(text: string) {
-        body.content = text;
-      },
-      body,
-    };
-  }
-
-  function clearTranscript() {
-    for (const child of transcript.getChildren()) transcript.remove(child);
-    runningActivities.clear();
-  }
-
-  addMessage(
-    "assistant",
-    "Hi Francesco. What would you like to make progress on?",
-  );
-
-  const autocomplete = new BoxRenderable(renderer, {
-    id: "bee-autocomplete",
-    width: "auto",
-    height: "auto",
-    minWidth: 20,
-    marginX: 2,
-    border: true,
-    borderColor: palette.line,
-    backgroundColor: palette.surfaceMuted,
-    flexDirection: "column",
-    visible: false,
-  });
-  const autocompleteRows = BEE_COMMANDS.map((_, index) => {
-    const row = new TextRenderable(renderer, {
-      id: `bee-autocomplete-${index}`,
-      content: "",
-      fg: palette.ink,
-      bg: palette.surfaceMuted,
-      width: "100%",
-      height: 1,
-      paddingX: 1,
-      visible: false,
-    });
-    autocomplete.add(row);
-    return row;
-  });
-  shell.add(autocomplete);
-
-  const promptPanel = new BoxRenderable(renderer, {
-    id: "bee-prompt",
-    width: "auto",
-    minWidth: 20,
-    height: "auto",
-    marginX: 2,
-    paddingX: 1,
-    border: true,
-    borderStyle: "rounded",
-    borderColor: palette.honey,
-    backgroundColor: palette.surface,
-    flexDirection: "column",
-    visible: false,
-  });
-  const promptTitle = new TextRenderable(renderer, {
-    id: "bee-prompt-title",
-    content: "",
-    fg: palette.honeyInk,
-    width: "100%",
-    height: 1,
-    wrapMode: "none",
-    truncate: true,
-  });
-  const promptSelect = new SelectRenderable(renderer, {
-    id: "bee-prompt-select",
-    width: "100%",
-    height: 2,
-    options: [],
-    backgroundColor: palette.surface,
-    focusedBackgroundColor: palette.surface,
-    textColor: palette.inkSoft,
-    focusedTextColor: palette.ink,
-    selectedBackgroundColor: palette.honeySurface,
-    selectedTextColor: palette.honeyInk,
-    descriptionColor: palette.inkSoft,
-    selectedDescriptionColor: palette.inkSoft,
-    showDescription: true,
-    showScrollIndicator: false,
-    wrapSelection: true,
-  });
-  promptPanel.add(promptTitle);
-  promptPanel.add(promptSelect);
-  shell.add(promptPanel);
-
-  const composer = new BoxRenderable(renderer, {
-    id: "bee-composer",
-    width: "auto",
-    minWidth: 20,
-    height: 3,
-    marginX: 2,
-    paddingX: 1,
-    border: true,
-    borderStyle: "rounded",
-    borderColor: palette.line,
-    focusedBorderColor: palette.honey,
-    backgroundColor: palette.surface,
-    flexDirection: "column",
-    justifyContent: "center",
-  });
-  const input = new TextareaRenderable(renderer, {
-    id: "bee-input",
-    width: "100%",
-    height: 1,
-    placeholder: PLACEHOLDER,
-    placeholderColor: palette.inkSoft,
-    backgroundColor: palette.surface,
-    focusedBackgroundColor: palette.surface,
-    textColor: palette.ink,
-    focusedTextColor: palette.ink,
-    cursorColor: palette.honey,
-    keyBindings: [
-      { name: "return", shift: true, action: "newline" },
-      { name: "kpenter", shift: true, action: "newline" },
-      { name: "return", meta: true, action: "newline" },
-      { name: "kpenter", meta: true, action: "newline" },
-    ],
-  });
-  composer.add(input);
-  shell.add(composer);
-
-  const footer = new TextRenderable(renderer, {
-    id: "bee-footer",
-    content: READY_HINT,
-    fg: palette.inkSoft,
-    width: "100%",
-    height: 1,
-    paddingLeft: 2,
-    wrapMode: "none",
-    truncate: true,
-  });
-  shell.add(footer);
-  renderer.root.add(screen);
 
   const inputValue = () => input.plainText;
 
@@ -492,53 +102,30 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     composer.height = lines + 2;
   }
 
-  function renderAutocomplete() {
-    autocomplete.visible = suggestions.length > 0;
-    autocompleteRows.forEach((row, index) => {
-      const suggestion = suggestions[index];
-      row.visible = suggestion !== undefined;
-      if (!suggestion) return;
-      const selected = index === selectedSuggestion;
-      row.content = `${selected ? "›" : " "} ${suggestion.name.padEnd(9)} ${suggestion.description}`;
-      row.fg = selected ? palette.honeyInk : palette.inkSoft;
-      row.bg = selected ? palette.honeySurface : palette.surfaceMuted;
-    });
+  const inputBridge = { getValue: inputValue, setValue: setInputValue };
+  const completions = createAutocomplete(
+    autocomplete,
+    autocompleteRows,
+    inputBridge,
+  );
+  const history = createHistoryNavigator(
+    options.history?.entries ?? [],
+    inputBridge,
+  );
+  const activityLog = createActivityLog(
+    () => addMessage("activity", ""),
+    () => spinnerFrame,
+  );
+
+  function clearTranscript() {
+    clearMessages();
+    activityLog.clear();
   }
 
-  function updateAutocomplete() {
-    suggestions = commandSuggestions(inputValue());
-    selectedSuggestion = 0;
-    renderAutocomplete();
-  }
-
-  function hideAutocomplete() {
-    suggestions = [];
-    selectedSuggestion = 0;
-    renderAutocomplete();
-  }
-
-  function completeSuggestion() {
-    const suggestion = suggestions[selectedSuggestion];
-    if (!suggestion) return false;
-    setInputValue(suggestion.name);
-    hideAutocomplete();
-    return true;
-  }
-
-  function moveHistory(direction: -1 | 1) {
-    if (!historyEntries.length) return;
-    if (historyIndex === historyEntries.length) historyDraft = inputValue();
-    historyIndex = Math.max(
-      0,
-      Math.min(historyEntries.length, historyIndex + direction),
-    );
-    setInputValue(
-      historyIndex === historyEntries.length
-        ? historyDraft
-        : (historyEntries[historyIndex] ?? ""),
-    );
-    updateAutocomplete();
-  }
+  addMessage(
+    "assistant",
+    "Hi Francesco. What would you like to make progress on?",
+  );
 
   function refreshFooter() {
     if (activePrompt) {
@@ -558,30 +145,11 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     footer.content = READY_HINT;
   }
 
-  function paintActivity(
-    body: TextRenderable,
-    update: Pick<ToolActivityUpdate, "state" | "label">,
-  ) {
-    if (update.state === "running") {
-      const frame = SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length];
-      body.content = `${frame} ${update.label}`;
-      body.fg = palette.inkSoft;
-      return;
-    }
-    body.content = `${update.state === "done" ? "✓" : "✗"} ${update.label}`;
-    body.fg = update.state === "done" ? palette.inkSoft : palette.danger;
-  }
-
   function startTicker() {
     if (ticker) return;
     ticker = setInterval(() => {
       spinnerFrame += 1;
-      for (const activity of runningActivities.values()) {
-        paintActivity(activity.body, {
-          state: "running",
-          label: activity.label,
-        });
-      }
+      activityLog.repaintRunning();
       refreshFooter();
     }, 120);
   }
@@ -649,19 +217,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     if (followUp.kind === "confirm") {
       activePrompt = {
         kind: "confirm",
-        steps: [
-          {
-            title: followUp.summary,
-            options: [
-              {
-                name: "Yes",
-                description: "Authorize this exact action",
-                value: "yes",
-              },
-              { name: "No", description: "Cancel it", value: "no" },
-            ],
-          },
-        ],
+        steps: confirmPromptSteps(followUp.summary),
         stepIndex: 0,
         values: [],
         displays: [],
@@ -717,40 +273,20 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     },
   );
 
-  function onActivity(update: ToolActivityUpdate) {
-    const existing = runningActivities.get(update.id);
-    if (existing) {
-      existing.label = update.label;
-      paintActivity(existing.body, update);
-      if (update.state !== "running") runningActivities.delete(update.id);
-      return;
-    }
-    const message = addMessage("activity", "");
-    if (!message.body) return;
-    paintActivity(message.body, update);
-    if (update.state === "running") {
-      runningActivities.set(update.id, {
-        body: message.body,
-        label: update.label,
-      });
-    }
-  }
-
   async function submitPrompt(rawPrompt: string, display?: string) {
     const prompt = rawPrompt.trim();
     if (!prompt || closed) return;
     if (busy) {
       queue.push(prompt);
       setInputValue("");
-      hideAutocomplete();
+      completions.hide();
       refreshFooter();
       return;
     }
     setInputValue("");
-    hideAutocomplete();
+    completions.hide();
     dismissPrompt(false);
-    historyIndex = historyEntries.length;
-    historyDraft = "";
+    history.resetCursor();
 
     if (prompt === "/exit" || prompt === "/quit") {
       close();
@@ -789,9 +325,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
 
     // Select answers ("yes", "2") are transcript noise in prompt history.
     if (!display) {
-      if (historyEntries.at(-1) !== prompt) historyEntries.push(prompt);
-      if (historyEntries.length > 50) historyEntries.shift();
-      historyIndex = historyEntries.length;
+      history.record(prompt);
       void options.history?.append(prompt);
     }
 
@@ -811,7 +345,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
         prompt,
         (update) => {
           removeThinking();
-          onActivity(update);
+          activityLog.onActivity(update);
         },
         (update) => {
           if (update.type === "reset") {
@@ -845,7 +379,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
 
   input.onContentChange = () => {
     autoGrowComposer();
-    updateAutocomplete();
+    completions.update();
   };
   renderer.keyInput.on("keypress", (key) => {
     if (key.ctrl && key.name === "c") {
@@ -856,7 +390,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       }
       if (inputValue()) {
         setInputValue("");
-        updateAutocomplete();
+        completions.update();
         return;
       }
       close();
@@ -870,21 +404,17 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     }
     if (!input.focused) return;
 
-    if (key.name === "escape" && suggestions.length) {
+    if (key.name === "escape" && completions.active) {
       key.preventDefault();
-      hideAutocomplete();
+      completions.hide();
       return;
     }
-    if ((key.name === "up" || key.name === "down") && suggestions.length) {
+    if ((key.name === "up" || key.name === "down") && completions.active) {
       key.preventDefault();
-      const direction = key.name === "up" ? -1 : 1;
-      selectedSuggestion =
-        (selectedSuggestion + direction + suggestions.length) %
-        suggestions.length;
-      renderAutocomplete();
+      completions.move(key.name === "up" ? -1 : 1);
       return;
     }
-    if (key.name === "tab" && completeSuggestion()) {
+    if (key.name === "tab" && completions.complete()) {
       key.preventDefault();
       return;
     }
@@ -893,7 +423,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       !inputValue().includes("\n")
     ) {
       key.preventDefault();
-      moveHistory(key.name === "up" ? -1 : 1);
+      if (history.move(key.name === "up" ? -1 : 1)) completions.update();
       return;
     }
     if (
@@ -903,8 +433,8 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       !key.ctrl
     ) {
       key.preventDefault();
-      if (suggestions.length && inputValue() !== suggestions[0]?.name) {
-        completeSuggestion();
+      if (completions.active && inputValue() !== completions.firstName) {
+        completions.complete();
         return;
       }
       void submitPrompt(inputValue());
@@ -916,7 +446,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     bootActive = true;
     startTicker();
     try {
-      await boot(onActivity);
+      await boot(activityLog.onActivity);
     } catch (error) {
       if (!closed) addMessage("error", options.friendlyError(error));
     } finally {
