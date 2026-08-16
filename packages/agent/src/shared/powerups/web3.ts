@@ -157,6 +157,357 @@ Sugar notes:
 - \`fund_wallet\` only works in the staging environment (test USDXM).
 - If a tool fails because the power-up is not enabled, report exactly that.`
 
+/**
+ * Uniform smart-wallet passthrough tools: the validated input fields (when the
+ * tool takes any) forward unchanged to the named wallet bridge op. Tools whose
+ * run bodies pick or rename fields stay explicit in the `tools` list below.
+ */
+type WalletPassthroughSpec = {
+  name: string
+  description: string
+  /** Wallet bridge op passed to `runWallet`. */
+  op: string
+  input?: v.GenericSchema<Record<string, unknown>, Record<string, unknown>>
+}
+
+const WALLET_PASSTHROUGH_SPECS: readonly WalletPassthroughSpec[] = [
+  {
+    name: 'get_wallets',
+    op: 'wallets',
+    description:
+      'Get both of the user\u2019s wallets: the Bee smart wallet (address + chain, null before creation) and the linked EOA (null when not linked). Call this first to pick the right wallet for a request.',
+  },
+  {
+    name: 'create_wallet',
+    op: 'create_wallet',
+    description:
+      'Create the user\u2019s Bee smart wallet (Crossmint). Idempotent: returns the existing wallet if one was already created. Returns the wallet address and chain.',
+  },
+  {
+    name: 'get_wallet_balance',
+    op: 'balances',
+    description:
+      'Get the Bee smart wallet address and its ETH and USDC balances on Base or Arbitrum (plus USDXM on staging when chain is omitted). Creates that chain wallet on first use.',
+    input: v.object({
+      chain: v.optional(
+        v.pipe(
+          socketChain,
+          v.description(
+            'Mainnet balance chain; omit for the configured default',
+          ),
+        ),
+      ),
+    }),
+  },
+  {
+    name: 'get_wallet_activity',
+    op: 'activity',
+    description:
+      'Recent transaction history of the Bee smart wallet (hashes, status, timestamps).',
+  },
+  {
+    name: 'fund_wallet',
+    op: 'fund',
+    description:
+      'Staging-only test faucet: mint USDXM test stablecoin into the Bee smart wallet. Fails on production/mainnet.',
+    input: v.object({
+      amount: v.pipe(
+        v.number(),
+        v.minValue(0),
+        v.maxValue(100),
+        v.description('USDXM amount to mint, at most 100'),
+      ),
+    }),
+  },
+  {
+    name: 'prepare_send_tokens',
+    op: 'prepare_send',
+    description:
+      'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
+    input: v.object({
+      continuation,
+      recipient: address('Recipient 0x wallet address'),
+      token: v.pipe(
+        v.string(),
+        v.description(
+          'Token symbol: "eth" or "usdc" (plus "usdxm" on staging)',
+        ),
+      ),
+      amount: v.pipe(
+        v.string(),
+        v.description('Decimal amount to send as a string, e.g. "0.01"'),
+      ),
+    }),
+  },
+]
+
+/**
+ * Uniform Sugar passthrough tools: the whole validated input object forwards
+ * unchanged as the parameters of the named Sugar bridge action.
+ */
+type SugarPassthroughSpec = {
+  name: string
+  description: string
+  /** Sugar bridge action passed to `runSugar`. */
+  op: string
+  input: v.GenericSchema<
+    Record<string, unknown>,
+    Record<string, string | number | boolean | undefined>
+  >
+}
+
+const SUGAR_PASSTHROUGH_SPECS: readonly SugarPassthroughSpec[] = [
+  {
+    name: 'sugar_pools',
+    op: 'pools',
+    description:
+      'List Velodrome/Aerodrome pools on a supported mainnet. Compact by default; full adds TVL, reserves, fees, gauge, and emissions.',
+    input: v.object({
+      chain: sugarChain,
+      token0: v.optional(
+        v.pipe(v.string(), v.description('Token symbol or address filter')),
+      ),
+      token1: v.optional(
+        v.pipe(
+          v.string(),
+          v.description('Second token symbol or address filter'),
+        ),
+      ),
+      pool_type: poolType,
+      full: v.optional(v.boolean()),
+      limit: v.optional(
+        v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
+      ),
+    }),
+  },
+  {
+    name: 'sugar_positions',
+    op: 'positions',
+    description:
+      'List Velodrome/Aerodrome liquidity positions owned by a public wallet address (default to the linked EOA, or the smart wallet for Base positions it holds).',
+    input: v.pipe(
+      v.object({
+        chain: sugarChain,
+        wallet: v.optional(
+          address('Public wallet address whose positions to list'),
+        ),
+        owner: v.optional(
+          address('Public owner address; takes precedence over wallet'),
+        ),
+      }),
+      v.check(
+        (fields) => fields.wallet !== undefined || fields.owner !== undefined,
+        'Provide wallet or owner',
+      ),
+    ),
+  },
+  {
+    name: 'sugar_epochs_latest',
+    op: 'epochs_latest',
+    description:
+      'Read the latest voting epoch for every gauged pool, including votes, emissions, fees, incentives, and gauge status.',
+    input: v.object({ chain: sugarChain, pool_type: poolType }),
+  },
+  {
+    name: 'sugar_epochs',
+    op: 'epochs',
+    description: 'Read paginated historical voting epochs for one pool.',
+    input: v.object({
+      chain: sugarChain,
+      lp: address('Pool LP address'),
+      pool_type: poolType,
+      limit: v.optional(
+        v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
+      ),
+      offset: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+    }),
+  },
+  {
+    name: 'sugar_quote',
+    op: 'quote',
+    description:
+      'Get a read-only swap quote with raw and decimal amounts, effective price, oracle prices, price impact, and route.',
+    input: v.object({
+      chain: sugarChain,
+      from_token: v.pipe(
+        v.string(),
+        v.description('Input token symbol or address'),
+      ),
+      to_token: v.pipe(
+        v.string(),
+        v.description('Output token symbol or address'),
+      ),
+      amount: amount(
+        'Input amount as raw wei, or decimal token units when use_decimals is true',
+      ),
+      use_decimals: v.optional(v.boolean()),
+    }),
+  },
+  {
+    name: 'sugar_swap',
+    op: 'swap',
+    description:
+      'Build an unsigned Velodrome/Aerodrome swap plan for a wallet the user signs with themselves (default the linked EOA). Returns { transactions, quote }: approvals first when needed, then the swap, plus the quoted output, minimum received, and price impact to report. Does not sign or broadcast; use prepare_sugar_execution to execute with the smart wallet instead.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      from_token: v.pipe(
+        v.string(),
+        v.description('Input token symbol or address'),
+      ),
+      to_token: v.pipe(
+        v.string(),
+        v.description('Output token symbol or address'),
+      ),
+      amount: amount(
+        'Input amount as raw wei, or decimal token units when use_decimals is true',
+      ),
+      slippage,
+      use_decimals: v.optional(v.boolean()),
+    }),
+  },
+  {
+    name: 'sugar_deposit',
+    op: 'deposit',
+    description:
+      'Build unsigned transactions to add liquidity or create and seed a new basic/CL pool. Omit pool and provide token0, token1, and pool_type for creation. Does not sign or broadcast.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      pool: v.optional(address('Existing pool LP address')),
+      token0: v.optional(
+        v.pipe(
+          v.string(),
+          v.description('Token symbol/address for a new pool'),
+        ),
+      ),
+      token1: v.optional(
+        v.pipe(
+          v.string(),
+          v.description('Second token symbol/address for a new pool'),
+        ),
+      ),
+      pool_type: poolType,
+      tick_spacing: v.optional(v.pipe(v.number(), v.integer())),
+      amount0: v.optional(
+        amount(
+          'Token0 amount in raw wei, or decimal units when use_decimals is true',
+        ),
+      ),
+      amount1: v.optional(
+        amount(
+          'Token1 amount in raw wei, or decimal units when use_decimals is true',
+        ),
+      ),
+      price_lower: v.optional(v.number()),
+      price_upper: v.optional(v.number()),
+      tick_lower: v.optional(v.pipe(v.number(), v.integer())),
+      tick_upper: v.optional(v.pipe(v.number(), v.integer())),
+      initial_price: v.optional(v.number()),
+      slippage,
+      deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
+      use_decimals: v.optional(v.boolean()),
+    }),
+  },
+  {
+    name: 'sugar_create_venft',
+    op: 'create_venft',
+    description:
+      'Build an unsigned veNFT creation plan that locks AERO/VELO for an exact duration. The lock is irreversible until expiry.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      amount: amount(
+        'Governance-token amount, raw units unless use_decimals is true',
+      ),
+      lock_duration_seconds: v.pipe(v.number(), v.integer(), v.minValue(1)),
+      use_decimals: v.optional(v.boolean()),
+    }),
+  },
+  {
+    name: 'sugar_withdraw',
+    op: 'withdraw',
+    description:
+      'Build an unsigned full or partial liquidity withdrawal plan. Identify basic positions by pool and CL positions by NFT id.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      ...poolPosition,
+      fraction,
+      burn: v.optional(v.boolean()),
+      collect: v.optional(v.boolean()),
+      unwrap_native: v.optional(v.boolean()),
+      slippage,
+      deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
+    }),
+  },
+  {
+    name: 'sugar_stake',
+    op: 'stake',
+    description:
+      'Build unsigned transactions to stake an LP or CL position into its gauge.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      ...poolPosition,
+    }),
+  },
+  {
+    name: 'sugar_unstake',
+    op: 'unstake',
+    description:
+      'Build unsigned transactions to unstake from a gauge. CL is full-only; basic can pass a raw partial amount.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      ...poolPosition,
+      amount: v.optional(
+        amount('Raw wei amount for a partial basic-position unstake'),
+      ),
+    }),
+  },
+  {
+    name: 'sugar_claim_emissions',
+    op: 'claim_emissions',
+    description:
+      'Build an unsigned transaction to claim gauge emissions for a staked position.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      ...poolPosition,
+    }),
+  },
+  {
+    name: 'sugar_claim_fees',
+    op: 'claim_fees',
+    description:
+      'Build an unsigned transaction to claim LP fees, optionally unwrapping native ETH or burning a drained CL NFT.',
+    input: v.object({
+      chain: sugarChain,
+      wallet: address(
+        'Public address that will externally sign the transaction plan',
+      ),
+      ...poolPosition,
+      burn: v.optional(v.boolean()),
+      unwrap_native: v.optional(v.boolean()),
+    }),
+  },
+]
+
 export const web3: PowerupDefinition = {
   id: 'web3',
 
@@ -218,529 +569,181 @@ export const web3: PowerupDefinition = {
         params,
       })
 
+    const walletPassthroughTool = (spec: WalletPassthroughSpec) =>
+      spec.input
+        ? defineTool({
+            name: spec.name,
+            description: spec.description,
+            input: spec.input,
+            async run({ data }) {
+              return await runWallet(spec.op, { ...data })
+            },
+          })
+        : defineTool({
+            name: spec.name,
+            description: spec.description,
+            async run() {
+              return await runWallet(spec.op)
+            },
+          })
+
+    const sugarPassthroughTool = (spec: SugarPassthroughSpec) =>
+      defineTool({
+        name: spec.name,
+        description: spec.description,
+        input: spec.input,
+        async run({ data }) {
+          return await runSugar(spec.op, data)
+        },
+      })
+
     const tools = [
-        defineTool({
-          name: 'get_wallets',
-          description:
-            'Get both of the user\u2019s wallets: the Bee smart wallet (address + chain, null before creation) and the linked EOA (null when not linked). Call this first to pick the right wallet for a request.',
-          async run() {
-            return await runWallet('wallets')
-          },
-        }),
+      ...WALLET_PASSTHROUGH_SPECS.map(walletPassthroughTool),
 
-        defineTool({
-          name: 'create_wallet',
-          description:
-            'Create the user\u2019s Bee smart wallet (Crossmint). Idempotent: returns the existing wallet if one was already created. Returns the wallet address and chain.',
-          async run() {
-            return await runWallet('create_wallet')
-          },
+      // The remaining wallet tools reshape their inputs (renamed or picked
+      // fields) before hitting the bridge, so they stay explicit definitions.
+      defineTool({
+        name: 'quote_cross_chain_swap',
+        description:
+          'Read-only Socket quote for moving ETH or USDC between Base and Arbitrum. Returns estimated/minimum output, provider, time, and gas handling. Does not create a confirmation or move funds.',
+        input: v.object({
+          origin_chain: socketChain,
+          destination_chain: socketChain,
+          input_token: socketToken,
+          output_token: socketToken,
+          amount: amount('Decimal input amount as a string, e.g. "10"'),
         }),
+        async run({ data }) {
+          return await runWallet('quote_socket_swap', {
+            originChain: data.origin_chain,
+            destinationChain: data.destination_chain,
+            inputToken: data.input_token,
+            outputToken: data.output_token,
+            amount: data.amount,
+          })
+        },
+      }),
 
-        defineTool({
-          name: 'get_wallet_balance',
-          description:
-            'Get the Bee smart wallet address and its ETH and USDC balances on Base or Arbitrum (plus USDXM on staging when chain is omitted). Creates that chain wallet on first use.',
-          input: v.object({
-            chain: v.optional(
-              v.pipe(
-                socketChain,
-                v.description(
-                  'Mainnet balance chain; omit for the configured default',
-                ),
-              ),
-            ),
-          }),
-          async run({ data }) {
-            return await runWallet('balances', { chain: data.chain })
-          },
+      defineTool({
+        name: 'prepare_cross_chain_swap',
+        description:
+          'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user authorizes the exact confirmation in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Source gas is sponsored; output ETH gives the destination native gas.',
+        input: v.object({
+          continuation,
+          origin_chain: socketChain,
+          destination_chain: socketChain,
+          input_token: socketToken,
+          output_token: socketToken,
+          amount: amount('Decimal input amount as a string, e.g. "10"'),
         }),
+        async run({ data }) {
+          return await runWallet('prepare_socket_swap', {
+            originChain: data.origin_chain,
+            destinationChain: data.destination_chain,
+            inputToken: data.input_token,
+            outputToken: data.output_token,
+            amount: data.amount,
+            continuation: data.continuation,
+          })
+        },
+      }),
 
-        defineTool({
-          name: 'get_wallet_activity',
-          description:
-            'Recent transaction history of the Bee smart wallet (hashes, status, timestamps).',
-          async run() {
-            return await runWallet('activity')
-          },
-        }),
-
-        defineTool({
-          name: 'fund_wallet',
-          description:
-            'Staging-only test faucet: mint USDXM test stablecoin into the Bee smart wallet. Fails on production/mainnet.',
-          input: v.object({
-            amount: v.pipe(
-              v.number(),
-              v.minValue(0),
-              v.maxValue(100),
-              v.description('USDXM amount to mint, at most 100'),
-            ),
-          }),
-          async run({ data }) {
-            return await runWallet('fund', { amount: data.amount })
-          },
-        }),
-
-        defineTool({
-          name: 'prepare_send_tokens',
-          description:
-            'Phase one of sending tokens from the Bee smart wallet: creates a pending action and returns its actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Tell Bee to render a confirm card with payload {"web3ActionId": actionId}.',
-          input: v.object({
-            continuation,
-            recipient: address('Recipient 0x wallet address'),
-            token: v.pipe(
+      defineTool({
+        name: 'prepare_sugar_execution',
+        description:
+          'Phase one of executing an Aerodrome action (swap, deposit/create pool, withdraw, stake, unstake, claim_emissions, claim_fees, create_venft) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
+        input: v.object({
+          continuation,
+          sugar_action: v.picklist(
+            [
+              'swap',
+              'deposit',
+              'withdraw',
+              'stake',
+              'unstake',
+              'claim_emissions',
+              'claim_fees',
+              'create_venft',
+            ],
+            'Aerodrome action to execute on Base',
+          ),
+          parameters: v.pipe(
+            v.record(
               v.string(),
-              v.description(
-                'Token symbol: "eth" or "usdc" (plus "usdxm" on staging)',
-              ),
+              v.union([v.string(), v.number(), v.boolean()]),
             ),
-            amount: v.pipe(
-              v.string(),
-              v.description('Decimal amount to send as a string, e.g. "0.01"'),
-            ),
-          }),
-          async run({ data }) {
-            return await runWallet('prepare_send', { ...data })
-          },
-        }),
-
-        defineTool({
-          name: 'quote_cross_chain_swap',
-          description:
-            'Read-only Socket quote for moving ETH or USDC between Base and Arbitrum. Returns estimated/minimum output, provider, time, and gas handling. Does not create a confirmation or move funds.',
-          input: v.object({
-            origin_chain: socketChain,
-            destination_chain: socketChain,
-            input_token: socketToken,
-            output_token: socketToken,
-            amount: amount('Decimal input amount as a string, e.g. "10"'),
-          }),
-          async run({ data }) {
-            return await runWallet('quote_socket_swap', {
-              originChain: data.origin_chain,
-              destinationChain: data.destination_chain,
-              inputToken: data.input_token,
-              outputToken: data.output_token,
-              amount: data.amount,
-            })
-          },
-        }),
-
-        defineTool({
-          name: 'prepare_cross_chain_swap',
-          description:
-            'Create a fresh Socket route for moving ETH or USDC between Base and Arbitrum and return a pending actionId. NOTHING moves until the user authorizes the exact confirmation in a trusted client channel, unless the response says status "confirmed" (YOLO auto-approval). Source gas is sponsored; output ETH gives the destination native gas.',
-          input: v.object({
-            continuation,
-            origin_chain: socketChain,
-            destination_chain: socketChain,
-            input_token: socketToken,
-            output_token: socketToken,
-            amount: amount('Decimal input amount as a string, e.g. "10"'),
-          }),
-          async run({ data }) {
-            return await runWallet('prepare_socket_swap', {
-              originChain: data.origin_chain,
-              destinationChain: data.destination_chain,
-              inputToken: data.input_token,
-              outputToken: data.output_token,
-              amount: data.amount,
-              continuation: data.continuation,
-            })
-          },
-        }),
-
-        defineTool({
-          name: 'prepare_sugar_execution',
-          description:
-            'Phase one of executing an Aerodrome action (swap, deposit/create pool, withdraw, stake, unstake, claim_emissions, claim_fees, create_venft) with the Bee smart wallet on Base: builds the plan server-side and returns a pending actionId. NOTHING moves on-chain \u2014 the user must authorize the exact confirm card in a trusted client channel \u2014 unless the response says status "confirmed" (YOLO auto-approval). Mainnet only.',
-          input: v.object({
-            continuation,
-            sugar_action: v.picklist(
-              [
-                'swap',
-                'deposit',
-                'withdraw',
-                'stake',
-                'unstake',
-                'claim_emissions',
-                'claim_fees',
-                'create_venft',
-              ],
-              'Aerodrome action to execute on Base',
-            ),
-            parameters: v.pipe(
-              v.record(
-                v.string(),
-                v.union([v.string(), v.number(), v.boolean()]),
-              ),
-              v.description(
-                'Action parameters exactly as for the matching sugar_* build tool, WITHOUT chain or wallet (both are pinned server-side to Base and the smart wallet)',
-              ),
-            ),
-          }),
-          async run({ data }) {
-            return await runWallet('prepare_execution', {
-              sugarAction: data.sugar_action,
-              parameters: data.parameters,
-              continuation: data.continuation,
-            })
-          },
-        }),
-
-        defineTool({
-          name: 'prepare_linked_wallet_execution',
-          description:
-            'Build an allowlisted Velodrome/Aerodrome action for the verified linked EOA on a supported Sugar chain and return a pending actionId. NOTHING moves until the user confirms in the signed-in BeeGreat app and the matching WalletConnect wallet signs every transaction. Never eligible for YOLO or iMessage confirmation.',
-          input: v.object({
-            continuation,
-            chain: sugarChain,
-            sugar_action: v.picklist(
-              [
-                'swap',
-                'deposit',
-                'withdraw',
-                'stake',
-                'unstake',
-                'claim_emissions',
-                'claim_fees',
-                'create_venft',
-              ],
-              'Velodrome/Aerodrome transaction-building action',
-            ),
-            parameters: v.pipe(
-              v.record(
-                v.string(),
-                v.union([v.string(), v.number(), v.boolean()]),
-              ),
-              v.description(
-                'Action parameters exactly as for the matching sugar_* build tool, WITHOUT chain or wallet (both are pinned server-side)',
-              ),
-            ),
-          }),
-          async run({ data }) {
-            return await runWallet('prepare_eoa_execution', {
-              chainId: data.chain,
-              sugarAction: data.sugar_action,
-              parameters: data.parameters,
-              continuation: data.continuation,
-            })
-          },
-        }),
-
-        defineTool({
-          name: 'check_web3_action',
-          description:
-            'Status of a prepared Web3 action: pending, confirmed, in_progress (cross-chain settlement is still moving), executed, refunded, failed, cancelled, or expired, with transaction links and destination progress.',
-          input: v.object({
-            action_id: v.pipe(
-              v.string(),
-              v.description('The actionId returned by a prepare_* tool'),
-            ),
-          }),
-          async run({ data }) {
-            return await runWallet('action_status', {
-              actionId: data.action_id,
-            })
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_pools',
-          description:
-            'List Velodrome/Aerodrome pools on a supported mainnet. Compact by default; full adds TVL, reserves, fees, gauge, and emissions.',
-          input: v.object({
-            chain: sugarChain,
-            token0: v.optional(
-              v.pipe(
-                v.string(),
-                v.description('Token symbol or address filter'),
-              ),
-            ),
-            token1: v.optional(
-              v.pipe(
-                v.string(),
-                v.description('Second token symbol or address filter'),
-              ),
-            ),
-            pool_type: poolType,
-            full: v.optional(v.boolean()),
-            limit: v.optional(
-              v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
-            ),
-          }),
-          async run({ data }) {
-            return await runSugar('pools', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_positions',
-          description:
-            'List Velodrome/Aerodrome liquidity positions owned by a public wallet address (default to the linked EOA, or the smart wallet for Base positions it holds).',
-          input: v.pipe(
-            v.object({
-              chain: sugarChain,
-              wallet: v.optional(
-                address('Public wallet address whose positions to list'),
-              ),
-              owner: v.optional(
-                address('Public owner address; takes precedence over wallet'),
-              ),
-            }),
-            v.check(
-              (fields) =>
-                fields.wallet !== undefined || fields.owner !== undefined,
-              'Provide wallet or owner',
+            v.description(
+              'Action parameters exactly as for the matching sugar_* build tool, WITHOUT chain or wallet (both are pinned server-side to Base and the smart wallet)',
             ),
           ),
-          async run({ data }) {
-            return await runSugar('positions', data)
-          },
         }),
+        async run({ data }) {
+          return await runWallet('prepare_execution', {
+            sugarAction: data.sugar_action,
+            parameters: data.parameters,
+            continuation: data.continuation,
+          })
+        },
+      }),
 
-        defineTool({
-          name: 'sugar_epochs_latest',
-          description:
-            'Read the latest voting epoch for every gauged pool, including votes, emissions, fees, incentives, and gauge status.',
-          input: v.object({ chain: sugarChain, pool_type: poolType }),
-          async run({ data }) {
-            return await runSugar('epochs_latest', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_epochs',
-          description: 'Read paginated historical voting epochs for one pool.',
-          input: v.object({
-            chain: sugarChain,
-            lp: address('Pool LP address'),
-            pool_type: poolType,
-            limit: v.optional(
-              v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100)),
-            ),
-            offset: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
-          }),
-          async run({ data }) {
-            return await runSugar('epochs', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_quote',
-          description:
-            'Get a read-only swap quote with raw and decimal amounts, effective price, oracle prices, price impact, and route.',
-          input: v.object({
-            chain: sugarChain,
-            from_token: v.pipe(
+      defineTool({
+        name: 'prepare_linked_wallet_execution',
+        description:
+          'Build an allowlisted Velodrome/Aerodrome action for the verified linked EOA on a supported Sugar chain and return a pending actionId. NOTHING moves until the user confirms in the signed-in BeeGreat app and the matching WalletConnect wallet signs every transaction. Never eligible for YOLO or iMessage confirmation.',
+        input: v.object({
+          continuation,
+          chain: sugarChain,
+          sugar_action: v.picklist(
+            [
+              'swap',
+              'deposit',
+              'withdraw',
+              'stake',
+              'unstake',
+              'claim_emissions',
+              'claim_fees',
+              'create_venft',
+            ],
+            'Velodrome/Aerodrome transaction-building action',
+          ),
+          parameters: v.pipe(
+            v.record(
               v.string(),
-              v.description('Input token symbol or address'),
+              v.union([v.string(), v.number(), v.boolean()]),
             ),
-            to_token: v.pipe(
-              v.string(),
-              v.description('Output token symbol or address'),
+            v.description(
+              'Action parameters exactly as for the matching sugar_* build tool, WITHOUT chain or wallet (both are pinned server-side)',
             ),
-            amount: amount(
-              'Input amount as raw wei, or decimal token units when use_decimals is true',
-            ),
-            use_decimals: v.optional(v.boolean()),
-          }),
-          async run({ data }) {
-            return await runSugar('quote', data)
-          },
+          ),
         }),
+        async run({ data }) {
+          return await runWallet('prepare_eoa_execution', {
+            chainId: data.chain,
+            sugarAction: data.sugar_action,
+            parameters: data.parameters,
+            continuation: data.continuation,
+          })
+        },
+      }),
 
-        defineTool({
-          name: 'sugar_swap',
-          description:
-            'Build an unsigned Velodrome/Aerodrome swap plan for a wallet the user signs with themselves (default the linked EOA). Returns { transactions, quote }: approvals first when needed, then the swap, plus the quoted output, minimum received, and price impact to report. Does not sign or broadcast; use prepare_sugar_execution to execute with the smart wallet instead.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            from_token: v.pipe(
-              v.string(),
-              v.description('Input token symbol or address'),
-            ),
-            to_token: v.pipe(
-              v.string(),
-              v.description('Output token symbol or address'),
-            ),
-            amount: amount(
-              'Input amount as raw wei, or decimal token units when use_decimals is true',
-            ),
-            slippage,
-            use_decimals: v.optional(v.boolean()),
-          }),
-          async run({ data }) {
-            return await runSugar('swap', data)
-          },
+      defineTool({
+        name: 'check_web3_action',
+        description:
+          'Status of a prepared Web3 action: pending, confirmed, in_progress (cross-chain settlement is still moving), executed, refunded, failed, cancelled, or expired, with transaction links and destination progress.',
+        input: v.object({
+          action_id: v.pipe(
+            v.string(),
+            v.description('The actionId returned by a prepare_* tool'),
+          ),
         }),
+        async run({ data }) {
+          return await runWallet('action_status', {
+            actionId: data.action_id,
+          })
+        },
+      }),
 
-        defineTool({
-          name: 'sugar_deposit',
-          description:
-            'Build unsigned transactions to add liquidity or create and seed a new basic/CL pool. Omit pool and provide token0, token1, and pool_type for creation. Does not sign or broadcast.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            pool: v.optional(address('Existing pool LP address')),
-            token0: v.optional(
-              v.pipe(
-                v.string(),
-                v.description('Token symbol/address for a new pool'),
-              ),
-            ),
-            token1: v.optional(
-              v.pipe(
-                v.string(),
-                v.description('Second token symbol/address for a new pool'),
-              ),
-            ),
-            pool_type: poolType,
-            tick_spacing: v.optional(v.pipe(v.number(), v.integer())),
-            amount0: v.optional(
-              amount(
-                'Token0 amount in raw wei, or decimal units when use_decimals is true',
-              ),
-            ),
-            amount1: v.optional(
-              amount(
-                'Token1 amount in raw wei, or decimal units when use_decimals is true',
-              ),
-            ),
-            price_lower: v.optional(v.number()),
-            price_upper: v.optional(v.number()),
-            tick_lower: v.optional(v.pipe(v.number(), v.integer())),
-            tick_upper: v.optional(v.pipe(v.number(), v.integer())),
-            initial_price: v.optional(v.number()),
-            slippage,
-            deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
-            use_decimals: v.optional(v.boolean()),
-          }),
-          async run({ data }) {
-            return await runSugar('deposit', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_create_venft',
-          description:
-            'Build an unsigned veNFT creation plan that locks AERO/VELO for an exact duration. The lock is irreversible until expiry.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            amount: amount(
-              'Governance-token amount, raw units unless use_decimals is true',
-            ),
-            lock_duration_seconds: v.pipe(
-              v.number(),
-              v.integer(),
-              v.minValue(1),
-            ),
-            use_decimals: v.optional(v.boolean()),
-          }),
-          async run({ data }) {
-            return await runSugar('create_venft', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_withdraw',
-          description:
-            'Build an unsigned full or partial liquidity withdrawal plan. Identify basic positions by pool and CL positions by NFT id.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            ...poolPosition,
-            fraction,
-            burn: v.optional(v.boolean()),
-            collect: v.optional(v.boolean()),
-            unwrap_native: v.optional(v.boolean()),
-            slippage,
-            deadline_minutes: v.optional(v.pipe(v.number(), v.minValue(1))),
-          }),
-          async run({ data }) {
-            return await runSugar('withdraw', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_stake',
-          description:
-            'Build unsigned transactions to stake an LP or CL position into its gauge.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            ...poolPosition,
-          }),
-          async run({ data }) {
-            return await runSugar('stake', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_unstake',
-          description:
-            'Build unsigned transactions to unstake from a gauge. CL is full-only; basic can pass a raw partial amount.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            ...poolPosition,
-            amount: v.optional(
-              amount('Raw wei amount for a partial basic-position unstake'),
-            ),
-          }),
-          async run({ data }) {
-            return await runSugar('unstake', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_claim_emissions',
-          description:
-            'Build an unsigned transaction to claim gauge emissions for a staked position.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            ...poolPosition,
-          }),
-          async run({ data }) {
-            return await runSugar('claim_emissions', data)
-          },
-        }),
-
-        defineTool({
-          name: 'sugar_claim_fees',
-          description:
-            'Build an unsigned transaction to claim LP fees, optionally unwrapping native ETH or burning a drained CL NFT.',
-          input: v.object({
-            chain: sugarChain,
-            wallet: address(
-              'Public address that will externally sign the transaction plan',
-            ),
-            ...poolPosition,
-            burn: v.optional(v.boolean()),
-            unwrap_native: v.optional(v.boolean()),
-          }),
-          async run({ data }) {
-            return await runSugar('claim_fees', data)
-          },
-        }),
+      ...SUGAR_PASSTHROUGH_SPECS.map(sugarPassthroughTool),
     ]
 
     return defineSubagent({

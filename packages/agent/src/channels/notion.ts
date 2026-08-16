@@ -6,11 +6,12 @@ import {
   claimBeennectorDelivery,
   signalAttributes,
 } from '../shared/beennectors/channel.ts'
+import { trustedCast } from '../shared/trusted-cast.ts'
 
 export const channel = createNotionChannel({
   verificationToken: channelSecret('NOTION_VERIFICATION_TOKEN'),
   async webhook({ event }) {
-    const payload = event as unknown as Record<string, unknown>
+    const payload = trustedCast<Record<string, unknown>>(event)
     const authors = Array.isArray(payload.authors)
       ? (payload.authors as Array<Record<string, unknown>>)
       : []

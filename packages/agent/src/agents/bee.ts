@@ -59,6 +59,7 @@ import {
 } from '../shared/powerups/index.ts'
 import { completionAuditSignal } from '../shared/completion-policy.ts'
 import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
+import { trustedCast } from '../shared/trusted-cast.ts'
 import { createTtlCache } from '../shared/ttl-cache.ts'
 import {
   FIRECRAWL_MCP_TIMEOUT_MS,
@@ -98,14 +99,11 @@ export interface BeeRuntimeEnv {
 /** Worker env for the current request; process.env under `flue run` and tests. */
 function workerEnv(): BeeRuntimeEnv {
   try {
-    return getCloudflareContext().env as unknown as BeeRuntimeEnv
+    return trustedCast<BeeRuntimeEnv>(getCloudflareContext().env)
   } catch {
     return (
-      (
-        globalThis as unknown as {
-          process?: { env?: BeeRuntimeEnv }
-        }
-      ).process?.env ?? ({} as BeeRuntimeEnv)
+      trustedCast<{ process?: { env?: BeeRuntimeEnv } }>(globalThis).process
+        ?.env ?? ({} as BeeRuntimeEnv)
     )
   }
 }

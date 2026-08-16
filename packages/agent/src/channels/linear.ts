@@ -6,11 +6,12 @@ import {
   claimBeennectorDelivery,
   signalAttributes,
 } from '../shared/beennectors/channel.ts'
+import { trustedCast } from '../shared/trusted-cast.ts'
 
 export const channel = createLinearChannel({
   webhookSecret: channelSecret('LINEAR_WEBHOOK_SECRET'),
   async webhook({ payload, deliveryId }) {
-    const event = payload as unknown as Record<string, unknown>
+    const event = trustedCast<Record<string, unknown>>(payload)
     const actor =
       event.actor && typeof event.actor === 'object'
         ? (event.actor as Record<string, unknown>)
