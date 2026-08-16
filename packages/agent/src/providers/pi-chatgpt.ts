@@ -1,12 +1,21 @@
 import {
+  createAssistantMessageEventStream,
   createProvider,
+  type AssistantMessageEventStream,
   type Api,
+  type Context,
   type Model,
   type ProviderStreams,
+  type SimpleStreamOptions,
+  type StreamOptions,
 } from '@earendil-works/pi-ai'
 import { openAICodexResponsesApi } from '@earendil-works/pi-ai/api/openai-codex-responses.lazy'
+import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy'
 import { OPENAI_CODEX_MODELS } from '@earendil-works/pi-ai/providers/openai-codex.models'
+import { openrouterProvider } from '@earendil-works/pi-ai/providers/openrouter'
 import { setProvider } from '@flue/runtime'
+import * as Sentry from '@sentry/cloudflare'
+import { trustedCast } from '../shared/trusted-cast.ts'
 
 const PROVIDER = 'openai-codex'
 const BASE_URL = 'https://chatgpt.com/backend-api'
@@ -19,6 +28,92 @@ const codexSseApi: ProviderStreams = {
     codexApi.stream(model, context, { ...options, transport: 'sse' }),
   streamSimple: (model, context, options) =>
     codexApi.streamSimple(model, context, { ...options, transport: 'sse' }),
+}
+
+/** How a rerouted request reaches OpenRouter. Injectable for tests. */
+export interface OpenRouterReroute {
+  api: ProviderStreams
+  models: () => readonly Model<Api>[]
+  apiKey: () => string | undefined
+}
+
+function defaultOpenRouterReroute(): OpenRouterReroute {
+  return {
+    api: openAICompletionsApi(),
+    models: () => openrouterProvider().getModels(),
+    // Same env var flue's own openrouter provider auth resolves; available on
+    // Workers through nodejs_compat's process.env.
+    apiKey: () =>
+      trustedCast<{ process?: { env?: Record<string, string | undefined> } }>(
+        globalThis,
+      ).process?.env?.OPENROUTER_API_KEY?.trim() || undefined,
+  }
+}
+
+type StreamMethod = 'stream' | 'streamSimple'
+
+/**
+ * A ChatGPT/Codex subscription can fail mid-conversation for reasons the user
+ * cannot see coming — exhausted credits, a 5xx from the Codex backend, an
+ * adapter outage. Wrapping the Codex transport here reroutes the SAME request
+ * to OpenRouter (`openai/<model-id>`, the app's default provider path) when
+ * the Codex stream terminates with a provider error, so the turn completes
+ * instead of surfacing a 500. Aborts never reroute.
+ */
+export function withOpenRouterFallback(
+  primary: ProviderStreams,
+  reroute: OpenRouterReroute = defaultOpenRouterReroute(),
+): ProviderStreams {
+  const run = (
+    method: StreamMethod,
+    model: Model<Api>,
+    context: Context,
+    options?: StreamOptions | SimpleStreamOptions,
+  ): AssistantMessageEventStream => {
+    const outer = createAssistantMessageEventStream()
+    void (async () => {
+      for await (const event of primary[method](model, context, options)) {
+        if (event.type !== 'error' || event.reason !== 'error') {
+          outer.push(event)
+          continue
+        }
+        const fallbackModel = reroute
+          .models()
+          .find((candidate) => candidate.id === `openai/${model.id}`)
+        const apiKey = reroute.apiKey()
+        if (!fallbackModel || !apiKey) {
+          outer.push(event)
+          break
+        }
+        Sentry.captureMessage(
+          `Codex request failed; rerouting to OpenRouter: ${event.error.errorMessage ?? 'unknown error'}`,
+          {
+            level: 'warning',
+            tags: {
+              service: 'agent-worker',
+              operation: 'codex.openrouter_fallback',
+              handled: 'true',
+            },
+          },
+        )
+        // The adapter-secret header must not reach OpenRouter.
+        const rerouted = reroute.api[method](fallbackModel, context, {
+          ...options,
+          apiKey,
+          headers: undefined,
+        })
+        for await (const retried of rerouted) outer.push(retried)
+        break
+      }
+      outer.end()
+    })()
+    return outer
+  }
+  return {
+    stream: (model, context, options) => run('stream', model, context, options),
+    streamSimple: (model, context, options) =>
+      run('streamSimple', model, context, options),
+  }
 }
 
 /**
@@ -62,7 +157,7 @@ export function registerFlueCodexProvider(
         },
       },
       models,
-      api: codexSseApi,
+      api: withOpenRouterFallback(codexSseApi),
     }),
   )
 }
