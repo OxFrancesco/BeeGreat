@@ -73,3 +73,13 @@ walk this list and say which entries applied:
 - **Docs.** Behavior changes a user would notice belong in the numbered docs
   under `docs/`; design/UI vocabulary in `docs/design-system.md`; architectural
   decisions in `docs/adr/`.
+
+## Configuration conventions
+
+The agent worker URL is one concept with four env-var names, each prefix
+dictated by its bundler: `BEE_AGENT_URL` (CLI), `AGENT_URL` (iMessage bridge),
+`VITE_AGENT_URL` (web), `EXPO_PUBLIC_AGENT_URL` (mobile). CLI, bridge, and web
+default to `http://localhost:3583`; mobile deliberately defaults to the
+production worker because a device build cannot reach the developer's
+localhost. Keep new configuration aligned with this table — do not invent a
+fifth name.

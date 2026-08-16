@@ -335,14 +335,16 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
 | Web shadcn/AI Elements token bridge | `apps/web/src/styles/app.css` (`--background` etc. → hive tokens, `@theme inline`) |
 | Web chat primitives (vendored AI Elements) | `apps/web/src/components/ai-elements/`, shadcn base in `apps/web/src/components/ui/` |
 | Web palette front-matter | `DESIGN.md` |
-| beeui schema (mobile) | `apps/mobile/src/lib/ui-spec.ts` |
-| beeui schema (web) | `apps/web/src/features/bee/bee-ui.ts` |
-| beeui renderers | `apps/mobile/src/components/agent/generated-ui.tsx`, `apps/web/src/features/bee/generated-ui.tsx` |
+| beeui contract (schema, parsing, scrubbing, follow-ups, text rendering) | `packages/tool-presentation/src/beeui.ts` (single source for every client) |
+| beeui client wrappers | `apps/mobile/src/lib/ui-spec.ts`, `apps/web/src/features/bee/bee-ui.ts`, `apps/cli/src/reply.ts`, `apps/imessage-bridge/src/bee-response.ts` |
+| beeui rich renderers | `apps/mobile/src/components/agent/generated-ui.tsx`, `apps/web/src/features/bee/generated-ui.tsx` |
 | Agent prompt contract | `packages/agent/src/agents/bee.md` |
 | Tool copy + id scrubbing | `packages/tool-presentation/src/` |
 | Chat markdown | `apps/mobile/src/components/agent/markdown.tsx`, `.assistant-markdown` in `app.css` |
 | Mood/water/comb palettes | `apps/mobile/src/lib/bee-healthy.ts`, `.../hydration-tracker.tsx`, `.../mind/bookmark-item.tsx` |
 
-**Adding a beeui component checklist**: zod schema in both apps → scrub case →
-renderer in both apps (+ web CSS) → document in `bee.md` → row in §10 → test in
-`bee-ui.test.ts`.
+**Adding a beeui component checklist**: zod schema + scrub case + markdown
+rendering in `packages/tool-presentation/src/beeui.ts` → rich renderer in both
+apps (+ web CSS) → document in `bee.md` → row in §10 → test in
+`bee-ui.test.ts`. Clients that don't know a new type degrade to an
+"unsupported" card automatically — never fork the schema per client.
