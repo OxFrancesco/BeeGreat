@@ -25,12 +25,11 @@ const METADATA = {
 
 type SignClientInstance = Awaited<ReturnType<(typeof import('@walletconnect/sign-client'))['SignClient']['init']>>
 
+/** Reown project ids are public by design; env vars override the default. */
+const DEFAULT_PROJECT_ID = 'cebb813303780775ef7c4a93f1daadee'
+
 export function walletConnectProjectId(): string {
-  const projectId = process.env.WALLETCONNECT_PROJECT_ID ?? process.env.REOWN_PROJECT_ID
-  if (!projectId) {
-    throw new Error('WalletConnect needs a project id: set WALLETCONNECT_PROJECT_ID (free at https://dashboard.reown.com)')
-  }
-  return projectId
+  return process.env.WALLETCONNECT_PROJECT_ID ?? process.env.REOWN_PROJECT_ID ?? DEFAULT_PROJECT_ID
 }
 
 async function initSignClient(): Promise<SignClientInstance> {

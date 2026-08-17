@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { splitSendFlags } from './cli'
+import { formatCliError, splitSendFlags } from './cli'
 import { extractPlanSteps, localMnemonicSigner, renderPlanSummary } from './send'
 import {
   deleteLocalWallet, deleteWalletConnectRecord, getActiveWallet, loadLocalWallet,
@@ -122,5 +122,13 @@ describe('CLI send flags', () => {
 
   test('splitSendFlags defaults to interactive broadcast', () => {
     expect(splitSendFlags(['quote'])).toEqual({ argv: ['quote'], yes: false, dryRun: false })
+  })
+
+  test('formatCliError renders WalletConnect object rejections readably', () => {
+    expect(formatCliError(new Error('boom'))).toBe('boom')
+    expect(formatCliError({ message: 'Proposal expired', code: 0 })).toBe('Proposal expired (code 0)')
+    expect(formatCliError({ message: 'User rejected' })).toBe('User rejected')
+    expect(formatCliError({ weird: true })).toBe('{"weird":true}')
+    expect(formatCliError('plain')).toBe('plain')
   })
 })

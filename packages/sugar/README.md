@@ -141,9 +141,9 @@ reaches the CLI. Local wallets keep the mnemonic sealed with scrypt +
 AES-256-GCM; the ciphertext lives in the macOS Keychain (generic password,
 iCloud Keychain syncable) with a `0600` file fallback elsewhere, and the
 plaintext mnemonic is shown once at creation and never written to disk.
-Environment: `WALLETCONNECT_PROJECT_ID` (pairing), `SUGAR_WALLET_PASSPHRASE`
-(non-interactive local signing), `SUGAR_WALLET_DIR` / `SUGAR_WALLET_NO_KEYCHAIN`
-(storage overrides).
+Environment: `WALLETCONNECT_PROJECT_ID` (optional override of the built-in
+public Reown project id), `SUGAR_WALLET_PASSPHRASE` (non-interactive local
+signing), `SUGAR_WALLET_DIR` / `SUGAR_WALLET_NO_KEYCHAIN` (storage overrides).
 
 ## Chain clients
 

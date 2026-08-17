@@ -39,8 +39,9 @@ Transaction flags:
   --yes              skip the confirmation prompt
   --dry-run          always print the unsigned plan, never broadcast
 
-Environment: WALLETCONNECT_PROJECT_ID, SUGAR_WALLET_PASSPHRASE (non-interactive
-local signing), SUGAR_RPC_URI_<chain> (RPC override).`
+Environment: WALLETCONNECT_PROJECT_ID (optional override of the built-in
+Reown project id), SUGAR_WALLET_PASSPHRASE (non-interactive local signing),
+SUGAR_RPC_URI_<chain> (RPC override).`
 
 function parseBoolean(name: string, value: string): boolean {
   if (value === 'true' || value === '1') return true
@@ -270,11 +271,22 @@ export async function runAeroCli(
   write(JSON.stringify({ status: 'sent', chain: chainId, wallet: signer.address, hashes }, null, 2))
 }
 
+/** WalletConnect rejects with plain objects ({ message, code }), not Errors. */
+export function formatCliError(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object') {
+    const { message, code } = error as { message?: unknown; code?: unknown }
+    if (typeof message === 'string') return code === undefined ? message : `${message} (code ${code})`
+    return JSON.stringify(error)
+  }
+  return String(error)
+}
+
 if (import.meta.main) {
   runAeroCli()
     .then(() => process.exit(0)) // The WalletConnect relay socket would otherwise keep the process alive.
     .catch((error) => {
-      console.error(error instanceof Error ? error.message : String(error))
+      console.error(formatCliError(error))
       process.exit(1)
     })
 }
