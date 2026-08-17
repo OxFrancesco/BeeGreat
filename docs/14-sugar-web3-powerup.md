@@ -188,6 +188,18 @@ are intentionally public; no Reown secret belongs in either client.
 Per-chain Sugar RPC overrides use the standard names (`SUGAR_RPC_URI_8453`,
 …) if needed.
 
+## Developer CLI wallet flow (aero)
+
+The `packages/sugar` CLI (`sugar-ts`, alias `aero`) has an optional
+wallet-connected flow for developers: WalletConnect pairing (the wallet app
+signs; no key material reaches the CLI) or a local wallet whose mnemonic is
+sealed with scrypt + AES-256-GCM and stored in the macOS Keychain. It shows a
+plan summary and asks for confirmation before broadcasting (`--yes`,
+`--dry-run`). This is strictly CLI-local: the agent bridge
+(`/internal/web3/sugar`) still receives only unsigned plans, the
+`validateSugarRequest` boundary is unchanged, and the app confirmation gate
+is not bypassed. See `packages/sugar/README.md` for usage.
+
 Run the focused checks with Bun:
 
 ```sh

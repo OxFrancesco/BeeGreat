@@ -109,8 +109,41 @@ bun run --cwd packages/sugar cli -- quote --chain=1135 \
   --from-token=ETH --to-token=USDT --amount=0.001 --use-decimals
 ```
 
-The `sugar-ts` package bin exposes that entrypoint to workspace consumers.
-Like the SDK, it only returns JSON reads and unsigned transactions.
+The `sugar-ts` package bin exposes that entrypoint to workspace consumers
+(`aero` is an alias). The SDK layer only returns JSON reads and unsigned
+transactions; signing lives exclusively in the CLI wallet flow below.
+
+### Wallet-connected CLI (aero)
+
+The CLI can connect a wallet and broadcast the plans it builds:
+
+```sh
+aero wallet connect      # WalletConnect: QR pairing with an extension/mobile wallet
+aero wallet create       # new local wallet; mnemonic sealed with scrypt + AES-256-GCM
+aero wallet restore      # import an existing mnemonic into the encrypted store
+aero wallet status       # active wallet and source
+aero wallet disconnect   # drop the WalletConnect session
+aero wallet remove       # delete the local encrypted wallet (confirmed)
+
+aero swap --from-token=ETH --to-token=USDC --amount=0.1 --use-decimals
+```
+
+With a wallet connected, transaction actions (`swap`, `deposit`, `withdraw`,
+`stake`, `unstake`, `claim-emissions`, `claim-fees`, `create-venft`) default
+`--chain` to Base (8453, Aerodrome), fill `--wallet` from the active wallet,
+print a human summary, and ask for confirmation before broadcasting each step
+(approvals first, receipts awaited). `--yes` skips the prompt; `--dry-run`
+always prints the unsigned plan. Without a wallet the CLI behaves exactly as
+before and prints unsigned JSON.
+
+Wallet security: WalletConnect wallets sign in-app, so no key material ever
+reaches the CLI. Local wallets keep the mnemonic sealed with scrypt +
+AES-256-GCM; the ciphertext lives in the macOS Keychain (generic password,
+iCloud Keychain syncable) with a `0600` file fallback elsewhere, and the
+plaintext mnemonic is shown once at creation and never written to disk.
+Environment: `WALLETCONNECT_PROJECT_ID` (pairing), `SUGAR_WALLET_PASSPHRASE`
+(non-interactive local signing), `SUGAR_WALLET_DIR` / `SUGAR_WALLET_NO_KEYCHAIN`
+(storage overrides).
 
 ## Chain clients
 
