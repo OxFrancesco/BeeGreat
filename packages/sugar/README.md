@@ -104,9 +104,9 @@ Supported actions are `deposit`, `positions`, `pools`, `epochs_latest`,
 The same actions are available from the Bun CLI:
 
 ```sh
-bun run --cwd packages/sugar cli -- pools --chain=1135 --limit=1
-bun run --cwd packages/sugar cli -- quote --chain=1135 \
-  --from-token=ETH --to-token=USDT --amount=0.001 --use-decimals
+bun run --cwd packages/sugar cli -- pools --chain 1135 --limit 1
+bun run --cwd packages/sugar cli -- quote --chain 1135 \
+  --from-token ETH --to-token USDT --amount 0.001 --use-decimals
 ```
 
 The `sugar-ts` package bin exposes that entrypoint to workspace consumers
@@ -114,6 +114,13 @@ The `sugar-ts` package bin exposes that entrypoint to workspace consumers
 transactions; signing lives exclusively in the CLI wallet flow below.
 
 ### Wallet-connected CLI (aero)
+
+The interactive CLI is built on `effect/unstable/cli`: every action is a
+typed subcommand with described flags (`aero <command> --help`), any command
+can be filled in interactively with `--wizard`, shell completions are
+generated with `aero --completions zsh|bash|fish`, and `aero guide <topic>`
+prints in-terminal walkthroughs (getting-started, wallet, swap, liquidity,
+staking, rewards, venft, chains, completions).
 
 The CLI can connect a wallet and broadcast the plans it builds:
 
@@ -125,16 +132,16 @@ aero wallet status       # active wallet and source
 aero wallet disconnect   # drop the WalletConnect session
 aero wallet remove       # delete the local encrypted wallet (confirmed)
 
-aero swap --from-token=ETH --to-token=USDC --amount=0.1 --use-decimals
+aero swap --from-token ETH --to-token USDC --amount 0.1 --use-decimals
 ```
 
-With a wallet connected, transaction actions (`swap`, `deposit`, `withdraw`,
-`stake`, `unstake`, `claim-emissions`, `claim-fees`, `create-venft`) default
-`--chain` to Base (8453, Aerodrome), fill `--wallet` from the active wallet,
-print a human summary, and ask for confirmation before broadcasting each step
+Every command defaults `--chain` to Base (8453, Aerodrome). Transaction
+actions (`swap`, `deposit`, `withdraw`, `stake`, `unstake`, `claim-emissions`,
+`claim-fees`, `create-venft`) fill `--wallet` from the active wallet, print a
+human summary, and ask for confirmation before broadcasting each step
 (approvals first, receipts awaited). `--yes` skips the prompt; `--dry-run`
-always prints the unsigned plan. Without a wallet the CLI behaves exactly as
-before and prints unsigned JSON.
+always prints the unsigned plan. Without a wallet the CLI prints unsigned
+JSON.
 
 Wallet security: WalletConnect wallets sign in-app, so no key material ever
 reaches the CLI. Local wallets keep the mnemonic sealed with scrypt +

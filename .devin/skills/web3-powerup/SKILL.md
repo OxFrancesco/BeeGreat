@@ -24,8 +24,15 @@ packages/backend/convex/socketSwap.ts        (Socket V3 quote/status, Effect ret
 packages/sugar/                              (native Sugar SDK; boundary validation in src/index.ts)
 ```
 
-Primary doc: `docs/14-sugar-web3-powerup.md`. Effect usage follows the house
-pattern in `packages/backend/convex/scraperEffect.ts` (effect **v3.21.4**, not v4).
+Primary doc: `docs/14-sugar-web3-powerup.md`. Effect versions are split on
+purpose: `packages/backend` follows the house pattern in
+`packages/backend/convex/scraperEffect.ts` (effect **v3.21.4**), while
+`packages/sugar` is Effect-first on effect **v4** (4.0.0-beta line):
+Effect.fn generator domain modules, Schema.TaggedError (`SugarRpcError`),
+effect/Cache read caches, and a promise adapter (`src/internal/interop.ts`
+`runSugar`) at the public API edge so backend consumption is unchanged. The
+`aero` CLI is built on `effect/unstable/cli` (typed subcommands, `--wizard`,
+`--completions`, `aero guide`).
 
 ## Tool → op → internal function map
 
@@ -85,10 +92,16 @@ Check a deployment with `bunx convex env list` (add `--prod` for production) fro
 
 ## Effect conventions here
 
-- effect v3.21.4 API only. Errors: `Data.TaggedError`. Retries: the
-  `Schedule.identity + addDelay(Retry-After) + intersect(exponential) +
-  intersect(recurs)` composition (see `socketSwap.ts` `socketFetch` and
-  `scraperEffect.ts` `providerAttempt`).
+- `packages/backend`: effect v3.21.4 API only. Errors: `Data.TaggedError`.
+  Retries: the `Schedule.identity + addDelay(Retry-After) +
+  intersect(exponential) + intersect(recurs)` composition (see
+  `socketSwap.ts` `socketFetch` and `scraperEffect.ts` `providerAttempt`).
+- `packages/sugar`: effect v4 (4.0.0-beta line). Errors:
+  `Schema.TaggedError` (`SugarRpcError`). Retries: v4
+  `Effect.retry({ while, schedule })` with `Schedule.exponential + upTo +
+  modifyDelay(Retry-After)` in `src/internal/rpc-executor.ts`. Read caches:
+  `effect/Cache` via `src/internal/caches.ts`. The two effect versions never
+  mix — sugar's promise edge (`runSugar`) is the boundary.
 - Only idempotent reads retry (Socket quote/status, Sugar RPC reads). Transaction
   submission never retries automatically.
 - Do NOT convert Convex scheduler polling (`pollSocketSwapStatus`) to
@@ -99,6 +112,7 @@ Check a deployment with `bunx convex env list` (add `--prod` for production) fro
 
 ```sh
 bun test packages/sugar
+bun run --cwd packages/sugar lint
 bun run --cwd packages/backend test -- run convex/socketSwap.test.ts convex/web3Actions.test.ts convex/web3.test.ts convex/channelActions.test.ts
 bun run --cwd packages/sugar typecheck
 bun run --cwd packages/backend typecheck
