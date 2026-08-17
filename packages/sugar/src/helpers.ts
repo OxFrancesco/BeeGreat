@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect'
+import { runSugar } from './internal/interop'
 import {
   concatHex,
   encodeAbiParameters,
@@ -237,9 +238,7 @@ export async function mapConcurrent<T, R>(items: readonly T[], concurrency: numb
     (item, index) => Effect.tryPromise({ try: () => mapper(item, index), catch: (cause) => cause }),
     { concurrency: Math.max(1, concurrency) },
   )
-  const result = await Effect.runPromise(Effect.either(program))
-  if (result._tag === 'Left') throw result.left
-  return result.right
+  return runSugar(program)
 }
 
 export function serializeIcaCalls(calls: IcaCall[]): Array<{ to: Address; value: string; data: Hex }> {

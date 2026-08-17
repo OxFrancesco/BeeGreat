@@ -1,7 +1,9 @@
+import * as Effect from 'effect/Effect'
 import type { Address } from 'viem'
 import { abis } from './abis'
 import { addressKey, applySlippage, chunk, findAllPaths, packPath, tokenContractAddress, tupleValues } from './helpers'
 import type { SugarContext } from './internal/context'
+import { clientCall } from './internal/interop'
 import type { LiquidityPoolForSwap, PathHop, Quote, Token } from './types'
 
 const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11' as Address
@@ -55,8 +57,17 @@ function prioritizeQuotePaths(ctx: SugarContext, paths: PathHop[][]): PathHop[][
   return [...paths].sort((a, b) => a.length - b.length).slice(0, limit)
 }
 
-export async function getQuote(ctx: SugarContext, fromToken: Token, toToken: Token, amount: bigint, filter?: (quote: Quote) => boolean): Promise<Quote | undefined> {
-  const pools = ctx.client.filterPoolsForSwap(await ctx.client.getPoolsForSwaps(), fromToken, toToken)
+type MulticallResponse = Array<{ status: 'success'; result: unknown } | { status: 'failure' }>
+
+export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
+  ctx: SugarContext,
+  fromToken: Token,
+  toToken: Token,
+  amount: bigint,
+  filter?: (quote: Quote) => boolean,
+) {
+  const poolsForSwaps = yield* clientCall(() => ctx.client.getPoolsForSwaps())
+  const pools = ctx.client.filterPoolsForSwap(poolsForSwaps, fromToken, toToken)
   const paths = prioritizeQuotePaths(ctx, ctx.client.getPathsForQuote(fromToken, toToken, pools))
   const inputs = paths.map((path) => ({
     path,
@@ -80,7 +91,7 @@ export async function getQuote(ctx: SugarContext, fromToken: Token, toToken: Tok
   }
   const batches = chunk(inputs, Math.max(1, ctx.settings.quoteBatchSize))
   const deadline = ctx.rpc.deadline('quoteExactInput')
-  const multicallBatches = await ctx.rpc.forEachReadResult(
+  const multicallBatches = yield* ctx.rpc.forEachReadResult(
     'quoteExactInput.multicall',
     batches,
     (batch) => ctx.publicClient.multicall({
@@ -92,7 +103,9 @@ export async function getQuote(ctx: SugarContext, fromToken: Token, toToken: Tok
         functionName: 'quoteExactInput',
         args: [encoded, amount],
       })),
-    } as never) as Promise<Array<{ status: 'success'; result: unknown } | { status: 'failure' }>>,
+      // SAFETY: viem cannot statically type a multicall over a JSON ABI; each
+      // entry mirrors the quoter's (amountOut, ...) tuple or a failure status.
+    } as never) as Promise<MulticallResponse>,
     Math.max(1, Math.min(ctx.settings.requestConcurrency, batches.length)),
     deadline,
   )
@@ -118,7 +131,7 @@ export async function getQuote(ctx: SugarContext, fromToken: Token, toToken: Tok
   // Some private/test networks do not deploy Multicall3. Preserve the SDK
   // surface with one bounded, fail-fast direct-call fallback phase.
   if (fallbackInputs.length > 0) {
-    const directResults = await ctx.rpc.forEachReadResult(
+    const directResults = yield* ctx.rpc.forEachReadResult(
       'quoteExactInput.direct',
       fallbackInputs,
       ({ encoded }) => ctx.publicClient.readContract({
@@ -126,6 +139,8 @@ export async function getQuote(ctx: SugarContext, fromToken: Token, toToken: Tok
         abi: abis.quoter,
         functionName: 'quoteExactInput',
         args: [encoded, amount],
+        // SAFETY: viem cannot statically type a dynamic read over a JSON ABI;
+        // the quoter result shape is validated by quoteFromResult.
       } as never) as Promise<unknown>,
       ctx.settings.requestConcurrency,
       deadline,
@@ -152,4 +167,4 @@ export async function getQuote(ctx: SugarContext, fromToken: Token, toToken: Tok
     if (quote.input.path.length === safest.input.path.length && quote.amountOut > safest.amountOut) return quote
     return safest
   }, undefined)
-}
+})

@@ -1,46 +1,65 @@
+import * as Effect from 'effect/Effect'
 import type { Address } from 'viem'
 import { abis } from './abis'
 import { normalizeAddress } from './helpers'
-import { paginate } from './internal/pagination'
+import { makeSharedReadCache, sharedCacheGet } from './internal/caches'
 import type { SugarContext } from './internal/context'
+import { clientCall } from './internal/interop'
+import { paginate } from './internal/pagination'
 import { bridgeToken, findToken, prepareTokens } from './models'
 import { ADDRESS_ZERO, type Token } from './types'
 
-export async function balanceOf(ctx: SugarContext, tokenAddress: Address, ownerAddress: Address): Promise<bigint> {
-  return ctx.read(tokenAddress, abis.erc20, 'balanceOf', [ownerAddress])
-}
+export const balanceOf = Effect.fn('Sugar.Tokens.balanceOf')(function* (
+  ctx: SugarContext,
+  tokenAddress: Address,
+  ownerAddress: Address,
+) {
+  return yield* ctx.read<bigint>(tokenAddress, abis.erc20, 'balanceOf', [ownerAddress])
+})
 
-export async function getTokenBalance(ctx: SugarContext, token: Token, ownerAddress?: Address): Promise<bigint> {
+export const getTokenBalance = Effect.fn('Sugar.Tokens.getTokenBalance')(function* (
+  ctx: SugarContext,
+  token: Token,
+  ownerAddress?: Address,
+) {
   if (!ownerAddress) throw new Error('Owner address is required to get token balance')
   return token.wrappedTokenAddress
-    ? ctx.rpc.read('getBalance', () => ctx.publicClient.getBalance({ address: ownerAddress }))
-    : ctx.client.balanceOf(normalizeAddress(token.tokenAddress), ownerAddress)
-}
+    ? yield* ctx.rpc.read('getBalance', () => ctx.publicClient.getBalance({ address: ownerAddress }))
+    : yield* clientCall(() => ctx.client.balanceOf(normalizeAddress(token.tokenAddress), ownerAddress))
+})
 
-export async function getUserIcaBalance(ctx: SugarContext, userIca: Address): Promise<bigint> {
-  return ctx.client.balanceOf(ctx.settings.bridgeTokenAddress, userIca)
-}
+export const getUserIcaBalance = Effect.fn('Sugar.Tokens.getUserIcaBalance')(function* (
+  ctx: SugarContext,
+  userIca: Address,
+) {
+  return yield* clientCall(() => ctx.client.balanceOf(ctx.settings.bridgeTokenAddress, userIca))
+})
 
-export function getAllTokens(ctx: SugarContext, listedOnly = false): Promise<Token[]> {
-  if (!ctx.caches.tokenCache) {
-    const promise = paginate(ctx, 'tokens', (limit, offset) => ctx.readTask<unknown[]>(
-      ctx.settings.sugarContractAddress,
+export const getAllTokens = Effect.fn('Sugar.Tokens.getAllTokens')(function* (
+  ctx: SugarContext,
+  listedOnly = false,
+) {
+  const cache = ctx.caches.tokenCache ??= yield* makeSharedReadCache(ctx.caches, (active, _key: 'catalog') =>
+    paginate(active, 'tokens', (limit, offset) => active.readTask<unknown[]>(
+      active.settings.sugarContractAddress,
       abis.sugar,
       'tokens',
       [limit, offset, ADDRESS_ZERO, []],
-    )).then((raw) => prepareTokens(raw, ctx.settings))
-    ctx.caches.tokenCache = promise
-    void promise.catch(() => {
-      if (ctx.caches.tokenCache === promise) ctx.caches.tokenCache = undefined
-    })
-  }
-  return ctx.caches.tokenCache.then((tokens) => listedOnly ? tokens.filter((token, index) => index === 0 || token.listed) : tokens)
-}
+    )).pipe(Effect.map((raw) => prepareTokens(raw, active.settings))),
+  )
+  const tokens = yield* sharedCacheGet(ctx, cache, 'catalog')
+  return listedOnly ? tokens.filter((token, index) => index === 0 || token.listed) : tokens
+})
 
-export async function getToken(ctx: SugarContext, reference: string | bigint | number): Promise<Token | undefined> {
-  return findToken(await ctx.client.getAllTokens(), reference)
-}
+export const getToken = Effect.fn('Sugar.Tokens.getToken')(function* (
+  ctx: SugarContext,
+  reference: string | bigint | number,
+) {
+  return findToken(yield* clientCall(() => ctx.client.getAllTokens()), reference)
+})
 
-export async function getBridgeToken(ctx: SugarContext): Promise<Token> {
-  return bridgeToken(await ctx.client.getAllTokens(), ctx.settings)
-}
+export const getBridgeToken = Effect.fn('Sugar.Tokens.getBridgeToken')(function* (
+  ctx: SugarContext,
+) {
+  return bridgeToken(yield* clientCall(() => ctx.client.getAllTokens()), ctx.settings)
+})

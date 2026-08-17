@@ -1,3 +1,4 @@
+import * as Effect from 'effect/Effect'
 import {
   createPublicClient,
   encodeFunctionData,
@@ -12,6 +13,7 @@ import { abis } from './abis'
 import { getChainSettings } from './config'
 import { normalizeAddress } from './helpers'
 import type { ReadArgs, SugarContext } from './internal/context'
+import { runSugar } from './internal/interop'
 import { getPoolCount, getPoolPaginator, pageSize } from './internal/pagination'
 import {
   makeRpcReadExecutor,
@@ -50,10 +52,12 @@ import {
 } from './types'
 
 /**
- * Thin facade over the per-domain modules (tokens, prices, pools, venfts,
- * positions, quotes, transactions). All state lives in one SugarContext built
- * by the constructor, so caching semantics are shared across domains exactly
- * as before the extraction.
+ * Thin promise facade over the Effect-based domain modules (tokens, prices,
+ * pools, venfts, positions, quotes, transactions). All state lives in one
+ * SugarContext built by the constructor, so caching semantics are shared
+ * across domains exactly as before the extraction. Each method runs its
+ * domain effect through `runSugar`, which preserves the identity of thrown
+ * SugarRpcError and precondition errors for promise consumers.
  */
 export class SugarClient {
   readonly settings: ChainSettings
@@ -88,6 +92,8 @@ export class SugarClient {
       return account
     }
     const readTask = <T>(address: Address, abi: Abi, functionName: string, args?: ReadArgs): RpcReadTask<T> =>
+      // SAFETY: viem cannot statically type a dynamic read over a JSON ABI;
+      // each caller pins the concrete result type it decodes.
       () => publicClient.readContract({ address, abi, functionName, args } as never) as Promise<T>
     this.ctx = {
       client: this,
@@ -96,16 +102,18 @@ export class SugarClient {
       publicClient,
       rpc,
       caches: options.cacheStore?.cachesFor(this.settings.chainId, this.settings.rpcUrl)
-        ?? { rawPoolCache: new Map(), poolCache: new Map(), priceRateCache: new Map() },
+        ?? { priceRateCache: new Map() },
       poolLocatorStore: options.poolLocatorStore,
-      resolvedPoolLocators: new Map(),
+      resolvedPoolLocators: Effect.runSync(poolsApi.makeResolvedPoolLocatorCache(() => this.ctx)),
       veNftContractsCache: undefined,
       readTask,
-      read: <T>(address: Address, abi: Abi, functionName: string, args?: ReadArgs, deadline?: RpcDeadline): Promise<T> =>
-        rpc.read(functionName, readTask<T>(address, abi, functionName, args), deadline),
+      read: (address, abi, functionName, args, deadline) =>
+        rpc.read(functionName, readTask(address, abi, functionName, args), deadline),
       signer,
       tx: (to: Address, data: Hex, value = 0n): UnsignedTransaction => ({ from: signer(), to, data, value }),
       encode: (abi: Abi, functionName: string, args: readonly unknown[] = []): Hex =>
+        // SAFETY: viem cannot statically type dynamic function encoding over
+        // a JSON ABI; the ABI entries pin the argument shapes at runtime.
         encodeFunctionData({ abi, functionName, args } as never),
       emitRpcEvent: (event) => {
         try {
@@ -130,53 +138,53 @@ export class SugarClient {
   }
 
   getPoolCount(): Promise<number> {
-    return getPoolCount(this.ctx)
+    return runSugar(getPoolCount(this.ctx))
   }
 
-  async getBridgeFee(domain: number): Promise<bigint> {
-    return transactionsApi.getBridgeFee(this.ctx, domain)
+  getBridgeFee(domain: number): Promise<bigint> {
+    return runSugar(transactionsApi.getBridgeFee(this.ctx, domain))
   }
 
-  async getXchainFee(destinationDomain: number): Promise<bigint> {
-    return this.ctx.read(this.settings.interchainRouterContractAddress, abis.interchainRouter, 'quoteGasForCommitReveal', [destinationDomain, XCHAIN_GAS_LIMIT_UPPERBOUND])
+  getXchainFee(destinationDomain: number): Promise<bigint> {
+    return runSugar(this.ctx.read(this.settings.interchainRouterContractAddress, abis.interchainRouter, 'quoteGasForCommitReveal', [destinationDomain, XCHAIN_GAS_LIMIT_UPPERBOUND]))
   }
 
-  async getRemoteInterchainAccount(destinationDomain: number): Promise<Address> {
-    return this.ctx.read(this.settings.interchainRouterContractAddress, abis.interchainRouter, 'getRemoteInterchainAccount', [
+  getRemoteInterchainAccount(destinationDomain: number): Promise<Address> {
+    return runSugar(this.ctx.read(this.settings.interchainRouterContractAddress, abis.interchainRouter, 'getRemoteInterchainAccount', [
       destinationDomain,
       this.settings.swapperContractAddress,
       pad(this.ctx.signer(), { size: 32 }),
-    ])
+    ]))
   }
 
-  async getIcaHook(): Promise<Address> {
-    return this.ctx.read(this.settings.interchainRouterContractAddress, abis.interchainRouter, 'hook')
+  getIcaHook(): Promise<Address> {
+    return runSugar(this.ctx.read(this.settings.interchainRouterContractAddress, abis.interchainRouter, 'hook'))
   }
 
   // --- tokens ---
 
-  async balanceOf(tokenAddress: Address, ownerAddress: Address): Promise<bigint> {
-    return tokensApi.balanceOf(this.ctx, tokenAddress, ownerAddress)
+  balanceOf(tokenAddress: Address, ownerAddress: Address): Promise<bigint> {
+    return runSugar(tokensApi.balanceOf(this.ctx, tokenAddress, ownerAddress))
   }
 
-  async getTokenBalance(token: Token, ownerAddress = this.account): Promise<bigint> {
-    return tokensApi.getTokenBalance(this.ctx, token, ownerAddress)
+  getTokenBalance(token: Token, ownerAddress = this.account): Promise<bigint> {
+    return runSugar(tokensApi.getTokenBalance(this.ctx, token, ownerAddress))
   }
 
-  async getUserIcaBalance(userIca: Address): Promise<bigint> {
-    return tokensApi.getUserIcaBalance(this.ctx, userIca)
+  getUserIcaBalance(userIca: Address): Promise<bigint> {
+    return runSugar(tokensApi.getUserIcaBalance(this.ctx, userIca))
   }
 
   getAllTokens(listedOnly = false): Promise<Token[]> {
-    return tokensApi.getAllTokens(this.ctx, listedOnly)
+    return runSugar(tokensApi.getAllTokens(this.ctx, listedOnly))
   }
 
-  async getToken(reference: string | bigint | number): Promise<Token | undefined> {
-    return tokensApi.getToken(this.ctx, reference)
+  getToken(reference: string | bigint | number): Promise<Token | undefined> {
+    return runSugar(tokensApi.getToken(this.ctx, reference))
   }
 
-  async getBridgeToken(): Promise<Token> {
-    return tokensApi.getBridgeToken(this.ctx)
+  getBridgeToken(): Promise<Token> {
+    return runSugar(tokensApi.getBridgeToken(this.ctx))
   }
 
   // --- prices ---
@@ -189,37 +197,37 @@ export class SugarClient {
     return pricesApi.getPriceConnectors(this.ctx)
   }
 
-  async getPrices(tokens: Token[]): Promise<Price[]> {
-    return pricesApi.getPrices(this.ctx, tokens)
+  getPrices(tokens: Token[]): Promise<Price[]> {
+    return runSugar(pricesApi.getPrices(this.ctx, tokens))
   }
 
   // --- pools ---
 
   getRawPools(forSwaps = false): Promise<unknown[]> {
-    return poolsApi.getRawPools(this.ctx, forSwaps)
+    return runSugar(poolsApi.getRawPools(this.ctx, forSwaps))
   }
 
   async getPools(): Promise<LiquidityPool[]>
   async getPools(forSwaps: false): Promise<LiquidityPool[]>
   async getPools(forSwaps: true): Promise<LiquidityPoolForSwap[]>
   async getPools(forSwaps = false): Promise<LiquidityPool[] | LiquidityPoolForSwap[]> {
-    return poolsApi.getPools(this.ctx, forSwaps)
+    return runSugar(poolsApi.getPools(this.ctx, forSwaps))
   }
 
   getPoolsForSwaps(): Promise<LiquidityPoolForSwap[]> {
-    return poolsApi.getPoolsForSwaps(this.ctx)
+    return runSugar(poolsApi.getPoolsForSwaps(this.ctx))
   }
 
-  async getPoolByAddress(address: Address | string): Promise<LiquidityPool | undefined> {
-    return poolsApi.getPoolByAddress(this.ctx, address)
+  getPoolByAddress(address: Address | string): Promise<LiquidityPool | undefined> {
+    return runSugar(poolsApi.getPoolByAddress(this.ctx, address))
   }
 
-  async getPoolEpochs(lp: Address | string, offset = 0, limit = 10): Promise<LiquidityPoolEpoch[]> {
-    return poolsApi.getPoolEpochs(this.ctx, lp, offset, limit)
+  getPoolEpochs(lp: Address | string, offset = 0, limit = 10): Promise<LiquidityPoolEpoch[]> {
+    return runSugar(poolsApi.getPoolEpochs(this.ctx, lp, offset, limit))
   }
 
-  async getLatestPoolEpochs(): Promise<LiquidityPoolEpoch[]> {
-    return poolsApi.getLatestPoolEpochs(this.ctx)
+  getLatestPoolEpochs(): Promise<LiquidityPoolEpoch[]> {
+    return runSugar(poolsApi.getLatestPoolEpochs(this.ctx))
   }
 
   // --- veNFTs & voting rewards ---
@@ -229,105 +237,105 @@ export class SugarClient {
   }
 
   getVeNftContracts(): Promise<VeNftContracts> {
-    return venftsApi.getVeNftContracts(this.ctx)
+    return runSugar(venftsApi.getVeNftContracts(this.ctx))
   }
 
-  async getVeNfts(owner = this.account): Promise<VeNft[]> {
-    return venftsApi.getVeNfts(this.ctx, owner)
+  getVeNfts(owner = this.account): Promise<VeNft[]> {
+    return runSugar(venftsApi.getVeNfts(this.ctx, owner))
   }
 
-  async getVeNft(tokenId: bigint): Promise<VeNft | undefined> {
-    return venftsApi.getVeNft(this.ctx, tokenId)
+  getVeNft(tokenId: bigint): Promise<VeNft | undefined> {
+    return runSugar(venftsApi.getVeNft(this.ctx, tokenId))
   }
 
-  async getVeNftRewards(tokenId: bigint, pool?: Address): Promise<VeNftReward[]> {
-    return venftsApi.getVeNftRewards(this.ctx, tokenId, pool)
+  getVeNftRewards(tokenId: bigint, pool?: Address): Promise<VeNftReward[]> {
+    return runSugar(venftsApi.getVeNftRewards(this.ctx, tokenId, pool))
   }
 
-  async createVeNft(amount: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
-    return venftsApi.createVeNft(this.ctx, amount, lockDurationSeconds)
+  createVeNft(amount: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.createVeNft(this.ctx, amount, lockDurationSeconds))
   }
 
-  async increaseVeNftAmount(tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.increaseVeNftAmount(this.ctx, tokenId, amount)
+  increaseVeNftAmount(tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.increaseVeNftAmount(this.ctx, tokenId, amount))
   }
 
-  async extendVeNftLock(tokenId: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
-    return venftsApi.extendVeNftLock(this.ctx, tokenId, lockDurationSeconds)
+  extendVeNftLock(tokenId: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.extendVeNftLock(this.ctx, tokenId, lockDurationSeconds))
   }
 
-  async withdrawVeNft(tokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.withdrawVeNft(this.ctx, tokenId)
+  withdrawVeNft(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.withdrawVeNft(this.ctx, tokenId))
   }
 
-  async mergeVeNfts(fromTokenId: bigint, intoTokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.mergeVeNfts(this.ctx, fromTokenId, intoTokenId)
+  mergeVeNfts(fromTokenId: bigint, intoTokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.mergeVeNfts(this.ctx, fromTokenId, intoTokenId))
   }
 
-  async splitVeNft(tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.splitVeNft(this.ctx, tokenId, amount)
+  splitVeNft(tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.splitVeNft(this.ctx, tokenId, amount))
   }
 
-  async setVeNftPermanent(tokenId: bigint, permanent: boolean): Promise<UnsignedTransaction[]> {
-    return venftsApi.setVeNftPermanent(this.ctx, tokenId, permanent)
+  setVeNftPermanent(tokenId: bigint, permanent: boolean): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.setVeNftPermanent(this.ctx, tokenId, permanent))
   }
 
-  async delegateVeNft(tokenId: bigint, delegateTokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.delegateVeNft(this.ctx, tokenId, delegateTokenId)
+  delegateVeNft(tokenId: bigint, delegateTokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.delegateVeNft(this.ctx, tokenId, delegateTokenId))
   }
 
-  async voteVeNft(tokenId: bigint, votes: readonly VeNftVote[]): Promise<UnsignedTransaction[]> {
-    return venftsApi.voteVeNft(this.ctx, tokenId, votes)
+  voteVeNft(tokenId: bigint, votes: readonly VeNftVote[]): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.voteVeNft(this.ctx, tokenId, votes))
   }
 
-  async resetVeNftVotes(tokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.resetVeNftVotes(this.ctx, tokenId)
+  resetVeNftVotes(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.resetVeNftVotes(this.ctx, tokenId))
   }
 
-  async pokeVeNftVotes(tokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.pokeVeNftVotes(this.ctx, tokenId)
+  pokeVeNftVotes(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.pokeVeNftVotes(this.ctx, tokenId))
   }
 
-  async depositVeNftIntoManaged(tokenId: bigint, managedTokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.depositVeNftIntoManaged(this.ctx, tokenId, managedTokenId)
+  depositVeNftIntoManaged(tokenId: bigint, managedTokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.depositVeNftIntoManaged(this.ctx, tokenId, managedTokenId))
   }
 
-  async withdrawVeNftFromManaged(tokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.withdrawVeNftFromManaged(this.ctx, tokenId)
+  withdrawVeNftFromManaged(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.withdrawVeNftFromManaged(this.ctx, tokenId))
   }
 
-  async claimVeNftRewards(tokenId: bigint, pool?: Address): Promise<UnsignedTransaction[]> {
-    return venftsApi.claimVeNftRewards(this.ctx, tokenId, pool)
+  claimVeNftRewards(tokenId: bigint, pool?: Address): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.claimVeNftRewards(this.ctx, tokenId, pool))
   }
 
-  async getVeNftRebase(tokenId: bigint): Promise<bigint> {
-    return venftsApi.getVeNftRebase(this.ctx, tokenId)
+  getVeNftRebase(tokenId: bigint): Promise<bigint> {
+    return runSugar(venftsApi.getVeNftRebase(this.ctx, tokenId))
   }
 
-  async claimVeNftRebase(tokenId: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.claimVeNftRebase(this.ctx, tokenId)
+  claimVeNftRebase(tokenId: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.claimVeNftRebase(this.ctx, tokenId))
   }
 
-  async claimVeNftRebases(tokenIds: readonly bigint[]): Promise<UnsignedTransaction[]> {
-    return venftsApi.claimVeNftRebases(this.ctx, tokenIds)
+  claimVeNftRebases(tokenIds: readonly bigint[]): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.claimVeNftRebases(this.ctx, tokenIds))
   }
 
-  async getPoolRewardContracts(pool: LiquidityPool): Promise<PoolRewardContracts> {
-    return venftsApi.getPoolRewardContracts(this.ctx, pool)
+  getPoolRewardContracts(pool: LiquidityPool): Promise<PoolRewardContracts> {
+    return runSugar(venftsApi.getPoolRewardContracts(this.ctx, pool))
   }
 
-  async incentivizePool(pool: LiquidityPool, token: Token, amount: bigint): Promise<UnsignedTransaction[]> {
-    return venftsApi.incentivizePool(this.ctx, pool, token, amount)
+  incentivizePool(pool: LiquidityPool, token: Token, amount: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(venftsApi.incentivizePool(this.ctx, pool, token, amount))
   }
 
   // --- positions ---
 
-  async getPositions(owner = this.account): Promise<Position[]> {
-    return positionsApi.getPositions(this.ctx, owner)
+  getPositions(owner = this.account): Promise<Position[]> {
+    return runSugar(positionsApi.getPositions(this.ctx, owner))
   }
 
-  async getPositionByPool(poolAddress: Address, owner = this.account): Promise<Position | undefined> {
-    return positionsApi.getPositionByPool(this.ctx, poolAddress, owner)
+  getPositionByPool(poolAddress: Address, owner = this.account): Promise<Position | undefined> {
+    return runSugar(positionsApi.getPositionByPool(this.ctx, poolAddress, owner))
   }
 
   // --- quotes ---
@@ -340,77 +348,77 @@ export class SugarClient {
     return quotesApi.getPathsForQuote(this.ctx, fromToken, toToken, pools, excludedAddresses)
   }
 
-  async getQuote(fromToken: Token, toToken: Token, amount: bigint, filter?: (quote: Quote) => boolean): Promise<Quote | undefined> {
-    return quotesApi.getQuote(this.ctx, fromToken, toToken, amount, filter)
+  getQuote(fromToken: Token, toToken: Token, amount: bigint, filter?: (quote: Quote) => boolean): Promise<Quote | undefined> {
+    return runSugar(quotesApi.getQuote(this.ctx, fromToken, toToken, amount, filter))
   }
 
   // --- transactions ---
 
-  async checkTokenAllowance(token: Token, spender: Address): Promise<bigint> {
-    return transactionsApi.checkTokenAllowance(this.ctx, token, spender)
+  checkTokenAllowance(token: Token, spender: Address): Promise<bigint> {
+    return runSugar(transactionsApi.checkTokenAllowance(this.ctx, token, spender))
   }
 
-  async setTokenAllowance(token: Token, spender: Address, amount: bigint): Promise<UnsignedTransaction | undefined> {
-    return transactionsApi.setTokenAllowance(this.ctx, token, spender, amount)
+  setTokenAllowance(token: Token, spender: Address, amount: bigint): Promise<UnsignedTransaction | undefined> {
+    return runSugar(transactionsApi.setTokenAllowance(this.ctx, token, spender, amount))
   }
 
-  async revokeTokenAllowance(token: Token, spender: Address): Promise<UnsignedTransaction[]> {
-    return transactionsApi.revokeTokenAllowance(this.ctx, token, spender)
+  revokeTokenAllowance(token: Token, spender: Address): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.revokeTokenAllowance(this.ctx, token, spender))
   }
 
-  async revokePermit2Allowance(token: Token): Promise<UnsignedTransaction[]> {
-    return transactionsApi.revokePermit2Allowance(this.ctx, token)
+  revokePermit2Allowance(token: Token): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.revokePermit2Allowance(this.ctx, token))
   }
 
-  async bridge(fromToken: Token, amount: bigint, domain: number): Promise<UnsignedTransaction[]> {
-    return transactionsApi.bridge(this.ctx, fromToken, amount, domain)
+  bridge(fromToken: Token, amount: bigint, domain: number): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.bridge(this.ctx, fromToken, amount, domain))
   }
 
-  async swap(fromToken: Token, toToken: Token, amount: bigint, slippage?: number): Promise<UnsignedTransaction[]> {
-    return transactionsApi.swap(this.ctx, fromToken, toToken, amount, slippage)
+  swap(fromToken: Token, toToken: Token, amount: bigint, slippage?: number): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.swap(this.ctx, fromToken, toToken, amount, slippage))
   }
 
-  async swapFromQuote(quote: Quote, slippage = this.settings.swapSlippage): Promise<UnsignedTransaction[]> {
-    return transactionsApi.swapFromQuote(this.ctx, quote, slippage)
+  swapFromQuote(quote: Quote, slippage = this.settings.swapSlippage): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.swapFromQuote(this.ctx, quote, slippage))
   }
 
-  async poolSpec(token0: Token, token1: Token, options: { tickSpacing?: number; stable?: boolean }): Promise<LiquidityPool> {
-    return transactionsApi.poolSpec(this.ctx, token0, token1, options)
+  poolSpec(token0: Token, token1: Token, options: { tickSpacing?: number; stable?: boolean }): Promise<LiquidityPool> {
+    return runSugar(transactionsApi.poolSpec(this.ctx, token0, token1, options))
   }
 
-  async quoteBasicDeposit(pool: LiquidityPool, amounts: { amountToken0?: bigint; amountToken1?: bigint }): Promise<DepositQuote> {
-    return transactionsApi.quoteBasicDeposit(this.ctx, pool, amounts)
+  quoteBasicDeposit(pool: LiquidityPool, amounts: { amountToken0?: bigint; amountToken1?: bigint }): Promise<DepositQuote> {
+    return runSugar(transactionsApi.quoteBasicDeposit(this.ctx, pool, amounts))
   }
 
-  async quoteConcentratedDeposit(pool: LiquidityPool, options: {
+  quoteConcentratedDeposit(pool: LiquidityPool, options: {
     priceLower?: number; priceUpper?: number; tickLower?: number; tickUpper?: number
     amountToken0?: bigint; amountToken1?: bigint; initialPrice?: number
   }): Promise<DepositQuote> {
-    return transactionsApi.quoteConcentratedDeposit(this.ctx, pool, options)
+    return runSugar(transactionsApi.quoteConcentratedDeposit(this.ctx, pool, options))
   }
 
-  async deposit(quote: DepositQuote, deadlineMinutes = 30, slippage = 0.01): Promise<UnsignedTransaction[]> {
-    return transactionsApi.deposit(this.ctx, quote, deadlineMinutes, slippage)
+  deposit(quote: DepositQuote, deadlineMinutes = 30, slippage = 0.01): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.deposit(this.ctx, quote, deadlineMinutes, slippage))
   }
 
-  async withdraw(withdrawal: Withdrawal, deadlineMinutes = 30, slippage = 0.01, collect = true, unwrapNative = false): Promise<UnsignedTransaction[]> {
-    return transactionsApi.withdraw(this.ctx, withdrawal, deadlineMinutes, slippage, collect, unwrapNative)
+  withdraw(withdrawal: Withdrawal, deadlineMinutes = 30, slippage = 0.01, collect = true, unwrapNative = false): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.withdraw(this.ctx, withdrawal, deadlineMinutes, slippage, collect, unwrapNative))
   }
 
-  async stake(position: Position): Promise<UnsignedTransaction[]> {
-    return transactionsApi.stake(this.ctx, position)
+  stake(position: Position): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.stake(this.ctx, position))
   }
 
-  async unstake(position: Position, amount?: bigint): Promise<UnsignedTransaction[]> {
-    return transactionsApi.unstake(this.ctx, position, amount)
+  unstake(position: Position, amount?: bigint): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.unstake(this.ctx, position, amount))
   }
 
-  async claimEmissions(position: Position): Promise<UnsignedTransaction[]> {
-    return transactionsApi.claimEmissions(this.ctx, position)
+  claimEmissions(position: Position): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.claimEmissions(this.ctx, position))
   }
 
-  async claimFees(position: Position, burn = false, unwrapNative = false): Promise<UnsignedTransaction[]> {
-    return transactionsApi.claimFees(this.ctx, position, burn, unwrapNative)
+  claimFees(position: Position, burn = false, unwrapNative = false): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.claimFees(this.ctx, position, burn, unwrapNative))
   }
 }
 

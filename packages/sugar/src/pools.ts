@@ -1,7 +1,11 @@
+import * as Cache from 'effect/Cache'
+import * as Effect from 'effect/Effect'
 import type { Address } from 'viem'
 import { abis } from './abis'
 import { addressKey, normalizeAddress, tupleValues } from './helpers'
+import { makeReadCache, makeSharedReadCache, sharedCacheGet } from './internal/caches'
 import type { ResolvedPoolLocator, SugarContext } from './internal/context'
+import { clientCall } from './internal/interop'
 import { paginate } from './internal/pagination'
 import { epochFromTuple, poolForSwapFromTuple, preparePools, prepareTokens } from './models'
 import {
@@ -14,51 +18,53 @@ import {
   type Token,
 } from './types'
 
-export function getRawPools(ctx: SugarContext, forSwaps = false): Promise<unknown[]> {
-  let promise = ctx.caches.rawPoolCache.get(forSwaps)
-  if (!promise) {
-    const operation = forSwaps ? 'forSwaps' : 'all'
-    promise = paginate(ctx, operation, (limit, offset) => ctx.readTask<unknown[]>(
-      ctx.settings.sugarContractAddress,
+export const getRawPools = Effect.fn('Sugar.Pools.getRawPools')(function* (
+  ctx: SugarContext,
+  forSwaps = false,
+) {
+  const cache = ctx.caches.rawPoolCache ??= yield* makeSharedReadCache(ctx.caches, (active, key: boolean) =>
+    paginate(active, key ? 'forSwaps' : 'all', (limit, offset) => active.readTask<unknown[]>(
+      active.settings.sugarContractAddress,
       abis.sugar,
-      forSwaps ? 'forSwaps' : 'all',
-      forSwaps ? [limit, offset] : [limit, offset, 0],
-    ))
-    ctx.caches.rawPoolCache.set(forSwaps, promise)
-    void promise.catch(() => {
-      if (ctx.caches.rawPoolCache.get(forSwaps) === promise) ctx.caches.rawPoolCache.delete(forSwaps)
-    })
-  }
-  return promise
-}
+      key ? 'forSwaps' : 'all',
+      key ? [limit, offset] : [limit, offset, 0],
+    )),
+  )
+  return yield* sharedCacheGet(ctx, cache, forSwaps)
+})
 
-export async function getPools(ctx: SugarContext): Promise<LiquidityPool[]>
-export async function getPools(ctx: SugarContext, forSwaps: false): Promise<LiquidityPool[]>
-export async function getPools(ctx: SugarContext, forSwaps: true): Promise<LiquidityPoolForSwap[]>
-export async function getPools(ctx: SugarContext, forSwaps: boolean): Promise<LiquidityPool[] | LiquidityPoolForSwap[]>
-export async function getPools(ctx: SugarContext, forSwaps = false): Promise<LiquidityPool[] | LiquidityPoolForSwap[]> {
-  let promise = ctx.caches.poolCache.get(forSwaps)
-  if (!promise) {
-    promise = (async () => {
-      const raw = await ctx.client.getRawPools(forSwaps)
-      if (forSwaps) return raw.map((pool) => poolForSwapFromTuple(pool, ctx.settings))
-      const tokens = await ctx.client.getAllTokens()
-      return preparePools(raw, tokens, await ctx.client.getPrices(tokens), ctx.settings)
-    })()
-    ctx.caches.poolCache.set(forSwaps, promise)
-    void promise.catch(() => {
-      if (ctx.caches.poolCache.get(forSwaps) === promise) ctx.caches.poolCache.delete(forSwaps)
-    })
-  }
-  return promise
-}
+/**
+ * The `forSwaps` key selects the cached representation: `false` hydrates full
+ * LiquidityPool records, `true` keeps the compact for-swaps tuples. The
+ * SugarClient facade narrows the union through its overloads.
+ */
+export const getPools = Effect.fn('Sugar.Pools.getPools')(function* (
+  ctx: SugarContext,
+  forSwaps = false,
+) {
+  const cache = ctx.caches.poolCache ??= yield* makeSharedReadCache(ctx.caches, (active, key: boolean) =>
+    Effect.gen(function* () {
+      const raw = yield* clientCall(() => active.client.getRawPools(key))
+      if (key) return raw.map((pool) => poolForSwapFromTuple(pool, active.settings))
+      const tokens = yield* clientCall(() => active.client.getAllTokens())
+      const prices = yield* clientCall(() => active.client.getPrices(tokens))
+      return preparePools(raw, tokens, prices, active.settings)
+    }),
+  )
+  return yield* sharedCacheGet(ctx, cache, forSwaps)
+})
 
-export function getPoolsForSwaps(ctx: SugarContext): Promise<LiquidityPoolForSwap[]> {
-  return ctx.client.getPools(true)
-}
+export const getPoolsForSwaps = Effect.fn('Sugar.Pools.getPoolsForSwaps')(function* (
+  ctx: SugarContext,
+) {
+  return yield* clientCall(() => ctx.client.getPools(true))
+})
 
-export async function getPoolByAddress(ctx: SugarContext, address: Address | string): Promise<LiquidityPool | undefined> {
-  const resolved = await resolvePoolLocator(ctx, normalizeAddress(address))
+export const getPoolByAddress = Effect.fn('Sugar.Pools.getPoolByAddress')(function* (
+  ctx: SugarContext,
+  address: Address | string,
+) {
+  const resolved = yield* resolvePoolLocator(ctx, normalizeAddress(address))
   if (!resolved) return undefined
   const rawPool = resolved.rawPool
 
@@ -74,21 +80,17 @@ export async function getPoolByAddress(ctx: SugarContext, address: Address | str
   const addresses = [
     ...new Map(requestedAddresses.map((value) => [addressKey(value), value])).values(),
   ]
-  const rawTokens = await ctx.read<unknown[]>(
+  const rawTokens = yield* ctx.read<unknown[]>(
     ctx.settings.sugarContractAddress,
     abis.sugar,
     'tokens',
     [BigInt(addresses.length), 0n, ADDRESS_ZERO, addresses],
   )
   const tokens = prepareTokens(rawTokens, ctx.settings)
-  const pools = preparePools(
-    [rawPool],
-    tokens,
-    await ctx.client.getPrices(tokens),
-    ctx.settings,
-  )
+  const prices = yield* clientCall(() => ctx.client.getPrices(tokens))
+  const pools = preparePools([rawPool], tokens, prices, ctx.settings)
   return pools[0]
-}
+})
 
 function poolLocatorKey(ctx: SugarContext, poolAddress: Address): SugarPoolLocatorKey {
   return {
@@ -98,74 +100,85 @@ function poolLocatorKey(ctx: SugarContext, poolAddress: Address): SugarPoolLocat
   }
 }
 
-async function rawPoolAtOffset(ctx: SugarContext, offset: number): Promise<unknown | undefined> {
+const rawPoolAtOffset = Effect.fn('Sugar.Pools.rawPoolAtOffset')(function* (
+  ctx: SugarContext,
+  offset: number,
+) {
   if (!Number.isSafeInteger(offset) || offset < 0) return undefined
-  const page = await ctx.read<unknown[]>(
+  const page = yield* ctx.read<unknown[]>(
     ctx.settings.sugarContractAddress,
     abis.sugar,
     'all',
     [1, offset, 0],
   )
   return page[0]
-}
+})
 
 function rawPoolMatches(rawPool: unknown, poolAddress: Address): boolean {
   return addressKey(String(tupleValues(rawPool)[0])) === addressKey(poolAddress)
 }
 
-export async function resolvePoolLocator(
+/** Best-effort store access: a cache outage must not break on-chain reads. */
+const storedLocatorOffset = Effect.fn('Sugar.Pools.storedLocatorOffset')(function* (
+  ctx: SugarContext,
+  key: SugarPoolLocatorKey,
+) {
+  if (!ctx.poolLocatorStore) return undefined
+  const store = ctx.poolLocatorStore
+  return yield* Effect.tryPromise(() => store.get(key)).pipe(
+    Effect.map((locator) => locator?.offset),
+    Effect.catch(() => Effect.succeed(undefined)),
+  )
+})
+
+const lookupPoolLocator = Effect.fn('Sugar.Pools.lookupPoolLocator')(function* (
   ctx: SugarContext,
   poolAddress: Address,
-): Promise<ResolvedPoolLocator | undefined> {
-  const cacheKey = addressKey(poolAddress)
-  const cached = ctx.resolvedPoolLocators.get(cacheKey)
-  if (cached) return cached
-
-  const pending = (async () => {
-    const key = poolLocatorKey(ctx, poolAddress)
-    let storedOffset: number | undefined
-    try {
-      storedOffset = (await ctx.poolLocatorStore?.get(key))?.offset
-    } catch {
-      // A cache outage must not make on-chain reads unavailable.
+) {
+  const key = poolLocatorKey(ctx, poolAddress)
+  const storedOffset = yield* storedLocatorOffset(ctx, key)
+  if (storedOffset !== undefined) {
+    const storedPool = yield* rawPoolAtOffset(ctx, storedOffset)
+    if (storedPool && rawPoolMatches(storedPool, poolAddress)) {
+      const resolved: ResolvedPoolLocator = { offset: storedOffset, rawPool: storedPool }
+      return resolved
     }
-    if (storedOffset !== undefined) {
-      const storedPool = await rawPoolAtOffset(ctx, storedOffset)
-      if (storedPool && rawPoolMatches(storedPool, poolAddress)) {
-        return { offset: storedOffset, rawPool: storedPool }
-      }
-      try {
-        await ctx.poolLocatorStore?.delete(key)
-      } catch {
-        // Best-effort invalidation; the verified fallback below is safe.
-      }
+    if (ctx.poolLocatorStore) {
+      const store = ctx.poolLocatorStore
+      yield* Effect.tryPromise(() => store.delete(key)).pipe(Effect.ignore)
     }
+  }
 
-    const rawPools = await ctx.client.getRawPools(false)
-    const offset = rawPools.findIndex((pool) =>
-      rawPoolMatches(pool, poolAddress),
+  const rawPools = yield* clientCall(() => ctx.client.getRawPools(false))
+  const offset = rawPools.findIndex((pool) => rawPoolMatches(pool, poolAddress))
+  if (offset < 0) return undefined
+  const verifiedPool = yield* rawPoolAtOffset(ctx, offset)
+  if (!verifiedPool || !rawPoolMatches(verifiedPool, poolAddress)) {
+    throw new Error(
+      `Sugar pool ${poolAddress} could not be verified at its discovered offset`,
     )
-    if (offset < 0) return undefined
-    const verifiedPool = await rawPoolAtOffset(ctx, offset)
-    if (!verifiedPool || !rawPoolMatches(verifiedPool, poolAddress)) {
-      throw new Error(
-        `Sugar pool ${poolAddress} could not be verified at its discovered offset`,
-      )
-    }
-    try {
-      await ctx.poolLocatorStore?.set(key, { offset })
-    } catch {
-      // Persistence is an optimization; verified reads remain correct.
-    }
-    return { offset, rawPool: verifiedPool }
-  })()
-  ctx.resolvedPoolLocators.set(cacheKey, pending)
-  void pending.catch(() => {
-    if (ctx.resolvedPoolLocators.get(cacheKey) === pending) {
-      ctx.resolvedPoolLocators.delete(cacheKey)
-    }
-  })
-  return pending
+  }
+  if (ctx.poolLocatorStore) {
+    const store = ctx.poolLocatorStore
+    yield* Effect.tryPromise(() => store.set(key, { offset })).pipe(Effect.ignore)
+  }
+  const resolved: ResolvedPoolLocator = { offset, rawPool: verifiedPool }
+  return resolved
+})
+
+export const resolvePoolLocator = Effect.fn('Sugar.Pools.resolvePoolLocator')(function* (
+  ctx: SugarContext,
+  poolAddress: Address,
+) {
+  return yield* Cache.get(ctx.resolvedPoolLocators, addressKey(poolAddress))
+})
+
+/** Lookup used by the per-client locator cache; keys are lowercased addresses. */
+export function makeResolvedPoolLocatorCache(getCtx: () => SugarContext) {
+  return makeReadCache(
+    (cacheKey: string) => Effect.suspend(() => lookupPoolLocator(getCtx(), normalizeAddress(cacheKey))),
+    4_096,
+  )
 }
 
 function epochMaps(pools: LiquidityPool[], tokens: Token[], prices: Price[]) {
@@ -176,22 +189,31 @@ function epochMaps(pools: LiquidityPool[], tokens: Token[], prices: Price[]) {
   }
 }
 
-export async function getPoolEpochs(ctx: SugarContext, lp: Address | string, offset = 0, limit = 10): Promise<LiquidityPoolEpoch[]> {
-  const [tokens, pools, raw] = await Promise.all([
-    ctx.client.getAllTokens(),
-    ctx.client.getPools(),
+export const getPoolEpochs = Effect.fn('Sugar.Pools.getPoolEpochs')(function* (
+  ctx: SugarContext,
+  lp: Address | string,
+  offset = 0,
+  limit = 10,
+) {
+  const [tokens, pools, raw] = yield* Effect.all([
+    clientCall(() => ctx.client.getAllTokens()),
+    clientCall(() => ctx.client.getPools()),
     ctx.read<unknown[]>(ctx.settings.sugarRewardsContractAddress, abis.sugarRewards, 'epochsByAddress', [limit, offset, normalizeAddress(lp)]),
-  ])
-  const maps = epochMaps(pools, tokens, await ctx.client.getPrices(tokens))
+  ], { concurrency: 'unbounded' })
+  const prices = yield* clientCall(() => ctx.client.getPrices(tokens))
+  const maps = epochMaps(pools, tokens, prices)
   return raw.map((epoch) => epochFromTuple(epoch, maps.pools, maps.tokens, maps.prices))
-}
+})
 
-export async function getLatestPoolEpochs(ctx: SugarContext): Promise<LiquidityPoolEpoch[]> {
-  const rawEpochs = await paginate(ctx, 'epochsLatest', (limit, offset) => ctx.readTask<unknown[]>(ctx.settings.sugarRewardsContractAddress, abis.sugarRewards, 'epochsLatest', [limit, offset]))
+export const getLatestPoolEpochs = Effect.fn('Sugar.Pools.getLatestPoolEpochs')(function* (
+  ctx: SugarContext,
+) {
+  const rawEpochs = yield* paginate(ctx, 'epochsLatest', (limit, offset) => ctx.readTask<unknown[]>(ctx.settings.sugarRewardsContractAddress, abis.sugarRewards, 'epochsLatest', [limit, offset]))
   if (rawEpochs.length === 0) return []
-  const tokens = await ctx.client.getAllTokens()
+  const tokens = yield* clientCall(() => ctx.client.getAllTokens())
   const poolAddresses = new Set(rawEpochs.map((epoch) => addressKey(String(tupleValues(epoch)[1]))))
-  const rawPools = (await ctx.client.getRawPools(false)).filter((pool) => poolAddresses.has(addressKey(String(tupleValues(pool)[0]))))
+  const allRawPools = yield* clientCall(() => ctx.client.getRawPools(false))
+  const rawPools = allRawPools.filter((pool) => poolAddresses.has(addressKey(String(tupleValues(pool)[0]))))
   const needed = new Set<string>([addressKey(ctx.settings.stableTokenAddress), ctx.settings.nativeTokenSymbol])
   rawPools.forEach((pool) => {
     const p = tupleValues(pool)
@@ -202,8 +224,8 @@ export async function getLatestPoolEpochs(ctx: SugarContext): Promise<LiquidityP
     ;[...(e[4] as unknown[]), ...(e[5] as unknown[])].forEach((reward) => needed.add(addressKey(String(tupleValues(reward)[0]))))
   })
   const priceTokens = tokens.filter((token) => needed.has(addressKey(token.tokenAddress)) && (token.wrappedTokenAddress || token.listed || token.emerging))
-  const prices = await ctx.client.getPrices(priceTokens)
+  const prices = yield* clientCall(() => ctx.client.getPrices(priceTokens))
   const pools = preparePools(rawPools, tokens, prices, ctx.settings)
   const maps = epochMaps(pools, tokens, prices)
   return rawEpochs.map((epoch) => epochFromTuple(epoch, maps.pools, maps.tokens, maps.prices))
-}
+})
