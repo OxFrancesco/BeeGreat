@@ -44,6 +44,7 @@ async function initSignClient(): Promise<SignClientInstance> {
 function accountsToRecord(topic: string, accounts: string[], peer?: string): WalletConnectRecord {
   const parsed = accounts.map((account) => {
     const [, chain, address] = account.split(':')
+    // SAFETY: WalletConnect CAIP-10 accounts are `eip155:<chain>:<0x address>`.
     return { chain: Number(chain), address: address as Address }
   })
   if (parsed.length === 0) throw new Error('wallet approved the session without any account')

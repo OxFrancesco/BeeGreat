@@ -17,7 +17,6 @@ import { runSugar } from './internal/interop'
 import { getPoolCount, getPoolPaginator, pageSize } from './internal/pagination'
 import {
   makeRpcReadExecutor,
-  type RpcDeadline,
   type RpcReadExecutor,
   type RpcReadTask,
 } from './internal/rpc-executor'

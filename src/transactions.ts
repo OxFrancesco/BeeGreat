@@ -1,4 +1,3 @@
-import * as Cache from 'effect/Cache'
 import * as Effect from 'effect/Effect'
 import { pad, type Address, type Hex } from 'viem'
 import { abis } from './abis'
@@ -218,6 +217,8 @@ export const quoteBasicDeposit = Effect.fn('Sugar.Transactions.quoteBasicDeposit
     amounts.amountToken0 ?? MAX_UINT128, amounts.amountToken1 ?? MAX_UINT128,
   ])
   const [amountToken0, amountToken1] = tupleValues(result)
+  // SAFETY: the router's quoteAddLiquidity tuple leads with two uint256
+  // amounts, which viem decodes as bigints.
   return validateDepositQuote({ pool, amountToken0: BigInt(amountToken0 as bigint), amountToken1: BigInt(amountToken1 as bigint), sqrtPriceX96: 0n })
 })
 
@@ -238,7 +239,8 @@ export const quoteConcentratedDeposit = Effect.fn('Sugar.Transactions.quoteConce
   let tickUpper: number
   if (hasTick) {
     if (options.tickLower === undefined || options.tickUpper === undefined) throw new Error('supply both tick bounds')
-    ;({ tickLower, tickUpper } = options as { tickLower: number; tickUpper: number })
+    tickLower = options.tickLower
+    tickUpper = options.tickUpper
   } else {
     if (options.priceLower === undefined || options.priceUpper === undefined) throw new Error('supply both price bounds')
     tickLower = nearestTick(priceToTick(options.priceLower, pool.token0.decimals, pool.token1.decimals), pool.type)

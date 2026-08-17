@@ -1,11 +1,13 @@
+import * as Predicate from 'effect/Predicate'
 import type { Address } from 'viem'
 import { addressKey, createAmount, normalizeAddress, poolSymbol, tupleValues } from './helpers'
 import { ADDRESS_ZERO, type Amount, type ChainSettings, type DepositQuote, type LiquidityPool, type LiquidityPoolEpoch, type LiquidityPoolForSwap, type Position, type Price, type Token, type VeNft, type VeNftReward, type VeNftState, type Withdrawal } from './types'
 
-const asBigint = (value: unknown): bigint => typeof value === 'bigint' ? value : BigInt(value as string | number)
-const asNumber = (value: unknown): number => typeof value === 'number' ? value : Number(value)
+// SAFETY: Sugar contract tuples encode numeric fields as bigint, number, or decimal string; BigInt applies the same coercion the previous boundary relied on.
+const asBigint = <T>(value: T): bigint => Predicate.isBigInt(value) ? value : BigInt(value as string | number)
+const asNumber = <T>(value: T): number => Predicate.isNumber(value) ? value : Number(value)
 
-export function tokenFromTuple(raw: unknown, settings: ChainSettings): Token {
+export function tokenFromTuple<T>(raw: T, settings: ChainSettings): Token {
   const [address, symbol, decimals, , listed, emerging] = tupleValues(raw)
   return {
     chainId: settings.chainId,
@@ -57,7 +59,7 @@ export function preparePrices(tokens: Token[], rates: bigint[], settings: ChainS
   }))
 }
 
-export function poolForSwapFromTuple(raw: unknown, settings: ChainSettings): LiquidityPoolForSwap {
+export function poolForSwapFromTuple<T>(raw: T, settings: ChainSettings): LiquidityPoolForSwap {
   const values = tupleValues(raw)
   const type = asNumber(values[1])
   return {
@@ -78,8 +80,8 @@ function sumStable(amounts: Array<Amount | undefined>): number {
   return amounts.reduce((sum, item) => sum + (item?.amountInStable ?? 0), 0)
 }
 
-export function poolFromTuple(
-  raw: unknown,
+export function poolFromTuple<T>(
+  raw: T,
   tokens: Map<string, Token>,
   prices: Map<string, Price>,
   settings: ChainSettings,
@@ -150,14 +152,14 @@ export function preparePools(raw: unknown[], tokens: Token[], prices: Price[], s
   return raw.map((item) => poolFromTuple(item, tokenMap, priceMap, settings)).filter((pool): pool is LiquidityPool => pool !== undefined)
 }
 
-export function epochFromTuple(raw: unknown, pools: Map<string, LiquidityPool>, tokens: Map<string, Token>, prices: Map<string, Price>): LiquidityPoolEpoch {
+export function epochFromTuple<T>(raw: T, pools: Map<string, LiquidityPool>, tokens: Map<string, Token>, prices: Map<string, Price>): LiquidityPoolEpoch {
   const t = tupleValues(raw)
-  const amount = (rawAmount: unknown): Amount | undefined => {
+  const amount = <A>(rawAmount: A): Amount | undefined => {
     const [address, value] = tupleValues(rawAmount)
     return createAmount(normalizeAddress(String(address)), asBigint(value), tokens, prices)
   }
-  const incentives = (t[4] as unknown[]).map(amount).filter((item): item is Amount => item !== undefined)
-  const fees = (t[5] as unknown[]).map(amount).filter((item): item is Amount => item !== undefined)
+  const incentives = tupleValues(t[4]).map(amount).filter((item): item is Amount => item !== undefined)
+  const fees = tupleValues(t[5]).map(amount).filter((item): item is Amount => item !== undefined)
   const ts = asNumber(t[0])
   const lp = normalizeAddress(String(t[1]))
   return {
@@ -174,7 +176,7 @@ export function epochFromTuple(raw: unknown, pools: Map<string, LiquidityPool>, 
   }
 }
 
-export function veNftFromTuple(raw: unknown, stateValue: unknown, settings: ChainSettings): VeNft {
+export function veNftFromTuple<TRaw, TState>(raw: TRaw, stateValue: TState, settings: ChainSettings): VeNft {
   const t = tupleValues(raw)
   const states: VeNftState[] = ['normal', 'locked', 'managed']
   const state = states[asNumber(stateValue)]
@@ -191,7 +193,7 @@ export function veNftFromTuple(raw: unknown, stateValue: unknown, settings: Chai
     claimableRebase: asBigint(t[6]),
     expiresAt: asNumber(t[7]),
     votedAt: asNumber(t[8]),
-    votes: (t[9] as unknown[]).map((vote) => {
+    votes: tupleValues(t[9]).map((vote) => {
       const [pool, weight] = tupleValues(vote)
       return { pool: normalizeAddress(String(pool)), weight: asBigint(weight) }
     }),
@@ -203,7 +205,7 @@ export function veNftFromTuple(raw: unknown, stateValue: unknown, settings: Chai
   }
 }
 
-export function veNftRewardFromTuple(raw: unknown): VeNftReward {
+export function veNftRewardFromTuple<T>(raw: T): VeNftReward {
   const t = tupleValues(raw)
   return {
     veNftId: asBigint(t[0]),
@@ -215,7 +217,7 @@ export function veNftRewardFromTuple(raw: unknown): VeNftReward {
   }
 }
 
-export function positionFromTuple(raw: unknown, pools: Map<string, LiquidityPool>, settings: ChainSettings): Position | undefined {
+export function positionFromTuple<T>(raw: T, pools: Map<string, LiquidityPool>, settings: ChainSettings): Position | undefined {
   const t = tupleValues(raw)
   const lp = normalizeAddress(String(t[1]))
   const pool = pools.get(addressKey(lp))
@@ -320,7 +322,7 @@ export function withdrawalFromPosition(position: Position, options: { fraction?:
 
 export function findToken(tokens: Token[], reference: string | bigint | number): Token | undefined {
   let ref = String(reference)
-  if (typeof reference === 'bigint' || typeof reference === 'number') ref = `0x${BigInt(reference).toString(16).padStart(40, '0')}`
+  if (Predicate.isBigInt(reference) || Predicate.isNumber(reference)) ref = `0x${BigInt(reference).toString(16).padStart(40, '0')}`
   if (ref.startsWith('0x')) return tokens.find((token) => {
     try { return addressKey(token.tokenAddress) === addressKey(normalizeAddress(ref)) }
     catch { return false }

@@ -48,7 +48,7 @@ const SUPERCHAIN = {
   voterContractAddress: '0x97cDBCe21B6fd0585d29E539B1B99dAd328a1123',
 } as const
 
-const RAW_CHAINS: Record<ChainId, RawChain> = {
+const RAW_CHAINS = {
   10: {
     chainName: 'OP',
     rpcUrl: 'https://optimism-mainnet.wallet.coinbase.com',
@@ -160,7 +160,7 @@ const RAW_CHAINS: Record<ChainId, RawChain> = {
     slipstreamContractAddress: '0x928Bb6c9097d5C9c1eB5E99E71e24E4D773f2Be5', priceOracleContractAddress: '0x77bD18662B4DD6D2523653b145c978Ef1Bc5bc1b',
     stableTokenAddress: '0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e', connectorTokenAddresses: '0xd221812de1bd094f35587ee8e174b07b6167d9af,0x48065fbbe25f71c9282ddf5e1cd6d6a887483d5e,0x471ece3750da237f93b8e339c536989b8978a438',
   },
-}
+} satisfies Record<ChainId, RawChain>
 
 const ADDRESS_FIELDS = [
   'wrappedNativeTokenAddress', 'interchainRouterContractAddress', 'bridgeContractAddress', 'bridgeTokenAddress',
@@ -176,41 +176,44 @@ function list(value: string | undefined): Address[] {
   return [...new Set(value.split(',').filter(Boolean).map(normalizeAddress))]
 }
 
-const PYTHON_SETTING_NAMES: Record<string, string> = {
-  rpcUrl: 'RPC_URI',
-  wrappedNativeTokenAddress: 'WRAPPED_NATIVE_TOKEN_ADDR',
-  interchainRouterContractAddress: 'INTERCHAIN_ROUTER_CONTRACT_ADDR',
-  bridgeContractAddress: 'BRIDGE_CONTRACT_ADDR',
-  bridgeTokenAddress: 'BRIDGE_TOKEN_ADDR',
-  messageModuleContractAddress: 'MESSAGE_MODULE_CONTRACT_ADDR',
-  sugarContractAddress: 'SUGAR_CONTRACT_ADDR',
-  sugarRewardsContractAddress: 'SUGAR_REWARDS_CONTRACT_ADDR',
-  veSugarContractAddress: 'VE_SUGAR_CONTRACT_ADDR',
-  voterContractAddress: 'VOTER_CONTRACT_ADDR',
-  slipstreamContractAddress: 'SLIPSTREAM_CONTRACT_ADDR',
-  slipstreamFactoryAddress: 'SLIPSTREAM_FACTORY_ADDR',
-  oldSlipstreamFactoryAddress: 'OLD_SLIPSTREAM_FACTORY_ADDR',
-  nfpmContractAddress: 'NFPM_CONTRACT_ADDR',
-  priceOracleContractAddress: 'PRICE_ORACLE_CONTRACT_ADDR',
-  routerContractAddress: 'ROUTER_CONTRACT_ADDR',
-  quoterContractAddress: 'QUOTER_CONTRACT_ADDR',
-  swapperContractAddress: 'SWAPPER_CONTRACT_ADDR',
-  tokenAddress: 'TOKEN_ADDR',
-  stableTokenAddress: 'STABLE_TOKEN_ADDR',
-  connectorTokenAddresses: 'CONNECTOR_TOKENS_ADDRS',
-  excludedTokenAddresses: 'EXCLUDED_TOKENS_ADDRS',
-  requestConcurrency: 'THREADING_MAX_WORKERS',
-}
+const PYTHON_SETTING_NAMES = new Map<string, string>([
+  ['rpcUrl', 'RPC_URI'],
+  ['wrappedNativeTokenAddress', 'WRAPPED_NATIVE_TOKEN_ADDR'],
+  ['interchainRouterContractAddress', 'INTERCHAIN_ROUTER_CONTRACT_ADDR'],
+  ['bridgeContractAddress', 'BRIDGE_CONTRACT_ADDR'],
+  ['bridgeTokenAddress', 'BRIDGE_TOKEN_ADDR'],
+  ['messageModuleContractAddress', 'MESSAGE_MODULE_CONTRACT_ADDR'],
+  ['sugarContractAddress', 'SUGAR_CONTRACT_ADDR'],
+  ['sugarRewardsContractAddress', 'SUGAR_REWARDS_CONTRACT_ADDR'],
+  ['veSugarContractAddress', 'VE_SUGAR_CONTRACT_ADDR'],
+  ['voterContractAddress', 'VOTER_CONTRACT_ADDR'],
+  ['slipstreamContractAddress', 'SLIPSTREAM_CONTRACT_ADDR'],
+  ['slipstreamFactoryAddress', 'SLIPSTREAM_FACTORY_ADDR'],
+  ['oldSlipstreamFactoryAddress', 'OLD_SLIPSTREAM_FACTORY_ADDR'],
+  ['nfpmContractAddress', 'NFPM_CONTRACT_ADDR'],
+  ['priceOracleContractAddress', 'PRICE_ORACLE_CONTRACT_ADDR'],
+  ['routerContractAddress', 'ROUTER_CONTRACT_ADDR'],
+  ['quoterContractAddress', 'QUOTER_CONTRACT_ADDR'],
+  ['swapperContractAddress', 'SWAPPER_CONTRACT_ADDR'],
+  ['tokenAddress', 'TOKEN_ADDR'],
+  ['stableTokenAddress', 'STABLE_TOKEN_ADDR'],
+  ['connectorTokenAddresses', 'CONNECTOR_TOKENS_ADDRS'],
+  ['excludedTokenAddresses', 'EXCLUDED_TOKENS_ADDRS'],
+  ['requestConcurrency', 'THREADING_MAX_WORKERS'],
+])
 
 function envValue(env: Record<string, string | undefined>, field: string, chainId: ChainId, fallback: string | number): string {
-  const snake = PYTHON_SETTING_NAMES[field] ?? field.replace(/[A-Z]/g, (letter) => `_${letter}`).toUpperCase()
+  const snake = PYTHON_SETTING_NAMES.get(field) ?? field.replace(/[A-Z]/g, (letter) => `_${letter}`).toUpperCase()
   return env[`SUGAR_${snake}_${chainId}`] ?? env[`SUGAR_${snake}`] ?? String(fallback)
 }
 
-export const SUPPORTED_CHAIN_IDS = Object.freeze(Object.keys(RAW_CHAINS).map(Number) as ChainId[])
+export const SUPPORTED_CHAIN_IDS = Object.freeze(
+  // SAFETY: RAW_CHAINS satisfies Record<ChainId, RawChain>, so its keys are exactly the ChainId literals; Object.keys only widens them to string.
+  Object.keys(RAW_CHAINS).map(Number) as ChainId[],
+)
 
 export function isSupportedChainId(value: number): value is ChainId {
-  return SUPPORTED_CHAIN_IDS.includes(value as ChainId)
+  return SUPPORTED_CHAIN_IDS.some((chainId) => chainId === value)
 }
 
 export function getChainSettings(
@@ -218,35 +221,34 @@ export function getChainSettings(
   options: { env?: Record<string, string | undefined>; overrides?: Partial<ChainSettings> } = {},
 ): ChainSettings {
   if (!isSupportedChainId(chainId)) throw new Error(`Unsupported chain ID: ${chainId}`)
-  const raw = { ...RAW_CHAINS[chainId] } as RawChain & Record<string, unknown>
-  const env = options.env ?? (typeof process === 'undefined' ? {} : process.env)
-  for (const field of ADDRESS_FIELDS) {
-    const value = raw[field]
-    if (typeof value === 'string' && value) raw[field] = normalizeAddress(envValue(env, field, chainId, value))
-  }
+  const raw: RawChain = RAW_CHAINS[chainId]
+  const env = options.env ?? globalThis.process?.env ?? {}
+  const address = (field: string, value: string): Address => normalizeAddress(envValue(env, field, chainId, value))
+  const optionalAddress = (field: string, value: string | undefined): Address | undefined =>
+    value ? address(field, value) : undefined
   const settings: ChainSettings = {
     chainId,
     chainName: raw.chainName,
     rpcUrl: envValue(env, 'rpcUrl', chainId, raw.rpcUrl),
-    wrappedNativeTokenAddress: raw.wrappedNativeTokenAddress as Address,
-    interchainRouterContractAddress: raw.interchainRouterContractAddress as Address,
-    bridgeContractAddress: raw.bridgeContractAddress as Address,
-    bridgeTokenAddress: raw.bridgeTokenAddress as Address,
-    messageModuleContractAddress: raw.messageModuleContractAddress as Address,
-    sugarContractAddress: raw.sugarContractAddress as Address,
-    sugarRewardsContractAddress: raw.sugarRewardsContractAddress as Address,
-    veSugarContractAddress: raw.veSugarContractAddress as Address | undefined,
-    voterContractAddress: raw.voterContractAddress as Address,
-    slipstreamContractAddress: raw.slipstreamContractAddress as Address,
-    slipstreamFactoryAddress: raw.slipstreamFactoryAddress as Address,
-    oldSlipstreamFactoryAddress: raw.oldSlipstreamFactoryAddress as Address,
-    nfpmContractAddress: raw.nfpmContractAddress as Address,
-    priceOracleContractAddress: raw.priceOracleContractAddress as Address,
-    routerContractAddress: raw.routerContractAddress as Address,
-    quoterContractAddress: raw.quoterContractAddress as Address,
-    swapperContractAddress: raw.swapperContractAddress as Address,
-    tokenAddress: raw.tokenAddress as Address | undefined,
-    stableTokenAddress: raw.stableTokenAddress as Address,
+    wrappedNativeTokenAddress: address('wrappedNativeTokenAddress', raw.wrappedNativeTokenAddress),
+    interchainRouterContractAddress: address('interchainRouterContractAddress', raw.interchainRouterContractAddress),
+    bridgeContractAddress: address('bridgeContractAddress', raw.bridgeContractAddress),
+    bridgeTokenAddress: address('bridgeTokenAddress', raw.bridgeTokenAddress),
+    messageModuleContractAddress: address('messageModuleContractAddress', raw.messageModuleContractAddress),
+    sugarContractAddress: address('sugarContractAddress', raw.sugarContractAddress),
+    sugarRewardsContractAddress: address('sugarRewardsContractAddress', raw.sugarRewardsContractAddress),
+    veSugarContractAddress: optionalAddress('veSugarContractAddress', raw.veSugarContractAddress),
+    voterContractAddress: address('voterContractAddress', raw.voterContractAddress),
+    slipstreamContractAddress: address('slipstreamContractAddress', raw.slipstreamContractAddress),
+    slipstreamFactoryAddress: address('slipstreamFactoryAddress', raw.slipstreamFactoryAddress),
+    oldSlipstreamFactoryAddress: address('oldSlipstreamFactoryAddress', raw.oldSlipstreamFactoryAddress),
+    nfpmContractAddress: address('nfpmContractAddress', raw.nfpmContractAddress),
+    priceOracleContractAddress: address('priceOracleContractAddress', raw.priceOracleContractAddress),
+    routerContractAddress: address('routerContractAddress', raw.routerContractAddress),
+    quoterContractAddress: address('quoterContractAddress', raw.quoterContractAddress),
+    swapperContractAddress: address('swapperContractAddress', raw.swapperContractAddress),
+    tokenAddress: optionalAddress('tokenAddress', raw.tokenAddress),
+    stableTokenAddress: address('stableTokenAddress', raw.stableTokenAddress),
     connectorTokenAddresses: list(envValue(env, 'connectorTokenAddresses', chainId, raw.connectorTokenAddresses)),
     excludedTokenAddresses: list(envValue(env, 'excludedTokenAddresses', chainId, raw.excludedTokenAddresses ?? '')),
     swapSlippage: Number(envValue(env, 'swapSlippage', chainId, 0.01)),
@@ -269,7 +271,7 @@ export function getChainSettings(
   const merged = { ...settings, ...options.overrides, rpcUrl: options.overrides?.rpcUrl ?? settings.rpcUrl }
   for (const field of ADDRESS_FIELDS) {
     const value = merged[field]
-    if (typeof value === 'string' && value) (merged as Record<string, unknown>)[field] = normalizeAddress(value)
+    if (value) merged[field] = normalizeAddress(value)
   }
   merged.connectorTokenAddresses = [...new Set(merged.connectorTokenAddresses.map(normalizeAddress))]
   merged.excludedTokenAddresses = [...new Set(merged.excludedTokenAddresses.map(normalizeAddress))]

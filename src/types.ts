@@ -3,7 +3,7 @@ import type { Address, Hex, PublicClient, Transport } from 'viem'
 import type { SugarRpcError } from './errors'
 import type { SugarContext } from './internal/context'
 
-export const ADDRESS_ZERO = '0x0000000000000000000000000000000000000000' as Address
+export const ADDRESS_ZERO: Address = '0x0000000000000000000000000000000000000000'
 export const MAX_UINT128 = (1n << 128n) - 1n
 export const MAX_UINT256 = (1n << 256n) - 1n
 export const MAX_UINT160 = (1n << 160n) - 1n

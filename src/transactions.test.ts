@@ -3,17 +3,19 @@ import {
   decodeFunctionData,
   parseAbi,
   type Address,
-  type PublicClient,
 } from 'viem'
 import { BaseChain } from './chains'
 import { SugarClient } from './client'
 import { withdrawalFromPosition } from './models'
+import { addressOf, stringListArgument, stubPublicClient, type PublicClientStub } from './test-support'
 import { ADDRESS_ZERO, type LiquidityPool, type LiquidityPoolForSwap, type Position, type Quote, type Token } from './types'
 
-const account = '0x1111111111111111111111111111111111111111' as Address
-const permit2 = '0x1212121212121212121212121212121212121212' as Address
-const token0: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x2222222222222222222222222222222222222222', symbol: 'A', decimals: 18, listed: true, emerging: false }
-const token1: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x3333333333333333333333333333333333333333', symbol: 'B', decimals: 6, listed: true, emerging: false }
+const account: Address = '0x1111111111111111111111111111111111111111'
+const permit2: Address = '0x1212121212121212121212121212121212121212'
+const TOKEN0_ADDRESS: Address = '0x2222222222222222222222222222222222222222'
+const TOKEN1_ADDRESS: Address = '0x3333333333333333333333333333333333333333'
+const token0: Token = { chainId: 10, chainName: 'OP', tokenAddress: TOKEN0_ADDRESS, symbol: 'A', decimals: 18, listed: true, emerging: false }
+const token1: Token = { chainId: 10, chainName: 'OP', tokenAddress: TOKEN1_ADDRESS, symbol: 'B', decimals: 6, listed: true, emerging: false }
 
 function pool(isCl = false): LiquidityPool {
   return {
@@ -37,8 +39,8 @@ function position(target = pool(false)): Position {
   }
 }
 
-function client(readContract: (request: { functionName: string }) => Promise<unknown> = async () => 0n) {
-  return new SugarClient(10, { account, publicClient: { readContract } as unknown as PublicClient })
+function client(readContract: PublicClientStub['readContract'] = async () => 0n): SugarClient {
+  return new SugarClient(10, { account, publicClient: stubPublicClient({ readContract }) })
 }
 
 describe('unsigned transaction builders', () => {
@@ -46,15 +48,15 @@ describe('unsigned transaction builders', () => {
     const base = new BaseChain()
     const baseClient = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'PERMIT2') return permit2
           if (request.functionName === 'allowance' && request.args?.length === 3) {
             return [0n, 0, 0]
           }
           return 0n
         },
-      } as unknown as PublicClient,
+      }),
     })
     const routePool: LiquidityPoolForSwap = {
       chainId: 8453,
@@ -62,7 +64,7 @@ describe('unsigned transaction builders', () => {
       lp: '0x4444444444444444444444444444444444444444',
       type: -1,
       token0Address: base.eth.wrappedTokenAddress!,
-      token1Address: BaseChain.usdc.tokenAddress as Address,
+      token1Address: addressOf(BaseChain.usdc),
       isCl: false,
       isStable: false,
       isBasic: true,
@@ -96,7 +98,7 @@ describe('unsigned transaction builders', () => {
     const returning = await baseClient.swapFromQuote(usdcToEth)
     expect(returning).toHaveLength(3)
     expect(returning.map((transaction) => transaction.to)).toEqual([
-      BaseChain.usdc.tokenAddress as Address,
+      addressOf(BaseChain.usdc),
       permit2,
       baseClient.settings.swapperContractAddress,
     ])
@@ -115,7 +117,7 @@ describe('unsigned transaction builders', () => {
       data: returning[1].data,
     })
     expect(permit2Approval.args?.slice(0, 3)).toEqual([
-      BaseChain.usdc.tokenAddress as Address,
+      addressOf(BaseChain.usdc),
       baseClient.settings.swapperContractAddress,
       usdcAmount,
     ])
@@ -126,8 +128,8 @@ describe('unsigned transaction builders', () => {
     let permit2Reads = 0
     const baseClient = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'PERMIT2') {
             permit2Reads += 1
             return permit2
@@ -137,14 +139,14 @@ describe('unsigned transaction builders', () => {
           }
           return 0n
         },
-      } as unknown as PublicClient,
+      }),
     })
     const routePool: LiquidityPoolForSwap = {
       chainId: 8453,
       chainName: 'Base',
       lp: '0x4444444444444444444444444444444444444444',
       type: -1,
-      token0Address: BaseChain.usdc.tokenAddress as Address,
+      token0Address: addressOf(BaseChain.usdc),
       token1Address: new BaseChain().eth.wrappedTokenAddress!,
       isCl: false,
       isStable: false,
@@ -167,8 +169,8 @@ describe('unsigned transaction builders', () => {
   test('builds explicit zero-allowance cleanup for ERC20 and Permit2 approvals', async () => {
     const baseClient = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'PERMIT2') return permit2
           if (request.functionName === 'allowance' && request.args?.length === 3) {
             return [123n, 9999999999n, 0n]
@@ -176,20 +178,20 @@ describe('unsigned transaction builders', () => {
           if (request.functionName === 'allowance') return 456n
           return 0n
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     expect(await baseClient.revokeTokenAllowance(token0, pool().gauge)).toHaveLength(1)
     const permitCleanup = await baseClient.revokePermit2Allowance(token0)
     expect(permitCleanup.map(({ to }) => to)).toEqual([
-      token0.tokenAddress as Address,
+      TOKEN0_ADDRESS,
       permit2,
     ])
 
     const expiredPermitClient = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string; args?: unknown[] }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'PERMIT2') return permit2
           if (request.functionName === 'allowance' && request.args?.length === 3) {
             return [0n, 9999999999n, 7n]
@@ -197,7 +199,7 @@ describe('unsigned transaction builders', () => {
           if (request.functionName === 'allowance') return 0n
           return 0n
         },
-      } as unknown as PublicClient,
+      }),
     })
     expect(await expiredPermitClient.revokePermit2Allowance(token0)).toHaveLength(0)
   })
@@ -205,15 +207,15 @@ describe('unsigned transaction builders', () => {
   test('caches oracle rates for the configured pricing window', async () => {
     let oracleCalls = 0
     const sugar = new SugarClient(10, {
-      publicClient: {
-        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
             oracleCalls += 1
-            return (request.args?.[0] as unknown[]).map(() => 1_000_000_000_000_000_000n)
+            return stringListArgument(request, 0).map(() => 1_000_000_000_000_000_000n)
           }
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
     const stable: Token = { ...token0, symbol: 'USDC', decimals: 6, tokenAddress: sugar.settings.stableTokenAddress }
     const first = await sugar.getPrices([stable, token0])
@@ -226,7 +228,7 @@ describe('unsigned transaction builders', () => {
     const transactions = await client().deposit({ pool: pool(), amountToken0: 100n, amountToken1: 200n, sqrtPriceX96: 0n })
     expect(transactions).toHaveLength(3)
     expect(transactions.map((transaction) => transaction.to)).toEqual([
-      token0.tokenAddress as Address, token1.tokenAddress as Address, client().settings.routerContractAddress,
+      TOKEN0_ADDRESS, TOKEN1_ADDRESS, client().settings.routerContractAddress,
     ])
     expect(transactions.every((transaction) => transaction.from === account)).toBe(true)
   })

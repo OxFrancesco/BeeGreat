@@ -2,10 +2,11 @@ import { describe, expect, test } from 'bun:test'
 import type { PublicClient } from 'viem'
 import { createSugarCacheStore } from './cache'
 import { SugarClient } from './client'
+import { stubPublicClient } from './test-support'
 
-function countingClient(counters: { count: number; forSwaps: number }) {
-  return {
-    readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+function countingClient(counters: { count: number; forSwaps: number }): PublicClient {
+  return stubPublicClient({
+    readContract: async (request) => {
       if (request.functionName === 'count') {
         counters.count += 1
         return 1n
@@ -24,7 +25,7 @@ function countingClient(counters: { count: number; forSwaps: number }) {
       }
       throw new Error(`Unexpected read: ${request.functionName}`)
     },
-  } as unknown as PublicClient
+  })
 }
 
 describe('Sugar cache store', () => {
@@ -62,11 +63,11 @@ describe('Sugar cache store', () => {
     const cacheStore = createSugarCacheStore({ ttlMs: 60_000 })
     const broken = new SugarClient(10, {
       cacheStore,
-      publicClient: {
+      publicClient: stubPublicClient({
         readContract: async () => {
           throw new Error('nope')
         },
-      } as unknown as PublicClient,
+      }),
       rpcPolicy: { baseDelayMs: 0, deadlineMs: 1_000, maxRetries: 0 },
     })
     await expect(broken.getPoolsForSwaps()).rejects.toThrow()

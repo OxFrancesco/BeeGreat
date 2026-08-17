@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { formatCliError, splitSendFlags } from './cli'
 import { extractPlanSteps, localMnemonicSigner, renderPlanSummary } from './send'
+import type { SugarJson } from './types'
 import {
   deleteLocalWallet, deleteWalletConnectRecord, getActiveWallet, loadLocalWallet,
   loadWalletConnectRecord, openSecret, saveLocalWallet, saveWalletConnectRecord, sealSecret,
@@ -70,7 +71,7 @@ describe('wallet store', () => {
 })
 
 describe('send plan plumbing', () => {
-  const plan = {
+  const plan: SugarJson = {
     transactions: [],
     transaction_steps: [
       { role: 'approval', transaction: { from: ADDRESS, to: '0x3333333333333333333333333333333333333333', data: '0xabcdef', value: '0' } },
@@ -84,20 +85,20 @@ describe('send plan plumbing', () => {
   }
 
   test('extractPlanSteps rehydrates bigint values', () => {
-    const steps = extractPlanSteps(plan as never)
+    const steps = extractPlanSteps(plan)
     expect(steps).toHaveLength(2)
     expect(steps[0].role).toBe('approval')
     expect(steps[1].transaction.value).toBe(1000000000000000000n)
   })
 
   test('extractPlanSteps rejects read outputs', () => {
-    expect(() => extractPlanSteps([] as never)).toThrow()
-    expect(() => extractPlanSteps({ pools: [] } as never)).toThrow('transaction plan')
+    expect(() => extractPlanSteps([])).toThrow()
+    expect(() => extractPlanSteps({ pools: [] })).toThrow('transaction plan')
   })
 
   test('renderPlanSummary shows swap amounts and slippage floor', () => {
-    const steps = extractPlanSteps(plan as never)
-    const summary = renderPlanSummary('swap', plan as never, steps)
+    const steps = extractPlanSteps(plan)
+    const summary = renderPlanSummary('swap', plan, steps)
     expect(summary).toContain('2 transactions, approvals first')
     expect(summary).toContain('0.5 ETH -> 1234.5 USDC')
     expect(summary).toContain('min out: 1222.2 USDC')

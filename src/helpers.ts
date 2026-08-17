@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect'
+import * as Predicate from 'effect/Predicate'
 import { runSugar } from './internal/interop'
 import {
   concatHex,
@@ -156,7 +157,7 @@ export function packPath(
   options: { forSwap?: boolean; newFactory?: Address; oldFactory?: Address } = {},
 ): PreparedRoute {
   if (path.length === 0) throw new Error('route path cannot be empty')
-  const types: string[] = []
+  const types: Array<'address' | 'bool' | 'int24'> = []
   const values: Array<Address | number | boolean> = []
   const isV2Swap = options.forSwap === true && path.some(({ pool }) => pool.isBasic)
   for (let index = 0; index < path.length; index++) {
@@ -176,7 +177,7 @@ export function packPath(
     types.push(isV2Swap ? 'bool' : 'int24', 'address')
     values.push(isV2Swap ? filler === QUOTER_STABLE_POOL_FILLER : filler, to)
   }
-  const encoded = encodePacked(types as Array<'address' | 'int24' | 'bool'>, values)
+  const encoded = encodePacked(types, values)
   return { types, values, encoded }
 }
 
@@ -219,9 +220,9 @@ export function findAllPaths(
   return results
 }
 
-export function tupleValues(value: unknown): unknown[] {
+export function tupleValues<T>(value: T): unknown[] {
   if (Array.isArray(value)) return [...value]
-  if (value && typeof value === 'object') return Object.values(value as Record<string, unknown>)
+  if (Predicate.isObject(value)) return Object.values(value)
   throw new Error('Expected tuple value from contract')
 }
 
@@ -318,8 +319,8 @@ export async function requireSupersim(rpcUrl = 'http://127.0.0.1:4444'): Promise
 
 /** Interpret a hex value/address as a left-padded bytes32, matching Python `to_bytes32`. */
 export function toBytes32(value: string | number | bigint): Hex {
-  const hex = typeof value === 'string'
-    ? (`0x${value.replace(/^0x/, '')}` as Hex)
+  const hex = Predicate.isString(value)
+    ? `0x${value.replace(/^0x/, '')}` as const
     : toHex(BigInt(value))
   return pad(hex, { size: 32 })
 }
@@ -346,15 +347,15 @@ export function formatPercentage(value: number): string {
 export function stringToBytes32(value: string): Hex {
   const hex = stringToHex(value)
   if ((hex.length - 2) / 2 > 32) throw new Error('value exceeds bytes32')
-  return concatHex([hex, `0x${'00'.repeat(32 - (hex.length - 2) / 2)}` as Hex])
+  return concatHex([hex, `0x${'00'.repeat(32 - (hex.length - 2) / 2)}`])
 }
 
-export function toSugarJson(value: unknown): SugarJson {
-  if (value === null || typeof value === 'boolean' || typeof value === 'string') return value
-  if (typeof value === 'number') return Number.isFinite(value) ? value : String(value)
-  if (typeof value === 'bigint') return value.toString()
+export function toSugarJson<T>(value: T): SugarJson {
+  if (Predicate.isNull(value) || Predicate.isBoolean(value) || Predicate.isString(value)) return value
+  if (Predicate.isNumber(value)) return Number.isFinite(value) ? value : String(value)
+  if (Predicate.isBigInt(value)) return value.toString()
   if (Array.isArray(value)) return value.map(toSugarJson)
-  if (value && typeof value === 'object') {
+  if (Predicate.isObject(value)) {
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toSugarJson(item)]))
   }
   return String(value)

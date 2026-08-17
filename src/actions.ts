@@ -1,7 +1,8 @@
-import type { Address } from 'viem'
+import * as Effect from 'effect/Effect'
 import { SugarClient } from './client'
 import type { SugarAction, SugarParameters } from './contracts'
-import { applySlippage, parseTokenUnits, poolTypeLabel, toSugarJson, tokenToNumber } from './helpers'
+import { applySlippage, normalizeAddress, parseTokenUnits, poolTypeLabel, toSugarJson, tokenToNumber } from './helpers'
+import { clientCall, runSugar } from './internal/interop'
 import { withdrawalFromPosition } from './models'
 import { validateSugarRequest } from './index'
 import { ADDRESS_ZERO, type Amount, type LiquidityPool, type LiquidityPoolEpoch, type Position, type Quote, type SugarClientOptions, type SugarJson, type Token } from './types'
@@ -92,19 +93,18 @@ function transactionPlan(transactions: Awaited<ReturnType<SugarClient['stake']>>
   }
 }
 
-function poolJson(pool: LiquidityPool, full: true): unknown
-function poolJson(pool: Awaited<ReturnType<SugarClient['getPoolsForSwaps']>>[number], full: false): unknown
-function poolJson(pool: LiquidityPool | Awaited<ReturnType<SugarClient['getPoolsForSwaps']>>[number], full: boolean) {
-  if (!full) {
-    const item = pool as Awaited<ReturnType<SugarClient['getPoolsForSwaps']>>[number]
-    return {
-      chain_id: item.chainId, chain_name: item.chainName, lp: item.lp, type: item.type,
-      token0_address: item.token0Address, token1_address: item.token1Address,
-      factory: item.factory ?? null,
-      is_cl: item.isCl, is_stable: item.isStable, type_label: poolTypeLabel(item.type),
-    }
+type PoolForSwapJson = Awaited<ReturnType<SugarClient['getPoolsForSwaps']>>[number]
+
+function swapPoolJson(item: PoolForSwapJson) {
+  return {
+    chain_id: item.chainId, chain_name: item.chainName, lp: item.lp, type: item.type,
+    token0_address: item.token0Address, token1_address: item.token1Address,
+    factory: item.factory ?? null,
+    is_cl: item.isCl, is_stable: item.isStable, type_label: poolTypeLabel(item.type),
   }
-  const item = pool as LiquidityPool
+}
+
+function fullPoolJson(item: LiquidityPool) {
   return {
     chain_id: item.chainId, chain_name: item.chainName, lp: item.lp, symbol: item.symbol,
     type: item.type, type_label: poolTypeLabel(item.type), is_cl: item.isCl, is_stable: item.isStable,
@@ -116,49 +116,74 @@ function poolJson(pool: LiquidityPool | Awaited<ReturnType<SugarClient['getPools
   }
 }
 
-async function requireToken(client: SugarClient, reference: string | undefined, label: string): Promise<Token> {
+const requireToken = Effect.fn('SugarActions.requireToken')(function* (
+  client: SugarClient,
+  reference: string | undefined,
+  label: string,
+) {
   if (!reference) throw new Error(`${label} is required`)
-  const token = await client.getToken(reference)
+  const token = yield* clientCall(() => client.getToken(reference))
   if (!token) throw new Error(`${label} not found: ${reference}`)
   return token
-}
+})
 
-async function findPosition(client: SugarClient, parameters: SugarParameters): Promise<Position> {
+const findPosition = Effect.fn('SugarActions.findPosition')(function* (
+  client: SugarClient,
+  parameters: SugarParameters,
+) {
   const pool = stringValue(parameters, 'pool')?.toLowerCase()
   const position = stringValue(parameters, 'position')
   if (!pool && position === undefined) throw new Error('requires pool or position')
   const id = position === undefined ? 0n : BigInt(position)
   if (id === 0n && !pool) throw new Error('position=0 is ambiguous; pass pool too')
   const candidates = pool
-    ? [await client.getPositionByPool(pool as Address)].filter(
+    ? [yield* clientCall(() => client.getPositionByPool(normalizeAddress(pool)))].filter(
         (candidate): candidate is Position => candidate !== undefined,
       )
-    : await client.getPositions()
+    : yield* clientCall(() => client.getPositions())
   const match = candidates.find((candidate) => candidate.id === id)
   if (!match) throw new Error('position not found')
   return match
-}
+})
 
 function parseAmount(token: Token, value: string | undefined, useDecimals: boolean): bigint | undefined {
   if (value === undefined) return undefined
   return useDecimals ? parseTokenUnits(token, value) : BigInt(value)
 }
 
-async function quoteJson(client: SugarClient, quote: Quote) {
-  let fromPrice: number | undefined
-  let toPrice: number | undefined
-  try {
-    const [native, stable] = await Promise.all([client.getToken(client.settings.nativeTokenSymbol), client.getToken(client.settings.stableTokenAddress)])
-    const tokens = [...new Map([quote.input.fromToken, quote.input.toToken, native, stable].filter((token): token is Token => token !== undefined).map((token) => [token.tokenAddress, token])).values()]
-    const prices = new Map((await client.getPrices(tokens)).map((price) => [price.token.tokenAddress, price.price]))
-    fromPrice = prices.get(quote.input.fromToken.tokenAddress)
-    toPrice = prices.get(quote.input.toToken.tokenAddress)
-  } catch { /* Price impact is optional. */ }
-  const route = await Promise.all(quote.input.path.slice(0, -1).map(async ({ pool, reversed }) => {
-    const address = reversed ? pool.token0Address : pool.token1Address
-    const token = await client.getToken(address)
-    return { symbol: token?.symbol ?? null, address, lp: pool.lp, type_label: poolTypeLabel(pool.type) }
-  }))
+/** Best-effort USD prices for price-impact context; never fails the quote. */
+const optionalQuotePrices = Effect.fn('SugarActions.optionalQuotePrices')(function* (
+  client: SugarClient,
+  quote: Quote,
+) {
+  const [native, stable] = yield* Effect.all([
+    clientCall(() => client.getToken(client.settings.nativeTokenSymbol)),
+    clientCall(() => client.getToken(client.settings.stableTokenAddress)),
+  ], { concurrency: 'unbounded' })
+  const tokens = [...new Map([quote.input.fromToken, quote.input.toToken, native, stable].filter((token): token is Token => token !== undefined).map((token) => [token.tokenAddress, token])).values()]
+  const prices = new Map((yield* clientCall(() => client.getPrices(tokens))).map((price) => [price.token.tokenAddress, price.price]))
+  return {
+    fromPrice: prices.get(quote.input.fromToken.tokenAddress),
+    toPrice: prices.get(quote.input.toToken.tokenAddress),
+  }
+})
+
+const quoteJson = Effect.fn('SugarActions.quoteJson')(function* (
+  client: SugarClient,
+  quote: Quote,
+) {
+  const { fromPrice, toPrice } = yield* optionalQuotePrices(client, quote).pipe(
+    Effect.catchCause(() => Effect.succeed({ fromPrice: undefined, toPrice: undefined })),
+  )
+  const route = yield* Effect.forEach(
+    quote.input.path.slice(0, -1),
+    ({ pool, reversed }) => Effect.gen(function* () {
+      const address = reversed ? pool.token0Address : pool.token1Address
+      const token = yield* clientCall(() => client.getToken(address))
+      return { symbol: token?.symbol ?? null, address, lp: pool.lp, type_label: poolTypeLabel(pool.type) }
+    }),
+    { concurrency: 'unbounded' },
+  )
   const amountInDecimal = tokenToNumber(quote.input.fromToken, quote.input.amountIn)
   const amountOutDecimal = tokenToNumber(quote.input.toToken, quote.amountOut)
   const expected = fromPrice && toPrice ? amountInDecimal * fromPrice / toPrice : undefined
@@ -173,7 +198,7 @@ async function quoteJson(client: SugarClient, quote: Quote) {
     price_impact: impact ?? null, price_impact_pct: impact === undefined ? null : impact * 100,
     route,
   }
-}
+})
 
 /**
  * Guard candidate routes against outputs more than double the on-chain
@@ -182,179 +207,239 @@ async function quoteJson(client: SugarClient, quote: Quote) {
  * mirroring the official sdk.js impactTooHigh rejection. Skipped for
  * unlisted tokens, where the oracle has no reliable rate.
  */
-async function tooGoodToBeTrueFilter(
+const tooGoodToBeTrueFilter = Effect.fn('SugarActions.tooGoodToBeTrueFilter')(function* (
   client: SugarClient,
   fromToken: Token,
   toToken: Token,
   amount: bigint,
-): Promise<((quote: Quote) => boolean) | undefined> {
+) {
   if (!fromToken.listed || !toToken.listed) return undefined
-  let fromPrice: number | undefined
-  let toPrice: number | undefined
-  try {
-    const prices = await client.getPrices([fromToken, toToken])
-    fromPrice = prices.find((price) => price.token.tokenAddress === fromToken.tokenAddress)?.price
-    toPrice = prices.find((price) => price.token.tokenAddress === toToken.tokenAddress)?.price
-  } catch {
-    return undefined
-  }
+  const prices = yield* clientCall(() => client.getPrices([fromToken, toToken])).pipe(
+    Effect.catchCause(() => Effect.succeed(undefined)),
+  )
+  if (!prices) return undefined
+  const fromPrice = prices.find((price) => price.token.tokenAddress === fromToken.tokenAddress)?.price
+  const toPrice = prices.find((price) => price.token.tokenAddress === toToken.tokenAddress)?.price
   if (!fromPrice || !toPrice) return undefined
   const ceiling = 2 * tokenToNumber(fromToken, amount) * (fromPrice / toPrice)
   if (!Number.isFinite(ceiling) || ceiling <= 0) return undefined
-  return (quote) => tokenToNumber(toToken, quote.amountOut) < ceiling
-}
+  return (quote: Quote) => tokenToNumber(toToken, quote.amountOut) < ceiling
+})
 
-async function resolveSwapQuote(client: SugarClient, parameters: SugarParameters): Promise<Quote> {
-  const fromToken = await requireToken(client, stringValue(parameters, 'from_token'), 'from-token')
-  const toToken = await requireToken(client, stringValue(parameters, 'to_token'), 'to-token')
+const resolveSwapQuote = Effect.fn('SugarActions.resolveSwapQuote')(function* (
+  client: SugarClient,
+  parameters: SugarParameters,
+) {
+  const fromToken = yield* requireToken(client, stringValue(parameters, 'from_token'), 'from-token')
+  const toToken = yield* requireToken(client, stringValue(parameters, 'to_token'), 'to-token')
   const raw = stringValue(parameters, 'amount')!
   const amount = booleanValue(parameters, 'use_decimals') ? parseTokenUnits(fromToken, raw) : BigInt(raw)
-  const filter = await tooGoodToBeTrueFilter(client, fromToken, toToken, amount)
-  const quote = await client.getQuote(fromToken, toToken, amount, filter)
+  const filter = yield* tooGoodToBeTrueFilter(client, fromToken, toToken, amount)
+  const quote = yield* clientCall(() => client.getQuote(fromToken, toToken, amount, filter))
   if (!quote) throw new Error(`no quote found for ${fromToken.symbol} -> ${toToken.symbol}`)
   return quote
-}
+})
 
-async function execute(client: SugarClient, action: SugarAction, p: SugarParameters): Promise<unknown> {
-  if (action === 'positions') return (await client.getPositions((stringValue(p, 'owner') ?? stringValue(p, 'wallet')) as Address)).map(positionJson)
-  if (action === 'pools') {
-    const full = booleanValue(p, 'full')
-    const token0 = stringValue(p, 'token0') ? await requireToken(client, stringValue(p, 'token0'), 'token') : undefined
-    const token1 = stringValue(p, 'token1') ? await requireToken(client, stringValue(p, 'token1'), 'token') : undefined
-    const wanted = new Set([token0, token1].filter((token): token is Token => token !== undefined).map((token) => token.tokenAddress.toLowerCase()))
-    const pools = full ? await client.getPools() : await client.getPoolsForSwaps()
-    const filtered = pools.filter((pool) => {
-      const addresses = 'token0' in pool ? [pool.token0.tokenAddress, pool.token1.tokenAddress] : [pool.token0Address, pool.token1Address]
-      return [...wanted].every((address) => addresses.map((item) => item.toLowerCase()).includes(address)) && poolTypeMatches(pool.type, stringValue(p, 'pool_type'))
-    })
-    const limited = p.limit === undefined ? filtered : filtered.slice(0, Number(p.limit))
-    return full ? (limited as LiquidityPool[]).map((pool) => poolJson(pool, true)) : (limited as Awaited<ReturnType<SugarClient['getPoolsForSwaps']>>).map((pool) => poolJson(pool, false))
-  }
-  if (action === 'epochs_latest') return (await client.getLatestPoolEpochs()).filter((epoch) => epoch.pool && poolTypeMatches(epoch.pool.type, stringValue(p, 'pool_type'))).map(epochJson)
-  if (action === 'epochs') return (await client.getPoolEpochs(stringValue(p, 'lp')!, numberValue(p, 'offset') ?? 0, numberValue(p, 'limit') ?? 10)).filter((epoch) => !epoch.pool || poolTypeMatches(epoch.pool.type, stringValue(p, 'pool_type'))).map(epochJson)
-  if (action === 'quote') return quoteJson(client, await resolveSwapQuote(client, p))
-  if (action === 'swap') {
-    const quote = await resolveSwapQuote(client, p)
-    const slippage = numberValue(p, 'slippage') ?? client.settings.swapSlippage
-    const transactions = await client.swapFromQuote(quote, slippage)
-    const minAmountOut = applySlippage(quote.amountOut, slippage)
-    return {
-      ...transactionPlan(transactions),
-      quote: {
-        ...(await quoteJson(client, quote)),
-        slippage,
-        min_amount_out: minAmountOut,
-        min_amount_out_decimal: tokenToNumber(quote.input.toToken, minAmountOut),
-      },
-    }
-  }
+const executePositions = Effect.fn('SugarActions.positions')(function* (client: SugarClient, p: SugarParameters) {
+  const owner = stringValue(p, 'owner') ?? stringValue(p, 'wallet')
+  if (!owner) throw new Error('positions requires wallet or owner')
+  const positions = yield* clientCall(() => client.getPositions(normalizeAddress(owner)))
+  return positions.map(positionJson)
+})
 
-  if (action === 'deposit') {
-    let pool: LiquidityPool
-    const poolAddress = stringValue(p, 'pool')
-    if (poolAddress) {
-      pool = (await client.getPoolByAddress(poolAddress))!
-      if (!pool) throw new Error(`pool ${poolAddress} not found`)
-    } else {
-      const token0 = await requireToken(client, stringValue(p, 'token0'), 'token0')
-      const token1 = await requireToken(client, stringValue(p, 'token1'), 'token1')
-      const poolType = stringValue(p, 'pool_type')
-      pool = await client.poolSpec(token0, token1, poolType === 'cl' ? { tickSpacing: numberValue(p, 'tick_spacing') } : { stable: poolType === 'stable' })
-    }
-    const useDecimals = booleanValue(p, 'use_decimals')
-    const amountToken0 = parseAmount(pool.token0, stringValue(p, 'amount0'), useDecimals)
-    const amountToken1 = parseAmount(pool.token1, stringValue(p, 'amount1'), useDecimals)
-    const clOnly = ['price_lower', 'price_upper', 'tick_lower', 'tick_upper', 'initial_price']
-      .some((name) => p[name] !== undefined)
-    if (!pool.isCl && clOnly) throw new Error('basic deposits do not accept CL flags')
-    let quote
-    if (pool.isCl) quote = await client.quoteConcentratedDeposit(pool, {
+const executePools = Effect.fn('SugarActions.pools')(function* (client: SugarClient, p: SugarParameters) {
+  const token0 = stringValue(p, 'token0') ? yield* requireToken(client, stringValue(p, 'token0'), 'token') : undefined
+  const token1 = stringValue(p, 'token1') ? yield* requireToken(client, stringValue(p, 'token1'), 'token') : undefined
+  const wanted = [token0, token1]
+    .filter((token): token is Token => token !== undefined)
+    .map((token) => token.tokenAddress.toLowerCase())
+  const matches = (type: number, addresses: string[]) =>
+    wanted.every((address) => addresses.map((item) => item.toLowerCase()).includes(address))
+      && poolTypeMatches(type, stringValue(p, 'pool_type'))
+  const limit = p.limit === undefined ? undefined : Number(p.limit)
+  if (booleanValue(p, 'full')) {
+    const pools = yield* clientCall(() => client.getPools())
+    const filtered = pools.filter((pool) => matches(pool.type, [pool.token0.tokenAddress, pool.token1.tokenAddress]))
+    return filtered.slice(0, limit).map(fullPoolJson)
+  }
+  const pools = yield* clientCall(() => client.getPoolsForSwaps())
+  const filtered = pools.filter((pool) => matches(pool.type, [pool.token0Address, pool.token1Address]))
+  return filtered.slice(0, limit).map(swapPoolJson)
+})
+
+const executeEpochsLatest = Effect.fn('SugarActions.epochsLatest')(function* (client: SugarClient, p: SugarParameters) {
+  const epochs = yield* clientCall(() => client.getLatestPoolEpochs())
+  return epochs.filter((epoch) => epoch.pool && poolTypeMatches(epoch.pool.type, stringValue(p, 'pool_type'))).map(epochJson)
+})
+
+const executeEpochs = Effect.fn('SugarActions.epochs')(function* (client: SugarClient, p: SugarParameters) {
+  const epochs = yield* clientCall(() => client.getPoolEpochs(stringValue(p, 'lp')!, numberValue(p, 'offset') ?? 0, numberValue(p, 'limit') ?? 10))
+  return epochs.filter((epoch) => !epoch.pool || poolTypeMatches(epoch.pool.type, stringValue(p, 'pool_type'))).map(epochJson)
+})
+
+const executeQuote = Effect.fn('SugarActions.quote')(function* (client: SugarClient, p: SugarParameters) {
+  return yield* quoteJson(client, yield* resolveSwapQuote(client, p))
+})
+
+const executeSwap = Effect.fn('SugarActions.swap')(function* (client: SugarClient, p: SugarParameters) {
+  const quote = yield* resolveSwapQuote(client, p)
+  const slippage = numberValue(p, 'slippage') ?? client.settings.swapSlippage
+  const transactions = yield* clientCall(() => client.swapFromQuote(quote, slippage))
+  const minAmountOut = applySlippage(quote.amountOut, slippage)
+  return {
+    ...transactionPlan(transactions),
+    quote: {
+      ...(yield* quoteJson(client, quote)),
+      slippage,
+      min_amount_out: minAmountOut,
+      min_amount_out_decimal: tokenToNumber(quote.input.toToken, minAmountOut),
+    },
+  }
+})
+
+const executeDeposit = Effect.fn('SugarActions.deposit')(function* (client: SugarClient, p: SugarParameters) {
+  let pool: LiquidityPool
+  const poolAddress = stringValue(p, 'pool')
+  if (poolAddress) {
+    const found = yield* clientCall(() => client.getPoolByAddress(poolAddress))
+    if (!found) throw new Error(`pool ${poolAddress} not found`)
+    pool = found
+  } else {
+    const token0 = yield* requireToken(client, stringValue(p, 'token0'), 'token0')
+    const token1 = yield* requireToken(client, stringValue(p, 'token1'), 'token1')
+    const poolType = stringValue(p, 'pool_type')
+    pool = yield* clientCall(() => client.poolSpec(token0, token1, poolType === 'cl' ? { tickSpacing: numberValue(p, 'tick_spacing') } : { stable: poolType === 'stable' }))
+  }
+  const useDecimals = booleanValue(p, 'use_decimals')
+  const amountToken0 = parseAmount(pool.token0, stringValue(p, 'amount0'), useDecimals)
+  const amountToken1 = parseAmount(pool.token1, stringValue(p, 'amount1'), useDecimals)
+  const clOnly = ['price_lower', 'price_upper', 'tick_lower', 'tick_upper', 'initial_price']
+    .some((name) => p[name] !== undefined)
+  if (!pool.isCl && clOnly) throw new Error('basic deposits do not accept CL flags')
+  let quote
+  if (pool.isCl) {
+    quote = yield* clientCall(() => client.quoteConcentratedDeposit(pool, {
       amountToken0, amountToken1, priceLower: numberValue(p, 'price_lower'), priceUpper: numberValue(p, 'price_upper'),
       tickLower: numberValue(p, 'tick_lower'), tickUpper: numberValue(p, 'tick_upper'), initialPrice: numberValue(p, 'initial_price'),
-    })
-    else if (pool.lp === ADDRESS_ZERO) {
-      if (amountToken0 === undefined || amountToken1 === undefined) throw new Error('new basic pool requires both amounts')
-      quote = { pool, amountToken0, amountToken1, sqrtPriceX96: 0n }
-    } else quote = await client.quoteBasicDeposit(pool, { amountToken0, amountToken1 })
-    const transactions = await client.deposit(quote, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01)
-    return {
-      ...transactionPlan(transactions),
-      deposit: {
-        pool: positionPoolJson(pool),
-        creates_pool: pool.lp === ADDRESS_ZERO,
-        amount0: quote.amountToken0,
-        amount0_decimal: tokenToNumber(pool.token0, quote.amountToken0),
-        amount1: quote.amountToken1,
-        amount1_decimal: tokenToNumber(pool.token1, quote.amountToken1),
-        tick_lower: quote.tickLower ?? null,
-        tick_upper: quote.tickUpper ?? null,
-      },
-    }
+    }))
+  } else if (pool.lp === ADDRESS_ZERO) {
+    if (amountToken0 === undefined || amountToken1 === undefined) throw new Error('new basic pool requires both amounts')
+    quote = { pool, amountToken0, amountToken1, sqrtPriceX96: 0n }
+  } else {
+    quote = yield* clientCall(() => client.quoteBasicDeposit(pool, { amountToken0, amountToken1 }))
   }
-
-
-  if (action === 'create_venft') {
-    const contracts = await client.getVeNftContracts()
-    const governanceToken = await client.getToken(contracts.governanceToken)
-    if (!governanceToken) {
-      throw new Error(`governance token not found: ${contracts.governanceToken}`)
-    }
-    const rawAmount = stringValue(p, 'amount')!
-    const veNftAmount = booleanValue(p, 'use_decimals')
-      ? parseTokenUnits(governanceToken, rawAmount)
-      : BigInt(rawAmount)
-    const lockDurationSeconds = numberValue(p, 'lock_duration_seconds')!
-    const transactions = await client.createVeNft(
-      veNftAmount,
-      lockDurationSeconds,
-    )
-    return {
-      ...transactionPlan(transactions),
-      ve_nft: {
-        amount: veNftAmount,
-        amount_decimal: tokenToNumber(governanceToken, veNftAmount),
-        governance_token: governanceToken.tokenAddress,
-        governance_symbol: governanceToken.symbol,
-        lock_duration_seconds: lockDurationSeconds,
-      },
-    }
+  const depositQuote = quote
+  const transactions = yield* clientCall(() => client.deposit(depositQuote, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01))
+  return {
+    ...transactionPlan(transactions),
+    deposit: {
+      pool: positionPoolJson(pool),
+      creates_pool: pool.lp === ADDRESS_ZERO,
+      amount0: depositQuote.amountToken0,
+      amount0_decimal: tokenToNumber(pool.token0, depositQuote.amountToken0),
+      amount1: depositQuote.amountToken1,
+      amount1_decimal: tokenToNumber(pool.token1, depositQuote.amountToken1),
+      tick_lower: depositQuote.tickLower ?? null,
+      tick_upper: depositQuote.tickUpper ?? null,
+    },
   }
+})
 
-  const position = await findPosition(client, p)
-  if (action === 'withdraw') {
-    const withdrawal = withdrawalFromPosition(position, { fraction: stringValue(p, 'fraction'), burn: booleanValue(p, 'burn') })
-    const transactions = await client.withdraw(withdrawal, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01, booleanValue(p, 'collect', true), booleanValue(p, 'unwrap_native'))
-    return {
-      ...transactionPlan(transactions),
-      withdrawal: {
-        pool: positionPoolJson(position.pool),
-        position: position.id,
-        liquidity: withdrawal.liquidity,
-        amount0: withdrawal.amountToken0,
-        amount0_decimal: tokenToNumber(position.pool.token0, withdrawal.amountToken0),
-        amount1: withdrawal.amountToken1,
-        amount1_decimal: tokenToNumber(position.pool.token1, withdrawal.amountToken1),
-        burn: withdrawal.burn,
-      },
-    }
+const executeCreateVeNft = Effect.fn('SugarActions.createVeNft')(function* (client: SugarClient, p: SugarParameters) {
+  const contracts = yield* clientCall(() => client.getVeNftContracts())
+  const governanceToken = yield* clientCall(() => client.getToken(contracts.governanceToken))
+  if (!governanceToken) {
+    throw new Error(`governance token not found: ${contracts.governanceToken}`)
   }
-  const context = { position: { id: position.id, pool: positionPoolJson(position.pool) } }
-  if (action === 'stake') return { ...transactionPlan(await client.stake(position)), ...context }
-  if (action === 'unstake') return { ...transactionPlan(await client.unstake(position, bigintValue(p, 'amount'))), ...context }
-  if (action === 'claim_emissions') return { ...transactionPlan(await client.claimEmissions(position)), ...context }
-  return { ...transactionPlan(await client.claimFees(position, booleanValue(p, 'burn'), booleanValue(p, 'unwrap_native'))), ...context }
-}
+  const rawAmount = stringValue(p, 'amount')!
+  const veNftAmount = booleanValue(p, 'use_decimals')
+    ? parseTokenUnits(governanceToken, rawAmount)
+    : BigInt(rawAmount)
+  const lockDurationSeconds = numberValue(p, 'lock_duration_seconds')!
+  const transactions = yield* clientCall(() => client.createVeNft(veNftAmount, lockDurationSeconds))
+  return {
+    ...transactionPlan(transactions),
+    ve_nft: {
+      amount: veNftAmount,
+      amount_decimal: tokenToNumber(governanceToken, veNftAmount),
+      governance_token: governanceToken.tokenAddress,
+      governance_symbol: governanceToken.symbol,
+      lock_duration_seconds: lockDurationSeconds,
+    },
+  }
+})
 
-export async function executeSugarAction(action: SugarAction, rawParameters: unknown, options: SugarExecutionOptions = {}): Promise<SugarJson> {
+const executeWithdraw = Effect.fn('SugarActions.withdraw')(function* (client: SugarClient, p: SugarParameters) {
+  const position = yield* findPosition(client, p)
+  const withdrawal = withdrawalFromPosition(position, { fraction: stringValue(p, 'fraction'), burn: booleanValue(p, 'burn') })
+  const transactions = yield* clientCall(() => client.withdraw(withdrawal, numberValue(p, 'deadline_minutes') ?? 30, numberValue(p, 'slippage') ?? 0.01, booleanValue(p, 'collect', true), booleanValue(p, 'unwrap_native')))
+  return {
+    ...transactionPlan(transactions),
+    withdrawal: {
+      pool: positionPoolJson(position.pool),
+      position: position.id,
+      liquidity: withdrawal.liquidity,
+      amount0: withdrawal.amountToken0,
+      amount0_decimal: tokenToNumber(position.pool.token0, withdrawal.amountToken0),
+      amount1: withdrawal.amountToken1,
+      amount1_decimal: tokenToNumber(position.pool.token1, withdrawal.amountToken1),
+      burn: withdrawal.burn,
+    },
+  }
+})
+
+/** Position-scoped transaction builders share the position lookup and context shape. */
+const executePositionAction = Effect.fn('SugarActions.positionAction')(function* (
+  client: SugarClient,
+  p: SugarParameters,
+  build: (position: Position) => Promise<Awaited<ReturnType<SugarClient['stake']>>>,
+) {
+  const position = yield* findPosition(client, p)
+  const transactions = yield* clientCall(() => build(position))
+  return {
+    ...transactionPlan(transactions),
+    position: { id: position.id, pool: positionPoolJson(position.pool) },
+  }
+})
+
+type ActionHandler = (client: SugarClient, p: SugarParameters) => Effect.Effect<unknown, unknown>
+
+const ACTION_HANDLERS = {
+  positions: executePositions,
+  pools: executePools,
+  epochs_latest: executeEpochsLatest,
+  epochs: executeEpochs,
+  quote: executeQuote,
+  swap: executeSwap,
+  deposit: executeDeposit,
+  create_venft: executeCreateVeNft,
+  withdraw: executeWithdraw,
+  stake: (client, p) => executePositionAction(client, p, (position) => client.stake(position)),
+  unstake: (client, p) => executePositionAction(client, p, (position) => client.unstake(position, bigintValue(p, 'amount'))),
+  claim_emissions: (client, p) => executePositionAction(client, p, (position) => client.claimEmissions(position)),
+  claim_fees: (client, p) => executePositionAction(client, p, (position) => client.claimFees(position, booleanValue(p, 'burn'), booleanValue(p, 'unwrap_native'))),
+} satisfies Record<SugarAction, ActionHandler>
+
+/** Effect-native action entrypoint used by the promise wrappers below. */
+export const executeSugarActionEffect = Effect.fn('SugarActions.execute')(function* <T>(
+  action: SugarAction,
+  rawParameters: T,
+  options: SugarExecutionOptions = {},
+) {
   const parameters = validateSugarRequest(action, rawParameters)
   const { clientFactory = (chainId, clientOptions) => new SugarClient(chainId, clientOptions), ...clientOptions } = options
+  const walletParameter = stringValue(parameters, 'wallet')
   const client = clientFactory(Number(parameters.chain), {
     ...clientOptions,
-    account: (stringValue(parameters, 'wallet') as Address | undefined) ?? clientOptions.account,
+    account: walletParameter === undefined ? clientOptions.account : normalizeAddress(walletParameter),
   })
-  return toSugarJson(await execute(client, action, parameters))
+  return toSugarJson(yield* ACTION_HANDLERS[action](client, parameters))
+})
+
+export async function executeSugarAction<T>(action: SugarAction, rawParameters: T, options: SugarExecutionOptions = {}): Promise<SugarJson> {
+  return runSugar(executeSugarActionEffect(action, rawParameters, options))
 }
 
-export async function executeSugarActionJson(action: SugarAction, parameters: unknown, options: SugarExecutionOptions = {}): Promise<string> {
+export async function executeSugarActionJson<T>(action: SugarAction, parameters: T, options: SugarExecutionOptions = {}): Promise<string> {
   return JSON.stringify(await executeSugarAction(action, parameters, options), null, 2)
 }

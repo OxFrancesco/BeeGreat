@@ -1,16 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import type { Address, PublicClient } from 'viem'
+import type { Address } from 'viem'
 import { SugarClient } from './client'
+import { stringListArgument, stubPublicClient } from './test-support'
 import { ADDRESS_ZERO } from './types'
 
-const OWNER = '0x1000000000000000000000000000000000000001' as Address
-const POSITION_POOL = '0x2000000000000000000000000000000000000001' as Address
-const IRRELEVANT_POOL = '0x2000000000000000000000000000000000000002' as Address
-const TOKEN_A = '0x3000000000000000000000000000000000000001' as Address
-const TOKEN_B = '0x3000000000000000000000000000000000000002' as Address
-const TOKEN_C = '0x3000000000000000000000000000000000000003' as Address
-const TOKEN_D = '0x3000000000000000000000000000000000000004' as Address
-const STABLE_TOKEN = '0x3000000000000000000000000000000000000005' as Address
+const OWNER: Address = '0x1000000000000000000000000000000000000001'
+const POSITION_POOL: Address = '0x2000000000000000000000000000000000000001'
+const IRRELEVANT_POOL: Address = '0x2000000000000000000000000000000000000002'
+const TOKEN_A: Address = '0x3000000000000000000000000000000000000001'
+const TOKEN_B: Address = '0x3000000000000000000000000000000000000002'
+const TOKEN_C: Address = '0x3000000000000000000000000000000000000003'
+const TOKEN_D: Address = '0x3000000000000000000000000000000000000004'
+const STABLE_TOKEN: Address = '0x3000000000000000000000000000000000000005'
 
 function tokenTuple(address: Address, symbol: string, decimals = 18): unknown[] {
   return [address, symbol, decimals, 0n, true, false]
@@ -86,8 +87,8 @@ describe('Sugar positions', () => {
         set: async () => undefined,
         delete: async () => undefined,
       },
-      publicClient: {
-        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           reads.push(request.functionName)
           const limit = Number(request.args?.[0] ?? 0)
           const offset = Number(request.args?.[1] ?? 0)
@@ -110,11 +111,11 @@ describe('Sugar positions', () => {
             ]
           }
           if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
-            return (request.args?.[0] as string[]).map(() => 10n ** 18n)
+            return stringListArgument(request, 0).map(() => 10n ** 18n)
           }
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
       settings: { stableTokenAddress: STABLE_TOKEN },
     })
 
@@ -139,8 +140,8 @@ describe('Sugar positions', () => {
           deleted.push(7)
         },
       },
-      publicClient: {
-        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           const limit = Number(request.args?.[0] ?? 0)
           const offset = Number(request.args?.[1] ?? 0)
           if (request.functionName === 'count') return 2n
@@ -167,11 +168,11 @@ describe('Sugar positions', () => {
             ]
           }
           if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
-            return (request.args?.[0] as string[]).map(() => 10n ** 18n)
+            return stringListArgument(request, 0).map(() => 10n ** 18n)
           }
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
       settings: {
         stableTokenAddress: STABLE_TOKEN,
         poolPaginationMinSize: 5,
@@ -193,8 +194,8 @@ describe('Sugar positions', () => {
     const positionReads: Array<{ limit: number; offset: number }> = []
     const sugar = new SugarClient(10, {
       account: OWNER,
-      publicClient: {
-        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           const offset = Number(request.args?.[1] ?? 0)
           if (request.functionName === 'count') return 2n
           if (request.functionName === 'positions') {
@@ -210,7 +211,7 @@ describe('Sugar positions', () => {
               : []
           }
           if (request.functionName === 'tokens') {
-            metadataRequests.push([...(request.args?.[3] as string[])])
+            metadataRequests.push([...stringListArgument(request, 3)])
             return [
               tokenTuple(STABLE_TOKEN, 'USDC', 6),
               tokenTuple(TOKEN_A, 'A'),
@@ -218,13 +219,13 @@ describe('Sugar positions', () => {
             ]
           }
           if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
-            const addresses = [...(request.args?.[0] as string[])]
+            const addresses = [...stringListArgument(request, 0)]
             pricedTokenBatches.push(addresses)
             return addresses.map(() => 10n ** 18n)
           }
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
       settings: {
         stableTokenAddress: STABLE_TOKEN,
         poolPaginationMinSize: 1,

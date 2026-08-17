@@ -22,27 +22,32 @@ import voterJson from './abis/voter.json'
 import votingRewardJson from './abis/voting_reward.json'
 import votingEscrowJson from './abis/voting_escrow.json'
 
+function contractAbi(artifact: readonly unknown[]): Abi {
+  // SAFETY: every src/abis/*.json artifact is a compiler-emitted contract ABI array; viem cannot statically type JSON imports.
+  return artifact as Abi
+}
+
 export const abis = {
-  bridgeGetFee: bridgeGetFeeJson as Abi,
-  bridgeTransferRemote: bridgeTransferRemoteJson as Abi,
-  erc20: erc20Json as Abi,
-  gaugeBasic: gaugeBasicJson as Abi,
-  gaugeCl: gaugeClJson as Abi,
-  interchainAccountRouter: interchainAccountRouterJson as Abi,
-  interchainRouter: interchainRouterJson as Abi,
-  nfpm: nfpmJson as Abi,
-  permit2: permit2Json as Abi,
-  poolBasic: poolBasicJson as Abi,
-  priceOracle: priceOracleJson as Abi,
-  quoter: quoterJson as Abi,
-  rewardsDistributor: rewardsDistributorJson as Abi,
-  router: routerJson as Abi,
-  slipstream: slipstreamJson as Abi,
-  sugar: sugarJson as Abi,
-  sugarRewards: sugarRewardsJson as Abi,
-  swapper: swapperJson as Abi,
-  veSugar: veSugarJson as Abi,
-  voter: voterJson as Abi,
-  votingReward: votingRewardJson as Abi,
-  votingEscrow: votingEscrowJson as Abi,
+  bridgeGetFee: contractAbi(bridgeGetFeeJson),
+  bridgeTransferRemote: contractAbi(bridgeTransferRemoteJson),
+  erc20: contractAbi(erc20Json),
+  gaugeBasic: contractAbi(gaugeBasicJson),
+  gaugeCl: contractAbi(gaugeClJson),
+  interchainAccountRouter: contractAbi(interchainAccountRouterJson),
+  interchainRouter: contractAbi(interchainRouterJson),
+  nfpm: contractAbi(nfpmJson),
+  permit2: contractAbi(permit2Json),
+  poolBasic: contractAbi(poolBasicJson),
+  priceOracle: contractAbi(priceOracleJson),
+  quoter: contractAbi(quoterJson),
+  rewardsDistributor: contractAbi(rewardsDistributorJson),
+  router: contractAbi(routerJson),
+  slipstream: contractAbi(slipstreamJson),
+  sugar: contractAbi(sugarJson),
+  sugarRewards: contractAbi(sugarRewardsJson),
+  swapper: contractAbi(swapperJson),
+  veSugar: contractAbi(veSugarJson),
+  voter: contractAbi(voterJson),
+  votingReward: contractAbi(votingRewardJson),
+  votingEscrow: contractAbi(votingEscrowJson),
 } as const

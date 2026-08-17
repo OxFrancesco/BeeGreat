@@ -128,6 +128,8 @@ export function loadLocalWallet(): LocalWalletRecord | undefined {
   if (!payload && existsSync(fallbackPath())) payload = readFileSync(fallbackPath(), 'utf8').trim()
   if (!payload) return undefined
   try {
+    // SAFETY: the payload is only ever written by saveLocalWallet, which
+    // serializes a LocalWalletRecord; unreadable payloads throw below.
     return JSON.parse(Buffer.from(payload, 'base64').toString('utf8')) as LocalWalletRecord
   } catch {
     throw new Error('stored wallet payload is not readable; re-run wallet restore')
@@ -161,6 +163,8 @@ export function saveWalletConnectRecord(record: WalletConnectRecord): void {
 export function loadWalletConnectRecord(): WalletConnectRecord | undefined {
   if (!existsSync(wcPath())) return undefined
   try {
+    // SAFETY: the session file is only ever written by saveWalletConnectRecord,
+    // which serializes a WalletConnectRecord; unreadable files return undefined.
     return JSON.parse(readFileSync(wcPath(), 'utf8')) as WalletConnectRecord
   } catch {
     return undefined
@@ -198,6 +202,7 @@ export async function promptLine(label: string, hidden = false): Promise<string>
   stdin.resume()
   try {
     let value = ''
+    // SAFETY: a resumed raw-mode TTY ReadStream async-iterates Buffer chunks.
     for await (const chunk of stdin as AsyncIterable<Buffer>) {
       for (const byte of chunk) {
         if (byte === 0x03) throw new Error('cancelled')
