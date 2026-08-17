@@ -1,4 +1,7 @@
+import type * as Cache from 'effect/Cache'
 import type { Address, Hex, PublicClient, Transport } from 'viem'
+import type { SugarRpcError } from './errors'
+import type { SugarContext } from './internal/context'
 
 export const ADDRESS_ZERO = '0x0000000000000000000000000000000000000000' as Address
 export const MAX_UINT128 = (1n << 128n) - 1n
@@ -113,16 +116,38 @@ export type SugarPoolLocatorStore = {
   delete(key: SugarPoolLocatorKey): Promise<void>
 }
 
-/** Mutable read caches a SugarClient consults before hitting the RPC. */
+/**
+ * Mutable read caches a SugarClient consults before hitting the RPC. Keyed
+ * caches are `effect/Cache` handles: concurrent lookups for a missing key
+ * share one in-flight read and failed lookups are never retained. Handles are
+ * created lazily by the first client that needs them, so a shared store entry
+ * keeps serving every client on the same chain and RPC.
+ */
 export type SugarClientCaches = {
-  tokenCache?: Promise<Token[]>
+  /**
+   * @internal The client currently driving a shared-cache lookup. Shared
+   * lookups are late-bound to this context so one client's broken transport
+   * never poisons the store for healthy clients (see internal/caches.ts).
+   */
+  activeContext?: SugarContext
+  /** Full token catalog; `listedOnly` filtering happens after the lookup. */
+  tokenCache?: Cache.Cache<'catalog', Token[], SugarRpcError>
+  /**
+   * Pool count reads participate in the caller's pagination deadline, which
+   * is a per-call argument that a keyed cache lookup cannot carry — so this
+   * stays a deduplicating promise slot cleared on failure.
+   */
   poolCountCache?: Promise<number>
-  rawPoolCache: Map<boolean, Promise<unknown[]>>
-  poolCache: Map<boolean, Promise<LiquidityPool[] | LiquidityPoolForSwap[]>>
-  /** Oracle rates by token address, refreshed after pricingCacheTimeoutSeconds. */
+  rawPoolCache?: Cache.Cache<boolean, unknown[], SugarRpcError>
+  poolCache?: Cache.Cache<boolean, LiquidityPool[] | LiquidityPoolForSwap[], SugarRpcError>
+  /**
+   * Oracle rates by token address, refreshed after
+   * pricingCacheTimeoutSeconds. Rates are filled from batched oracle calls
+   * (many keys per read), not per-key lookups, so a keyed cache does not fit.
+   */
   priceRateCache: Map<string, { expiresAt: number; rate: bigint }>
   /** The swapper's immutable PERMIT2 address; one read per cache lifetime. */
-  permit2AddressCache?: Promise<Address>
+  permit2AddressCache?: Cache.Cache<'permit2', Address, SugarRpcError>
 }
 
 /**

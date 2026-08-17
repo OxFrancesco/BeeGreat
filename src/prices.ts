@@ -1,9 +1,10 @@
+import * as Effect from 'effect/Effect'
 import type { Address } from 'viem'
 import { abis } from './abis'
 import { addressKey, chunk, tokenContractAddress } from './helpers'
 import type { SugarContext } from './internal/context'
 import { preparePrices } from './models'
-import type { Price, Token } from './types'
+import type { Token } from './types'
 
 export function getPriceRequestTokens(tokens: Token[]): Token[] {
   return [...new Map(tokens.filter((token) => token.wrappedTokenAddress || token.listed || token.emerging).map((token) => [token.tokenAddress, token])).values()]
@@ -13,7 +14,10 @@ export function getPriceConnectors(ctx: SugarContext): Address[] {
   return [...new Set([...ctx.settings.connectorTokenAddresses, ctx.settings.stableTokenAddress])]
 }
 
-export async function getPrices(ctx: SugarContext, tokens: Token[]): Promise<Price[]> {
+export const getPrices = Effect.fn('Sugar.Prices.getPrices')(function* (
+  ctx: SugarContext,
+  tokens: Token[],
+) {
   const requestTokens = ctx.client.getPriceRequestTokens(tokens)
   const rateMap = new Map<string, bigint>()
   const now = Date.now()
@@ -28,7 +32,7 @@ export async function getPrices(ctx: SugarContext, tokens: Token[]): Promise<Pri
   if (staleTokens.length > 0) {
     const batches = chunk(staleTokens, ctx.settings.priceBatchSize)
     const connectors = ctx.client.getPriceConnectors()
-    const results = await ctx.rpc.forEachRead(
+    const results = yield* ctx.rpc.forEachRead(
       'getManyRatesToEthWithCustomConnectors',
       batches,
       (batch) => ctx.publicClient.readContract({
@@ -36,6 +40,8 @@ export async function getPrices(ctx: SugarContext, tokens: Token[]): Promise<Pri
         abi: abis.priceOracle,
         functionName: 'getManyRatesToEthWithCustomConnectors',
         args: [batch.map(tokenContractAddress), false, connectors, ctx.settings.priceThresholdFilter],
+        // SAFETY: viem cannot statically type a dynamic read over a JSON ABI;
+        // the oracle returns one rate per requested token.
       } as never) as Promise<bigint[]>,
       ctx.settings.requestConcurrency,
     )
@@ -47,4 +53,4 @@ export async function getPrices(ctx: SugarContext, tokens: Token[]): Promise<Pri
     }))
   }
   return preparePrices(tokens, tokens.map((token) => rateMap.get(token.tokenAddress) ?? 0n), ctx.settings)
-}
+})

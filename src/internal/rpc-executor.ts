@@ -1,5 +1,7 @@
 import * as Data from 'effect/Data'
+import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
+import * as Predicate from 'effect/Predicate'
 import * as Schedule from 'effect/Schedule'
 import { SugarRpcError, type SugarRpcErrorCode } from '../errors'
 import type { SugarRpcEvent, SugarRpcObserver, SugarRpcPolicyOptions } from '../types'
@@ -24,6 +26,7 @@ export type RpcReadResult<A> =
   | { readonly ok: true; readonly value: A }
   | { readonly error: SugarRpcError; readonly ok: false }
 
+/** Internal control-flow failure carrying the Retry-After hint for the schedule. */
 class RpcAttemptFailure extends Data.TaggedError('RpcAttemptFailure')<{
   readonly error: SugarRpcError
   readonly retryAfterMs: number
@@ -55,20 +58,20 @@ function errorChain(cause: unknown): unknown[] {
   while (current !== undefined && current !== null && !seen.has(current)) {
     seen.add(current)
     chain.push(current)
-    if (typeof current !== 'object' || !('cause' in current)) break
+    if (!Predicate.isObject(current) || !('cause' in current)) break
     current = current.cause
   }
   return chain
 }
 
 function numericField(value: unknown, field: 'code' | 'status'): number | undefined {
-  if (typeof value !== 'object' || value === null || !(field in value)) return undefined
-  const fieldValue = (value as Record<string, unknown>)[field]
-  return typeof fieldValue === 'number' ? fieldValue : undefined
+  if (!Predicate.isObject(value) || !(field in value)) return undefined
+  const fieldValue = value[field]
+  return Predicate.isNumber(fieldValue) ? fieldValue : undefined
 }
 
 function errorName(value: unknown): string | undefined {
-  return typeof value === 'object' && value !== null && 'name' in value && typeof value.name === 'string'
+  return Predicate.isObject(value) && 'name' in value && Predicate.isString(value.name)
     ? value.name
     : undefined
 }
@@ -77,19 +80,17 @@ function publicRpcCause(value: unknown): Readonly<Record<string, unknown>> {
   const status = numericField(value, 'status')
   const code = numericField(value, 'code')
   const name = errorName(value)
-  const message = typeof value === 'object' && value !== null &&
-      'message' in value && typeof value.message === 'string'
+  const message = Predicate.isObject(value) && 'message' in value && Predicate.isString(value.message)
     ? value.message.replace(
         /(https?:\/\/[^/\s]+\/(?:v2|v3)\/)[^/\s)"']+/gi,
         '$1[REDACTED]',
       )
     : 'RPC request failed'
-  return Object.freeze({
-    ...(code === undefined ? {} : { code }),
-    message,
-    ...(name === undefined ? {} : { name }),
-    ...(status === undefined ? {} : { status }),
-  })
+  const publicCause: Record<string, unknown> = { message }
+  if (code !== undefined) publicCause.code = code
+  if (name !== undefined) publicCause.name = name
+  if (status !== undefined) publicCause.status = status
+  return Object.freeze(publicCause)
 }
 
 /** Whether a failure is transient (throttling, outage, timeout) rather than deterministic. */
@@ -119,11 +120,11 @@ function classifyRpcError(cause: unknown): { code: SugarRpcErrorCode; retryable:
 
 function getRetryAfterMs(cause: unknown): number {
   for (const error of errorChain(cause)) {
-    if (typeof error !== 'object' || error === null || !('headers' in error)) continue
+    if (!Predicate.isObject(error) || !('headers' in error)) continue
     const headers = error.headers
-    if (!headers || typeof headers !== 'object' || !('get' in headers) || typeof headers.get !== 'function') continue
+    if (!Predicate.isObject(headers) || !('get' in headers) || !Predicate.isFunction(headers.get)) continue
     const value = headers.get('Retry-After')
-    if (typeof value !== 'string' || value.trim() === '') continue
+    if (!Predicate.isString(value) || value.trim() === '') continue
     const seconds = Number(value)
     if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1_000)
     const at = Date.parse(value)
@@ -158,15 +159,29 @@ function resolveRpcPolicy(options: SugarRpcPolicyOptions = {}): RpcPolicy {
   }
 }
 
+/**
+ * Exponential backoff bounded by maxRetries; a provider Retry-After hint
+ * stretches (never shortens) the computed delay. Only transient failures
+ * recur — deterministic reverts fail fast via the retry `while` predicate.
+ */
+function retrySchedule(policy: RpcPolicy) {
+  return Schedule.exponential(Duration.millis(policy.baseDelayMs)).pipe(
+    Schedule.upTo({ times: policy.maxRetries }),
+    Schedule.setInputType<RpcAttemptFailure>(),
+    Schedule.modifyDelay(({ duration, input }) =>
+      Effect.succeed(Duration.max(duration, Duration.millis(input.retryAfterMs))),
+    ),
+  )
+}
+
 function attemptProgram<A>(
   operation: string,
   task: RpcReadTask<A>,
   policy: RpcPolicy,
   deadline: RpcDeadline,
-) {
+): Effect.Effect<A, RpcAttemptFailure> {
   const attempts = { count: 0 }
   const causeKey = Symbol(operation)
-  const clearCause = () => deadline.pendingCauses.delete(causeKey)
   const attempt = Effect.tryPromise({
     try: (signal) => {
       attempts.count += 1
@@ -178,7 +193,7 @@ function attemptProgram<A>(
       deadline.pendingCauses.set(causeKey, cause)
       const classification = classifyRpcError(cause)
       return new RpcAttemptFailure({
-        error: new SugarRpcError({
+        error: SugarRpcError.from({
           ...classification,
           attempts: attempts.count,
           cause: publicRpcCause(cause),
@@ -190,34 +205,23 @@ function attemptProgram<A>(
   })
   const retried = policy.maxRetries === 0
     ? attempt
-    : Effect.retry(
-        attempt,
-        Schedule.identity<RpcAttemptFailure>().pipe(
-          Schedule.addDelay((failure) => failure.retryAfterMs),
-          Schedule.intersect(Schedule.exponential(policy.baseDelayMs)),
-          Schedule.intersect(Schedule.recurs(policy.maxRetries)),
-          Schedule.whileInput((failure) => failure.error.retryable),
-        ),
-      )
-  return {
-    clearCause,
-    effect: Effect.tap(retried, () => Effect.sync(clearCause)),
-  }
+    : Effect.retry(attempt, {
+        schedule: retrySchedule(policy),
+        while: (failure) => failure.error.retryable,
+      })
+  return Effect.tap(retried, () => Effect.sync(() => deadline.pendingCauses.delete(causeKey)))
 }
 
-function readResultProgram<A>(program: {
-  readonly clearCause: () => boolean
-  readonly effect: Effect.Effect<A, RpcAttemptFailure>
-}): Effect.Effect<RpcReadResult<A>, RpcAttemptFailure> {
-  return Effect.catchAll(
-    Effect.map(program.effect, (value): RpcReadResult<A> => ({ ok: true, value })),
-    (failure) => {
-      if (failure.error.retryable) return Effect.fail(failure)
-      return Effect.sync((): RpcReadResult<A> => {
-        program.clearCause()
-        return { error: failure.error, ok: false }
-      })
-    },
+function toReadResult<A>(
+  program: Effect.Effect<A, RpcAttemptFailure>,
+): Effect.Effect<RpcReadResult<A>, RpcAttemptFailure> {
+  return program.pipe(
+    Effect.map((value): RpcReadResult<A> => ({ ok: true, value })),
+    Effect.catch((failure) =>
+      failure.error.retryable
+        ? Effect.fail(failure)
+        : Effect.succeed<RpcReadResult<A>>({ error: failure.error, ok: false }),
+    ),
   )
 }
 
@@ -244,17 +248,17 @@ function deadlineFailure(deadline: RpcDeadline): RpcDeadlineFailure {
 function withDeadline<A, E>(
   effect: Effect.Effect<A, E>,
   deadline: RpcDeadline,
-) {
+): Effect.Effect<A, E | RpcDeadlineFailure> {
   const remainingMs = deadline.expiresAt - Date.now()
   if (remainingMs <= 0) return Effect.fail(deadlineFailure(deadline))
-  return Effect.timeoutFail(effect, {
-    duration: remainingMs,
-    onTimeout: () => deadlineFailure(deadline),
+  return Effect.timeoutOrElse(effect, {
+    duration: Duration.millis(remainingMs),
+    orElse: () => Effect.fail(deadlineFailure(deadline)),
   })
 }
 
 function toDeadlineError(failure: RpcDeadlineFailure): SugarRpcError {
-  return new SugarRpcError({
+  return SugarRpcError.from({
     attempts: failure.attempts,
     cause: failure.cause === undefined
       ? undefined
@@ -266,34 +270,58 @@ function toDeadlineError(failure: RpcDeadlineFailure): SugarRpcError {
   })
 }
 
-async function runReadProgram<A>(
+/** Surface only the domain error: internal attempt/deadline wrappers stay private. */
+function toSugarRpcError<A>(
   program: Effect.Effect<A, RpcAttemptFailure | RpcDeadlineFailure>,
-): Promise<A> {
-  const result = await Effect.runPromise(Effect.either(program))
-  if (result._tag === 'Right') return result.right
-  const failure = result.left
-  if (failure._tag === 'RpcAttemptFailure') throw failure.error
-  throw toDeadlineError(failure)
+): Effect.Effect<A, SugarRpcError> {
+  return program.pipe(
+    Effect.catchTag('RpcAttemptFailure', (failure) => Effect.fail(failure.error)),
+    Effect.catchTag('RpcDeadlineFailure', (failure) => Effect.fail(toDeadlineError(failure))),
+  )
+}
+
+function withReadEvents<A, E>(
+  effect: Effect.Effect<A, E>,
+  observer: SugarRpcObserver | undefined,
+  deadline: RpcDeadline,
+  phase: 'batch' | 'read',
+  itemCount: number,
+): Effect.Effect<A, E> {
+  return Effect.suspend(() => {
+    const startedAt = Date.now()
+    const event = (status: 'error' | 'success'): SugarRpcEvent => ({
+      attemptCount: deadline.attempts,
+      durationMs: Date.now() - startedAt,
+      itemCount,
+      operation: deadline.operation,
+      phase,
+      status,
+    })
+    return effect.pipe(
+      Effect.tap(() => Effect.sync(() => emitRpcEvent(observer, event('success')))),
+      Effect.tapCause(() => Effect.sync(() => emitRpcEvent(observer, event('error')))),
+    )
+  })
 }
 
 export type RpcReadExecutor = Readonly<{
   policy: RpcPolicy
   deadline(operation: string): RpcDeadline
-  read<A>(operation: string, task: RpcReadTask<A>, deadline?: RpcDeadline): Promise<A>
+  read<A>(operation: string, task: RpcReadTask<A>, deadline?: RpcDeadline): Effect.Effect<A, SugarRpcError>
   forEachRead<I, A>(
     operation: string,
     items: Iterable<I>,
     task: (item: I, index: number, signal: AbortSignal) => PromiseLike<A>,
     concurrency: number,
     deadline?: RpcDeadline,
-  ): Promise<A[]>
+  ): Effect.Effect<A[], SugarRpcError>
   forEachReadResult<I, A>(
     operation: string,
     items: Iterable<I>,
     task: (item: I, index: number, signal: AbortSignal) => PromiseLike<A>,
     concurrency: number,
     deadline?: RpcDeadline,
-  ): Promise<Array<RpcReadResult<A>>>
+  ): Effect.Effect<Array<RpcReadResult<A>>, SugarRpcError>
 }>
 
 export function makeRpcReadExecutor(
@@ -301,116 +329,48 @@ export function makeRpcReadExecutor(
   observer?: SugarRpcObserver,
 ): RpcReadExecutor {
   const policy = resolveRpcPolicy(options)
+
+  const forEachProgram = <I, A, B>(
+    operation: string,
+    items: Iterable<I>,
+    task: (item: I, index: number, signal: AbortSignal) => PromiseLike<A>,
+    concurrency: number,
+    requestedDeadline: RpcDeadline | undefined,
+    toResult: (program: Effect.Effect<A, RpcAttemptFailure>) => Effect.Effect<B, RpcAttemptFailure>,
+  ): Effect.Effect<B[], SugarRpcError> =>
+    Effect.suspend(() => {
+      const limit = positiveInteger(concurrency, 'requestConcurrency')
+      const deadline = requestedDeadline ?? makeDeadline(operation, policy)
+      const inputs = [...items]
+      const program = Effect.forEach(
+        inputs,
+        (item, index) => toResult(attemptProgram(
+          operation,
+          (signal) => task(item, index, signal),
+          policy,
+          deadline,
+        )),
+        { concurrency: limit },
+      )
+      return toSugarRpcError(withDeadline(program, deadline)).pipe(
+        (effect) => withReadEvents(effect, observer, deadline, 'batch', inputs.length),
+      )
+    })
+
   return {
     policy,
     deadline: (operation) => makeDeadline(operation, policy),
-    read: async (operation, task, requestedDeadline) => {
-      const deadline = requestedDeadline ?? makeDeadline(operation, policy)
-      const program = attemptProgram(operation, task, policy, deadline)
-      const startedAt = Date.now()
-      try {
-        const value = await runReadProgram(withDeadline(program.effect, deadline))
-        emitRpcEvent(observer, {
-          attemptCount: deadline.attempts,
-          durationMs: Date.now() - startedAt,
-          itemCount: 1,
-          operation,
-          phase: 'read',
-          status: 'success',
-        })
-        return value
-      } catch (error) {
-        emitRpcEvent(observer, {
-          attemptCount: deadline.attempts,
-          durationMs: Date.now() - startedAt,
-          itemCount: 1,
-          operation,
-          phase: 'read',
-          status: 'error',
-        })
-        throw error
-      }
-    },
-    forEachRead: async (operation, items, task, concurrency, requestedDeadline) => {
-      const limit = positiveInteger(concurrency, 'requestConcurrency')
-      const deadline = requestedDeadline ?? makeDeadline(operation, policy)
-      const inputs = [...items]
-      const program = Effect.forEach(
-        inputs,
-        (item, index) => {
-          return attemptProgram(
-            operation,
-            (signal) => task(item, index, signal),
-            policy,
-            deadline,
-          ).effect
-        },
-        { concurrency: limit },
-      )
-      const startedAt = Date.now()
-      try {
-        const values = await runReadProgram(withDeadline(program, deadline))
-        emitRpcEvent(observer, {
-          attemptCount: deadline.attempts,
-          durationMs: Date.now() - startedAt,
-          itemCount: inputs.length,
-          operation,
-          phase: 'batch',
-          status: 'success',
-        })
-        return values
-      } catch (error) {
-        emitRpcEvent(observer, {
-          attemptCount: deadline.attempts,
-          durationMs: Date.now() - startedAt,
-          itemCount: inputs.length,
-          operation,
-          phase: 'batch',
-          status: 'error',
-        })
-        throw error
-      }
-    },
-    forEachReadResult: async (operation, items, task, concurrency, requestedDeadline) => {
-      const limit = positiveInteger(concurrency, 'requestConcurrency')
-      const deadline = requestedDeadline ?? makeDeadline(operation, policy)
-      const inputs = [...items]
-      const program = Effect.forEach(
-        inputs,
-        (item, index) => {
-          const itemProgram = attemptProgram(
-            operation,
-            (signal) => task(item, index, signal),
-            policy,
-            deadline,
-          )
-          return readResultProgram(itemProgram)
-        },
-        { concurrency: limit },
-      )
-      const startedAt = Date.now()
-      try {
-        const values = await runReadProgram(withDeadline(program, deadline))
-        emitRpcEvent(observer, {
-          attemptCount: deadline.attempts,
-          durationMs: Date.now() - startedAt,
-          itemCount: inputs.length,
-          operation,
-          phase: 'batch',
-          status: 'success',
-        })
-        return values
-      } catch (error) {
-        emitRpcEvent(observer, {
-          attemptCount: deadline.attempts,
-          durationMs: Date.now() - startedAt,
-          itemCount: inputs.length,
-          operation,
-          phase: 'batch',
-          status: 'error',
-        })
-        throw error
-      }
-    },
+    read: (operation, task, requestedDeadline) =>
+      Effect.suspend(() => {
+        const deadline = requestedDeadline ?? makeDeadline(operation, policy)
+        const program = attemptProgram(operation, task, policy, deadline)
+        return toSugarRpcError(withDeadline(program, deadline)).pipe(
+          (effect) => withReadEvents(effect, observer, deadline, 'read', 1),
+        )
+      }),
+    forEachRead: (operation, items, task, concurrency, requestedDeadline) =>
+      forEachProgram(operation, items, task, concurrency, requestedDeadline, (program) => program),
+    forEachReadResult: (operation, items, task, concurrency, requestedDeadline) =>
+      forEachProgram(operation, items, task, concurrency, requestedDeadline, toReadResult),
   }
 }

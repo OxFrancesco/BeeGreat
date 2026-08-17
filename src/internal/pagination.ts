@@ -1,5 +1,8 @@
+import * as Effect from 'effect/Effect'
 import { abis } from '../abis'
+import type { SugarRpcError } from '../errors'
 import type { SugarContext } from './context'
+import { clientCall, runSugar } from './interop'
 import type { RpcDeadline, RpcReadTask } from './rpc-executor'
 
 const MAX_PAGINATION_REQUESTS = 10_000
@@ -47,76 +50,83 @@ export function* poolPageRequests(
   for (let page = 0; page < pageCount; page++) yield { offset: page * limit, limit }
 }
 
-export async function paginate<T>(
+export const paginate = Effect.fn('Sugar.Pagination.paginate')(function* <T>(
   ctx: SugarContext,
   operation: string,
   reader: (limit: number, offset: number) => RpcReadTask<T[]>,
-  deadline = ctx.rpc.deadline(operation),
+  requestedDeadline?: RpcDeadline,
   pageLimit?: number,
-): Promise<T[]> {
+) {
+  const deadline = requestedDeadline ?? ctx.rpc.deadline(operation)
   const startedAt = Date.now()
   let pageCount = 0
-  try {
-    const count = await getPoolCountWithin(ctx, deadline)
+  const event = (status: 'error' | 'success', itemCount: number) => ({
+    attemptCount: deadline.attempts,
+    durationMs: Date.now() - startedAt,
+    itemCount,
+    operation,
+    pageCount,
+    phase: 'pagination' as const,
+    status,
+  })
+  const pages = yield* Effect.gen(function* () {
+    const count = yield* getPoolCountWithin(ctx, deadline)
     const requests = pageLimit === undefined
       ? getPoolPaginator(ctx, count)
       : [...poolPageRequests(ctx, count, pageLimit)]
     pageCount = requests.length
-    const pages = await ctx.rpc.forEachRead(
+    return yield* ctx.rpc.forEachRead(
       operation,
       requests,
       ({ limit, offset }, _index, signal) => reader(limit, offset)(signal),
       ctx.settings.requestConcurrency,
       deadline,
     )
-    const results = pages.flat()
-    ctx.emitRpcEvent({
-      attemptCount: deadline.attempts,
-      durationMs: Date.now() - startedAt,
-      itemCount: results.length,
-      operation,
-      pageCount,
-      phase: 'pagination',
-      status: 'success',
-    })
-    return results
-  } catch (error) {
-    ctx.emitRpcEvent({
-      attemptCount: deadline.attempts,
-      durationMs: Date.now() - startedAt,
-      itemCount: 0,
-      operation,
-      pageCount,
-      phase: 'pagination',
-      status: 'error',
-    })
-    throw error
-  }
+  }).pipe(
+    Effect.tapCause(() => Effect.sync(() => ctx.emitRpcEvent(event('error', 0)))),
+  )
+  const results = pages.flat()
+  ctx.emitRpcEvent(event('success', results.length))
+  return results
+})
+
+/**
+ * One deduplicated pool-count read shared by every pagination pass. The count
+ * participates in the caller's deadline, a per-call argument that a keyed
+ * cache lookup cannot carry, so this stays a promise slot cleared on failure.
+ */
+export function getPoolCountWithin(ctx: SugarContext, deadline: RpcDeadline): Effect.Effect<number, SugarRpcError> {
+  return Effect.suspend(() => {
+    if (!ctx.caches.poolCountCache) {
+      const promise = runSugar(readPoolCount(ctx, deadline))
+      ctx.caches.poolCountCache = promise
+      void promise.catch(() => {
+        if (ctx.caches.poolCountCache === promise) ctx.caches.poolCountCache = undefined
+      })
+    }
+    const pending = ctx.caches.poolCountCache
+    return clientCall(() => pending)
+  })
 }
 
-export function getPoolCountWithin(ctx: SugarContext, deadline: RpcDeadline): Promise<number> {
-  if (!ctx.caches.poolCountCache) {
-    const promise = ctx.read<bigint>(
-      ctx.settings.sugarContractAddress,
-      abis.sugar,
-      'count',
-      undefined,
-      deadline,
-    ).then((rawCount) => {
-      const count = Number(rawCount)
-      if (rawCount < 0n || !Number.isSafeInteger(count)) {
-        throw new RangeError('Sugar pool count must be a safe non-negative integer')
-      }
-      return count
-    })
-    ctx.caches.poolCountCache = promise
-    void promise.catch(() => {
-      if (ctx.caches.poolCountCache === promise) ctx.caches.poolCountCache = undefined
-    })
+const readPoolCount = Effect.fn('Sugar.Pagination.readPoolCount')(function* (
+  ctx: SugarContext,
+  deadline: RpcDeadline,
+) {
+  const rawCount = yield* ctx.read<bigint>(
+    ctx.settings.sugarContractAddress,
+    abis.sugar,
+    'count',
+    undefined,
+    deadline,
+  )
+  const count = Number(rawCount)
+  if (rawCount < 0n || !Number.isSafeInteger(count)) {
+    throw new RangeError('Sugar pool count must be a safe non-negative integer')
   }
-  return ctx.caches.poolCountCache
-}
+  return count
+})
 
-export function getPoolCount(ctx: SugarContext): Promise<number> {
-  return getPoolCountWithin(ctx, ctx.rpc.deadline('count'))
+export function getPoolCount(ctx: SugarContext): Effect.Effect<number, SugarRpcError> {
+  return Effect.suspend(() => getPoolCountWithin(ctx, ctx.rpc.deadline('count')))
 }

@@ -1,18 +1,19 @@
+import * as Cache from 'effect/Cache'
+import * as Effect from 'effect/Effect'
 import type { Address } from 'viem'
 import { abis } from './abis'
 import { addressKey, normalizeAddress, tokenContractAddress, tupleValues } from './helpers'
+import { makeReadCache } from './internal/caches'
 import type { SugarContext } from './internal/context'
+import { clientCall } from './internal/interop'
 import { veNftFromTuple, veNftRewardFromTuple } from './models'
 import { approveAddressIfNeeded } from './transactions'
 import {
   ADDRESS_ZERO,
   type LiquidityPool,
-  type PoolRewardContracts,
   type Token,
   type UnsignedTransaction,
-  type VeNft,
   type VeNftContracts,
-  type VeNftReward,
   type VeNftVote,
 } from './types'
 
@@ -27,37 +28,40 @@ export function requireVeSugar(ctx: SugarContext): Address {
   return ctx.settings.veSugarContractAddress
 }
 
-export function getVeNftContracts(ctx: SugarContext): Promise<VeNftContracts> {
+export const getVeNftContracts = Effect.fn('Sugar.VeNfts.getVeNftContracts')(function* (
+  ctx: SugarContext,
+) {
   const veSugar = requireVeSugar(ctx)
-  if (!ctx.veNftContractsCache) {
-    const pending = Promise.all([
+  const cache = ctx.veNftContractsCache ??= yield* makeReadCache((_key: 'contracts') =>
+    Effect.all([
       ctx.read<Address>(veSugar, abis.veSugar, 'voter'),
       ctx.read<Address>(veSugar, abis.veSugar, 've'),
       ctx.read<Address>(veSugar, abis.veSugar, 'token'),
       ctx.read<Address>(veSugar, abis.veSugar, 'dist'),
-    ]).then(([voter, votingEscrow, governanceToken, rewardsDistributor]) => ({
-      veSugar,
-      voter: normalizeAddress(voter),
-      votingEscrow: normalizeAddress(votingEscrow),
-      governanceToken: normalizeAddress(governanceToken),
-      rewardsDistributor: normalizeAddress(rewardsDistributor),
-    }))
-    ctx.veNftContractsCache = pending
-    void pending.catch(() => {
-      if (ctx.veNftContractsCache === pending) ctx.veNftContractsCache = undefined
-    })
-  }
-  return ctx.veNftContractsCache
-}
+    ], { concurrency: 'unbounded' }).pipe(
+      Effect.map(([voter, votingEscrow, governanceToken, rewardsDistributor]): VeNftContracts => ({
+        veSugar,
+        voter: normalizeAddress(voter),
+        votingEscrow: normalizeAddress(votingEscrow),
+        governanceToken: normalizeAddress(governanceToken),
+        rewardsDistributor: normalizeAddress(rewardsDistributor),
+      })),
+    ),
+  )
+  return yield* Cache.get(cache, 'contracts')
+})
 
-export async function getVeNfts(ctx: SugarContext, owner?: Address): Promise<VeNft[]> {
+export const getVeNfts = Effect.fn('Sugar.VeNfts.getVeNfts')(function* (
+  ctx: SugarContext,
+  owner?: Address,
+) {
   const veSugar = requireVeSugar(ctx)
   if (!owner) throw new Error('Owner address is required to list veNFTs')
-  const [contracts, raw] = await Promise.all([
-    ctx.client.getVeNftContracts(),
+  const [contracts, raw] = yield* Effect.all([
+    clientCall(() => ctx.client.getVeNftContracts()),
     ctx.read<unknown[]>(veSugar, abis.veSugar, 'byAccount', [normalizeAddress(owner)]),
-  ])
-  const states = await ctx.rpc.forEachRead(
+  ], { concurrency: 'unbounded' })
+  const states = yield* ctx.rpc.forEachRead(
     'escrowType',
     raw,
     (item, _index, signal) => ctx.readTask<number>(
@@ -69,34 +73,41 @@ export async function getVeNfts(ctx: SugarContext, owner?: Address): Promise<VeN
     ctx.settings.requestConcurrency,
   )
   return raw.map((item, index) => veNftFromTuple(item, states[index], ctx.settings))
-}
+})
 
-export async function getVeNft(ctx: SugarContext, tokenId: bigint): Promise<VeNft | undefined> {
+export const getVeNft = Effect.fn('Sugar.VeNfts.getVeNft')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+) {
   assertVeNftId(tokenId)
   const veSugar = requireVeSugar(ctx)
-  const [contracts, raw] = await Promise.all([
-    ctx.client.getVeNftContracts(),
+  const [contracts, raw] = yield* Effect.all([
+    clientCall(() => ctx.client.getVeNftContracts()),
     ctx.read<unknown>(veSugar, abis.veSugar, 'byId', [tokenId]),
-  ])
+  ], { concurrency: 'unbounded' })
   const values = tupleValues(raw)
   if (BigInt(String(values[0])) === 0n || normalizeAddress(String(values[1])) === ADDRESS_ZERO) {
     return undefined
   }
-  const state = await ctx.read<number>(
+  const state = yield* ctx.read<number>(
     contracts.votingEscrow,
     abis.votingEscrow,
     'escrowType',
     [tokenId],
   )
   return veNftFromTuple(raw, state, ctx.settings)
-}
+})
 
-export async function getVeNftRewards(ctx: SugarContext, tokenId: bigint, pool?: Address): Promise<VeNftReward[]> {
+export const getVeNftRewards = Effect.fn('Sugar.VeNfts.getVeNftRewards')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  pool?: Address,
+) {
   assertVeNftId(tokenId)
   requireVeSugar(ctx)
   const rewardsSugar = ctx.settings.sugarRewardsContractAddress
   if (pool) {
-    const raw = await ctx.read<unknown[]>(
+    const raw = yield* ctx.read<unknown[]>(
       rewardsSugar,
       abis.sugarRewards,
       'rewardsByAddress',
@@ -104,12 +115,12 @@ export async function getVeNftRewards(ctx: SugarContext, tokenId: bigint, pool?:
     )
     return raw.map(veNftRewardFromTuple)
   }
-  const rawLimit = await ctx.read<bigint>(rewardsSugar, abis.sugarRewards, 'MAX_REWARDS')
+  const rawLimit = yield* ctx.read<bigint>(rewardsSugar, abis.sugarRewards, 'MAX_REWARDS')
   const limit = Number(rawLimit)
   if (!Number.isSafeInteger(limit) || limit <= 0) throw new Error('Invalid RewardsSugar page limit')
   const results: unknown[] = []
   for (let offset = 0; offset < 10_000; offset += limit) {
-    const page = await ctx.read<unknown[]>(
+    const page = yield* ctx.read<unknown[]>(
       rewardsSugar,
       abis.sugarRewards,
       'rewards',
@@ -119,15 +130,19 @@ export async function getVeNftRewards(ctx: SugarContext, tokenId: bigint, pool?:
     if (page.length < limit) return results.map(veNftRewardFromTuple)
   }
   throw new Error('veNFT reward pagination exceeded 10,000 entries')
-}
+})
 
-export async function createVeNft(ctx: SugarContext, amount: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
+export const createVeNft = Effect.fn('Sugar.VeNfts.createVeNft')(function* (
+  ctx: SugarContext,
+  amount: bigint,
+  lockDurationSeconds: number,
+) {
   if (amount <= 0n) throw new Error('veNFT amount must be positive')
   if (!Number.isSafeInteger(lockDurationSeconds) || lockDurationSeconds <= 0) {
     throw new Error('veNFT lock duration must be a positive integer number of seconds')
   }
-  const contracts = await ctx.client.getVeNftContracts()
-  const approval = await approveAddressIfNeeded(
+  const contracts = yield* clientCall(() => ctx.client.getVeNftContracts())
+  const approval = yield* approveAddressIfNeeded(
     ctx,
     contracts.governanceToken,
     contracts.votingEscrow,
@@ -138,13 +153,17 @@ export async function createVeNft(ctx: SugarContext, amount: bigint, lockDuratio
     ctx.encode(abis.votingEscrow, 'createLock', [amount, BigInt(lockDurationSeconds)]),
   )
   return [approval, create].filter((transaction): transaction is UnsignedTransaction => transaction !== undefined)
-}
+})
 
-export async function increaseVeNftAmount(ctx: SugarContext, tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
+export const increaseVeNftAmount = Effect.fn('Sugar.VeNfts.increaseVeNftAmount')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  amount: bigint,
+) {
   if (tokenId <= 0n) throw new Error('veNFT token id must be positive')
   if (amount <= 0n) throw new Error('veNFT amount must be positive')
-  const contracts = await ctx.client.getVeNftContracts()
-  const approval = await approveAddressIfNeeded(
+  const contracts = yield* clientCall(() => ctx.client.getVeNftContracts())
+  const approval = yield* approveAddressIfNeeded(
     ctx,
     contracts.governanceToken,
     contracts.votingEscrow,
@@ -155,60 +174,95 @@ export async function increaseVeNftAmount(ctx: SugarContext, tokenId: bigint, am
     ctx.encode(abis.votingEscrow, 'increaseAmount', [tokenId, amount]),
   )
   return [approval, increase].filter((transaction): transaction is UnsignedTransaction => transaction !== undefined)
-}
+})
 
 function assertVeNftId(tokenId: bigint, label = 'veNFT token id'): void {
   if (tokenId <= 0n) throw new Error(`${label} must be positive`)
 }
 
-async function buildVeNftCall(ctx: SugarContext, functionName: string, args: readonly unknown[]): Promise<UnsignedTransaction[]> {
-  const { votingEscrow } = await ctx.client.getVeNftContracts()
+const buildVeNftCall = Effect.fn('Sugar.VeNfts.buildVeNftCall')(function* (
+  ctx: SugarContext,
+  functionName: string,
+  args: readonly unknown[],
+) {
+  const { votingEscrow } = yield* clientCall(() => ctx.client.getVeNftContracts())
   return [ctx.tx(votingEscrow, ctx.encode(abis.votingEscrow, functionName, args))]
-}
+})
 
-export async function extendVeNftLock(ctx: SugarContext, tokenId: bigint, lockDurationSeconds: number): Promise<UnsignedTransaction[]> {
+export const extendVeNftLock = Effect.fn('Sugar.VeNfts.extendVeNftLock')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  lockDurationSeconds: number,
+) {
   assertVeNftId(tokenId)
   if (!Number.isSafeInteger(lockDurationSeconds) || lockDurationSeconds <= 0) {
     throw new Error('veNFT lock duration must be a positive integer number of seconds')
   }
-  return buildVeNftCall(ctx, 'increaseUnlockTime', [tokenId, BigInt(lockDurationSeconds)])
-}
+  return yield* buildVeNftCall(ctx, 'increaseUnlockTime', [tokenId, BigInt(lockDurationSeconds)])
+})
 
-export async function withdrawVeNft(ctx: SugarContext, tokenId: bigint): Promise<UnsignedTransaction[]> {
+export const withdrawVeNft = Effect.fn('Sugar.VeNfts.withdrawVeNft')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+) {
   assertVeNftId(tokenId)
-  return buildVeNftCall(ctx, 'withdraw', [tokenId])
-}
+  return yield* buildVeNftCall(ctx, 'withdraw', [tokenId])
+})
 
-export async function mergeVeNfts(ctx: SugarContext, fromTokenId: bigint, intoTokenId: bigint): Promise<UnsignedTransaction[]> {
+export const mergeVeNfts = Effect.fn('Sugar.VeNfts.mergeVeNfts')(function* (
+  ctx: SugarContext,
+  fromTokenId: bigint,
+  intoTokenId: bigint,
+) {
   assertVeNftId(fromTokenId, 'source veNFT token id')
   assertVeNftId(intoTokenId, 'destination veNFT token id')
   if (fromTokenId === intoTokenId) throw new Error('source and destination veNFTs must differ')
-  return buildVeNftCall(ctx, 'merge', [fromTokenId, intoTokenId])
-}
+  return yield* buildVeNftCall(ctx, 'merge', [fromTokenId, intoTokenId])
+})
 
-export async function splitVeNft(ctx: SugarContext, tokenId: bigint, amount: bigint): Promise<UnsignedTransaction[]> {
+export const splitVeNft = Effect.fn('Sugar.VeNfts.splitVeNft')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  amount: bigint,
+) {
   assertVeNftId(tokenId)
   if (amount <= 0n) throw new Error('veNFT split amount must be positive')
-  return buildVeNftCall(ctx, 'split', [tokenId, amount])
-}
+  return yield* buildVeNftCall(ctx, 'split', [tokenId, amount])
+})
 
-export async function setVeNftPermanent(ctx: SugarContext, tokenId: bigint, permanent: boolean): Promise<UnsignedTransaction[]> {
+export const setVeNftPermanent = Effect.fn('Sugar.VeNfts.setVeNftPermanent')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  permanent: boolean,
+) {
   assertVeNftId(tokenId)
-  return buildVeNftCall(ctx, permanent ? 'lockPermanent' : 'unlockPermanent', [tokenId])
-}
+  return yield* buildVeNftCall(ctx, permanent ? 'lockPermanent' : 'unlockPermanent', [tokenId])
+})
 
-export async function delegateVeNft(ctx: SugarContext, tokenId: bigint, delegateTokenId: bigint): Promise<UnsignedTransaction[]> {
+export const delegateVeNft = Effect.fn('Sugar.VeNfts.delegateVeNft')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  delegateTokenId: bigint,
+) {
   assertVeNftId(tokenId)
   if (delegateTokenId < 0n) throw new Error('delegate veNFT token id must not be negative')
-  return buildVeNftCall(ctx, 'delegate', [tokenId, delegateTokenId])
-}
+  return yield* buildVeNftCall(ctx, 'delegate', [tokenId, delegateTokenId])
+})
 
-async function buildVoterCall(ctx: SugarContext, functionName: string, args: readonly unknown[]): Promise<UnsignedTransaction[]> {
-  const { voter } = await ctx.client.getVeNftContracts()
+const buildVoterCall = Effect.fn('Sugar.VeNfts.buildVoterCall')(function* (
+  ctx: SugarContext,
+  functionName: string,
+  args: readonly unknown[],
+) {
+  const { voter } = yield* clientCall(() => ctx.client.getVeNftContracts())
   return [ctx.tx(voter, ctx.encode(abis.voter, functionName, args))]
-}
+})
 
-export async function voteVeNft(ctx: SugarContext, tokenId: bigint, votes: readonly VeNftVote[]): Promise<UnsignedTransaction[]> {
+export const voteVeNft = Effect.fn('Sugar.VeNfts.voteVeNft')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  votes: readonly VeNftVote[],
+) {
   assertVeNftId(tokenId)
   if (votes.length === 0) throw new Error('veNFT vote requires at least one pool vote')
   const pools = votes.map(({ pool }) => normalizeAddress(pool))
@@ -218,34 +272,52 @@ export async function voteVeNft(ctx: SugarContext, tokenId: bigint, votes: reado
   if (votes.some(({ weight }) => weight <= 0n)) {
     throw new Error('veNFT vote weights must be positive')
   }
-  return buildVoterCall(ctx, 'vote', [tokenId, pools, votes.map(({ weight }) => weight)])
-}
+  return yield* buildVoterCall(ctx, 'vote', [tokenId, pools, votes.map(({ weight }) => weight)])
+})
 
-export async function resetVeNftVotes(ctx: SugarContext, tokenId: bigint): Promise<UnsignedTransaction[]> {
+export const resetVeNftVotes = Effect.fn('Sugar.VeNfts.resetVeNftVotes')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+) {
   assertVeNftId(tokenId)
-  return buildVoterCall(ctx, 'reset', [tokenId])
-}
+  return yield* buildVoterCall(ctx, 'reset', [tokenId])
+})
 
-export async function pokeVeNftVotes(ctx: SugarContext, tokenId: bigint): Promise<UnsignedTransaction[]> {
+export const pokeVeNftVotes = Effect.fn('Sugar.VeNfts.pokeVeNftVotes')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+) {
   assertVeNftId(tokenId)
-  return buildVoterCall(ctx, 'poke', [tokenId])
-}
+  return yield* buildVoterCall(ctx, 'poke', [tokenId])
+})
 
-export async function depositVeNftIntoManaged(ctx: SugarContext, tokenId: bigint, managedTokenId: bigint): Promise<UnsignedTransaction[]> {
+export const depositVeNftIntoManaged = Effect.fn('Sugar.VeNfts.depositVeNftIntoManaged')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  managedTokenId: bigint,
+) {
   assertVeNftId(tokenId)
   assertVeNftId(managedTokenId, 'managed veNFT token id')
   if (tokenId === managedTokenId) throw new Error('veNFT and managed veNFT token ids must differ')
-  return buildVoterCall(ctx, 'depositManaged', [tokenId, managedTokenId])
-}
+  return yield* buildVoterCall(ctx, 'depositManaged', [tokenId, managedTokenId])
+})
 
-export async function withdrawVeNftFromManaged(ctx: SugarContext, tokenId: bigint): Promise<UnsignedTransaction[]> {
+export const withdrawVeNftFromManaged = Effect.fn('Sugar.VeNfts.withdrawVeNftFromManaged')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+) {
   assertVeNftId(tokenId)
-  return buildVoterCall(ctx, 'withdrawManaged', [tokenId])
-}
+  return yield* buildVoterCall(ctx, 'withdrawManaged', [tokenId])
+})
 
-export async function claimVeNftRewards(ctx: SugarContext, tokenId: bigint, pool?: Address): Promise<UnsignedTransaction[]> {
+export const claimVeNftRewards = Effect.fn('Sugar.VeNfts.claimVeNftRewards')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+  pool?: Address,
+) {
   assertVeNftId(tokenId)
-  const rewards = (await ctx.client.getVeNftRewards(tokenId, pool)).filter(({ amount }) => amount > 0n)
+  const allRewards = yield* clientCall(() => ctx.client.getVeNftRewards(tokenId, pool))
+  const rewards = allRewards.filter(({ amount }) => amount > 0n)
   const group = (field: 'feeVotingReward' | 'incentiveVotingReward') => {
     const grouped = new Map<string, { contract: Address; tokens: Map<string, Address> }>()
     for (const reward of rewards) {
@@ -264,7 +336,7 @@ export async function claimVeNftRewards(ctx: SugarContext, tokenId: bigint, pool
   }
   const incentives = group('incentiveVotingReward')
   const fees = group('feeVotingReward')
-  const { voter } = await ctx.client.getVeNftContracts()
+  const { voter } = yield* clientCall(() => ctx.client.getVeNftContracts())
   const transactions: UnsignedTransaction[] = []
   if (incentives.contracts.length > 0) {
     transactions.push(ctx.tx(voter, ctx.encode(abis.voter, 'claimBribes', [
@@ -281,73 +353,85 @@ export async function claimVeNftRewards(ctx: SugarContext, tokenId: bigint, pool
     ])))
   }
   return transactions
-}
+})
 
-export async function getVeNftRebase(ctx: SugarContext, tokenId: bigint): Promise<bigint> {
+export const getVeNftRebase = Effect.fn('Sugar.VeNfts.getVeNftRebase')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+) {
   assertVeNftId(tokenId)
-  const { rewardsDistributor } = await ctx.client.getVeNftContracts()
-  return ctx.read<bigint>(rewardsDistributor, abis.rewardsDistributor, 'claimable', [tokenId])
-}
+  const { rewardsDistributor } = yield* clientCall(() => ctx.client.getVeNftContracts())
+  return yield* ctx.read<bigint>(rewardsDistributor, abis.rewardsDistributor, 'claimable', [tokenId])
+})
 
-export async function claimVeNftRebase(ctx: SugarContext, tokenId: bigint): Promise<UnsignedTransaction[]> {
+export const claimVeNftRebase = Effect.fn('Sugar.VeNfts.claimVeNftRebase')(function* (
+  ctx: SugarContext,
+  tokenId: bigint,
+) {
   assertVeNftId(tokenId)
-  const { rewardsDistributor } = await ctx.client.getVeNftContracts()
+  const { rewardsDistributor } = yield* clientCall(() => ctx.client.getVeNftContracts())
   return [ctx.tx(
     rewardsDistributor,
     ctx.encode(abis.rewardsDistributor, 'claim', [tokenId]),
   )]
-}
+})
 
-export async function claimVeNftRebases(ctx: SugarContext, tokenIds: readonly bigint[]): Promise<UnsignedTransaction[]> {
+export const claimVeNftRebases = Effect.fn('Sugar.VeNfts.claimVeNftRebases')(function* (
+  ctx: SugarContext,
+  tokenIds: readonly bigint[],
+) {
   if (tokenIds.length === 0) throw new Error('veNFT rebase claim requires at least one token id')
   tokenIds.forEach((tokenId) => assertVeNftId(tokenId))
   if (new Set(tokenIds).size !== tokenIds.length) {
     throw new Error('veNFT rebase token ids must be unique')
   }
-  const { rewardsDistributor } = await ctx.client.getVeNftContracts()
+  const { rewardsDistributor } = yield* clientCall(() => ctx.client.getVeNftContracts())
   return [ctx.tx(
     rewardsDistributor,
     ctx.encode(abis.rewardsDistributor, 'claimMany', [[...tokenIds]]),
   )]
-}
+})
 
-export async function getPoolRewardContracts(ctx: SugarContext, pool: LiquidityPool): Promise<PoolRewardContracts> {
+export const getPoolRewardContracts = Effect.fn('Sugar.VeNfts.getPoolRewardContracts')(function* (
+  ctx: SugarContext,
+  pool: LiquidityPool,
+) {
   if (pool.chainId !== ctx.settings.chainId) {
     throw new Error(`Pool chain ${pool.chainId} does not match client chain ${ctx.settings.chainId}`)
   }
   const gauge = normalizeAddress(pool.gauge)
   if (gauge === ADDRESS_ZERO) throw new Error(`pool ${pool.symbol} has no gauge`)
   const incentiveFunction = ctx.client.supportsVeNfts() ? 'gaugeToBribe' : 'gaugeToIncentive'
-  const [feeVotingReward, incentiveVotingReward] = await Promise.all([
+  const [feeVotingReward, incentiveVotingReward] = yield* Effect.all([
     ctx.read<Address>(ctx.settings.voterContractAddress, abis.voter, 'gaugeToFees', [gauge]),
     ctx.read<Address>(ctx.settings.voterContractAddress, abis.voter, incentiveFunction, [gauge]),
-  ])
+  ], { concurrency: 'unbounded' })
   return {
     gauge,
     feeVotingReward: normalizeAddress(feeVotingReward),
     incentiveVotingReward: normalizeAddress(incentiveVotingReward),
   }
-}
+})
 
-export async function incentivizePool(
+export const incentivizePool = Effect.fn('Sugar.VeNfts.incentivizePool')(function* (
   ctx: SugarContext,
   pool: LiquidityPool,
   token: Token,
   amount: bigint,
-): Promise<UnsignedTransaction[]> {
+) {
   if (token.chainId !== ctx.settings.chainId) {
     throw new Error(`Reward token chain ${token.chainId} does not match client chain ${ctx.settings.chainId}`)
   }
   if (amount <= 0n) throw new Error('Pool incentive amount must be positive')
-  const { incentiveVotingReward } = await ctx.client.getPoolRewardContracts(pool)
+  const { incentiveVotingReward } = yield* clientCall(() => ctx.client.getPoolRewardContracts(pool))
   if (incentiveVotingReward === ADDRESS_ZERO) {
     throw new Error(`pool ${pool.symbol} has no incentive voting reward contract`)
   }
   const tokenAddress = tokenContractAddress(token)
-  const approval = await approveAddressIfNeeded(ctx, tokenAddress, incentiveVotingReward, amount)
+  const approval = yield* approveAddressIfNeeded(ctx, tokenAddress, incentiveVotingReward, amount)
   const notify = ctx.tx(
     incentiveVotingReward,
     ctx.encode(abis.votingReward, 'notifyRewardAmount', [tokenAddress, amount]),
   )
   return [approval, notify].filter((transaction): transaction is UnsignedTransaction => transaction !== undefined)
-}
+})
