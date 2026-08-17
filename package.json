@@ -28,7 +28,9 @@
     "dev": "bun run --filter '*' dev"
   },
   "devDependencies": {
-    "concurrently": "^10.0.3"
+    "@oxlint/plugins": "1.78.0",
+    "concurrently": "^10.0.3",
+    "oxlint": "1.78.0"
   },
   "trustedDependencies": [
     "@sentry/cli",
