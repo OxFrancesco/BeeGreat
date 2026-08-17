@@ -64,29 +64,37 @@ function errorChain(cause: unknown): unknown[] {
   return chain
 }
 
-function numericField(value: unknown, field: 'code' | 'status'): number | undefined {
-  if (!Predicate.isObject(value) || !(field in value)) return undefined
-  const fieldValue = value[field]
+function numericField(cause: unknown, field: 'code' | 'status'): number | undefined {
+  if (!Predicate.isObject(cause) || !(field in cause)) return undefined
+  const fieldValue = cause[field]
   return Predicate.isNumber(fieldValue) ? fieldValue : undefined
 }
 
-function errorName(value: unknown): string | undefined {
-  return Predicate.isObject(value) && 'name' in value && Predicate.isString(value.name)
-    ? value.name
+function errorName(cause: unknown): string | undefined {
+  return Predicate.isObject(cause) && 'name' in cause && Predicate.isString(cause.name)
+    ? cause.name
     : undefined
 }
 
-function publicRpcCause(value: unknown): Readonly<Record<string, unknown>> {
-  const status = numericField(value, 'status')
-  const code = numericField(value, 'code')
-  const name = errorName(value)
-  const message = Predicate.isObject(value) && 'message' in value && Predicate.isString(value.message)
-    ? value.message.replace(
+/** URL-redacted, low-cardinality view of an RPC failure safe to expose. */
+type PublicRpcCause = {
+  message: string
+  code?: number
+  name?: string
+  status?: number
+}
+
+function publicRpcCause(cause: unknown): Readonly<PublicRpcCause> {
+  const status = numericField(cause, 'status')
+  const code = numericField(cause, 'code')
+  const name = errorName(cause)
+  const message = Predicate.isObject(cause) && 'message' in cause && Predicate.isString(cause.message)
+    ? cause.message.replace(
         /(https?:\/\/[^/\s]+\/(?:v2|v3)\/)[^/\s)"']+/gi,
         '$1[REDACTED]',
       )
     : 'RPC request failed'
-  const publicCause: Record<string, unknown> = { message }
+  const publicCause: PublicRpcCause = { message }
   if (code !== undefined) publicCause.code = code
   if (name !== undefined) publicCause.name = name
   if (status !== undefined) publicCause.status = status
@@ -98,7 +106,9 @@ export function isTransientRpcFailure(cause: unknown): boolean {
   return classifyRpcError(cause).retryable
 }
 
-function classifyRpcError(cause: unknown): { code: SugarRpcErrorCode; retryable: boolean } {
+type RpcClassification = { code: SugarRpcErrorCode; retryable: boolean }
+
+function classifyRpcError(cause: unknown): RpcClassification {
   const chain = errorChain(cause)
   if (chain.some((error) => errorName(error) === 'ContractFunctionRevertedError')) {
     return { code: 'RPC_READ_FAILED', retryable: false }

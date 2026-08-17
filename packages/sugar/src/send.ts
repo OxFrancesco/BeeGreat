@@ -1,3 +1,4 @@
+import * as Predicate from 'effect/Predicate'
 import type { Address, Hex, PublicClient } from 'viem'
 import { createPublicClient, createWalletClient, defineChain, http } from 'viem'
 import { mnemonicToAccount } from 'viem/accounts'
@@ -20,7 +21,7 @@ export type PlanSigner = {
 }
 
 function asRecord(value: SugarJson): Record<string, SugarJson> {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+  if (value === null || !Predicate.isObject(value) || Array.isArray(value)) {
     throw new Error('unexpected Sugar plan shape')
   }
   return value
@@ -35,6 +36,8 @@ export function extractPlanSteps(result: SugarJson): PlanStep[] {
     const item = asRecord(step)
     const transaction = asRecord(item.transaction)
     const role = item.role === 'approval' ? 'approval' as const : 'action' as const
+    // SAFETY: the plan was produced by toSugarJson from UnsignedTransaction
+    // records, so from/to are 0x addresses and data is 0x calldata.
     return {
       role,
       transaction: {
@@ -48,7 +51,7 @@ export function extractPlanSteps(result: SugarJson): PlanStep[] {
 }
 
 const summaryLine = (label: string, value: SugarJson | undefined): string[] =>
-  value === undefined || value === null ? [] : [`  ${label}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`]
+  value === undefined || value === null ? [] : [`  ${label}: ${Predicate.isObject(value) ? JSON.stringify(value) : String(value)}`]
 
 /** Human summary shown before the confirm prompt. */
 export function renderPlanSummary(action: SugarTxAction, result: SugarJson, steps: PlanStep[]): string {

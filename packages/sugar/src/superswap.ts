@@ -8,6 +8,8 @@ import type { ChainId, Quote, SugarClientOptions, SuperSwapData, SuperswapQuote,
 
 export const SUPERSWAP_SUPPORTED_CHAINS = ['OP', 'Lisk', 'Uni'] as const
 
+const SUPERSWAP_CHAIN_NAMES: readonly string[] = SUPERSWAP_SUPPORTED_CHAINS
+
 const domainsAbi = parseAbi(['function domains(uint256 chainId) view returns (uint256 domain)'])
 
 export type SuperswapRelayArgs = {
@@ -109,7 +111,7 @@ export class Superswap {
   private checkSupport(fromToken: Token, toToken: Token): void {
     const from = getChainSettings(fromToken.chainId).chainName
     const to = getChainSettings(toToken.chainId).chainName
-    if (!(SUPERSWAP_SUPPORTED_CHAINS as readonly string[]).includes(from) || !(SUPERSWAP_SUPPORTED_CHAINS as readonly string[]).includes(to)) {
+    if (!SUPERSWAP_CHAIN_NAMES.includes(from) || !SUPERSWAP_CHAIN_NAMES.includes(to)) {
       throw new Error(`Superswap only supports ${SUPERSWAP_SUPPORTED_CHAINS.join(', ')}. Got ${from} -> ${to}`)
     }
   }

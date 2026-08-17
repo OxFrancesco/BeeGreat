@@ -35,14 +35,15 @@ export const getPrices = Effect.fn('Sugar.Prices.getPrices')(function* (
     const results = yield* ctx.rpc.forEachRead(
       'getManyRatesToEthWithCustomConnectors',
       batches,
-      (batch) => ctx.publicClient.readContract({
-        address: ctx.settings.priceOracleContractAddress,
-        abi: abis.priceOracle,
-        functionName: 'getManyRatesToEthWithCustomConnectors',
-        args: [batch.map(tokenContractAddress), false, connectors, ctx.settings.priceThresholdFilter],
+      (batch) =>
         // SAFETY: viem cannot statically type a dynamic read over a JSON ABI;
         // the oracle returns one rate per requested token.
-      } as never) as Promise<bigint[]>,
+        ctx.publicClient.readContract({
+          address: ctx.settings.priceOracleContractAddress,
+          abi: abis.priceOracle,
+          functionName: 'getManyRatesToEthWithCustomConnectors',
+          args: [batch.map(tokenContractAddress), false, connectors, ctx.settings.priceThresholdFilter],
+        }) as Promise<bigint[]>,
       ctx.settings.requestConcurrency,
     )
     const expiresAt = Date.now() + ctx.settings.pricingCacheTimeoutSeconds * 1_000

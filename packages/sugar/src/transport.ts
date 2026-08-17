@@ -73,6 +73,7 @@ export function createSugarFailoverTransport(
       shouldThrow: (error) => !isTransientRpcFailure(error),
     },
   )
+  // SAFETY: the wrapper returns fallback()'s configured transport unchanged apart from request pacing and telemetry hooks, so the Transport contract is preserved.
   return ((parameters) => {
     const configured = transport(parameters)
     configured.value?.onResponse(({ method, status, transport: attemptedTransport }) => {

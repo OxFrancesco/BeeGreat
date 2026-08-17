@@ -11,8 +11,6 @@ import { epochFromTuple, poolForSwapFromTuple, preparePools, prepareTokens } fro
 import {
   ADDRESS_ZERO,
   type LiquidityPool,
-  type LiquidityPoolEpoch,
-  type LiquidityPoolForSwap,
   type Price,
   type SugarPoolLocatorKey,
   type Token,
@@ -114,7 +112,7 @@ const rawPoolAtOffset = Effect.fn('Sugar.Pools.rawPoolAtOffset')(function* (
   return page[0]
 })
 
-function rawPoolMatches(rawPool: unknown, poolAddress: Address): boolean {
+function rawPoolMatches<T>(rawPool: T, poolAddress: Address): boolean {
   return addressKey(String(tupleValues(rawPool)[0])) === addressKey(poolAddress)
 }
 
@@ -221,7 +219,7 @@ export const getLatestPoolEpochs = Effect.fn('Sugar.Pools.getLatestPoolEpochs')(
   })
   rawEpochs.forEach((epoch) => {
     const e = tupleValues(epoch)
-    ;[...(e[4] as unknown[]), ...(e[5] as unknown[])].forEach((reward) => needed.add(addressKey(String(tupleValues(reward)[0]))))
+    ;[...tupleValues(e[4]), ...tupleValues(e[5])].forEach((reward) => needed.add(addressKey(String(tupleValues(reward)[0]))))
   })
   const priceTokens = tokens.filter((token) => needed.has(addressKey(token.tokenAddress)) && (token.wrappedTokenAddress || token.listed || token.emerging))
   const prices = yield* clientCall(() => ctx.client.getPrices(priceTokens))

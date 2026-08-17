@@ -1,3 +1,4 @@
+import * as Predicate from 'effect/Predicate'
 import { isSupportedChainId } from './config'
 import {
   SUGAR_ACTIONS,
@@ -28,7 +29,7 @@ const COMMON_POSITION = {
   position: 'integer_string',
 } as const
 
-const ACTION_SPECS: Record<SugarAction, ActionSpec> = {
+const ACTION_SPECS = {
   deposit: {
     required: ['chain', 'wallet'],
     allowed: {
@@ -138,11 +139,11 @@ const ACTION_SPECS: Record<SugarAction, ActionSpec> = {
       use_decimals: 'boolean',
     },
   },
-}
+} satisfies Record<SugarAction, ActionSpec>
 
 const POOL_TYPES = new Set(['cl', 'stable', 'volatile'])
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/
-const PRIVATE_KEY_SHAPED = /^0x[0-9a-fA-F]{64}$/
+const PRIVATE_KEY_PATTERN = /^0x[0-9a-fA-F]{64}$/
 const INTEGER_PARAMETERS = new Set([
   'chain',
   'limit',
@@ -160,34 +161,30 @@ const POSITION_ACTIONS = new Set<SugarAction>([
   'claim_fees',
 ])
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function validateParameter(
+function validateParameter<T>(
   name: string,
   kind: ParameterKind,
-  value: unknown,
+  value: T,
 ): SugarParameter {
   if (kind === 'address') {
-    if (typeof value !== 'string' || !ADDRESS.test(value)) {
+    if (!Predicate.isString(value) || !ADDRESS.test(value)) {
       throw new Error(`${name} must be a 20-byte 0x address`)
     }
     return value
   }
   if (kind === 'boolean') {
-    if (typeof value !== 'boolean') throw new Error(`${name} must be a boolean`)
+    if (!Predicate.isBoolean(value)) throw new Error(`${name} must be a boolean`)
     return value
   }
   if (kind === 'number') {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
+    if (!Predicate.isNumber(value) || !Number.isFinite(value)) {
       throw new Error(`${name} must be a finite number`)
     }
     return value
   }
   if (kind === 'decimal_string') {
-    const text = typeof value === 'number' ? String(value) : value
-    if (typeof text !== 'string' || text.length > 1_024 || !/^\d+(?:\.\d*)?(?:e[+-]?\d+)?$/i.test(text)) {
+    const text = Predicate.isNumber(value) ? String(value) : value
+    if (!Predicate.isString(text) || text.length > 1_024 || !/^\d+(?:\.\d*)?(?:e[+-]?\d+)?$/i.test(text)) {
       throw new Error(`${name} must be a decimal number`)
     }
     const number = Number(text)
@@ -195,32 +192,32 @@ function validateParameter(
     return text
   }
   if (kind === 'integer_string') {
-    if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    if (!Predicate.isString(value) || !/^\d+$/.test(value)) {
       throw new Error(`${name} must be a non-negative decimal integer string`)
     }
     return value
   }
-  if (typeof value !== 'string' || value.length === 0 || value.length > 256) {
+  if (!Predicate.isString(value) || value.length === 0 || value.length > 256) {
     throw new Error(
       `${name} must be a non-empty string of at most 256 characters`,
     )
   }
-  if (PRIVATE_KEY_SHAPED.test(value)) {
+  if (PRIVATE_KEY_PATTERN.test(value)) {
     throw new Error('Sugar accepts public addresses only, never private keys')
   }
   return value
 }
 
 /** Validate the shared boundary before arguments can reach the Sugar CLI. */
-export function validateSugarRequest(
+export function validateSugarRequest<T>(
   action: SugarAction,
-  raw: unknown,
+  raw: T,
 ): SugarParameters {
   if (!SUGAR_ACTIONS.includes(action))
     throw new Error(`Unsupported Sugar action: ${action}`)
-  if (!isRecord(raw)) throw new Error('Sugar parameters must be an object')
+  if (!Predicate.isObject(raw)) throw new Error('Sugar parameters must be an object')
 
-  const spec = ACTION_SPECS[action]
+  const spec: ActionSpec = ACTION_SPECS[action]
   const output: SugarParameters = {}
   for (const [name, value] of Object.entries(raw)) {
     const kind = spec.allowed[name]
@@ -234,7 +231,7 @@ export function validateSugarRequest(
   if (action === 'create_venft') {
     const duration = output.lock_duration_seconds
     if (
-      typeof duration !== 'number' ||
+      !Predicate.isNumber(duration) ||
       !Number.isSafeInteger(duration) ||
       duration <= 0
     ) {
@@ -242,7 +239,8 @@ export function validateSugarRequest(
     }
   }
 
-  if (!isSupportedChainId(output.chain as number)) {
+  const chain = output.chain
+  if (!Predicate.isNumber(chain) || !isSupportedChainId(chain)) {
     throw new Error(
       'chain must be one of 10, 130, 252, 1135, 1868, 5330, 8453, 34443, 42220, or 57073',
     )
@@ -254,16 +252,16 @@ export function validateSugarRequest(
     }
   }
   if (
-    typeof output.limit === 'number' &&
+    Predicate.isNumber(output.limit) &&
     (output.limit < 1 || output.limit > 100)
   ) {
     throw new Error('limit must be between 1 and 100')
   }
-  if (typeof output.offset === 'number' && output.offset < 0) {
+  if (Predicate.isNumber(output.offset) && output.offset < 0) {
     throw new Error('offset must not be negative')
   }
   if (
-    typeof output.slippage === 'number' &&
+    Predicate.isNumber(output.slippage) &&
     (output.slippage < 0 || output.slippage > 1)
   ) {
     throw new Error('slippage must be between 0 and 1')
@@ -273,13 +271,13 @@ export function validateSugarRequest(
     if (fraction <= 0 || fraction > 1) throw new Error('fraction must be greater than 0 and at most 1')
   }
   if (
-    typeof output.deadline_minutes === 'number' &&
+    Predicate.isNumber(output.deadline_minutes) &&
     output.deadline_minutes <= 0
   ) {
     throw new Error('deadline_minutes must be positive')
   }
   const poolType = output.pool_type
-  if (poolType !== undefined && !POOL_TYPES.has(poolType as string)) {
+  if (poolType !== undefined && (!Predicate.isString(poolType) || !POOL_TYPES.has(poolType))) {
     throw new Error('pool_type must be cl, stable, or volatile')
   }
   if (

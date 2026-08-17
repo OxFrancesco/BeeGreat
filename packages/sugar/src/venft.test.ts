@@ -1,16 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { decodeFunctionData, getAddress, parseAbi, type Address, type PublicClient } from 'viem'
+import { decodeFunctionData, getAddress, parseAbi, type Address } from 'viem'
 import { SugarClient } from './client'
+import { stubPublicClient } from './test-support'
 import type { LiquidityPool, Token } from './types'
 
-const account = '0x1111111111111111111111111111111111111111' as Address
-const voter = '0x2222222222222222222222222222222222222222' as Address
-const votingEscrow = '0x3333333333333333333333333333333333333333' as Address
-const governanceToken = '0x4444444444444444444444444444444444444444' as Address
-const distributor = '0x5555555555555555555555555555555555555555' as Address
-const pool = '0x6666666666666666666666666666666666666666' as Address
-const rewardToken = '0x8888888888888888888888888888888888888888' as Address
-const secondRewardToken = '0x9999999999999999999999999999999999999999' as Address
+const account: Address = '0x1111111111111111111111111111111111111111'
+const voter: Address = '0x2222222222222222222222222222222222222222'
+const votingEscrow: Address = '0x3333333333333333333333333333333333333333'
+const governanceToken: Address = '0x4444444444444444444444444444444444444444'
+const distributor: Address = '0x5555555555555555555555555555555555555555'
+const pool: Address = '0x6666666666666666666666666666666666666666'
+const rewardToken: Address = '0x8888888888888888888888888888888888888888'
+const secondRewardToken: Address = '0x9999999999999999999999999999999999999999'
 const feeVotingReward = getAddress('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 const incentiveVotingReward = getAddress('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
 
@@ -18,8 +19,8 @@ describe('native veNFT management', () => {
   test('lists owned veNFTs through the typed client surface', async () => {
     const sugar = new SugarClient(10, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
@@ -45,7 +46,7 @@ describe('native veNFT management', () => {
           if (request.functionName === 'escrowType') return 0
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     await expect(sugar.getVeNfts()).resolves.toEqual([{
@@ -70,11 +71,11 @@ describe('native veNFT management', () => {
   })
 
   test('reads a managed veNFT by id even when another account owns it', async () => {
-    const manager = '0x1212121212121212121212121212121212121212' as Address
+    const manager: Address = '0x1212121212121212121212121212121212121212'
     const sugar = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
@@ -85,7 +86,7 @@ describe('native veNFT management', () => {
           if (request.functionName === 'escrowType') return 2
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     const managed = await sugar.getVeNft(99n)
@@ -101,12 +102,12 @@ describe('native veNFT management', () => {
     let rpcCalls = 0
     const sugar = new SugarClient(1135, {
       account,
-      publicClient: {
+      publicClient: stubPublicClient({
         readContract: async () => {
           rpcCalls += 1
           return []
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     await expect(sugar.getVeNfts()).rejects.toThrow('veNFTs are not supported on Lisk')
@@ -117,8 +118,8 @@ describe('native veNFT management', () => {
   test('creates a veNFT with governance-token approval first', async () => {
     const sugar = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
@@ -126,7 +127,7 @@ describe('native veNFT management', () => {
           if (request.functionName === 'allowance') return 0n
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     const transactions = await sugar.createVeNft(1_000n, 4 * 7 * 86_400)
@@ -147,8 +148,8 @@ describe('native veNFT management', () => {
   test('increases a veNFT lock without a redundant token approval', async () => {
     const sugar = new SugarClient(10, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
@@ -156,7 +157,7 @@ describe('native veNFT management', () => {
           if (request.functionName === 'allowance') return 500n
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     const transactions = await sugar.increaseVeNftAmount(42n, 500n)
@@ -170,15 +171,15 @@ describe('native veNFT management', () => {
   test('builds the existing veNFT lifecycle operations', async () => {
     const sugar = new SugarClient(10, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
           if (request.functionName === 'dist') return distributor
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
     const lifecycleAbi = parseAbi([
       'function increaseUnlockTime(uint256 tokenId,uint256 lockDuration)',
@@ -217,17 +218,17 @@ describe('native veNFT management', () => {
   test('builds voting and managed-veNFT operations through Voter', async () => {
     const sugar = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
           if (request.functionName === 'dist') return distributor
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
-    const otherPool = '0x7777777777777777777777777777777777777777' as Address
+    const otherPool: Address = '0x7777777777777777777777777777777777777777'
     const voterAbi = parseAbi([
       'function vote(uint256 tokenId,address[] pools,uint256[] weights)',
       'function reset(uint256 tokenId)',
@@ -264,8 +265,8 @@ describe('native veNFT management', () => {
     ]
     const sugar = new SugarClient(10, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
@@ -274,7 +275,7 @@ describe('native veNFT management', () => {
           if (request.functionName === 'rewards') return rawRewards
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     await expect(sugar.getVeNftRewards(42n)).resolves.toEqual([
@@ -319,8 +320,8 @@ describe('native veNFT management', () => {
   test('reads and claims veNFT rebases singly or in a batch', async () => {
     const sugar = new SugarClient(8453, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'voter') return voter
           if (request.functionName === 've') return votingEscrow
           if (request.functionName === 'token') return governanceToken
@@ -328,7 +329,7 @@ describe('native veNFT management', () => {
           if (request.functionName === 'claimable') return 321n
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
 
     await expect(sugar.getVeNftRebase(42n)).resolves.toBe(321n)
@@ -353,15 +354,18 @@ describe('native veNFT management', () => {
     const gauge = getAddress('0xcccccccccccccccccccccccccccccccccccccccc')
     const sugar = new SugarClient(1135, {
       account,
-      publicClient: {
-        readContract: async (request: { functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'gaugeToFees') return feeVotingReward
           if (request.functionName === 'gaugeToIncentive') return incentiveVotingReward
           if (request.functionName === 'allowance') return 0n
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as PublicClient,
+      }),
     })
+    // SAFETY: getPoolRewardContracts and incentivizePool read only the pool's
+    // chain identity, symbol, and gauge; the remaining LiquidityPool fields are
+    // never touched by this test.
     const targetPool = {
       chainId: 1135,
       chainName: 'Lisk',

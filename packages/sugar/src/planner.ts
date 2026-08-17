@@ -40,27 +40,30 @@ export const BridgeType = { HYP_XERC20: 0x01, XVELO: 0x02 } as const
 export const FLAG_ALLOW_REVERT = 0x80
 export const CONTRACT_BALANCE = 1n << 255n
 
-const COMMAND_PARAMETERS: Record<number, string[]> = {
-  [CommandType.V3_SWAP_EXACT_IN]: ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool'],
-  [CommandType.V3_SWAP_EXACT_OUT]: ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool'],
-  [CommandType.V2_SWAP_EXACT_IN]: ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool'],
-  [CommandType.V2_SWAP_EXACT_OUT]: ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool'],
-  [CommandType.WRAP_ETH]: ['address', 'uint256'],
-  [CommandType.UNWRAP_WETH]: ['address', 'uint256'],
-  [CommandType.SWEEP]: ['address', 'address', 'uint256'],
-  [CommandType.TRANSFER_FROM]: ['address', 'address', 'uint256'],
-  [CommandType.BRIDGE_TOKEN]: ['uint8', 'address', 'address', 'address', 'uint256', 'uint256', 'uint32', 'bool'],
-  [CommandType.EXECUTE_SUB_PLAN]: ['bytes', 'bytes[]'],
-  [CommandType.EXECUTE_CROSS_CHAIN]: ['uint32', 'address', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'address', 'bytes'],
-}
+const TRANSFER_FROM_PARAMETERS = ['address', 'address', 'uint256']
+
+const COMMAND_PARAMETERS = new Map<number, readonly string[]>([
+  [CommandType.V3_SWAP_EXACT_IN, ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool']],
+  [CommandType.V3_SWAP_EXACT_OUT, ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool']],
+  [CommandType.V2_SWAP_EXACT_IN, ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool']],
+  [CommandType.V2_SWAP_EXACT_OUT, ['address', 'uint256', 'uint256', 'bytes', 'bool', 'bool']],
+  [CommandType.WRAP_ETH, ['address', 'uint256']],
+  [CommandType.UNWRAP_WETH, ['address', 'uint256']],
+  [CommandType.SWEEP, ['address', 'address', 'uint256']],
+  [CommandType.TRANSFER_FROM, TRANSFER_FROM_PARAMETERS],
+  [CommandType.BRIDGE_TOKEN, ['uint8', 'address', 'address', 'address', 'uint256', 'uint256', 'uint32', 'bool']],
+  [CommandType.EXECUTE_SUB_PLAN, ['bytes', 'bytes[]']],
+  [CommandType.EXECUTE_CROSS_CHAIN, ['uint32', 'address', 'bytes32', 'bytes32', 'bytes32', 'uint256', 'address', 'bytes']],
+])
 
 export class RoutePlanner {
   private commandBytes: number[] = []
   readonly inputs: Hex[] = []
 
   addCommand(command: number, parameters: unknown[], allowRevert = false): this {
-    const types = COMMAND_PARAMETERS[command]
+    const types = COMMAND_PARAMETERS.get(command)
     if (!types) throw new Error(`Unsupported route command: ${command}`)
+    // SAFETY: callers supply parameter values matching the command's ABI type list, which viem cannot verify for a dynamically parsed parameter tuple.
     this.inputs.push(encodeAbiParameters(parseAbiParameters(types.join(',')), parameters as never))
     this.commandBytes.push(command | (allowRevert ? FLAG_ALLOW_REVERT : 0))
     return this
@@ -164,6 +167,10 @@ function addressBytes32(address: Address): Hex {
 }
 
 export function buildSuperSwapData(input: SuperSwapDataInput): SuperSwapData {
+  // SAFETY: bridge tokens are ERC-20 contracts resolved by bridgeToken(), so their tokenAddress is always a 0x hex address, never a native-token symbol.
+  const toBridgeTokenAddress = input.toBridgeToken.tokenAddress as Address
+  // SAFETY: bridge tokens are ERC-20 contracts resolved by bridgeToken(), so their tokenAddress is always a 0x hex address, never a native-token symbol.
+  const fromBridgeTokenAddress = input.fromBridgeToken.tokenAddress as Address
   const destinationQuote = input.destinationQuote
     ? { ...input.destinationQuote, input: { ...input.destinationQuote.input, amountIn: CONTRACT_BALANCE } }
     : undefined
@@ -174,12 +181,12 @@ export function buildSuperSwapData(input: SuperSwapDataInput): SuperSwapData {
 
   if (swapPlan) {
     const transferInput = encodeAbiParameters(
-      parseAbiParameters(COMMAND_PARAMETERS[CommandType.TRANSFER_FROM].join(',')),
-      [input.toBridgeToken.tokenAddress as Address, input.destinationRouter, CONTRACT_BALANCE],
+      parseAbiParameters(TRANSFER_FROM_PARAMETERS.join(',')),
+      [toBridgeTokenAddress, input.destinationRouter, CONTRACT_BALANCE],
     )
     const fallbackInput = encodeAbiParameters(
-      parseAbiParameters(COMMAND_PARAMETERS[CommandType.TRANSFER_FROM].join(',')),
-      [input.toBridgeToken.tokenAddress as Address, input.account, CONTRACT_BALANCE],
+      parseAbiParameters(TRANSFER_FROM_PARAMETERS.join(',')),
+      [toBridgeTokenAddress, input.account, CONTRACT_BALANCE],
     )
     const swapCommands = concatHex([toHex(CommandType.TRANSFER_FROM, { size: 1 }), swapPlan.commands])
     const fallbackCommands = toHex(CommandType.TRANSFER_FROM, { size: 1 })
@@ -193,7 +200,7 @@ export function buildSuperSwapData(input: SuperSwapDataInput): SuperSwapData {
     ])
     calls.push(
       {
-        to: addressBytes32(input.toBridgeToken.tokenAddress as Address),
+        to: addressBytes32(toBridgeTokenAddress),
         value: 0n,
         data: encodeFunctionData({ abi: abis.erc20, functionName: 'approve', args: [input.destinationRouter, MAX_UINT256] }),
       },
@@ -203,7 +210,7 @@ export function buildSuperSwapData(input: SuperSwapDataInput): SuperSwapData {
         data: encodeFunctionData({ abi: abis.swapper, functionName: 'execute', args: [destinationCommands, destinationInputs] }),
       },
       {
-        to: addressBytes32(input.toBridgeToken.tokenAddress as Address),
+        to: addressBytes32(toBridgeTokenAddress),
         value: 0n,
         data: encodeFunctionData({ abi: abis.erc20, functionName: 'approve', args: [input.destinationRouter, 0n] }),
       },
@@ -217,7 +224,7 @@ export function buildSuperSwapData(input: SuperSwapDataInput): SuperSwapData {
   planner.addCommand(CommandType.BRIDGE_TOKEN, [
     BridgeType.HYP_XERC20,
     needsRelay ? input.userIca : input.account,
-    input.fromBridgeToken.tokenAddress as Address,
+    fromBridgeTokenAddress,
     input.originBridge,
     startsWithBridgeToken ? input.destinationQuote!.input.amountIn : CONTRACT_BALANCE,
     input.bridgeFee,

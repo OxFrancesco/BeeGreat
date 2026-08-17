@@ -18,8 +18,8 @@ export type SugarAction = (typeof SUGAR_ACTIONS)[number]
 export type SugarParameter = string | number | boolean
 export type SugarParameters = Record<string, SugarParameter>
 
-export function isSugarAction(value: unknown): value is SugarAction {
-  return typeof value === 'string' && (SUGAR_ACTIONS as readonly string[]).includes(value)
+export function isSugarAction(value: string): value is SugarAction {
+  return SUGAR_ACTIONS.some((action) => action === value)
 }
 
 /** The subset of actions that build transactions (executable plans). */
@@ -36,6 +36,6 @@ export const SUGAR_TX_ACTIONS = [
 
 export type SugarTxAction = (typeof SUGAR_TX_ACTIONS)[number]
 
-export function isSugarTxAction(value: unknown): value is SugarTxAction {
-  return typeof value === 'string' && (SUGAR_TX_ACTIONS as readonly string[]).includes(value)
+export function isSugarTxAction(value: string): value is SugarTxAction {
+  return SUGAR_TX_ACTIONS.some((action) => action === value)
 }

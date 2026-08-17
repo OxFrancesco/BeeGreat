@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect'
+import * as Predicate from 'effect/Predicate'
 import type { Address } from 'viem'
 import { abis } from './abis'
 import { addressKey, applySlippage, chunk, findAllPaths, packPath, tokenContractAddress, tupleValues } from './helpers'
@@ -6,7 +7,7 @@ import type { SugarContext } from './internal/context'
 import { clientCall } from './internal/interop'
 import type { LiquidityPoolForSwap, PathHop, Quote, Token } from './types'
 
-const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11' as Address
+const MULTICALL3: Address = '0xcA11bde05977b3631167028862bE2a173976CA11'
 
 export function filterPoolsForSwap(ctx: SugarContext, pools: LiquidityPoolForSwap[], fromToken: Token, toToken: Token): LiquidityPoolForSwap[] {
   // Every hop of a valid route connects two tokens from this set (route ends
@@ -73,8 +74,11 @@ export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
     path,
     encoded: packPath(path, { newFactory: ctx.settings.slipstreamFactoryAddress, oldFactory: ctx.settings.oldSlipstreamFactoryAddress }).encoded,
   }))
-  const quoteFromResult = ({ path }: (typeof inputs)[number], result: unknown): Quote => {
-    const amountOut = Array.isArray(result) || (result && typeof result === 'object')
+  const quoteFromResult = <T>({ path }: (typeof inputs)[number], result: T): Quote => {
+    // SAFETY: the quoter returns either a bare uint256 or a tuple that leads
+    // with the uint256 amountOut; viem decodes uint256 values as bigints and
+    // a mismatch throws here, falling back to the direct-call path.
+    const amountOut = Array.isArray(result) || Predicate.isObject(result)
       ? BigInt(tupleValues(result)[0] as bigint)
       : BigInt(result as bigint)
     return {
@@ -94,18 +98,19 @@ export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
   const multicallBatches = yield* ctx.rpc.forEachReadResult(
     'quoteExactInput.multicall',
     batches,
-    (batch) => ctx.publicClient.multicall({
-      allowFailure: true,
-      multicallAddress: MULTICALL3,
-      contracts: batch.map(({ encoded }) => ({
-        address: ctx.settings.quoterContractAddress,
-        abi: abis.quoter,
-        functionName: 'quoteExactInput',
-        args: [encoded, amount],
-      })),
+    (batch) =>
       // SAFETY: viem cannot statically type a multicall over a JSON ABI; each
       // entry mirrors the quoter's (amountOut, ...) tuple or a failure status.
-    } as never) as Promise<MulticallResponse>,
+      ctx.publicClient.multicall({
+        allowFailure: true,
+        multicallAddress: MULTICALL3,
+        contracts: batch.map(({ encoded }) => ({
+          address: ctx.settings.quoterContractAddress,
+          abi: abis.quoter,
+          functionName: 'quoteExactInput',
+          args: [encoded, amount],
+        })),
+      }) as Promise<MulticallResponse>,
     Math.max(1, Math.min(ctx.settings.requestConcurrency, batches.length)),
     deadline,
   )
@@ -139,9 +144,7 @@ export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
         abi: abis.quoter,
         functionName: 'quoteExactInput',
         args: [encoded, amount],
-        // SAFETY: viem cannot statically type a dynamic read over a JSON ABI;
-        // the quoter result shape is validated by quoteFromResult.
-      } as never) as Promise<unknown>,
+      }),
       ctx.settings.requestConcurrency,
       deadline,
     )

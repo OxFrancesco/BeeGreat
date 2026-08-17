@@ -5,7 +5,8 @@ import { getChainSettings } from './config'
 import { applySlippage, floatToUint256, getSalt, getUniqueString, nearestTick, parseEther, sqrtRatioX96FromPrice } from './helpers'
 import { BaseChain, getChain, getSimnetChain } from './chains'
 import { AsyncSuperswap, createSuperswapQuote, MockSuperswapRelayer, Superswap } from './superswap'
-import type { LiquidityPoolForSwap, Quote, Token, UnsignedTransaction } from './types'
+import { stringListArgument, stubPublicClient, stubSugarClient } from './test-support'
+import type { LiquidityPoolForSwap, Quote, SugarJson, Token, UnsignedTransaction } from './types'
 import { SugarClient } from './client'
 
 describe('SDK parity helpers', () => {
@@ -44,10 +45,10 @@ describe('SDK parity helpers', () => {
 
 describe('native action seam', () => {
   test('hydrates one addressed pool without loading the global token catalog', async () => {
-    const lp = '0x4444444444444444444444444444444444444444' as Address
-    const weth = '0x4200000000000000000000000000000000000006' as Address
-    const aero = '0x940181a94A35A4569E4529A3CDfB74e38FD98631' as Address
-    const usdc = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address
+    const lp: Address = '0x4444444444444444444444444444444444444444'
+    const weth: Address = '0x4200000000000000000000000000000000000006'
+    const aero: Address = '0x940181a94A35A4569E4529A3CDfB74e38FD98631'
+    const usdc: Address = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
     const rawPool = [
       lp, 'vAMM-WETH/AERO', 18, 1_000n, -1, 0, 0n,
       weth, 500n, 0n, aero, 1_000n, 0n,
@@ -60,15 +61,15 @@ describe('native action seam', () => {
       '0x0000000000000000000000000000000000000000',
       '0x0000000000000000000000000000000000000000',
     ]
-    const tokenRequests: (readonly unknown[])[] = []
+    const tokenRequests: string[][] = []
     const sugar = new SugarClient(8453, {
-      publicClient: {
-        readContract: async (request: { args?: readonly unknown[]; functionName: string }) => {
+      publicClient: stubPublicClient({
+        readContract: async (request) => {
           if (request.functionName === 'count') return 1n
           if (request.functionName === 'all') return Number(request.args?.[1]) === 0 ? [rawPool] : []
           if (request.functionName === 'tokens') {
-            tokenRequests.push(request.args ?? [])
-            const wanted = request.args?.[3] as Address[]
+            const wanted = stringListArgument(request, 3)
+            tokenRequests.push(wanted)
             return wanted.map((tokenAddress) => [
               tokenAddress,
               tokenAddress.toLowerCase() === usdc.toLowerCase() ? 'USDC' : tokenAddress.toLowerCase() === aero.toLowerCase() ? 'AERO' : 'WETH',
@@ -79,18 +80,18 @@ describe('native action seam', () => {
             ])
           }
           if (request.functionName === 'getManyRatesToEthWithCustomConnectors') {
-            return (request.args?.[0] as Address[]).map(() => 10n ** 30n)
+            return stringListArgument(request, 0).map(() => 10n ** 30n)
           }
           throw new Error(`Unexpected read: ${request.functionName}`)
         },
-      } as unknown as import('viem').PublicClient,
+      }),
     })
 
     const pool = await sugar.getPoolByAddress(lp)
 
     expect(pool?.lp).toBe(lp)
     expect(tokenRequests).toHaveLength(1)
-    expect((tokenRequests[0]?.[3] as Address[]).map((value) => value.toLowerCase()).sort())
+    expect((tokenRequests[0] ?? []).map((value) => value.toLowerCase()).sort())
       .toEqual([weth, aero, usdc].map((value) => value.toLowerCase()).sort())
   })
 
@@ -106,7 +107,7 @@ describe('native action seam', () => {
       isStable: false,
       isBasic: true,
     }
-    const fake = { getPoolsForSwaps: async () => [pool] } as SugarClient
+    const fake = stubSugarClient({ getPoolsForSwaps: async () => [pool] })
     const result = await executeSugarAction('pools', { chain: 8453, limit: 1 }, {
       clientFactory: () => fake,
     })
@@ -123,15 +124,17 @@ describe('native action seam', () => {
 
   test('returns swap transactions with quote context and applies the oracle sanity guard', async () => {
     const wallet = '0x1111111111111111111111111111111111111111'
-    const from: Token = { chainId: 8453, chainName: 'Base', tokenAddress: '0x2222222222222222222222222222222222222222', symbol: 'AERO', decimals: 18, listed: true, emerging: false }
-    const to: Token = { chainId: 8453, chainName: 'Base', tokenAddress: '0x3333333333333333333333333333333333333333', symbol: 'USDC', decimals: 6, listed: true, emerging: false }
+    const fromAddress: Address = '0x2222222222222222222222222222222222222222'
+    const toAddress: Address = '0x3333333333333333333333333333333333333333'
+    const from: Token = { chainId: 8453, chainName: 'Base', tokenAddress: fromAddress, symbol: 'AERO', decimals: 18, listed: true, emerging: false }
+    const to: Token = { chainId: 8453, chainName: 'Base', tokenAddress: toAddress, symbol: 'USDC', decimals: 6, listed: true, emerging: false }
     const pool: LiquidityPoolForSwap = {
       chainId: 8453, chainName: 'Base', lp: '0x4444444444444444444444444444444444444444',
-      type: -1, token0Address: from.tokenAddress as Address, token1Address: to.tokenAddress as Address,
+      type: -1, token0Address: fromAddress, token1Address: toAddress,
       isCl: false, isStable: false, isBasic: true,
     }
     const transaction: UnsignedTransaction = { from: wallet, to: pool.lp, data: '0x00', value: 0n }
-    const makeClient = (amountOut: bigint) => ({
+    const makeClient = (amountOut: bigint) => stubSugarClient({
       settings: { nativeTokenSymbol: 'ETH', stableTokenAddress: to.tokenAddress, swapSlippage: 0.01 },
       getToken: async (reference: string) =>
         [from, to].find((token) => token.tokenAddress.toLowerCase() === String(reference).toLowerCase()),
@@ -142,14 +145,17 @@ describe('native action seam', () => {
         return filter && !filter(quote) ? undefined : quote
       },
       swapFromQuote: async () => [transaction],
-    }) as unknown as SugarClient
+    })
     const parameters = {
       chain: 8453, wallet, from_token: from.tokenAddress, to_token: to.tokenAddress,
       amount: '1', use_decimals: true,
     }
 
-    const result = await executeSugarAction('swap', parameters, { clientFactory: () => makeClient(2_000_000n) }) as unknown as {
-      transactions: unknown[]
+    // SAFETY: executeSugarAction returns loosely typed Sugar JSON; the swap
+    // plan shape asserted here is verified field-by-field by the expectations
+    // below.
+    const result = await executeSugarAction('swap', parameters, { clientFactory: () => makeClient(2_000_000n) }) as {
+      transactions: SugarJson[]
       transaction_steps: Array<{
         role: string
         transaction: Omit<UnsignedTransaction, 'value'> & { value: string }
@@ -182,7 +188,7 @@ describe('native action seam', () => {
       data: '0x02',
       value: 0n,
     }
-    const fake = {
+    const fake = stubSugarClient({
       getVeNftContracts: async () => ({
         governanceToken: approval.to,
       }),
@@ -196,15 +202,18 @@ describe('native action seam', () => {
         emerging: false,
       }),
       createVeNft: async () => [approval, action],
-    } as unknown as SugarClient
+    })
 
+    // SAFETY: executeSugarAction returns loosely typed Sugar JSON; the
+    // create_venft plan shape asserted here is verified field-by-field by the
+    // expectations below.
     const result = await executeSugarAction('create_venft', {
       chain: 8453,
       wallet,
       amount: '1',
       lock_duration_seconds: 31_536_000,
       use_decimals: true,
-    }, { clientFactory: () => fake }) as unknown as {
+    }, { clientFactory: () => fake }) as {
       transaction_steps: Array<{
         role: string
         transaction: Omit<UnsignedTransaction, 'value'> & { value: string }
@@ -224,19 +233,21 @@ describe('native action seam', () => {
 
   test('keeps only pools whose two sides can appear on a vetted route', () => {
     const sugar = new SugarClient(10)
-    const from: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x2222222222222222222222222222222222222222', symbol: 'FROM', decimals: 18, listed: true, emerging: false }
-    const to: Token = { chainId: 10, chainName: 'OP', tokenAddress: '0x3333333333333333333333333333333333333333', symbol: 'TO', decimals: 18, listed: true, emerging: false }
+    const fromAddress: Address = '0x2222222222222222222222222222222222222222'
+    const toAddress: Address = '0x3333333333333333333333333333333333333333'
+    const from: Token = { chainId: 10, chainName: 'OP', tokenAddress: fromAddress, symbol: 'FROM', decimals: 18, listed: true, emerging: false }
+    const to: Token = { chainId: 10, chainName: 'OP', tokenAddress: toAddress, symbol: 'TO', decimals: 18, listed: true, emerging: false }
     const template: LiquidityPoolForSwap = {
       chainId: 10, chainName: 'OP', lp: '0x4444444444444444444444444444444444444444',
-      type: -1, token0Address: from.tokenAddress as Address, token1Address: to.tokenAddress as Address,
+      type: -1, token0Address: fromAddress, token1Address: toAddress,
       isCl: false, isStable: false, isBasic: true,
     }
     const connector = sugar.settings.connectorTokenAddresses[0]
-    const longTail = '0x9999999999999999999999999999999999999999' as Address
+    const longTail: Address = '0x9999999999999999999999999999999999999999'
     const kept = [
       template,
       { ...template, token1Address: connector },
-      { ...template, token0Address: connector, token1Address: to.tokenAddress as Address },
+      { ...template, token0Address: connector, token1Address: toAddress },
     ]
     const dropped = [
       { ...template, token1Address: longTail },
@@ -253,7 +264,7 @@ describe('native action seam', () => {
       token0: { symbol: 'A', decimals: 18 },
       token1: { symbol: 'B', decimals: 18 },
     }
-    const fake = { getPoolByAddress: async () => basicPool } as unknown as SugarClient
+    const fake = stubSugarClient({ getPoolByAddress: async () => basicPool })
     await expect(executeSugarAction('deposit', {
       chain: 8453,
       wallet: '0x1111111111111111111111111111111111111111',

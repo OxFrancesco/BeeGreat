@@ -1,4 +1,5 @@
 import { describe, expect, spyOn, test } from 'bun:test'
+import { stubFetch } from './test-support'
 import { createSugarFailoverTransport } from './transport'
 import type { SugarRpcEvent } from './types'
 
@@ -7,7 +8,7 @@ describe('Sugar failover transport observability', () => {
     const startedAt: number[] = []
     let firstCompleted = false
     let secondStartedBeforeFirstCompleted = false
-    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation((async () => {
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(stubFetch(async () => {
       startedAt.push(Date.now())
       if (startedAt.length === 1) {
         await new Promise<void>((resolve) => setTimeout(resolve, 60))
@@ -19,7 +20,7 @@ describe('Sugar failover transport observability', () => {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       })
-    }) as unknown as typeof fetch)
+    }))
     try {
       const transport = createSugarFailoverTransport(
         ['https://paced.invalid'],
@@ -39,7 +40,7 @@ describe('Sugar failover transport observability', () => {
 
   test('reports backup endpoint use without exposing URLs or request parameters', async () => {
     const requests: string[] = []
-    const fakeFetch = (async (input: Parameters<typeof fetch>[0]) => {
+    const fakeFetch = stubFetch(async (input) => {
       const url = input instanceof Request ? input.url : String(input)
       requests.push(url)
       if (url.includes('primary')) {
@@ -52,7 +53,7 @@ describe('Sugar failover transport observability', () => {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       })
-    }) as typeof fetch
+    })
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(fakeFetch)
     const events: SugarRpcEvent[] = []
 
@@ -88,7 +89,7 @@ describe('Sugar failover transport observability', () => {
   })
 
   test('does not surface a stale allowance revert after the primary was throttled', async () => {
-    const fakeFetch = (async (input: Parameters<typeof fetch>[0]) => {
+    const fakeFetch = stubFetch(async (input) => {
       const url = input instanceof Request ? input.url : String(input)
       if (url.includes('primary')) {
         return new Response(JSON.stringify({ error: { code: -32_005, message: 'rate limited' } }), {
@@ -104,7 +105,7 @@ describe('Sugar failover transport observability', () => {
         headers: { 'Content-Type': 'application/json' },
         status: 200,
       })
-    }) as typeof fetch
+    })
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(fakeFetch)
     try {
       const transport = createSugarFailoverTransport([
