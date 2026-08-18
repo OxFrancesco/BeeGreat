@@ -22,6 +22,10 @@ const GUIDES = {
   'getting-started': `Getting started with aero
 =========================
 
+⚠️  aero is vibecoded and in EARLY BETA — use it at your own risk. Review
+every plan with --dry-run before signing, start with small amounts, and
+never risk funds you cannot afford to lose.
+
 aero talks to Aerodrome (Base) and Velodrome (OP Superchain) straight from
 your terminal. Reads print JSON; transaction commands build an unsigned plan
 and only broadcast after you connect a wallet and confirm.
