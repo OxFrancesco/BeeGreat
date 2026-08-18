@@ -19,6 +19,9 @@ const NUMBER_FLAGS = new Set([
 
 export const SUGAR_CLI_HELP = `Usage: sugar-ts <action> [--flag=value]
 
+⚠️  Vibecoded & early beta — use at your own risk. Review every unsigned
+plan before signing and never risk funds you cannot afford to lose.
+
 Actions: ${SUGAR_ACTIONS.map((action) => action.replaceAll('_', '-')).join(', ')}
 
 This headless entrypoint always prints JSON (transaction actions print an

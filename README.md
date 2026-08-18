@@ -1,5 +1,11 @@
 # `@beegreat/sugar`
 
+> ⚠️ **Vibecoded & early beta — use at your own risk.** This SDK and the
+> `aero` CLI were vibecoded with AI agents and are in early beta. Expect
+> rough edges and breaking changes. Always review unsigned plans
+> (`--dry-run`) before signing, start with small amounts, and never risk
+> funds you cannot afford to lose.
+
 Native TypeScript port of Velodrome/Aerodrome's Sugar SDK. It uses Viem for
 RPC reads and ABI encoding and never signs or broadcasts transactions.
 
