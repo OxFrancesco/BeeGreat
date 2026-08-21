@@ -1,0 +1,274 @@
+import { RGBA, TextAttributes } from '@opentui/core'
+import { useKeyboard, usePaste, useTerminalDimensions } from '@opentui/react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { theme } from './theme'
+import { KeyHints } from './widgets'
+
+/**
+ * Modal dialogs styled after the opencode TUI: a dimmed backdrop, a fixed
+ * width panel dropped at 1/4 height, escape to close. Only the topmost
+ * dialog is mounted (see DialogHost), so every dialog may bind keys freely.
+ */
+
+const BACKDROP = RGBA.fromInts(0, 0, 0, 150)
+
+export function Dialog(props: { title: string; width?: number; children: ReactNode; hints?: { key: string; label: string }[] }) {
+  const dimensions = useTerminalDimensions()
+  const width = Math.min(props.width ?? 64, dimensions.width - 4)
+  return (
+    <box
+      position="absolute"
+      left={0}
+      top={0}
+      width={dimensions.width}
+      height={dimensions.height}
+      alignItems="center"
+      paddingTop={Math.max(1, Math.floor(dimensions.height / 5))}
+      backgroundColor={BACKDROP}
+      zIndex={100}
+    >
+      <box width={width} backgroundColor={theme.backgroundPanel} border borderStyle="rounded" borderColor={theme.borderActive} paddingLeft={1} paddingRight={1}>
+        <box height={1} paddingLeft={1}>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD}>{props.title}</text>
+        </box>
+        {props.children}
+        {props.hints ? (
+          <box height={1} paddingLeft={1} paddingTop={0}>
+            <KeyHints hints={props.hints} />
+          </box>
+        ) : null}
+      </box>
+    </box>
+  )
+}
+
+/**
+ * Contiguous matches score far better than scattered subsequences. The
+ * positional signal is capped so prefix matches still edge ahead, but a
+ * match a few characters later never outranks the caller's own ordering
+ * (browse lists come pre-sorted by TVL).
+ */
+function fuzzyWordScore(word: string, lower: string): number | undefined {
+  const direct = lower.indexOf(word)
+  if (direct !== -1) return Math.min(direct, 3)
+  let score = 1000
+  let index = -1
+  for (const char of word) {
+    const found = lower.indexOf(char, index + 1)
+    if (found === -1) return undefined
+    score += found - index
+    index = found
+  }
+  return score
+}
+
+/**
+ * Case-insensitive fuzzy match; lower score is better. Every whitespace
+ * separated word must match on its own, so "weth usdc" finds
+ * "vAMM-WETH/USDC" regardless of separators or word order.
+ */
+export function fuzzyScore(query: string, candidate: string): number | undefined {
+  const words = query.trim().toLowerCase().split(/\s+/).filter((word) => word.length > 0)
+  if (words.length === 0) return 0
+  const lower = candidate.toLowerCase()
+  let total = 0
+  for (const word of words) {
+    const score = fuzzyWordScore(word, lower)
+    if (score === undefined) return undefined
+    total += score
+  }
+  return total
+}
+
+export type SelectItem = {
+  title: string
+  description?: string
+  hint?: string
+  onSelect: () => void
+}
+
+export function SelectDialog(props: { title: string; items: SelectItem[]; placeholder?: string; close: () => void }) {
+  const [filter, setFilter] = useState('')
+  const [selected, setSelected] = useState(0)
+  const filtered = useMemo(() => {
+    const scored = props.items
+      .map((item) => ({ item, score: fuzzyScore(filter, `${item.title} ${item.description ?? ''}`) }))
+      .filter((entry): entry is { item: SelectItem; score: number } => entry.score !== undefined)
+    return scored.sort((left, right) => left.score - right.score).map((entry) => entry.item)
+  }, [props.items, filter])
+  const active = Math.min(selected, Math.max(0, filtered.length - 1))
+  const visibleCount = 10
+  const offset = Math.max(0, Math.min(active - visibleCount + 2, filtered.length - visibleCount))
+  const visible = filtered.slice(offset, offset + visibleCount)
+
+  useKeyboard((key) => {
+    if (key.name === 'escape') return props.close()
+    if (key.name === 'up' || (key.ctrl && key.name === 'p')) return setSelected(Math.max(0, active - 1))
+    if (key.name === 'down' || (key.ctrl && key.name === 'n')) return setSelected(Math.min(filtered.length - 1, active + 1))
+    if (key.name === 'pageup') return setSelected(Math.max(0, active - visibleCount))
+    if (key.name === 'pagedown') return setSelected(Math.min(filtered.length - 1, active + visibleCount))
+    if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
+      const item = filtered[active]
+      if (item) {
+        props.close()
+        item.onSelect()
+      }
+    }
+  })
+
+  return (
+    <Dialog title={props.title} hints={[{ key: '↑↓', label: 'move' }, { key: 'enter', label: 'select' }, { key: 'esc', label: 'close' }]}>
+      <box height={1} paddingLeft={1} backgroundColor={theme.backgroundElement}>
+        <input
+          focused
+          value={filter}
+          placeholder={props.placeholder ?? 'Type to filter...'}
+          onInput={(value) => {
+            setFilter(value)
+            setSelected(0)
+          }}
+          backgroundColor={theme.backgroundElement}
+          focusedBackgroundColor={theme.backgroundElement}
+          textColor={theme.text}
+          focusedTextColor={theme.text}
+          placeholderColor={theme.textMuted}
+        />
+      </box>
+      <box paddingTop={1} paddingBottom={1}>
+        {visible.length === 0 ? (
+          <box height={1} paddingLeft={1}>
+            <text fg={theme.textMuted}>No matches</text>
+          </box>
+        ) : (
+          visible.map((item, index) => {
+            const isActive = offset + index === active
+            return (
+              <box
+                key={item.title}
+                height={1}
+                flexDirection="row"
+                justifyContent="space-between"
+                paddingLeft={1}
+                paddingRight={1}
+                backgroundColor={isActive ? theme.primary : undefined}
+              >
+                <text fg={isActive ? theme.selectedText : theme.text}>
+                  {item.title}
+                  {item.description ? <span fg={isActive ? theme.selectedText : theme.textMuted}>  {item.description}</span> : null}
+                </text>
+                {item.hint ? <text fg={isActive ? theme.selectedText : theme.textMuted}>{item.hint}</text> : null}
+              </box>
+            )
+          })
+        )}
+      </box>
+    </Dialog>
+  )
+}
+
+export function ConfirmDialog(props: {
+  title: string
+  message: string
+  confirmLabel?: string
+  danger?: boolean
+  close: () => void
+  onConfirm: () => void
+  onCancel?: () => void
+}) {
+  const [choice, setChoice] = useState<'cancel' | 'confirm'>('cancel')
+  const cancel = () => {
+    props.close()
+    props.onCancel?.()
+  }
+  const confirm = () => {
+    props.close()
+    props.onConfirm()
+  }
+  useKeyboard((key) => {
+    if (key.name === 'escape' || key.name === 'n') return cancel()
+    if (key.name === 'y') return confirm()
+    if (key.name === 'left' || key.name === 'right' || key.name === 'tab') {
+      return setChoice((current) => (current === 'cancel' ? 'confirm' : 'cancel'))
+    }
+    if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
+      return choice === 'confirm' ? confirm() : cancel()
+    }
+  })
+  const accent = props.danger ? theme.error : theme.primary
+  return (
+    <Dialog title={props.title} hints={[{ key: '←→', label: 'choose' }, { key: 'enter', label: 'confirm' }, { key: 'esc', label: 'cancel' }]}>
+      <box paddingLeft={1} paddingRight={1} paddingTop={1}>
+        <text fg={theme.text}>{props.message}</text>
+      </box>
+      <box flexDirection="row" gap={2} paddingLeft={1} paddingTop={1} paddingBottom={1}>
+        <box paddingLeft={1} paddingRight={1} backgroundColor={choice === 'cancel' ? theme.backgroundElement : undefined}>
+          <text fg={choice === 'cancel' ? theme.text : theme.textMuted}>Cancel</text>
+        </box>
+        <box paddingLeft={1} paddingRight={1} backgroundColor={choice === 'confirm' ? accent : undefined}>
+          <text fg={choice === 'confirm' ? theme.selectedText : accent}>{props.confirmLabel ?? 'Confirm'}</text>
+        </box>
+      </box>
+    </Dialog>
+  )
+}
+
+/** Text prompt; `mask` renders bullets and captures keys manually (passphrases, mnemonics). */
+export function PromptDialog(props: {
+  title: string
+  label?: string
+  placeholder?: string
+  mask?: boolean
+  close: () => void
+  onSubmit: (value: string) => void
+  onCancel?: () => void
+}) {
+  const [value, setValue] = useState('')
+  const submit = (submitted: string) => {
+    props.close()
+    props.onSubmit(submitted)
+  }
+  const cancel = () => {
+    props.close()
+    props.onCancel?.()
+  }
+  useKeyboard((key) => {
+    if (key.name === 'escape') return cancel()
+    if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') return submit(value)
+    if (!props.mask) return
+    if (key.name === 'backspace') return setValue((current) => current.slice(0, -1))
+    if (key.ctrl && key.name === 'u') return setValue('')
+    if (key.ctrl || key.meta || key.option) return
+    if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 0x20) {
+      setValue((current) => current + key.sequence)
+    }
+  })
+  usePaste((event) => {
+    if (props.mask) setValue((current) => current + new TextDecoder().decode(event.bytes).replaceAll('\n', ' '))
+  })
+  return (
+    <Dialog title={props.title} hints={[{ key: 'enter', label: 'submit' }, { key: 'esc', label: 'cancel' }]}>
+      {props.label ? (
+        <box paddingLeft={1} paddingTop={1}>
+          <text fg={theme.textMuted}>{props.label}</text>
+        </box>
+      ) : null}
+      <box height={1} marginTop={1} marginBottom={1} paddingLeft={1} backgroundColor={theme.backgroundElement}>
+        {props.mask ? (
+          <text fg={theme.text}>{value.length > 0 ? '•'.repeat(Math.min(value.length, 40)) : ' '}</text>
+        ) : (
+          <input
+            focused
+            value={value}
+            placeholder={props.placeholder}
+            onInput={setValue}
+            backgroundColor={theme.backgroundElement}
+            focusedBackgroundColor={theme.backgroundElement}
+            textColor={theme.text}
+            focusedTextColor={theme.text}
+            placeholderColor={theme.textMuted}
+          />
+        )}
+      </box>
+    </Dialog>
+  )
+}

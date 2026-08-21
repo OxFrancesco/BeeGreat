@@ -6,8 +6,17 @@ import * as Command from 'effect/unstable/cli/Command'
 import { isCliError } from 'effect/unstable/cli/CliError'
 import { formatCliError } from '../cli'
 import { actionCommands } from './action-commands'
+import { almCommand, serveCommand } from './alm-commands'
 import { guideCommand } from './guide'
+import { fromPromise } from './run-action'
 import { walletCommand } from './wallet-commands'
+
+const tuiCommand = Command.make('tui', {}, Effect.fn(function* () {
+  const { runAeroTui } = yield* Effect.promise(() => import('../tui/run'))
+  yield* fromPromise(() => runAeroTui())
+})).pipe(
+  Command.withDescription('Full-screen terminal UI: Dune-style analytics, browse pools, positions, and epochs, run every action with guided forms, and sign from the connected wallet'),
+)
 
 const CLI_VERSION = '0.1.0'
 
@@ -23,11 +32,12 @@ export const rootCommand = Command.make('aero').pipe(
     'wallet is connected, in which case they show a summary, ask to confirm,',
     'then sign and broadcast (WalletConnect wallets approve in-app).',
     '',
-    "New here? Run 'aero guide getting-started'. Any command can be filled",
-    "in interactively with '--wizard', and '--completions <shell>' prints",
-    'shell completion scripts.',
+    "New here? Run 'aero guide getting-started' or open the full-screen",
+    "terminal UI with 'aero tui'. Any command can be filled in interactively",
+    "with '--wizard', and '--completions <shell>' prints shell completion",
+    'scripts.',
   ].join('\n')),
-  Command.withSubcommands([...actionCommands, walletCommand, guideCommand]),
+  Command.withSubcommands([tuiCommand, ...actionCommands, serveCommand, almCommand, walletCommand, guideCommand]),
 )
 
 /**

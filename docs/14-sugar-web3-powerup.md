@@ -190,6 +190,13 @@ Per-chain Sugar RPC overrides use the standard names (`SUGAR_RPC_URI_8453`,
 
 ## Developer CLI wallet flow (aero)
 
+The `aero tui` Analytics screen tags every metric with its source:
+on-chain Sugar (TVL, epochs, locks), Dune Analytics (`DUNE_API_KEY`,
+Hoodie Crew #7907454 and `dex.trades` SQL), and DefiLlama (fees, TVL
+history, Slipstream vs v1). Charts use a Bayer 8×8 ordered dither.
+This is CLI-local — the agent bridge, Bee chat, and mobile/web clients
+are unchanged.
+
 The `packages/sugar` CLI (`sugar-ts`, alias `aero`) has an optional
 wallet-connected flow for developers: WalletConnect pairing (the wallet app
 signs; no key material reaches the CLI) or a local wallet whose mnemonic is
@@ -199,6 +206,48 @@ plan summary and asks for confirmation before broadcasting (`--yes`,
 (`/internal/web3/sugar`) still receives only unsigned plans, the
 `validateSugarRequest` boundary is unchanged, and the app confirmation gate
 is not bypassed. See `packages/sugar/README.md` for usage.
+
+### Self-hosted ALM daemon (aero serve)
+
+`aero serve` is a CLI-local keeper that auto-rebalances the developer's
+concentrated (Slipstream) positions the way Aerodrome's official ALM vaults
+do — it reimplements Mellow Protocol's PulseStrategyModule off-chain
+(`packages/sugar/src/alm/`): `original` (recenter same width),
+`lazy-syncing` / `lazy-ascending` / `lazy-descending` (swap-free adjacent
+repositioning), and `expand` (Pulse V2 widening with a reset width limit).
+Mellow's production widths per tick spacing are the defaults.
+
+- `aero alm init` scaffolds `~/.config/sugar-ts/alm.json` from the wallet's
+  CL positions; `aero alm status` reports tick/range/gate state; `aero serve`
+  polls each pool's `slot0` (default 30s) and acts.
+- A rebalance runs in phases, each rebuilt from fresh chain state: claim
+  emissions → unstake → withdraw+burn → swap to the new interval ratio →
+  deposit → stake. Emissions above a threshold are compounded back in
+  (claim → swap → `increaseLiquidity`, at most daily).
+- Safety rails: dry-run by default (`--execute` to sign), local encrypted
+  wallet only (WalletConnect cannot approve unattended), every phase is
+  simulated via `eth_simulateV1` before signing (refuses to broadcast when
+  the RPC lacks it unless `--allow-unsimulated`), Mellow-style TWAP
+  deviation guard via pool `observe()`, per-position cooldown plus a rolling
+  daily rebalance cap persisted in `~/.config/sugar-ts/alm-state.json`, and
+  optional buddytg Telegram notifications (`"telegram": true`).
+
+Safe mode (`aero alm safe-setup`) upgrades the custody model: positions live
+in a Safe and the daemon's keeper key executes through a Zodiac Roles
+Modifier v2 (mastercopy `0x9646fDAD…D337`, deployed via the canonical
+ModuleProxyFactory) whose role is scoped on-chain — mint/collect recipients
+pinned to the Safe via `EqualToAvatar`, NFT approvals pinned to the pool
+gauges, ERC20 approvals pinned to the NFPM/Permit2, `ExecutionOptions.None`
+everywhere. Setup ships as a Safe Transaction Builder JSON batch (one owner
+signature); plans avoid `NFPM.multicall` and native legs so the
+per-selector conditions always apply, and compounding is disabled
+(`increaseLiquidity`'s tokenId cannot be pinned). Reference codebase:
+`resources/zodiac-roles`.
+
+This is deliberately CLI-only: the agent bridge, `SUGAR_ACTIONS`, and the
+app confirmation gate are untouched — Bee's own web3 tools never sign, and
+the daemon never crosses the Convex boundary. `aero guide alm` has the
+user-facing walkthrough.
 
 Run the focused checks with Bun:
 

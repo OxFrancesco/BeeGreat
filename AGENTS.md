@@ -25,6 +25,7 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/aerodrome-contracts` — Official Aerodrome protocol contracts — VotingEscrow, Voter, voting rewards, gauges, managed veNFTs, and deployment addresses
 - `resources/velodrome-contracts` — Official Velodrome protocol contracts — Optimism VotingEscrow, Voter, voting rewards, gauges, and deployment interfaces
 - `resources/buddytg` — Francesco's local-first Telegram CLI — MTProto login, messaging, files, bookmarks, bot notifications, approvals, and secure session handling
+- `resources/zodiac-roles` — Zodiac Roles Modifier v2 — on-chain role-scoped permissions for Safes: execTransactionWithRole, condition trees, roles SDK, and deployment addresses
 
 <!-- codeview:end -->
 
