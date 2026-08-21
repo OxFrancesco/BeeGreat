@@ -122,17 +122,25 @@ transactions; signing lives exclusively in the CLI wallet flow below.
 ### Analytics TUI (`aero tui`)
 
 `aero tui` → **Analytics** is a [Dune Analytics](https://dune.com) dashboard
-for Aerodrome ve(3,3) mechanics. Charts are a terminal port of
-[dither-kit](https://www.tripwire.sh/dither-kit) (Bayer 8×8 ordered
-dither: gradient, hatched, dotted, solid).
+for Aerodrome ve(3,3) mechanics. Charts mix two terminal renderers:
+[dither-kit](https://www.tripwire.sh/dither-kit) ordered dither (Bayer 8×8
+fills: gradient, hatched, dotted, solid) and **braille sub-pixel line
+charts** — each cell packs a 2×4 dot grid, giving Dune-smooth multi-series
+curves. Also in the chart kit: donuts for composition, calendar heatmaps,
+waterfalls for epoch flow, and scatter quadrant maps.
 
 | Tab | What it shows |
 | --- | --- |
-| Health | E/R, net income, voter revenue, Slipstream vs v1 fees, TVL mix, volume/TVL |
-| Flywheel | RPV per 10k ve, bribe ROI, epoch scorecard, hold vs LP vs lock+vote |
-| Trade | Base DEX share, Slipstream vs legacy volume, ranked pools |
-| Token | Lock rate, real yield, P/S and P/F |
+| Health | KPI strip, braille volume + CL-vs-legacy fee lines, TVL-mix donut, 16-week activity heatmap |
+| Flywheel | RPV per 10k ve, bribe ROI, epoch waterfall (fees + bribes − emissions), hold vs LP vs lock+vote |
+| Trade | Ranked pools with lens sorting, liquidity map (turnover × TVL scatter), weekly volume |
+| Token | Locked-vs-liquid supply donut, real yield, P/S and P/F |
 | Arena | Side-by-side vs Uniswap / Pancake on the same chain |
+
+Browse screens carry the same visual language: pools list TVL bars inline,
+and the epochs screen opens with a stacked vote-share banner. Analytics
+reports are cached session-wide (60s SWR) so tab flips and back-navigation
+replay instantly; `ctrl+r` forces a cold reload.
 
 On-chain reads use the same Sugar client as the rest of the TUI.
 Each number is tagged with its source:

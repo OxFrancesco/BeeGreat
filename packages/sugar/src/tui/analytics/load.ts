@@ -121,3 +121,52 @@ export async function loadAnalytics(
   report.loadedAt = Date.now()
   return report
 }
+
+/**
+ * Session-wide SWR layer over loadAnalytics: screens mount constantly
+ * (tab flips, back-navigation) and each mount used to restart the full
+ * Sugar+Dune+Llama sweep. One in-flight load per chain is shared, and a
+ * settled report replays instantly until the TTL expires.
+ */
+const REPORT_TTL_MS = 60_000
+const sharedReports = new Map<number, { report?: AnalyticsReport; promise?: Promise<AnalyticsReport>; startedAt: number }>()
+
+export function peekReport(chain: number): AnalyticsReport | undefined {
+  return sharedReports.get(chain)?.report
+}
+
+export function loadAnalyticsShared(
+  chain: number,
+  onUpdate?: (report: AnalyticsReport) => void,
+): Promise<AnalyticsReport> {
+  const entry = sharedReports.get(chain)
+  if (entry && entry.promise && Date.now() - entry.startedAt < REPORT_TTL_MS) {
+    if (entry.report) onUpdate?.(entry.report)
+    return entry.promise
+  }
+  const startedAt = Date.now()
+  let latest: AnalyticsReport | undefined
+  const promise = loadAnalytics(chain, (snapshot) => {
+    latest = snapshot
+    onUpdate?.(snapshot)
+  }).then((final) => {
+    const current = sharedReports.get(chain)
+    if (current && current.startedAt === startedAt) current.report = final
+    else sharedReports.set(chain, { report: final, promise, startedAt })
+    return final
+  }).catch((cause: unknown) => {
+    const current = sharedReports.get(chain)
+    if (current && current.startedAt === startedAt) {
+      // Keep partial data visible but drop the poisoned promise so retry works.
+      current.promise = undefined
+    }
+    throw cause
+  })
+  sharedReports.set(chain, { report: latest, promise, startedAt })
+  return promise
+}
+
+/** ctrl+r semantics: forget the cached report so the next load is cold. */
+export function invalidateReport(chain: number): void {
+  sharedReports.delete(chain)
+}

@@ -1,5 +1,7 @@
 import { useKeyboard } from '@opentui/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { fetchLlama } from '../analytics/llama'
+import { formatUsd } from '../format'
 import { theme } from '../theme'
 import { useApp, type Route } from '../store'
 import { StatusBar } from '../widgets'
@@ -18,6 +20,30 @@ const MENU: MenuItem[] = [
   { title: 'All commands', description: 'every action in one palette', act: 'palette' },
   { title: 'Quit', description: 'leave the TUI', act: 'quit' },
 ]
+
+/** Live DefiLlama pulse under the logo; hidden entirely until data lands. */
+function LiveStats() {
+  const chain = useApp().chain
+  const [stats, setStats] = useState<{ tvl?: number; fees24h?: number; volume24h?: number }>({})
+  useEffect(() => {
+    let cancelled = false
+    fetchLlama(chain).then((llama) => {
+      if (!cancelled && llama) setStats({ tvl: llama.tvlNow, fees24h: llama.fees24h, volume24h: llama.volume24h })
+    }).catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [chain])
+  if (stats.tvl === undefined && stats.fees24h === undefined) return null
+  return (
+    <box flexShrink={0} flexDirection="row" gap={2} justifyContent="center">
+      {stats.tvl !== undefined ? <text fg={theme.text}>TVL <span fg={theme.success}>{formatUsd(stats.tvl)}</span></text> : null}
+      {stats.volume24h !== undefined ? <text fg={theme.text}>vol 24h <span fg={theme.primary}>{formatUsd(stats.volume24h)}</span></text> : null}
+      {stats.fees24h !== undefined ? <text fg={theme.text}>fees 24h <span fg={theme.warning}>{formatUsd(stats.fees24h)}</span></text> : null}
+      <text fg={theme.textMuted}>defillama.com</text>
+    </box>
+  )
+}
 
 export function HomeScreen(props: { openPalette: () => void }) {
   const app = useApp()
@@ -44,6 +70,7 @@ export function HomeScreen(props: { openPalette: () => void }) {
         <box flexShrink={0} alignItems="center">
           <ascii-font font="tiny" text="AERO" color={theme.primary} />
           <text fg={theme.textMuted}>Aerodrome & Velodrome from your terminal</text>
+          <LiveStats />
           <text fg={theme.warning}>⚠ vibecoded & early beta — never risk funds you cannot afford to lose</text>
         </box>
         <box height={1} flexShrink={0} />

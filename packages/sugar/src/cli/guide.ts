@@ -258,7 +258,10 @@ gauge and tokens.`,
 aero tui  →  Analytics
 
 A dithered dashboard for ve(3,3) health. Charts use a Bayer 8×8 ordered
-dither (dither-kit fills: gradient, hatched, dotted, solid).
+dither (dither-kit fills: gradient, hatched, dotted, solid) plus braille
+sub-pixel line charts (2×4 dots per cell for Dune-smooth curves), donuts,
+calendar heatmaps, waterfalls, and scatter maps. Reports cache per session
+(stale-while-revalidate, 60s); ctrl+r forces a cold reload.
 
 Every panel is tagged with its source (Sugar · Dune · DefiLlama):
 
@@ -269,13 +272,13 @@ Every panel is tagged with its source (Sugar · Dune · DefiLlama):
 Set DUNE_API_KEY from dune.com/settings/api for Dune series.
 Sugar and DefiLlama work without a key.
 
-  1 health     E/R, net income, voter revenue, Slipstream vs v1 fees,
-               TVL composition, capital efficiency (volume / TVL)
-  2 flywheel   RPV ($ / 10k ve voted), bribe ROI, epoch scorecard,
-               three-doors on the same $10k (hold vs LP vs lock+vote)
-  3 trade      Base DEX share, Slipstream vs legacy volume, top pools
-               (v volume / f fees / e efficiency / p RPV)
-  4 token      lock rate, ve supply, real yield, P/S and P/F
+  1 health     KPI strip, braille volume + CL-vs-legacy fee lines,
+               TVL-mix donut, 16-week activity heatmap
+  2 flywheel   RPV ($ / 10k ve voted), bribe ROI, epoch waterfall
+               (fees + bribes - emissions), three-doors on the same $10k
+  3 trade      ranked pools (v volume / f fees / e efficiency / p RPV),
+               liquidity map (turnover x TVL scatter), weekly volume
+  4 token      locked-vs-liquid supply donut, real yield, P/S and P/F
   5 arena      Aerodrome vs Uniswap vs Pancake from Dune dex.trades
 
 Keys: ← → or 1-5 to change tab, ctrl+r to refresh, enter on a ranked

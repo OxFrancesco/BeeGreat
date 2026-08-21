@@ -285,3 +285,271 @@ export function xAxisRow(labels: string[], width: number, axisWidth = 6): Dither
   }
   return [...row, ...line.map((ch) => ({ ch, color: theme.textMuted }))]
 }
+
+/**
+ * Braille sub-pixel canvas: each terminal cell packs a 2×4 dot grid, so
+ * lines get four times the vertical resolution of block characters — the
+ * smooth, dense look of a Dune time series. Dot bits (U+2800 base):
+ * 1 4 / 2 5 / 3 6 / 7 8 → left column 0x01/02/04/40 top-down.
+ */
+const BRAILLE_BITS = [
+  [0x01, 0x08],
+  [0x02, 0x10],
+  [0x04, 0x20],
+  [0x40, 0x80],
+] as const
+
+function brailleChar(dots: boolean[][]): string {
+  let bits = 0
+  for (let y = 0; y < 4; y++) {
+    for (let x = 0; x < 2; x++) {
+      if (dots[y]?.[x]) bits |= BRAILLE_BITS[y]?.[x] ?? 0
+    }
+  }
+  return bits === 0 ? ' ' : String.fromCodePoint(0x2800 + bits)
+}
+
+/** Bresenham on integer pixels; paints every visited pixel-row. */
+function plotLine(pixels: Array<Set<number>>, from: { x: number; y: number }, to: { x: number; y: number }, height: number): void {
+  const dx = Math.abs(to.x - from.x)
+  const dy = Math.abs(to.y - from.y)
+  const sx = from.x < to.x ? 1 : -1
+  const sy = from.y < to.y ? 1 : -1
+  let error = dx - dy
+  let x = from.x
+  let y = from.y
+  for (;;) {
+    pixels[x]?.add(Math.min(height - 1, Math.max(0, y)))
+    if (x === to.x && y === to.y) break
+    const doubled = 2 * error
+    if (doubled > -dy) {
+      error -= dy
+      x += sx
+    }
+    if (doubled < dx) {
+      error += dx
+      y += sy
+    }
+  }
+}
+
+/**
+ * Dune-style multi-series line chart in braille dots. One canvas of
+ * width×height cells holds every series at 2×4 sub-pixel resolution;
+ * later series win pixel conflicts so the top series stays visible.
+ */
+export function renderLines(options: {
+  series: DitherSeries[]
+  width: number
+  height: number
+  axisWidth?: number
+}): DitherCell[][] {
+  const axisWidth = options.axisWidth ?? 6
+  const plotWidth = Math.max(4, options.width - axisWidth - 1)
+  const height = Math.max(2, options.height)
+  const pixelHeight = height * 4
+  const max = niceMax(options.series.reduce((top, series) => Math.max(top, ...series.values.map((value) => Math.max(0, value))), 0))
+  // One Set of painted pixel-rows per pixel-column per series, then merged.
+  const layers = options.series.map((series) => {
+    const sampled = sample(series.values, plotWidth * 2)
+    const points = sampled.map((value) => {
+      const scaled = max > 0 ? Math.max(0, value) / max : 0
+      return Math.round((1 - scaled) * (pixelHeight - 1))
+    })
+    const pixels: Array<Set<number>> = Array.from({ length: plotWidth * 2 }, () => new Set<number>())
+    for (let i = 0; i < points.length; i++) {
+      const y = points[i]
+      if (y === undefined) continue
+      pixels[i]?.add(Math.min(pixelHeight - 1, Math.max(0, y)))
+      const next = points[i + 1]
+      if (next !== undefined) plotLine(pixels, { x: i, y }, { x: i + 1, y: next }, pixelHeight)
+    }
+    return { series, pixels }
+  })
+
+  const rows: DitherCell[][] = []
+  for (let cy = 0; cy < height; cy++) {
+    const high = ((height - cy) / height) * max
+    const label = cy === 0 || cy === height - 1 || cy === Math.floor(height / 2)
+      ? axisLabel(high, axisWidth)
+      : ' '.repeat(axisWidth)
+    const row: DitherCell[] = [...label].map((ch) => ({ ch, color: theme.textMuted }))
+    row.push({ ch: cy === height - 1 ? '└' : '│', color: theme.border })
+    for (let cx = 0; cx < plotWidth; cx++) {
+      const dots: boolean[][] = Array.from({ length: 4 }, () => [false, false])
+      let color: string | undefined
+      for (const layer of layers) {
+        for (let py = 0; py < 4; py++) {
+          const pixelY = cy * 4 + py
+          if ((layer.pixels[cx * 2]?.has(pixelY)) === true) {
+            dots[py]![0] = true
+            color = DITHER_COLORS[layer.series.color]
+          }
+          if ((layer.pixels[cx * 2 + 1]?.has(pixelY)) === true) {
+            dots[py]![1] = true
+            color = DITHER_COLORS[layer.series.color]
+          }
+        }
+      }
+      row.push({ ch: brailleChar(dots), color: color ?? theme.background })
+    }
+    rows.push(row)
+  }
+  return rows
+}
+
+/**
+ * Terminal donut. Cell aspect is ~1:2 (chars are taller than wide), so the
+ * grid is two characters wide per row of radius. Slices start at 12 o'clock
+ * and run clockwise; zero-value slices are skipped.
+ */
+export function renderDonut(options: {
+  slices: Array<{ value: number; color: DitherColor }>
+  height?: number
+}): DitherCell[][] {
+  const height = Math.max(3, Math.floor(options.height ?? 7))
+  const radius = height / 2
+  const width = height * 2
+  const total = options.slices.reduce((sum, slice) => sum + Math.max(0, slice.value), 0)
+  if (total <= 0) {
+    return Array.from({ length: height }, () => Array.from({ length: width }, (): DitherCell => ({ ch: '·', color: theme.border })))
+  }
+  const bounds: Array<{ from: number; to: number; color: DitherColor }> = []
+  let cursor = 0
+  for (const slice of options.slices) {
+    const share = Math.max(0, slice.value) / total
+    if (share <= 0) continue
+    bounds.push({ from: cursor, to: cursor + share, color: slice.color })
+    cursor += share
+  }
+  const rows: DitherCell[][] = []
+  for (let y = 0; y < height; y++) {
+    const row: DitherCell[] = []
+    for (let x = 0; x < width; x++) {
+      const dx = (x + 0.5) / 2 - radius
+      const dy = y + 0.5 - radius
+      const r = Math.sqrt(dx * dx + dy * dy)
+      if (r > radius || r < radius * 0.55) {
+        row.push({ ch: ' ', color: theme.background })
+        continue
+      }
+      let angle = Math.atan2(dx, -dy) / (2 * Math.PI)
+      if (angle < 0) angle += 1
+      const slice = bounds.find((bound) => angle >= bound.from && angle < bound.to) ?? bounds[bounds.length - 1]
+      const shade = r > radius * 0.85 ? '▒' : '█'
+      row.push({ ch: shade, color: DITHER_COLORS[slice?.color ?? 'grey'] })
+    }
+    rows.push(row)
+  }
+  return rows
+}
+
+/**
+ * Calendar-style intensity grid (GitHub contributions). Values fill
+ * column-major — newest column at the right — with the gradient ramp
+ * encoding intensity inside one hue.
+ */
+export function renderHeatmap(options: {
+  values: number[]
+  columns?: number
+  rows?: number
+  color: DitherColor
+}): DitherCell[][] {
+  const rowCount = Math.max(1, Math.floor(options.rows ?? 4))
+  const columnCount = Math.max(1, Math.floor(options.columns ?? Math.ceil(options.values.length / rowCount)))
+  const max = options.values.reduce((top, value) => Math.max(top, value), 0)
+  const cells: DitherCell[] = []
+  for (let column = 0; column < columnCount; column++) {
+    for (let row = 0; row < rowCount; row++) {
+      const index = column * rowCount + row
+      const value = options.values[index] ?? 0
+      const intensity = max > 0 ? value / max : 0
+      const rank = intensity <= 0 ? 0 : Math.min(GRADIENT_RAMP.length, 1 + Math.floor(intensity * GRADIENT_RAMP.length))
+      const ch = rank === 0 ? '·' : GRADIENT_RAMP[Math.min(GRADIENT_RAMP.length - 1, rank - 1)] ?? '░'
+      cells.push({ ch, color: rank === 0 ? theme.border : DITHER_COLORS[options.color] })
+    }
+  }
+  return Array.from({ length: rowCount }, (_, row) =>
+    cells.filter((_, index) => index % rowCount === row),
+  )
+}
+
+/**
+ * Horizontal waterfall for flow breakdowns (fees + bribes − emissions =
+ * net). One row per chained step; each bar floats between the running
+ * cumulative bounds, so gains build upward and deductions pull back.
+ */
+export function renderWaterfall(options: {
+  steps: Array<{ delta: number; color: DitherColor }>
+  width: number
+}): DitherCell[][] {
+  const width = Math.max(4, options.width)
+  const bands: Array<{ from: number; to: number; color: DitherColor }> = []
+  let level = 0
+  let min = Number.POSITIVE_INFINITY
+  let max = Number.NEGATIVE_INFINITY
+  for (const step of options.steps) {
+    const next = level + step.delta
+    const from = Math.min(level, next)
+    const to = Math.max(level, next)
+    bands.push({ from, to, color: step.color })
+    min = Math.min(min, from)
+    max = Math.max(max, to)
+    level = next
+  }
+  if (bands.length === 0) return []
+  const span = Math.max(1e-9, max - min)
+  const scale = (value: number) => Math.round(((value - min) / span) * (width - 1))
+  return bands.map((band) => {
+    const from = scale(band.from)
+    const to = scale(band.to)
+    return Array.from({ length: width }, (_, x): DitherCell =>
+      x >= from && x <= to ? { ch: '█', color: DITHER_COLORS[band.color] } : { ch: ' ', color: theme.background })
+  })
+}
+
+/**
+ * Liquidity map: one dot per pool on normalized axes. Quadrant guides at
+ * the midlines make the efficient/inefficient split readable at a glance;
+ * later points paint over earlier ones.
+ */
+export function renderScatter(options: {
+  points: Array<{ x: number; y: number; color: DitherColor }>
+  width: number
+  height: number
+  axisWidth?: number
+  guides?: boolean
+}): DitherCell[][] {
+  const axisWidth = options.axisWidth ?? 6
+  const plotWidth = Math.max(4, options.width - axisWidth - 1)
+  const height = Math.max(3, options.height)
+  const maxX = Math.max(...options.points.map((point) => point.x), 1e-9)
+  const maxY = Math.max(...options.points.map((point) => point.y), 1e-9)
+  const grid: Array<Array<{ ch: string; color: string } | undefined>> = Array.from(
+    { length: height },
+    () => Array.from({ length: plotWidth }, () => undefined),
+  )
+  for (const point of options.points) {
+    const x = Math.min(plotWidth - 1, Math.max(0, Math.round((point.x / maxX) * (plotWidth - 1))))
+    const y = Math.min(height - 1, Math.max(0, Math.round((1 - point.y / maxY) * (height - 1))))
+    grid[y]![x] = { ch: '●', color: DITHER_COLORS[point.color] }
+  }
+  return grid.map((row, y) => {
+    const high = ((height - y) / height) * maxY
+    const label = y === 0 || y === height - 1 || y === Math.floor(height / 2)
+      ? axisLabel(high, axisWidth)
+      : ' '.repeat(axisWidth)
+    const cells: DitherCell[] = [...label].map((ch) => ({ ch, color: theme.textMuted }))
+    cells.push({ ch: y === height - 1 ? '└' : '│', color: theme.border })
+    for (let x = 0; x < plotWidth; x++) {
+      const point = row[x]
+      if (point) {
+        cells.push(point)
+        continue
+      }
+      const guide = options.guides === true && (y === Math.floor(height / 2) || x === Math.floor(plotWidth / 2))
+      cells.push(guide ? { ch: '·', color: theme.border } : { ch: ' ', color: theme.background })
+    }
+    return cells
+  })
+}

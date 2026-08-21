@@ -193,7 +193,11 @@ Per-chain Sugar RPC overrides use the standard names (`SUGAR_RPC_URI_8453`,
 The `aero tui` Analytics screen tags every metric with its source:
 on-chain Sugar (TVL, epochs, locks), Dune Analytics (`DUNE_API_KEY`,
 Hoodie Crew #7907454 and `dex.trades` SQL), and DefiLlama (fees, TVL
-history, Slipstream vs v1). Charts use a Bayer 8×8 ordered dither.
+history, Slipstream vs v1). Charts use Bayer 8×8 ordered dither plus
+braille sub-pixel line charts (2×4 dots per cell), donuts, calendar
+heatmaps, waterfalls, and scatter quadrant maps. Reports are cached
+per session with a 60s stale-while-revalidate window; `ctrl+r` forces a
+cold reload.
 This is CLI-local — the agent bridge, Bee chat, and mobile/web clients
 are unchanged.
 
