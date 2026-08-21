@@ -63,6 +63,7 @@ export interface SugarClientStub {
   readonly swapFromQuote?: () => Promise<UnsignedTransaction[]>
   readonly getVeNftContracts?: () => Promise<{ governanceToken: string }>
   readonly createVeNft?: () => Promise<UnsignedTransaction[]>
+  readonly checkTokenAllowance?: (token: Token, spender: Address) => Promise<bigint>
   readonly getPoolByAddress?: () => Promise<{
     readonly isCl: boolean
     readonly lp: string

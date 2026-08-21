@@ -12,6 +12,8 @@ const GUIDE_TOPICS = [
   'staking',
   'rewards',
   'venft',
+  'alm',
+  'analytics',
   'chains',
   'completions',
 ] as const
@@ -47,7 +49,10 @@ Not sure which flags a command needs? Every command supports
 which asks for each value interactively. --dry-run always prints the plan
 without sending anything, and --yes skips the confirmation for scripts.
 
-Next: aero guide wallet | swap | liquidity | staking | rewards | venft`,
+  5. aero tui  →  Analytics
+       Dune-style E/R, RPV, and Base share, dithered in the terminal.
+
+Next: aero guide wallet | swap | liquidity | staking | rewards | venft | analytics`,
 
   wallet: `Wallets
 =======
@@ -177,6 +182,109 @@ Lock durations cheat sheet:
   1 week 604800 | 1 month 2592000 | 6 months 15552000
   1 year 31536000 | 4 years 126144000`,
 
+  alm: `Self-hosted ALM (aero serve)
+============================
+
+Concentrated positions drift out of range as prices move. Aerodrome's ALM
+vaults (built on Mellow) rebalance them for you; 'aero serve' is the same
+keeper running on YOUR machine with YOUR wallet — no vault contracts, no
+fees, your strategy.
+
+Set it up:
+
+  1. aero alm init                 scaffold ~/.config/sugar-ts/alm.json from
+                                   your current CL positions
+  2. aero serve                    dry-run: log/notify what WOULD happen
+  3. aero serve --execute          unlock the local wallet and go live
+     aero alm status               tick, range, and gate status per position
+
+Strategies (per position, in the config file):
+  original         recenter the same width when the tick exits the range
+                   (what most Mellow vaults run)
+  lazy-syncing     only follow full breaches; the new range sits adjacent to
+                   the tick, so no swap is needed
+  lazy-ascending / lazy-descending   directional variants
+  expand           Pulse V2: widen the range instead of recentering; reset
+                   to the default width past maxWidthTicks
+
+Safety rails (all on by default):
+  - dry-run unless --execute is passed
+  - every phase is simulated via eth_simulateV1 before signing
+    (use an RPC that supports it, e.g. Alchemy; --allow-unsimulated to skip)
+  - TWAP deviation guard against manipulation/wicks (Mellow-style)
+  - per-position cooldown + daily rebalance cap, persisted across restarts
+  - telegram: true in the config sends buddytg push notifications
+
+A rebalance runs: claim emissions -> unstake -> withdraw+burn -> swap to the
+new ratio -> deposit the new range -> stake. Emissions are auto-compounded
+back into the position (claim -> swap -> increase liquidity) once they pass
+minCompoundEmissionsDecimal.
+
+Costs: gas on Base is negligible; the real cost is swap fees + slippage on
+every recenter. Wider ranges and longer cooldowns rebalance less.
+--execute needs the LOCAL encrypted wallet (aero wallet create/restore);
+WalletConnect cannot approve transactions unattended.
+
+Safe mode (recommended for serious funds)
+-----------------------------------------
+
+Instead of a full hot wallet, keep the positions in a Safe and let a
+low-privilege keeper key rebalance through a Zodiac Roles Modifier — the
+same pattern DAO treasuries use. The role is scoped on-chain so the keeper
+can ONLY rebalance: mint/collect recipients are pinned to the Safe, the
+position NFT can only be approved to the pool gauges, ERC20 approvals only
+to the NFPM/Permit2, no ether, no delegatecalls. A leaked keeper key
+cannot exfiltrate funds.
+
+  1. aero alm safe-setup --safe 0xYourSafe
+       Writes a Safe Transaction Builder JSON batch (deploy Roles v2 proxy,
+       enable module, assign the local wallet as keeper, scope the role)
+       and records the safe section in alm.json.
+  2. Import the JSON at app.safe.global -> Transaction Builder and execute
+       (one signature). Move the CL position NFTs into the Safe (unstake,
+       then NFPM.safeTransferFrom). Fund the keeper with a little ETH.
+  3. aero serve / aero serve --execute
+       The daemon detects the safe section and signs everything through
+       execTransactionWithRole with the keeper key.
+
+Safe-mode notes: pools must be ERC20-only paths (WETH stays WETH — fine on
+Aerodrome), auto-compounding is off (emissions accrue in the Safe), and
+adding a pool later means re-running safe-setup so the role learns the new
+gauge and tokens.`,
+
+  analytics: `Analytics (Dune Analytics in the TUI)
+=====================================
+
+aero tui  →  Analytics
+
+A dithered dashboard for ve(3,3) health. Charts use a Bayer 8×8 ordered
+dither (dither-kit fills: gradient, hatched, dotted, solid).
+
+Every panel is tagged with its source (Sugar · Dune · DefiLlama):
+
+  Sugar        live on-chain TVL, pools, epochs, ve locks
+  Dune         dune.com — Hoodie Crew #7907454 (RPV) and dex.trades SQL
+  DefiLlama    defillama.com — fees, TVL history, Slipstream vs v1, mcap
+
+Set DUNE_API_KEY from dune.com/settings/api for Dune series.
+Sugar and DefiLlama work without a key.
+
+  1 health     E/R, net income, voter revenue, Slipstream vs v1 fees,
+               TVL composition, capital efficiency (volume / TVL)
+  2 flywheel   RPV ($ / 10k ve voted), bribe ROI, epoch scorecard,
+               three-doors on the same $10k (hold vs LP vs lock+vote)
+  3 trade      Base DEX share, Slipstream vs legacy volume, top pools
+               (v volume / f fees / e efficiency / p RPV)
+  4 token      lock rate, ve supply, real yield, P/S and P/F
+  5 arena      Aerodrome vs Uniswap vs Pancake from Dune dex.trades
+
+Keys: ← → or 1-5 to change tab, ctrl+r to refresh, enter on a ranked
+row for that pool's epoch history. Dune coverage is Base (Aerodrome);
+other Superchain leaves show the on-chain snapshot only.
+
+E/R < 1 means the last settled epoch's fees + bribes exceeded emissions
+(protocol is earning its keep). RPV is the actionable voter number.`,
+
   chains: `Chains
 ======
 
@@ -227,4 +335,4 @@ export const guideCommand = Command.make('guide', {
     return
   }
   yield* Console.log(GUIDES[topic])
-})).pipe(Command.withDescription('In-terminal walkthroughs: swaps, liquidity, staking, rewards, veNFTs'))
+})).pipe(Command.withDescription('In-terminal walkthroughs: swaps, liquidity, staking, rewards, veNFTs, analytics'))

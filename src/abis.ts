@@ -9,6 +9,7 @@ import interchainRouterJson from './abis/interchain_router.json'
 import nfpmJson from './abis/nfpm.json'
 import permit2Json from './abis/permit2.json'
 import poolBasicJson from './abis/pool_basic.json'
+import poolClJson from './abis/pool_cl.json'
 import priceOracleJson from './abis/price_oracle.json'
 import quoterJson from './abis/quoter.json'
 import rewardsDistributorJson from './abis/rewards_distributor.json'
@@ -38,6 +39,7 @@ export const abis = {
   nfpm: contractAbi(nfpmJson),
   permit2: contractAbi(permit2Json),
   poolBasic: contractAbi(poolBasicJson),
+  poolCl: contractAbi(poolClJson),
   priceOracle: contractAbi(priceOracleJson),
   quoter: contractAbi(quoterJson),
   rewardsDistributor: contractAbi(rewardsDistributorJson),

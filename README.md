@@ -119,6 +119,34 @@ The `sugar-ts` package bin exposes that entrypoint to workspace consumers
 (`aero` is an alias). The SDK layer only returns JSON reads and unsigned
 transactions; signing lives exclusively in the CLI wallet flow below.
 
+### Analytics TUI (`aero tui`)
+
+`aero tui` → **Analytics** is a [Dune Analytics](https://dune.com) dashboard
+for Aerodrome ve(3,3) mechanics. Charts are a terminal port of
+[dither-kit](https://www.tripwire.sh/dither-kit) (Bayer 8×8 ordered
+dither: gradient, hatched, dotted, solid).
+
+| Tab | What it shows |
+| --- | --- |
+| Health | E/R, net income, voter revenue, Slipstream vs v1 fees, TVL mix, volume/TVL |
+| Flywheel | RPV per 10k ve, bribe ROI, epoch scorecard, hold vs LP vs lock+vote |
+| Trade | Base DEX share, Slipstream vs legacy volume, ranked pools |
+| Token | Lock rate, real yield, P/S and P/F |
+| Arena | Side-by-side vs Uniswap / Pancake on the same chain |
+
+On-chain reads use the same Sugar client as the rest of the TUI.
+Each number is tagged with its source:
+
+- **Sugar** — live on-chain TVL, pools, epochs, ve locks
+- **Dune Analytics** — [Hoodie Crew RPV #7907454](https://dune.com/queries/7907454)
+  and `dex.trades` SQL (weekly volume, Base share)
+- **DefiLlama** — fees, TVL history, Slipstream vs v1, mcap / P/S
+
+Set `DUNE_API_KEY` (or `SUGAR_DUNE_API_KEY`) from
+[dune.com/settings/api](https://dune.com/settings/api). Without a key the
+screen still shows the live on-chain snapshot. `aero guide analytics` is
+the walkthrough.
+
 ### Wallet-connected CLI (aero)
 
 The interactive CLI is built on `effect/unstable/cli`: every action is a
@@ -126,7 +154,7 @@ typed subcommand with described flags (`aero <command> --help`), any command
 can be filled in interactively with `--wizard`, shell completions are
 generated with `aero --completions zsh|bash|fish`, and `aero guide <topic>`
 prints in-terminal walkthroughs (getting-started, wallet, swap, liquidity,
-staking, rewards, venft, chains, completions).
+staking, rewards, venft, alm, chains, completions).
 
 The CLI can connect a wallet and broadcast the plans it builds:
 
@@ -157,6 +185,41 @@ plaintext mnemonic is shown once at creation and never written to disk.
 Environment: `WALLETCONNECT_PROJECT_ID` (optional override of the built-in
 public Reown project id), `SUGAR_WALLET_PASSPHRASE` (non-interactive local
 signing), `SUGAR_WALLET_DIR` / `SUGAR_WALLET_NO_KEYCHAIN` (storage overrides).
+
+### Self-hosted ALM (aero serve)
+
+`aero serve` watches the configured concentrated positions and rebalances
+them like Aerodrome's ALM vaults — the strategy layer (`src/alm/`) is an
+off-chain reimplementation of Mellow's PulseStrategyModule (`original`,
+`lazy-syncing`, `lazy-ascending`, `lazy-descending`, and the Pulse V2
+`expand`), with Mellow's production widths as defaults.
+
+```sh
+aero alm init            # scaffold ~/.config/sugar-ts/alm.json from your CL positions
+aero serve               # dry-run daemon: logs/notifies what it WOULD do
+aero serve --execute     # unlock the local wallet and rebalance for real
+aero serve --once        # single pass, for cron
+aero alm status          # tick, range, and gate status per managed position
+```
+
+Safety: dry-run is the default; `--execute` requires the local encrypted
+wallet (WalletConnect cannot approve unattended); every phase is simulated
+via `eth_simulateV1` before signing (an RPC without it blocks broadcasting
+unless `--allow-unsimulated`); rebalances pass a Mellow-style TWAP deviation
+guard, a per-position cooldown, and a rolling daily cap persisted in
+`alm-state.json`; `"telegram": true` sends buddytg push notifications.
+`AERO_ALM_CONFIG` overrides the config path. See `aero guide alm`.
+
+**Safe mode** (`aero alm safe-setup --safe 0x...`): keep the positions in a
+Safe and let a low-privilege keeper key rebalance through a Zodiac Roles
+Modifier v2 (`src/alm/roles.ts`). The generated Transaction Builder batch
+deploys the Roles proxy, enables it as a module, assigns the keeper, and
+scopes the role so mint/collect recipients are pinned to the Safe
+(EqualToAvatar), the NFT can only be approved to the pool gauges, ERC20
+approvals only go to the NFPM/Permit2, and ether/delegatecall are forbidden.
+`aero serve` picks up the `safe` section in `alm.json` and executes via
+`execTransactionWithRole`; a leaked keeper key cannot move funds out.
+Safe mode is ERC20-only (no native legs) and disables auto-compounding.
 
 ## Chain clients
 
