@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { formatCliError } from '../../cli'
 import type { SugarJson } from '../../types'
 import { fuzzyScore, SelectDialog, type SelectItem } from '../dialogs'
+import { DITHER_COLORS, renderHBar, renderStackBar } from '../analytics/dither'
+import { DitherLines, Legend } from '../analytics/view'
 import { POOLS_BROWSE_PARAMETERS, runTuiAction } from '../sugar'
 import { formatNumber, formatUsd, jsonNumber, jsonRecord, jsonString, pad } from '../format'
 import { theme } from '../theme'
@@ -32,7 +34,7 @@ function useAction(action: 'pools' | 'positions' | 'epochs_latest', parameters: 
   return { ...state, reload: () => setNonce((current) => current + 1) }
 }
 
-export type BrowseRow = { key: string; line: string; searchText: string; actions?: SelectItem[] }
+export type BrowseRow = { key: string; line: string; searchText: string; actions?: SelectItem[]; bar?: { value: number; max: number; color?: 'green' | 'blue' | 'purple' } }
 
 /** Cap the mounted rows; opentui culls offscreen boxes but React still pays per element. */
 const MAX_VISIBLE_ROWS = 200
@@ -125,8 +127,18 @@ function BrowseList(props: {
             ) : (
               <scrollbox flexGrow={1} minHeight={0}>
                 {filtered.map((row, index) => (
-                  <box key={row.key} height={1} paddingLeft={1} backgroundColor={index === active ? theme.primary : undefined}>
+                  <box key={row.key} height={1} paddingLeft={1} flexDirection="row" backgroundColor={index === active ? theme.primary : undefined}>
                     <text fg={index === active ? theme.selectedText : theme.text}>{row.line}</text>
+                    {row.bar && row.bar.max > 0 ? (
+                      <DitherLines rows={[renderHBar({
+                        value: row.bar.value,
+                        max: row.bar.max,
+                        width: 10,
+                        color: row.bar.color ?? 'blue',
+                        y: index,
+                        variant: 'solid',
+                      })]} />
+                    ) : null}
                   </box>
                 ))}
                 {overflow > 0 ? (
@@ -177,7 +189,12 @@ export function PoolsScreen() {
       }
       return [{ row, tvl: tvl ?? 0 }]
     })
-    return entries.sort((left, right) => right.tvl - left.tvl).map((entry) => entry.row)
+    const sorted = entries.sort((left, right) => right.tvl - left.tvl)
+    const maxTvl = sorted[0]?.tvl ?? 0
+    return sorted.map((entry) => ({
+      ...entry.row,
+      bar: entry.tvl > 0 && maxTvl > 0 ? { value: entry.tvl, max: maxTvl, color: 'blue' as const } : undefined,
+    }))
   }, [data, app])
   return (
     <BrowseList
@@ -255,6 +272,10 @@ export function PositionsScreen() {
   )
 }
 
+const MAX_BANNER_SLICES = 6
+type VoteSlice = { value: number; color: 'green' | 'blue' | 'purple' | 'grey' }
+const voteSliceColor = (index: number): VoteSlice['color'] => (index === 0 ? 'green' : index < 4 ? 'blue' : 'purple')
+
 export function EpochsScreen() {
   const app = useApp()
   const { loading, error, data, reload } = useAction('epochs_latest', {})
@@ -284,6 +305,43 @@ export function EpochsScreen() {
       }]
     })
   }, [data, app])
+  const banner = useMemo(() => {
+    if (!Array.isArray(data)) return undefined
+    // SAFETY: votes arrive as 18-decimal wei strings from the API; scaled() already narrows the shape.
+    const ranked = data
+      .flatMap((entry) => {
+        const epoch = jsonRecord(entry)
+        const pool = epoch ? jsonRecord(epoch.pool) : undefined
+        if (!epoch || !pool) return []
+        return [{
+          symbol: jsonString(pool.symbol) ?? 'pool',
+          votes: scaled(epoch.votes),
+        }]
+      })
+      .filter((item) => item.votes > 0)
+      .sort((left, right) => right.votes - left.votes)
+    if (ranked.length === 0) return undefined
+    const top = ranked.slice(0, MAX_BANNER_SLICES)
+    const rest = ranked.slice(MAX_BANNER_SLICES).reduce((sum, item) => sum + item.votes, 0)
+    const slices: VoteSlice[] = [
+      ...top.map((item, index) => ({ value: item.votes, color: voteSliceColor(index) })),
+      ...(rest > 0 ? [{ value: rest, color: 'grey' as const }] : []),
+    ]
+    return (
+      <box height={2} flexShrink={0} paddingLeft={1} paddingTop={0} flexDirection="column" gap={0}>
+        <box flexDirection="row" height={1}>
+          <DitherLines rows={[renderStackBar({ parts: slices, width: Math.min(64, slices.length * 9) })]} />
+        </box>
+        <Legend items={[
+          ...top.map((item, index) => ({
+            label: item.symbol.replace(/^CL\d+-/, '').replace(/^(v|s)AMM-/, ''),
+            color: DITHER_COLORS[index === 0 ? 'green' : index < 4 ? 'blue' : 'purple'],
+          })),
+          ...(rest > 0 ? [{ label: `${ranked.length - top.length} more`, color: DITHER_COLORS.grey }] : []),
+        ]} />
+      </box>
+    )
+  }, [data])
   return (
     <BrowseList
       title="Voting epochs"
@@ -293,6 +351,7 @@ export function EpochsScreen() {
       error={error}
       reload={reload}
       empty="No epochs returned"
+      banner={banner}
     />
   )
 }

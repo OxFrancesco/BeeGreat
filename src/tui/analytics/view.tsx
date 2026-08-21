@@ -1,5 +1,5 @@
 import { TextAttributes } from '@opentui/core'
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 import { theme } from '../theme'
 import { groupRuns, type DitherCell } from './dither'
 import { SOURCE, type AnalyticSource } from './sources'
@@ -13,7 +13,9 @@ export function SourceTag(props: { source: AnalyticSource }) {
   )
 }
 
-export function DitherLines(props: { rows: DitherCell[][] }) {
+/** Memoized: chart matrices are pure data; skip cell-by-cell diffing when
+ * the parent re-renders without new rows (e.g. cursor moves). */
+export const DitherLines = memo(function DitherLines(props: { rows: DitherCell[][] }) {
   return (
     <box>
       {props.rows.map((row, y) => (
@@ -25,7 +27,7 @@ export function DitherLines(props: { rows: DitherCell[][] }) {
       ))}
     </box>
   )
-}
+})
 
 export function Panel(props: {
   title: string

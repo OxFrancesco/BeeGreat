@@ -3,11 +3,11 @@ import { useKeyboard, useTerminalDimensions } from '@opentui/react'
 import { useEffect, useMemo, useState } from 'react'
 import { formatCliError } from '../../cli'
 import { formatNumber, formatPercent, formatRatio, formatUsd, pad, weekLabel } from '../format'
-import { renderColumns, renderHBar, type DitherColor } from '../analytics/dither'
-import { loadAnalytics, type AnalyticsReport } from '../analytics/load'
+import { renderColumns, renderDonut, renderHBar, renderHeatmap, renderLines, renderScatter, renderWaterfall, DITHER_COLORS, type DitherColor } from '../analytics/dither'
+import { invalidateReport, loadAnalyticsShared, peekReport, type AnalyticsReport } from '../analytics/load'
 import { isSaneTurnover, laneLabel, type AssetLane, type PoolScore } from '../analytics/metrics'
 import { SOURCE } from '../analytics/sources'
-import { ChartBox, DitherLines, Kpi, Panel } from '../analytics/view'
+import { ChartBox, DitherLines, Kpi, Legend, Panel } from '../analytics/view'
 import { theme } from '../theme'
 import { useApp } from '../store'
 import { ScreenFrame, Spinner } from '../widgets'
@@ -50,9 +50,15 @@ export function AnalyticsScreen() {
 
   useEffect(() => {
     let cancelled = false
-    setLoading(true)
-    setError(undefined)
-    loadAnalytics(app.chain, (next) => {
+    const cached = peekReport(app.chain)
+    if (cached) {
+      setReport(cached)
+      setLoading(false)
+    } else {
+      setLoading(true)
+      setError(undefined)
+    }
+    loadAnalyticsShared(app.chain, (next) => {
       if (!cancelled) {
         setReport(next)
         setLoading(false)
@@ -94,7 +100,10 @@ export function AnalyticsScreen() {
   useKeyboard((key) => {
     if (app.dialogOpen) return
     if (key.name === 'escape') return app.pop()
-    if (key.ctrl && key.name === 'r') return setNonce((current) => current + 1)
+    if (key.ctrl && key.name === 'r') {
+      invalidateReport(app.chain)
+      return setNonce((current) => current + 1)
+    }
     if (key.name === 'left' || key.name === 'h') return setTab(TABS[(TABS.indexOf(tab) + TABS.length - 1) % TABS.length])
     if (key.name === 'right' || key.name === 'l') return setTab(TABS[(TABS.indexOf(tab) + 1) % TABS.length])
     if (key.name >= '1' && key.name <= '5') return setTab(TABS[Number(key.name) - 1] ?? tab)
@@ -205,19 +214,31 @@ function HealthTab(props: { report?: AnalyticsReport; wide: boolean; chartWidth:
   const llama = props.report?.llama
   const onchain = props.report?.onchain
   const weeks = (dune?.weeks ?? []).filter((week) => week.volume > 0)
-  const llamaFees = (llama?.weeks ?? []).filter((week) => week.fees > 0)
-  const volumeBars = renderColumns({
-    values: weeks.map((week) => week.volume),
-    width: props.chartWidth,
-    height: props.chartHeight,
-    color: 'blue',
-  })
-  const feeBars = renderColumns({
-    values: llamaFees.map((week) => week.fees),
-    width: props.chartWidth,
-    height: props.chartHeight,
-    color: 'orange',
-  })
+  const llamaWeeks = (llama?.weeks ?? []).filter((week) => week.fees > 0)
+  const volumeLines = useMemo(() => renderLines({
+    series: [{ key: 'volume', color: 'blue', values: weeks.map((week) => week.volume) }],
+    width: Math.min(Math.max(props.chartWidth, 20), 46),
+    height: Math.max(props.chartHeight, 5),
+  }), [weeks, props.chartWidth, props.chartHeight])
+  const feeLines = useMemo(() => renderLines({
+    series: [
+      { key: 'slipstream', color: 'green', values: llamaWeeks.map((week) => week.slipstreamFees) },
+      { key: 'legacy', color: 'orange', values: llamaWeeks.map((week) => week.legacyFees) },
+    ],
+    width: Math.min(Math.max(props.chartWidth, 20), 42),
+    height: Math.max(props.chartHeight, 5),
+  }), [llamaWeeks, props.chartWidth, props.chartHeight])
+  const activityHeat = useMemo(() => {
+    const source = weeks.length > 0
+      ? weeks.map((week) => week.volume)
+      : llamaWeeks.map((week) => week.fees)
+    return renderHeatmap({
+      values: source,
+      columns: Math.max(4, Math.ceil(Math.max(source.length, 8) / 4)),
+      rows: 4,
+      color: weeks.length > 0 ? 'blue' : 'orange',
+    })
+  }, [weeks, llamaWeeks])
   const firstWeek = weeks[0] ? weekLabel(weeks[0].ts) : ''
   const lastWeek = weeks[weeks.length - 1] ? weekLabel(weeks[weeks.length - 1].ts) : ''
   const rivals = (dune?.rivals ?? []).slice(0, 5)
@@ -225,11 +246,11 @@ function HealthTab(props: { report?: AnalyticsReport; wide: boolean; chartWidth:
   return (
     <box gap={1}>
       <box flexDirection={props.wide ? 'row' : 'column'} gap={1} flexShrink={0}>
-        <Panel title="Weekly volume" source="dune">
+        <Panel title="Weekly volume" source={weeks.length > 0 ? 'dune' : undefined} hint={weeks.length > 0 ? undefined : 'needs Dune key'}>
           {weeks.length === 0 ? <EmptyChart /> : (
-            <ChartBox width={props.chartWidth}>
-              <DitherLines rows={volumeBars} />
-              <text fg={theme.textMuted}>{firstWeek}{''.padEnd(Math.max(2, props.chartWidth - firstWeek.length - lastWeek.length - 6))}{lastWeek}</text>
+            <ChartBox width={Math.min(Math.max(props.chartWidth, 20), 46)}>
+              <DitherLines rows={volumeLines} />
+              <text fg={theme.textMuted}>{firstWeek}{''.padEnd(Math.max(2, Math.min(props.chartWidth, 46) - firstWeek.length - lastWeek.length - 6))}{lastWeek}</text>
             </ChartBox>
           )}
         </Panel>
@@ -253,17 +274,16 @@ function HealthTab(props: { report?: AnalyticsReport; wide: boolean; chartWidth:
       </box>
       <box flexDirection={props.wide ? 'row' : 'column'} gap={1} flexShrink={0}>
         <Panel title="TVL mix" source="sugar">
-          {onchain ? <Composition onchain={onchain} width={Math.max(14, props.chartWidth - 22)} /> : <EmptyChart />}
+          {onchain ? <DonutComposition onchain={onchain} /> : <EmptyChart />}
         </Panel>
-        {llamaFees.length > 0 ? (
-          <Panel title="Fees · Slipstream vs v1" source="llama">
-            <ChartBox width={props.chartWidth}>
-              <DitherLines rows={feeBars} />
-              <text fg={theme.textMuted}>
-                24h {formatUsd(llama?.fees24h ?? 0)}
-                {'   '}7d {formatUsd(llama?.fees7d ?? 0)}
-                {'   '}all-time {formatUsd(llama?.feesAllTime ?? 0)}
-              </text>
+        {llamaWeeks.length > 1 ? (
+          <Panel title="Weekly fees · CL vs legacy" source="llama">
+            <ChartBox width={Math.min(Math.max(props.chartWidth, 20), 42)}>
+              <DitherLines rows={feeLines} />
+              <Legend items={[
+                { label: `Slipstream ${formatUsd(llamaWeeks[llamaWeeks.length - 1]?.slipstreamFees ?? 0)}`, color: DITHER_COLORS.green },
+                { label: 'vAMM/sAMM', color: DITHER_COLORS.orange },
+              ]} />
             </ChartBox>
           </Panel>
         ) : (
@@ -271,6 +291,90 @@ function HealthTab(props: { report?: AnalyticsReport; wide: boolean; chartWidth:
             {onchain ? <Efficiency onchain={onchain} width={Math.max(12, props.chartWidth - 24)} /> : <EmptyChart />}
           </Panel>
         )}
+      </box>
+      {(weeks.length > 0 || llamaWeeks.length > 0) ? (
+        <Panel title="16-week activity" hint={weeks.length > 0 ? 'weekly volume' : 'weekly fees'} source={weeks.length > 0 ? 'dune' : 'llama'} flexGrow={0}>
+          <DitherLines rows={activityHeat} />
+          <text fg={theme.textMuted}>older → recent · one column per week</text>
+        </Panel>
+      ) : null}
+    </box>
+  )
+}
+
+const TYPE_COLOR_KEYS = { slipstream: 'green', volatile: 'blue', stable: 'grey' } as const
+
+function EpochFlow(props: { settled: NonNullable<AnalyticsReport['onchain']>['settled']; width: number }) {
+  const settled = props.settled
+  const rows = useMemo(() => renderWaterfall({
+    steps: [
+      { delta: settled.fees, color: 'blue' },
+      { delta: settled.incentives, color: 'purple' },
+      { delta: -settled.emissionsUsd, color: 'red' },
+    ],
+    width: props.width,
+  }), [settled.fees, settled.incentives, settled.emissionsUsd, props.width])
+  return (
+    <box>
+      <box flexDirection="row" gap={1} height={1}>
+        <text fg={DITHER_COLORS.blue}>█ fees</text>
+        <text fg={DITHER_COLORS.purple}>█ bribes</text>
+        <text fg={DITHER_COLORS.red}>█ emissions</text>
+      </box>
+      <DitherLines rows={rows} />
+      <text fg={theme.text}>
+        fees {formatUsd(settled.fees)}
+        {'  '}bribes {formatUsd(settled.incentives)}
+        {'  '}-emit {formatUsd(settled.emissionsUsd)}
+      </text>
+      <text fg={settled.netIncome >= 0 ? theme.success : theme.warning}>
+        net {signedUsd(settled.netIncome)}
+        {'   '}E/R {formatRatio(settled.erRatio)}
+      </text>
+    </box>
+  )
+}
+
+function DonutComposition(props: { onchain: NonNullable<AnalyticsReport['onchain']> }) {
+  const onchain = props.onchain
+  const byType = useMemo(() => onchain.composition.byType.filter((slice) => slice.value > 0), [onchain])
+  const donut = useMemo(() => renderDonut({
+    slices: byType.map((slice) => ({ value: slice.value, color: TYPE_COLOR_KEYS[slice.key] })),
+    height: 9,
+  }), [byType])
+  const lanes = useMemo(() => onchain.composition.byLane.filter((slice) => slice.value > 0), [onchain])
+  const laneRows = useMemo(() => {
+    const rows: Array<typeof lanes> = []
+    for (let i = 0; i < lanes.length; i += 2) rows.push(lanes.slice(i, i + 2))
+    return rows
+  }, [lanes])
+  return (
+    <box flexDirection="row" gap={2}>
+      <ChartBox width={18}>
+        <DitherLines rows={donut} />
+      </ChartBox>
+      <box justifyContent="center">
+        <text fg={theme.textMuted}>{`${pad('TYPE', 11)} SHARE`}</text>
+        {byType.map((slice) => (
+          <box key={slice.key} height={1}>
+            <text fg={theme.text}>
+              <span fg={DITHER_COLORS[TYPE_COLOR_KEYS[slice.key]]}>■</span>
+              {' '}
+              {pad(slice.label, 10)}
+              <span fg={theme.textMuted}> {formatPercent(slice.value / Math.max(1, onchain.tvl))}</span>
+            </text>
+          </box>
+        ))}
+        <box height={1} />
+        {laneRows.map((row, rowIndex) => (
+          <box key={rowIndex} height={1} flexDirection="row" gap={2}>
+            {row.map((slice) => (
+              <text key={slice.key} fg={DITHER_COLORS[LANE_COLOR[slice.key]]}>
+                ■ <span fg={theme.text}>{laneLabel(slice.key)}</span>
+              </text>
+            ))}
+          </box>
+        ))}
       </box>
     </box>
   )
@@ -292,50 +396,6 @@ function ShareRow(props: {
       </box>
       <DitherLines rows={[renderHBar({ value: props.value, max: props.max, width: props.width, color: props.accent ? 'green' : 'grey', y: props.y })]} />
       <text fg={theme.textMuted}> {props.label ?? formatUsd(props.value)}</text>
-    </box>
-  )
-}
-
-function MixRow(props: { label: string; value: number; total: number; width: number; color: DitherColor; y: number }) {
-  const pct = props.total > 0 ? props.value / props.total : 0
-  return (
-    <box flexDirection="row" height={1}>
-      <box width={12} flexShrink={0}>
-        <text fg={theme.text}>{pad(props.label, 12)}</text>
-      </box>
-      <DitherLines rows={[renderHBar({ value: pct, max: 1, width: props.width, color: props.color, y: props.y })]} />
-      <text fg={theme.textMuted}> {formatPercent(pct)}</text>
-    </box>
-  )
-}
-
-function Composition(props: { onchain: NonNullable<AnalyticsReport['onchain']>; width: number }) {
-  const typeColors = { slipstream: 'green', volatile: 'blue', stable: 'grey' } as const
-  return (
-    <box>
-      {props.onchain.composition.byType.filter((slice) => slice.value > 0).map((slice, index) => (
-        <MixRow
-          key={slice.key}
-          label={slice.label}
-          value={slice.value}
-          total={props.onchain.tvl}
-          width={props.width}
-          color={typeColors[slice.key]}
-          y={index}
-        />
-      ))}
-      <box height={1} />
-      {props.onchain.composition.byLane.filter((slice) => slice.value > 0).map((slice, index) => (
-        <MixRow
-          key={slice.key}
-          label={laneLabel(slice.key)}
-          value={slice.value}
-          total={props.onchain.tvl}
-          width={props.width}
-          color={LANE_COLOR[slice.key]}
-          y={index + 3}
-        />
-      ))}
     </box>
   )
 }
@@ -410,18 +470,8 @@ function FlywheelTab(props: {
         <Panel title="This epoch" source="sugar" flexGrow={0}>
           {props.hasEpoch && settled ? (
             <box>
-              <text fg={theme.text}>
-                fees {formatUsd(settled.fees)}
-                {'   '}bribes {formatUsd(settled.incentives)}
-                {'   '}emit {formatUsd(settled.emissionsUsd)}
-              </text>
-              <text fg={settled.netIncome >= 0 ? theme.success : theme.warning}>
-                net {signedUsd(settled.netIncome)}
-                {'   '}E/R {formatRatio(settled.erRatio)}
-              </text>
-              {settled.topByVotes[0] ? (
-                <text fg={theme.textMuted}>most votes  {settled.topByVotes.slice(0, 3).map((pool) => shortPool(pool.symbol)).join('  ·  ')}</text>
-              ) : null}
+              <EpochFlow settled={settled} width={Math.max(20, props.chartWidth - 8)} />
+              <text fg={theme.textMuted}>most votes  {settled.topByVotes.slice(0, 3).map((pool) => shortPool(pool.symbol)).join('  ·  ')}</text>
             </box>
           ) : (
             <text fg={theme.textMuted}>Latest epoch has not settled on-chain yet</text>
@@ -487,6 +537,7 @@ function TradeTab(props: {
   chartHeight: number
 }) {
   const dune = props.report?.dune
+  const onchain = props.report?.onchain
   const weeks = (dune?.weeks ?? []).filter((week) => week.volume > 0)
   const bars = renderColumns({
     values: weeks.map((week) => week.volume),
@@ -518,6 +569,7 @@ function TradeTab(props: {
           </box>
         ))}
       </Panel>
+      {onchain ? <LiquidityMap onchain={onchain} wide={props.wide} /> : null}
       {weeks.length > 0 ? (
         <Panel title="Weekly volume" source="dune" flexGrow={0}>
           <ChartBox width={Math.min(props.chartWidth, 56)}>
@@ -527,6 +579,55 @@ function TradeTab(props: {
         </Panel>
       ) : null}
     </box>
+  )
+}
+
+const MAP_POINTS = 40
+
+/** Turnover × TVL quadrant: efficient capital floats top-right. */
+function LiquidityMap(props: { onchain: NonNullable<AnalyticsReport['onchain']>; wide: boolean }) {
+  const points = useMemo(() => props.onchain.pools
+    .filter((pool) => isSaneTurnover(pool.tvl, pool.volume))
+    .sort((left, right) => right.tvl - left.tvl)
+    .slice(0, MAP_POINTS), [props.onchain])
+  const grid = useMemo(() => renderScatter({
+    points: points.map((pool) => ({
+      x: pool.efficiency,
+      y: pool.tvl,
+      color: pool.isCl ? 'green' : 'blue',
+    })),
+    width: props.wide ? Math.max(40, Math.min(72, props.onchain.pools.length)) : 44,
+    height: 9,
+    guides: true,
+  }), [points, props.wide])
+  const leader = points[0]
+  return (
+    <Panel title="Liquidity map" hint={`turnover × TVL · ${points.length} pools`} source="sugar" flexGrow={0}>
+      {points.length === 0 || !leader ? (
+        <text fg={theme.textMuted}>No pools with readable turnover yet</text>
+      ) : (
+        <box flexDirection="row" gap={2}>
+          <ChartBox width={props.wide ? Math.max(40, Math.min(72, props.onchain.pools.length)) : 44}>
+            <DitherLines rows={grid} />
+            <Legend items={[
+              { label: 'Slipstream (CL)', color: DITHER_COLORS.green },
+              { label: 'vAMM/sAMM', color: DITHER_COLORS.blue },
+            ]} />
+          </ChartBox>
+          <box justifyContent="center">
+            <text fg={theme.text}>top by TVL</text>
+            <text fg={DITHER_COLORS.green}>{pad(shortPool(leader.symbol), 20)}</text>
+            <text fg={theme.textMuted}>{`${formatUsd(leader.tvl)} · ${turnsLabel(leader.efficiency)}`}</text>
+            {points[1] ? (
+              <>
+                <text fg={DITHER_COLORS.green}>{pad(shortPool(points[1]!.symbol), 20)}</text>
+                <text fg={theme.textMuted}>{`${formatUsd(points[1]!.tvl)} · ${turnsLabel(points[1]!.efficiency)}`}</text>
+              </>
+            ) : null}
+          </box>
+        </box>
+      )}
+    </Panel>
   )
 }
 
@@ -546,9 +647,25 @@ function TokenTab(props: { report?: AnalyticsReport; wide: boolean; chartWidth: 
       <Panel title="Supply & locks" source="sugar">
         {ve ? (
           <box>
-            <text fg={theme.text}>
-              {formatPercent(ve.lockRate)} of {formatNumber(ve.tokenSupply, 2)} {ve.symbol} locked
-            </text>
+            <box flexDirection="row" gap={2}>
+              <ChartBox width={18}>
+                <DitherLines rows={renderDonut({
+                  slices: [
+                    { value: ve.locked, color: 'purple' },
+                    { value: Math.max(0, ve.tokenSupply - ve.locked), color: 'grey' },
+                  ],
+                  height: 9,
+                })} />
+              </ChartBox>
+              <box justifyContent="center">
+                <text fg={theme.text}>
+                  <span fg={DITHER_COLORS.purple}>■</span> locked {formatPercent(ve.lockRate)}
+                </text>
+                <text fg={theme.text}>
+                  <span fg={DITHER_COLORS.grey}>■</span> liquid {formatPercent(1 - ve.lockRate)}
+                </text>
+              </box>
+            </box>
             <text fg={theme.textMuted}>
               {formatNumber(ve.locked, 2)} locked · {formatNumber(ve.votingPower, 2)} ve · {formatNumber(ve.nftCount, 0)} veNFTs
             </text>
