@@ -1,4 +1,6 @@
+import type { WithoutSystemFields } from 'convex/server'
 import { v } from 'convex/values'
+import type { Doc } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import {
   internalMutation,
@@ -156,19 +158,19 @@ export const applyRevenueCatRestSnapshot = internalMutation({
     }
 
     if (!existingCheck || existingCheckObservedAt < observedAt) {
-      const check = {
+      const check: WithoutSystemFields<Doc<'subscriptionStatusChecks'>> = {
         userId: args.userId,
         checkedAt: args.checkedAt,
         observedAt,
         active: args.active,
-        ...(args.productId ? { productId: args.productId } : {}),
-        ...(args.environment ? { environment: args.environment } : {}),
-        ...(args.periodStartedAt !== undefined
-          ? { periodStartedAt: args.periodStartedAt }
-          : {}),
-        ...(args.expiresAt !== undefined ? { expiresAt: args.expiresAt } : {}),
-        ...(args.reason ? { reason: args.reason } : {}),
       }
+      if (args.productId) check.productId = args.productId
+      if (args.environment) check.environment = args.environment
+      if (args.periodStartedAt !== undefined) {
+        check.periodStartedAt = args.periodStartedAt
+      }
+      if (args.expiresAt !== undefined) check.expiresAt = args.expiresAt
+      if (args.reason) check.reason = args.reason
       if (existingCheck) {
         await ctx.db.replace(existingCheck._id, check)
       } else {
@@ -227,6 +229,7 @@ export const applyRevenueCatRestSnapshot = internalMutation({
 })
 
 type ReceiptOutcome = 'applied' | 'ignored' | 'stale'
+type ReceiptResult = { status: ReceiptOutcome; reason?: string }
 
 /**
  * Applies the normalized subset of a RevenueCat webhook in one transaction.
@@ -263,17 +266,20 @@ export const applyRevenueCatEvent = internalMutation({
       outcome: ReceiptOutcome,
       reason?: string,
     ) => {
-      await ctx.db.insert('revenueCatWebhookEvents', {
+      const receipt: WithoutSystemFields<Doc<'revenueCatWebhookEvents'>> = {
         eventId: args.eventId,
         type: args.type,
-        ...(args.environment ? { environment: args.environment } : {}),
-        ...(args.productId ? { productId: args.productId } : {}),
         eventTimestampMs: args.eventTimestampMs,
         receivedAt: args.receivedAt,
         outcome,
-        ...(reason ? { reason } : {}),
-      })
-      return { status: outcome, ...(reason ? { reason } : {}) }
+      }
+      if (args.environment) receipt.environment = args.environment
+      if (args.productId) receipt.productId = args.productId
+      if (reason) receipt.reason = reason
+      await ctx.db.insert('revenueCatWebhookEvents', receipt)
+      const result: ReceiptResult = { status: outcome }
+      if (reason) result.reason = reason
+      return result
     }
 
     if (args.type === 'TRANSFER') {

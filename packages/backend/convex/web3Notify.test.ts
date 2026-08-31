@@ -2,6 +2,7 @@ import { convexTest } from 'convex-test'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { internal } from './_generated/api'
+import { jsonRecord } from './jsonValue'
 import schema from './schema'
 import { modules } from './test.setup'
 
@@ -106,11 +107,11 @@ describe('web3Notify.notifyActionSettled', () => {
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, init] = fetchMock.mock.calls[0]!
     expect(String(url)).toBe('https://agent.example.test/internal/web3-settled')
-    const body = JSON.parse(String(init?.body)) as Record<string, unknown>
+    const body = jsonRecord(JSON.parse(String(init?.body)))
     expect(body).toMatchObject({
       conversationId: `${owner}~42`,
       continuation: 'Swap the withdrawn USDC to ETH.',
     })
-    expect(body.conversationId).not.toBe(`${owner}~3`)
+    expect(body?.conversationId).not.toBe(`${owner}~3`)
   })
 })

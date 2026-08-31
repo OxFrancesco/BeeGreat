@@ -1,13 +1,45 @@
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
-import type { Id } from '../_generated/dataModel'
 import { httpAction } from '../_generated/server'
-import { isClerkUserId } from '../revenueCatWebhook'
 import {
+  ClerkUserId,
+  decodeRequestBody,
   jsonResponse,
   parseLimitedJsonBody,
+  requestDocumentId,
   requireBrokerSecret,
   requireJsonContentType,
 } from './middleware'
+
+const BeeSitesRequest = Schema.Struct({
+  userId: ClerkUserId,
+  operation: Schema.String,
+})
+
+const SitePreparation = Schema.Struct({
+  title: Schema.String,
+  siteId: Schema.optional(Schema.String),
+  suggestedSlug: Schema.optional(Schema.String),
+})
+
+const SiteDeployment = Schema.Struct({
+  siteId: Schema.String,
+  version: Schema.String,
+  kind: Schema.Literals(['preview', 'production']),
+  pageCount: Schema.Number,
+  fileCount: Schema.Number,
+  totalBytes: Schema.Number,
+})
+
+const DeploymentCompletion = Schema.Struct({
+  deploymentId: Schema.String,
+  manifestKey: Schema.String,
+})
+
+const DeploymentFailure = Schema.Struct({
+  deploymentId: Schema.String,
+  error: Schema.String,
+})
 
 export const beeSites = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
@@ -19,13 +51,8 @@ export const beeSites = httpAction(async (ctx, request) => {
     tooLargeError: 'Bee Sites request is too large',
   })
   if (!parsedBody.ok) return parsedBody.response
-  const body = parsedBody.body as Record<string, unknown> | null
-  if (
-    !body ||
-    typeof body.userId !== 'string' ||
-    !isClerkUserId(body.userId) ||
-    typeof body.operation !== 'string'
-  ) {
+  const body = decodeRequestBody(BeeSitesRequest, parsedBody.body)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Bee Sites request' }, 400)
   }
   try {
@@ -38,75 +65,71 @@ export const beeSites = httpAction(async (ctx, request) => {
           200,
         )
       case 'prepare': {
-        if (
-          typeof body.title !== 'string' ||
-          (body.siteId !== undefined && typeof body.siteId !== 'string') ||
-          (body.suggestedSlug !== undefined &&
-            typeof body.suggestedSlug !== 'string')
-        ) {
+        const preparation = decodeRequestBody(SitePreparation, parsedBody.body)
+        if (!preparation) {
           return jsonResponse({ error: 'Invalid site preparation' }, 400)
         }
         return jsonResponse(
           await ctx.runMutation(internal.beeSites.prepareForAgent, {
             userId: body.userId,
-            siteId: body.siteId as Id<'beeSites'> | undefined,
-            title: body.title,
-            suggestedSlug: body.suggestedSlug as string | undefined,
+            siteId:
+              preparation.siteId === undefined
+                ? undefined
+                : requestDocumentId<'beeSites'>(preparation.siteId),
+            title: preparation.title,
+            suggestedSlug: preparation.suggestedSlug,
           }),
           200,
         )
       }
       case 'begin_deployment': {
-        if (
-          typeof body.siteId !== 'string' ||
-          typeof body.version !== 'string' ||
-          (body.kind !== 'preview' && body.kind !== 'production') ||
-          typeof body.pageCount !== 'number' ||
-          typeof body.fileCount !== 'number' ||
-          typeof body.totalBytes !== 'number'
-        ) {
+        const deployment = decodeRequestBody(SiteDeployment, parsedBody.body)
+        if (!deployment) {
           return jsonResponse({ error: 'Invalid site deployment' }, 400)
         }
         return jsonResponse(
           await ctx.runMutation(internal.beeSites.beginDeployment, {
             userId: body.userId,
-            siteId: body.siteId as Id<'beeSites'>,
-            version: body.version,
-            kind: body.kind,
-            pageCount: body.pageCount,
-            fileCount: body.fileCount,
-            totalBytes: body.totalBytes,
+            siteId: requestDocumentId<'beeSites'>(deployment.siteId),
+            version: deployment.version,
+            kind: deployment.kind,
+            pageCount: deployment.pageCount,
+            fileCount: deployment.fileCount,
+            totalBytes: deployment.totalBytes,
           }),
           200,
         )
       }
       case 'complete_deployment': {
-        if (
-          typeof body.deploymentId !== 'string' ||
-          typeof body.manifestKey !== 'string'
-        ) {
+        const completion = decodeRequestBody(
+          DeploymentCompletion,
+          parsedBody.body,
+        )
+        if (!completion) {
           return jsonResponse({ error: 'Invalid deployment completion' }, 400)
         }
         return jsonResponse(
           await ctx.runMutation(internal.beeSites.completeDeployment, {
             userId: body.userId,
-            deploymentId: body.deploymentId as Id<'beeSiteDeployments'>,
-            manifestKey: body.manifestKey,
+            deploymentId: requestDocumentId<'beeSiteDeployments'>(
+              completion.deploymentId,
+            ),
+            manifestKey: completion.manifestKey,
           }),
           200,
         )
       }
       case 'fail_deployment': {
-        if (
-          typeof body.deploymentId !== 'string' ||
-          typeof body.error !== 'string'
-        ) {
+        const failure = decodeRequestBody(DeploymentFailure, parsedBody.body)
+        if (!failure) {
           return jsonResponse({ error: 'Invalid deployment failure' }, 400)
         }
         await ctx.runMutation(internal.beeSites.failDeployment, {
           userId: body.userId,
-          deploymentId: body.deploymentId as Id<'beeSiteDeployments'>,
-          error: body.error,
+          deploymentId: requestDocumentId<'beeSiteDeployments'>(
+            failure.deploymentId,
+          ),
+          error: failure.error,
         })
         return jsonResponse({ ok: true }, 200)
       }

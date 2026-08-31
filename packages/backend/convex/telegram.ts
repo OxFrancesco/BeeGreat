@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 import {
   internalMutation,
   internalQuery,
@@ -12,6 +12,8 @@ import {
   telegramConnectionStatusValidator,
 } from './telegramValidators'
 
+type TelegramConnectionStatus = Infer<typeof telegramConnectionStatusValidator>
+
 export const status = query({
   args: {},
   returns: telegramConnectionStatusValidator,
@@ -22,12 +24,13 @@ export const status = query({
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .unique()
     if (connection?.status === 'connected') {
-      return {
-        state: 'connected' as const,
+      const connected: TelegramConnectionStatus = {
+        state: 'connected',
         displayName: connection.displayName,
-        ...(connection.username ? { username: connection.username } : {}),
-        ...(connection.photoUrl ? { photoUrl: connection.photoUrl } : {}),
       }
+      if (connection.username) connected.username = connection.username
+      if (connection.photoUrl) connected.photoUrl = connection.photoUrl
+      return connected
     }
     const sessions = await ctx.db
       .query('telegramAuthSessions')
@@ -39,12 +42,13 @@ export const status = query({
       return { state: 'pending' as const }
     }
     if (connection?.status === 'needs_reauth') {
-      return {
-        state: 'needs_reauth' as const,
+      const needsReauth: TelegramConnectionStatus = {
+        state: 'needs_reauth',
         displayName: connection.displayName,
-        ...(connection.username ? { username: connection.username } : {}),
         message: 'Reconnect Telegram so Bee can message you again.',
       }
+      if (connection.username) needsReauth.username = connection.username
+      return needsReauth
     }
     if (session?.status === 'failed') {
       return {
@@ -239,6 +243,13 @@ export const disconnectForAgent = internalMutation({
   handler: async (ctx, args) => await disconnectUser(ctx, args.userId),
 })
 
+type ConnectedTelegramAgentView = {
+  status: 'connected'
+  telegramUserId: string
+  displayName: string
+  username?: string
+}
+
 export const getConnectionForAgent = internalQuery({
   args: { userId: v.string() },
   returns: v.union(
@@ -280,12 +291,13 @@ export const getConnectionForAgent = internalQuery({
     if (connection.status === 'needs_reauth') {
       return { status: 'needs_reauth' as const }
     }
-    return {
-      status: 'connected' as const,
+    const connected: ConnectedTelegramAgentView = {
+      status: 'connected',
       telegramUserId: connection.telegramUserId,
       displayName: connection.displayName,
-      ...(connection.username ? { username: connection.username } : {}),
     }
+    if (connection.username) connected.username = connection.username
+    return connected
   },
 })
 

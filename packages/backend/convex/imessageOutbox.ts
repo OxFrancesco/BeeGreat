@@ -1,4 +1,6 @@
+import type { WithoutSystemFields } from 'convex/server'
 import { v } from 'convex/values'
+import type { Doc } from './_generated/dataModel'
 import { internalMutation } from './_generated/server'
 
 const LEASE_MS = 30_000
@@ -23,16 +25,15 @@ export const enqueueAction = internalMutation({
   returns: v.null(),
   handler: async (ctx, { actionId }) => {
     const action = await ctx.db.get(actionId)
+    if (!action) return null
+    const actionStatus = action.status
     if (
-      !action ||
-      (action.status !== 'executed' &&
-        action.status !== 'failed' &&
-        action.status !== 'refunded' &&
-        action.status !== 'expired')
+      actionStatus !== 'executed' &&
+      actionStatus !== 'failed' &&
+      actionStatus !== 'refunded' &&
+      actionStatus !== 'expired'
     )
       return null
-    const actionStatus = action.status as
-      'executed' | 'failed' | 'refunded' | 'expired'
     const threadId = threadIdFromConversation(
       action.userId,
       action.conversationId,
@@ -58,30 +59,40 @@ export const enqueueAction = internalMutation({
         ?.explorerLink ??
       undefined
     const now = Date.now()
-    await ctx.db.insert('imessageDeliveries', {
+    const deliveryDocument: WithoutSystemFields<Doc<'imessageDeliveries'>> = {
       userId: action.userId,
       threadId,
-      ...(thread.imessageConnectionId
-        ? { imessageConnectionId: thread.imessageConnectionId }
-        : {}),
       actionId,
       actionStatus,
       kind: action.payload.kind,
       summary: action.summary,
-      ...(action.socketProgress?.detail
-        ? { detail: action.socketProgress.detail }
-        : {}),
-      ...(action.error ? { error: action.error } : {}),
-      ...(explorerLink ? { explorerLink } : {}),
       status: 'pending',
       attempts: 0,
       nextAttemptAt: now,
       createdAt: now,
       updatedAt: now,
-    })
+    }
+    if (thread.imessageConnectionId) {
+      deliveryDocument.imessageConnectionId = thread.imessageConnectionId
+    }
+    if (action.socketProgress?.detail) {
+      deliveryDocument.detail = action.socketProgress.detail
+    }
+    if (action.error) deliveryDocument.error = action.error
+    if (explorerLink) deliveryDocument.explorerLink = explorerLink
+    await ctx.db.insert('imessageDeliveries', deliveryDocument)
     return null
   },
 })
+
+type ClaimedDeliveryAction = {
+  summary: string
+  kind: Doc<'imessageDeliveries'>['kind']
+  status: Doc<'imessageDeliveries'>['actionStatus']
+  detail?: string
+  error?: string
+  explorerLink?: string
+}
 
 const claimedValidator = v.object({
   deliveryId: v.id('imessageDeliveries'),
@@ -140,10 +151,10 @@ export const claimNext = internalMutation({
         .query('imessageConnections')
         .withIndex('by_user', (q) => q.eq('userId', delivery.userId))
         .take(20)
-      connection = connections.reduce(
+      connection = connections.reduce<(typeof connections)[number] | null>(
         (latest, item) =>
           !latest || item.updatedAt > latest.updatedAt ? item : latest,
-        null as (typeof connections)[number] | null,
+        null,
       )
     }
     if (!connection) {
@@ -162,20 +173,19 @@ export const claimNext = internalMutation({
       leaseExpiresAt: now + LEASE_MS,
       updatedAt: now,
     })
+    const actionView: ClaimedDeliveryAction = {
+      summary: delivery.summary,
+      kind: delivery.kind,
+      status: delivery.actionStatus,
+    }
+    if (delivery.detail) actionView.detail = delivery.detail
+    if (delivery.error) actionView.error = delivery.error
+    if (delivery.explorerLink) actionView.explorerLink = delivery.explorerLink
     return {
       deliveryId: delivery._id,
       leaseId,
       address: connection.address,
-      action: {
-        summary: delivery.summary,
-        kind: delivery.kind,
-        status: delivery.actionStatus,
-        ...(delivery.detail ? { detail: delivery.detail } : {}),
-        ...(delivery.error ? { error: delivery.error } : {}),
-        ...(delivery.explorerLink
-          ? { explorerLink: delivery.explorerLink }
-          : {}),
-      },
+      action: actionView,
     }
   },
 })

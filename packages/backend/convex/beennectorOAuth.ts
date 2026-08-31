@@ -1,6 +1,8 @@
 'use node'
 
 import { createHash } from 'node:crypto'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
 import type {
   BeennectorProvider,
   GoogleWorkspaceService,
@@ -25,10 +27,7 @@ const GOOGLE_IDENTITY_SCOPES = [
   'email',
   'profile',
 ] as const
-const GOOGLE_WORKSPACE_SERVICE_SCOPES: Record<
-  GoogleWorkspaceService,
-  readonly string[]
-> = {
+const GOOGLE_WORKSPACE_SERVICE_SCOPES = {
   mail: ['https://www.googleapis.com/auth/gmail.modify'],
   calendar: [
     'https://www.googleapis.com/auth/calendar.events',
@@ -47,7 +46,7 @@ const GOOGLE_WORKSPACE_SERVICE_SCOPES: Record<
     'https://www.googleapis.com/auth/forms.body.readonly',
     'https://www.googleapis.com/auth/forms.responses.readonly',
   ],
-}
+} satisfies Record<GoogleWorkspaceService, readonly string[]>
 
 const PROVIDER_CONFIG = {
   github: {
@@ -196,18 +195,31 @@ export function createBeennectorAuthorization(
   return { authorizationUrl: url.toString(), state, codeVerifier }
 }
 
-type TokenBody = {
-  access_token?: string
-  refresh_token?: string
-  expires_in?: number
-  scope?: string | string[]
-  error?: string
-  error_description?: string
-  workspace_id?: string
-  workspace_name?: string
-  bot_id?: string
-  owner?: { user?: { id?: string; name?: string } }
-}
+const tokenBodySchema = Schema.Struct({
+  access_token: Schema.optional(Schema.String),
+  refresh_token: Schema.optional(Schema.String),
+  expires_in: Schema.optional(Schema.Number),
+  scope: Schema.optional(
+    Schema.Union([Schema.String, Schema.mutable(Schema.Array(Schema.String))]),
+  ),
+  error: Schema.optional(Schema.String),
+  error_description: Schema.optional(Schema.String),
+  workspace_id: Schema.optional(Schema.String),
+  workspace_name: Schema.optional(Schema.String),
+  bot_id: Schema.optional(Schema.String),
+  owner: Schema.optional(
+    Schema.Struct({
+      user: Schema.optional(
+        Schema.Struct({
+          id: Schema.optional(Schema.String),
+          name: Schema.optional(Schema.String),
+        }),
+      ),
+    }),
+  ),
+})
+type TokenBody = typeof tokenBodySchema.Type
+const decodeTokenBody = Schema.decodeUnknownResult(tokenBodySchema)
 
 async function requestToken(
   provider: BeennectorProvider,
@@ -253,7 +265,10 @@ async function requestToken(
       true,
     )
   }
-  const body = (await response.json().catch(() => ({}))) as TokenBody
+  const body = Result.getOrElse(
+    decodeTokenBody(await response.json().catch(() => ({}))),
+    (): TokenBody => ({}),
+  )
   if (!response.ok || !body.access_token) {
     const code = body.error ?? `http_${response.status}`
     const permanent =
@@ -276,6 +291,17 @@ function scopes(value: TokenBody['scope']) {
   return value?.split(/[ ,]+/).filter(Boolean) ?? []
 }
 
+const gitHubIdentityBodySchema = Schema.Struct({
+  id: Schema.optional(Schema.Number),
+  login: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.NullOr(Schema.String)),
+  message: Schema.optional(Schema.String),
+})
+type GitHubIdentityBody = typeof gitHubIdentityBodySchema.Type
+const decodeGitHubIdentityBody = Schema.decodeUnknownResult(
+  gitHubIdentityBodySchema,
+)
+
 async function fetchGitHubIdentity(
   accessToken: string,
 ): Promise<BeennectorIdentity> {
@@ -287,12 +313,10 @@ async function fetchGitHubIdentity(
       'user-agent': 'BeeGreat-Beennector',
     },
   })
-  const body = (await response.json().catch(() => ({}))) as {
-    id?: number
-    login?: string
-    name?: string | null
-    message?: string
-  }
+  const body = Result.getOrElse(
+    decodeGitHubIdentityBody(await response.json().catch(() => ({}))),
+    (): GitHubIdentityBody => ({}),
+  )
   if (!response.ok || !body.id || !body.login) {
     throw new BeennectorOAuthError(
       body.message ?? 'Could not read the connected GitHub account',
@@ -305,6 +329,28 @@ async function fetchGitHubIdentity(
     externalAccountName: body.login,
   }
 }
+
+const linearIdentityNodeSchema = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+})
+const linearIdentityBodySchema = Schema.Struct({
+  data: Schema.optional(
+    Schema.Struct({
+      viewer: Schema.optional(linearIdentityNodeSchema),
+      organization: Schema.optional(linearIdentityNodeSchema),
+    }),
+  ),
+  errors: Schema.optional(
+    Schema.Array(
+      Schema.Struct({ message: Schema.optional(Schema.String) }),
+    ),
+  ),
+})
+type LinearIdentityBody = typeof linearIdentityBodySchema.Type
+const decodeLinearIdentityBody = Schema.decodeUnknownResult(
+  linearIdentityBodySchema,
+)
 
 async function fetchLinearIdentity(
   accessToken: string,
@@ -320,13 +366,10 @@ async function fetchLinearIdentity(
         'query BeennectorIdentity { viewer { id name } organization { id name } }',
     }),
   })
-  const body = (await response.json().catch(() => ({}))) as {
-    data?: {
-      viewer?: { id?: string; name?: string }
-      organization?: { id?: string; name?: string }
-    }
-    errors?: Array<{ message?: string }>
-  }
+  const body = Result.getOrElse(
+    decodeLinearIdentityBody(await response.json().catch(() => ({}))),
+    (): LinearIdentityBody => ({}),
+  )
   const viewer = body.data?.viewer
   const organization = body.data?.organization
   if (!response.ok || !viewer?.id || !organization?.id) {
@@ -345,18 +388,27 @@ async function fetchLinearIdentity(
   }
 }
 
+const googleIdentityBodySchema = Schema.Struct({
+  sub: Schema.optional(Schema.String),
+  email: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+  error_description: Schema.optional(Schema.String),
+})
+type GoogleIdentityBody = typeof googleIdentityBodySchema.Type
+const decodeGoogleIdentityBody = Schema.decodeUnknownResult(
+  googleIdentityBodySchema,
+)
+
 async function fetchGoogleIdentity(
   accessToken: string,
 ): Promise<BeennectorIdentity> {
   const response = await fetch(GOOGLE_USERINFO_URL, {
     headers: { authorization: `Bearer ${accessToken}` },
   })
-  const body = (await response.json().catch(() => ({}))) as {
-    sub?: string
-    email?: string
-    name?: string
-    error_description?: string
-  }
+  const body = Result.getOrElse(
+    decodeGoogleIdentityBody(await response.json().catch(() => ({}))),
+    (): GoogleIdentityBody => ({}),
+  )
   if (!response.ok || !body.sub || !body.email) {
     throw new BeennectorOAuthError(
       body.error_description ?? 'Could not read the connected Google account',
@@ -377,12 +429,21 @@ export async function exchangeBeennectorCode(
   codeVerifier?: string,
 ): Promise<BeennectorTokens> {
   const { redirectUri } = credentials(provider)
-  const body = await requestToken(provider, {
-    grant_type: 'authorization_code',
-    code,
-    redirect_uri: redirectUri,
-    ...(codeVerifier ? { code_verifier: codeVerifier } : {}),
-  })
+  const body = await requestToken(
+    provider,
+    codeVerifier
+      ? {
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri,
+          code_verifier: codeVerifier,
+        }
+      : {
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: redirectUri,
+        },
+  )
   const identity = (() => {
     if (provider === 'github') return fetchGitHubIdentity(body.access_token!)
     if (provider === 'linear') return fetchLinearIdentity(body.access_token!)

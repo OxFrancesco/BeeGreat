@@ -3,6 +3,10 @@
 import Innertube, { ClientType } from 'youtubei.js'
 import { v } from 'convex/values'
 import * as Effect from 'effect/Effect'
+import * as Option from 'effect/Option'
+import * as Predicate from 'effect/Predicate'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
 import { internal } from './_generated/api'
 import type { Doc } from './_generated/dataModel'
 import { env, internalAction } from './_generated/server'
@@ -85,8 +89,8 @@ class HttpStatusError extends Error {
   }
 }
 
-function isScraperEffectFailure(error: unknown): error is ScraperEffectFailure {
-  return error instanceof ProviderFailure || error instanceof ProviderChainFailure
+function isScraperEffectFailure(cause: unknown): cause is ScraperEffectFailure {
+  return cause instanceof ProviderFailure || cause instanceof ProviderChainFailure
 }
 
 async function runAsScraperPromise<A>(
@@ -125,29 +129,73 @@ function convexOperation<A>(options: {
   })
 }
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined
+/**
+ * Untrusted provider payloads (Firecrawl, TwitterAPI, ElevenLabs, YouTube
+ * captions, OpenRouter, ChatGPT) are decoded once, at their fetch or
+ * JSON.parse boundary, into this JSON domain before any field is read.
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ReadonlyArray<JsonValue>
+  | { readonly [key: string]: JsonValue }
+
+type JsonRecord = { readonly [key: string]: JsonValue }
+
+const JsonValueSchema: Schema.Codec<JsonValue> = Schema.Union([
+  Schema.String,
+  Schema.Number,
+  Schema.Boolean,
+  Schema.Null,
+  Schema.Array(Schema.suspend((): Schema.Codec<JsonValue> => JsonValueSchema)),
+  Schema.Record(
+    Schema.String,
+    Schema.suspend((): Schema.Codec<JsonValue> => JsonValueSchema),
+  ),
+])
+
+const decodeJsonValue = Schema.decodeUnknownOption(JsonValueSchema)
+
+/** Reads and decodes a response body once, at the I/O boundary. */
+async function jsonBody(response: Response): Promise<JsonValue> {
+  return Option.getOrElse(
+    decodeJsonValue(await response.json().catch(() => null)),
+    () => null,
+  )
 }
 
-function text(value: unknown) {
-  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+/** Parses a JSON string (throwing on malformed JSON) into the JSON domain. */
+function jsonText(value: string): JsonValue {
+  return Option.getOrElse(decodeJsonValue(JSON.parse(value)), () => null)
 }
 
-function number(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) {
+function isJsonRecord(value: JsonValue | undefined): value is JsonRecord {
+  return Predicate.isObject(value)
+}
+
+function record(value: JsonValue | undefined) {
+  return isJsonRecord(value) ? value : undefined
+}
+
+function text(value: JsonValue | undefined) {
+  return Predicate.isString(value) && value.trim() ? value.trim() : undefined
+}
+
+function number(value: JsonValue | undefined) {
+  if (Predicate.isNumber(value) && Number.isFinite(value)) return value
+  if (Predicate.isString(value) && value.trim() && Number.isFinite(Number(value))) {
     return Number(value)
   }
   return undefined
 }
 
-function timestamp(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
+function timestamp(value: JsonValue | undefined) {
+  if (Predicate.isNumber(value) && Number.isFinite(value)) {
     return value < 10_000_000_000 ? value * 1_000 : value
   }
-  if (typeof value !== 'string') return undefined
+  if (!Predicate.isString(value)) return undefined
   const parsed = Date.parse(value)
   return Number.isFinite(parsed) ? parsed : undefined
 }
@@ -166,7 +214,7 @@ export function fallbackFaviconUrl(url: string) {
 }
 
 async function checkedJson(response: Response, stage: string) {
-  const body = (await response.json().catch(() => null)) as unknown
+  const body = await jsonBody(response)
   if (!response.ok) {
     const message = text(record(body)?.error) ?? `${stage} failed (HTTP ${response.status})`
     throw new HttpStatusError(message, response.status, response.headers)
@@ -190,7 +238,7 @@ export async function scrapeWebsite(
     },
     body: JSON.stringify({ url, formats: ['markdown'], onlyMainContent: true }),
   })
-  let payload: Record<string, unknown>
+  let payload: JsonRecord
   try {
     payload = record(await checkedJson(response, 'Firecrawl')) ?? {}
   } catch (error) {
@@ -236,7 +284,7 @@ export async function scrapeTweet(
   const response = await (options.fetch ?? fetch)(endpoint, {
     headers: { 'X-API-Key': apiKey },
   })
-  let payload: unknown
+  let payload: JsonValue
   try {
     payload = await checkedJson(response, 'Twitter API')
   } catch (error) {
@@ -256,10 +304,11 @@ export async function scrapeTweet(
 
   const author = record(tweet.author) ?? record(tweet.user) ?? {}
   const quoted = record(tweet.quoted_tweet) ?? record(tweet.quotedTweet)
+  const extendedMedia = record(tweet.extendedEntities)?.media
   const media = Array.isArray(tweet.media)
     ? tweet.media
-    : Array.isArray(record(tweet.extendedEntities)?.media)
-      ? (record(tweet.extendedEntities)?.media as unknown[])
+    : Array.isArray(extendedMedia)
+      ? extendedMedia
       : []
   const firstMedia = record(media[0])
   const content = text(tweet.text ?? tweet.full_text)
@@ -380,10 +429,8 @@ async function transcribeAudio(
   }
   const form = new FormData()
   form.append('model_id', 'scribe_v1')
-  const audioBuffer = audio.buffer.slice(
-    audio.byteOffset,
-    audio.byteOffset + audio.byteLength,
-  ) as ArrayBuffer
+  const audioBuffer = new ArrayBuffer(audio.byteLength)
+  new Uint8Array(audioBuffer).set(audio)
   form.append(
     'file',
     new Blob([audioBuffer], { type: 'audio/mp4' }),
@@ -393,7 +440,7 @@ async function transcribeAudio(
     'https://api.elevenlabs.io/v1/speech-to-text',
     { method: 'POST', headers: { 'xi-api-key': apiKey }, body: form },
   )
-  const payload = record(await response.json().catch(() => null))
+  const payload = record(await jsonBody(response))
   if (!response.ok || !text(payload?.text)) {
     const message =
       text(record(payload?.detail)?.message) ??
@@ -409,11 +456,56 @@ async function transcribeAudio(
   return text(payload?.text)!
 }
 
+/**
+ * The narrow slice of the youtubei.js surface this module depends on. Tests
+ * inject faithful in-memory implementations through the same interface the
+ * real `Innertube.create` factory satisfies.
+ */
+export type YoutubeCaptionTrack = { base_url: string; kind?: string }
+
+type YoutubeThumbnail = { url?: string; width?: number }
+
+type YoutubeBasicInfo = {
+  author?: string
+  channel?: { name?: string } | null
+  duration?: number | string
+  thumbnail?: ReadonlyArray<YoutubeThumbnail>
+  title?: string
+}
+
+type YoutubeAudioRequest = { type: 'audio'; quality: string; format: string }
+
+export type YoutubeVideoInfo = {
+  basic_info: YoutubeBasicInfo
+  captions?: { caption_tracks?: ReadonlyArray<YoutubeCaptionTrack> }
+  download(options: YoutubeAudioRequest): Promise<ReadableStream<Uint8Array>>
+}
+
+export type InnertubeSession = {
+  getBasicInfo(videoId: string): Promise<YoutubeVideoInfo>
+}
+
+export type InnertubeSessionConfig = {
+  client_type: ClientType
+  enable_session_cache: boolean
+  fetch?: Fetcher
+  generate_session_locally: boolean
+  retrieve_innertube_config: boolean
+  retrieve_player: boolean
+}
+
+export type InnertubeFactory = (
+  config: InnertubeSessionConfig,
+) => Promise<InnertubeSession>
+
+const createDefaultInnertube: InnertubeFactory = ({ fetch: fetchImpl, ...config }) =>
+  // SAFETY: youtubei.js only ever invokes `fetch(input, init)`; it never touches
+  // Bun's static fetch members (e.g. `preconnect`), which is the only structural
+  // difference between our Fetcher seam and `typeof fetch` under Bun's types.
+  Innertube.create({ ...config, fetch: fetchImpl as typeof fetch | undefined })
+
 async function fetchYoutubeCaptions(
-  captionTracks: Array<{
-    base_url: string
-    kind?: 'asr' | 'frc'
-  }>,
+  captionTracks: ReadonlyArray<YoutubeCaptionTrack>,
   options: { fetch?: Fetcher },
 ) {
   const track =
@@ -426,7 +518,7 @@ async function fetchYoutubeCaptions(
   if (!response.ok) {
     throw new Error(`YouTube captions failed (HTTP ${response.status})`)
   }
-  const payload = record(await response.json().catch(() => null))
+  const payload = record(await jsonBody(response))
   const events = Array.isArray(payload?.events) ? payload.events : []
   const content = events
     .flatMap((event) => {
@@ -446,15 +538,15 @@ export async function scrapeYoutube(
   options: {
     elevenLabsApiKey?: string
     fetch?: Fetcher
-    createInnertube?: typeof Innertube.create
+    createInnertube?: InnertubeFactory
   } = {},
 ): Promise<ScrapedBookmark> {
-  const createInnertube = options.createInnertube ?? Innertube.create.bind(Innertube)
+  const createInnertube = options.createInnertube ?? createDefaultInnertube
   try {
     const youtube = await createInnertube({
       client_type: ClientType.IOS,
       enable_session_cache: false,
-      fetch: options.fetch as typeof globalThis.fetch | undefined,
+      fetch: options.fetch,
       generate_session_locally: true,
       retrieve_innertube_config: false,
       retrieve_player: false,
@@ -527,7 +619,7 @@ export async function scrapeYoutubeWithFallback(
     elevenLabsApiKey?: string
     firecrawlApiKey?: string
     fetch?: Fetcher
-    createInnertube?: typeof Innertube.create
+    createInnertube?: InnertubeFactory
   } = {},
 ): Promise<ScrapedBookmark> {
   return await runAsScraperPromise(youtubeEffect(videoId, options))
@@ -540,7 +632,7 @@ function youtubeEffect(
     elevenLabsApiKey?: string
     firecrawlApiKey?: string
     fetch?: Fetcher
-    createInnertube?: typeof Innertube.create
+    createInnertube?: InnertubeFactory
   },
 ) {
   const fetcher = options.fetch ?? fetch
@@ -611,23 +703,22 @@ ${truncateContent(scraped.content, MAX_CRAWL_CONTENT_BYTES)}`
 function parseSummary(value: string): BookmarkSummary {
   const fenced = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]
   const candidate = fenced ?? value.slice(value.indexOf('{'), value.lastIndexOf('}') + 1)
-  const parsed = record(JSON.parse(candidate))
+  const parsed = record(jsonText(candidate))
   if (!parsed) throw new Error('Model returned invalid summary JSON')
   return {
     title: text(parsed.title),
     summary: text(parsed.summary),
-    labels: normalizeLabels(Array.isArray(parsed.labels) ? parsed.labels.filter((item): item is string => typeof item === 'string') : []),
+    labels: normalizeLabels(
+      Array.isArray(parsed.labels) ? parsed.labels.filter(Predicate.isString) : [],
+    ),
   }
 }
 
 function accountIdFromToken(token: string) {
   const payload = token.split('.')[1]
   if (!payload) throw new Error('ChatGPT access token is invalid')
-  const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<
-    string,
-    unknown
-  >
-  const auth = record(parsed['https://api.openai.com/auth'])
+  const parsed = record(jsonText(Buffer.from(payload, 'base64url').toString('utf8')))
+  const auth = record(parsed?.['https://api.openai.com/auth'])
   const accountId = text(auth?.chatgpt_account_id)
   if (!accountId) throw new Error('ChatGPT account id is unavailable')
   return accountId
@@ -639,8 +730,8 @@ function outputTextFromSse(body: string) {
     if (!line.startsWith('data:')) continue
     const data = line.slice(5).trim()
     if (!data || data === '[DONE]') continue
-    const event = record(JSON.parse(data))
-    if (event?.type === 'response.output_text.delta' && typeof event.delta === 'string') {
+    const event = record(jsonText(data))
+    if (event?.type === 'response.output_text.delta' && Predicate.isString(event.delta)) {
       output += event.delta
     }
   }
@@ -848,7 +939,7 @@ export const process = internalAction({
           ? Effect.succeed(prepared.scraped)
           : crawlRequestEffect(prepared.request)
         const scraped = sanitizeCrawlResult(rawScrape)
-        const credentialResult = yield* Effect.either(
+        const credentialResult = yield* Effect.result(
           convexOperation({
             provider: 'credential-broker',
             stage: 'auth',
@@ -859,11 +950,11 @@ export const process = internalAction({
           }),
         )
         const accessToken =
-          credentialResult._tag === 'Right' &&
-          credentialResult.right.status === 'ok'
-            ? credentialResult.right.accessToken
+          Result.isSuccess(credentialResult) &&
+          credentialResult.success.status === 'ok'
+            ? credentialResult.success.accessToken
             : undefined
-        const summaryResult = yield* Effect.either(
+        const summaryResult = yield* Effect.result(
           summaryEffect(prepared.bookmark, scraped, {
             accessToken,
             openRouterApiKey: env.OPENROUTER_API_KEY,
@@ -871,21 +962,23 @@ export const process = internalAction({
         )
         return { state: 'ready' as const, scraped, summaryResult }
       }).pipe(
-        Effect.timeoutFail({
+        Effect.timeoutOrElse({
           duration: REMOTE_WORKFLOW_TIMEOUT_MS,
-          onTimeout: () =>
-            new ProviderFailure({
-              cause: new Error('Hivemind remote workflow timed out'),
-              code: 'unknown',
-              message:
-                'Hivemind remote workflow timed out after ' +
-                REMOTE_WORKFLOW_TIMEOUT_MS +
-                'ms',
-              provider: 'hivemind',
-              retryAfterMs: 0,
-              retryable: false,
-              stage: 'workflow',
-            }),
+          orElse: () =>
+            Effect.fail(
+              new ProviderFailure({
+                cause: new Error('Hivemind remote workflow timed out'),
+                code: 'unknown',
+                message:
+                  'Hivemind remote workflow timed out after ' +
+                  REMOTE_WORKFLOW_TIMEOUT_MS +
+                  'ms',
+                provider: 'hivemind',
+                retryAfterMs: 0,
+                retryable: false,
+                stage: 'workflow',
+              }),
+            ),
         }),
       )
       const preparedRemote = yield* remotePreparation
@@ -899,11 +992,11 @@ export const process = internalAction({
           ctx.runMutation(internal.bookmarkCrawl.finish, {
             runId: prepared.runId,
             outcome:
-              summaryResult._tag === 'Right'
+              Result.isSuccess(summaryResult)
                 ? {
                     state: 'ready' as const,
                     scraped,
-                    summary: summaryResult.right,
+                    summary: summaryResult.success,
                   }
                 : {
                     state: 'ready' as const,
@@ -911,7 +1004,7 @@ export const process = internalAction({
                     summary: { labels: [] },
                     summaryError: {
                       code: 'summary-failed' as const,
-                      message: failureMessage(summaryResult.left),
+                      message: failureMessage(summaryResult.failure),
                     },
                   },
           }),
@@ -919,7 +1012,7 @@ export const process = internalAction({
     })
 
     const program = processing.pipe(
-      Effect.catchAll((failure) => {
+      Effect.catch((failure) => {
         if (isPersistenceFailure(failure)) return Effect.fail(failure)
         return convexOperation({
           provider: 'convex',

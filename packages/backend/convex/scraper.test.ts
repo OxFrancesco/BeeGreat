@@ -10,12 +10,9 @@ import {
   scrapeYoutube,
   scrapeYoutubeWithFallback,
   summarizeBookmark,
+  type JsonValue,
 } from './scraper'
-
-type Fetcher = typeof globalThis.fetch
-type InnertubeFactory = NonNullable<
-  NonNullable<Parameters<typeof scrapeYoutube>[1]>['createInnertube']
->
+import type { Fetcher } from './scraperEffect'
 
 const RETRY_POLICY = {
   attemptTimeoutMs: 1_000,
@@ -23,29 +20,23 @@ const RETRY_POLICY = {
   maxRetries: 2,
 } as const
 
-function jsonResponse(body: unknown, init?: ResponseInit) {
+function jsonResponse(body: JsonValue, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     headers: { 'content-type': 'application/json' },
     ...init,
   })
 }
 
-function asFetcher(
-  implementation: (
-    input: Parameters<Fetcher>[0],
-    init?: Parameters<Fetcher>[1],
-  ) => Promise<Response>,
-) {
-  return vi.fn(implementation) as unknown as Fetcher
+function asFetcher(implementation: Fetcher) {
+  return vi.fn(implementation)
 }
 
-function asInnertubeFactory(factory: () => Promise<unknown>) {
-  return factory as unknown as InnertubeFactory
-}
-
-function bookmark(overrides: Partial<Doc<'bookmarks'>> = {}) {
+function bookmark(overrides: Partial<Doc<'bookmarks'>> = {}): Doc<'bookmarks'> {
+  // SAFETY: Convex `Id`s are branded strings minted by the database. These
+  // tests never touch a database, so a stable literal stands in for the id.
+  const id = 'bookmark_fixture' as Doc<'bookmarks'>['_id']
   return {
-    _id: 'bookmark_fixture',
+    _id: id,
     _creationTime: 1,
     ownerKey: 'issuer|user_fixture',
     userId: 'user_fixture',
@@ -59,7 +50,7 @@ function bookmark(overrides: Partial<Doc<'bookmarks'>> = {}) {
     createdAt: 1,
     updatedAt: 1,
     ...overrides,
-  } as Doc<'bookmarks'>
+  }
 }
 
 function accessToken(accountId = 'account_fixture') {
@@ -376,14 +367,14 @@ describe('Twitter scraping', () => {
   })
 
   test('aborts the provider request when its Effect deadline expires', async () => {
-    const request: { signal?: AbortSignal } = {}
+    let capturedSignal: AbortSignal | undefined
     const fetchMock = asFetcher(
       async (_input, init) =>
         await new Promise<Response>((_resolve, reject) => {
-          request.signal = init?.signal as AbortSignal
-          request.signal.addEventListener('abort', () =>
-            reject(request.signal?.reason),
-          )
+          const signal = init?.signal
+          if (!signal) return
+          capturedSignal = signal
+          signal.addEventListener('abort', () => reject(signal.reason))
         }),
     )
 
@@ -401,7 +392,7 @@ describe('Twitter scraping', () => {
       code: 'scrape-failed',
       message: 'twitter request timed out after 10ms',
     })
-    expect(request.signal?.aborted).toBe(true)
+    expect(capturedSignal?.aborted).toBe(true)
   })
 })
 
@@ -420,7 +411,7 @@ describe('YouTube transcript and ElevenLabs seams', () => {
     )
 
     const result = await scrapeYoutubeWithFallback('blocked-video', {
-      createInnertube: asInnertubeFactory(createInnertube),
+      createInnertube,
       firecrawlApiKey: 'firecrawl-secret',
       fetch: fetchMock,
     })
@@ -478,7 +469,7 @@ describe('YouTube transcript and ElevenLabs seams', () => {
     })
 
     const result = await scrapeYoutube('video-captions', {
-      createInnertube: asInnertubeFactory(createInnertube),
+      createInnertube,
       fetch: fetchMock,
       elevenLabsApiKey: 'eleven-secret',
     })
@@ -532,19 +523,21 @@ describe('YouTube transcript and ElevenLabs seams', () => {
     const createInnertube = vi.fn(async () => ({ getBasicInfo }))
     const fetchMock = asFetcher(async (_input, init) => {
       expect(init?.headers).toEqual({ 'xi-api-key': 'eleven-secret' })
-      expect(init?.body).toBeInstanceOf(FormData)
-      const form = init?.body as FormData
+      const form = init?.body
+      expect(form).toBeInstanceOf(FormData)
+      if (!(form instanceof FormData)) throw new Error('Scribe body must be FormData')
       expect(form.get('model_id')).toBe('scribe_v1')
       const file = form.get('file')
       expect(file).toBeInstanceOf(File)
-      expect((file as File).name).toBe('youtube-audio.m4a')
-      expect((file as File).type).toBe('audio/mp4')
-      expect(new Uint8Array(await (file as File).arrayBuffer())).toEqual(audio)
+      if (!(file instanceof File)) throw new Error('Scribe upload must be a File')
+      expect(file.name).toBe('youtube-audio.m4a')
+      expect(file.type).toBe('audio/mp4')
+      expect(new Uint8Array(await file.arrayBuffer())).toEqual(audio)
       return jsonResponse({ text: 'Transcript from ElevenLabs.' })
     })
 
     const result = await scrapeYoutube('video-scribe', {
-      createInnertube: asInnertubeFactory(createInnertube),
+      createInnertube,
       fetch: fetchMock,
       elevenLabsApiKey: 'eleven-secret',
     })
@@ -580,7 +573,7 @@ describe('YouTube transcript and ElevenLabs seams', () => {
 
     await expect(
       scrapeYoutube('video-long', {
-        createInnertube: asInnertubeFactory(createInnertube),
+        createInnertube,
         elevenLabsApiKey: 'eleven-secret',
       }),
     ).rejects.toMatchObject({
@@ -606,7 +599,7 @@ describe('YouTube transcript and ElevenLabs seams', () => {
 
     await expect(
       scrapeYoutube('video-no-transcript', {
-        createInnertube: asInnertubeFactory(createInnertube),
+        createInnertube,
       }),
     ).rejects.toMatchObject({
       code: 'transcript-unavailable',

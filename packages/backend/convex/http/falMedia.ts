@@ -1,11 +1,24 @@
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { httpAction } from '../_generated/server'
 import {
+  decodeRequestBody,
   jsonResponse,
   parseLimitedJsonBody,
   requireBrokerSecret,
   requireJsonContentType,
 } from './middleware'
+
+const FalMediaRequest = Schema.Struct({
+  operation: Schema.Literals([
+    'generate_image',
+    'edit_image',
+    'generate_video',
+    'edit_video',
+  ]),
+  prompt: Schema.String,
+  sourceUrl: Schema.optional(Schema.String),
+})
 
 export const falMediaInternal = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
@@ -18,24 +31,15 @@ export const falMediaInternal = httpAction(async (ctx, request) => {
     checkContentLength: true,
   })
   if (!parsedBody.ok) return parsedBody.response
-  const body = parsedBody.body as Record<string, unknown> | null
-  const operation = body?.operation
-  if (
-    !body ||
-    (operation !== 'generate_image' &&
-      operation !== 'edit_image' &&
-      operation !== 'generate_video' &&
-      operation !== 'edit_video') ||
-    typeof body.prompt !== 'string' ||
-    (body.sourceUrl !== undefined && typeof body.sourceUrl !== 'string')
-  ) {
+  const body = decodeRequestBody(FalMediaRequest, parsedBody.body)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Imagine request' }, 400)
   }
   try {
     const result = await ctx.runAction(internal.falMedia.execute, {
-      operation,
+      operation: body.operation,
       prompt: body.prompt,
-      sourceUrl: body.sourceUrl as string | undefined,
+      sourceUrl: body.sourceUrl,
     })
     return jsonResponse(result, 200)
   } catch (error) {

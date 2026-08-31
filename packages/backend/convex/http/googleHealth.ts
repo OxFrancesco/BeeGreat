@@ -1,6 +1,15 @@
+import type { FunctionArgs } from 'convex/server'
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { httpAction } from '../_generated/server'
-import { jsonResponse, readJsonBody, requireBrokerSecret } from './middleware'
+import {
+  AgentUserId,
+  decodeRequestBody,
+  jsonResponse,
+  readJsonBody,
+  requireBrokerSecret,
+  type JsonValue,
+} from './middleware'
 
 export const googleHealthOauthCallback = httpAction(async (ctx, request) => {
   const url = new URL(request.url)
@@ -9,13 +18,14 @@ export const googleHealthOauthCallback = httpAction(async (ctx, request) => {
   const oauthError = url.searchParams.get('error')
   let connected = false
   if (state) {
+    const args: FunctionArgs<
+      typeof internal.googleHealthAuthActions.completeAuthorization
+    > = { state }
+    if (code) args.code = code
+    if (oauthError) args.errorCode = oauthError
     const result = await ctx.runAction(
       internal.googleHealthAuthActions.completeAuthorization,
-      {
-        state,
-        ...(code ? { code } : {}),
-        ...(oauthError ? { errorCode: oauthError } : {}),
-      },
+      args,
     )
     connected = result.ok
   }
@@ -27,14 +37,14 @@ export const googleHealthOauthCallback = httpAction(async (ctx, request) => {
   return Response.redirect(appUrl.toString(), 302)
 })
 
+const GoogleHealthContextRequest = Schema.Struct({ userId: AgentUserId })
+
 export const googleHealthContext = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
-  const body = await readJsonBody<{ userId?: unknown }>(request)
-  if (
-    typeof body?.userId !== 'string' ||
-    !/^user_[A-Za-z0-9]+$/.test(body.userId)
-  ) {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(GoogleHealthContextRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Clerk user id' }, 400)
   }
   try {
@@ -58,23 +68,22 @@ export const googleHealthContext = httpAction(async (ctx, request) => {
   }
 })
 
+const GoogleHealthQuery = Schema.Struct({
+  userId: AgentUserId,
+  dataType: Schema.String,
+  operation: Schema.Literals(['list', 'daily-rollup', 'reconcile']),
+  from: Schema.String,
+  to: Schema.String,
+  timeZone: Schema.String,
+  limit: Schema.optional(Schema.Number),
+})
+
 export const googleHealthQuery = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
-  const body = await readJsonBody<Record<string, unknown>>(request)
-  const operation = body?.operation
-  if (
-    typeof body?.userId !== 'string' ||
-    !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-    typeof body.dataType !== 'string' ||
-    (operation !== 'list' &&
-      operation !== 'daily-rollup' &&
-      operation !== 'reconcile') ||
-    typeof body.from !== 'string' ||
-    typeof body.to !== 'string' ||
-    typeof body.timeZone !== 'string' ||
-    (body.limit !== undefined && typeof body.limit !== 'number')
-  ) {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(GoogleHealthQuery, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Google Health query' }, 400)
   }
   try {
@@ -83,11 +92,11 @@ export const googleHealthQuery = httpAction(async (ctx, request) => {
       {
         userId: body.userId,
         dataType: body.dataType,
-        operation,
+        operation: body.operation,
         from: body.from,
         to: body.to,
         timeZone: body.timeZone,
-        ...(body.limit === undefined ? {} : { limit: body.limit }),
+        limit: body.limit,
       },
     )
     return new Response(result, {

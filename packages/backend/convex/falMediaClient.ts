@@ -1,3 +1,6 @@
+import * as Predicate from 'effect/Predicate'
+import { jsonRecord, type JsonValue } from './jsonValue'
+
 export const FAL_MEDIA_OPERATIONS = [
   'generate_image',
   'edit_image',
@@ -22,12 +25,12 @@ export type FalMediaResult = {
 
 export type FalMediaModels = Record<FalMediaOperation, string>
 
-export const DEFAULT_FAL_MEDIA_MODELS: FalMediaModels = {
+export const DEFAULT_FAL_MEDIA_MODELS = {
   generate_image: 'google/nano-banana-2-lite',
   edit_image: 'openai/gpt-image-2/edit',
   generate_video: 'fal-ai/kling-video/v3/pro/text-to-video',
   edit_video: 'fal-ai/kling-video/o3/standard/video-to-video/edit',
-}
+} satisfies FalMediaModels
 
 const FAL_QUEUE_ORIGIN = 'https://queue.fal.run'
 const REQUEST_TIMEOUT_MS = 30_000
@@ -47,16 +50,6 @@ type FalMediaClientOptions = {
   sleep?: (milliseconds: number) => Promise<void>
   maxWaitMs?: number
   now?: () => number
-}
-
-type QueueSubmission = {
-  request_id?: unknown
-  status_url?: unknown
-  response_url?: unknown
-}
-
-type QueueStatus = {
-  status?: unknown
 }
 
 function operationKind(operation: FalMediaOperation): 'image' | 'video' {
@@ -134,11 +127,11 @@ function queueRequestUrl(model: string, requestId: string) {
 }
 
 function expectedQueueUrl(
-  candidate: unknown,
+  candidate: JsonValue | undefined,
   expected: string,
   label: string,
 ) {
-  if (typeof candidate !== 'string') return expected
+  if (!Predicate.isString(candidate)) return expected
   let url: URL
   try {
     url = new URL(candidate)
@@ -151,32 +144,31 @@ function expectedQueueUrl(
   return url.toString()
 }
 
-async function responseJson(response: Response, fallback: string) {
-  const payload = (await response.json().catch(() => null)) as unknown
+async function responseJson(
+  response: Response,
+  fallback: string,
+): Promise<JsonValue> {
+  const payload: JsonValue = await response.json().catch(() => null)
   if (!response.ok) {
-    const detail =
-      payload &&
-      typeof payload === 'object' &&
-      'detail' in payload &&
-      typeof payload.detail === 'string'
-        ? ` ${payload.detail}`
-        : ''
+    const detailValue = jsonRecord(payload)?.detail
+    const detail = Predicate.isString(detailValue) ? ` ${detailValue}` : ''
     throw new Error(`${fallback} FAL returned HTTP ${response.status}.${detail}`)
   }
   return payload
 }
 
-function objectAt(value: unknown, key: string): unknown {
-  return value && typeof value === 'object' && key in value
-    ? (value as Record<string, unknown>)[key]
-    : undefined
+function objectAt(
+  value: JsonValue | undefined,
+  key: string,
+): JsonValue | undefined {
+  return jsonRecord(value)?.[key]
 }
 
-function firstItem(value: unknown): unknown {
+function firstItem(value: JsonValue | undefined): JsonValue | undefined {
   return Array.isArray(value) ? value[0] : undefined
 }
 
-function mediaCandidate(payload: unknown, kind: 'image' | 'video') {
+function mediaCandidate(payload: JsonValue, kind: 'image' | 'video') {
   const data = objectAt(payload, 'data') ?? payload
   if (kind === 'image') {
     return (
@@ -194,9 +186,12 @@ function mediaCandidate(payload: unknown, kind: 'image' | 'video') {
   )
 }
 
-export function extractFalMediaUrl(payload: unknown, kind: 'image' | 'video') {
+export function extractFalMediaUrl(
+  payload: JsonValue,
+  kind: 'image' | 'video',
+) {
   const candidate = mediaCandidate(payload, kind)
-  if (typeof candidate !== 'string' || candidate.length > 8_192) {
+  if (!Predicate.isString(candidate) || candidate.length > 8_192) {
     throw new Error(`FAL completed without a usable ${kind} URL.`)
   }
   let url: URL
@@ -220,15 +215,17 @@ export function createFalMediaClient(options: FalMediaClientOptions) {
       new Promise<void>((resolve) => setTimeout(resolve, milliseconds)))
   const now = options.now ?? Date.now
   const maxWaitMs = options.maxWaitMs ?? MAX_WAIT_MS
-  const models = Object.fromEntries(
-    FAL_MEDIA_OPERATIONS.map((operation) => [
+  const modelFor = (operation: FalMediaOperation) =>
+    normalizeModel(
+      options.models?.[operation] ?? DEFAULT_FAL_MEDIA_MODELS[operation],
       operation,
-      normalizeModel(
-        options.models?.[operation] ?? DEFAULT_FAL_MEDIA_MODELS[operation],
-        operation,
-      ),
-    ]),
-  ) as FalMediaModels
+    )
+  const models = {
+    generate_image: modelFor('generate_image'),
+    edit_image: modelFor('edit_image'),
+    generate_video: modelFor('generate_video'),
+    edit_video: modelFor('edit_video'),
+  } satisfies FalMediaModels
 
   const request = async (
     url: string,
@@ -251,18 +248,20 @@ export function createFalMediaClient(options: FalMediaClientOptions) {
   return {
     async generate(mediaRequest: FalMediaRequest): Promise<FalMediaResult> {
       const model = models[mediaRequest.operation]
-      const submissionPayload = (await request(
-        queueUrl(model),
-        {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(requestInput(mediaRequest)),
-        },
-        'FAL could not start media generation.',
-      )) as QueueSubmission
-      const requestId = submissionPayload.request_id
+      const submissionPayload = jsonRecord(
+        await request(
+          queueUrl(model),
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(requestInput(mediaRequest)),
+          },
+          'FAL could not start media generation.',
+        ),
+      )
+      const requestId = submissionPayload?.request_id
       if (
-        typeof requestId !== 'string' ||
+        !Predicate.isString(requestId) ||
         !requestId ||
         requestId.length > 512
       ) {
@@ -270,25 +269,21 @@ export function createFalMediaClient(options: FalMediaClientOptions) {
       }
       const resultUrl = queueRequestUrl(model, requestId)
       const statusUrl = expectedQueueUrl(
-        submissionPayload.status_url,
+        submissionPayload?.status_url,
         `${resultUrl}/status`,
         'status',
       )
-      expectedQueueUrl(submissionPayload.response_url, resultUrl, 'result')
+      expectedQueueUrl(submissionPayload?.response_url, resultUrl, 'result')
 
       const startedAt = now()
       let pollCount = 0
       while (true) {
-        const statusPayload = (await request(
-          statusUrl,
-          undefined,
-          'FAL status check failed.',
-        )) as QueueStatus
-        if (statusPayload.status === 'COMPLETED') break
-        if (
-          statusPayload.status !== 'IN_QUEUE' &&
-          statusPayload.status !== 'IN_PROGRESS'
-        ) {
+        const statusPayload = jsonRecord(
+          await request(statusUrl, undefined, 'FAL status check failed.'),
+        )
+        const status = statusPayload?.status
+        if (status === 'COMPLETED') break
+        if (status !== 'IN_QUEUE' && status !== 'IN_PROGRESS') {
           throw new Error('FAL returned an unexpected queue status.')
         }
         if (now() - startedAt >= maxWaitMs) {

@@ -5,22 +5,22 @@
 
 import { internal } from '../_generated/api'
 import type { MutationCtx } from '../_generated/server'
-import type { Id } from '../_generated/dataModel'
+import type { Doc, Id } from '../_generated/dataModel'
 import { requirePowerup } from '../powerups'
 
 const EVM_HASH = /^0x[0-9a-fA-F]{64}$/
-const EOA_CHAIN_EXPLORERS: Record<number, string> = {
-  10: 'https://optimistic.etherscan.io/tx/',
-  130: 'https://uniscan.xyz/tx/',
-  252: 'https://fraxscan.com/tx/',
-  1135: 'https://blockscout.lisk.com/tx/',
-  1868: 'https://soneium.blockscout.com/tx/',
-  5330: 'https://explorer.superseed.xyz/tx/',
-  8453: 'https://basescan.org/tx/',
-  34443: 'https://explorer.mode.network/tx/',
-  42220: 'https://celoscan.io/tx/',
-  57073: 'https://explorer.inkonchain.com/tx/',
-}
+const EOA_CHAIN_EXPLORERS = new Map<number, string>([
+  [10, 'https://optimistic.etherscan.io/tx/'],
+  [130, 'https://uniscan.xyz/tx/'],
+  [252, 'https://fraxscan.com/tx/'],
+  [1135, 'https://blockscout.lisk.com/tx/'],
+  [1868, 'https://soneium.blockscout.com/tx/'],
+  [5330, 'https://explorer.superseed.xyz/tx/'],
+  [8453, 'https://basescan.org/tx/'],
+  [34443, 'https://explorer.mode.network/tx/'],
+  [42220, 'https://celoscan.io/tx/'],
+  [57073, 'https://explorer.inkonchain.com/tx/'],
+])
 
 /**
  * App-facing EOA confirmation. Claims the exact pending plan but deliberately
@@ -105,27 +105,26 @@ export async function recordEoaSubmissionForUser(
   if (!EVM_HASH.test(hash)) {
     throw new Error('The wallet returned an invalid transaction hash.')
   }
-  const explorer = EOA_CHAIN_EXPLORERS[action.payload.chainId]
+  const explorer = EOA_CHAIN_EXPLORERS.get(action.payload.chainId)
   if (!explorer) throw new Error('This EVM chain is not supported.')
   const now = Date.now()
   const result = [
     ...(action.result ?? []),
     { hash, explorerLink: `${explorer}${hash}` },
   ]
+  const submittedStep: NonNullable<Doc<'web3Actions'>['eoaExecution']>[number] =
+    {
+      index,
+      hash,
+      status: 'submitted',
+      submittedAt: now,
+    }
+  if (role) submittedStep.role = role
   await ctx.db.patch(actionId, {
     result,
     status: 'in_progress',
     submittedAt: action.submittedAt ?? now,
-    eoaExecution: [
-      ...execution,
-      {
-        index,
-        ...(role ? { role } : {}),
-        hash,
-        status: 'submitted' as const,
-        submittedAt: now,
-      },
-    ],
+    eoaExecution: [...execution, submittedStep],
   })
   return { done: false }
 }
@@ -184,11 +183,12 @@ export async function recordEoaReceiptForUser(
     (step.role === undefined &&
       settled.filter((item) => item.status === 'success').length ===
         action.payload.transactions.length)
-  await ctx.db.patch(actionId, {
+  const patch: Partial<Doc<'web3Actions'>> = {
     eoaExecution: settled,
     status: done ? 'executed' : 'in_progress',
-    ...(done ? { settledAt: now } : {}),
-  })
+  }
+  if (done) patch.settledAt = now
+  await ctx.db.patch(actionId, patch)
   if (done) {
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
       actionId,
@@ -230,11 +230,12 @@ export async function reportEoaFailureForUser(
         : submitted > 0
           ? 'The wallet stopped before every step could be submitted.'
           : 'The wallet could not submit the transaction.'
-  await ctx.db.patch(actionId, {
+  const patch: Partial<Doc<'web3Actions'>> = {
     status: cancelled ? 'cancelled' : 'failed',
     error,
-    ...(!cancelled ? { settledAt: Date.now() } : {}),
-  })
+  }
+  if (!cancelled) patch.settledAt = Date.now()
+  await ctx.db.patch(actionId, patch)
   if (!cancelled) {
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
       actionId,

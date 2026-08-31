@@ -3,7 +3,7 @@
 import { expect, test } from 'vitest'
 import { accountIdFromAccessToken } from './chatgptOpenAi'
 
-function jwt(payload: unknown) {
+function jwt(payload: Record<string, { chatgpt_account_id?: string }>) {
   return [
     Buffer.from('{}').toString('base64url'),
     Buffer.from(JSON.stringify(payload)).toString('base64url'),

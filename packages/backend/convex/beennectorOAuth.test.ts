@@ -19,6 +19,9 @@ const names = [
   'GOOGLE_BEENNECTOR_CLIENT_ID',
   'GOOGLE_BEENNECTOR_CLIENT_SECRET',
 ] as const
+// SAFETY: Object.fromEntries erases the tuple's literal keys; the entries are
+// built from `names` itself, so the record holds exactly one saved value per
+// listed environment variable.
 const original = Object.fromEntries(
   names.map((name) => [name, process.env[name]]),
 ) as Record<(typeof names)[number], string | undefined>

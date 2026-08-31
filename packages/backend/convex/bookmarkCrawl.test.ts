@@ -472,6 +472,10 @@ describe('bookmark crawl coordination', () => {
       updatedAt: Date.now(),
     }
 
+    // SAFETY: this document deliberately violates the bookmarkCrawlCache
+    // schema (a `public` entry must not carry `ownerKey`); `never` bypasses
+    // the compile-time document type so the runtime schema rejection under
+    // test can be exercised.
     await expect(
       t.run((ctx) =>
         ctx.db.insert('bookmarkCrawlCache', {
@@ -480,6 +484,10 @@ describe('bookmark crawl coordination', () => {
         } as never),
       ),
     ).rejects.toThrow()
+    // SAFETY: this document deliberately violates the bookmarkCrawlCache
+    // schema (a `processing` entry must not already have `scraped` content);
+    // `never` bypasses the compile-time document type so the runtime schema
+    // rejection under test can be exercised.
     await expect(
       t.run((ctx) =>
         ctx.db.insert('bookmarkCrawlCache', {

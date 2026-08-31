@@ -14,7 +14,7 @@ const createJob = makeFunctionReference<
     schedule: { kind: "interval"; everyMs: number; anchorAt: number };
     delivery: Array<"app" | "telegram">;
   },
-  { id: string; threadId: number; nextRunAt: number }
+  { id: Id<"agentJobs">; threadId: number; nextRunAt: number }
 >("agentJobs:create");
 
 const listJobs = makeFunctionReference<
@@ -182,8 +182,8 @@ describe("Agent Jobs", () => {
     });
 
     const state = await t.run(async (ctx) => ({
-      job: await ctx.db.get(created.id as never),
-      runs: await ctx.db.query("agentJobRuns" as never).collect(),
+      job: await ctx.db.get(created.id),
+      runs: await ctx.db.query("agentJobRuns").collect(),
     }));
     expect(state.runs).toHaveLength(1);
     expect(state.runs[0]).toMatchObject({
@@ -290,7 +290,7 @@ describe("Agent Jobs", () => {
         .query("agentJobRuns")
         .withIndex("by_job_id_and_scheduled_for", (q) =>
           q
-            .eq("jobId", created.id as Id<"agentJobs">)
+            .eq("jobId", created.id)
             .eq("scheduledFor", created.nextRunAt),
         )
         .unique(),
@@ -299,7 +299,9 @@ describe("Agent Jobs", () => {
     process.env.AGENT_CREDENTIAL_BROKER_SECRET = "jobs-test-secret";
     const fetchMock = vi.fn(
       async (_url: URL | RequestInfo, init?: RequestInit) => {
-        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        // SAFETY: the dispatcher under test always posts the claimed run
+        // payload as a JSON object carrying its dispatchId.
+        const body = JSON.parse(String(init?.body)) as { dispatchId?: string };
         expect(body.dispatchId).toBe(`job:${created.id}:${created.nextRunAt}`);
         expect(init?.headers).toMatchObject({
           authorization: "Bearer jobs-test-secret",

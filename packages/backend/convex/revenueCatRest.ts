@@ -1,7 +1,10 @@
+import * as Predicate from 'effect/Predicate'
 import {
   REVENUECAT_ENTITLEMENT_ID,
   REVENUECAT_MONTHLY_PRODUCT_ID,
+  revenueCatJsonRecord,
   type RevenueCatEnvironment,
+  type RevenueCatJson,
 } from './revenueCatWebhook'
 
 const REVENUECAT_API_BASE_URL = 'https://api.revenuecat.com/v1'
@@ -38,12 +41,8 @@ export type RevenueCatDeletionResult =
       retryable: boolean
     }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function isoTimestamp(value: unknown) {
-  if (typeof value !== 'string') return null
+function isoTimestamp(value: RevenueCatJson | undefined) {
+  if (!Predicate.isString(value)) return null
   const timestamp = Date.parse(value)
   return Number.isFinite(timestamp) ? timestamp : null
 }
@@ -53,28 +52,32 @@ function isoTimestamp(value: unknown) {
  * Missing/expired purchases are valid inactive states; structurally invalid
  * responses are rejected so an outage cannot overwrite a known-good ledger.
  */
-export function parseRevenueCatCustomerInfo(
-  value: unknown,
+export function parseRevenueCatCustomerInfo<Payload>(
+  value: Payload,
   now: number,
 ):
   | { ok: true; snapshot: RevenueCatRestSnapshot }
   | { ok: false; error: 'invalid_response' } {
-  if (!isRecord(value) || !isRecord(value.subscriber)) {
+  const customerInfo = revenueCatJsonRecord(value)
+  const subscriber = revenueCatJsonRecord(customerInfo?.subscriber)
+  if (!customerInfo || !subscriber) {
     return { ok: false, error: 'invalid_response' }
   }
-  const { subscriber } = value
-  if (!isRecord(subscriber.entitlements) || !isRecord(subscriber.subscriptions)) {
+  const entitlements = revenueCatJsonRecord(subscriber.entitlements)
+  const subscriptions = revenueCatJsonRecord(subscriber.subscriptions)
+  if (!entitlements || !subscriptions) {
     return { ok: false, error: 'invalid_response' }
   }
 
-  const entitlement = subscriber.entitlements[REVENUECAT_ENTITLEMENT_ID]
-  if (entitlement === undefined || entitlement === null) {
+  const rawEntitlement = entitlements[REVENUECAT_ENTITLEMENT_ID]
+  if (rawEntitlement === undefined || rawEntitlement === null) {
     return {
       ok: true,
       snapshot: { active: false, reason: 'missing_entitlement' },
     }
   }
-  if (!isRecord(entitlement)) {
+  const entitlement = revenueCatJsonRecord(rawEntitlement)
+  if (!entitlement) {
     return { ok: false, error: 'invalid_response' }
   }
   if (entitlement.product_identifier !== REVENUECAT_MONTHLY_PRODUCT_ID) {
@@ -101,8 +104,11 @@ export function parseRevenueCatCustomerInfo(
     return { ok: false, error: 'invalid_response' }
   }
 
-  const subscription = subscriber.subscriptions[REVENUECAT_MONTHLY_PRODUCT_ID]
-  if (!isRecord(subscription) || typeof subscription.is_sandbox !== 'boolean') {
+  const subscription = revenueCatJsonRecord(
+    subscriptions[REVENUECAT_MONTHLY_PRODUCT_ID],
+  )
+  const isSandbox = subscription?.is_sandbox
+  if (!subscription || !Predicate.isBoolean(isSandbox)) {
     return { ok: false, error: 'invalid_response' }
   }
   const subscriptionGraceExpiresAt =
@@ -117,14 +123,15 @@ export function parseRevenueCatCustomerInfo(
   ) {
     return { ok: false, error: 'invalid_response' }
   }
+  const refundedAt = subscription.refunded_at
   if (
-    subscription.refunded_at !== undefined &&
-    subscription.refunded_at !== null &&
-    typeof subscription.refunded_at !== 'string'
+    refundedAt !== undefined &&
+    refundedAt !== null &&
+    !Predicate.isString(refundedAt)
   ) {
     return { ok: false, error: 'invalid_response' }
   }
-  if (typeof subscription.refunded_at === 'string') {
+  if (Predicate.isString(refundedAt)) {
     return { ok: true, snapshot: { active: false, reason: 'refunded' } }
   }
 
@@ -142,7 +149,7 @@ export function parseRevenueCatCustomerInfo(
     snapshot: {
       active: true,
       productId: REVENUECAT_MONTHLY_PRODUCT_ID,
-      environment: subscription.is_sandbox ? 'SANDBOX' : 'PRODUCTION',
+      environment: isSandbox ? 'SANDBOX' : 'PRODUCTION',
       periodStartedAt,
       expiresAt,
     },

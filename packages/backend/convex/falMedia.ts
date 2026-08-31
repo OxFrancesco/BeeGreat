@@ -4,7 +4,6 @@ import {
   createFalMediaClient,
   DEFAULT_FAL_MEDIA_MODELS,
   type FalMediaModels,
-  type FalMediaOperation,
 } from './falMediaClient'
 
 const operationValidator = v.union(
@@ -54,7 +53,7 @@ export const execute = internalAction({
   returns: resultValidator,
   handler: async (_ctx, input) => {
     return await configuredClient().generate({
-      operation: input.operation as FalMediaOperation,
+      operation: input.operation,
       prompt: input.prompt,
       sourceUrl: input.sourceUrl,
     })

@@ -1,6 +1,10 @@
 import * as Data from 'effect/Data'
+import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
+import * as Predicate from 'effect/Predicate'
+import * as Result from 'effect/Result'
 import * as Schedule from 'effect/Schedule'
+import { jsonRecord, type JsonRecord, type JsonValue } from './jsonValue'
 
 export type SocketChain = 'base' | 'arbitrum'
 export type SocketToken = 'eth' | 'usdc'
@@ -74,7 +78,7 @@ class SocketTransientFailure extends Data.TaggedError('SocketTransientFailure')<
 
 function headerRetryAfterMs(headers: Headers): number {
   const value = headers.get('Retry-After')
-  if (typeof value !== 'string' || value.trim() === '') return 0
+  if (value === null || value.trim() === '') return 0
   const seconds = Number(value)
   if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1_000)
   const at = Date.parse(value)
@@ -97,15 +101,17 @@ async function socketFetch(
     try: (signal) => fetchImpl(url, { headers: config.headers, signal }),
     catch: (cause) => new SocketTransientFailure({ cause, retryAfterMs: 0 }),
   }).pipe(
-    Effect.timeoutFail({
+    Effect.timeoutOrElse({
       duration: SOCKET_RETRY_POLICY.attemptTimeoutMs,
-      onTimeout: () =>
-        new SocketTransientFailure({
-          cause: new Error(
-            `Socket request timed out after ${SOCKET_RETRY_POLICY.attemptTimeoutMs}ms`,
-          ),
-          retryAfterMs: 0,
-        }),
+      orElse: () =>
+        Effect.fail(
+          new SocketTransientFailure({
+            cause: new Error(
+              `Socket request timed out after ${SOCKET_RETRY_POLICY.attemptTimeoutMs}ms`,
+            ),
+            retryAfterMs: 0,
+          }),
+        ),
     }),
     Effect.flatMap((response) =>
       SOCKET_TRANSIENT_STATUSES.has(response.status)
@@ -118,18 +124,23 @@ async function socketFetch(
         : Effect.succeed(response),
     ),
   )
-  const program = Effect.retry(
-    attempt,
-    Schedule.identity<SocketTransientFailure>().pipe(
-      Schedule.addDelay((failure) => failure.retryAfterMs),
-      Schedule.intersect(Schedule.exponential(SOCKET_RETRY_POLICY.baseDelayMs)),
-      Schedule.intersect(Schedule.recurs(SOCKET_RETRY_POLICY.maxRetries)),
+  // Exponential backoff bounded by maxRetries; the Retry-After hint
+  // stretches (never shortens) the computed delay.
+  const program = Effect.retry(attempt, {
+    schedule: Schedule.exponential(
+      Duration.millis(SOCKET_RETRY_POLICY.baseDelayMs),
+    ).pipe(
+      Schedule.upTo({ times: SOCKET_RETRY_POLICY.maxRetries }),
+      Schedule.setInputType<SocketTransientFailure>(),
+      Schedule.modifyDelay(({ duration, input }) =>
+        Effect.succeed(Duration.max(duration, Duration.millis(input.retryAfterMs))),
+      ),
     ),
-  )
-  const result = await Effect.runPromise(Effect.either(program))
-  if (result._tag === 'Right') return result.right
-  if (result.left.response) return result.left.response
-  throw result.left.cause
+  })
+  const result = await Effect.runPromise(Effect.result(program))
+  if (Result.isSuccess(result)) return result.success
+  if (result.failure.response) return result.failure.response
+  throw result.failure.cause
 }
 
 export type SocketQuote = {
@@ -171,7 +182,7 @@ export type SocketStatus = {
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/
 const HEX_DATA = /^0x[0-9a-fA-F]*$/
 const DECIMAL_INTEGER = /^\d+$/
-const ROUTE_STATUSES = new Set<SocketRouteStatus>([
+const ROUTE_STATUSES: ReadonlySet<string> = new Set<SocketRouteStatus>([
   'PENDING',
   'IN_PROGRESS',
   'COMPLETED',
@@ -180,27 +191,25 @@ const ROUTE_STATUSES = new Set<SocketRouteStatus>([
   'REFUNDED',
 ])
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
+function isRouteStatus(value: string): value is SocketRouteStatus {
+  return ROUTE_STATUSES.has(value)
 }
 
-function requiredRecord(value: unknown, field: string) {
-  const record = asRecord(value)
+function requiredRecord(value: JsonValue | undefined, field: string) {
+  const record = jsonRecord(value)
   if (!record) throw new Error(`Socket returned an invalid ${field}.`)
   return record
 }
 
-function requiredString(value: unknown, field: string) {
-  if (typeof value !== 'string' || value.length === 0) {
+function requiredString(value: JsonValue | undefined, field: string) {
+  if (!Predicate.isString(value) || value.length === 0) {
     throw new Error(`Socket returned an invalid ${field}.`)
   }
   return value
 }
 
-function requiredInteger(value: unknown, field: string) {
-  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+function requiredInteger(value: JsonValue | undefined, field: string) {
+  if (!Predicate.isNumber(value) || !Number.isSafeInteger(value) || value < 0) {
     throw new Error(`Socket returned an invalid ${field}.`)
   }
   return value
@@ -232,9 +241,10 @@ export function formatTokenAmount(units: string, decimals: number) {
   return fraction ? `${whole}.${fraction}` : whole
 }
 
-function routeScore(route: Record<string, unknown>) {
-  const tags = Array.isArray(route.routeTags)
-    ? route.routeTags.filter((tag): tag is string => typeof tag === 'string')
+function routeScore(route: JsonRecord) {
+  const routeTags = route.routeTags
+  const tags = Array.isArray(routeTags)
+    ? routeTags.filter(Predicate.isString)
     : []
   if (tags.includes('SUGGESTED')) return 3
   if (tags.includes('MAX_OUTPUT')) return 2
@@ -243,7 +253,7 @@ function routeScore(route: Record<string, unknown>) {
 }
 
 function parseRoute(
-  rawRoute: unknown,
+  rawRoute: JsonValue,
   input: {
     originChain: SocketChain
     destinationChain: SocketChain
@@ -273,9 +283,10 @@ function parseRoute(
       return null
     }
     if (outputToken.chainId !== destination.chainId) return null
+    const outputTokenAddress = outputToken.address
     if (
-      typeof outputToken.address !== 'string' ||
-      outputToken.address.toLowerCase() !== expectedOutputAddress
+      !Predicate.isString(outputTokenAddress) ||
+      outputTokenAddress.toLowerCase() !== expectedOutputAddress
     ) {
       return null
     }
@@ -307,38 +318,40 @@ function parseRoute(
     const expiresAtSeconds = requiredInteger(route.expiresAt, 'quote expiry')
     if (expiresAtSeconds * 1000 <= Date.now()) return null
 
-    const bridge = asRecord(asRecord(route.routeDetails)?.bridgeDetails)
-    const protocol = asRecord(bridge?.protocol)
-    const provider =
-      typeof protocol?.displayName === 'string'
-        ? protocol.displayName
-        : typeof protocol?.name === 'string'
-          ? protocol.name
-          : 'Socket'
-    const statusCheck = asRecord(route.statusCheck)
-    const interval =
-      typeof statusCheck?.intervalSec === 'number'
-        ? Math.min(30, Math.max(3, Math.floor(statusCheck.intervalSec)))
-        : 5
-    const maxDuration =
-      typeof statusCheck?.maxDurationSec === 'number'
-        ? Math.min(7_200, Math.max(60, Math.floor(statusCheck.maxDurationSec)))
-        : 1_800
+    const bridge = jsonRecord(jsonRecord(route.routeDetails)?.bridgeDetails)
+    const protocol = jsonRecord(bridge?.protocol)
+    const displayName = protocol?.displayName
+    const protocolName = protocol?.name
+    const provider = Predicate.isString(displayName)
+      ? displayName
+      : Predicate.isString(protocolName)
+        ? protocolName
+        : 'Socket'
+    const statusCheck = jsonRecord(route.statusCheck)
+    const intervalSec = statusCheck?.intervalSec
+    const interval = Predicate.isNumber(intervalSec)
+      ? Math.min(30, Math.max(3, Math.floor(intervalSec)))
+      : 5
+    const maxDurationSec = statusCheck?.maxDurationSec
+    const maxDuration = Predicate.isNumber(maxDurationSec)
+      ? Math.min(7_200, Math.max(60, Math.floor(maxDurationSec)))
+      : 1_800
 
     let approval: SocketQuote['approval']
     if (route.approval !== null && route.approval !== undefined) {
       if (input.inputToken === 'eth') return null
       const rawApproval = requiredRecord(route.approval, 'approval')
       const expectedInputAddress = origin.tokens[input.inputToken].address
-      const tokenAddress =
-        typeof rawApproval.tokenAddress === 'string'
-          ? rawApproval.tokenAddress
-          : expectedInputAddress
+      const rawTokenAddress = rawApproval.tokenAddress
+      const tokenAddress = Predicate.isString(rawTokenAddress)
+        ? rawTokenAddress
+        : expectedInputAddress
       const spenderAddress = requiredString(
         rawApproval.spenderAddress,
         'approval spender',
       )
       const amount = requiredString(rawApproval.amount, 'approval amount')
+      const approvalUserAddress = rawApproval.userAddress
       if (
         !EVM_ADDRESS.test(tokenAddress) ||
         tokenAddress.toLowerCase() !== expectedInputAddress.toLowerCase() ||
@@ -346,8 +359,8 @@ function parseRoute(
         !DECIMAL_INTEGER.test(amount) ||
         BigInt(amount) <= 0n ||
         BigInt(amount) > BigInt(input.inputAmountUnits) ||
-        (typeof rawApproval.userAddress === 'string' &&
-          rawApproval.userAddress.toLowerCase() !==
+        (Predicate.isString(approvalUserAddress) &&
+          approvalUserAddress.toLowerCase() !==
             input.userAddress.toLowerCase())
       ) {
         return null
@@ -356,7 +369,8 @@ function parseRoute(
     }
 
     const outputDecimals = destination.tokens[input.outputToken].decimals
-    return {
+    const estimatedTime = route.estimatedTime
+    const quote: SocketQuote = {
       quoteId,
       originChain: input.originChain,
       destinationChain: input.destinationChain,
@@ -374,16 +388,16 @@ function parseRoute(
       ),
       minimumOutputAmountUnits,
       provider,
-      estimatedTimeSeconds:
-        typeof route.estimatedTime === 'number'
-          ? Math.max(0, Math.floor(route.estimatedTime))
-          : 0,
+      estimatedTimeSeconds: Predicate.isNumber(estimatedTime)
+        ? Math.max(0, Math.floor(estimatedTime))
+        : 0,
       expiresAt: expiresAtSeconds * 1000,
       statusIntervalSeconds: interval,
       statusMaxDurationSeconds: maxDuration,
-      ...(approval ? { approval } : {}),
       transaction: { to, data, value },
     }
+    if (approval) quote.approval = approval
+    return quote
   } catch {
     return null
   }
@@ -427,18 +441,18 @@ export async function getSocketQuote(
     userAddress: input.userAddress,
     receiverAddress: input.receiverAddress,
     slippage: '1',
-    ...(input.outputToken === 'eth' ? {} : { refuel: 'true' }),
   })
+  if (input.outputToken !== 'eth') query.set('refuel', 'true')
   const response = await socketFetch(
     `${config.baseUrl.replace(/\/$/, '')}/v3/swap/quote?${query}`,
     config,
     fetchImpl,
   )
   const requestId = response.headers.get('server-req-id')
-  const body = (await response.json().catch(() => null)) as unknown
-  const record = asRecord(body)
+  const record = jsonRecord(await response.json().catch(() => null))
   if (!response.ok || record?.success !== true) {
-    const message = typeof record?.message === 'string' ? record.message : ''
+    const rawMessage = record?.message
+    const message = Predicate.isString(rawMessage) ? rawMessage : ''
     throw new Error(
       `Socket could not quote this transfer${message ? `: ${message}` : '.'}${
         requestId ? ` Request ${requestId}.` : ''
@@ -449,12 +463,12 @@ export async function getSocketQuote(
   const routes = Array.isArray(result.routes) ? result.routes : []
   const parsed = routes
     .map((route) => ({
-      raw: asRecord(route),
+      raw: jsonRecord(route),
       quote: parseRoute(route, { ...input, inputAmountUnits }),
     }))
     .filter(
-      (item): item is { raw: Record<string, unknown>; quote: SocketQuote } =>
-        item.raw !== null && item.quote !== null,
+      (item): item is { raw: JsonRecord; quote: SocketQuote } =>
+        item.raw !== undefined && item.quote !== null,
     )
     .sort((left, right) => {
       const scoreDifference = routeScore(right.raw) - routeScore(left.raw)
@@ -487,35 +501,30 @@ export async function getSocketStatus(
     fetchImpl,
   )
   const requestId = response.headers.get('server-req-id')
-  const body = (await response.json().catch(() => null)) as unknown
-  const record = asRecord(body)
+  const record = jsonRecord(await response.json().catch(() => null))
   if (!response.ok || !record) {
     throw new Error(
       `Socket status is temporarily unavailable.${requestId ? ` Request ${requestId}.` : ''}`,
     )
   }
-  const statusRecord = asRecord(record.result) ?? record
-  const candidate =
-    typeof statusRecord.status === 'string'
-      ? statusRecord.status
-      : statusRecord.statusCode
-  if (
-    typeof candidate !== 'string' ||
-    !ROUTE_STATUSES.has(candidate as SocketRouteStatus)
-  ) {
+  const statusRecord = jsonRecord(record.result) ?? record
+  const statusValue = statusRecord.status
+  const candidate = Predicate.isString(statusValue)
+    ? statusValue
+    : statusRecord.statusCode
+  if (!Predicate.isString(candidate) || !isRouteStatus(candidate)) {
     throw new Error('Socket returned an unknown route status.')
   }
-  const origin = asRecord(statusRecord.origin)
-  const destination = asRecord(statusRecord.destination)
-  return {
-    status: candidate as SocketRouteStatus,
-    ...(typeof origin?.txHash === 'string'
-      ? { originTxHash: origin.txHash }
-      : {}),
-    ...(typeof destination?.txHash === 'string'
-      ? { destinationTxHash: destination.txHash }
-      : {}),
+  const origin = jsonRecord(statusRecord.origin)
+  const destination = jsonRecord(statusRecord.destination)
+  const status: SocketStatus = { status: candidate }
+  const originTxHash = origin?.txHash
+  if (Predicate.isString(originTxHash)) status.originTxHash = originTxHash
+  const destinationTxHash = destination?.txHash
+  if (Predicate.isString(destinationTxHash)) {
+    status.destinationTxHash = destinationTxHash
   }
+  return status
 }
 
 export function explorerTransactionUrl(chain: SocketChain, hash: string) {

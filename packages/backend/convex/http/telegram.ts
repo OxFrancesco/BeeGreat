@@ -1,11 +1,15 @@
+import type { FunctionArgs } from 'convex/server'
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { env, httpAction } from '../_generated/server'
-import { isClerkUserId } from '../revenueCatWebhook'
 import {
+  ClerkUserId,
+  decodeRequestBody,
   jsonResponse,
   readJsonBody,
   requireBrokerSecret,
   requireJsonContentType,
+  type JsonValue,
 } from './middleware'
 
 export const telegramOauthCallback = httpAction(async (ctx, request) => {
@@ -16,13 +20,14 @@ export const telegramOauthCallback = httpAction(async (ctx, request) => {
   let connected = false
   let client: 'mobile' | 'browser' | undefined
   if (state) {
+    const args: FunctionArgs<
+      typeof internal.telegramAuthActions.completeAuthorization
+    > = { state }
+    if (code) args.code = code
+    if (oauthError) args.errorCode = oauthError
     const result = await ctx.runAction(
       internal.telegramAuthActions.completeAuthorization,
-      {
-        state,
-        ...(code ? { code } : {}),
-        ...(oauthError ? { errorCode: oauthError } : {}),
-      },
+      args,
     )
     connected = result.ok
     client = result.client
@@ -46,21 +51,29 @@ export const telegramOauthCallback = httpAction(async (ctx, request) => {
   )
 })
 
+const TelegramRequest = Schema.Struct({
+  userId: ClerkUserId,
+  operation: Schema.Literals(['status', 'connect', 'disconnect', 'send']),
+})
+
+const TelegramMessage = Schema.Struct({ text: Schema.String })
+
+const TelegramSilentField = Schema.Struct({ silent: Schema.Boolean })
+
+type ConnectedTelegramStatus = {
+  status: 'connected'
+  displayName: string
+  username?: string
+}
+
 export const telegramInternal = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
   const contentTypeError = requireJsonContentType(request)
   if (contentTypeError) return contentTypeError
-  const body = await readJsonBody<Record<string, unknown>>(request)
-  if (
-    !body ||
-    typeof body.userId !== 'string' ||
-    !isClerkUserId(body.userId) ||
-    (body.operation !== 'status' &&
-      body.operation !== 'connect' &&
-      body.operation !== 'disconnect' &&
-      body.operation !== 'send')
-  ) {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(TelegramRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Telegram request' }, 400)
   }
   if (body.operation === 'status') {
@@ -68,16 +81,15 @@ export const telegramInternal = httpAction(async (ctx, request) => {
       internal.telegram.getConnectionForAgent,
       { userId: body.userId },
     )
-    return jsonResponse(
-      connection.status === 'connected'
-        ? {
-            status: connection.status,
-            displayName: connection.displayName,
-            ...(connection.username ? { username: connection.username } : {}),
-          }
-        : connection,
-      200,
-    )
+    if (connection.status === 'connected') {
+      const payload: ConnectedTelegramStatus = {
+        status: connection.status,
+        displayName: connection.displayName,
+      }
+      if (connection.username) payload.username = connection.username
+      return jsonResponse(payload, 200)
+    }
+    return jsonResponse(connection, 200)
   }
   if (body.operation === 'connect') {
     const result = await ctx.runAction(
@@ -92,21 +104,26 @@ export const telegramInternal = httpAction(async (ctx, request) => {
     })
     return jsonResponse({ disconnected: true }, 200)
   }
+  const message = decodeRequestBody(TelegramMessage, raw)
   if (
-    typeof body.text !== 'string' ||
-    !body.text.trim() ||
-    [...body.text.trim()].length > 4096
+    !message ||
+    !message.text.trim() ||
+    [...message.text.trim()].length > 4096
   ) {
     return jsonResponse({ error: 'Invalid Telegram message' }, 400)
   }
   try {
+    const args: FunctionArgs<
+      typeof internal.telegramAuthActions.sendForAgent
+    > = {
+      userId: body.userId,
+      text: message.text,
+    }
+    const silentField = decodeRequestBody(TelegramSilentField, raw)
+    if (silentField) args.silent = silentField.silent
     const result = await ctx.runAction(
       internal.telegramAuthActions.sendForAgent,
-      {
-        userId: body.userId,
-        text: body.text,
-        ...(typeof body.silent === 'boolean' ? { silent: body.silent } : {}),
-      },
+      args,
     )
     return jsonResponse(result, 200)
   } catch (error) {

@@ -5,7 +5,7 @@
 
 import { internal } from '../_generated/api'
 import type { MutationCtx } from '../_generated/server'
-import type { Id } from '../_generated/dataModel'
+import type { Doc, Id } from '../_generated/dataModel'
 
 /** Persist the Crossmint operation id before approving it. */
 export async function recordCrossmintPreparedStep(
@@ -91,12 +91,13 @@ export async function recordCrossmintSuccessStep(
     { hash, explorerLink: explorerLink || null },
   ]
   const finalAction = execution[index].role === 'action'
-  await ctx.db.patch(actionId, {
+  const patch: Partial<Doc<'web3Actions'>> = {
     crossmintExecution: settled,
     result,
     status: finalAction ? 'executed' : 'confirmed',
-    ...(finalAction ? { settledAt: Date.now() } : {}),
-  })
+  }
+  if (finalAction) patch.settledAt = Date.now()
+  await ctx.db.patch(actionId, patch)
   if (finalAction) {
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
       actionId,

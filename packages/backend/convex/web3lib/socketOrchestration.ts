@@ -6,6 +6,7 @@
 // helpers only — the Convex function definitions live in web3.ts.
 
 import { EVMWallet } from '@crossmint/wallets-sdk'
+import type { FunctionArgs } from 'convex/server'
 import { internal } from '../_generated/api'
 import type { ActionCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
@@ -143,37 +144,42 @@ export async function prepareSocketSwapForUser(
   // lifetime: if the quote goes stale before execution, the executor
   // re-fetches a fresh route and refreshSocketRoute enforces the
   // confirmed minimum output.
+  const payload: Extract<
+    FunctionArgs<typeof internal.web3Actions.create>['payload'],
+    { kind: 'socket_swap' }
+  > = {
+    kind: 'socket_swap',
+    quoteId: quote.quoteId,
+    originChainId: quote.originChainId,
+    destinationChainId: quote.destinationChainId,
+    originChain: quote.originChain,
+    destinationChain: quote.destinationChain,
+    inputToken: quote.inputToken,
+    outputToken: quote.outputToken,
+    inputAmount: quote.inputAmount,
+    outputAmount: quote.outputAmount,
+    minimumOutputAmount: quote.minimumOutputAmount,
+    provider: quote.provider,
+    estimatedTimeSeconds: quote.estimatedTimeSeconds,
+    quoteExpiresAt: quote.expiresAt,
+    monitoringDeadlineAt:
+      quote.expiresAt + quote.statusMaxDurationSeconds * 1_000,
+    statusIntervalSeconds: quote.statusIntervalSeconds,
+    transaction: quote.transaction,
+  }
+  if (quote.approval) payload.approval = quote.approval
+  const createArgs: FunctionArgs<typeof internal.web3Actions.create> = {
+    userId: args.userId,
+    summary,
+    payload,
+  }
+  if (args.conversationId) createArgs.conversationId = args.conversationId
+  if (args.continuation) createArgs.continuation = args.continuation
   const created: {
     id: Id<'web3Actions'>
     expiresAt: number
     autoConfirmed: boolean
-  } = await ctx.runMutation(internal.web3Actions.create, {
-    userId: args.userId,
-    ...(args.conversationId ? { conversationId: args.conversationId } : {}),
-    ...(args.continuation ? { continuation: args.continuation } : {}),
-    summary,
-    payload: {
-      kind: 'socket_swap',
-      quoteId: quote.quoteId,
-      originChainId: quote.originChainId,
-      destinationChainId: quote.destinationChainId,
-      originChain: quote.originChain,
-      destinationChain: quote.destinationChain,
-      inputToken: quote.inputToken,
-      outputToken: quote.outputToken,
-      inputAmount: quote.inputAmount,
-      outputAmount: quote.outputAmount,
-      minimumOutputAmount: quote.minimumOutputAmount,
-      provider: quote.provider,
-      estimatedTimeSeconds: quote.estimatedTimeSeconds,
-      quoteExpiresAt: quote.expiresAt,
-      monitoringDeadlineAt:
-        quote.expiresAt + quote.statusMaxDurationSeconds * 1_000,
-      statusIntervalSeconds: quote.statusIntervalSeconds,
-      ...(quote.approval ? { approval: quote.approval } : {}),
-      transaction: quote.transaction,
-    },
-  })
+  } = await ctx.runMutation(internal.web3Actions.create, createArgs)
   return {
     actionId: created.id,
     expiresAt: created.expiresAt,
@@ -297,17 +303,19 @@ export async function pollSocketSwapStatusForId(
     return null
   }
   if (Date.now() >= action.payload.monitoringDeadlineAt) {
+    const progress: FunctionArgs<
+      typeof internal.web3Actions.recordSocketProgress
+    >['progress'] = {
+      status: 'EXPIRED',
+      detail:
+        'Destination settlement could not be confirmed before the monitoring window closed.',
+      updatedAt: Date.now(),
+    }
+    const knownOriginTxHash = action.socketProgress?.originTxHash
+    if (knownOriginTxHash) progress.originTxHash = knownOriginTxHash
     await ctx.runMutation(internal.web3Actions.recordSocketProgress, {
       actionId,
-      progress: {
-        status: 'EXPIRED',
-        detail:
-          'Destination settlement could not be confirmed before the monitoring window closed.',
-        ...(action.socketProgress?.originTxHash
-          ? { originTxHash: action.socketProgress.originTxHash }
-          : {}),
-        updatedAt: Date.now(),
-      },
+      progress,
     })
     return null
   }
@@ -333,27 +341,33 @@ export async function pollSocketSwapStatusForId(
         explorerLink: destinationExplorerLink ?? null,
       })
     }
-    await ctx.runMutation(internal.web3Actions.recordSocketProgress, {
-      actionId,
-      progress: {
-        status: status.status,
-        detail: socketStatusDetail(
-          status.status,
-          action.payload.destinationChain,
-        ),
-        ...(status.originTxHash
-          ? { originTxHash: status.originTxHash }
-          : action.socketProgress?.originTxHash
-            ? { originTxHash: action.socketProgress.originTxHash }
-            : {}),
-        ...(status.destinationTxHash
-          ? { destinationTxHash: status.destinationTxHash }
-          : {}),
-        ...(destinationExplorerLink ? { destinationExplorerLink } : {}),
-        updatedAt: Date.now(),
-      },
-      ...(result.length > 0 ? { result } : {}),
-    })
+    const progress: FunctionArgs<
+      typeof internal.web3Actions.recordSocketProgress
+    >['progress'] = {
+      status: status.status,
+      detail: socketStatusDetail(
+        status.status,
+        action.payload.destinationChain,
+      ),
+      updatedAt: Date.now(),
+    }
+    const originTxHash =
+      status.originTxHash || action.socketProgress?.originTxHash
+    if (originTxHash) progress.originTxHash = originTxHash
+    if (status.destinationTxHash) {
+      progress.destinationTxHash = status.destinationTxHash
+    }
+    if (destinationExplorerLink) {
+      progress.destinationExplorerLink = destinationExplorerLink
+    }
+    const progressArgs: FunctionArgs<
+      typeof internal.web3Actions.recordSocketProgress
+    > = { actionId, progress }
+    if (result.length > 0) progressArgs.result = result
+    await ctx.runMutation(
+      internal.web3Actions.recordSocketProgress,
+      progressArgs,
+    )
   } catch (error) {
     console.warn('Socket status poll failed; retrying.', {
       actionId,

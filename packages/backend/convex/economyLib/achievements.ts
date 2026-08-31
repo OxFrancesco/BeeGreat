@@ -15,7 +15,16 @@ import {
 import { MAX_ACTIVE_GOALS } from '../focusConstants'
 import { ensureGoalStats, ensureHive, type IdentityKeys } from './core'
 
-export function achievementPresentation(unlock: Doc<'achievementUnlocks'>) {
+type AchievementPresentation = {
+  id: string
+  title: string
+  rank?: number
+  kind: 'goliebee' | 'hive'
+}
+
+export function achievementPresentation(
+  unlock: Doc<'achievementUnlocks'>,
+): AchievementPresentation {
   const match = unlock.achievementKey.match(/:(\d+)$/)
   const rank = match ? Number(match[1]) : undefined
   const title = unlock.achievementKey.includes(':tasks:')
@@ -23,12 +32,13 @@ export function achievementPresentation(unlock: Doc<'achievementUnlocks'>) {
     : unlock.achievementKey.startsWith('hive:completed-goals:')
       ? `Completed Goals ${rank}`
       : 'Genius State'
-  return {
+  const presentation: AchievementPresentation = {
     id: unlock.achievementKey,
     title,
-    ...(rank === undefined ? {} : { rank }),
-    kind: unlock.scope === 'goal' ? ('goliebee' as const) : ('hive' as const),
+    kind: unlock.scope === 'goal' ? 'goliebee' : 'hive',
   }
+  if (rank !== undefined) presentation.rank = rank
+  return presentation
 }
 
 function goalWasKnownActiveAt(goal: Doc<'goals'>, occurredAt: number) {

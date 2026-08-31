@@ -15,18 +15,18 @@ import {
 
 export const BASE_MAINNET_CHAIN_ID = 8453
 
-export const SUGAR_CHAIN_NAMES: Record<number, string> = {
-  10: 'Optimism',
-  130: 'Unichain',
-  252: 'Fraxtal',
-  1135: 'Lisk',
-  1868: 'Soneium',
-  5330: 'Superseed',
-  8453: 'Base',
-  34443: 'Mode',
-  42220: 'Celo',
-  57073: 'Ink',
-}
+export const SUGAR_CHAIN_NAMES = new Map<number, string>([
+  [10, 'Optimism'],
+  [130, 'Unichain'],
+  [252, 'Fraxtal'],
+  [1135, 'Lisk'],
+  [1868, 'Soneium'],
+  [5330, 'Superseed'],
+  [8453, 'Base'],
+  [34443, 'Mode'],
+  [42220, 'Celo'],
+  [57073, 'Ink'],
+])
 
 /** Re-quote a confirmed Socket route unless it will outlive execution. */
 export const SOCKET_QUOTE_REFRESH_BUFFER_MS = 15_000

@@ -14,6 +14,18 @@ const runSugar = makeFunctionReference<
   string
 >('web3:runSugar')
 
+// Deliberately loose reference: exercises the server-side validator with an
+// action name outside the typed contract, as a raw wire caller could send.
+const runSugarUnchecked = makeFunctionReference<
+  'action',
+  {
+    userId: string
+    sugarAction: string
+    parameters: Record<string, string | number | boolean>
+  },
+  string
+>('web3:runSugar')
+
 test('Sugar action loads in Convex and reaches the native TypeScript seam', async () => {
   const t = convexTest(schema, modules)
   await t.run(async (ctx) => {
@@ -32,9 +44,9 @@ test('Sugar action loads in Convex and reaches the native TypeScript seam', asyn
 
 test('Sugar action validators reject unknown action names', async () => {
   const t = convexTest(schema, modules)
-  await expect(t.action(runSugar, {
+  await expect(t.action(runSugarUnchecked, {
     userId: 'user_sugar_test',
-    sugarAction: 'not-an-action' as 'pools',
+    sugarAction: 'not-an-action',
     parameters: { chain: 8453 },
   })).rejects.toThrow()
 })

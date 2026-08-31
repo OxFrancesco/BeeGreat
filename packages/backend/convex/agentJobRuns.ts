@@ -126,12 +126,16 @@ async function finishRun(
   if (!job || job.activeRunId !== run._id) return;
   const failures = status === "succeeded" ? 0 : job.consecutiveFailures + 1;
   const autoPause = failures >= AUTO_PAUSE_FAILURES && job.status === "active";
-  await ctx.db.patch("agentJobs", job._id, {
+  const jobPatch: Partial<Doc<"agentJobs">> = {
     activeRunId: undefined,
     consecutiveFailures: failures,
-    ...(autoPause ? { status: "paused" as const, nextRunAt: undefined } : {}),
     updatedAt: now,
-  });
+  };
+  if (autoPause) {
+    jobPatch.status = "paused";
+    jobPatch.nextRunAt = undefined;
+  }
+  await ctx.db.patch("agentJobs", job._id, jobPatch);
 }
 
 export const finishForAgent = internalMutation({

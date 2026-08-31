@@ -27,7 +27,7 @@ type DataType = {
 // Ported from the live-verified registry in resources/google-health-cli.
 // ECG, irregular-rhythm notifications, and exercise routes are deliberately
 // excluded from the initial least-privilege OAuth grant.
-const DATA_TYPES: Record<string, DataType> = {
+const DATA_TYPES = {
   steps: {
     filterName: 'steps',
     timeField: 'interval',
@@ -215,7 +215,11 @@ const DATA_TYPES: Record<string, DataType> = {
     timeField: 'none',
     operations: ['list'],
   },
-}
+} satisfies Record<string, DataType>
+
+// The dataType argument arrives as free text, so lookups go through a map
+// that can answer "unknown data type" with undefined.
+const DATA_TYPE_LOOKUP = new Map<string, DataType>(Object.entries(DATA_TYPES))
 
 function parseDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value))
@@ -341,19 +345,28 @@ async function requireGoogleHealth(
   return await resolveGoogleHealthAccessToken(ctx, userId)
 }
 
+type GoogleRequestHeaders = {
+  authorization: string
+  accept: string
+  'content-type'?: string
+}
+
 async function googleRequest(
   accessToken: string,
   path: string,
   init?: RequestInit,
 ) {
+  const baseHeaders: GoogleRequestHeaders = {
+    authorization: `Bearer ${accessToken}`,
+    accept: 'application/json',
+  }
+  if (init?.body) baseHeaders['content-type'] = 'application/json'
   let response: Response | undefined
   for (let attempt = 0; attempt < 4; attempt++) {
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
       headers: {
-        authorization: `Bearer ${accessToken}`,
-        accept: 'application/json',
-        ...(init?.body ? { 'content-type': 'application/json' } : {}),
+        ...baseHeaders,
         ...init?.headers,
       },
     })
@@ -405,7 +418,7 @@ export const queryData = internalAction({
   },
   returns: v.string(),
   handler: async (ctx, args): Promise<string> => {
-    const type = DATA_TYPES[args.dataType]
+    const type = DATA_TYPE_LOOKUP.get(args.dataType)
     if (!type)
       throw new Error(`Unsupported Google Health data type: ${args.dataType}`)
     if (!type.operations.includes(args.operation)) {

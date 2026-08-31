@@ -9,6 +9,7 @@ import {
   WalletNotAvailableError,
   createCrossmint,
 } from '@crossmint/wallets-sdk'
+import type { FunctionArgs } from 'convex/server'
 import { internal } from '../_generated/api'
 import type { ActionCtx } from '../_generated/server'
 import {
@@ -164,19 +165,20 @@ export async function prepareSendTokensForUser(
   const cleanRecipient = recipient.trim()
   const cleanAmount = amount.trim()
   const summary = `Send ${cleanAmount} ${normalizedToken.toUpperCase()} on ${walletChain()} to ${cleanRecipient}`
+  const createArgs: FunctionArgs<typeof internal.web3Actions.create> = {
+    userId,
+    summary,
+    payload: {
+      kind: 'send_tokens',
+      recipient: cleanRecipient,
+      token: normalizedToken,
+      amount: cleanAmount,
+    },
+  }
+  if (conversationId) createArgs.conversationId = conversationId
+  if (continuation) createArgs.continuation = continuation
   const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
-    await ctx.runMutation(internal.web3Actions.create, {
-      userId,
-      ...(conversationId ? { conversationId } : {}),
-      ...(continuation ? { continuation } : {}),
-      summary,
-      payload: {
-        kind: 'send_tokens',
-        recipient: cleanRecipient,
-        token: normalizedToken,
-        amount: cleanAmount,
-      },
-    })
+    await ctx.runMutation(internal.web3Actions.create, createArgs)
   return {
     actionId: created.id,
     expiresAt: created.expiresAt,

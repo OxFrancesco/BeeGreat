@@ -15,6 +15,9 @@ import { completeTaskWithEconomy, settleFatigueForOwner } from './economy'
 // operations still use userId; any path touching the new Hive world also
 // requires a matching Clerk identity so userId never becomes authorization.
 
+type GoalUpdatePatch = { title?: string; finalGoal?: string }
+type TaskUpdatePatch = { title?: string; dueDate?: number | undefined }
+
 async function requireMatchingClerkIdentity(ctx: MutationCtx, userId: string) {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
@@ -175,7 +178,7 @@ export const updateGoal = mutation({
       throw new Error('Goal not found')
     }
     await requireFocusOwnerIfPresent(ctx, userId, goalId, 'Goal not found')
-    const patch: { title?: string; finalGoal?: string } = {}
+    const patch: GoalUpdatePatch = {}
     if (title?.trim()) patch.title = title.trim()
     if (finalGoal !== undefined) patch.finalGoal = finalGoal
     await ctx.db.patch(goalId, patch)
@@ -467,7 +470,7 @@ export const updateTask = mutation({
       throw new Error('Task not found')
     }
     await requireFocusOwnerIfPresent(ctx, userId, task.goalId, 'Task not found')
-    const patch: { title?: string; dueDate?: number | undefined } = {}
+    const patch: TaskUpdatePatch = {}
     if (title?.trim()) patch.title = title.trim()
     if (dueDate !== undefined) patch.dueDate = dueDate ?? undefined
     await ctx.db.patch(taskId, patch)

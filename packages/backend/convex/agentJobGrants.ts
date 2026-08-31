@@ -207,7 +207,7 @@ export async function authorizeAgentJobWeb3Action(
       "This Job’s scoped Aerodrome access expired; renew it in BeeGreat",
     );
   }
-  if (!grant.allowedActions.includes(args.sugarAction as never)) {
+  if (!grant.allowedActions.some((action) => action === args.sugarAction)) {
     throw new ConvexError(
       "This Aerodrome action is outside the Job’s approved scope",
     );

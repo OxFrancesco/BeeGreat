@@ -1,5 +1,8 @@
 'use node'
 
+import * as Predicate from 'effect/Predicate'
+import { jsonRecord } from './jsonValue'
+
 export class TelegramBotError extends Error {
   constructor(
     message: string,
@@ -9,6 +12,13 @@ export class TelegramBotError extends Error {
   ) {
     super(message)
   }
+}
+
+/** Body for Telegram Bot API `sendMessage`, in Telegram's snake_case wire shape. */
+type SendMessagePayload = {
+  chat_id: string
+  text: string
+  disable_notification?: boolean
 }
 
 export async function sendTelegramBotMessage(
@@ -24,6 +34,8 @@ export async function sendTelegramBotMessage(
       'configuration_error',
     )
   }
+  const payload: SendMessagePayload = { chat_id: chatId, text }
+  if (silent) payload.disable_notification = true
   let response: Response
   try {
     response = await fetchImpl(
@@ -31,11 +43,7 @@ export async function sendTelegramBotMessage(
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          ...(silent ? { disable_notification: true } : {}),
-        }),
+        body: JSON.stringify(payload),
       },
     )
   } catch {
@@ -46,18 +54,19 @@ export async function sendTelegramBotMessage(
       true,
     )
   }
-  const body = (await response.json().catch(() => ({}))) as {
-    ok?: boolean
-    description?: string
-    result?: { message_id?: number }
-  }
-  if (!response.ok || !body.ok || !body.result?.message_id) {
+  const body = jsonRecord(await response.json().catch(() => null))
+  const rawMessageId = jsonRecord(body?.result)?.message_id
+  const messageId = Predicate.isNumber(rawMessageId) ? rawMessageId : undefined
+  if (!response.ok || !body?.ok || !messageId) {
+    const description = body?.description
     throw new TelegramBotError(
-      body.description ?? 'Telegram could not send the message',
+      Predicate.isString(description)
+        ? description
+        : 'Telegram could not send the message',
       `http_${response.status}`,
       response.status === 401 || response.status === 403,
       response.status === 429 || response.status >= 500,
     )
   }
-  return { messageId: body.result.message_id }
+  return { messageId }
 }

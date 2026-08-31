@@ -1,3 +1,4 @@
+import type { WithoutSystemFields } from "convex/server";
 import { ConvexError, type Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -431,24 +432,24 @@ async function updateOwned(
     status === "active" && args.schedule !== undefined
       ? nextAgentJobRunAt(schedule, now)
       : job.nextRunAt;
-  await ctx.db.patch("agentJobs", job._id, {
-    ...(args.title !== undefined
-      ? { title: cleanText(args.title, "Title", MAX_TITLE_LENGTH) }
-      : {}),
-    ...(args.instruction !== undefined
-      ? {
-          instruction: cleanText(
-            args.instruction,
-            "Instruction",
-            MAX_INSTRUCTION_LENGTH,
-          ),
-        }
-      : {}),
-    ...(args.schedule !== undefined ? { schedule, nextRunAt } : {}),
-    ...(args.delivery !== undefined ? { delivery } : {}),
-    ...(shouldActivate ? { status } : {}),
-    updatedAt: now,
-  });
+  const patch: Partial<Doc<"agentJobs">> = { updatedAt: now };
+  if (args.title !== undefined) {
+    patch.title = cleanText(args.title, "Title", MAX_TITLE_LENGTH);
+  }
+  if (args.instruction !== undefined) {
+    patch.instruction = cleanText(
+      args.instruction,
+      "Instruction",
+      MAX_INSTRUCTION_LENGTH,
+    );
+  }
+  if (args.schedule !== undefined) {
+    patch.schedule = schedule;
+    patch.nextRunAt = nextRunAt;
+  }
+  if (args.delivery !== undefined) patch.delivery = delivery;
+  if (shouldActivate) patch.status = status;
+  await ctx.db.patch("agentJobs", job._id, patch);
   if (args.title !== undefined) {
     const thread = await ctx.db
       .query("chatThreads")
@@ -473,25 +474,7 @@ async function updateOwned(
       occurrenceAt: nextRunAt,
     });
   }
-  return jobView({
-    ...job,
-    ...(args.title !== undefined
-      ? { title: cleanText(args.title, "Title", MAX_TITLE_LENGTH) }
-      : {}),
-    ...(args.instruction !== undefined
-      ? {
-          instruction: cleanText(
-            args.instruction,
-            "Instruction",
-            MAX_INSTRUCTION_LENGTH,
-          ),
-        }
-      : {}),
-    ...(args.schedule !== undefined ? { schedule, nextRunAt } : {}),
-    ...(args.delivery !== undefined ? { delivery } : {}),
-    ...(shouldActivate ? { status } : {}),
-    updatedAt: now,
-  });
+  return jobView({ ...job, ...patch });
 }
 
 export const update = mutation({
@@ -720,7 +703,7 @@ export const materialize = internalMutation({
       !["succeeded", "failed", "skipped", "needs_attention"].includes(
         active.status,
       );
-    const runId = await ctx.db.insert("agentJobRuns", {
+    const runDocument: WithoutSystemFields<Doc<"agentJobRuns">> = {
       ownerKey: job.ownerKey,
       userId: job.userId,
       jobId: job._id,
@@ -729,19 +712,22 @@ export const materialize = internalMutation({
       status: hasActiveRun ? "skipped" : "queued",
       attempt: 0,
       dispatchId: `job:${job._id}:${args.occurrenceAt}`,
-      ...(hasActiveRun
-        ? { error: "The previous run was still in progress", completedAt: now }
-        : {}),
       createdAt: now,
       updatedAt: now,
-    });
-    await ctx.db.patch("agentJobs", job._id, {
+    };
+    if (hasActiveRun) {
+      runDocument.error = "The previous run was still in progress";
+      runDocument.completedAt = now;
+    }
+    const runId = await ctx.db.insert("agentJobRuns", runDocument);
+    const jobPatch: Partial<Doc<"agentJobs">> = {
       status: following === undefined ? "completed" : job.status,
       nextRunAt: following,
       lastRunAt: args.occurrenceAt,
-      ...(!hasActiveRun ? { activeRunId: runId } : {}),
       updatedAt: now,
-    });
+    };
+    if (!hasActiveRun) jobPatch.activeRunId = runId;
+    await ctx.db.patch("agentJobs", job._id, jobPatch);
     if (following !== undefined) {
       await ctx.scheduler.runAt(following, internal.agentJobs.materialize, {
         jobId: job._id,

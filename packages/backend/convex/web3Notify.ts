@@ -28,9 +28,9 @@ export const activeConversation = internalQuery({
       .query('chatPreferences')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .take(10)
-    const newest = rows.reduce(
+    const newest = rows.reduce<Doc<'chatPreferences'> | undefined>(
       (best, row) => (best && best.updatedAt >= row.updatedAt ? best : row),
-      undefined as Doc<'chatPreferences'> | undefined,
+      undefined,
     )
     const threadId = newest?.activeThreadId ?? 0
     return threadId > 0 ? `${userId}~${threadId}` : userId

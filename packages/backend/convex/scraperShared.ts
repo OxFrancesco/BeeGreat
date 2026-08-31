@@ -102,7 +102,8 @@ export function normalizeBookmarkUrl(value: string) {
   const url = parsedHttpUrl(value)
   url.hostname = url.hostname.toLowerCase()
   url.hash = ''
-  for (const key of [...url.searchParams.keys()]) {
+  // Snapshot the keys: deleting while iterating the live view skips entries.
+  for (const key of Array.from(url.searchParams.keys())) {
     if (key.toLowerCase().startsWith('utm_') || TRACKING_PARAMETERS.has(key.toLowerCase())) {
       url.searchParams.delete(key)
     }

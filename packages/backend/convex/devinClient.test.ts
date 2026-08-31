@@ -23,7 +23,7 @@ describe('Devin v3 client', () => {
     }
     const client = createDevinClient(
       { apiKey: 'cog_secret', orgId: 'org-test' },
-      fetchImpl as typeof fetch,
+      fetchImpl,
     )
 
     const session = await client.createSession({
@@ -67,7 +67,7 @@ describe('Devin v3 client', () => {
     }
     const client = createDevinClient(
       { apiKey: 'cog_secret', orgId: 'org-test' },
-      fetchImpl as typeof fetch,
+      fetchImpl,
     )
 
     await client.sendMessage('devin-abc123', 'Please add regression tests.')
@@ -82,11 +82,11 @@ describe('Devin v3 client', () => {
   test('returns a useful API validation error', async () => {
     const client = createDevinClient(
       { apiKey: 'cog_secret', orgId: 'org-test' },
-      (async () =>
+      async () =>
         new Response(
           JSON.stringify({ detail: [{ msg: 'Repository is not available' }] }),
           { status: 422 },
-        )) as typeof fetch,
+        ),
     )
 
     await expect(client.getSession('devin-missing')).rejects.toThrow(

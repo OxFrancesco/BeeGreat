@@ -1,34 +1,40 @@
-import {
-  isSugarAction,
-  isSugarTxAction,
-  type SugarAction,
-} from '@beegreat/sugar/contracts'
+import { isSugarAction, isSugarTxAction } from '@beegreat/sugar/contracts'
+import type { FunctionArgs } from 'convex/server'
+import * as Effect from 'effect/Effect'
+import * as Schema from 'effect/Schema'
+import * as SchemaGetter from 'effect/SchemaGetter'
 import { internal } from '../_generated/api'
-import type { Id } from '../_generated/dataModel'
 import { httpAction } from '../_generated/server'
 import { web3ActionContext } from '../web3Actions'
-import { jsonResponse, readJsonBody, requireBrokerSecret } from './middleware'
+import {
+  AgentUserId,
+  decodeRequestBody,
+  jsonObjectProperty,
+  jsonResponse,
+  readJsonBody,
+  requestDocumentId,
+  requireBrokerSecret,
+  type JsonValue,
+} from './middleware'
+
+const SugarParameters = Schema.Record(
+  Schema.String,
+  Schema.mutableKey(Schema.Union([Schema.String, Schema.Number, Schema.Boolean])),
+)
+
+const SugarRequest = Schema.Struct({
+  userId: AgentUserId,
+  sugarAction: Schema.String.pipe(Schema.refine(isSugarAction)),
+  parameters: SugarParameters,
+})
 
 export const web3Sugar = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
 
-  const body = await readJsonBody<Record<string, unknown>>(request)
-  const parameters = body?.parameters
-  if (
-    typeof body?.userId !== 'string' ||
-    !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-    !isSugarAction(body.sugarAction) ||
-    !parameters ||
-    typeof parameters !== 'object' ||
-    Array.isArray(parameters) ||
-    Object.values(parameters).some(
-      (value) =>
-        typeof value !== 'string' &&
-        typeof value !== 'number' &&
-        typeof value !== 'boolean',
-    )
-  ) {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(SugarRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Sugar request' }, 400)
   }
 
@@ -37,8 +43,8 @@ export const web3Sugar = httpAction(async (ctx, request) => {
     // HTTP route remains the authenticated boundary used by the agent.
     const result: string = await ctx.runAction(internal.web3.runSugar, {
       userId: body.userId,
-      sugarAction: body.sugarAction as SugarAction,
-      parameters: parameters as Record<string, string | number | boolean>,
+      sugarAction: body.sugarAction,
+      parameters: body.parameters,
     })
     return new Response(result, {
       status: 200,
@@ -75,6 +81,67 @@ const WEB3_PREPARE_OPS = new Set<Web3WalletOp>([
   'prepare_eoa_execution',
 ])
 
+const Web3WalletRequest = Schema.Struct({
+  userId: AgentUserId,
+  op: Schema.Literals(WEB3_WALLET_OPS),
+  params: Schema.optional(
+    Schema.NullOr(
+      Schema.Record(Schema.String, Schema.Unknown),
+    ),
+  ),
+})
+
+// Lenient reads for individual wallet params: a present value keeps its
+// string/number representation and any other JSON value degrades to the
+// same fallback the previous per-field reads produced.
+const CoercedEmptyString = Schema.Unknown.pipe(
+  Schema.decodeTo(Schema.Literal(''), {
+    decode: SchemaGetter.transform(() => '' as const),
+    encode: SchemaGetter.transform(() => '' as const),
+  }),
+)
+const LenientString = Schema.Union([Schema.String, CoercedEmptyString]).pipe(
+  Schema.withDecodingDefaultType(Effect.succeed('')),
+)
+const CoercedZero = Schema.Unknown.pipe(
+  Schema.decodeTo(Schema.Literal(0), {
+    decode: SchemaGetter.transform(() => 0 as const),
+    encode: SchemaGetter.transform(() => 0 as const),
+  }),
+)
+const LenientNumber = Schema.Union([Schema.Number, CoercedZero]).pipe(
+  Schema.withDecodingDefaultType(Effect.succeed(0)),
+)
+
+const WalletStringParams = Schema.Struct({
+  chain: LenientString,
+  recipient: LenientString,
+  token: LenientString,
+  amount: LenientString,
+  originChain: LenientString,
+  destinationChain: LenientString,
+  inputToken: LenientString,
+  outputToken: LenientString,
+  sugarAction: LenientString,
+  actionId: LenientString,
+})
+
+const WalletNumberParams = Schema.Struct({
+  amount: LenientNumber,
+  chainId: LenientNumber,
+})
+
+const Web3ActionOrigin = Schema.Struct({
+  conversationId: Schema.optional(Schema.String),
+  jobRunId: Schema.optional(Schema.String),
+})
+
+const ContinuationField = Schema.Struct({
+  continuation: Schema.optional(Schema.String),
+})
+
+const SugarExecutionParams = Schema.Struct({ parameters: SugarParameters })
+
 // Authenticated bridge for every wallet-side Web3 tool. The Convex functions
 // behind it are internal on purpose: agent identity is the broker secret, and
 // nothing here can move funds — fund movement requires either the signed-in
@@ -84,36 +151,30 @@ export const web3Wallet = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
 
-  const body = await readJsonBody<Record<string, unknown>>(request)
-  const params = (body?.params ?? {}) as Record<string, unknown>
-  if (
-    typeof body?.userId !== 'string' ||
-    !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-    typeof body.op !== 'string' ||
-    !(WEB3_WALLET_OPS as readonly string[]).includes(body.op) ||
-    typeof params !== 'object' ||
-    params === null ||
-    Array.isArray(params)
-  ) {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(Web3WalletRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Web3 request' }, 400)
   }
 
   const userId = body.userId
-  const op = body.op as Web3WalletOp
-  const str = (name: string) =>
-    typeof params[name] === 'string' ? (params[name] as string) : ''
+  const op = body.op
+  const params = jsonObjectProperty(raw, 'params') ?? {}
+  const stringParams = decodeRequestBody(WalletStringParams, params)
+  const numberParams = decodeRequestBody(WalletNumberParams, params)
+  if (!stringParams || !numberParams) {
+    return jsonResponse({ error: 'Invalid Web3 request' }, 400)
+  }
   let actionContext: ReturnType<typeof web3ActionContext> = {}
+  let jobRunId: string | undefined
   if (WEB3_PREPARE_OPS.has(op)) {
-    if (
-      (body.conversationId !== undefined &&
-        typeof body.conversationId !== 'string') ||
-      (params.continuation !== undefined &&
-        typeof params.continuation !== 'string') ||
-      (body.jobRunId !== undefined && typeof body.jobRunId !== 'string')
-    ) {
+    const origin = decodeRequestBody(Web3ActionOrigin, raw)
+    const continuationField = decodeRequestBody(ContinuationField, params)
+    if (!origin || !continuationField) {
       return jsonResponse({ error: 'Invalid Web3 action origin' }, 400)
     }
-    if (body.jobRunId !== undefined && op !== 'prepare_execution') {
+    jobRunId = origin.jobRunId
+    if (jobRunId !== undefined && op !== 'prepare_execution') {
       return jsonResponse(
         {
           error:
@@ -125,8 +186,8 @@ export const web3Wallet = httpAction(async (ctx, request) => {
     try {
       actionContext = web3ActionContext(
         userId,
-        body.conversationId as string | undefined,
-        params.continuation as string | undefined,
+        origin.conversationId,
+        continuationField.continuation,
       )
     } catch {
       return jsonResponse({ error: 'Invalid Web3 action origin' }, 400)
@@ -140,15 +201,16 @@ export const web3Wallet = httpAction(async (ctx, request) => {
           200,
         )
       case 'balances': {
-        const chain = str('chain')
+        const chain = stringParams.chain
         if (chain && chain !== 'base' && chain !== 'arbitrum') {
           return jsonResponse({ error: 'Invalid balance chain' }, 400)
         }
+        const args: FunctionArgs<typeof internal.web3.getBalances> = {
+          userId,
+        }
+        if (chain === 'base' || chain === 'arbitrum') args.chain = chain
         return jsonResponse(
-          await ctx.runAction(internal.web3.getBalances, {
-            userId,
-            ...(chain ? { chain: chain as 'base' | 'arbitrum' } : {}),
-          }),
+          await ctx.runAction(internal.web3.getBalances, args),
           200,
         )
       }
@@ -169,7 +231,7 @@ export const web3Wallet = httpAction(async (ctx, request) => {
         return jsonResponse(
           await ctx.runAction(internal.web3.fundWallet, {
             userId,
-            amount: typeof params.amount === 'number' ? params.amount : 0,
+            amount: numberParams.amount,
           }),
           200,
         )
@@ -183,18 +245,18 @@ export const web3Wallet = httpAction(async (ctx, request) => {
           await ctx.runAction(internal.web3.prepareSendTokens, {
             userId,
             ...actionContext,
-            recipient: str('recipient'),
-            token: str('token'),
-            amount: str('amount'),
+            recipient: stringParams.recipient,
+            token: stringParams.token,
+            amount: stringParams.amount,
           }),
           200,
         )
       case 'quote_socket_swap':
       case 'prepare_socket_swap': {
-        const originChain = str('originChain')
-        const destinationChain = str('destinationChain')
-        const inputToken = str('inputToken')
-        const outputToken = str('outputToken')
+        const originChain = stringParams.originChain
+        const destinationChain = stringParams.destinationChain
+        const inputToken = stringParams.inputToken
+        const outputToken = stringParams.outputToken
         if (
           (originChain !== 'base' && originChain !== 'arbitrum') ||
           (destinationChain !== 'base' && destinationChain !== 'arbitrum') ||
@@ -203,77 +265,74 @@ export const web3Wallet = httpAction(async (ctx, request) => {
         ) {
           return jsonResponse({ error: 'Invalid Socket swap request' }, 400)
         }
-        const request = {
-          userId,
-          ...(op === 'prepare_socket_swap' ? actionContext : {}),
-          originChain: originChain as 'base' | 'arbitrum',
-          destinationChain: destinationChain as 'base' | 'arbitrum',
-          inputToken: inputToken as 'eth' | 'usdc',
-          outputToken: outputToken as 'eth' | 'usdc',
-          amount: str('amount'),
+        if (op === 'quote_socket_swap') {
+          return jsonResponse(
+            await ctx.runAction(internal.web3.quoteSocketSwap, {
+              userId,
+              originChain,
+              destinationChain,
+              inputToken,
+              outputToken,
+              amount: stringParams.amount,
+            }),
+            200,
+          )
         }
         return jsonResponse(
-          op === 'quote_socket_swap'
-            ? await ctx.runAction(internal.web3.quoteSocketSwap, request)
-            : await ctx.runAction(internal.web3.prepareSocketSwap, request),
+          await ctx.runAction(internal.web3.prepareSocketSwap, {
+            userId,
+            ...actionContext,
+            originChain,
+            destinationChain,
+            inputToken,
+            outputToken,
+            amount: stringParams.amount,
+          }),
           200,
         )
       }
       case 'prepare_execution':
       case 'prepare_eoa_execution': {
-        const sugarAction = str('sugarAction')
-        const sugarParameters = params.parameters
-        if (
-          !isSugarTxAction(sugarAction) ||
-          !sugarParameters ||
-          typeof sugarParameters !== 'object' ||
-          Array.isArray(sugarParameters) ||
-          Object.values(sugarParameters).some(
-            (value) =>
-              typeof value !== 'string' &&
-              typeof value !== 'number' &&
-              typeof value !== 'boolean',
-          )
-        ) {
+        const sugarAction = stringParams.sugarAction
+        const execution = decodeRequestBody(SugarExecutionParams, params)
+        if (!isSugarTxAction(sugarAction) || !execution) {
           return jsonResponse(
             { error: 'Invalid Sugar execution request' },
             400,
           )
         }
+        if (op === 'prepare_execution') {
+          const args: FunctionArgs<
+            typeof internal.web3.prepareSugarExecution
+          > = {
+            userId,
+            ...actionContext,
+            sugarAction,
+            parameters: execution.parameters,
+          }
+          if (jobRunId !== undefined) {
+            args.jobRunId = requestDocumentId<'agentJobRuns'>(jobRunId)
+          }
+          return jsonResponse(
+            await ctx.runAction(internal.web3.prepareSugarExecution, args),
+            200,
+          )
+        }
         return jsonResponse(
-          op === 'prepare_execution'
-            ? await ctx.runAction(internal.web3.prepareSugarExecution, {
-                userId,
-                ...(typeof body.jobRunId === 'string'
-                  ? {
-                      jobRunId: body.jobRunId as Id<'agentJobRuns'>,
-                    }
-                  : {}),
-                ...actionContext,
-                sugarAction,
-                parameters: sugarParameters as Record<
-                  string,
-                  string | number | boolean
-                >,
-              })
-            : await ctx.runAction(internal.web3.prepareEoaSugarExecution, {
-                userId,
-                ...actionContext,
-                chainId:
-                  typeof params.chainId === 'number' ? params.chainId : 0,
-                sugarAction,
-                parameters: sugarParameters as Record<
-                  string,
-                  string | number | boolean
-                >,
-              }),
+          await ctx.runAction(internal.web3.prepareEoaSugarExecution, {
+            userId,
+            ...actionContext,
+            chainId: numberParams.chainId,
+            sugarAction,
+            parameters: execution.parameters,
+          }),
           200,
         )
       }
       case 'action_status': {
         const status = await ctx.runQuery(internal.web3Actions.getForUser, {
           userId,
-          actionId: str('actionId') as Id<'web3Actions'>,
+          actionId: requestDocumentId<'web3Actions'>(stringParams.actionId),
         })
         return jsonResponse(
           status ?? { error: 'Unknown action for this user' },

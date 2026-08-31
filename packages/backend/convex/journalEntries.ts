@@ -1,4 +1,5 @@
-import { ConvexError, v } from 'convex/values'
+import type { WithoutSystemFields } from 'convex/server'
+import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 
@@ -169,19 +170,22 @@ function validatePhotoMetadata(args: {
   }
 }
 
+type PhotoView = Infer<typeof photoValidator>
+
 async function attachmentView(ctx: AuthContext, attachment: Doc<'journalAttachments'>) {
   const url = await ctx.storage.getUrl(attachment.storageId)
   if (!url) return null
-  return {
+  const view: PhotoView = {
     id: attachment._id,
     kind: attachment.kind,
     url,
     mimeType: attachment.mimeType,
-    ...(attachment.fileName !== undefined ? { fileName: attachment.fileName } : {}),
-    ...(attachment.width !== undefined ? { width: attachment.width } : {}),
-    ...(attachment.height !== undefined ? { height: attachment.height } : {}),
     createdAt: attachment.createdAt,
   }
+  if (attachment.fileName !== undefined) view.fileName = attachment.fileName
+  if (attachment.width !== undefined) view.width = attachment.width
+  if (attachment.height !== undefined) view.height = attachment.height
+  return view
 }
 
 async function entryView(ctx: AuthContext, entry: Doc<'journalEntries'>) {
@@ -297,18 +301,19 @@ export const update = mutation({
     const occurredAt = args.occurredAt ?? entry.occurredAt
     validateEntryMoment(localDate, timeZone, occurredAt)
 
-    await ctx.db.patch('journalEntries', args.entryId, {
-      ...(args.title !== undefined ? { title: args.title } : {}),
-      ...(args.body !== undefined ? { body: args.body } : {}),
-      ...(args.tags !== undefined ? { tags } : {}),
-      ...(args.localDate !== undefined ? { localDate } : {}),
-      ...(args.timeZone !== undefined ? { timeZone } : {}),
-      ...(args.occurredAt !== undefined ? { occurredAt } : {}),
-      ...(args.isPinned !== undefined ? { isPinned: args.isPinned } : {}),
-      ...(args.isFavorite !== undefined ? { isFavorite: args.isFavorite } : {}),
+    const patch: Partial<WithoutSystemFields<Doc<'journalEntries'>>> = {
       searchText: `${title}\n${body}\n${tags.join(' ')}`.trim(),
       updatedAt: Date.now(),
-    })
+    }
+    if (args.title !== undefined) patch.title = args.title
+    if (args.body !== undefined) patch.body = args.body
+    if (args.tags !== undefined) patch.tags = tags
+    if (args.localDate !== undefined) patch.localDate = localDate
+    if (args.timeZone !== undefined) patch.timeZone = timeZone
+    if (args.occurredAt !== undefined) patch.occurredAt = occurredAt
+    if (args.isPinned !== undefined) patch.isPinned = args.isPinned
+    if (args.isFavorite !== undefined) patch.isFavorite = args.isFavorite
+    await ctx.db.patch('journalEntries', args.entryId, patch)
     const updated = await ctx.db.get('journalEntries', args.entryId)
     if (!updated) throw new Error('Journal entry disappeared during update')
     return entryView(ctx, updated)
@@ -465,17 +470,23 @@ export const addPhoto = mutation({
     if (existing.length >= MAX_PHOTOS) {
       invalidArgument(`An entry can have at most ${MAX_PHOTOS} photos`)
     }
-    const attachmentId = await ctx.db.insert('journalAttachments', {
+    const attachmentDocument: WithoutSystemFields<Doc<'journalAttachments'>> = {
       ...identity,
       entryId: args.entryId,
       kind: 'photo',
       storageId: args.storageId,
       mimeType: args.mimeType,
-      ...(args.fileName !== undefined ? { fileName: args.fileName.trim() } : {}),
-      ...(args.width !== undefined ? { width: args.width } : {}),
-      ...(args.height !== undefined ? { height: args.height } : {}),
       createdAt: Date.now(),
-    })
+    }
+    if (args.fileName !== undefined) {
+      attachmentDocument.fileName = args.fileName.trim()
+    }
+    if (args.width !== undefined) attachmentDocument.width = args.width
+    if (args.height !== undefined) attachmentDocument.height = args.height
+    const attachmentId = await ctx.db.insert(
+      'journalAttachments',
+      attachmentDocument,
+    )
     await ctx.db.patch('journalEntries', args.entryId, { updatedAt: Date.now() })
     const attachment = await ctx.db.get('journalAttachments', attachmentId)
     if (!attachment) throw new Error('Journal photo disappeared during creation')

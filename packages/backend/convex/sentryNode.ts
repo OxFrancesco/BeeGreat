@@ -28,12 +28,14 @@ function ensureSentry() {
   return true
 }
 
+export type SentryExtras = Parameters<typeof Sentry.setExtras>[0]
+
 export async function captureHandledConvexException(
-  error: unknown,
+  cause: unknown,
   operation: string,
   context: {
     userId?: string
-    extra?: Record<string, unknown>
+    extra?: SentryExtras
   } = {},
 ) {
   try {
@@ -45,7 +47,7 @@ export async function captureHandledConvexException(
       scope.setTag('handled', 'true')
       if (context.userId) scope.setUser({ id: context.userId })
       if (context.extra) scope.setExtras(context.extra)
-      Sentry.captureException(toError(error))
+      Sentry.captureException(toError(cause))
     })
     return await Sentry.flush(2_000)
   } catch {

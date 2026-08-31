@@ -1,3 +1,4 @@
+import type { WithoutSystemFields } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
@@ -638,7 +639,7 @@ export const beginDeployment = internalMutation({
       }
     }
 
-    const deploymentId = await ctx.db.insert('beeSiteDeployments', {
+    const deploymentDocument: WithoutSystemFields<Doc<'beeSiteDeployments'>> = {
       userId: args.userId,
       siteId: site._id,
       version: args.version,
@@ -647,11 +648,15 @@ export const beginDeployment = internalMutation({
       pageCount: args.pageCount,
       fileCount: args.fileCount,
       totalBytes: args.totalBytes,
-      ...(args.kind === 'preview'
-        ? { expiresAt: Date.now() + PREVIEW_TTL_MS }
-        : {}),
       createdAt: Date.now(),
-    })
+    }
+    if (args.kind === 'preview') {
+      deploymentDocument.expiresAt = Date.now() + PREVIEW_TTL_MS
+    }
+    const deploymentId = await ctx.db.insert(
+      'beeSiteDeployments',
+      deploymentDocument,
+    )
     return {
       deploymentId,
       version: args.version,

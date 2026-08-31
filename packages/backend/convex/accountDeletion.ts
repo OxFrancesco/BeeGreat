@@ -150,7 +150,7 @@ function removesBatch(
     )
 }
 
-const STAGE_REMOVERS: Record<DataStage, StageRemover> = {
+const STAGE_REMOVERS = {
   subscriptionEntitlements: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('subscriptionEntitlements').withIndex('by_user_and_entitlement', (q) => q.eq('userId', userId))),
   subscriptionStatusChecks: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('subscriptionStatusChecks').withIndex('by_user', (q) => q.eq('userId', userId))),
   memorySourceLinks: removesBatch((ctx, ownerKey) => ctx.db.query('memorySourceLinks').withIndex('by_owner_key_and_derived_memory_id', (q) => q.eq('ownerKey', ownerKey))),
@@ -227,7 +227,7 @@ const STAGE_REMOVERS: Record<DataStage, StageRemover> = {
   golieBees: removesBatch((ctx, ownerKey) => ctx.db.query('golieBees').withIndex('by_owner_key_and_goal_id', (q) => q.eq('ownerKey', ownerKey))),
   goals: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('goals').withIndex('by_user', (q) => q.eq('userId', userId))),
   hives: removesBatch((ctx, ownerKey) => ctx.db.query('hives').withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))),
-}
+} satisfies Record<DataStage, StageRemover>
 
 async function removeDataBatch(
   ctx: MutationCtx,
@@ -393,17 +393,16 @@ export const prepare = mutation({
       .unique()
     if (existing) {
       const status: ActiveStatus = existing.status ?? 'purging'
-      await ctx.db.patch(existing._id, {
+      const patch: Partial<Doc<'accountDeletionJobs'>> = {
         activationTokenHash,
-        ...(status === 'awaiting_identity_deletion'
-          ? {
-              appleRevocationStatus: undefined,
-              appleRevocationCompletedAt: undefined,
-              expiresAt: Date.now() + AWAITING_IDENTITY_TTL_MS,
-            }
-          : {}),
         updatedAt: Date.now(),
-      })
+      }
+      if (status === 'awaiting_identity_deletion') {
+        patch.appleRevocationStatus = undefined
+        patch.appleRevocationCompletedAt = undefined
+        patch.expiresAt = Date.now() + AWAITING_IDENTITY_TTL_MS
+      }
+      await ctx.db.patch(existing._id, patch)
       return { jobId: existing._id, status }
     }
 

@@ -1,3 +1,4 @@
+import type { WithoutSystemFields } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
 import {
@@ -176,16 +177,17 @@ async function upsertEntry(
     return updated
   }
 
-  const entryId = await ctx.db.insert('healthJournalEntries', {
+  const document: WithoutSystemFields<Doc<'healthJournalEntries'>> = {
     ...identity,
     localDate,
     hydrationMl: patch.hydrationMl ?? 0,
-    ...(patch.mood !== undefined ? { mood: patch.mood } : {}),
-    ...(patch.journal !== undefined ? { journal: patch.journal } : {}),
     timeZone,
     createdAt: now,
     updatedAt: now,
-  })
+  }
+  if (patch.mood !== undefined) document.mood = patch.mood
+  if (patch.journal !== undefined) document.journal = patch.journal
+  const entryId = await ctx.db.insert('healthJournalEntries', document)
   const inserted = await ctx.db.get('healthJournalEntries', entryId)
   if (!inserted) throw new Error('Health journal entry disappeared during creation')
   return inserted

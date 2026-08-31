@@ -1,9 +1,11 @@
-import { convexTest } from 'convex-test'
+import { convexTest, type TestConvex } from 'convex-test'
 import { expect, test, vi } from 'vitest'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
+
+type Test = TestConvex<typeof schema>
 
 const ACTIVATION_TOKEN = 'crawl-cache-deletion-capability-00000001'
 
@@ -12,7 +14,7 @@ function identity(subject: string, issuer = 'https://issuer.example.test') {
 }
 
 async function insertBookmark(
-  t: ReturnType<typeof convexTest>,
+  t: Test,
   input: {
     ownerKey: string
     userId: string
@@ -33,13 +35,10 @@ async function insertBookmark(
       createdAt: now,
       updatedAt: now,
     })
-  }) as Promise<Id<'bookmarks'>>
+  })
 }
 
-async function cacheReady(
-  t: ReturnType<typeof convexTest>,
-  bookmarkId: Id<'bookmarks'>,
-) {
+async function cacheReady(t: Test, bookmarkId: Id<'bookmarks'>) {
   const plan = await t.mutation(internal.bookmarkCrawl.prepare, { bookmarkId })
   if (plan.state !== 'acquired') throw new Error('Expected crawl lease')
   await t.mutation(internal.bookmarkCrawl.finish, {
@@ -52,13 +51,16 @@ async function cacheReady(
   })
 }
 
-async function finishDeletion(t: ReturnType<typeof convexTest>) {
-  await (
-    t.finishAllScheduledFunctions as unknown as (
-      advanceTimers: () => void,
-      maxIterations: number,
-    ) => Promise<void>
-  )(vi.runAllTimers, 1_000)
+async function finishDeletion(t: Test) {
+  // convex-test's published typings omit the `maxIterations` parameter its
+  // runtime accepts (defaulting to 100); the deletion cascade schedules more
+  // follow-up functions than that. A function that takes fewer parameters is
+  // assignable to this wider call signature, so no assertion is needed.
+  const finishAllScheduledFunctions: (
+    advanceTimers: () => void,
+    maxIterations: number,
+  ) => Promise<void> = t.finishAllScheduledFunctions
+  await finishAllScheduledFunctions(vi.runAllTimers, 1_000)
 }
 
 test('account erasure purges private crawl data and preserves public sources', async () => {

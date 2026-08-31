@@ -7,6 +7,7 @@
 
 import { EVMWallet } from '@crossmint/wallets-sdk'
 import { executeSugarAction } from '@beegreat/sugar'
+import type { FunctionArgs } from 'convex/server'
 import { encodeFunctionData } from 'viem'
 import { internal } from '../_generated/api'
 import type { ActionCtx } from '../_generated/server'
@@ -117,6 +118,9 @@ export async function executeConfirmedActionForId(
       // Compatibility for confirmations prepared before semantic intents
       // were deployed. New actions always use the durable path above.
       for (const step of action.payload.transactions) {
+        // SAFETY: stored plan transactions were produced by the Sugar SDK's
+        // transaction builder, which always emits 0x-prefixed calldata; the
+        // string is forwarded to Crossmint unchanged.
         const transaction = await evmWallet.sendTransaction({
           to: step.to,
           data: step.data as `0x${string}`,
@@ -149,7 +153,9 @@ export async function executeConfirmedActionForId(
           outputToken: payload.outputToken,
           amount: payload.inputAmount,
         })
-        const route = {
+        const route: FunctionArgs<
+          typeof internal.web3Actions.refreshSocketRoute
+        >['route'] = {
           quoteId: quote.quoteId,
           outputAmount: quote.outputAmount,
           minimumOutputAmount: quote.minimumOutputAmount,
@@ -159,9 +165,9 @@ export async function executeConfirmedActionForId(
           monitoringDeadlineAt:
             quote.expiresAt + quote.statusMaxDurationSeconds * 1_000,
           statusIntervalSeconds: quote.statusIntervalSeconds,
-          ...(quote.approval ? { approval: quote.approval } : {}),
           transaction: quote.transaction,
         }
+        if (quote.approval) route.approval = quote.approval
         await ctx.runMutation(internal.web3Actions.refreshSocketRoute, {
           actionId,
           route,
@@ -194,6 +200,9 @@ export async function executeConfirmedActionForId(
                 },
               ] as const,
               functionName: 'approve',
+              // SAFETY: the stored spender was validated against the
+              // EVM_ADDRESS 0x-hex pattern by parseRoute before the Socket
+              // payload was persisted.
               args: [
                 payload.approval.spenderAddress as `0x${string}`,
                 BigInt(payload.approval.amount),

@@ -1,3 +1,6 @@
+import * as Predicate from 'effect/Predicate'
+import type { SugarJson } from '@beegreat/sugar'
+
 export type Web3Transaction = {
   to: string
   data: string
@@ -19,31 +22,39 @@ export type SugarBounds = {
   veNftLockDurationSeconds?: number
 }
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined
+/** The string-keyed record arm of a Sugar plan's JSON payload. */
+export type SugarJsonRecord = { [key: string]: SugarJson }
+
+function isSugarJsonRecord(
+  value: SugarJson | undefined,
+): value is SugarJsonRecord {
+  return Predicate.isObject(value)
 }
 
-function integerString(value: unknown): string | undefined {
-  return typeof value === 'string' && /^\d+$/.test(value) ? value : undefined
+function record(value: SugarJson | undefined): SugarJsonRecord | undefined {
+  return isSugarJsonRecord(value) ? value : undefined
 }
 
-function transaction(value: unknown): Web3Transaction | undefined {
+function integerString(value: SugarJson | undefined): string | undefined {
+  return Predicate.isString(value) && /^\d+$/.test(value) ? value : undefined
+}
+
+function transaction(value: SugarJson | undefined): Web3Transaction | undefined {
   const item = record(value)
+  if (!item) return undefined
+  const { to, data, value: amount } = item
   if (
-    !item ||
-    typeof item.to !== 'string' ||
-    typeof item.data !== 'string' ||
-    typeof item.value !== 'string' ||
-    !/^\d+$/.test(item.value)
+    !Predicate.isString(to) ||
+    !Predicate.isString(data) ||
+    !Predicate.isString(amount) ||
+    !/^\d+$/.test(amount)
   ) {
     return undefined
   }
-  return { to: item.to, data: item.data, value: item.value }
+  return { to, data, value: amount }
 }
 
-export function sugarTransactionSteps(plan: unknown): SugarTransactionStep[] {
+export function sugarTransactionSteps(plan: SugarJson): SugarTransactionStep[] {
   const steps = record(plan)?.transaction_steps
   if (!Array.isArray(steps) || steps.length === 0) {
     throw new Error('Sugar plan is missing explicit transaction_steps metadata.')
@@ -70,39 +81,34 @@ export function sugarTransactionSteps(plan: unknown): SugarTransactionStep[] {
   return parsed
 }
 
-export function captureSugarBounds(plan: unknown): SugarBounds {
+export function captureSugarBounds(plan: SugarJson): SugarBounds {
   const item = record(plan) ?? {}
   const quote = record(item.quote)
   const deposit = record(item.deposit)
   const withdrawal = record(item.withdrawal)
   const veNft = record(item.ve_nft)
-  return {
-    ...(integerString(quote?.min_amount_out)
-      ? { minimumOutput: String(quote?.min_amount_out) }
-      : {}),
-    ...(integerString(deposit?.amount0)
-      ? { maximumDeposit0: String(deposit?.amount0) }
-      : {}),
-    ...(integerString(deposit?.amount1)
-      ? { maximumDeposit1: String(deposit?.amount1) }
-      : {}),
-    ...(integerString(withdrawal?.amount0)
-      ? { minimumWithdrawal0: String(withdrawal?.amount0) }
-      : {}),
-    ...(integerString(withdrawal?.amount1)
-      ? { minimumWithdrawal1: String(withdrawal?.amount1) }
-      : {}),
-    ...(integerString(veNft?.amount)
-      ? { veNftAmount: String(veNft?.amount) }
-      : {}),
-    ...(typeof veNft?.lock_duration_seconds === 'number'
-      ? { veNftLockDurationSeconds: veNft.lock_duration_seconds }
-      : {}),
+  const bounds: SugarBounds = {}
+  const minimumOutput = integerString(quote?.min_amount_out)
+  if (minimumOutput) bounds.minimumOutput = minimumOutput
+  const maximumDeposit0 = integerString(deposit?.amount0)
+  if (maximumDeposit0) bounds.maximumDeposit0 = maximumDeposit0
+  const maximumDeposit1 = integerString(deposit?.amount1)
+  if (maximumDeposit1) bounds.maximumDeposit1 = maximumDeposit1
+  const minimumWithdrawal0 = integerString(withdrawal?.amount0)
+  if (minimumWithdrawal0) bounds.minimumWithdrawal0 = minimumWithdrawal0
+  const minimumWithdrawal1 = integerString(withdrawal?.amount1)
+  if (minimumWithdrawal1) bounds.minimumWithdrawal1 = minimumWithdrawal1
+  const veNftAmount = integerString(veNft?.amount)
+  if (veNftAmount) bounds.veNftAmount = veNftAmount
+  const lockDurationSeconds = veNft?.lock_duration_seconds
+  if (Predicate.isNumber(lockDurationSeconds)) {
+    bounds.veNftLockDurationSeconds = lockDurationSeconds
   }
+  return bounds
 }
 
 function compareBound(
-  actual: unknown,
+  actual: SugarJson | undefined,
   expected: string | undefined,
   direction: 'maximum' | 'minimum',
   message: string,
@@ -116,7 +122,7 @@ function compareBound(
   if (violates) throw new Error(message)
 }
 
-export function assertSugarBounds(plan: unknown, bounds: SugarBounds): void {
+export function assertSugarBounds(plan: SugarJson, bounds: SugarBounds): void {
   const item = record(plan) ?? {}
   const quote = record(item.quote)
   const deposit = record(item.deposit)
@@ -166,15 +172,15 @@ export function assertSugarBounds(plan: unknown, bounds: SugarBounds): void {
   }
 }
 
-export async function executeFreshSugarPlan({
+export async function executeFreshSugarPlan<StepResult>({
   buildPlan,
   bounds = {},
   executeStep,
   maxBuilds = 8,
 }: {
-  buildPlan: () => Promise<unknown>
+  buildPlan: () => Promise<SugarJson>
   bounds?: SugarBounds
-  executeStep: (step: SugarTransactionStep) => Promise<unknown>
+  executeStep: (step: SugarTransactionStep) => Promise<StepResult>
   maxBuilds?: number
 }): Promise<void> {
   for (let build = 0; build < maxBuilds; build += 1) {
@@ -204,7 +210,7 @@ export async function executeSmartWalletIntent<T>({
   executeBatch,
   maxCalls = 8,
 }: {
-  buildPlan: () => Promise<unknown>
+  buildPlan: () => Promise<SugarJson>
   bounds?: SugarBounds
   executeBatch: (steps: SugarTransactionStep[]) => Promise<T>
   maxCalls?: number
@@ -294,6 +300,9 @@ export async function prepareAndApproveCrossmintStep({
   step: SugarTransactionStep
   onPrepared: (transactionId: string) => Promise<void>
 }): Promise<CrossmintTransactionResult> {
+  // SAFETY: steps come from sugarTransactionSteps over a live Sugar plan and
+  // the SDK's transaction builder emits 0x-prefixed calldata; the string is
+  // forwarded to Crossmint unchanged.
   const prepared = await wallet.sendTransaction({
     to: step.transaction.to,
     data: step.transaction.data as `0x${string}`,
@@ -330,6 +339,9 @@ export async function prepareAndApproveCrossmintBatch({
   if (!signer) {
     throw new Error('Crossmint wallet has no active signer.')
   }
+  // SAFETY: steps come from sugarTransactionSteps over a live Sugar plan and
+  // the SDK's transaction builder emits 0x-prefixed calldata; the string is
+  // forwarded to Crossmint unchanged.
   const prepared = await wallet.apiClient.createTransaction(wallet.address, {
     params: {
       signer: signer.locator(),

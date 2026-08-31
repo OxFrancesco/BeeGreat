@@ -1,5 +1,9 @@
 'use node'
 
+import * as Result from 'effect/Result'
+import * as Predicate from 'effect/Predicate'
+import * as Schema from 'effect/Schema'
+
 const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann'
 const AUTH_BASE_URL = 'https://auth.openai.com'
 const DEVICE_USER_CODE_URL = `${AUTH_BASE_URL}/api/accounts/deviceauth/usercode`
@@ -28,9 +32,44 @@ export type OpenAiCodexCredentials = {
   accountId: string
 }
 
-type TokenPayload = {
-  [JWT_CLAIM_PATH]?: { chatgpt_account_id?: string }
-}
+const tokenPayloadSchema = Schema.Struct({
+  [JWT_CLAIM_PATH]: Schema.optional(
+    Schema.Struct({ chatgpt_account_id: Schema.optional(Schema.String) }),
+  ),
+})
+const decodeTokenPayload = Schema.decodeUnknownResult(tokenPayloadSchema)
+
+const errorBodySchema = Schema.Struct({
+  error: Schema.optional(
+    Schema.Union([
+      Schema.String,
+      Schema.Struct({ code: Schema.optional(Schema.String) }),
+    ]),
+  ),
+})
+const decodeErrorBody = Schema.decodeUnknownResult(errorBodySchema)
+
+const tokenResponseSchema = Schema.Struct({
+  access_token: Schema.optional(Schema.String),
+  refresh_token: Schema.optional(Schema.String),
+  expires_in: Schema.optional(Schema.Number),
+})
+const decodeTokenResponse = Schema.decodeUnknownResult(tokenResponseSchema)
+
+const deviceAuthorizationSchema = Schema.Struct({
+  device_auth_id: Schema.optional(Schema.String),
+  user_code: Schema.optional(Schema.String),
+  interval: Schema.optional(Schema.Union([Schema.Number, Schema.String])),
+})
+const decodeDeviceAuthorization = Schema.decodeUnknownResult(
+  deviceAuthorizationSchema,
+)
+
+const devicePollSchema = Schema.Struct({
+  authorization_code: Schema.optional(Schema.String),
+  code_verifier: Schema.optional(Schema.String),
+})
+const decodeDevicePoll = Schema.decodeUnknownResult(devicePollSchema)
 
 function upstreamError(status: number, code?: string) {
   if (status === 429) {
@@ -44,10 +83,10 @@ function upstreamError(status: number, code?: string) {
 
 async function responseErrorCode(response: Response) {
   try {
-    const body = (await response.clone().json()) as {
-      error?: string | { code?: string }
-    }
-    return typeof body.error === 'string' ? body.error : body.error?.code
+    const body = decodeErrorBody(await response.clone().json())
+    if (Result.isFailure(body)) return undefined
+    const { error } = body.success
+    return Predicate.isString(error) ? error : error?.code
   } catch {
     return undefined
   }
@@ -57,11 +96,12 @@ export function accountIdFromAccessToken(accessToken: string) {
   try {
     const segments = accessToken.split('.')
     if (segments.length !== 3 || !segments[1]) return null
-    const payload = JSON.parse(
-      Buffer.from(segments[1], 'base64url').toString('utf8'),
-    ) as TokenPayload
-    const accountId = payload[JWT_CLAIM_PATH]?.chatgpt_account_id
-    return typeof accountId === 'string' && accountId.length > 0 ? accountId : null
+    const payload = decodeTokenPayload(
+      JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8')),
+    )
+    if (Result.isFailure(payload)) return null
+    const accountId = payload.success[JWT_CLAIM_PATH]?.chatgpt_account_id
+    return accountId !== undefined && accountId.length > 0 ? accountId : null
   } catch {
     return null
   }
@@ -71,26 +111,22 @@ async function tokenCredentials(response: Response): Promise<OpenAiCodexCredenti
   if (!response.ok) {
     throw upstreamError(response.status, await responseErrorCode(response))
   }
-  const body = (await response.json()) as {
-    access_token?: string
-    refresh_token?: string
-    expires_in?: number
-  }
-  if (
-    !body.access_token ||
-    !body.refresh_token ||
-    typeof body.expires_in !== 'number'
-  ) {
+  const body = decodeTokenResponse(await response.json())
+  if (Result.isFailure(body)) {
     throw new OpenAiCodexAuthError('invalid_token_response', false)
   }
-  const accountId = accountIdFromAccessToken(body.access_token)
+  const { access_token, refresh_token, expires_in } = body.success
+  if (!access_token || !refresh_token || expires_in === undefined) {
+    throw new OpenAiCodexAuthError('invalid_token_response', false)
+  }
+  const accountId = accountIdFromAccessToken(access_token)
   if (!accountId) {
     throw new OpenAiCodexAuthError('missing_account_id', false)
   }
   return {
-    access: body.access_token,
-    refresh: body.refresh_token,
-    expiresAt: Date.now() + body.expires_in * 1000,
+    access: access_token,
+    refresh: refresh_token,
+    expiresAt: Date.now() + expires_in * 1000,
     accountId,
   }
 }
@@ -115,17 +151,18 @@ export async function startDeviceAuthorization() {
     }
     throw upstreamError(response.status, await responseErrorCode(response))
   }
-  const body = (await response.json()) as {
-    device_auth_id?: string
-    user_code?: string
-    interval?: number | string
+  const decoded = decodeDeviceAuthorization(await response.json())
+  if (Result.isFailure(decoded)) {
+    throw new OpenAiCodexAuthError('invalid_device_response', false)
   }
-  const intervalSeconds =
-    typeof body.interval === 'string' ? Number(body.interval) : body.interval
+  const body = decoded.success
+  const intervalSeconds = Predicate.isString(body.interval)
+    ? Number(body.interval)
+    : body.interval
   if (
     !body.device_auth_id ||
     !body.user_code ||
-    typeof intervalSeconds !== 'number' ||
+    intervalSeconds === undefined ||
     !Number.isFinite(intervalSeconds) ||
     intervalSeconds < 0
   ) {
@@ -155,17 +192,18 @@ export async function pollDeviceAuthorization(
     body: JSON.stringify({ device_auth_id: deviceAuthId, user_code: userCode }),
   })
   if (response.ok) {
-    const body = (await response.json()) as {
-      authorization_code?: string
-      code_verifier?: string
+    const decoded = decodeDevicePoll(await response.json())
+    if (Result.isFailure(decoded)) {
+      throw new OpenAiCodexAuthError('invalid_poll_response', false)
     }
-    if (!body.authorization_code || !body.code_verifier) {
+    const { authorization_code, code_verifier } = decoded.success
+    if (!authorization_code || !code_verifier) {
       throw new OpenAiCodexAuthError('invalid_poll_response', false)
     }
     return {
       status: 'complete',
-      authorizationCode: body.authorization_code,
-      codeVerifier: body.code_verifier,
+      authorizationCode: authorization_code,
+      codeVerifier: code_verifier,
     }
   }
   if (response.status === 403 || response.status === 404) {

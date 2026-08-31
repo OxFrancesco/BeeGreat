@@ -74,7 +74,7 @@ test('revocation posts the token and treats an already-invalid grant as complete
 test('revocation marks only transient upstream failures retryable', async () => {
   const transientError = await revokeGoogleHealthToken('token', async () =>
     new Response(null, { status: 503 }),
-  ).catch((error: unknown) => error)
+  ).catch((cause: unknown) => cause)
   expect(transientError).toBeInstanceOf(GoogleHealthOAuthError)
   expect(transientError).toMatchObject({
     code: 'revoke_http_503',
@@ -82,7 +82,7 @@ test('revocation marks only transient upstream failures retryable', async () => 
   })
   const permanentError = await revokeGoogleHealthToken('token', async () =>
     new Response(null, { status: 403 }),
-  ).catch((error: unknown) => error)
+  ).catch((cause: unknown) => cause)
   expect(permanentError).toBeInstanceOf(GoogleHealthOAuthError)
   expect(permanentError).toMatchObject({
     code: 'revoke_http_403',

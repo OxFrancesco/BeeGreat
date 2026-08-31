@@ -218,17 +218,18 @@ export async function recordSocketSubmittedStep(
   ) {
     return null
   }
+  const progress: NonNullable<Doc<'web3Actions'>['socketProgress']> = {
+    status: 'PENDING',
+    detail: `Moving funds to ${action.payload.destinationChain === 'base' ? 'Base' : 'Arbitrum'}…`,
+    updatedAt: Date.now(),
+  }
+  if (originTxHash) progress.originTxHash = originTxHash
   await ctx.db.patch(actionId, {
     status: 'in_progress',
     executionStartedAt: action.executionStartedAt ?? Date.now(),
     submittedAt: action.submittedAt ?? Date.now(),
     result,
-    socketProgress: {
-      status: 'PENDING',
-      detail: `Moving funds to ${action.payload.destinationChain === 'base' ? 'Base' : 'Arbitrum'}…`,
-      ...(originTxHash ? { originTxHash } : {}),
-      updatedAt: Date.now(),
-    },
+    socketProgress: progress,
   })
   await ctx.scheduler.runAfter(
     action.payload.statusIntervalSeconds * 1_000,
@@ -267,18 +268,17 @@ export async function recordSocketProgressStep(
         : progress.status === 'FAILED' || progress.status === 'EXPIRED'
           ? ('failed' as const)
           : ('in_progress' as const)
-  await ctx.db.patch(actionId, {
+  const patch: Partial<Doc<'web3Actions'>> = {
     status,
     socketProgress: progress,
-    ...(result ? { result } : {}),
-    ...(status !== 'in_progress' ? { settledAt: Date.now() } : {}),
-    ...(status === 'failed'
-      ? {
-          error:
-            'The cross-chain route did not complete. No further transaction will be sent.',
-        }
-      : {}),
-  })
+  }
+  if (result) patch.result = result
+  if (status !== 'in_progress') patch.settledAt = Date.now()
+  if (status === 'failed') {
+    patch.error =
+      'The cross-chain route did not complete. No further transaction will be sent.'
+  }
+  await ctx.db.patch(actionId, patch)
   if (status === 'in_progress') {
     await ctx.scheduler.runAfter(
       action.payload.statusIntervalSeconds * 1_000,

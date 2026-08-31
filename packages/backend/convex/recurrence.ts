@@ -33,6 +33,9 @@ function zonedParts(timestamp: number, timeZone: string): ZonedParts {
       .filter((part) => part.type !== 'literal')
       .map((part) => [part.type, Number(part.value)]),
   )
+  // SAFETY: the formatter is configured with exactly the numeric
+  // year/month/day/hour/minute/second parts, so after dropping literals the
+  // entries cover every ZonedParts key with a numeric value.
   return values as ZonedParts
 }
 

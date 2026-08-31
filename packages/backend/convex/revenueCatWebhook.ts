@@ -1,3 +1,5 @@
+import * as Predicate from 'effect/Predicate'
+
 export const REVENUECAT_ENTITLEMENT_ID = 'pro'
 export const REVENUECAT_MONTHLY_PRODUCT_ID =
   'com.beegreat.app.pro.monthly'
@@ -28,41 +30,67 @@ export type RevenueCatParseResult =
   | { ok: true; event: ParsedRevenueCatEvent }
   | { ok: false; error: string }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+/** A value already produced by `JSON.parse` (webhook bodies, REST responses). */
+export type RevenueCatJson =
+  | null
+  | boolean
+  | number
+  | string
+  | RevenueCatJson[]
+  | { [key: string]: RevenueCatJson }
+
+/**
+ * Narrows a parsed-JSON payload to its record arm. The generic input lets the
+ * HTTP boundary hand over the freshly parsed body without re-annotating it.
+ */
+export function revenueCatJsonRecord<Payload>(
+  value: Payload,
+): { [key: string]: RevenueCatJson } | undefined {
+  if (value === null || !Predicate.isObject(value) || Array.isArray(value)) {
+    return undefined
+  }
+  // SAFETY: RevenueCat payloads are parsed JSON, so an object that is not an
+  // array is exactly a string-keyed record of parsed-JSON values.
+  return value as { [key: string]: RevenueCatJson }
 }
 
-function validString(value: unknown, maxLength: number): value is string {
+function validString(
+  value: RevenueCatJson | undefined,
+  maxLength: number,
+): value is string {
   return (
-    typeof value === 'string' && value.length > 0 && value.length <= maxLength
+    Predicate.isString(value) && value.length > 0 && value.length <= maxLength
   )
 }
 
-function validTimestamp(value: unknown): value is number {
+function validTimestamp(value: RevenueCatJson | undefined): value is number {
   return (
-    typeof value === 'number' &&
+    Predicate.isNumber(value) &&
     Number.isSafeInteger(value) &&
     value >= 0
   )
 }
 
 function optionalStringArray(
-  value: unknown,
+  value: RevenueCatJson | undefined,
   field: string,
 ): { ok: true; value: string[] } | { ok: false; error: string } {
   if (value === undefined || value === null) return { ok: true, value: [] }
-  if (
-    !Array.isArray(value) ||
-    value.length > 100 ||
-    !value.every((item) => validString(item, 255))
-  ) {
+  if (!Array.isArray(value) || value.length > 100) {
     return { ok: false, error: `Invalid RevenueCat ${field}` }
   }
-  return { ok: true, value: [...new Set(value as string[])] }
+  const items: string[] = []
+  for (const item of value) {
+    if (!validString(item, 255)) {
+      return { ok: false, error: `Invalid RevenueCat ${field}` }
+    }
+    items.push(item)
+  }
+  return { ok: true, value: [...new Set(items)] }
 }
 
 function optionalString(
-  value: unknown,
+  value: RevenueCatJson | undefined,
   field: string,
   maxLength = 255,
 ): { ok: true; value?: string } | { ok: false; error: string } {
@@ -70,18 +98,18 @@ function optionalString(
   if (!validString(value, maxLength)) {
     return { ok: false, error: `Invalid RevenueCat ${field}` }
   }
-  return { ok: true, value: value as string }
+  return { ok: true, value }
 }
 
 function optionalTimestamp(
-  value: unknown,
+  value: RevenueCatJson | undefined,
   field: string,
 ): { ok: true; value?: number } | { ok: false; error: string } {
   if (value === undefined || value === null) return { ok: true }
   if (!validTimestamp(value)) {
     return { ok: false, error: `Invalid RevenueCat ${field}` }
   }
-  return { ok: true, value: value as number }
+  return { ok: true, value }
 }
 
 /**
@@ -89,18 +117,19 @@ function optionalTimestamp(
  * fields are deliberately ignored so additive webhook changes stay forwards
  * compatible.
  */
-export function parseRevenueCatWebhook(
-  value: unknown,
+export function parseRevenueCatWebhook<Payload>(
+  value: Payload,
 ): RevenueCatParseResult {
-  if (!isRecord(value) || !validString(value.api_version, 20)) {
+  const envelope = revenueCatJsonRecord(value)
+  if (!envelope || !validString(envelope.api_version, 20)) {
     return { ok: false, error: 'Invalid RevenueCat webhook envelope' }
   }
-  if (!isRecord(value.event)) {
+  const event = revenueCatJsonRecord(envelope.event)
+  if (!event) {
     return { ok: false, error: 'RevenueCat webhook event is required' }
   }
 
-  const apiVersion = value.api_version
-  const event = value.event
+  const apiVersion = envelope.api_version
   const eventId = event.id
   const eventType = event.type
   const eventTimestampMs = event.event_timestamp_ms
@@ -172,46 +201,44 @@ export function parseRevenueCatWebhook(
       : []
 
   let environment: RevenueCatEnvironment | undefined
-  if (event.environment !== undefined && event.environment !== null) {
-    if (
-      event.environment !== 'SANDBOX' &&
-      event.environment !== 'PRODUCTION'
-    ) {
-      return { ok: false, error: 'Invalid RevenueCat environment' }
-    }
+  if (
+    event.environment === 'SANDBOX' ||
+    event.environment === 'PRODUCTION'
+  ) {
     environment = event.environment
+  } else if (event.environment !== undefined && event.environment !== null) {
+    return { ok: false, error: 'Invalid RevenueCat environment' }
   }
 
-  return {
-    ok: true,
-    event: {
-      apiVersion,
-      eventId,
-      type: eventType,
-      ...(appId.value ? { appId: appId.value } : {}),
-      ...(appUserId.value ? { appUserId: appUserId.value } : {}),
-      ...(originalAppUserId.value
-        ? { originalAppUserId: originalAppUserId.value }
-        : {}),
-      aliases: aliases.value,
-      ...(environment ? { environment } : {}),
-      ...(productId.value ? { productId: productId.value } : {}),
-      entitlementIds: normalizedEntitlementIds,
-      ...(purchasedAtMs.value !== undefined
-        ? { purchasedAtMs: purchasedAtMs.value }
-        : {}),
-      ...(expirationAtMs.value !== undefined
-        ? { expirationAtMs: expirationAtMs.value }
-        : {}),
-      ...(gracePeriodExpirationAtMs.value !== undefined
-        ? { gracePeriodExpirationAtMs: gracePeriodExpirationAtMs.value }
-        : {}),
-      ...(cancelReason.value ? { cancelReason: cancelReason.value } : {}),
-      eventTimestampMs,
-      transferredFrom: transferredFrom.value,
-      transferredTo: transferredTo.value,
-    },
+  const parsedEvent: ParsedRevenueCatEvent = {
+    apiVersion,
+    eventId,
+    type: eventType,
+    aliases: aliases.value,
+    entitlementIds: normalizedEntitlementIds,
+    eventTimestampMs,
+    transferredFrom: transferredFrom.value,
+    transferredTo: transferredTo.value,
   }
+  if (appId.value) parsedEvent.appId = appId.value
+  if (appUserId.value) parsedEvent.appUserId = appUserId.value
+  if (originalAppUserId.value) {
+    parsedEvent.originalAppUserId = originalAppUserId.value
+  }
+  if (environment) parsedEvent.environment = environment
+  if (productId.value) parsedEvent.productId = productId.value
+  if (purchasedAtMs.value !== undefined) {
+    parsedEvent.purchasedAtMs = purchasedAtMs.value
+  }
+  if (expirationAtMs.value !== undefined) {
+    parsedEvent.expirationAtMs = expirationAtMs.value
+  }
+  if (gracePeriodExpirationAtMs.value !== undefined) {
+    parsedEvent.gracePeriodExpirationAtMs = gracePeriodExpirationAtMs.value
+  }
+  if (cancelReason.value) parsedEvent.cancelReason = cancelReason.value
+
+  return { ok: true, event: parsedEvent }
 }
 
 export function isClerkUserId(value: string | undefined): value is string {

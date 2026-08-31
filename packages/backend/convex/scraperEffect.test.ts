@@ -1,6 +1,7 @@
 // @vitest-environment node
 
 import * as Effect from 'effect/Effect'
+import * as Result from 'effect/Result'
 import { describe, expect, test, vi } from 'vitest'
 import {
   ProviderChainFailure,
@@ -42,7 +43,7 @@ describe('Effect scraper orchestration', () => {
     )
 
     const result = await Effect.runPromise(
-      Effect.either(
+      Effect.result(
         withProviderFallback({
           code: 'scrape-failed',
           primary,
@@ -51,10 +52,10 @@ describe('Effect scraper orchestration', () => {
       ),
     )
 
-    expect(result._tag).toBe('Left')
-    if (result._tag === 'Right') throw new Error('Expected provider exhaustion')
-    expect(result.left).toBeInstanceOf(ProviderChainFailure)
-    expect(result.left).toMatchObject({
+    expect(result._tag).toBe('Failure')
+    if (Result.isSuccess(result)) throw new Error('Expected provider exhaustion')
+    expect(result.failure).toBeInstanceOf(ProviderChainFailure)
+    expect(result.failure).toMatchObject({
       primary: { provider: 'twitter', retryable: false },
       fallback: { provider: 'firecrawl', retryable: false },
     })

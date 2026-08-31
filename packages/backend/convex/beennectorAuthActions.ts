@@ -1,5 +1,6 @@
 'use node'
 
+import type { FunctionArgs } from 'convex/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { action, internalAction } from './_generated/server'
@@ -66,27 +67,26 @@ export const beginAuthorization = action({
       args.googleServices,
     )
     const stateHash = hashBeennectorValue(authorization.state)
-    await ctx.runMutation(internal.beennectors.createSession, {
+    const sessionArgs: FunctionArgs<
+      typeof internal.beennectors.createSession
+    > = {
       userId,
       provider: args.provider,
       stateHash,
-      ...(authorization.codeVerifier
-        ? {
-            encryptedCodeVerifier: encryptBeennectorSecret(
-              authorization.codeVerifier,
-              verifierAad(userId, args.provider, stateHash),
-            ),
-          }
-        : {}),
       expiresAt: Date.now() + SESSION_TTL_MS,
-      ...(args.provider === 'google'
-        ? {
-            disclosureVersion: GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
-            disclosureAcceptedAt: Date.now(),
-            requestedGoogleServices: args.googleServices,
-          }
-        : {}),
-    })
+    }
+    if (authorization.codeVerifier) {
+      sessionArgs.encryptedCodeVerifier = encryptBeennectorSecret(
+        authorization.codeVerifier,
+        verifierAad(userId, args.provider, stateHash),
+      )
+    }
+    if (args.provider === 'google') {
+      sessionArgs.disclosureVersion = GOOGLE_WORKSPACE_DISCLOSURE_VERSION
+      sessionArgs.disclosureAcceptedAt = Date.now()
+      sessionArgs.requestedGoogleServices = args.googleServices
+    }
+    await ctx.runMutation(internal.beennectors.createSession, sessionArgs)
     return { authorizationUrl: authorization.authorizationUrl }
   },
 })
@@ -173,29 +173,30 @@ export const completeAuthorization = internalAction({
           'missing_refresh_token',
         )
       }
+      const completionArgs: FunctionArgs<
+        typeof internal.beennectors.completeAuthorization
+      > = {
+        sessionId: session.sessionId,
+        encryptedAccess: encryptBeennectorSecret(
+          tokens.accessToken,
+          credentialAad(session.userId, session.provider, 'access'),
+        ),
+        scopes: tokens.scopes,
+        ...tokens.identity,
+      }
+      if (tokens.refreshToken) {
+        completionArgs.encryptedRefresh = encryptBeennectorSecret(
+          tokens.refreshToken,
+          credentialAad(session.userId, session.provider, 'refresh'),
+        )
+      }
+      if (tokens.expiresAt) completionArgs.expiresAt = tokens.expiresAt
+      if (session.provider === 'google') {
+        completionArgs.googleServices = session.requestedGoogleServices
+      }
       const stored: boolean = await ctx.runMutation(
         internal.beennectors.completeAuthorization,
-        {
-          sessionId: session.sessionId,
-          encryptedAccess: encryptBeennectorSecret(
-            tokens.accessToken,
-            credentialAad(session.userId, session.provider, 'access'),
-          ),
-          ...(tokens.refreshToken
-            ? {
-                encryptedRefresh: encryptBeennectorSecret(
-                  tokens.refreshToken,
-                  credentialAad(session.userId, session.provider, 'refresh'),
-                ),
-              }
-            : {}),
-          ...(tokens.expiresAt ? { expiresAt: tokens.expiresAt } : {}),
-          scopes: tokens.scopes,
-          ...(session.provider === 'google'
-            ? { googleServices: session.requestedGoogleServices }
-            : {}),
-          ...tokens.identity,
-        },
+        completionArgs,
       )
       return stored
         ? { ok: true, provider: session.provider }
@@ -339,7 +340,9 @@ export async function resolveBeennectorAccessToken(
       credentialAad(userId, provider, 'refresh'),
     )
     const tokens = await refreshBeennectorToken(provider, refreshToken)
-    const stored = await ctx.runMutation(internal.beennectors.finishRefresh, {
+    const refreshArgs: FunctionArgs<
+      typeof internal.beennectors.finishRefresh
+    > = {
       userId,
       provider,
       leaseId: claim.leaseId,
@@ -351,9 +354,13 @@ export async function resolveBeennectorAccessToken(
         tokens.refreshToken,
         credentialAad(userId, provider, 'refresh'),
       ),
-      ...(tokens.expiresAt ? { expiresAt: tokens.expiresAt } : {}),
       scopes: tokens.scopes,
-    })
+    }
+    if (tokens.expiresAt) refreshArgs.expiresAt = tokens.expiresAt
+    const stored = await ctx.runMutation(
+      internal.beennectors.finishRefresh,
+      refreshArgs,
+    )
     if (!stored) {
       throw new Error(`${provider} credentials changed while refreshing.`)
     }

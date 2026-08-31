@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
+import type { Doc } from './_generated/dataModel'
 import {
   internalMutation,
   internalQuery,
@@ -67,7 +68,6 @@ export const list = query({
           ...catalog,
           accountName: credential?.externalAccountName,
           workspaceName: credential?.workspaceName,
-          message: undefined as string | undefined,
         }
         if (credential?.status === 'connected') {
           return {
@@ -446,12 +446,13 @@ export const failRefresh = internalMutation({
       )
       .unique()
     if (credential?.refreshLeaseId === args.leaseId) {
-      await ctx.db.patch('beennectorCredentials', credential._id, {
-        ...(args.permanent ? { status: 'needs_reauth' as const } : {}),
+      const patch: Partial<Doc<'beennectorCredentials'>> = {
         refreshLeaseId: undefined,
         refreshLeaseExpiresAt: undefined,
         updatedAt: Date.now(),
-      })
+      }
+      if (args.permanent) patch.status = 'needs_reauth'
+      await ctx.db.patch('beennectorCredentials', credential._id, patch)
     }
     return null
   },

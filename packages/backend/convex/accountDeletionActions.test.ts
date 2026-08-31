@@ -63,6 +63,8 @@ describe('deleteFlueConversations', () => {
       'user_owner',
       conversationIds,
       async (_input, init) => {
+        // SAFETY: the client under test always posts a JSON object carrying
+        // the batched conversation ids in `conversationIds`.
         const body = JSON.parse(String(init?.body)) as {
           conversationIds: string[]
         }

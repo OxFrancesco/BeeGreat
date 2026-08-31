@@ -1,4 +1,8 @@
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
+import type { Id, TableNames } from '../_generated/dataModel'
 import { env } from '../_generated/server'
+import { isClerkUserId } from '../revenueCatWebhook'
 
 export function secretsMatch(left: string, right: string) {
   const encoder = new TextEncoder()
@@ -12,8 +16,8 @@ export function secretsMatch(left: string, right: string) {
   return difference === 0
 }
 
-export function jsonResponse(
-  body: unknown,
+export function jsonResponse<Body>(
+  body: Body,
   status: number,
   headers?: HeadersInit,
 ) {
@@ -25,6 +29,59 @@ export function jsonResponse(
       ...headers,
     },
   })
+}
+
+/** A JSON value as produced by `JSON.parse` on a request body. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+/** Clerk user id as validated by `isClerkUserId`. */
+export const ClerkUserId = Schema.String.pipe(
+  Schema.check(Schema.makeFilter((value) => isClerkUserId(value))),
+)
+
+/** Clerk user id in the form the agent credential-broker endpoints accept. */
+export const AgentUserId = Schema.String.pipe(
+  Schema.check(Schema.isPattern(/^user_[A-Za-z0-9]+$/)),
+)
+
+/**
+ * Decodes a parsed JSON request body against an endpoint's request schema.
+ * Returns the decoded domain value, or null when the body does not match.
+ */
+export function decodeRequestBody<Decoded, Encoded>(
+  schema: Schema.Codec<Decoded, Encoded>,
+  body: JsonValue,
+): Decoded | null {
+  const result = Schema.decodeUnknownResult(schema)(body)
+  return Result.isSuccess(result) ? result.success : null
+}
+
+/**
+ * Reads one property of a parsed JSON body, resolving null when the body is
+ * not a JSON object or the property is absent or null.
+ */
+export function jsonObjectProperty(body: JsonValue, key: string): JsonValue {
+  if (body instanceof Object && !Array.isArray(body)) {
+    return body[key] ?? null
+  }
+  return null
+}
+
+/** Brands a request-supplied document id string for a Convex function call. */
+export function requestDocumentId<Table extends TableNames>(
+  id: string,
+): Id<Table> {
+  // SAFETY: `Id` is a compile-time brand over the plain id string carried in
+  // the JSON body. Every internal function receiving this value re-validates
+  // it at runtime through its `v.id(table)` argument validator and rejects ids
+  // that do not reference the expected table.
+  return id as Id<Table>
 }
 
 /** Extracts the secret from an `Authorization: Bearer <secret>` header. */
@@ -66,7 +123,7 @@ export function requireJsonContentType(request: Request): Response | null {
  * malformed (mirrors `request.json().catch(() => null)`).
  */
 export async function readJsonBody<T>(request: Request): Promise<T | null> {
-  return (await request.json().catch(() => null)) as T | null
+  return request.json().catch(() => null)
 }
 
 type LimitedJsonOptions = {
@@ -90,7 +147,7 @@ type LimitedJsonOptions = {
 export async function parseLimitedJsonBody(
   request: Request,
   options: LimitedJsonOptions,
-): Promise<{ ok: true; body: unknown } | { ok: false; response: Response }> {
+): Promise<{ ok: true; body: JsonValue } | { ok: false; response: Response }> {
   if (options.checkContentLength) {
     const contentLength = Number(request.headers.get('content-length') ?? '0')
     if (Number.isFinite(contentLength) && contentLength > options.maxBytes) {
@@ -108,7 +165,7 @@ export async function parseLimitedJsonBody(
     }
   }
   try {
-    return { ok: true, body: JSON.parse(rawBody || 'null') as unknown }
+    return { ok: true, body: JSON.parse(rawBody || 'null') }
   } catch {
     if (options.invalidJsonError !== undefined) {
       return {

@@ -2,6 +2,7 @@
 // confirm, cancel, expiry, and generic executor settlement. Plain TypeScript
 // helpers only — the Convex function definitions live in web3Actions.ts.
 
+import type { WithoutSystemFields } from 'convex/server'
 import { internal } from '../_generated/api'
 import type { MutationCtx } from '../_generated/server'
 import type { Doc, Id } from '../_generated/dataModel'
@@ -65,6 +66,12 @@ function belongsToUserConversation(userId: string, conversationId: string) {
   )
 }
 
+/** Private routing context persisted on a prepared action. */
+export type Web3ActionContext = {
+  conversationId?: string
+  continuation?: string
+}
+
 /**
  * Validate and normalize the private routing context captured by every
  * prepared action. Both the broker HTTP boundary and the durable create seam
@@ -93,10 +100,10 @@ export function web3ActionContext(
   ) {
     throw new Error('The Web3 continuation is too long.')
   }
-  return {
-    ...(conversationId ? { conversationId } : {}),
-    ...(cleanContinuation ? { continuation: cleanContinuation } : {}),
-  }
+  const context: Web3ActionContext = {}
+  if (conversationId) context.conversationId = conversationId
+  if (cleanContinuation) context.continuation = cleanContinuation
+  return context
 }
 
 /**
@@ -148,23 +155,22 @@ export async function createWeb3Action(
     : payload.kind !== 'execute_eoa_plan' &&
       (await yoloEnabledForUser(ctx, userId)) &&
       (await isPowerupEnabled(ctx, userId, 'web3'))
-  const id = await ctx.db.insert('web3Actions', {
+  const actionDocument: WithoutSystemFields<Doc<'web3Actions'>> = {
     userId,
-    ...(jobRunId ? { jobRunId } : {}),
     ...actionContext,
     summary,
     payload,
     status: autoConfirm ? 'confirmed' : 'pending',
     createdAt: now,
     expiresAt: actionExpiresAt,
-    ...(autoConfirm
-      ? {
-          confirmedAt: now,
-          executionStartedAt: now,
-          autoConfirmed: true,
-        }
-      : {}),
-  })
+  }
+  if (jobRunId) actionDocument.jobRunId = jobRunId
+  if (autoConfirm) {
+    actionDocument.confirmedAt = now
+    actionDocument.executionStartedAt = now
+    actionDocument.autoConfirmed = true
+  }
+  const id = await ctx.db.insert('web3Actions', actionDocument)
   if (autoConfirm) {
     await ctx.scheduler.runAfter(0, internal.web3.executeConfirmedAction, {
       actionId: id,

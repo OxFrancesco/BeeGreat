@@ -1,7 +1,10 @@
-import { paginationOptsValidator } from 'convex/server'
-import { ConvexError, v } from 'convex/values'
+import * as Predicate from 'effect/Predicate'
+import { paginationOptsValidator, type WithoutSystemFields } from 'convex/server'
+import { ConvexError, v, type Infer } from 'convex/values'
+import type { Doc } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
 import { mutation, query } from './_generated/server'
+import { jsonRecord, type JsonRecord, type JsonValue } from './jsonValue'
 
 const MAX_MESSAGES_PER_SYNC = 200
 const MAX_MESSAGE_JSON_BYTES = 512_000
@@ -32,20 +35,20 @@ export const chatMessageSyncValidator = v.object({
   createdAt: v.number(),
 })
 
-type JsonObject = Record<string, unknown>
+type ChatThreadSummary = Infer<typeof threadValidator>
+type ChatMessageView = Infer<typeof messageValidator>
 
-function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function withoutKeys(value: JsonObject, keys: ReadonlySet<string>): JsonObject {
+function withoutKeys(value: JsonRecord, keys: ReadonlySet<string>): JsonRecord {
   return Object.fromEntries(
     Object.entries(value).filter(([key]) => !keys.has(key)),
   )
 }
 
 /** True when `next` retains every value already present in `previous`. */
-function isJsonExtension(previous: unknown, next: unknown): boolean {
+function isJsonExtension(
+  previous: JsonValue | undefined,
+  next: JsonValue | undefined,
+): boolean {
   if (Object.is(previous, next)) return true
   if (Array.isArray(previous)) {
     return (
@@ -54,47 +57,57 @@ function isJsonExtension(previous: unknown, next: unknown): boolean {
       previous.every((value, index) => isJsonExtension(value, next[index]))
     )
   }
-  if (!isJsonObject(previous) || !isJsonObject(next)) return false
-  return Object.entries(previous).every(
+  const previousRecord = jsonRecord(previous)
+  const nextRecord = jsonRecord(next)
+  if (!previousRecord || !nextRecord) return false
+  return Object.entries(previousRecord).every(
     ([key, value]) =>
-      Object.prototype.hasOwnProperty.call(next, key) &&
-      isJsonExtension(value, next[key]),
+      Object.prototype.hasOwnProperty.call(nextRecord, key) &&
+      isJsonExtension(value, nextRecord[key]),
   )
 }
 
 const TEXT_PROGRESS_KEYS = new Set(['text', 'state'])
 const TOOL_PROGRESS_KEYS = new Set(['state'])
 
-function isAssistantPartProgression(previous: unknown, next: unknown): boolean {
-  if (!isJsonObject(previous) || !isJsonObject(next)) return false
-  if (previous.type !== next.type || typeof previous.type !== 'string')
+function isAssistantPartProgression(
+  previous: JsonValue,
+  next: JsonValue | undefined,
+): boolean {
+  const previousPart = jsonRecord(previous)
+  const nextPart = jsonRecord(next)
+  if (!previousPart || !nextPart) return false
+  if (
+    previousPart.type !== nextPart.type ||
+    !Predicate.isString(previousPart.type)
+  )
     return false
 
-  if (previous.type === 'text' || previous.type === 'reasoning') {
+  if (previousPart.type === 'text' || previousPart.type === 'reasoning') {
     if (
-      typeof previous.text !== 'string' ||
-      typeof next.text !== 'string' ||
-      (previous.state !== 'streaming' && previous.state !== 'done') ||
-      (next.state !== 'streaming' && next.state !== 'done')
+      !Predicate.isString(previousPart.text) ||
+      !Predicate.isString(nextPart.text) ||
+      (previousPart.state !== 'streaming' && previousPart.state !== 'done') ||
+      (nextPart.state !== 'streaming' && nextPart.state !== 'done')
     ) {
       return false
     }
     const contentProgresses =
-      previous.state === 'done'
-        ? next.state === 'done' && next.text === previous.text
-        : next.text.startsWith(previous.text)
+      previousPart.state === 'done'
+        ? nextPart.state === 'done' && nextPart.text === previousPart.text
+        : nextPart.text.startsWith(previousPart.text)
     return (
       contentProgresses &&
       isJsonExtension(
-        withoutKeys(previous, TEXT_PROGRESS_KEYS),
-        withoutKeys(next, TEXT_PROGRESS_KEYS),
+        withoutKeys(previousPart, TEXT_PROGRESS_KEYS),
+        withoutKeys(nextPart, TEXT_PROGRESS_KEYS),
       )
     )
   }
 
-  if (previous.type === 'dynamic-tool') {
-    const previousState = previous.state
-    const nextState = next.state
+  if (previousPart.type === 'dynamic-tool') {
+    const previousState = previousPart.state
+    const nextState = nextPart.state
     const sameState = previousState === nextState
     const reachesTerminalState =
       previousState === 'input-available' &&
@@ -102,8 +115,8 @@ function isAssistantPartProgression(previous: unknown, next: unknown): boolean {
     return (
       (sameState || reachesTerminalState) &&
       isJsonExtension(
-        withoutKeys(previous, TOOL_PROGRESS_KEYS),
-        withoutKeys(next, TOOL_PROGRESS_KEYS),
+        withoutKeys(previousPart, TOOL_PROGRESS_KEYS),
+        withoutKeys(nextPart, TOOL_PROGRESS_KEYS),
       )
     )
   }
@@ -113,21 +126,23 @@ function isAssistantPartProgression(previous: unknown, next: unknown): boolean {
   return isJsonExtension(previous, next)
 }
 
+type AssistantEnvelope = {
+  envelope: JsonRecord
+  parts: JsonValue[]
+}
+
 function parseAssistantEnvelope(
   contentJson: string,
   messageId: string,
-): JsonObject | undefined {
+): AssistantEnvelope | undefined {
   try {
-    const value: unknown = JSON.parse(contentJson)
-    if (
-      !isJsonObject(value) ||
-      value.id !== messageId ||
-      value.role !== 'assistant' ||
-      !Array.isArray(value.parts)
-    ) {
+    const value = jsonRecord(JSON.parse(contentJson))
+    if (!value || value.id !== messageId || value.role !== 'assistant') {
       return undefined
     }
-    return value
+    const parts = value.parts
+    if (!Array.isArray(parts)) return undefined
+    return { envelope: value, parts }
   } catch {
     return undefined
   }
@@ -148,8 +163,8 @@ function isAssistantEnvelopeProgression(
   const next = parseAssistantEnvelope(nextJson, messageId)
   if (!previous || !next) return false
 
-  const previousParts = previous.parts as unknown[]
-  const nextParts = next.parts as unknown[]
+  const previousParts = previous.parts
+  const nextParts = next.parts
   if (
     nextParts.length < previousParts.length ||
     !previousParts.every((part, index) =>
@@ -160,8 +175,8 @@ function isAssistantEnvelopeProgression(
   }
 
   return isJsonExtension(
-    withoutKeys(previous, new Set(['parts'])),
-    withoutKeys(next, new Set(['parts'])),
+    withoutKeys(previous.envelope, new Set(['parts'])),
+    withoutKeys(next.envelope, new Set(['parts'])),
   )
 }
 
@@ -221,13 +236,16 @@ export const listThreads = query({
       .order('asc')
       .collect()
     if (rows.length === 0) return [{ id: 0, createdAt: 0 }]
-    return rows.map((row) => ({
-      id: row.threadId,
-      createdAt: row.createdAt,
-      ...(row.source ? { source: row.source } : {}),
-      ...(row.title ? { title: row.title } : {}),
-      ...(row.archivedAt ? { archivedAt: row.archivedAt } : {}),
-    }))
+    return rows.map((row) => {
+      const thread: ChatThreadSummary = {
+        id: row.threadId,
+        createdAt: row.createdAt,
+      }
+      if (row.source) thread.source = row.source
+      if (row.title) thread.title = row.title
+      if (row.archivedAt) thread.archivedAt = row.archivedAt
+      return thread
+    })
   },
 })
 
@@ -264,13 +282,14 @@ async function insertThreadForIdentity(
     .first()
   const now = Date.now()
   const threadId = Math.max(now, (newest?.threadId ?? 0) + 1)
-  await ctx.db.insert('chatThreads', {
+  const thread: WithoutSystemFields<Doc<'chatThreads'>> = {
     ...identity,
     threadId,
-    ...(source ? { source } : {}),
     createdAt: now,
     updatedAt: now,
-  })
+  }
+  if (source) thread.source = source
+  await ctx.db.insert('chatThreads', thread)
   return threadId
 }
 
@@ -427,13 +446,14 @@ export const setThreadArchived = mutation({
     } else if (args.threadId === 0) {
       // Thread 0 exists implicitly until its first write; materialize it so
       // the archive flag has a row to live on.
-      await ctx.db.insert('chatThreads', {
+      const thread: WithoutSystemFields<Doc<'chatThreads'>> = {
         ...identity,
         threadId: 0,
-        ...(args.archived ? { archivedAt: now } : {}),
         createdAt: now,
         updatedAt: now,
-      })
+      }
+      if (args.archived) thread.archivedAt = now
+      await ctx.db.insert('chatThreads', thread)
     } else {
       throw new ConvexError({
         code: 'NOT_FOUND',
@@ -498,14 +518,17 @@ export const listMessages = query({
       )
       .order('desc')
       .take(LEGACY_MESSAGE_LIMIT)
-    return rows.reverse().map((row) => ({
-      id: row.messageId,
-      role: row.role,
-      contentJson: row.contentJson,
-      ...(row.hidden ? { hidden: true } : {}),
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    }))
+    return rows.reverse().map((row) => {
+      const message: ChatMessageView = {
+        id: row.messageId,
+        role: row.role,
+        contentJson: row.contentJson,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      }
+      if (row.hidden) message.hidden = true
+      return message
+    })
   },
 })
 
@@ -533,14 +556,17 @@ export const listMessagesPage = query({
         numItems: Math.min(args.paginationOpts.numItems, MAX_MESSAGES_PER_PAGE),
       })
     return {
-      page: result.page.map((row) => ({
-        id: row.messageId,
-        role: row.role,
-        contentJson: row.contentJson,
-        ...(row.hidden ? { hidden: true } : {}),
-        createdAt: row.createdAt,
-        updatedAt: row.updatedAt,
-      })),
+      page: result.page.map((row) => {
+        const message: ChatMessageView = {
+          id: row.messageId,
+          role: row.role,
+          contentJson: row.contentJson,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        }
+        if (row.hidden) message.hidden = true
+        return message
+      }),
       isDone: result.isDone,
       continueCursor: result.continueCursor,
     }

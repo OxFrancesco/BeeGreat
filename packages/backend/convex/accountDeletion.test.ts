@@ -37,8 +37,11 @@ async function finishDeletion(t: ReturnType<typeof convexTest>) {
   // The eraser deliberately schedules one bounded mutation per table/batch.
   // A heavily populated fixture can exceed convex-test's hidden default of
   // 100 iterations without being recursive or unbounded.
+  // SAFETY: convex-test's runtime implementation accepts an optional second
+  // `maxIterations` argument (defaulting to 100) that its published type
+  // signature omits.
   await (
-    t.finishAllScheduledFunctions as unknown as (
+    t.finishAllScheduledFunctions as (
       advanceTimers: () => void,
       maxIterations: number,
     ) => Promise<void>

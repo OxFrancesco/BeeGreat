@@ -1,13 +1,12 @@
 'use node'
 
+import * as Predicate from 'effect/Predicate'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalAction } from './_generated/server'
 import { resolveBeennectorAccessToken } from './beennectorAuthActions'
-import {
-  beennectorProviderValidator,
-  type BeennectorProvider,
-} from './beennectorValidators'
+import { beennectorProviderValidator } from './beennectorValidators'
+import { jsonRecord, type JsonValue } from './jsonValue'
 
 const GITHUB_API_URL = 'https://api.github.com'
 const LINEAR_API_URL = 'https://api.linear.app/graphql'
@@ -15,6 +14,13 @@ const NOTION_API_URL = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2026-03-11'
 
 type Operation = 'list' | 'search' | 'get' | 'comment'
+
+/** Provider payloads flow through untouched; wrapped reads pair two of them. */
+type BeennectorOperationResult =
+  | JsonValue
+  | undefined
+  | { issue: JsonValue; comments: JsonValue }
+  | { page: JsonValue; blocks: JsonValue }
 
 class BeennectorApiError extends Error {
   constructor(
@@ -29,13 +35,15 @@ function boundedLimit(limit?: number) {
   return Math.max(1, Math.min(Math.floor(limit ?? 20), 50))
 }
 
-async function responseJson(response: Response, provider: string) {
-  const body = (await response.json().catch(() => null)) as unknown
+async function responseJson(
+  response: Response,
+  provider: string,
+): Promise<JsonValue> {
+  const body: JsonValue = await response.json().catch(() => null)
   if (!response.ok) {
-    const record =
-      body && typeof body === 'object' ? (body as Record<string, unknown>) : null
+    const record = jsonRecord(body)
     const message =
-      typeof record?.message === 'string'
+      record && Predicate.isString(record.message)
         ? record.message
         : `${provider} request failed (HTTP ${response.status})`
     throw new BeennectorApiError(message, response.status)
@@ -98,7 +106,7 @@ async function githubRequest(
 async function linearGraphql(
   token: string,
   query: string,
-  variables: Record<string, unknown>,
+  variables: Record<string, string | number>,
 ) {
   const response = await fetch(LINEAR_API_URL, {
     method: 'POST',
@@ -108,17 +116,18 @@ async function linearGraphql(
     },
     body: JSON.stringify({ query, variables }),
   })
-  const body = (await responseJson(response, 'Linear')) as {
-    data?: unknown
-    errors?: Array<{ message?: string }>
-  }
-  if (body.errors?.length) {
+  const body = jsonRecord(await responseJson(response, 'Linear'))
+  const errors = body?.errors
+  if (Array.isArray(errors) && errors.length) {
+    const firstMessage = jsonRecord(errors[0])?.message
     throw new BeennectorApiError(
-      body.errors[0]?.message ?? 'Linear GraphQL request failed',
+      Predicate.isString(firstMessage)
+        ? firstMessage
+        : 'Linear GraphQL request failed',
       400,
     )
   }
-  return body.data
+  return body?.data
 }
 
 async function linearRequest(
@@ -176,6 +185,13 @@ async function linearRequest(
   )
 }
 
+type NotionSearchBody = {
+  query?: string
+  filter: { property: 'object'; value: 'page' }
+  sort: { direction: 'descending'; timestamp: 'last_edited_time' }
+  page_size: number
+}
+
 function notionHeaders(token: string) {
   return {
     authorization: `Bearer ${token}`,
@@ -193,17 +209,17 @@ async function notionRequest(
     throw new Error('The Notion Beennector is read-only.')
   }
   if (operation === 'list' || operation === 'search') {
+    const searchBody: NotionSearchBody = {
+      filter: { property: 'object', value: 'page' },
+      sort: { direction: 'descending', timestamp: 'last_edited_time' },
+      page_size: boundedLimit(args.limit),
+    }
+    const query = args.query?.trim()
+    if (operation === 'search' && query) searchBody.query = query
     const response = await fetch(`${NOTION_API_URL}/search`, {
       method: 'POST',
       headers: notionHeaders(token),
-      body: JSON.stringify({
-        ...(operation === 'search' && args.query?.trim()
-          ? { query: args.query.trim() }
-          : {}),
-        filter: { property: 'object', value: 'page' },
-        sort: { direction: 'descending', timestamp: 'last_edited_time' },
-        page_size: boundedLimit(args.limit),
-      }),
+      body: JSON.stringify(searchBody),
     })
     return await responseJson(response, 'Notion')
   }
@@ -244,8 +260,8 @@ export const execute = internalAction({
     limit: v.optional(v.number()),
   },
   returns: v.any(),
-  handler: async (ctx, args): Promise<unknown> => {
-    const provider = args.provider as BeennectorProvider
+  handler: async (ctx, args): Promise<BeennectorOperationResult> => {
+    const provider = args.provider
     const token: string = await resolveBeennectorAccessToken(
       ctx,
       args.userId,

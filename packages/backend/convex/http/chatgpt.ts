@@ -1,9 +1,14 @@
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { httpAction } from '../_generated/server'
 import {
+  AgentUserId,
+  decodeRequestBody,
   jsonResponse,
+  readJsonBody,
   requireBrokerSecret,
   requireJsonContentType,
+  type JsonValue,
 } from './middleware'
 
 type BrokerResult =
@@ -11,22 +16,23 @@ type BrokerResult =
   | { status: 'missing' | 'reauth' }
   | { status: 'busy' | 'unavailable'; retryAfterMs: number }
 
+const ChatgptTokenRequest = Schema.Struct({ userId: AgentUserId })
+
 export const chatgptToken = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
   const contentTypeError = requireJsonContentType(request)
   if (contentTypeError) return contentTypeError
 
-  let userId: string | undefined
-  try {
-    const body = (await request.json()) as { userId?: unknown }
-    if (typeof body.userId === 'string') userId = body.userId
-  } catch {
+  const raw = await readJsonBody<JsonValue>(request)
+  if (raw === null) {
     return jsonResponse({ error: 'Invalid JSON body' }, 400)
   }
-  if (!userId || !/^user_[A-Za-z0-9]+$/.test(userId)) {
+  const body = decodeRequestBody(ChatgptTokenRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Clerk user id' }, 400)
   }
+  const userId = body.userId
 
   try {
     const result: BrokerResult = await ctx.runAction(

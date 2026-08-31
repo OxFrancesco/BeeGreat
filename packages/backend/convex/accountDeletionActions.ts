@@ -18,7 +18,10 @@ import {
   revokeGoogleHealthToken,
 } from './googleHealthOAuth'
 import { deleteRevenueCatCustomer } from './revenueCatRest'
-import { captureHandledConvexException } from './sentryNode'
+import {
+  captureHandledConvexException,
+  type SentryExtras,
+} from './sentryNode'
 
 type ExternalCleanupPayload = {
   userId: string
@@ -191,12 +194,12 @@ export async function deleteFlueConversations(
 }
 
 async function captureCleanupFailure(
-  error: unknown,
+  cause: unknown,
   operation: string,
   userId: string,
-  extra?: Record<string, unknown>,
+  extra?: SentryExtras,
 ) {
-  await captureHandledConvexException(error, operation, { userId, extra })
+  await captureHandledConvexException(cause, operation, { userId, extra })
 }
 
 export const cleanup = internalAction({

@@ -1,7 +1,9 @@
 'use node'
 
 import { createHash, randomBytes } from 'node:crypto'
+import * as Predicate from 'effect/Predicate'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
+import { jsonRecord } from './jsonValue'
 
 const ISSUER = 'https://oauth.telegram.org'
 const AUTH_URL = `${ISSUER}/auth`
@@ -64,13 +66,6 @@ export function createTelegramAuthorization() {
   return { authorizationUrl: url.toString(), state, codeVerifier, nonce }
 }
 
-type TelegramTokenResponse = {
-  id_token?: string
-  scope?: string
-  error?: string
-  error_description?: string
-}
-
 export type TelegramIdentity = {
   telegramUserId: string
   displayName: string
@@ -109,18 +104,23 @@ export async function exchangeTelegramCode(
       true,
     )
   }
-  const body = (await response.json().catch(() => ({}))) as TelegramTokenResponse
-  if (!response.ok || !body.id_token) {
+  const body = jsonRecord(await response.json().catch(() => null))
+  const idToken = body?.id_token
+  const errorCode = Predicate.isString(body?.error) ? body.error : undefined
+  const errorDescription = Predicate.isString(body?.error_description)
+    ? body.error_description
+    : undefined
+  if (!response.ok || !idToken || !Predicate.isString(idToken)) {
     throw new TelegramOAuthError(
-      body.error_description ?? body.error ?? 'Telegram token exchange failed',
-      body.error ?? `http_${response.status}`,
+      errorDescription ?? errorCode ?? 'Telegram token exchange failed',
+      errorCode ?? `http_${response.status}`,
       response.status === 429 || response.status >= 500,
     )
   }
 
   let payload: Awaited<ReturnType<typeof jwtVerify>>['payload']
   try {
-    ;({ payload } = await jwtVerify(body.id_token, JWKS, {
+    ;({ payload } = await jwtVerify(idToken, JWKS, {
       issuer: ISSUER,
       audience: clientId,
       algorithms: ['RS256', 'ES256'],
@@ -139,27 +139,28 @@ export async function exchangeTelegramCode(
   }
   const profileId = payload.id
   const telegramUserId =
-    typeof profileId === 'number' && Number.isSafeInteger(profileId)
+    Predicate.isNumber(profileId) && Number.isSafeInteger(profileId)
       ? String(profileId)
-      : typeof profileId === 'string' && /^\d+$/.test(profileId)
+      : Predicate.isString(profileId) && /^\d+$/.test(profileId)
         ? profileId
-        : typeof payload.sub === 'string' && /^\d+$/.test(payload.sub)
+        : Predicate.isString(payload.sub) && /^\d+$/.test(payload.sub)
           ? payload.sub
           : undefined
-  if (!telegramUserId || typeof payload.name !== 'string') {
+  const displayName = Predicate.isString(payload.name)
+    ? payload.name
+    : undefined
+  if (!telegramUserId || displayName === undefined) {
     throw new TelegramOAuthError(
       'Telegram identity is missing required profile claims',
       'invalid_profile',
     )
   }
-  return {
-    telegramUserId,
-    displayName: payload.name,
-    ...(typeof payload.preferred_username === 'string'
-      ? { username: payload.preferred_username }
-      : {}),
-    ...(typeof payload.picture === 'string'
-      ? { photoUrl: payload.picture }
-      : {}),
+  const identity: TelegramIdentity = { telegramUserId, displayName }
+  if (Predicate.isString(payload.preferred_username)) {
+    identity.username = payload.preferred_username
   }
+  if (Predicate.isString(payload.picture)) {
+    identity.photoUrl = payload.picture
+  }
+  return identity
 }

@@ -1,10 +1,26 @@
 "use node";
 
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { env, internalAction } from "./_generated/server";
 
 const MAX_DISPATCH_ATTEMPTS = 5;
+
+const dispatchResponseSchema = Schema.Struct({
+  submissionId: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.String),
+});
+const decodeDispatchResponse = Schema.decodeUnknownResult(
+  dispatchResponseSchema,
+);
+
+type DispatchedRecord = {
+  runId: Id<"agentJobRuns">;
+  submissionId?: string;
+};
 
 export const dispatch = internalAction({
   args: { runId: v.id("agentJobRuns") },
@@ -37,23 +53,19 @@ export const dispatch = internalAction({
         body: JSON.stringify(claimed),
         signal: controller.signal,
       });
-      const body = (await response.json().catch(() => null)) as {
-        submissionId?: unknown;
-        error?: unknown;
-      } | null;
+      const body = Result.getOrNull(
+        decodeDispatchResponse(await response.json().catch(() => null)),
+      );
       if (!response.ok) {
         throw new Error(
-          typeof body?.error === "string"
-            ? body.error
-            : `Agent dispatch failed (HTTP ${response.status})`,
+          body?.error ?? `Agent dispatch failed (HTTP ${response.status})`,
         );
       }
-      await ctx.runMutation(internal.agentJobRuns.recordDispatched, {
-        runId: args.runId,
-        ...(typeof body?.submissionId === "string"
-          ? { submissionId: body.submissionId }
-          : {}),
-      });
+      const dispatched: DispatchedRecord = { runId: args.runId };
+      if (body?.submissionId !== undefined) {
+        dispatched.submissionId = body.submissionId;
+      }
+      await ctx.runMutation(internal.agentJobRuns.recordDispatched, dispatched);
     } catch (error) {
       await ctx.runMutation(internal.agentJobRuns.recordDispatchFailure, {
         runId: args.runId,

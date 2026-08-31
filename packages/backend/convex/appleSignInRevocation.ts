@@ -5,6 +5,8 @@ import {
   sign as signBytes,
   type KeyObject,
 } from 'node:crypto'
+import * as Predicate from 'effect/Predicate'
+import { jsonRecord } from './jsonValue'
 
 const CLERK_API_BASE_URL = 'https://api.clerk.com/v1'
 // Keep the direct BAPI call aligned with the installed @clerk/backend SDK.
@@ -96,7 +98,16 @@ function parseAppleConfig(
   }
 }
 
-function encodeJson(value: unknown) {
+type AppleClientSecretHeader = { alg: 'ES256'; kid: string }
+type AppleClientSecretClaims = {
+  iss: string
+  iat: number
+  exp: number
+  aud: string
+  sub: string
+}
+
+function encodeJson(value: AppleClientSecretHeader | AppleClientSecretClaims) {
   return Buffer.from(JSON.stringify(value)).toString('base64url')
 }
 
@@ -134,10 +145,6 @@ export function createAppleClientSecret(
     clientId: parsed.clientId,
     clientSecret: `${signingInput}.${signature.toString('base64url')}`,
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
 async function timedFetch(
@@ -218,12 +225,13 @@ export async function fetchClerkAppleAccessTokens(
   } finally {
     clearTimeout(timeout)
   }
+  const record = jsonRecord(body)
   if (
-    !isRecord(body) ||
-    !Array.isArray(body.data) ||
-    !Number.isSafeInteger(body.total_count) ||
-    Number(body.total_count) < body.data.length ||
-    Number(body.total_count) > body.data.length
+    !record ||
+    !Array.isArray(record.data) ||
+    !Number.isSafeInteger(record.total_count) ||
+    Number(record.total_count) < record.data.length ||
+    Number(record.total_count) > record.data.length
   ) {
     throw new AppleSignInRevocationError(
       'Clerk returned an invalid or incomplete Apple token response',
@@ -231,21 +239,18 @@ export async function fetchClerkAppleAccessTokens(
       false,
     )
   }
-  if (body.data.length === 0) return []
+  if (record.data.length === 0) return []
   const tokens: string[] = []
-  for (const entry of body.data) {
-    if (
-      !isRecord(entry) ||
-      typeof entry.token !== 'string' ||
-      !entry.token.trim()
-    ) {
+  for (const entry of record.data) {
+    const token = jsonRecord(entry)?.token
+    if (!Predicate.isString(token) || !token.trim()) {
       throw new AppleSignInRevocationError(
         'Clerk returned an invalid Apple token response',
         'invalid_response',
         false,
       )
     }
-    tokens.push(entry.token.trim())
+    tokens.push(token.trim())
   }
   return [...new Set(tokens)]
 }
@@ -258,7 +263,7 @@ export async function revokeAppleAccessTokens(
 ) {
   if (tokens.length === 0) return
   const { clientId, clientSecret } = createAppleClientSecret(config, now)
-  for (const token of [...new Set(tokens)]) {
+  for (const token of new Set(tokens)) {
     let response: Response
     try {
       response = await timedFetch(

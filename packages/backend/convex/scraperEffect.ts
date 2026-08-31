@@ -1,5 +1,8 @@
 import * as Data from 'effect/Data'
+import * as Duration from 'effect/Duration'
 import * as Effect from 'effect/Effect'
+import * as Predicate from 'effect/Predicate'
+import * as Result from 'effect/Result'
 import * as Schedule from 'effect/Schedule'
 
 export type ScraperFailureCode =
@@ -74,42 +77,35 @@ function errorChain(cause: unknown) {
   while (current !== undefined && current !== null && !seen.has(current)) {
     seen.add(current)
     chain.push(current)
-    if (typeof current !== 'object' || !('cause' in current)) break
+    if (!Predicate.hasProperty(current, 'cause')) break
     current = current.cause
   }
   return chain
 }
 
-function errorName(value: unknown) {
-  return typeof value === 'object' &&
-    value !== null &&
-    'name' in value &&
-    typeof value.name === 'string'
-    ? value.name
+function errorName(cause: unknown) {
+  return Predicate.hasProperty(cause, 'name') && Predicate.isString(cause.name)
+    ? cause.name
     : undefined
 }
 
-function numericField(value: unknown, field: 'status' | 'statusCode') {
-  if (typeof value !== 'object' || value === null || !(field in value)) {
-    return undefined
-  }
-  const candidate = (value as Record<string, unknown>)[field]
-  return typeof candidate === 'number' ? candidate : undefined
+function numericField(cause: unknown, field: 'status' | 'statusCode') {
+  if (!Predicate.hasProperty(cause, field)) return undefined
+  const candidate = cause[field]
+  return Predicate.isNumber(candidate) ? candidate : undefined
 }
 
 function causeMessage(cause: unknown) {
   for (const candidate of errorChain(cause)) {
     if (
-      typeof candidate === 'object' &&
-      candidate !== null &&
-      'message' in candidate &&
-      typeof candidate.message === 'string' &&
+      Predicate.hasProperty(candidate, 'message') &&
+      Predicate.isString(candidate.message) &&
       candidate.message.trim()
     ) {
       return candidate.message.trim()
     }
   }
-  return typeof cause === 'string' && cause.trim()
+  return Predicate.isString(cause) && cause.trim()
     ? cause.trim()
     : 'Provider request failed'
 }
@@ -117,18 +113,14 @@ function causeMessage(cause: unknown) {
 function retryAfterMs(cause: unknown) {
   for (const candidate of errorChain(cause)) {
     if (
-      typeof candidate !== 'object' ||
-      candidate === null ||
-      !('headers' in candidate) ||
-      !candidate.headers ||
-      typeof candidate.headers !== 'object' ||
-      !('get' in candidate.headers) ||
-      typeof candidate.headers.get !== 'function'
+      !Predicate.hasProperty(candidate, 'headers') ||
+      !Predicate.hasProperty(candidate.headers, 'get') ||
+      !Predicate.isFunction(candidate.headers.get)
     ) {
       continue
     }
     const value = candidate.headers.get('Retry-After')
-    if (typeof value !== 'string' || !value.trim()) continue
+    if (!Predicate.isString(value) || !value.trim()) continue
     const seconds = Number(value)
     if (Number.isFinite(seconds) && seconds >= 0) {
       return Math.round(seconds * 1_000)
@@ -162,9 +154,7 @@ function isRetryable(cause: unknown) {
 
 function scraperFailureCode(cause: unknown, fallback: ScraperFailureCode) {
   for (const candidate of errorChain(cause)) {
-    if (typeof candidate !== 'object' || candidate === null || !('code' in candidate)) {
-      continue
-    }
+    if (!Predicate.hasProperty(candidate, 'code')) continue
     const code = candidate.code
     if (
       code === 'scrape-failed' ||
@@ -216,30 +206,36 @@ export function providerAttempt<A>(options: {
     try: options.task,
     catch: (cause) => failure(cause),
   }).pipe(
-    Effect.timeoutFail({
+    Effect.timeoutOrElse({
       duration: policy.attemptTimeoutMs,
-      onTimeout: () =>
-        new ProviderFailure({
-          cause: new Error(`${options.provider} request timed out`),
-          code: options.code,
-          message: `${options.provider} request timed out after ${policy.attemptTimeoutMs}ms`,
-          provider: options.provider,
-          retryAfterMs: 0,
-          retryable: true,
-          stage: options.stage,
-        }),
+      orElse: () =>
+        Effect.fail(
+          new ProviderFailure({
+            cause: new Error(`${options.provider} request timed out`),
+            code: options.code,
+            message: `${options.provider} request timed out after ${policy.attemptTimeoutMs}ms`,
+            provider: options.provider,
+            retryAfterMs: 0,
+            retryable: true,
+            stage: options.stage,
+          }),
+        ),
     }),
   )
   if (policy.maxRetries === 0) return attempt
-  return Effect.retry(
-    attempt,
-    Schedule.identity<ProviderFailure>().pipe(
-      Schedule.addDelay((providerFailure) => providerFailure.retryAfterMs),
-      Schedule.intersect(Schedule.exponential(policy.baseDelayMs)),
-      Schedule.intersect(Schedule.recurs(policy.maxRetries)),
-      Schedule.whileInput((providerFailure) => providerFailure.retryable),
+  // Exponential backoff bounded by maxRetries; a provider Retry-After hint
+  // stretches (never shortens) the computed delay, and only retryable
+  // failures recur.
+  return Effect.retry(attempt, {
+    schedule: Schedule.exponential(Duration.millis(policy.baseDelayMs)).pipe(
+      Schedule.upTo({ times: policy.maxRetries }),
+      Schedule.setInputType<ProviderFailure>(),
+      Schedule.modifyDelay(({ duration, input }) =>
+        Effect.succeed(Duration.max(duration, Duration.millis(input.retryAfterMs))),
+      ),
     ),
-  )
+    while: (providerFailure) => providerFailure.retryable,
+  })
 }
 
 export function withProviderFallback<A>(options: {
@@ -248,7 +244,7 @@ export function withProviderFallback<A>(options: {
   primary: Effect.Effect<A, ProviderFailure>
   shouldFallback?: (failure: ProviderFailure) => boolean
 }): Effect.Effect<A, ScraperEffectFailure> {
-  return Effect.catchAll(
+  return Effect.catch(
     options.primary,
     (primary): Effect.Effect<A, ScraperEffectFailure> =>
       options.shouldFallback && !options.shouldFallback(primary)
@@ -285,7 +281,7 @@ export function failureMessage(failure: ScraperEffectFailure) {
 export async function runScraperEffect<A>(
   program: Effect.Effect<A, ScraperEffectFailure>,
 ) {
-  const result = await Effect.runPromise(Effect.either(program))
-  if (result._tag === 'Right') return result.right
-  throw result.left
+  const result = await Effect.runPromise(Effect.result(program))
+  if (Result.isSuccess(result)) return result.success
+  throw result.failure
 }

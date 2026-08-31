@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import * as Schema from "effect/Schema";
 import { createClerkClient } from "@clerk/backend";
 import {
   CrossmintWallets,
@@ -38,7 +39,7 @@ const ETH_TO_AERO_USD = 2.65;
 const LIQUIDITY_AERO_USD = 1.55;
 const VENFT_USD = 1;
 const VENFT_LOCK_SECONDS = 4 * 7 * 24 * 60 * 60;
-const TARGET_POOL = "0x7f670f78B17dEC44d5Ef68a48740b6f8849cc2e6" as Address;
+const TARGET_POOL: Address = "0x7f670f78B17dEC44d5Ef68a48740b6f8849cc2e6";
 const BACKEND_ROOT = resolve(import.meta.dir, "..");
 const REPO_ROOT = resolve(BACKEND_ROOT, "../..");
 const CONVEX_CLI = resolve(BACKEND_ROOT, "node_modules/convex/bin/main.js");
@@ -55,14 +56,62 @@ type TransactionRecord = {
   valueWei: string;
 };
 
-type CachedWallet = {
-  address: Address;
-  chain: string;
-  kind: string;
-};
+const cachedWalletsSchema = Schema.Array(
+  Schema.Struct({
+    address: Schema.TemplateLiteral([Schema.Literal("0x"), Schema.String]),
+    chain: Schema.String,
+    kind: Schema.String,
+  }),
+);
+const decodeCachedWallets = Schema.decodeUnknownSync(cachedWalletsSchema);
 
-function invariant(condition: unknown, message: string): asserts condition {
+type JournalEvent =
+  | {
+      event: "started";
+      budgetUsd: number;
+      recoverOnly: boolean;
+      reusedVeNftId: string | null;
+    }
+  | {
+      event: "prepared";
+      action: string;
+      callCount: number;
+      roles: Array<"approval" | "action">;
+      transactionId: string;
+      valueWei: string;
+      estimatedGas: string;
+    }
+  | {
+      event: "confirmed";
+      action: string;
+      callCount: number;
+      transactionId: string;
+      hash: Hash;
+      gasUsed: string;
+      effectiveGasPrice: string;
+    }
+  | { event: "failed"; error: string }
+  | {
+      event: "completed";
+      netEthSpentWei: string;
+      submittedValueWei: string;
+      paidGasWei: string;
+      veNftId: string | null;
+    };
+
+function invariant<Condition>(
+  condition: Condition,
+  message: string,
+): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+function isHexAddress(value: string): value is Address {
+  return /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
+function isTransactionHash(value: string): value is Hash {
+  return /^0x[0-9a-fA-F]{64}$/.test(value);
 }
 
 function sameAddress(a: string, b: string) {
@@ -175,7 +224,7 @@ async function cachedBaseWallet(userId: string) {
     "--typecheck",
     "disable",
   ]);
-  const rows = JSON.parse(output) as CachedWallet[];
+  const rows = decodeCachedWallets(JSON.parse(output));
   const matches = rows.filter(
     (wallet) => wallet.chain === "base" && wallet.kind === "crossmint",
   );
@@ -224,8 +273,13 @@ liveTest(
     const locator = `userId:${userId}:evm:smart`;
     const wallet = await wallets.getWallet(locator, { chain: "base" });
     await wallet.useSigner({ type: "server", secret: signerSecret });
+    const walletAddress = wallet.address;
     invariant(
-      sameAddress(wallet.address, cached.address),
+      isHexAddress(walletAddress),
+      "Crossmint returned a malformed wallet address",
+    );
+    invariant(
+      sameAddress(walletAddress, cached.address),
       "The Clerk-owned Crossmint wallet does not match the Base address cached in Convex",
     );
     const expectedAddress = process.env.BEE_MAINNET_WALLET_ADDRESS?.trim();
@@ -267,7 +321,7 @@ liveTest(
       transport,
     });
     const sugar = new BaseChain({
-      account: wallet.address as Address,
+      account: walletAddress,
       transport,
       settings: {
         poolPaginationTargetCalls: 45,
@@ -296,7 +350,7 @@ liveTest(
       process.env.BEE_MAINNET_JOURNAL_PATH?.trim() ||
       resolve(BACKEND_ROOT, ".artifacts/base-mainnet", `${Date.now()}.jsonl`);
     await mkdir(dirname(journalPath), { recursive: true });
-    const journal = async (event: Record<string, unknown>) => {
+    const journal = async (event: JournalEvent) => {
       await appendFile(
         journalPath,
         `${JSON.stringify({
@@ -330,11 +384,11 @@ liveTest(
         0n,
       );
       let estimatedGas = 0n;
-      for (const [index, step] of plan.entries()) {
+      for (const step of plan) {
         const value = step.value ?? 0n;
         try {
           estimatedGas += await publicClient.estimateGas({
-            account: wallet.address as Address,
+            account: walletAddress,
             to: step.to,
             data: step.data,
             value,
@@ -380,8 +434,11 @@ liveTest(
           });
         },
       });
-      invariant(result.hash, `${action} returned no transaction hash`);
-      const hash = result.hash as Hash;
+      invariant(
+        isTransactionHash(result.hash),
+        `${action} returned no transaction hash`,
+      );
+      const hash = result.hash;
       const receipt = await publicClient.waitForTransactionReceipt({
         hash,
         confirmations: 1,
@@ -698,7 +755,7 @@ liveTest(
         );
         await executeFreshPlan("deposit WETH/AERO liquidity", async () => {
           const depositQuote = await sugar.quoteBasicDeposit(
-            pool as LiquidityPool,
+            pool,
             sameAddress(pool.token0.tokenAddress, BaseChain.aero.tokenAddress)
               ? { amountToken0: liquidityAero }
               : { amountToken1: liquidityAero },
@@ -809,7 +866,7 @@ liveTest(
     expect(
       await sugar.balanceOf(
         sugar.settings.wrappedNativeTokenAddress,
-        wallet.address as Address,
+        walletAddress,
       ),
     ).toBe(0n);
     expect(finalTargetPosition?.liquidity ?? 0n).toBe(0n);

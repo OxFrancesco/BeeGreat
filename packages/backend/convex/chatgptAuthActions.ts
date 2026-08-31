@@ -62,12 +62,12 @@ function credentialAad(userId: string, kind: 'access' | 'refresh') {
   return `chatgpt-credential:${userId}:${kind}`
 }
 
-function errorCode(error: unknown) {
-  if (error instanceof OpenAiCodexAuthError) return error.code
+function errorCode(cause: unknown) {
+  if (cause instanceof OpenAiCodexAuthError) return cause.code
   if (
-    error instanceof Error &&
-    (error.message.includes('CHATGPT_CREDENTIALS_KEY') ||
-      error.message.includes('credential encryption'))
+    cause instanceof Error &&
+    (cause.message.includes('CHATGPT_CREDENTIALS_KEY') ||
+      cause.message.includes('credential encryption'))
   ) {
     return 'configuration_error'
   }

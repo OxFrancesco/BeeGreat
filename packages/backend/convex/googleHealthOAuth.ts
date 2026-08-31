@@ -1,6 +1,8 @@
 'use node'
 
 import { createHash, randomBytes } from 'node:crypto'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
@@ -67,14 +69,16 @@ export function createGoogleHealthAuthorization() {
   return { authorizationUrl: url.toString(), state, codeVerifier }
 }
 
-type TokenResponse = {
-  access_token?: string
-  refresh_token?: string
-  expires_in?: number
-  scope?: string
-  error?: string
-  error_description?: string
-}
+const tokenResponseSchema = Schema.Struct({
+  access_token: Schema.optional(Schema.String),
+  refresh_token: Schema.optional(Schema.String),
+  expires_in: Schema.optional(Schema.Number),
+  scope: Schema.optional(Schema.String),
+  error: Schema.optional(Schema.String),
+  error_description: Schema.optional(Schema.String),
+})
+type TokenResponse = typeof tokenResponseSchema.Type
+const decodeTokenResponse = Schema.decodeUnknownResult(tokenResponseSchema)
 
 async function tokenRequest(params: URLSearchParams) {
   let response: Response
@@ -91,7 +95,10 @@ async function tokenRequest(params: URLSearchParams) {
       true,
     )
   }
-  const body = (await response.json().catch(() => ({}))) as TokenResponse
+  const body = Result.getOrElse(
+    decodeTokenResponse(await response.json().catch(() => ({}))),
+    (): TokenResponse => ({}),
+  )
   if (!response.ok || !body.access_token || !body.expires_in) {
     const permanent =
       body.error === 'invalid_grant' || body.error === 'invalid_client'

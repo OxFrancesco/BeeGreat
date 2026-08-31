@@ -23,10 +23,7 @@ const appleConfig: AppleSignInRevocationConfig = {
 }
 
 function decodePart(part: string) {
-  return JSON.parse(Buffer.from(part, 'base64url').toString('utf8')) as Record<
-    string,
-    unknown
-  >
+  return JSON.parse(Buffer.from(part, 'base64url').toString('utf8'))
 }
 
 describe('createAppleClientSecret', () => {
@@ -125,7 +122,7 @@ describe('fetchClerkAppleAccessTokens', () => {
       'user_owner',
       'wrong-secret',
       async () => new Response(null, { status: 401 }),
-    ).catch((error: unknown) => error)
+    ).catch((cause: unknown) => cause)
     expect(unauthorized).toBeInstanceOf(AppleSignInRevocationError)
     expect(unauthorized).toMatchObject({
       reason: 'configuration',
@@ -136,7 +133,7 @@ describe('fetchClerkAppleAccessTokens', () => {
       'user_owner',
       'sk_live_fixture',
       async () => Response.json({ data: [{ token: 'first' }], total_count: 2 }),
-    ).catch((error: unknown) => error)
+    ).catch((cause: unknown) => cause)
     expect(incomplete).toMatchObject({
       reason: 'invalid_response',
       retryable: false,
@@ -146,7 +143,7 @@ describe('fetchClerkAppleAccessTokens', () => {
       'user_owner',
       'sk_live_fixture',
       async () => new Response('not-json', { status: 200 }),
-    ).catch((error: unknown) => error)
+    ).catch((cause: unknown) => cause)
     expect(malformed).toMatchObject({
       reason: 'invalid_response',
       retryable: false,
@@ -217,7 +214,7 @@ describe('Apple deletion preflight', () => {
       appleConfig,
       NOW,
       async () => new Response(null, { status: 400 }),
-    ).catch((error: unknown) => error)
+    ).catch((cause: unknown) => cause)
     expect(rejected).toMatchObject({
       reason: 'configuration',
       retryable: false,
@@ -228,7 +225,7 @@ describe('Apple deletion preflight', () => {
       appleConfig,
       NOW,
       async () => new Response(null, { status: 503 }),
-    ).catch((error: unknown) => error)
+    ).catch((cause: unknown) => cause)
     expect(transient).toMatchObject({ reason: 'upstream', retryable: true })
 
     const network = await revokeAppleAccessTokens(
@@ -238,7 +235,7 @@ describe('Apple deletion preflight', () => {
       async () => {
         throw new Error('offline')
       },
-    ).catch((error: unknown) => error)
+    ).catch((cause: unknown) => cause)
     expect(network).toMatchObject({ reason: 'network', retryable: true })
   })
 })

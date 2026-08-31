@@ -1,10 +1,15 @@
+import type { FunctionArgs } from 'convex/server'
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { httpAction } from '../_generated/server'
 import {
+  AgentUserId,
+  decodeRequestBody,
   jsonResponse,
   readJsonBody,
   requireBrokerSecret,
   requireJsonContentType,
+  type JsonValue,
 } from './middleware'
 
 export const beennectorsOauthCallback = httpAction(async (ctx, request) => {
@@ -15,13 +20,14 @@ export const beennectorsOauthCallback = httpAction(async (ctx, request) => {
   let connected = false
   let provider: 'github' | 'linear' | 'notion' | 'google' | undefined
   if (state) {
+    const args: FunctionArgs<
+      typeof internal.beennectorAuthActions.completeAuthorization
+    > = { state }
+    if (code) args.code = code
+    if (oauthError) args.errorCode = oauthError
     const result = await ctx.runAction(
       internal.beennectorAuthActions.completeAuthorization,
-      {
-        state,
-        ...(code ? { code } : {}),
-        ...(oauthError ? { errorCode: oauthError } : {}),
-      },
+      args,
     )
     connected = result.ok
     provider = result.provider
@@ -34,43 +40,57 @@ export const beennectorsOauthCallback = httpAction(async (ctx, request) => {
   return Response.redirect(appUrl.toString(), 302)
 })
 
+const BeennectorRequest = Schema.Struct({ operation: Schema.String })
+
+const BeennectorProviderField = Schema.Struct({
+  provider: Schema.optional(
+    Schema.Literals(['github', 'linear', 'notion', 'google']),
+  ),
+})
+
+const BeennectorDelivery = Schema.Struct({
+  deliveryId: Schema.String,
+  actorId: Schema.optional(Schema.String),
+  workspaceId: Schema.optional(Schema.String),
+})
+
+const BeennectorUserField = Schema.Struct({ userId: AgentUserId })
+
+const BeennectorOperationFilters = Schema.Struct({
+  query: Schema.optional(Schema.String),
+  ref: Schema.optional(Schema.String),
+  body: Schema.optional(Schema.String),
+  limit: Schema.optional(Schema.Number),
+})
+
 export const beennectorsInternal = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
   const contentTypeError = requireJsonContentType(request)
   if (contentTypeError) return contentTypeError
-  const body = await readJsonBody<Record<string, unknown>>(request)
-  if (!body || typeof body.operation !== 'string') {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(BeennectorRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid Beennector request' }, 400)
   }
-  const provider = body.provider
-  if (
-    provider !== undefined &&
-    provider !== 'github' &&
-    provider !== 'linear' &&
-    provider !== 'notion' &&
-    provider !== 'google'
-  ) {
+  const providerField = decodeRequestBody(BeennectorProviderField, raw)
+  if (!providerField) {
     return jsonResponse({ error: 'Invalid Beennector provider' }, 400)
   }
+  const provider = providerField.provider
   try {
     if (body.operation === 'claim_delivery') {
-      if (
-        !provider ||
-        typeof body.deliveryId !== 'string' ||
-        (body.actorId !== undefined && typeof body.actorId !== 'string') ||
-        (body.workspaceId !== undefined &&
-          typeof body.workspaceId !== 'string')
-      ) {
+      const delivery = decodeRequestBody(BeennectorDelivery, raw)
+      if (!provider || !delivery) {
         return jsonResponse({ error: 'Invalid Beennector delivery' }, 400)
       }
       const result = await ctx.runMutation(
         internal.beennectors.claimDelivery,
         {
           provider,
-          deliveryId: body.deliveryId,
-          actorId: body.actorId as string | undefined,
-          workspaceId: body.workspaceId as string | undefined,
+          deliveryId: delivery.deliveryId,
+          actorId: delivery.actorId,
+          workspaceId: delivery.workspaceId,
         },
       )
       if (result.status === 'accepted') {
@@ -89,17 +109,15 @@ export const beennectorsInternal = httpAction(async (ctx, request) => {
       }
       return jsonResponse(result, 200)
     }
-    if (
-      typeof body.userId !== 'string' ||
-      !/^user_[A-Za-z0-9]+$/.test(body.userId)
-    ) {
+    const userField = decodeRequestBody(BeennectorUserField, raw)
+    if (!userField) {
       return jsonResponse({ error: 'Invalid Clerk user id' }, 400)
     }
     if (body.operation === 'list_connections') {
       const result = await ctx.runQuery(
         internal.beennectors.listConnectedForAgent,
         {
-          userId: body.userId,
+          userId: userField.userId,
         },
       )
       return jsonResponse(result, 200)
@@ -107,7 +125,7 @@ export const beennectorsInternal = httpAction(async (ctx, request) => {
     if (body.operation === 'google_access_token') {
       const result = await ctx.runAction(
         internal.beennectorAuthActions.googleAccessTokenForAgent,
-        { userId: body.userId },
+        { userId: userField.userId },
       )
       return jsonResponse(result, 200)
     }
@@ -119,26 +137,20 @@ export const beennectorsInternal = httpAction(async (ctx, request) => {
     ) {
       return jsonResponse({ error: 'Unknown Beennector operation' }, 400)
     }
-    if (
-      !provider ||
-      provider === 'google' ||
-      (body.query !== undefined && typeof body.query !== 'string') ||
-      (body.ref !== undefined && typeof body.ref !== 'string') ||
-      (body.body !== undefined && typeof body.body !== 'string') ||
-      (body.limit !== undefined && typeof body.limit !== 'number')
-    ) {
+    const filters = decodeRequestBody(BeennectorOperationFilters, raw)
+    if (!provider || provider === 'google' || !filters) {
       return jsonResponse({ error: 'Invalid Beennector operation' }, 400)
     }
     const result = await ctx.runAction(
       internal.beennectorOperations.execute,
       {
-        userId: body.userId,
+        userId: userField.userId,
         provider,
         operation: body.operation,
-        query: body.query as string | undefined,
-        ref: body.ref as string | undefined,
-        body: body.body as string | undefined,
-        limit: body.limit as number | undefined,
+        query: filters.query,
+        ref: filters.ref,
+        body: filters.body,
+        limit: filters.limit,
       },
     )
     return jsonResponse(result, 200)

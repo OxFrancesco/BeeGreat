@@ -1,17 +1,50 @@
+import type { FunctionArgs } from 'convex/server'
 import { ConvexError } from 'convex/values'
+import * as Result from 'effect/Result'
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
-import type { Id } from '../_generated/dataModel'
 import { env, httpAction } from '../_generated/server'
 import { LINK_SESSION_TTL_MS } from '../imessage'
 import { isValidImessageAddress } from '../imessageAddress'
 import { hashImessageToken } from '../imessageAuth'
-import { isClerkUserId } from '../revenueCatWebhook'
 import {
+  ClerkUserId,
+  decodeRequestBody,
   jsonResponse,
   readJsonBody,
+  requestDocumentId,
   requireBrokerSecret,
   requireJsonContentType,
+  type JsonValue,
 } from './middleware'
+
+const ImessageRequest = Schema.Struct({
+  operation: Schema.Literals([
+    'resolve',
+    'begin_link',
+    'unlink',
+    'status',
+    'disconnect',
+    'claim_delivery',
+    'complete_delivery',
+    'retry_delivery',
+  ]),
+})
+
+const DeliveryLease = Schema.Struct({ leaseId: Schema.String })
+
+const DeliveryAcknowledgement = Schema.Struct({
+  deliveryId: Schema.String,
+  leaseId: Schema.String,
+})
+
+const AddressField = Schema.Struct({ address: Schema.String })
+
+const UserIdField = Schema.Struct({ userId: ClerkUserId })
+
+const LinkSessionError = Schema.Struct({
+  code: Schema.optional(Schema.String),
+})
 
 // Trusted iMessage-bridge identity service (proxied by the agent worker).
 // `resolve` maps a sender to their user; `begin_link` mints a single-use
@@ -22,37 +55,27 @@ export const imessageInternal = httpAction(async (ctx, request) => {
   if (authError) return authError
   const contentTypeError = requireJsonContentType(request)
   if (contentTypeError) return contentTypeError
-  const body = await readJsonBody<Record<string, unknown>>(request)
-  const operation = body?.operation
-  if (
-    !body ||
-    (operation !== 'resolve' &&
-      operation !== 'begin_link' &&
-      operation !== 'unlink' &&
-      operation !== 'status' &&
-      operation !== 'disconnect' &&
-      operation !== 'claim_delivery' &&
-      operation !== 'complete_delivery' &&
-      operation !== 'retry_delivery')
-  ) {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(ImessageRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid iMessage request' }, 400)
   }
+  const operation = body.operation
   if (operation === 'claim_delivery') {
-    if (typeof body.leaseId !== 'string' || !body.leaseId.trim()) {
+    const lease = decodeRequestBody(DeliveryLease, raw)
+    if (!lease || !lease.leaseId.trim()) {
       return jsonResponse({ error: 'Invalid delivery lease' }, 400)
     }
     return jsonResponse(
       await ctx.runMutation(internal.imessageOutbox.claimNext, {
-        leaseId: body.leaseId,
+        leaseId: lease.leaseId,
       }),
       200,
     )
   }
   if (operation === 'complete_delivery' || operation === 'retry_delivery') {
-    if (
-      typeof body.deliveryId !== 'string' ||
-      typeof body.leaseId !== 'string'
-    ) {
+    const acknowledgement = decodeRequestBody(DeliveryAcknowledgement, raw)
+    if (!acknowledgement) {
       return jsonResponse({ error: 'Invalid delivery acknowledgement' }, 400)
     }
     await ctx.runMutation(
@@ -60,8 +83,10 @@ export const imessageInternal = httpAction(async (ctx, request) => {
         ? internal.imessageOutbox.complete
         : internal.imessageOutbox.retry,
       {
-        deliveryId: body.deliveryId as Id<'imessageDeliveries'>,
-        leaseId: body.leaseId,
+        deliveryId: requestDocumentId<'imessageDeliveries'>(
+          acknowledgement.deliveryId,
+        ),
+        leaseId: acknowledgement.leaseId,
       },
     )
     return jsonResponse({ ok: true }, 200)
@@ -71,23 +96,22 @@ export const imessageInternal = httpAction(async (ctx, request) => {
     operation === 'begin_link' ||
     operation === 'unlink'
   ) {
-    if (
-      typeof body.address !== 'string' ||
-      !isValidImessageAddress(body.address)
-    ) {
+    const addressField = decodeRequestBody(AddressField, raw)
+    if (!addressField || !isValidImessageAddress(addressField.address)) {
       return jsonResponse({ error: 'Invalid iMessage address' }, 400)
     }
+    const address = addressField.address
     if (operation === 'resolve') {
       const connection = await ctx.runQuery(
         internal.imessage.resolveAddressForBridge,
-        { address: body.address },
+        { address },
       )
       return jsonResponse({ userId: connection?.userId ?? null }, 200)
     }
     if (operation === 'unlink') {
       const result = await ctx.runMutation(
         internal.imessage.disconnectAddressForBridge,
-        { address: body.address },
+        { address },
       )
       return jsonResponse(result, 200)
     }
@@ -102,17 +126,18 @@ export const imessageInternal = httpAction(async (ctx, request) => {
     const expiresAt = Date.now() + LINK_SESSION_TTL_MS
     try {
       await ctx.runMutation(internal.imessage.createLinkSession, {
-        address: body.address,
+        address,
         tokenHash: await hashImessageToken(token),
         expiresAt,
       })
     } catch (error) {
+      const decodedError =
+        error instanceof ConvexError
+          ? Schema.decodeUnknownResult(LinkSessionError)(error.data)
+          : null
       const code =
-        error instanceof ConvexError &&
-        typeof error.data === 'object' &&
-        error.data &&
-        'code' in error.data
-          ? (error.data as { code?: string }).code
+        decodedError !== null && Result.isSuccess(decodedError)
+          ? decodedError.success.code
           : undefined
       return jsonResponse(
         {
@@ -133,19 +158,25 @@ export const imessageInternal = httpAction(async (ctx, request) => {
       200,
     )
   }
-  if (typeof body.userId !== 'string' || !isClerkUserId(body.userId)) {
+  const userIdField = decodeRequestBody(UserIdField, raw)
+  if (!userIdField) {
     return jsonResponse({ error: 'Invalid Clerk user id' }, 400)
   }
   if (operation === 'status') {
     const connections = await ctx.runQuery(
       internal.imessage.connectionsForAgent,
-      { userId: body.userId },
+      { userId: userIdField.userId },
     )
     return jsonResponse({ connections }, 200)
   }
-  const result = await ctx.runMutation(internal.imessage.disconnectForAgent, {
-    userId: body.userId,
-    ...(typeof body.address === 'string' ? { address: body.address } : {}),
-  })
+  const disconnectArgs: FunctionArgs<
+    typeof internal.imessage.disconnectForAgent
+  > = { userId: userIdField.userId }
+  const addressField = decodeRequestBody(AddressField, raw)
+  if (addressField) disconnectArgs.address = addressField.address
+  const result = await ctx.runMutation(
+    internal.imessage.disconnectForAgent,
+    disconnectArgs,
+  )
   return jsonResponse(result, 200)
 })

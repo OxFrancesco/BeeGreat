@@ -1,6 +1,5 @@
 import { ConvexError, v } from 'convex/values'
 
-import type { Id } from './_generated/dataModel'
 import {
   internalMutation,
   type MutationCtx,
@@ -348,7 +347,7 @@ export const completeHighlight = internalMutation({
     const identity = channelIdentity(args)
     return await completeHighlightedTask(ctx, identity, {
       requestId: args.requestId,
-      taskId: args.taskId as Id<'tasks'>,
+      taskId: args.taskId,
     })
   },
 })

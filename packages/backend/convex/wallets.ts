@@ -37,6 +37,11 @@ function normalizedAddress(address: string) {
   return getAddress(trimmed.toLowerCase())
 }
 
+/** Narrows a string the EVM regexes already vetted to viem's hex type. */
+function isHexString(value: string): value is `0x${string}` {
+  return value.startsWith('0x')
+}
+
 function walletLinkMessage(
   challengeId: Id<'walletLinkChallenges'>,
   address: string,
@@ -149,17 +154,19 @@ export const linkEoa = mutation({
       await ctx.db.delete(challengeId)
       throw new Error('This wallet-link request expired. Try again.')
     }
-    if (!EVM_SIGNATURE.test(signature)) {
+    if (!EVM_SIGNATURE.test(signature) || !isHexString(signature)) {
       throw new Error('The wallet returned an invalid signature.')
     }
     const verified = await verifyMessage({
-      address: challenge.address as `0x${string}`,
+      // The challenge row was written by beginEoaLink, so re-normalizing the
+      // stored address returns the identical checksummed value.
+      address: normalizedAddress(challenge.address),
       message: walletLinkMessage(
         challenge._id,
         challenge.address,
         challenge.expiresAt,
       ),
-      signature: signature as `0x${string}`,
+      signature,
     })
     if (!verified) {
       throw new Error('That signature does not match the connected wallet.')

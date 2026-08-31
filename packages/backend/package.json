@@ -26,7 +26,7 @@
     "@crossmint/wallets-sdk": "1.7.0",
     "@sentry/node": "^10.65.0",
     "convex": "^1.36.1",
-    "effect": "3.21.4",
+    "effect": "4.0.0-beta.107",
     "jose": "^6.2.8",
     "viem": "2.33.1",
     "youtubei.js": "^17.2.0"

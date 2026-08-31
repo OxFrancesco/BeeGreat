@@ -217,14 +217,11 @@ export const update = mutation({
     const action = await findOwnedAction(ctx, args.actionId, ownerKey)
     if (args.definition) validateDefinition(args.definition)
 
-    await ctx.db.patch('nfcActions', action._id, {
-      ...(args.label !== undefined
-        ? { label: normalizeLabel(args.label) }
-        : {}),
-      ...(args.enabled !== undefined ? { enabled: args.enabled } : {}),
-      ...(args.definition !== undefined ? { definition: args.definition } : {}),
-      updatedAt: Date.now(),
-    })
+    const patch: Partial<Doc<'nfcActions'>> = { updatedAt: Date.now() }
+    if (args.label !== undefined) patch.label = normalizeLabel(args.label)
+    if (args.enabled !== undefined) patch.enabled = args.enabled
+    if (args.definition !== undefined) patch.definition = args.definition
+    await ctx.db.patch('nfcActions', action._id, patch)
     const updated = await ctx.db.get('nfcActions', action._id)
     if (!updated) throw new Error('NFC action disappeared during update')
     return normalizeAction(updated)

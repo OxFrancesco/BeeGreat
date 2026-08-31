@@ -7,6 +7,8 @@
 // definitions live in web3.ts.
 
 import { EVMWallet } from '@crossmint/wallets-sdk'
+import * as Predicate from 'effect/Predicate'
+import type { FunctionArgs } from 'convex/server'
 import {
   SugarClient,
   createSugarCacheStore,
@@ -15,12 +17,12 @@ import {
   executeSugarActionJson,
   type SugarClientOptions,
   type SugarExecutionOptions,
+  type SugarJson,
   type SugarRpcObserver,
 } from '@beegreat/sugar'
 import {
   type SUGAR_ACTIONS,
   type SUGAR_TX_ACTIONS,
-  type SugarAction,
 } from '@beegreat/sugar/contracts'
 import { internal } from '../_generated/api'
 import { env } from '../_generated/server'
@@ -36,6 +38,7 @@ import {
   captureSugarBounds,
   reconcileCrossmintTransaction,
   sugarTransactionSteps,
+  type SugarJsonRecord,
   type SugarTransactionStep,
 } from '../web3Execution'
 import {
@@ -72,7 +75,7 @@ const reportSugarRpcEvent: SugarRpcObserver = (event) => {
 export function sugarOptions(ctx: ActionCtx): SugarExecutionOptions {
   const environment = sugarEnvironment()
   const baseRpcUrl = environment.SUGAR_RPC_URI_8453
-  return {
+  const executionOptions: SugarExecutionOptions = {
     cacheStore: sugarCacheStore,
     env: environment,
     onRpcEvent: reportSugarRpcEvent,
@@ -92,34 +95,36 @@ export function sugarOptions(ctx: ActionCtx): SugarExecutionOptions {
       },
     },
     rpcPolicy: SUGAR_RPC_POLICY,
-    ...(baseRpcUrl
-      ? {
-          clientFactory: (chainId: number, options: SugarClientOptions) =>
-            new SugarClient(
-              chainId,
-              chainId === BASE_MAINNET_CHAIN_ID
-                ? {
-                    ...options,
-                    // Execution reads stay pinned to the authenticated RPC.
-                    // A lagging anonymous fallback can report state older than
-                    // a just-confirmed approval and produce false reverts.
-                    transport: createSugarFailoverTransport([baseRpcUrl], {
-                      minIntervalMs: 250,
-                      onRpcEvent: reportSugarRpcEvent,
-                    }),
-                    settings: {
-                      ...options.settings,
-                      requestConcurrency: Math.min(
-                        options.settings?.requestConcurrency ?? 2,
-                        2,
-                      ),
-                    },
-                  }
-                : options,
-            ),
-        }
-      : {}),
   }
+  if (baseRpcUrl) {
+    executionOptions.clientFactory = (
+      chainId: number,
+      options: SugarClientOptions,
+    ) =>
+      new SugarClient(
+        chainId,
+        chainId === BASE_MAINNET_CHAIN_ID
+          ? {
+              ...options,
+              // Execution reads stay pinned to the authenticated RPC.
+              // A lagging anonymous fallback can report state older than
+              // a just-confirmed approval and produce false reverts.
+              transport: createSugarFailoverTransport([baseRpcUrl], {
+                minIntervalMs: 250,
+                onRpcEvent: reportSugarRpcEvent,
+              }),
+              settings: {
+                ...options.settings,
+                requestConcurrency: Math.min(
+                  options.settings?.requestConcurrency ?? 2,
+                  2,
+                ),
+              },
+            }
+          : options,
+      )
+  }
+  return executionOptions
 }
 
 /** Compact human summary of the user-relevant Sugar parameters. */
@@ -150,41 +155,43 @@ export function describeSugarExecution(
   return `Aerodrome ${verb} on ${chainName} from ${walletLabel}${details ? `: ${details}` : ''}`
 }
 
-export function executableSugarTransactions(plan: unknown) {
+export function executableSugarTransactions(plan: SugarJson) {
   return sugarTransactionSteps(plan).map(({ transaction }) => transaction)
+}
+
+function isPlanRecord(value: SugarJson | undefined): value is SugarJsonRecord {
+  return Predicate.isObject(value)
+}
+
+function planRecord(value: SugarJson | undefined): SugarJsonRecord | undefined {
+  return isPlanRecord(value) ? value : undefined
 }
 
 /**
  * Human suffix built from the plan's quote context so the confirm card shows
  * the expected outcome (not just the requested inputs) before the user signs.
  */
-export function describeSugarPlanOutcome(plan: unknown): string {
-  if (typeof plan !== 'object' || plan === null || Array.isArray(plan)) {
-    return ''
-  }
-  const record = plan as Record<string, unknown>
-  const decimal = (value: unknown) =>
-    typeof value === 'number' && Number.isFinite(value)
+export function describeSugarPlanOutcome(plan: SugarJson): string {
+  const record = planRecord(plan)
+  if (!record) return ''
+  const decimal = (value: SugarJson | undefined) =>
+    Predicate.isNumber(value) && Number.isFinite(value)
       ? value.toLocaleString('en-US', { maximumFractionDigits: 6 })
       : null
-  const symbolOf = (value: unknown) => {
-    const symbol =
-      typeof value === 'object' && value !== null
-        ? (value as { symbol?: unknown }).symbol
-        : undefined
-    return typeof symbol === 'string' ? symbol : null
+  const symbolOf = (value: SugarJson | undefined) => {
+    const symbol = planRecord(value)?.symbol
+    return Predicate.isString(symbol) ? symbol : null
   }
-  const quote = record.quote
-  if (typeof quote === 'object' && quote !== null) {
-    const q = quote as Record<string, unknown>
-    const out = decimal(q.amount_out_decimal)
-    const toSymbol = symbolOf(q.to_token)
+  const quote = planRecord(record.quote)
+  if (quote) {
+    const out = decimal(quote.amount_out_decimal)
+    const toSymbol = symbolOf(quote.to_token)
     if (out && toSymbol) {
-      const min = decimal(q.min_amount_out_decimal)
+      const min = decimal(quote.min_amount_out_decimal)
+      const priceImpact = quote.price_impact_pct
       const impact =
-        typeof q.price_impact_pct === 'number' &&
-        Number.isFinite(q.price_impact_pct)
-          ? `${q.price_impact_pct.toFixed(2)}% impact`
+        Predicate.isNumber(priceImpact) && Number.isFinite(priceImpact)
+          ? `${priceImpact.toFixed(2)}% impact`
           : null
       const extras = [min ? `min ${min}` : null, impact]
         .filter(Boolean)
@@ -192,18 +199,17 @@ export function describeSugarPlanOutcome(plan: unknown): string {
       return ` → ≈${out} ${toSymbol}${extras ? ` (${extras})` : ''}`
     }
   }
-  const movement = record.deposit ?? record.withdrawal
-  if (typeof movement === 'object' && movement !== null) {
-    const m = movement as Record<string, unknown>
-    const pool =
-      typeof m.pool === 'object' && m.pool !== null
-        ? (m.pool as Record<string, unknown>)
-        : {}
-    const amount0 = decimal(m.amount0_decimal)
-    const amount1 = decimal(m.amount1_decimal)
-    const token0 = typeof pool.token0 === 'string' ? pool.token0 : null
-    const token1 = typeof pool.token1 === 'string' ? pool.token1 : null
-    const poolSymbol = typeof pool.symbol === 'string' ? pool.symbol : null
+  const movement = planRecord(record.deposit ?? record.withdrawal)
+  if (movement) {
+    const pool = planRecord(movement.pool) ?? {}
+    const amount0 = decimal(movement.amount0_decimal)
+    const amount1 = decimal(movement.amount1_decimal)
+    const poolToken0 = pool.token0
+    const token0 = Predicate.isString(poolToken0) ? poolToken0 : null
+    const poolToken1 = pool.token1
+    const token1 = Predicate.isString(poolToken1) ? poolToken1 : null
+    const rawPoolSymbol = pool.symbol
+    const poolSymbol = Predicate.isString(rawPoolSymbol) ? rawPoolSymbol : null
     const parts = [
       amount0 && token0 ? `${amount0} ${token0}` : null,
       amount1 && token1 ? `${amount1} ${token1}` : null,
@@ -261,33 +267,32 @@ export async function prepareSugarExecutionForUser(
   const summary =
     describeSugarExecution(sugarAction, parameters) +
     describeSugarPlanOutcome(plan)
-  const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
-    await ctx.runMutation(internal.web3Actions.create, {
-      userId,
-      ...(jobRunId
-        ? {
-            jobRunId,
-            jobSugarAction: sugarAction,
-            jobPoolAddress:
-              typeof parameters.pool === 'string'
-                ? parameters.pool
-                : undefined,
-          }
-        : {}),
-      ...(conversationId ? { conversationId } : {}),
-      ...(continuation ? { continuation } : {}),
-      summary,
-      payload: {
-        kind: 'execute_plan',
-        chainId: BASE_MAINNET_CHAIN_ID,
-        transactions,
-        intent: {
-          sugarAction,
-          parameters: planParameters,
-          bounds: captureSugarBounds(plan),
-        },
+  const createArgs: FunctionArgs<typeof internal.web3Actions.create> = {
+    userId,
+    summary,
+    payload: {
+      kind: 'execute_plan',
+      chainId: BASE_MAINNET_CHAIN_ID,
+      transactions,
+      intent: {
+        sugarAction,
+        parameters: planParameters,
+        bounds: captureSugarBounds(plan),
       },
-    })
+    },
+  }
+  if (jobRunId) {
+    createArgs.jobRunId = jobRunId
+    createArgs.jobSugarAction = sugarAction
+    const poolParameter = parameters.pool
+    if (Predicate.isString(poolParameter)) {
+      createArgs.jobPoolAddress = poolParameter
+    }
+  }
+  if (conversationId) createArgs.conversationId = conversationId
+  if (continuation) createArgs.continuation = continuation
+  const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
+    await ctx.runMutation(internal.web3Actions.create, createArgs)
   return {
     actionId: created.id,
     expiresAt: created.expiresAt,
@@ -321,7 +326,7 @@ export async function prepareEoaSugarExecutionForUser(
   },
 ) {
   await requireWeb3(ctx, userId)
-  const chainName = SUGAR_CHAIN_NAMES[chainId]
+  const chainName = SUGAR_CHAIN_NAMES.get(chainId)
   if (!chainName) throw new Error('That Sugar chain is not supported.')
   const wallets: {
     smartWallet: { address: string; chain: string } | null
@@ -347,28 +352,29 @@ export async function prepareEoaSugarExecutionForUser(
       chainName,
       walletLabel: 'your linked wallet',
     }) + describeSugarPlanOutcome(plan)
-  const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
-    await ctx.runMutation(internal.web3Actions.create, {
-      userId,
-      ...(conversationId ? { conversationId } : {}),
-      ...(continuation ? { continuation } : {}),
-      summary,
-      payload: {
-        kind: 'execute_eoa_plan',
-        chainId,
-        walletAddress: wallets.eoa.address,
-        transactions,
-        intent: {
-          sugarAction,
-          parameters: {
-            ...normalizeSugarAgentParameters(parameters),
-            chain: chainId,
-            wallet: wallets.eoa.address,
-          },
-          bounds: captureSugarBounds(plan),
+  const createArgs: FunctionArgs<typeof internal.web3Actions.create> = {
+    userId,
+    summary,
+    payload: {
+      kind: 'execute_eoa_plan',
+      chainId,
+      walletAddress: wallets.eoa.address,
+      transactions,
+      intent: {
+        sugarAction,
+        parameters: {
+          ...normalizeSugarAgentParameters(parameters),
+          chain: chainId,
+          wallet: wallets.eoa.address,
         },
+        bounds: captureSugarBounds(plan),
       },
-    })
+    },
+  }
+  if (conversationId) createArgs.conversationId = conversationId
+  if (continuation) createArgs.continuation = continuation
+  const created: { id: string; expiresAt: number; autoConfirmed: boolean } =
+    await ctx.runMutation(internal.web3Actions.create, createArgs)
   return {
     actionId: created.id,
     expiresAt: created.expiresAt,
@@ -523,7 +529,7 @@ export async function runSugarForUser(
   // Convex app configuration is typed explicitly. Forward only allowlisted
   // Sugar settings instead of exposing Node's ambient process.env.
   return executeSugarActionJson(
-    sugarAction as SugarAction,
+    sugarAction,
     normalizeSugarAgentParameters(parameters),
     sugarOptions(ctx),
   )

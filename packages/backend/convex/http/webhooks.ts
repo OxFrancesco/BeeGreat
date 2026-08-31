@@ -1,4 +1,5 @@
 import { verifyWebhook } from '@clerk/backend/webhooks'
+import type { FunctionArgs } from 'convex/server'
 import { internal } from '../_generated/api'
 import { env, httpAction } from '../_generated/server'
 import { isClerkUserId, parseRevenueCatWebhook } from '../revenueCatWebhook'
@@ -25,7 +26,7 @@ export const clerkWebhook = httpAction(async (ctx, request) => {
   }
   if (event.type !== 'user.deleted') return jsonResponse({ ok: true }, 200)
   const userId = event.data.id
-  if (typeof userId !== 'string' || !isClerkUserId(userId)) {
+  if (!isClerkUserId(userId)) {
     return jsonResponse({ error: 'Invalid Clerk user deletion event' }, 400)
   }
   await ctx.runMutation(internal.accountDeletion.activateFromClerkWebhook, {
@@ -72,32 +73,33 @@ export const revenueCatWebhook = httpAction(async (ctx, request) => {
   }
 
   const event = parsed.event
+  const args: FunctionArgs<
+    typeof internal.subscriptions.applyRevenueCatEvent
+  > = {
+    eventId: event.eventId,
+    type: event.type,
+    entitlementIds: event.entitlementIds,
+    eventTimestampMs: event.eventTimestampMs,
+    receivedAt: Date.now(),
+    transferredFrom: event.transferredFrom,
+    transferredTo: event.transferredTo,
+  }
+  if (event.appUserId) args.appUserId = event.appUserId
+  if (event.environment) args.environment = event.environment
+  if (event.productId) args.productId = event.productId
+  if (event.purchasedAtMs !== undefined) {
+    args.purchasedAtMs = event.purchasedAtMs
+  }
+  if (event.expirationAtMs !== undefined) {
+    args.expirationAtMs = event.expirationAtMs
+  }
+  if (event.gracePeriodExpirationAtMs !== undefined) {
+    args.gracePeriodExpirationAtMs = event.gracePeriodExpirationAtMs
+  }
+  if (event.cancelReason) args.cancelReason = event.cancelReason
   const result = await ctx.runMutation(
     internal.subscriptions.applyRevenueCatEvent,
-    {
-      eventId: event.eventId,
-      type: event.type,
-      ...(event.appUserId ? { appUserId: event.appUserId } : {}),
-      ...(event.environment ? { environment: event.environment } : {}),
-      ...(event.productId ? { productId: event.productId } : {}),
-      entitlementIds: event.entitlementIds,
-      ...(event.purchasedAtMs !== undefined
-        ? { purchasedAtMs: event.purchasedAtMs }
-        : {}),
-      ...(event.expirationAtMs !== undefined
-        ? { expirationAtMs: event.expirationAtMs }
-        : {}),
-      ...(event.gracePeriodExpirationAtMs !== undefined
-        ? {
-            gracePeriodExpirationAtMs: event.gracePeriodExpirationAtMs,
-          }
-        : {}),
-      ...(event.cancelReason ? { cancelReason: event.cancelReason } : {}),
-      eventTimestampMs: event.eventTimestampMs,
-      receivedAt: Date.now(),
-      transferredFrom: event.transferredFrom,
-      transferredTo: event.transferredTo,
-    },
+    args,
   )
   return jsonResponse({ ok: true, status: result.status }, 200)
 })

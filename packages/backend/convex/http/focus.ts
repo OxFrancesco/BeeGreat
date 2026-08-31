@@ -1,96 +1,151 @@
+import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
-import type { Id } from '../_generated/dataModel'
 import { httpAction } from '../_generated/server'
-import { jsonResponse, readJsonBody, requireBrokerSecret } from './middleware'
+import {
+  AgentUserId,
+  decodeRequestBody,
+  jsonResponse,
+  readJsonBody,
+  requestDocumentId,
+  requireBrokerSecret,
+  type JsonValue,
+} from './middleware'
 
-type FocusRecurrence = {
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly'
-  interval: number
-  firstOccurrenceAt: number
-}
+const FocusRecurrence = Schema.Struct({
+  frequency: Schema.Literals(['daily', 'weekly', 'monthly', 'yearly']),
+  interval: Schema.Number,
+  firstOccurrenceAt: Schema.Number,
+})
 
-function focusRecurrence(value: unknown): FocusRecurrence | undefined | null {
-  if (value === undefined) return undefined
-  if (!value || typeof value !== 'object') return null
-  const record = value as Record<string, unknown>
-  if (
-    (record.frequency !== 'daily' &&
-      record.frequency !== 'weekly' &&
-      record.frequency !== 'monthly' &&
-      record.frequency !== 'yearly') ||
-    typeof record.interval !== 'number' ||
-    typeof record.firstOccurrenceAt !== 'number'
-  ) {
-    return null
-  }
-  return {
-    frequency: record.frequency,
-    interval: record.interval,
-    firstOccurrenceAt: record.firstOccurrenceAt,
-  }
-}
+const FocusRequest = Schema.Struct({
+  userId: AgentUserId,
+  operation: Schema.String,
+})
+
+const OwnerKeyField = Schema.Struct({ ownerKey: Schema.String })
+
+const ChannelSource = Schema.Struct({
+  source: Schema.Literal('imessage'),
+  sourceAddress: Schema.String,
+})
+
+const TranscriptSync = Schema.Struct({
+  threadId: Schema.Number,
+  messages: Schema.mutable(Schema.Array(Schema.Unknown)),
+})
+
+const ConversationTitle = Schema.Struct({
+  threadId: Schema.Number,
+  title: Schema.String,
+})
+
+const FirstFocusConfirmation = Schema.Struct({
+  requestId: Schema.String,
+  goalTitle: Schema.String,
+  projectTitle: Schema.String,
+  taskTitle: Schema.String,
+  highlightExpiresAt: Schema.optional(Schema.Number),
+})
+
+const FirstFocusCancellation = Schema.Struct({
+  requestId: Schema.String,
+  goalTitle: Schema.String,
+  projectTitle: Schema.String,
+  taskTitle: Schema.String,
+})
+
+const HighlightCompletion = Schema.Struct({
+  requestId: Schema.String,
+  taskId: Schema.String,
+})
+
+const Web3ActionLookup = Schema.Struct({ actionId: Schema.String })
+
+const Web3ActionDecision = Schema.Struct({
+  actionId: Schema.String,
+  summary: Schema.String,
+})
+
+const GoalIdField = Schema.Struct({ goalId: Schema.optional(Schema.String) })
+
+const TaskStatusField = Schema.Struct({
+  status: Schema.optional(Schema.Literals(['todo', 'done'])),
+})
+
+const GoalCreation = Schema.Struct({
+  title: Schema.String,
+  finalGoal: Schema.optional(Schema.String),
+})
+
+const ProjectCreation = Schema.Struct({
+  goalId: Schema.String,
+  title: Schema.String,
+  recurrence: Schema.optional(FocusRecurrence),
+})
+
+const TaskCreation = Schema.Struct({
+  goalId: Schema.String,
+  projectId: Schema.optional(Schema.String),
+  title: Schema.String,
+  dueDate: Schema.optional(Schema.Number),
+  recurrence: Schema.optional(FocusRecurrence),
+})
 
 export const focus = httpAction(async (ctx, request) => {
   const authError = requireBrokerSecret(request)
   if (authError) return authError
-  const body = await readJsonBody<Record<string, unknown>>(request)
-  if (
-    !body ||
-    typeof body.userId !== 'string' ||
-    !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-    typeof body.operation !== 'string'
-  ) {
+  const raw = await readJsonBody<JsonValue>(request)
+  const body = decodeRequestBody(FocusRequest, raw)
+  if (!body) {
     return jsonResponse({ error: 'Invalid focus request' }, 400)
   }
 
   try {
     let result: unknown
+    const ownerKeyField = decodeRequestBody(OwnerKeyField, raw)
     const channelOwnerKey =
-      typeof body.ownerKey === 'string' &&
-      body.ownerKey.endsWith(`|${body.userId}`)
-        ? body.ownerKey
+      ownerKeyField && ownerKeyField.ownerKey.endsWith(`|${body.userId}`)
+        ? ownerKeyField.ownerKey
         : undefined
     if (body.operation.startsWith('channel_') && !channelOwnerKey) {
       return jsonResponse({ error: 'Invalid channel identity' }, 400)
     }
     if (body.operation === 'channel_context') {
-      if (
-        body.source !== 'imessage' ||
-        typeof body.sourceAddress !== 'string'
-      ) {
+      const channel = decodeRequestBody(ChannelSource, raw)
+      if (!channel) {
         return jsonResponse({ error: 'Invalid channel source' }, 400)
       }
       result = await ctx.runMutation(internal.channelActions.getContext, {
         userId: body.userId,
         ownerKey: channelOwnerKey!,
-        source: body.source,
-        sourceAddress: body.sourceAddress,
+        source: channel.source,
+        sourceAddress: channel.sourceAddress,
       })
     } else if (body.operation === 'channel_create_thread') {
-      if (
-        body.source !== 'imessage' ||
-        typeof body.sourceAddress !== 'string'
-      ) {
+      const channel = decodeRequestBody(ChannelSource, raw)
+      if (!channel) {
         return jsonResponse({ error: 'Invalid channel source' }, 400)
       }
       result = await ctx.runMutation(internal.channelActions.createThread, {
         userId: body.userId,
         ownerKey: channelOwnerKey!,
-        source: body.source,
-        sourceAddress: body.sourceAddress,
+        source: channel.source,
+        sourceAddress: channel.sourceAddress,
       })
     } else if (body.operation === 'channel_sync_transcript') {
-      if (
-        typeof body.threadId !== 'number' ||
-        !Array.isArray(body.messages)
-      ) {
+      const sync = decodeRequestBody(TranscriptSync, raw)
+      if (!sync) {
         return jsonResponse({ error: 'Invalid transcript sync' }, 400)
       }
+      // SAFETY: Each transcript message is deliberately validated only as a
+      // JSON value here: internal.channelActions.syncTranscript re-validates
+      // every message field with its Convex argument validators and rejects
+      // malformed entries, surfacing as this handler's catch-all 400.
       result = await ctx.runMutation(internal.channelActions.syncTranscript, {
         userId: body.userId,
         ownerKey: channelOwnerKey!,
-        threadId: body.threadId,
-        messages: body.messages as Array<{
+        threadId: sync.threadId,
+        messages: sync.messages as Array<{
           id: string
           role: 'user' | 'assistant'
           contentJson: string
@@ -106,27 +161,19 @@ export const focus = httpAction(async (ctx, request) => {
         },
       )
     } else if (body.operation === 'channel_title_thread') {
-      if (
-        typeof body.threadId !== 'number' ||
-        typeof body.title !== 'string'
-      ) {
+      const title = decodeRequestBody(ConversationTitle, raw)
+      if (!title) {
         return jsonResponse({ error: 'Invalid conversation title' }, 400)
       }
       result = await ctx.runMutation(internal.channelActions.titleThread, {
         userId: body.userId,
         ownerKey: channelOwnerKey!,
-        threadId: body.threadId,
-        title: body.title,
+        threadId: title.threadId,
+        title: title.title,
       })
     } else if (body.operation === 'channel_confirm_first_focus') {
-      if (
-        typeof body.requestId !== 'string' ||
-        typeof body.goalTitle !== 'string' ||
-        typeof body.projectTitle !== 'string' ||
-        typeof body.taskTitle !== 'string' ||
-        (body.highlightExpiresAt !== undefined &&
-          typeof body.highlightExpiresAt !== 'number')
-      ) {
+      const confirmation = decodeRequestBody(FirstFocusConfirmation, raw)
+      if (!confirmation) {
         return jsonResponse(
           { error: 'Invalid first-focus confirmation' },
           400,
@@ -137,20 +184,16 @@ export const focus = httpAction(async (ctx, request) => {
         {
           userId: body.userId,
           ownerKey: channelOwnerKey!,
-          requestId: body.requestId,
-          goalTitle: body.goalTitle,
-          projectTitle: body.projectTitle,
-          taskTitle: body.taskTitle,
-          highlightExpiresAt: body.highlightExpiresAt as number | undefined,
+          requestId: confirmation.requestId,
+          goalTitle: confirmation.goalTitle,
+          projectTitle: confirmation.projectTitle,
+          taskTitle: confirmation.taskTitle,
+          highlightExpiresAt: confirmation.highlightExpiresAt,
         },
       )
     } else if (body.operation === 'channel_cancel_first_focus') {
-      if (
-        typeof body.requestId !== 'string' ||
-        typeof body.goalTitle !== 'string' ||
-        typeof body.projectTitle !== 'string' ||
-        typeof body.taskTitle !== 'string'
-      ) {
+      const cancellation = decodeRequestBody(FirstFocusCancellation, raw)
+      if (!cancellation) {
         return jsonResponse(
           { error: 'Invalid first-focus cancellation' },
           400,
@@ -161,17 +204,15 @@ export const focus = httpAction(async (ctx, request) => {
         {
           userId: body.userId,
           ownerKey: channelOwnerKey!,
-          requestId: body.requestId,
-          goalTitle: body.goalTitle,
-          projectTitle: body.projectTitle,
-          taskTitle: body.taskTitle,
+          requestId: cancellation.requestId,
+          goalTitle: cancellation.goalTitle,
+          projectTitle: cancellation.projectTitle,
+          taskTitle: cancellation.taskTitle,
         },
       )
     } else if (body.operation === 'channel_complete_highlight') {
-      if (
-        typeof body.requestId !== 'string' ||
-        typeof body.taskId !== 'string'
-      ) {
+      const completion = decodeRequestBody(HighlightCompletion, raw)
+      if (!completion) {
         return jsonResponse({ error: 'Invalid Highlight completion' }, 400)
       }
       result = await ctx.runMutation(
@@ -179,33 +220,32 @@ export const focus = httpAction(async (ctx, request) => {
         {
           userId: body.userId,
           ownerKey: channelOwnerKey!,
-          requestId: body.requestId,
-          taskId: body.taskId as Id<'tasks'>,
+          requestId: completion.requestId,
+          taskId: requestDocumentId<'tasks'>(completion.taskId),
         },
       )
     } else if (body.operation === 'channel_get_web3_action') {
-      if (typeof body.actionId !== 'string') {
+      const lookup = decodeRequestBody(Web3ActionLookup, raw)
+      if (!lookup) {
         return jsonResponse({ error: 'Invalid Web3 action' }, 400)
       }
       result = await ctx.runQuery(internal.web3Actions.getForUser, {
         userId: body.userId,
-        actionId: body.actionId as Id<'web3Actions'>,
+        actionId: requestDocumentId<'web3Actions'>(lookup.actionId),
       })
     } else if (
       body.operation === 'channel_confirm_web3' ||
       body.operation === 'channel_cancel_web3'
     ) {
-      if (
-        typeof body.actionId !== 'string' ||
-        typeof body.summary !== 'string'
-      ) {
+      const decision = decodeRequestBody(Web3ActionDecision, raw)
+      if (!decision) {
         return jsonResponse({ error: 'Invalid Web3 action' }, 400)
       }
       const args = {
         userId: body.userId,
         ownerKey: channelOwnerKey!,
-        actionId: body.actionId as Id<'web3Actions'>,
-        summary: body.summary,
+        actionId: requestDocumentId<'web3Actions'>(decision.actionId),
+        summary: decision.summary,
       }
       result =
         body.operation === 'channel_confirm_web3'
@@ -220,67 +260,58 @@ export const focus = httpAction(async (ctx, request) => {
         userId: body.userId,
       })
     } else if (body.operation === 'list_tasks') {
-      if (body.goalId !== undefined && typeof body.goalId !== 'string') {
+      const goalIdField = decodeRequestBody(GoalIdField, raw)
+      if (!goalIdField) {
         return jsonResponse({ error: 'Invalid Goal id' }, 400)
       }
-      if (
-        body.status !== undefined &&
-        body.status !== 'todo' &&
-        body.status !== 'done'
-      ) {
+      const statusField = decodeRequestBody(TaskStatusField, raw)
+      if (!statusField) {
         return jsonResponse({ error: 'Invalid Task status' }, 400)
       }
       result = await ctx.runQuery(internal.agentFocus.listTasks, {
         userId: body.userId,
-        goalId: body.goalId as Id<'goals'> | undefined,
-        status: body.status as 'todo' | 'done' | undefined,
+        goalId:
+          goalIdField.goalId === undefined
+            ? undefined
+            : requestDocumentId<'goals'>(goalIdField.goalId),
+        status: statusField.status,
       })
     } else if (body.operation === 'create_goal') {
-      if (
-        typeof body.title !== 'string' ||
-        (body.finalGoal !== undefined && typeof body.finalGoal !== 'string')
-      ) {
+      const goal = decodeRequestBody(GoalCreation, raw)
+      if (!goal) {
         return jsonResponse({ error: 'Invalid Goal' }, 400)
       }
       result = await ctx.runMutation(internal.agentFocus.createGoal, {
         userId: body.userId,
-        title: body.title,
-        finalGoal: body.finalGoal as string | undefined,
+        title: goal.title,
+        finalGoal: goal.finalGoal,
       })
     } else if (body.operation === 'create_project') {
-      const recurrence = focusRecurrence(body.recurrence)
-      if (
-        typeof body.goalId !== 'string' ||
-        typeof body.title !== 'string' ||
-        recurrence === null
-      ) {
+      const project = decodeRequestBody(ProjectCreation, raw)
+      if (!project) {
         return jsonResponse({ error: 'Invalid Project' }, 400)
       }
       result = await ctx.runMutation(internal.agentFocus.createProject, {
         userId: body.userId,
-        goalId: body.goalId as Id<'goals'>,
-        title: body.title,
-        recurrence,
+        goalId: requestDocumentId<'goals'>(project.goalId),
+        title: project.title,
+        recurrence: project.recurrence,
       })
     } else if (body.operation === 'create_task') {
-      const recurrence = focusRecurrence(body.recurrence)
-      if (
-        typeof body.goalId !== 'string' ||
-        typeof body.title !== 'string' ||
-        (body.projectId !== undefined &&
-          typeof body.projectId !== 'string') ||
-        (body.dueDate !== undefined && typeof body.dueDate !== 'number') ||
-        recurrence === null
-      ) {
+      const task = decodeRequestBody(TaskCreation, raw)
+      if (!task) {
         return jsonResponse({ error: 'Invalid Task' }, 400)
       }
       result = await ctx.runMutation(internal.agentFocus.createTask, {
         userId: body.userId,
-        goalId: body.goalId as Id<'goals'>,
-        projectId: body.projectId as Id<'projects'> | undefined,
-        title: body.title,
-        dueDate: body.dueDate as number | undefined,
-        recurrence,
+        goalId: requestDocumentId<'goals'>(task.goalId),
+        projectId:
+          task.projectId === undefined
+            ? undefined
+            : requestDocumentId<'projects'>(task.projectId),
+        title: task.title,
+        dueDate: task.dueDate,
+        recurrence: task.recurrence,
       })
     } else {
       return jsonResponse({ error: 'Unknown focus operation' }, 400)

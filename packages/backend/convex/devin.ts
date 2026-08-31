@@ -3,7 +3,11 @@ import { internal } from './_generated/api'
 import { env, internalAction } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
-import { createDevinClient, type DevinSession } from './devinClient'
+import {
+  createDevinClient,
+  type DevinCreateSessionInput,
+  type DevinSession,
+} from './devinClient'
 
 const sessionIdPattern = /^devin-[A-Za-z0-9_-]+$/
 const POLL_INTERVAL_MS = 30_000
@@ -106,15 +110,12 @@ function validateStart(input: {
   ) {
     throw new Error('Devin ACU limit must be an integer from 1 to 1000.')
   }
-  return {
-    prompt,
-    ...(title ? { title } : {}),
-    ...(input.repos ? { repos: input.repos.map((repo) => repo.trim()) } : {}),
-    ...(input.mode ? { mode: input.mode } : {}),
-    ...(input.maxAcuLimit !== undefined
-      ? { maxAcuLimit: input.maxAcuLimit }
-      : {}),
-  }
+  const start: DevinCreateSessionInput = { prompt }
+  if (title) start.title = title
+  if (input.repos) start.repos = input.repos.map((repo) => repo.trim())
+  if (input.mode) start.mode = input.mode
+  if (input.maxAcuLimit !== undefined) start.maxAcuLimit = input.maxAcuLimit
+  return start
 }
 
 export const execute = internalAction({
@@ -159,17 +160,18 @@ export const execute = internalAction({
             await cacheSession(ctx, input.userId, session)
             return session
           } catch {
-            return {
+            const staleSession: DevinSession & { stale: true } = {
               sessionId: entry.sessionId,
               url: entry.url,
-              ...(entry.title ? { title: entry.title } : {}),
               status: entry.status,
-              ...(entry.statusDetail ? { statusDetail: entry.statusDetail } : {}),
               pullRequests: entry.pullRequests,
               createdAt: entry.createdAt,
               updatedAt: entry.updatedAt,
               stale: true,
             }
+            if (entry.title) staleSession.title = entry.title
+            if (entry.statusDetail) staleSession.statusDetail = entry.statusDetail
+            return staleSession
           }
         }),
       )
