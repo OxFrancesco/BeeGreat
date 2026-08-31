@@ -41,7 +41,9 @@ export function setTokenCatalogClientFactory(factory: (chainId: number) => Sugar
 const catalogs = Effect.runSync(
   Cache.makeWith((chainId: number) =>
     Effect.tryPromise({
-      try: () => catalogClientFactory(chainId).getAllTokens(true),
+      // The on-chain scan can return the same contract several times (one
+      // row per pool listing); pickers must see each token exactly once.
+      try: () => catalogClientFactory(chainId).getAllTokens(true).then(dedupeTokens),
       catch: (cause) => cause instanceof Error ? cause : new Error(String(cause)),
     }), {
     capacity: 16,

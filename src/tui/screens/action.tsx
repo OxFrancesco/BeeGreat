@@ -141,6 +141,7 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
         items={catalog.map((token) => {
           const choice = toTokenChoice(token)
           return {
+            id: `${token.tokenAddress}:${token.symbol}`,
             title: choice.title,
             description: choice.description,
             onSelect: () => {
