@@ -62,7 +62,8 @@ export function parseCommand(args: string[]): BeeCommand {
       );
     }
     const address = imessageArgs[0]?.trim();
-    return { kind: "imessage", action, ...(address ? { address } : {}) };
+    if (address) return { kind: "imessage", action, address };
+    return { kind: "imessage", action };
   }
   if (command === "help" || command === "--help" || command === "-h") {
     return { kind: "help" };

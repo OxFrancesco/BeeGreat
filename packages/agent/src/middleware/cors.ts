@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'hono'
 import { cors } from 'hono/cors'
 import { binding, type AppEnvironment, type Bindings } from '../app-env.ts'
+import { trustedCast } from '../shared/trusted-cast.ts'
 
 const LOCAL_WEB_ORIGINS = new Set([
   'http://localhost:3000',
@@ -38,8 +39,12 @@ export const webOriginGate: MiddlewareHandler<AppEnvironment> = async (
 }
 
 export const webCorsPolicy = cors({
+  // The Worker platform guarantees `c.env` is this app's bindings; hono/cors
+  // erases that type in its origin callback.
   origin: (origin, c) =>
-    origin && isAllowedWebOrigin(c.env as Bindings, origin) ? origin : null,
+    origin && isAllowedWebOrigin(trustedCast<Bindings>(c.env), origin)
+      ? origin
+      : null,
   allowMethods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true,
   exposeHeaders: STREAM_RESPONSE_HEADERS,

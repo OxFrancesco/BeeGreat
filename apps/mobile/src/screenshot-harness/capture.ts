@@ -4,6 +4,8 @@ import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
+import { z } from 'zod';
+
 import {
   FIXTURE_PRIVACY_ASSERTIONS,
   SCREENSHOT_SHOTS,
@@ -13,13 +15,10 @@ import { isScreenshotShot } from '../lib/screenshot-fixture';
 
 type CaptureSet = 'iphone-69' | 'ipad-13';
 
-const SETS: Record<
-  CaptureSet,
-  { width: number; height: number; deviceType: string }
-> = {
+const SETS = {
   'iphone-69': { width: 1320, height: 2868, deviceType: 'IPHONE_69' },
   'ipad-13': { width: 2064, height: 2752, deviceType: 'IPAD_PRO_3GEN_129' },
-};
+} satisfies Record<CaptureSet, { width: number; height: number; deviceType: string }>;
 
 const SCRIPT_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_ROOT = resolve(
@@ -371,11 +370,16 @@ async function assertDimensions(path: string, expectedWidth: number, expectedHei
   }
 }
 
+const simctlDeviceListSchema = z.object({
+  devices: z.record(
+    z.string(),
+    z.array(z.object({ udid: z.string(), state: z.string(), name: z.string() })),
+  ),
+});
+
 async function assertBooted(simulatorUdid: string) {
   const result = await run(['xcrun', 'simctl', 'list', 'devices', '--json']);
-  const parsed = JSON.parse(result.stdout) as {
-    devices: Record<string, { udid: string; state: string; name: string }[]>;
-  };
+  const parsed = simctlDeviceListSchema.parse(JSON.parse(result.stdout));
   const simulator = Object.values(parsed.devices)
     .flat()
     .find((device) => device.udid === simulatorUdid);
@@ -407,7 +411,7 @@ function requestedFixtureShots(value: string | undefined): ScreenshotShot[] {
       );
     }
   }
-  return requested as ScreenshotShot[];
+  return requested.filter(isScreenshotShot);
 }
 
 function isBeeGreatDeepLinkConfirmation(ui: string) {

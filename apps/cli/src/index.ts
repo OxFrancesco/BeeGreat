@@ -13,7 +13,7 @@ import {
 import { createPromptHistory } from "./prompt-history";
 import { projectBeeReply, projectStreamingBeeReply } from "./reply";
 import { createBeeSession } from "./session";
-import { runBeeTui } from "./tui";
+import { runBeeTui, type BeeTuiReply } from "./tui";
 import { runImessageCommand } from "./imessage";
 import { runBuddyTg, runTelegramCommand } from "./telegram";
 
@@ -50,8 +50,8 @@ Configuration:
   BEE_CLI_HISTORY_PATH        Override prompt history storage
 `;
 
-function friendlyError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
+function friendlyError(cause: unknown) {
+  const message = cause instanceof Error ? cause.message : String(cause);
   if (
     /fetch failed|unable to connect|connection refused|ECONNREFUSED/i.test(
       message,
@@ -216,12 +216,13 @@ async function main() {
           });
         }
       });
-      return {
+      const reply: BeeTuiReply = {
         text:
           projectBeeReply(result.text) ||
           "Bee finished without a text reply.",
-        ...(result.followUp ? { followUp: result.followUp } : {}),
       };
+      if (result.followUp) reply.followUp = result.followUp;
+      return reply;
     },
     newConversation: async () => {
       await session.newConversation();

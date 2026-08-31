@@ -135,6 +135,11 @@ export type PromptInputButtonProps = ComponentProps<typeof InputGroupButton> & {
   tooltip?: PromptInputButtonTooltip
 }
 
+/** A tooltip prop given as a bare string is just the tooltip label. */
+const isTooltipLabel = (
+  tooltip: NonNullable<PromptInputButtonTooltip>,
+): tooltip is string => String(tooltip) === tooltip
+
 export const PromptInputButton = ({
   variant = 'ghost',
   className,
@@ -159,9 +164,12 @@ export const PromptInputButton = ({
     return button
   }
 
-  const tooltipContent = typeof tooltip === 'string' ? tooltip : tooltip.content
-  const shortcut = typeof tooltip === 'string' ? undefined : tooltip.shortcut
-  const side = typeof tooltip === 'string' ? 'top' : (tooltip.side ?? 'top')
+  const details = isTooltipLabel(tooltip)
+    ? { content: tooltip, shortcut: undefined, side: undefined }
+    : tooltip
+  const tooltipContent = details.content
+  const shortcut = details.shortcut
+  const side = details.side ?? 'top'
 
   return (
     <Tooltip>

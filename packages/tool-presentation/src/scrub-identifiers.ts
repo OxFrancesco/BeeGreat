@@ -6,7 +6,7 @@
 // Labelled ids: "ID: j970…", "(id j970…)", "session: devin-abc…", with an
 // optional leading separator ("· ID: …") so the joint is removed with them.
 const LABELLED_ID =
-  /\s*[(\[]?\s*(?:[·•|,;:–—-]\s*)?\b(?:id|ids|identifier|session\s*id|request\s*id)\b\s*[:#=]?\s*[A-Za-z0-9_-]{10,}\s*[)\]]?/gi;
+  /\s*[([]?\s*(?:[·•|,;:–—-]\s*)?\b(?:id|ids|identifier|session\s*id|request\s*id)\b\s*[:#=]?\s*[A-Za-z0-9_-]{10,}\s*[)\]]?/gi;
 
 // Bare Convex-style document ids: 32 lowercase base-36 characters. Skipped
 // inside URLs/paths/emails so links keep working.

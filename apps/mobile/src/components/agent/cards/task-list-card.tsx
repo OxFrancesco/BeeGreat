@@ -22,15 +22,17 @@ export function TaskListCard({
   // The card is a snapshot from the agent; overlay live Convex state so rows
   // stay in sync with the Goals pages and stay tappable to complete tasks.
   const live = useQuery(api.tasks.statuses, {
-    taskIds: items.map((item) => item.id as Id<'tasks'>),
+    taskIds: items.map((item) => item.id),
   });
   const toggle = useMutation(api.tasks.toggle);
-  const liveById = new Map(live?.map((task) => [task.id, task.status]));
+  const liveById = new Map<string, NonNullable<typeof live>[number]>(
+    live?.map((task) => [task.id, task]),
+  );
 
-  const onToggle = async (taskId: string) => {
+  const onToggle = async (taskId: Id<'tasks'>) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      await toggle({ taskId: taskId as Id<'tasks'> });
+      await toggle({ taskId });
     } catch {
       // Row simply stays as-is; the live query is the source of truth.
     }
@@ -41,10 +43,10 @@ export function TaskListCard({
       <ThemedText type="smallBold">{title}</ThemedText>
       <View style={styles.taskList}>
         {items.map((item) => {
-          const liveStatus = liveById.get(item.id as Id<'tasks'>);
-          const done = liveStatus ? liveStatus === 'done' : item.done;
+          const liveTask = liveById.get(item.id);
+          const done = liveTask ? liveTask.status === 'done' : item.done;
           // Only rows backed by a real task are interactive.
-          const interactive = liveStatus !== undefined;
+          const interactive = liveTask !== undefined;
           return (
             <Pressable
               key={item.id}
@@ -52,7 +54,7 @@ export function TaskListCard({
               accessibilityState={{ checked: done, disabled: !interactive }}
               accessibilityLabel={item.title}
               disabled={!interactive}
-              onPress={() => onToggle(item.id)}
+              onPress={liveTask ? () => onToggle(liveTask.id) : undefined}
               style={({ pressed }) => [
                 styles.taskRow,
                 pressed && sharedStyles.taskRowPressed,

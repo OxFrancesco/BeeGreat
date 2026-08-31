@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import type { FlueClient } from "@flue/sdk";
+import type { AgentSendResult } from "@flue/sdk";
 
+import { isJsonObject, type JsonValue } from "./json";
 import { createBeeSession, type ThreadStateStore } from "./session";
+
+/** A structurally complete admission receipt for fake conversation clients. */
+function fakeAdmission(submissionId: string): AgentSendResult {
+  return { streamUrl: "", offset: "-1", submissionId, uid: "uid-test" };
+}
 
 describe("Bee CLI session", () => {
   test("resumes the same conversation when a numbered question option is chosen", async () => {
@@ -19,14 +25,13 @@ describe("Bee CLI session", () => {
       { load: async () => 7, save: async () => undefined },
       {
         fetch: async () => Response.json(null),
-        createClient: () =>
-          ({
-            send: async ({ message }: { message: { body: string } }) => {
-              prompts.push(message.body);
-              return { submissionId: `submission-${prompts.length}` };
-            },
-            read: async () => ({ text: replies.shift() ?? "Done." }),
-          }) as unknown as FlueClient,
+        createClient: () => ({
+          send: async ({ message }) => {
+            prompts.push(message.body);
+            return fakeAdmission(`submission-${prompts.length}`);
+          },
+          read: async () => ({ text: replies.shift() ?? "Done." }),
+        }),
       },
     );
 
@@ -61,53 +66,49 @@ describe("Bee CLI session", () => {
       { load: async () => 7, save: async () => undefined },
       {
         fetch: async () => Response.json(null),
-        createClient: () =>
-          ({
-            send: async () => ({ submissionId: "submission-1" }),
-            read: async (
-              _admission: unknown,
-              options: { onEvent?: (event: unknown) => void },
-            ) => {
-              const emit = options.onEvent;
-              emit?.({
-                type: "message-started",
-                conversationId: "conversation-1",
-                messageId: "message-1",
-                position: { batch: 1, index: 0 },
-              });
-              emit?.({
-                type: "message-delta",
-                conversationId: "conversation-1",
-                messageId: "message-1",
-                kind: "text",
-                delta: "I'm doing well, thanks! How are you?",
-                position: { batch: 1, index: 1 },
-              });
-              emit?.({
-                type: "message-started",
-                conversationId: "conversation-1",
-                messageId: "message-1",
-                position: { batch: 1, index: 2 },
-              });
-              emit?.({
-                type: "message-delta",
-                conversationId: "conversation-1",
-                messageId: "message-1",
-                kind: "text",
-                delta: "I'm doing great—thanks! What's on your mind?",
-                position: { batch: 1, index: 3 },
-              });
-              emit?.({
-                type: "message-completed",
-                conversationId: "conversation-1",
-                messageId: "message-1",
-                position: { batch: 1, index: 4 },
-              });
-              return {
-                text: "I'm doing well, thanks! How are you?\n\nI'm doing great—thanks! What's on your mind?",
-              };
-            },
-          }) as unknown as FlueClient,
+        createClient: () => ({
+          send: async () => fakeAdmission("submission-1"),
+          read: async (_admission, options) => {
+            const emit = options.onEvent;
+            emit?.({
+              type: "message-started",
+              conversationId: "conversation-1",
+              messageId: "message-1",
+              position: { batch: 1, index: 0 },
+            });
+            emit?.({
+              type: "message-delta",
+              conversationId: "conversation-1",
+              messageId: "message-1",
+              kind: "text",
+              delta: "I'm doing well, thanks! How are you?",
+              position: { batch: 1, index: 1 },
+            });
+            emit?.({
+              type: "message-started",
+              conversationId: "conversation-1",
+              messageId: "message-1",
+              position: { batch: 1, index: 2 },
+            });
+            emit?.({
+              type: "message-delta",
+              conversationId: "conversation-1",
+              messageId: "message-1",
+              kind: "text",
+              delta: "I'm doing great—thanks! What's on your mind?",
+              position: { batch: 1, index: 3 },
+            });
+            emit?.({
+              type: "message-completed",
+              conversationId: "conversation-1",
+              messageId: "message-1",
+              position: { batch: 1, index: 4 },
+            });
+            return {
+              text: "I'm doing well, thanks! How are you?\n\nI'm doing great—thanks! What's on your mind?",
+            };
+          },
+        }),
       },
     );
 
@@ -166,9 +167,9 @@ describe("Bee CLI session", () => {
         createClient: (options) => {
           conversations.push(options.url);
           return {
-            send: async () => ({ submissionId: "submission-1" }),
+            send: async () => fakeAdmission("submission-1"),
             read: async () => ({ text: "Keep going." }),
-          } as unknown as FlueClient;
+          };
         },
       },
     );
@@ -204,7 +205,7 @@ describe("Bee CLI session", () => {
         savedThread = threadId;
       },
     };
-    const actions: Record<string, unknown>[] = [];
+    const actions: JsonValue[] = [];
     const conversations: string[] = [];
     const session = createBeeSession(
       {
@@ -221,9 +222,9 @@ describe("Bee CLI session", () => {
         createClient: ({ url }) => {
           conversations.push(url);
           return {
-            send: async () => ({ submissionId: `submission-${url}` }),
+            send: async () => fakeAdmission(`submission-${url}`),
             read: async () => ({ text: "Done." }),
-          } as unknown as FlueClient;
+          };
         },
       },
     );
@@ -244,7 +245,7 @@ describe("Bee CLI session", () => {
 
   test("persists a first-focus confirmation before Bee acknowledges it", async () => {
     let thread: number | undefined = 7;
-    const actions: Record<string, unknown>[] = [];
+    const actions: JsonValue[] = [];
     const prompts: string[] = [];
     const replies = [
       `Ready.\n\`\`\`beeui\n{"components":[{"type":"first_focus","requestId":"request-1","goalTitle":"Ship BeeGreat","projectTitle":"CLI","taskTitle":"Verify confirmations"}]}\n\`\`\``,
@@ -267,14 +268,13 @@ describe("Bee CLI session", () => {
           actions.push(JSON.parse(String(init?.body)));
           return Response.json(null);
         },
-        createClient: () =>
-          ({
-            send: async ({ message }: { message: { body: string } }) => {
-              prompts.push(String(message.body));
-              return { submissionId: `submission-${prompts.length}` };
-            },
-            read: async () => ({ text: replies.shift() ?? "" }),
-          }) as unknown as FlueClient,
+        createClient: () => ({
+          send: async ({ message }) => {
+            prompts.push(String(message.body));
+            return fakeAdmission(`submission-${prompts.length}`);
+          },
+          read: async () => ({ text: replies.shift() ?? "" }),
+        }),
       },
     );
 
@@ -298,7 +298,7 @@ describe("Bee CLI session", () => {
   });
 
   test("checks canonical Web3 state before applying an exact yes decision", async () => {
-    const actions: Record<string, unknown>[] = [];
+    const actions: JsonValue[] = [];
     const prompts: string[] = [];
     const replies = [
       `Confirm this.\n\`\`\`beeui\n{"components":[{"type":"confirm","summary":"Swap 10 USDC for ETH","action":"web3","payload":{"web3ActionId":"action-1"}}]}\n\`\`\``,
@@ -313,13 +313,11 @@ describe("Bee CLI session", () => {
       { load: async () => 7, save: async () => undefined },
       {
         fetch: async (_input, init) => {
-          const action = JSON.parse(String(init?.body)) as Record<
-            string,
-            unknown
-          >;
+          const action: JsonValue = JSON.parse(String(init?.body));
           actions.push(action);
-          if (action.action === "confirm_web3") status = "confirmed";
-          return action.action === "get_web3_action"
+          const kind = isJsonObject(action) ? action.action : undefined;
+          if (kind === "confirm_web3") status = "confirmed";
+          return kind === "get_web3_action"
             ? Response.json({
                 id: "action-1",
                 summary: "Swap 10 USDC for ETH",
@@ -329,14 +327,13 @@ describe("Bee CLI session", () => {
               })
             : Response.json(null);
         },
-        createClient: () =>
-          ({
-            send: async ({ message }: { message: { body: string } }) => {
-              prompts.push(message.body);
-              return { submissionId: `submission-${prompts.length}` };
-            },
-            read: async () => ({ text: replies.shift() ?? "" }),
-          }) as unknown as FlueClient,
+        createClient: () => ({
+          send: async ({ message }) => {
+            prompts.push(message.body);
+            return fakeAdmission(`submission-${prompts.length}`);
+          },
+          read: async () => ({ text: replies.shift() ?? "" }),
+        }),
       },
     );
 
@@ -364,7 +361,7 @@ describe("Bee CLI session", () => {
   });
 
   test("does not arm text confirmation for a linked-wallet action", async () => {
-    const actions: Record<string, unknown>[] = [];
+    const actions: JsonValue[] = [];
     const prompts: string[] = [];
     const session = createBeeSession(
       {
@@ -375,12 +372,10 @@ describe("Bee CLI session", () => {
       { load: async () => 7, save: async () => undefined },
       {
         fetch: async (_input, init) => {
-          const action = JSON.parse(String(init?.body)) as Record<
-            string,
-            unknown
-          >;
+          const action: JsonValue = JSON.parse(String(init?.body));
           actions.push(action);
-          return action.action === "get_web3_action"
+          const kind = isJsonObject(action) ? action.action : undefined;
+          return kind === "get_web3_action"
             ? Response.json({
                 id: "action-eoa",
                 summary: "Claim fees from your linked wallet",
@@ -390,16 +385,15 @@ describe("Bee CLI session", () => {
               })
             : Response.json(null);
         },
-        createClient: () =>
-          ({
-            send: async ({ message }: { message: { body: string } }) => {
-              prompts.push(message.body);
-              return { submissionId: `submission-${prompts.length}` };
-            },
-            read: async () => ({
-              text: `\`\`\`beeui\n{"components":[{"type":"confirm","summary":"Claim fees","action":"web3","payload":{"web3ActionId":"action-eoa"}}]}\n\`\`\``,
-            }),
-          }) as unknown as FlueClient,
+        createClient: () => ({
+          send: async ({ message }) => {
+            prompts.push(message.body);
+            return fakeAdmission(`submission-${prompts.length}`);
+          },
+          read: async () => ({
+            text: `\`\`\`beeui\n{"components":[{"type":"confirm","summary":"Claim fees","action":"web3","payload":{"web3ActionId":"action-eoa"}}]}\n\`\`\``,
+          }),
+        }),
       },
     );
 

@@ -90,7 +90,7 @@ describe('trusted app-equivalent channel actions', () => {
   })
 
   test('the Worker exposes actions only through authenticated bridge identity', async () => {
-    const fetcher = mock(async (_input: unknown, init?: RequestInit) => {
+    const fetcher = mock(async (_input: string | URL | Request, init?: RequestInit) => {
       expect(JSON.parse(String(init?.body))).toEqual({
         userId: 'user_owner',
         operation: 'channel_complete_highlight',
@@ -107,6 +107,8 @@ describe('trusted app-equivalent channel actions', () => {
         honeycombScore: 1,
       })
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )
@@ -163,7 +165,7 @@ describe('trusted app-equivalent channel actions', () => {
   })
 
   test('the Worker registers a detached CLI thread for the trusted local client', async () => {
-    const fetcher = mock(async (_input: unknown, init?: RequestInit) => {
+    const fetcher = mock(async (_input: string | URL | Request, init?: RequestInit) => {
       expect(JSON.parse(String(init?.body))).toEqual({
         userId: 'user_owner',
         operation: 'channel_create_cli_thread',
@@ -171,6 +173,8 @@ describe('trusted app-equivalent channel actions', () => {
       })
       return Response.json({ threadId: 42 })
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )
@@ -220,7 +224,7 @@ describe('trusted app-equivalent channel actions', () => {
       .setIssuedAt()
       .setExpirationTime('5m')
       .sign(privateKey)
-    const fetcher = mock(async (input: unknown, init?: RequestInit) => {
+    const fetcher = mock(async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input)
       if (url === `${issuer}/.well-known/jwks.json`) {
         return Response.json({ keys: [{ ...publicJwk, kid: 'cli-key' }] })
@@ -231,6 +235,8 @@ describe('trusted app-equivalent channel actions', () => {
       })
       return Response.json({ threadId: 84 })
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )
@@ -268,7 +274,7 @@ describe('trusted app-equivalent channel actions', () => {
   })
 
   test('the Worker accepts an action-bound Web3 confirmation from the trusted bridge', async () => {
-    const fetcher = mock(async (_input: unknown, init?: RequestInit) => {
+    const fetcher = mock(async (_input: string | URL | Request, init?: RequestInit) => {
       expect(JSON.parse(String(init?.body))).toMatchObject({
         userId: 'user_owner',
         operation: 'channel_confirm_web3',
@@ -277,6 +283,8 @@ describe('trusted app-equivalent channel actions', () => {
       })
       return Response.json(null)
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )
@@ -318,7 +326,7 @@ describe('trusted app-equivalent channel actions', () => {
   })
 
   test('the Worker exposes canonical Web3 confirmation state only to the trusted bridge', async () => {
-    const fetcher = mock(async (_input: unknown, init?: RequestInit) => {
+    const fetcher = mock(async (_input: string | URL | Request, init?: RequestInit) => {
       expect(JSON.parse(String(init?.body))).toMatchObject({
         userId: 'user_owner',
         operation: 'channel_get_web3_action',
@@ -331,6 +339,8 @@ describe('trusted app-equivalent channel actions', () => {
         autoConfirmed: false,
       })
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )

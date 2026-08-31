@@ -31,10 +31,13 @@ const storage: Storage = {
     const entries = await AsyncStorage.multiGet(
       await AsyncStorage.getAllKeys(),
     );
-    return entries.flatMap(([key, value]) => {
+    return entries.flatMap(([key, value]): [string, T][] => {
       if (value === null) return [];
       try {
-        return [[key, JSON.parse(value) as T] as [string, T]];
+        // SAFETY: AppKit only reads back values it wrote through `setItem`
+        // (JSON.stringify of a `T`), so the parsed JSON is the stored `T`.
+        const parsed = JSON.parse(value) as T;
+        return [[key, parsed]];
       } catch {
         return [];
       }
@@ -43,6 +46,8 @@ const storage: Storage = {
   async getItem<T>(key: string) {
     const value = await AsyncStorage.getItem(key);
     if (value === null) return undefined;
+    // SAFETY: AppKit only reads back values it wrote through `setItem`
+    // (JSON.stringify of a `T`), so the parsed JSON is the stored `T`.
     return JSON.parse(value) as T;
   },
   async setItem<T>(key: string, value: T) {

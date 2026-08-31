@@ -19,13 +19,13 @@ import {
 } from './health-utils'
 import type { Mood } from './health-utils'
 
-const MOOD_IMAGES: Record<Mood, string> = {
+const MOOD_IMAGES = {
   awful: beeAwful,
   bad: beeBad,
   okay: beeOkay,
   good: beeGood,
   great: beeGreat,
-}
+} satisfies Record<Mood, string>
 
 export function HealthLayout() {
   return (
@@ -141,12 +141,10 @@ export function MoodPage() {
               role="radio"
               aria-checked={selected === mood.value}
               className={selected === mood.value ? 'is-selected' : ''}
-              style={
-                {
-                  '--mood': mood.color,
-                  '--mood-soft': mood.softColor,
-                } as React.CSSProperties
-              }
+              style={{
+                '--mood': mood.color,
+                '--mood-soft': mood.softColor,
+              }}
               onClick={() => void chooseMood(mood.value)}
             >
               <img src={MOOD_IMAGES[mood.value]} alt="" />

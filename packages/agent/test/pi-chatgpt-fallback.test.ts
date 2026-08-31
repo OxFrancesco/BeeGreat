@@ -6,6 +6,7 @@ import {
   type Context,
   type Model,
   type ProviderStreams,
+  type StreamOptions,
 } from '@earendil-works/pi-ai'
 import {
   withOpenRouterFallback,
@@ -56,9 +57,13 @@ function assistantMessage(
 
 function streamsEndingWith(
   terminal: (model: Model<Api>) => AssistantMessage,
-  onCall?: (options: unknown) => void,
+  onCall?: (options?: StreamOptions) => void,
 ): ProviderStreams {
-  const respond = (requestModel: Model<Api>, _: Context, options?: unknown) => {
+  const respond = (
+    requestModel: Model<Api>,
+    _: Context,
+    options?: StreamOptions,
+  ) => {
     onCall?.(options)
     const stream = createAssistantMessageEventStream()
     const message = terminal(requestModel)
@@ -82,7 +87,7 @@ const codexError = streamsEndingWith(() =>
 
 function openRouterReroute(
   overrides: Partial<OpenRouterReroute> = {},
-  onCall?: (options: unknown) => void,
+  onCall?: (options?: StreamOptions) => void,
 ): OpenRouterReroute {
   return {
     api: streamsEndingWith(
@@ -102,7 +107,7 @@ function openRouterReroute(
 
 describe('Codex → OpenRouter inference fallback', () => {
   test('reroutes a Codex provider error to the OpenRouter twin model', async () => {
-    let reroutedOptions: unknown
+    let reroutedOptions: StreamOptions | undefined
     const api = withOpenRouterFallback(
       codexError,
       openRouterReroute({}, (options) => {
@@ -118,10 +123,9 @@ describe('Codex → OpenRouter inference fallback', () => {
     expect(result.stopReason).toBe('stop')
     expect(result.provider).toBe('openrouter')
     expect(result.model).toBe('openai/gpt-5.6-terra')
-    const options = reroutedOptions as { apiKey?: string; headers?: unknown }
-    expect(options.apiKey).toBe('or-test-key')
+    expect(reroutedOptions?.apiKey).toBe('or-test-key')
     // The adapter secret must never be replayed against OpenRouter.
-    expect(options.headers).toBeUndefined()
+    expect(reroutedOptions?.headers).toBeUndefined()
   })
 
   test('keeps the Codex error when no OpenRouter key is configured', async () => {

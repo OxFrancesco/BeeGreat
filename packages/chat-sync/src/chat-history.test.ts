@@ -13,14 +13,15 @@ function message(
   text: string,
   submissionId?: string,
 ): FlueConversationMessage & { role: 'user' | 'assistant' } {
-  return {
+  const built: FlueConversationMessage & { role: 'user' | 'assistant' } = {
     id,
     role,
     purpose: role,
     display: 'visible',
-    ...(submissionId ? { submissionId } : {}),
     parts: [{ type: 'text', text, state: 'done' }],
   };
+  if (submissionId) built.submissionId = submissionId;
+  return built;
 }
 
 describe('chat history', () => {

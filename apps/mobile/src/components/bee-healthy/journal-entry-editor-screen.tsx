@@ -7,12 +7,14 @@ import {
   type JournalSaveState,
 } from '@beegreat/tool-presentation';
 import { useMutation, useQuery } from 'convex/react';
+import type { FunctionArgs } from 'convex/server';
 import * as Haptics from 'expo-haptics';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
+import { z } from 'zod';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -46,14 +48,16 @@ const BODY_MAX_LENGTH = 50_000;
 const TITLE_MAX_LENGTH = 160;
 const AUTOSAVE_DELAY_MS = 650;
 
-const PROMPTS: Record<Mood | 'unselected', string> = {
+const photoUploadResponseSchema = z.object({ storageId: z.string() });
+
+const PROMPTS = {
   awful: 'What would make today feel one percent gentler?',
   bad: 'What is taking up the most space in your mind?',
   okay: 'What do you want to notice before today passes?',
   good: 'What gave you a little energy today?',
   great: 'What do you want to remember from this feeling?',
   unselected: 'What do you want to remember from today?',
-};
+} satisfies Record<Mood | 'unselected', string>;
 
 // Draft comparison and save-state copy are shared with the web editor.
 type Draft = JournalDraft;
@@ -62,6 +66,9 @@ type SaveState = JournalSaveState;
 export function JournalEntryEditorScreen() {
   const theme = useTheme();
   const { entryId: routeEntryId } = useLocalSearchParams<{ entryId: string }>();
+  // SAFETY: This screen is only reached through links built from a Convex
+  // journal entry document (`/journal-entry/${entry.id}`), so the route param
+  // is an Id<'journalEntries'>.
   const entryId = routeEntryId as Id<'journalEntries'>;
   const entry = useQuery(api.journalEntries.get, entryId ? { entryId } : 'skip');
   const updateEntry = useMutation(api.journalEntries.update);
@@ -237,15 +244,19 @@ export function JournalEntryEditorScreen() {
           body: blob,
         });
         if (!response.ok) throw new Error('The photo upload did not finish.');
-        const { storageId } = (await response.json()) as { storageId: Id<'_storage'> };
-        await addPhoto({
+        const upload = photoUploadResponseSchema.parse(await response.json());
+        // SAFETY: Convex's generated upload URL responds with the id of the
+        // blob it stored, so the string is an Id<'_storage'>.
+        const storageId = upload.storageId as Id<'_storage'>;
+        const photoArgs: FunctionArgs<typeof api.journalEntries.addPhoto> = {
           entryId,
           storageId,
           mimeType,
-          ...(asset.fileName ? { fileName: asset.fileName } : {}),
           width: asset.width,
           height: asset.height,
-        });
+        };
+        if (asset.fileName) photoArgs.fileName = asset.fileName;
+        await addPhoto(photoArgs);
       }
       if (process.env.EXPO_OS === 'ios') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -268,10 +279,10 @@ export function JournalEntryEditorScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: () => {
-            void removePhoto({ attachmentId }).catch((error: unknown) => {
+            void removePhoto({ attachmentId }).catch((cause: unknown) => {
               Alert.alert(
                 'Could not remove this photo',
-                error instanceof Error ? error.message : undefined,
+                cause instanceof Error ? cause.message : undefined,
               );
             });
           },

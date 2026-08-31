@@ -1,10 +1,10 @@
 import Purchases, {
   PURCHASES_ERROR_CODE,
   type CustomerInfo,
-  type PurchasesError,
   type PurchasesOfferings,
   type PurchasesPackage,
 } from "react-native-purchases";
+import { z } from "zod";
 
 import {
   SubscriptionClientError,
@@ -24,17 +24,17 @@ function isClerkUserId(value: string): boolean {
   return /^user_[A-Za-z0-9]+$/.test(value);
 }
 
-function purchasesErrorCode(error: unknown): PURCHASES_ERROR_CODE | undefined {
-  if (!error || typeof error !== "object" || !("code" in error))
-    return undefined;
-  const code = (error as Partial<PurchasesError>).code;
-  return typeof code === "string" ? code : undefined;
+const purchasesErrorSchema = z.object({ code: z.enum(PURCHASES_ERROR_CODE) });
+
+function purchasesErrorCode(cause: unknown): PURCHASES_ERROR_CODE | undefined {
+  const parsed = purchasesErrorSchema.safeParse(cause);
+  return parsed.success ? parsed.data.code : undefined;
 }
 
-function normalizedError(error: unknown): SubscriptionClientError {
-  if (error instanceof SubscriptionClientError) return error;
+function normalizedError(cause: unknown): SubscriptionClientError {
+  if (cause instanceof SubscriptionClientError) return cause;
 
-  const code = purchasesErrorCode(error);
+  const code = purchasesErrorCode(cause);
   let normalizedCode: SubscriptionClientErrorCode = "unknown";
   let message =
     "BeeGreat Pro could not connect to the App Store. Please try again.";

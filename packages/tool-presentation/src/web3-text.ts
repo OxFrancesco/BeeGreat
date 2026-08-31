@@ -106,16 +106,16 @@ export function projectTextWeb3Action(
     };
   }
 
-  const titles: Record<
-    Exclude<TextWeb3Action["status"], "pending" | "confirmed" | "in_progress">,
-    string
-  > = {
+  const titles = {
     executed: "Web3 action complete",
     failed: "Web3 action failed",
     refunded: "Web3 action refunded",
     cancelled: "Web3 action cancelled",
     expired: "Web3 confirmation expired",
-  };
+  } satisfies Record<
+    Exclude<TextWeb3Action["status"], "pending" | "confirmed" | "in_progress">,
+    string
+  >;
   return {
     text: [
       titles[action.status],

@@ -1,5 +1,5 @@
 export function getPreference(key: string) {
-  if (typeof window === 'undefined') {
+  if (!('window' in globalThis)) {
     return null;
   }
 

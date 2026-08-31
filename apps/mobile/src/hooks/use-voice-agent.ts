@@ -1,7 +1,6 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { useFlueAgent } from '@flue/react';
 import { api } from '@beegreat/backend/convex/_generated/api';
-import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
 import {
   AudioModule,
@@ -33,7 +32,7 @@ import {
 } from '@/lib/preferences';
 import { BEE_AGENT_LIVE_MODE } from '@/lib/flue-transport';
 import { captureMobileFailure } from '@/lib/sentry';
-import { getToolCopy } from '@/lib/tool-labels';
+import { getToolCopy, type ToolCallPayload } from '@/lib/tool-labels';
 import { extractBeeUI } from '@/lib/ui-spec';
 import { synthesizeSpeech, transcribeRecording } from '@/lib/voice-api';
 
@@ -245,7 +244,7 @@ export function useVoiceAgent() {
         try {
           const result = await completeHighlight({
             requestId: `complete-highlight:${highlight.highlightId}`,
-            taskId: highlight.taskId as Id<'tasks'>,
+            taskId: highlight.taskId,
           });
           await agent.sendMessage(
             `[BeeGreat app event] Highlight "${highlight.title}" was completed successfully. The verified award was ${result.honeyAwarded} Honey and ${result.scoreAwarded} Honeycomb Score. Acknowledge this completion and reward only; do not call a completion tool or create, update, or mutate any data again.`,
@@ -378,9 +377,15 @@ export function useVoiceAgent() {
           .filter((part) => part.type === 'dynamic-tool' && part.state === 'input-available')
           .at(-1)
       : undefined;
+  // SAFETY: Flue delivers tool inputs over its JSON wire protocol, so the
+  // running tool's input is a JSON payload.
   const activityDetail =
     runningTool?.type === 'dynamic-tool'
-      ? getToolCopy(runningTool.toolName, 'running', runningTool.input).label
+      ? getToolCopy(
+          runningTool.toolName,
+          'running',
+          runningTool.input as ToolCallPayload,
+        ).label
       : '';
   useBeeLiveActivity(orbState, activityDetail);
 

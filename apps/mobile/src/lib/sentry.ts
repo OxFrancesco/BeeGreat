@@ -61,13 +61,16 @@ Sentry.init({
   maxBreadcrumbs: 75,
 });
 
+/** Structured context attached to a handled failure report. */
+type FailureExtras = Record<string, string | number | boolean | null | undefined>;
+
 /** Reports a failure that the UI handled before it could reach an error boundary. */
 export function captureMobileFailure(
-  error: unknown,
+  cause: unknown,
   operation: string,
-  extra?: Record<string, unknown>,
+  extra?: FailureExtras,
 ) {
-  const normalized = toError(error);
+  const normalized = toError(cause);
   if (
     normalized.name === 'AbortError' ||
     /(?:cancelled|canceled|dismissed) by (?:the )?user/i.test(normalized.message)

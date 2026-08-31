@@ -322,7 +322,7 @@ function AmountPicker({
 }
 
 function hasWebNfc() {
-  return typeof window !== 'undefined' && Boolean(window.NDEFReader)
+  return 'window' in globalThis && Boolean(window.NDEFReader)
 }
 
 export function PublicTapPage({ publicId }: { publicId: string }) {
@@ -367,19 +367,18 @@ export function PublicTapPage({ publicId }: { publicId: string }) {
 }
 
 /** Per-action-type copy; the run → success/duplicate → undo flow is shared. */
-const TAP_PRESENTATIONS: Record<
-  TapExecution['action']['definition']['type'],
-  {
-    glyph: string
-    glyphClass: string
-    duplicateTitle: string
-    successTitle: (result: TapExecution) => string
-    successBody: (result: TapExecution) => string
-    undoneTitle: string
-    undoneBody: string
-    cta: { to: string; label: string }
-  }
-> = {
+type TapPresentation = {
+  glyph: string
+  glyphClass: string
+  duplicateTitle: string
+  successTitle: (result: TapExecution) => string
+  successBody: (result: TapExecution) => string
+  undoneTitle: string
+  undoneBody: string
+  cta: { to: string; label: string }
+}
+
+const TAP_PRESENTATIONS = {
   hydration: {
     glyph: '●',
     glyphClass: 'tap-result-icon is-water',
@@ -402,7 +401,10 @@ const TAP_PRESENTATIONS: Record<
     undoneBody: 'The completion from this tap was removed.',
     cta: { to: '/goals', label: 'Open Goals' },
   },
-}
+} satisfies Record<
+  TapExecution['action']['definition']['type'],
+  TapPresentation
+>
 
 function TapExecution({ publicId }: { publicId: string }) {
   const { localDate, timeZone } = useMemo(currentLocalDay, [])

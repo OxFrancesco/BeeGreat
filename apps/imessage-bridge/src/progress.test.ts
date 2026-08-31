@@ -12,6 +12,9 @@ type WithoutContext<T> = T extends unknown
 function event(
   value: WithoutContext<ConversationStreamChunk>,
 ): ConversationStreamChunk {
+  // SAFETY: `value` is one chunk-union member minus its context fields, so
+  // adding `conversationId` and `position` back restores exactly that member;
+  // TypeScript cannot recompose a distributed Omit union through a spread.
   return {
     conversationId: 'conversation-1',
     position,

@@ -36,21 +36,7 @@ function undoneMl(undone: UndoResult) {
 
 /** Per-action-type copy and styling; everything else in this screen is the
  * shared run → success/duplicate → undo flow. */
-const PRESENTATIONS: Record<
-  ActionType,
-  {
-    symbol: SymbolViewProps['name'];
-    glyph: string;
-    colors: (theme: Theme) => { background: string; foreground: string };
-    route: Href;
-    cta: string;
-    duplicateTitle: string;
-    successTitle: (result: Execution) => string;
-    successBody: (result: Execution) => string;
-    undoneTitle: string;
-    undoneBody: (undone: UndoResult) => string;
-  }
-> = {
+const PRESENTATIONS = {
   hydration: {
     symbol: 'drop.fill',
     glyph: '●',
@@ -79,13 +65,27 @@ const PRESENTATIONS: Record<
     undoneBody: (undone) =>
       `${undone.action.label} is back to ${completionCopy(undone.action.completionCount)}.`,
   },
-};
+} satisfies Record<
+  ActionType,
+  {
+    symbol: SymbolViewProps['name'];
+    glyph: string;
+    colors: (theme: Theme) => { background: string; foreground: string };
+    route: Href;
+    cta: string;
+    duplicateTitle: string;
+    successTitle: (result: Execution) => string;
+    successBody: (result: Execution) => string;
+    undoneTitle: string;
+    undoneBody: (undone: UndoResult) => string;
+  }
+>;
 
 export function NfcActionExecutionScreen() {
   const theme = useTheme();
   const params = useLocalSearchParams<{ publicId?: string | string[] }>();
   const publicId = Array.isArray(params.publicId) ? params.publicId[0] : params.publicId;
-  const validPublicId = typeof publicId === 'string' && /^[a-f0-9]{32}$/.test(publicId);
+  const validPublicId = publicId !== undefined && /^[a-f0-9]{32}$/.test(publicId);
   const { localDate, timeZone } = useCurrentLocalDay();
   const execute = useMutation(api.nfcActions.execute);
   const undo = useMutation(api.nfcActions.undo);

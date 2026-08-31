@@ -34,6 +34,11 @@ export function Web3ConfirmCard({
   onReply?: (text: string) => void;
 }) {
   const theme = useTheme();
+  // SAFETY: The beeui contract's `web3ActionId` payload is produced by the
+  // agent from a Convex web3Actions document, so the string is an
+  // Id<'web3Actions'>; the ownership-scoped status query returns null for
+  // anything else.
+  const web3ActionId = actionId as Id<'web3Actions'>;
   const confirmAction = useMutation(api.web3Actions.confirm);
   const cancelAction = useMutation(api.web3Actions.cancel);
   const beginEoaExecution = useMutation(api.web3Actions.beginEoaExecution);
@@ -49,7 +54,7 @@ export function Web3ConfirmCard({
   // The status query is ownership-scoped (null for anyone else), so it is
   // safe to subscribe immediately — needed to detect YOLO auto-confirmation.
   const live = useQuery(api.web3Actions.status, {
-    actionId: actionId as Id<'web3Actions'>,
+    actionId: web3ActionId,
   });
   const autoConfirmed = live?.autoConfirmed === true;
   const isEoaAction = live?.kind === 'execute_eoa_plan';
@@ -86,7 +91,7 @@ export function Web3ConfirmCard({
     try {
       if (isEoaAction) {
         const plan = await beginEoaExecution({
-          actionId: actionId as Id<'web3Actions'>,
+          actionId: web3ActionId,
         });
         eoaClaimed = true;
         try {
@@ -96,13 +101,13 @@ export function Web3ConfirmCard({
             chainId: plan.chainId,
             buildPlan: async () => {
               const refreshed = await refreshEoaExecution({
-                actionId: actionId as Id<'web3Actions'>,
+                actionId: web3ActionId,
               });
               return refreshed.transactionSteps;
             },
             onSubmitted: async ({ index, hash, role }) => {
               await recordEoaSubmission({
-                actionId: actionId as Id<'web3Actions'>,
+                actionId: web3ActionId,
                 index,
                 hash,
                 role,
@@ -110,7 +115,7 @@ export function Web3ConfirmCard({
             },
             onConfirmed: async ({ index, hash }) => {
               await recordEoaReceipt({
-                actionId: actionId as Id<'web3Actions'>,
+                actionId: web3ActionId,
                 index,
                 hash,
               });
@@ -118,13 +123,13 @@ export function Web3ConfirmCard({
           });
         } catch (cause) {
           await reportEoaFailure({
-            actionId: actionId as Id<'web3Actions'>,
+            actionId: web3ActionId,
             reason: eoaFailureReason(cause),
           });
           throw cause;
         }
       } else {
-        await confirmAction({ actionId: actionId as Id<'web3Actions'> });
+        await confirmAction({ actionId: web3ActionId });
       }
       setDecision('confirmed');
       onReply?.(
@@ -150,7 +155,7 @@ export function Web3ConfirmCard({
     if (decision !== 'idle') return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setDecision('declined');
-    cancelAction({ actionId: actionId as Id<'web3Actions'> }).catch(() => {
+    cancelAction({ actionId: web3ActionId }).catch(() => {
       // Cancelling a stale or unknown action is a no-op.
     });
     onReply?.('No, I declined the action.');

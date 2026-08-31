@@ -1,5 +1,6 @@
 'use client'
 
+import { toError } from '@beegreat/observability'
 import { Button } from '~/components/ui/button'
 import {
   Select,
@@ -61,6 +62,9 @@ const addKeysToTokens = (lines: ThemedToken[][]): KeyedLine[] =>
 const TokenSpan = ({ token }: { token: ThemedToken }) => (
   <span
     className="dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)]"
+    // SAFETY: shiki's `htmlStyle` is a record of CSS declarations meant for
+    // inline styles, so merging it over the literal keeps a valid style object
+    // even though its open string keys cannot be proven to be CSS properties.
     style={
       {
         backgroundColor: token.bgColor,
@@ -175,7 +179,8 @@ const createRawTokens = (code: string): TokenizedCode => ({
           {
             color: 'inherit',
             content: line,
-          } as ThemedToken,
+            offset: 0,
+          } satisfies ThemedToken,
         ],
   ),
 })
@@ -469,7 +474,7 @@ export const CodeBlockCopyButton = ({
   const { code } = useContext(CodeBlockContext)
 
   const copyToClipboard = useCallback(async () => {
-    if (typeof window === 'undefined' || !navigator?.clipboard?.writeText) {
+    if (!('window' in globalThis) || !navigator?.clipboard?.writeText) {
       onError?.(new Error('Clipboard API not available'))
       return
     }
@@ -484,8 +489,8 @@ export const CodeBlockCopyButton = ({
           timeout,
         )
       }
-    } catch (error) {
-      onError?.(error as Error)
+    } catch (cause) {
+      onError?.(toError(cause, 'Copying the code did not finish.'))
     }
   }, [code, onCopy, onError, timeout, isCopied])
 

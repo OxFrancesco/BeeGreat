@@ -4,6 +4,7 @@ import Animated, {
   FadeInDown,
   useReducedMotion,
 } from 'react-native-reanimated';
+import { z } from 'zod';
 
 import { FirstFocusPreviewCard } from '@/components/first-focus/first-focus-preview-card';
 import { ThemedText } from '@/components/themed-text';
@@ -21,6 +22,9 @@ import { MetricCard } from './cards/metric-card';
 import { QuestionCard } from './cards/question-card';
 import { TaskListCard } from './cards/task-list-card';
 import { Web3ConfirmCard } from './cards/web3-confirm-card';
+
+/** A confirm card is action-bound only through a non-empty string action id. */
+const web3ActionIdSchema = z.string().min(1);
 
 /** Renders the agent's `beeui` spec as native cards streaming in below the pill. */
 export function GeneratedUI({
@@ -80,12 +84,14 @@ function UIComponentView({
     case 'first_focus':
       return <FirstFocusPreviewCard preview={component} />;
     case 'confirm': {
-      const web3ActionId = component.payload?.web3ActionId;
-      if (typeof web3ActionId === 'string' && web3ActionId.length > 0) {
+      const web3ActionId = web3ActionIdSchema.safeParse(
+        component.payload?.web3ActionId,
+      );
+      if (web3ActionId.success) {
         return (
           <Web3ConfirmCard
             summary={component.summary}
-            actionId={web3ActionId}
+            actionId={web3ActionId.data}
             onReply={onReply}
           />
         );

@@ -2,8 +2,18 @@ import {
   getToolCopy as getSharedToolCopy,
   type ToolActivityState,
 } from "@beegreat/tool-presentation";
+import { z } from "zod";
 
-const TOOL_SYMBOLS: Record<string, string> = {
+/** JSON payload the agent transport attaches to a tool call. */
+export type ToolCallPayload =
+  | string
+  | number
+  | boolean
+  | null
+  | ToolCallPayload[]
+  | { [key: string]: ToolCallPayload };
+
+const TOOL_SYMBOLS = new Map(Object.entries({
   search_mind: "magnifyingglass",
   telegram_connection_status: "paperplane",
   send_telegram_message: "paperplane.fill",
@@ -66,13 +76,13 @@ const TOOL_SYMBOLS: Record<string, string> = {
   edit_image: "wand.and.stars",
   generate_video: "film",
   edit_video: "film",
-};
+}));
 
-function taskSymbol(input: unknown) {
-  const agent =
-    typeof input === "object" && input !== null && "agent" in input
-      ? String((input as { agent?: unknown }).agent ?? "")
-      : "";
+const taskInputSchema = z.object({ agent: z.string() });
+
+function taskSymbol(input: ToolCallPayload | undefined) {
+  const parsed = taskInputSchema.safeParse(input);
+  const agent = parsed.success ? parsed.data.agent : "";
   if (agent === "goals") return "scope";
   if (
     agent === "web3" ||
@@ -90,7 +100,7 @@ export type { ToolActivityState };
 export function getToolCopy(
   name: string,
   state: ToolActivityState,
-  input?: unknown,
+  input?: ToolCallPayload,
 ) {
   const copy = getSharedToolCopy(name, state, input);
   const symbol =
@@ -98,6 +108,6 @@ export function getToolCopy(
       ? "exclamationmark.triangle"
       : name === "task"
         ? taskSymbol(input)
-        : (TOOL_SYMBOLS[name] ?? "sparkles");
+        : (TOOL_SYMBOLS.get(name) ?? "sparkles");
   return { ...copy, symbol };
 }

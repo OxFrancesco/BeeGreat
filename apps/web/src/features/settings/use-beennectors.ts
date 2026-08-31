@@ -1,6 +1,7 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { useAction, useQuery } from 'convex/react'
 import { useCallback, useEffect, useRef } from 'react'
+import type { FunctionArgs } from 'convex/server'
 import type { GoogleWorkspaceService } from '@beegreat/tool-presentation'
 
 export type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google'
@@ -49,15 +50,14 @@ export function useBeennectors() {
       popupRef.current = popup
       let authorizationUrl: string
       try {
-        ;({ authorizationUrl } = await beginAuthorization({
-          provider,
-          ...(provider === 'google' && google
-            ? {
-                googleServices: google.services,
-                googleDisclosureVersion: google.disclosureVersion,
-              }
-            : {}),
-        }))
+        const request: FunctionArgs<
+          typeof api.beennectorAuthActions.beginAuthorization
+        > = { provider }
+        if (provider === 'google' && google) {
+          request.googleServices = google.services
+          request.googleDisclosureVersion = google.disclosureVersion
+        }
+        ;({ authorizationUrl } = await beginAuthorization(request))
       } catch (error) {
         popup.close()
         popupRef.current = null

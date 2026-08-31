@@ -7,6 +7,7 @@ import {
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
+import type { FunctionArgs } from 'convex/server'
 import {
   GOOGLE_WORKSPACE_DISCLOSURE,
   GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
@@ -28,53 +29,80 @@ type Connector = {
   kind: 'beennector' | 'telegram' | 'google-health' | 'chatgpt' | 'powerup'
 }
 
-const CONNECTORS: Record<string, Connector | undefined> = {
-  github: {
-    name: 'GitHub',
-    description: 'Let Bee read your issues and pull requests.',
-    kind: 'beennector',
-  },
-  linear: {
-    name: 'Linear',
-    description: 'Let Bee read your assigned issues and comments.',
-    kind: 'beennector',
-  },
-  notion: {
-    name: 'Notion',
-    description: 'Let Bee read pages you explicitly share.',
-    kind: 'beennector',
-  },
-  google: {
-    name: 'Google Workspace',
-    description: 'Choose the Google Workspace services Bee may use for your requests.',
-    kind: 'beennector',
-  },
-  telegram: {
-    name: 'Telegram',
-    description: 'Let Bee send notes and updates straight to you.',
-    kind: 'telegram',
-  },
-  'google-health': {
-    name: 'Google Health',
-    description: 'Give Bee read-only access to your health data.',
-    kind: 'google-health',
-  },
-  chatgpt: {
-    name: 'ChatGPT',
-    description: 'Run Bee on your ChatGPT subscription.',
-    kind: 'chatgpt',
-  },
-  devin: {
-    name: 'Devin',
-    description: 'Send coding tasks to Devin in the cloud.',
-    kind: 'powerup',
-  },
-  web3: {
-    name: 'Web3',
-    description: 'Give Bee a smart wallet for onchain actions.',
-    kind: 'powerup',
-  },
-}
+const CONNECTORS = new Map<string, Connector>([
+  [
+    'github',
+    {
+      name: 'GitHub',
+      description: 'Let Bee read your issues and pull requests.',
+      kind: 'beennector',
+    },
+  ],
+  [
+    'linear',
+    {
+      name: 'Linear',
+      description: 'Let Bee read your assigned issues and comments.',
+      kind: 'beennector',
+    },
+  ],
+  [
+    'notion',
+    {
+      name: 'Notion',
+      description: 'Let Bee read pages you explicitly share.',
+      kind: 'beennector',
+    },
+  ],
+  [
+    'google',
+    {
+      name: 'Google Workspace',
+      description: 'Choose the Google Workspace services Bee may use for your requests.',
+      kind: 'beennector',
+    },
+  ],
+  [
+    'telegram',
+    {
+      name: 'Telegram',
+      description: 'Let Bee send notes and updates straight to you.',
+      kind: 'telegram',
+    },
+  ],
+  [
+    'google-health',
+    {
+      name: 'Google Health',
+      description: 'Give Bee read-only access to your health data.',
+      kind: 'google-health',
+    },
+  ],
+  [
+    'chatgpt',
+    {
+      name: 'ChatGPT',
+      description: 'Run Bee on your ChatGPT subscription.',
+      kind: 'chatgpt',
+    },
+  ],
+  [
+    'devin',
+    {
+      name: 'Devin',
+      description: 'Send coding tasks to Devin in the cloud.',
+      kind: 'powerup',
+    },
+  ],
+  [
+    'web3',
+    {
+      name: 'Web3',
+      description: 'Give Bee a smart wallet for onchain actions.',
+      kind: 'powerup',
+    },
+  ],
+])
 
 export const Route = createFileRoute('/connect/$provider')({
   component: ConnectPage,
@@ -82,7 +110,7 @@ export const Route = createFileRoute('/connect/$provider')({
 
 function ConnectPage() {
   const { provider } = Route.useParams()
-  const connector = CONNECTORS[provider]
+  const connector = CONNECTORS.get(provider)
 
   return (
     <main className="gate-page">
@@ -248,15 +276,19 @@ function OauthFlow({
     try {
       let authorizationUrl: string
       if (kind === 'beennector') {
-        ;({ authorizationUrl } = await beginBeennector({
+        const request: FunctionArgs<
+          typeof api.beennectorAuthActions.beginAuthorization
+        > = {
+          // SAFETY: every CONNECTORS entry with kind 'beennector' is keyed by
+          // its BeennectorProvider name, so this branch only ever receives
+          // one of those four provider strings.
           provider: provider as BeennectorProvider,
-          ...(provider === 'google'
-            ? {
-                googleServices,
-                googleDisclosureVersion: GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
-              }
-            : {}),
-        }))
+        }
+        if (provider === 'google') {
+          request.googleServices = googleServices
+          request.googleDisclosureVersion = GOOGLE_WORKSPACE_DISCLOSURE_VERSION
+        }
+        ;({ authorizationUrl } = await beginBeennector(request))
       } else if (kind === 'telegram') {
         ;({ authorizationUrl } = await beginTelegram({ client: 'browser' }))
       } else {

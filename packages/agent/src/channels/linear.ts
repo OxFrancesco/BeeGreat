@@ -1,4 +1,6 @@
 import { createLinearChannel } from '@flue/linear'
+import type { JsonValue } from '@flue/runtime'
+import * as v from 'valibot'
 import { dispatchBee } from '../agents/bee.ts'
 import {
   beennectorAgentId,
@@ -6,21 +8,27 @@ import {
   claimBeennectorDelivery,
   signalAttributes,
 } from '../shared/beennectors/channel.ts'
-import { trustedCast } from '../shared/trusted-cast.ts'
+import { jsonRecordSchema, type JsonRecord } from '../shared/json.ts'
+
+const stringSchema = v.string()
+
+function asRecord(value: JsonValue | undefined): JsonRecord | undefined {
+  return v.is(jsonRecordSchema, value) ? value : undefined
+}
+
+function asString(value: JsonValue | undefined): string | null {
+  return v.is(stringSchema, value) ? value : null
+}
 
 export const channel = createLinearChannel({
   webhookSecret: channelSecret('LINEAR_WEBHOOK_SECRET'),
   async webhook({ payload, deliveryId }) {
-    const event = trustedCast<Record<string, unknown>>(payload)
-    const actor =
-      event.actor && typeof event.actor === 'object'
-        ? (event.actor as Record<string, unknown>)
-        : undefined
-    const actorId = typeof actor?.id === 'string' ? actor.id : undefined
-    const workspaceId =
-      typeof event.organizationId === 'string'
-        ? event.organizationId
-        : undefined
+    // Linear delivers JSON webhook payloads; decode once, then narrow the
+    // fields the signal needs.
+    const event: JsonRecord = v.is(jsonRecordSchema, payload) ? payload : {}
+    const actor = asRecord(event.actor)
+    const actorId = asString(actor?.id) ?? undefined
+    const workspaceId = asString(event.organizationId) ?? undefined
     const claim = await claimBeennectorDelivery({
       provider: 'linear',
       deliveryId,
@@ -29,16 +37,12 @@ export const channel = createLinearChannel({
     })
     if (claim.status !== 'accepted') return undefined
 
-    const data =
-      event.data && typeof event.data === 'object'
-        ? (event.data as Record<string, unknown>)
-        : undefined
+    const data = asRecord(event.data)
     const type = `linear.${String(event.type ?? 'event')}`
     const action = String(event.action ?? 'updated')
-    const identifier =
-      typeof data?.identifier === 'string' ? data.identifier : null
-    const title = typeof data?.title === 'string' ? data.title : null
-    const body = typeof data?.body === 'string' ? data.body : null
+    const identifier = asString(data?.identifier)
+    const title = asString(data?.title)
+    const body = asString(data?.body)
     await dispatchBee({
       id: beennectorAgentId(claim.userId, 'linear'),
       message: {
@@ -51,12 +55,12 @@ export const channel = createLinearChannel({
           deliveryId,
           action,
           organizationId: workspaceId ?? null,
-          actor: typeof actor?.name === 'string' ? actor.name : null,
-          itemId: typeof data?.id === 'string' ? data.id : null,
+          actor: asString(actor?.name),
+          itemId: asString(data?.id),
           identifier,
           title,
-          issueId: typeof data?.issueId === 'string' ? data.issueId : null,
-          url: typeof data?.url === 'string' ? data.url : null,
+          issueId: asString(data?.issueId),
+          url: asString(data?.url),
         }),
       },
     })

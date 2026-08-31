@@ -1,5 +1,6 @@
 import { api } from "@beegreat/backend/convex/_generated/api";
 import { useUser } from "@clerk/clerk-expo";
+import type { FunctionArgs } from "convex/server";
 import { useMutation, useQuery } from "convex/react";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -81,11 +82,12 @@ export default function PublicProfileScreen() {
   useEffect(() => {
     if (queriedProfile !== null || ensuring.current || !user) return;
     ensuring.current = true;
-    void ensureProfile({
+    const ensureArgs: FunctionArgs<typeof api.publicProfiles.ensureMine> = {
       displayName: user.fullName ?? user.username ?? "Beekeeper",
       suggestedHandle: user.username ?? user.fullName ?? "beekeeper",
-      ...(user.hasImage ? { avatarUrl: user.imageUrl } : {}),
-    })
+    };
+    if (user.hasImage) ensureArgs.avatarUrl = user.imageUrl;
+    void ensureProfile(ensureArgs)
       .then((created) => {
         // Render from the mutation immediately. The live query normally catches
         // up at once, but first-time provisioning should not depend on it.
@@ -142,16 +144,17 @@ export default function PublicProfileScreen() {
     setSaving(true);
     setError(null);
     try {
-      const saved = await saveProfile({
+      const saveArgs: FunctionArgs<typeof api.publicProfiles.saveMine> = {
         handle,
         displayName,
-        ...(bio.trim() ? { bio } : {}),
-        ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
         published,
         links: links
           .filter((link) => link.label.trim() && link.url.trim())
           .map(({ provider, label, url }) => ({ provider, label, url })),
-      });
+      };
+      if (bio.trim()) saveArgs.bio = bio;
+      if (profile.avatarUrl) saveArgs.avatarUrl = profile.avatarUrl;
+      const saved = await saveProfile(saveArgs);
       setHandle(saved.handle);
       setDisplayName(saved.displayName);
       setBio(saved.bio ?? "");

@@ -56,6 +56,7 @@ import {
 import {
   loadPowerupDefinitionsResult,
   type PowerupDefinition,
+  type PowerupRuntime,
 } from '../shared/powerups/index.ts'
 import { completionAuditSignal } from '../shared/completion-policy.ts'
 import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
@@ -101,10 +102,13 @@ function workerEnv(): BeeRuntimeEnv {
   try {
     return trustedCast<BeeRuntimeEnv>(getCloudflareContext().env)
   } catch {
-    return (
-      trustedCast<{ process?: { env?: BeeRuntimeEnv } }>(globalThis).process
-        ?.env ?? ({} as BeeRuntimeEnv)
-    )
+    const processEnv = trustedCast<{ process?: { env?: BeeRuntimeEnv } }>(
+      globalThis,
+    ).process?.env
+    // SAFETY: with no Worker context and no process env there is simply no
+    // configuration; every consumer of BeeRuntimeEnv already handles absent
+    // fields (missing CONVEX_URL fails fast where it is first used).
+    return processEnv ?? ({} as BeeRuntimeEnv)
   }
 }
 
@@ -258,8 +262,12 @@ async function warmSnapshot(userId: string, env: BeeRuntimeEnv): Promise<void> {
           userId,
           convexUrl: env.CONVEX_URL,
           runtime: focusOptions,
+          // The Worker platform guarantees `env.Sandbox` is the sandbox
+          // Durable Object binding the SDK expects.
           sandbox: sandboxSdk.getSandbox(
-            env.Sandbox as Parameters<typeof sandboxSdk.getSandbox>[0],
+            trustedCast<Parameters<typeof sandboxSdk.getSandbox>[0]>(
+              env.Sandbox,
+            ),
             `google-workspace-${userId}`,
             {
               // Google commands are stateless; release idle capacity quickly.
@@ -434,10 +442,12 @@ export function Bee({ id }: AgentProps) {
             convexUrl: env.CONVEX_URL,
             brokerSecret:
               env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
+            // The Worker platform guarantees `env.Sandbox` is the sandbox
+            // Durable Object binding the SDK expects.
             sandbox: snapshot.sandboxSdk.getSandbox(
-              env.Sandbox as Parameters<
-                typeof snapshot.sandboxSdk.getSandbox
-              >[0],
+              trustedCast<Parameters<typeof snapshot.sandboxSdk.getSandbox>[0]>(
+                env.Sandbox,
+              ),
               `bee-sites-${userId}`,
               {
                 // Site creation is multi-step, so retain the workspace between
@@ -460,15 +470,16 @@ export function Bee({ id }: AgentProps) {
     ...crawlerSubagents,
     ...(snapshot?.googleWorkspace ?? []),
     ...(snapshot?.beennectors ?? []),
-    ...(snapshot?.powerups.map((powerup) =>
-      powerup.profile(userId, env.CONVEX_URL, {
+    ...(snapshot?.powerups.map((powerup) => {
+      const powerupRuntime: PowerupRuntime = {
         convexSiteUrl: env.CONVEX_SITE_URL,
         credentialBrokerSecret:
           env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
         conversationId: id,
-        ...(jobRunId ? { jobRunId } : {}),
-      }),
-    ) ?? []),
+      }
+      if (jobRunId) powerupRuntime.jobRunId = jobRunId
+      return powerup.profile(userId, env.CONVEX_URL, powerupRuntime)
+    }) ?? []),
   ]
   for (const subagent of domainSubagents) useSubagent(subagent)
   useSubagent(

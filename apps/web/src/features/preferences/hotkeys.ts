@@ -7,33 +7,36 @@ export type HotkeyAction =
 
 export type HotkeyBindings = Record<HotkeyAction, Hotkey>
 
-export const HOTKEY_ACTION_LABELS: Record<HotkeyAction, string> = {
+export const HOTKEY_ACTION_LABELS = {
   bee: 'Open Bee',
   goals: 'Open Goals',
   hive: 'Open Hive',
   mind: 'Open Mind',
   talk: 'Talk to Bee',
   settings: 'Open Settings',
-}
+} satisfies Record<HotkeyAction, string>
 
-export const DEFAULT_HOTKEYS: HotkeyBindings = {
+export const DEFAULT_HOTKEYS = {
   bee: 'Mod+Shift+1',
   goals: 'Mod+Shift+2',
   hive: 'Mod+Shift+3',
   mind: 'Mod+Shift+4',
   talk: 'Mod+Shift+V',
   settings: 'Mod+Shift+S',
-}
+} satisfies HotkeyBindings
 
 const STORAGE_KEY = 'bee.hotkeys'
 const listeners = new Set<() => void>()
 let memoryValue: HotkeyBindings | undefined
 
-function readBindings(): HotkeyBindings {
+function readBindings() {
   if (memoryValue) return memoryValue
-  if (typeof window === 'undefined') return DEFAULT_HOTKEYS
+  if (!('window' in globalThis)) return DEFAULT_HOTKEYS
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
+    // SAFETY: `bee.hotkeys` is only written by `writeBindings`, which persists
+    // a JSON object of `Hotkey` strings keyed by `HotkeyAction`; TypeScript
+    // cannot re-derive the template-literal `Hotkey` union from parsed JSON.
     const stored = raw ? (JSON.parse(raw) as Partial<HotkeyBindings>) : {}
     memoryValue = { ...DEFAULT_HOTKEYS, ...stored }
   } catch {
@@ -44,7 +47,7 @@ function readBindings(): HotkeyBindings {
 
 function writeBindings(next: HotkeyBindings) {
   memoryValue = next
-  if (typeof window !== 'undefined') {
+  if ('window' in globalThis) {
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
     } catch {

@@ -2,6 +2,7 @@ import { api } from '@beegreat/backend/convex/_generated/api'
 import { useUser } from '@clerk/tanstack-react-start'
 import { useMutation, useQuery } from 'convex/react'
 import { useEffect, useRef, useState } from 'react'
+import type { FunctionArgs } from 'convex/server'
 
 import { captureWebFailure } from '~/lib/sentry'
 import { HoneyQrCode } from '~/components/honey-qr-code'
@@ -60,11 +61,12 @@ export function PublicProfileSettings() {
   useEffect(() => {
     if (profile !== null || ensuring.current || !user) return
     ensuring.current = true
-    void ensureProfile({
+    const seed: FunctionArgs<typeof api.publicProfiles.ensureMine> = {
       displayName: user.fullName ?? user.username ?? 'Beekeeper',
       suggestedHandle: user.username ?? user.fullName ?? 'beekeeper',
-      ...(user.hasImage ? { avatarUrl: user.imageUrl } : {}),
-    }).catch((cause) => {
+    }
+    if (user.hasImage) seed.avatarUrl = user.imageUrl
+    void ensureProfile(seed).catch((cause) => {
       captureWebFailure(cause, 'public_profile.ensure')
       setError('Could not prepare your public profile. Try again.')
       ensuring.current = false
@@ -115,16 +117,17 @@ export function PublicProfileSettings() {
     setError(undefined)
     setMessage(undefined)
     try {
-      const saved = await saveProfile({
+      const draft: FunctionArgs<typeof api.publicProfiles.saveMine> = {
         handle,
         displayName,
-        ...(bio.trim() ? { bio } : {}),
-        ...(profile.avatarUrl ? { avatarUrl: profile.avatarUrl } : {}),
         published,
         links: links
           .filter((link) => link.label.trim() && link.url.trim())
           .map(({ provider, label, url }) => ({ provider, label, url })),
-      })
+      }
+      if (bio.trim()) draft.bio = bio
+      if (profile.avatarUrl) draft.avatarUrl = profile.avatarUrl
+      const saved = await saveProfile(draft)
       setHandle(saved.handle)
       setDisplayName(saved.displayName)
       setBio(saved.bio ?? '')
@@ -268,11 +271,14 @@ export function PublicProfileSettings() {
             <select
               aria-label={`Link ${index + 1} provider`}
               value={link.provider}
-              onChange={(event) =>
-                updateLink(link.id, {
-                  provider: event.target.value as Provider,
-                })
-              }
+              onChange={(event) => {
+                // The select only offers PROVIDERS entries, so the emitted
+                // value always resolves to one of them.
+                const provider = PROVIDERS.find(
+                  (option) => option === event.target.value,
+                )
+                if (provider) updateLink(link.id, { provider })
+              }}
             >
               {PROVIDERS.map((provider) => (
                 <option key={provider} value={provider}>

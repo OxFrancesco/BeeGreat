@@ -12,7 +12,11 @@ describe('Astro Creator subagent', () => {
       model: 'openrouter/openai/gpt-5.6-terra',
       convexUrl: 'https://bee.convex.cloud',
       brokerSecret: 'broker-secret',
+      // SAFETY: this test only inspects tool/subagent metadata; the sandbox
+      // double is never invoked.
       sandbox: {} as never,
+      // SAFETY: this test only inspects tool/subagent metadata; the bucket
+      // double is never invoked.
       bucket: {} as never,
     }
     const definition = astroCreatorSubagent(options)

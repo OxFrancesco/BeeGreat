@@ -29,7 +29,7 @@ describe("Clerk CLI session", () => {
       {
         store,
         fetch: async (_input, init) => {
-          requests.push(init?.body as URLSearchParams);
+          if (init?.body instanceof URLSearchParams) requests.push(init.body);
           return Response.json({
             access_token: "fresh-access",
             refresh_token: "refresh-2",

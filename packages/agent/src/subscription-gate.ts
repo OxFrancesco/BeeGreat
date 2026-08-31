@@ -1,3 +1,19 @@
+import * as v from 'valibot'
+
+import { jsonValueSchema } from './shared/json.ts'
+
+// `expiresAt` stays loose here: it is only validated (finite, in the future)
+// when the subscription reports active.
+const subscriptionStatusSchema = v.object({
+  active: v.boolean(),
+  expiresAt: v.optional(jsonValueSchema),
+})
+
+const expiresAtSchema = v.pipe(
+  v.number(),
+  v.check((value: number) => Number.isFinite(value)),
+)
+
 export type SubscriptionGateEnv = {
   CONVEX_URL?: string
   CONVEX_SITE_URL?: string
@@ -55,20 +71,14 @@ export async function checkPaidSubscription(
   }
   if (!response.ok) return { status: 'unavailable', reason: 'upstream' }
 
-  const body = (await response.json().catch(() => null)) as {
-    active?: unknown
-    expiresAt?: unknown
-  } | null
-  if (!body || typeof body.active !== 'boolean') {
+  const rawBody = await response.json().catch(() => null)
+  if (!v.is(subscriptionStatusSchema, rawBody)) {
     return { status: 'unavailable', reason: 'invalid_response' }
   }
-  if (!body.active) return { status: 'inactive' }
-  if (
-    typeof body.expiresAt !== 'number' ||
-    !Number.isFinite(body.expiresAt) ||
-    body.expiresAt <= Date.now()
-  ) {
+  if (!rawBody.active) return { status: 'inactive' }
+  const expiresAt = rawBody.expiresAt
+  if (!v.is(expiresAtSchema, expiresAt) || expiresAt <= Date.now()) {
     return { status: 'unavailable', reason: 'invalid_response' }
   }
-  return { status: 'active', expiresAt: body.expiresAt }
+  return { status: 'active', expiresAt }
 }

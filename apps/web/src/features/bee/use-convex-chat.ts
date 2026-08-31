@@ -59,7 +59,10 @@ function useTranscriptSync(
     () =>
       new TranscriptSyncQueue(
         (messages) => sync({ threadId, messages }),
-        (error) => captureWebFailure(error, 'chat.sync_delta', { threadId }),
+        (error) =>
+          captureWebFailure(error, 'chat.sync_delta', {
+            threadId: String(threadId),
+          }),
       ),
     [sync, threadId],
   )

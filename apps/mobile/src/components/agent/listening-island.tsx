@@ -18,11 +18,11 @@ import { Spacing } from '@/constants/theme';
 
 const AMBER = '#FAB52A';
 
-const LABELS: Record<Exclude<OrbState, 'idle'>, string> = {
+const LABELS = {
   listening: 'Listening',
   thinking: 'Thinking',
   speaking: 'Speaking',
-};
+} satisfies Record<Exclude<OrbState, 'idle'>, string>;
 
 /**
  * In-app Dynamic Island companion: while the app is foregrounded iOS hides its

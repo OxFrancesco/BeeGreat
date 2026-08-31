@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
+import { isFiniteJsonNumber, isJsonObject, type JsonValue } from "./json";
 import type { ThreadStateStore } from "./session";
 
 type Environment = Record<string, string | undefined>;
@@ -52,12 +53,9 @@ export function resolveBeeCliConfig(
   const configHome =
     environment.XDG_CONFIG_HOME?.trim() || join(homedir(), ".config");
   const beeConfigHome = join(configHome, "beegreat");
-  return {
+  const config: ResolvedBeeCliConfig = {
     agentUrl,
     autoStartAgent: environment.BEE_AGENT_AUTOSTART !== "0",
-    ...(environment.BEE_PROJECT_ROOT?.trim()
-      ? { projectRoot: environment.BEE_PROJECT_ROOT.trim() }
-      : {}),
     clerkIssuer,
     clerkClientId,
     statePath:
@@ -71,6 +69,9 @@ export function resolveBeeCliConfig(
     agentLogPath:
       environment.BEE_AGENT_LOG_PATH?.trim() || join(beeConfigHome, "agent.log"),
   };
+  const projectRoot = environment.BEE_PROJECT_ROOT?.trim();
+  if (projectRoot) config.projectRoot = projectRoot;
+  return config;
 }
 
 export function createThreadStateStore(config: {
@@ -81,15 +82,13 @@ export function createThreadStateStore(config: {
   return {
     async load() {
       try {
-        const stored = JSON.parse(await readFile(config.statePath, "utf8")) as {
-          agentUrl?: unknown;
-          userId?: unknown;
-          threadId?: unknown;
-        };
-        return stored.agentUrl === config.agentUrl &&
+        const stored: JsonValue = JSON.parse(
+          await readFile(config.statePath, "utf8"),
+        );
+        return isJsonObject(stored) &&
+          stored.agentUrl === config.agentUrl &&
           stored.userId === config.userId &&
-          typeof stored.threadId === "number" &&
-          Number.isFinite(stored.threadId)
+          isFiniteJsonNumber(stored.threadId)
           ? stored.threadId
           : undefined;
       } catch {

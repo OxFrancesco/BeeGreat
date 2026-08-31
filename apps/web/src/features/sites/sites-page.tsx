@@ -27,8 +27,8 @@ export function siteEditPrompt(title: string, change: string) {
   return `Use Astro Creator to edit my existing Bee Site named "${title}". Requested change: ${change.trim()} Create a checked review preview and give me its link. Do not publish the changes yet.`
 }
 
-function messageFor(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback
+function messageFor(cause: unknown, fallback: string) {
+  return cause instanceof Error ? cause.message : fallback
 }
 
 export function SitesPage() {

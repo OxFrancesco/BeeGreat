@@ -1,5 +1,11 @@
 import { toError } from '@beegreat/observability'
 import * as Sentry from '@sentry/cloudflare'
+import * as v from 'valibot'
+
+const brokerCredentialSchema = v.object({
+  accessToken: v.string(),
+  expiresAt: v.number(),
+})
 
 export interface ChatGptCredentialEnv {
   CONVEX_URL: string
@@ -66,20 +72,14 @@ export async function resolveChatGptCredential(
     clearTimeout(timeout)
 
     if (response.ok) {
-      const body = (await response.json()) as {
-        accessToken?: unknown
-        expiresAt?: unknown
-      }
-      if (
-        typeof body.accessToken !== 'string' ||
-        typeof body.expiresAt !== 'number'
-      ) {
+      const body = v.safeParse(brokerCredentialSchema, await response.json())
+      if (!body.success) {
         return { status: 'unavailable' }
       }
       return {
         status: 'connected',
-        accessToken: body.accessToken,
-        expiresAt: body.expiresAt,
+        accessToken: body.output.accessToken,
+        expiresAt: body.output.expiresAt,
       }
     }
     if (response.status === 404) return { status: 'disconnected' }

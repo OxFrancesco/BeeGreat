@@ -41,9 +41,108 @@ type ScreenshotPlan = {
   };
 };
 
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type JsonRecord = { [key: string]: JsonValue };
+
+function isJsonRecord(value: JsonValue | undefined): value is JsonRecord {
+  return value !== null && value !== undefined && !Array.isArray(value) && Object(value) === value;
+}
+
+function isJsonString(value: JsonValue | undefined): value is string {
+  return String(value) === value;
+}
+
+function parseRecord(value: JsonValue | undefined, label: string): JsonRecord {
+  if (!isJsonRecord(value)) throw new Error(`${label} must be a JSON object`);
+  return value;
+}
+
+function parseString(value: JsonValue | undefined, label: string): string {
+  if (!isJsonString(value)) throw new Error(`${label} must be a string`);
+  return value;
+}
+
+function parseNumber(value: JsonValue | undefined, label: string): number {
+  // A JSON number is the only value that round-trips through Number unchanged.
+  const isNumber = (candidate: JsonValue | undefined): candidate is number =>
+    Number(candidate) === candidate;
+  if (!isNumber(value)) throw new Error(`${label} must be a number`);
+  return value;
+}
+
+function parseBoolean(value: JsonValue | undefined, label: string): boolean {
+  if (value !== true && value !== false) throw new Error(`${label} must be a boolean`);
+  return value;
+}
+
+function parseArray(value: JsonValue | undefined, label: string): JsonValue[] {
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  return value;
+}
+
+function parseStoreMetadata(value: JsonValue): StoreMetadata {
+  const record = parseRecord(value, 'metadata');
+  const subscription = parseRecord(record.subscription, 'metadata.subscription');
+  return {
+    appName: parseString(record.appName, 'metadata.appName'),
+    version: parseString(record.version, 'metadata.version'),
+    subtitle: parseString(record.subtitle, 'metadata.subtitle'),
+    promotionalText: parseString(record.promotionalText, 'metadata.promotionalText'),
+    description: parseString(record.description, 'metadata.description'),
+    keywords: parseString(record.keywords, 'metadata.keywords'),
+    supportUrl: parseString(record.supportUrl, 'metadata.supportUrl'),
+    marketingUrl: parseString(record.marketingUrl, 'metadata.marketingUrl'),
+    privacyPolicyUrl: parseString(record.privacyPolicyUrl, 'metadata.privacyPolicyUrl'),
+    termsUrl: parseString(record.termsUrl, 'metadata.termsUrl'),
+    copyright: parseString(record.copyright, 'metadata.copyright'),
+    primaryCategory: parseString(record.primaryCategory, 'metadata.primaryCategory'),
+    secondaryCategory: parseString(record.secondaryCategory, 'metadata.secondaryCategory'),
+    subscription: {
+      referenceName: parseString(subscription.referenceName, 'metadata.subscription.referenceName'),
+      productId: parseString(subscription.productId, 'metadata.subscription.productId'),
+      period: parseString(subscription.period, 'metadata.subscription.period'),
+      usPrice: parseString(subscription.usPrice, 'metadata.subscription.usPrice'),
+      freeTrial: parseBoolean(subscription.freeTrial, 'metadata.subscription.freeTrial'),
+    },
+  };
+}
+
+function parseScreenshotPlan(value: JsonValue): ScreenshotPlan {
+  const record = parseRecord(value, 'screenshot plan');
+  const review = parseRecord(record.subscriptionReview, 'screenshot plan.subscriptionReview');
+  return {
+    sets: parseArray(record.sets, 'screenshot plan.sets').map((entry, index) => {
+      const set = parseRecord(entry, `screenshot plan.sets[${index}]`);
+      return {
+        key: parseString(set.key, `screenshot plan.sets[${index}].key`),
+        label: parseString(set.label, `screenshot plan.sets[${index}].label`),
+        width: parseNumber(set.width, `screenshot plan.sets[${index}].width`),
+        height: parseNumber(set.height, `screenshot plan.sets[${index}].height`),
+      };
+    }),
+    shots: parseArray(record.shots, 'screenshot plan.shots').map((entry, index) => {
+      const shot = parseRecord(entry, `screenshot plan.shots[${index}]`);
+      return {
+        order: parseNumber(shot.order, `screenshot plan.shots[${index}].order`),
+        slug: parseString(shot.slug, `screenshot plan.shots[${index}].slug`),
+        headline: parseString(shot.headline, `screenshot plan.shots[${index}].headline`),
+        state: parseString(shot.state, `screenshot plan.shots[${index}].state`),
+      };
+    }),
+    subscriptionReview: {
+      setKey: parseString(review.setKey, 'screenshot plan.subscriptionReview.setKey'),
+      filename: parseString(review.filename, 'screenshot plan.subscriptionReview.filename'),
+      requirements: parseArray(review.requirements, 'screenshot plan.subscriptionReview.requirements').map(
+        (entry, index) =>
+          parseString(entry, `screenshot plan.subscriptionReview.requirements[${index}]`),
+      ),
+    },
+  };
+}
+
 const root = new URL('./', import.meta.url);
-const metadata = (await Bun.file(new URL('metadata/en-US.json', root)).json()) as StoreMetadata;
-const screenshotPlan = (await Bun.file(new URL('screenshot-plan.json', root)).json()) as ScreenshotPlan;
+const metadata = parseStoreMetadata(await Bun.file(new URL('metadata/en-US.json', root)).json());
+const screenshotPlan = parseScreenshotPlan(await Bun.file(new URL('screenshot-plan.json', root)).json());
 const reviewNotesFile = await Bun.file(new URL('review-notes.md', root)).text();
 
 const failures: string[] = [];

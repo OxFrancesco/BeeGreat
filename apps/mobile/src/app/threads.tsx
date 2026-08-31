@@ -33,9 +33,9 @@ export default function ThreadsScreen() {
       <ThreadsScreenView
         threads={fixture.threads}
         active={fixture.activeThread}
-        activateThread={async () => {}}
+        activateThread={async () => null}
         createThread={async () => 0}
-        setThreadArchived={async () => {}}
+        setThreadArchived={async () => null}
       />
     );
   }
@@ -66,9 +66,9 @@ function ThreadsScreenView({
 }: {
   threads: ChatThread[];
   active: number;
-  activateThread: (threadId: number) => Promise<unknown>;
-  createThread: () => Promise<unknown>;
-  setThreadArchived: (threadId: number, archived: boolean) => Promise<unknown>;
+  activateThread: (threadId: number) => Promise<null>;
+  createThread: () => Promise<number>;
+  setThreadArchived: (threadId: number, archived: boolean) => Promise<null>;
 }) {
   const theme = useTheme();
   const [showArchived, setShowArchived] = useState(false);

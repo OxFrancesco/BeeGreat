@@ -28,7 +28,9 @@ export type BeeQuestion = {
 };
 
 /** Parses the bounded question contract shared by every text channel. */
-export function parseBeeQuestion(value: unknown): BeeQuestion | undefined {
+export function parseBeeQuestion<Candidate>(
+  value: Candidate,
+): BeeQuestion | undefined {
   const parsed = questionComponentSchema.safeParse(value);
   return parsed.success ? { questions: parsed.data.questions } : undefined;
 }

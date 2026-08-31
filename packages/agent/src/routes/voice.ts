@@ -1,9 +1,24 @@
 import type { Hono } from 'hono'
+import * as v from 'valibot'
 import {
   binding,
   captureWorkerFailure,
   type AppEnvironment,
 } from '../app-env.ts'
+import { trustedCast } from '../shared/trusted-cast.ts'
+
+/** ElevenLabs Scribe transcription (documented 200-response shape). */
+type ScribeTranscription = {
+  text: string
+  language_code?: string
+}
+
+const realtimeTokenSchema = v.object({
+  value: v.pipe(v.string(), v.minLength(1)),
+  expires_at: v.number(),
+})
+
+const speakBodySchema = v.object({ text: v.optional(v.string()) })
 
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1'
 const XAI_REALTIME_CLIENT_SECRETS =
@@ -83,10 +98,8 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
       )
     }
 
-    const result = (await response.json()) as {
-      text: string
-      language_code?: string
-    }
+    // ElevenLabs guarantees the Scribe response shape on HTTP 200.
+    const result = trustedCast<ScribeTranscription>(await response.json())
     return c.json({
       text: result.text,
       languageCode: result.language_code ?? null,
@@ -142,11 +155,8 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
       )
     }
 
-    const result = (await response.json()) as {
-      value?: string
-      expires_at?: number
-    }
-    if (!result.value || typeof result.expires_at !== 'number') {
+    const result = v.safeParse(realtimeTokenSchema, await response.json())
+    if (!result.success) {
       captureWorkerFailure(
         new Error('xAI realtime token response was malformed'),
         'voice.realtime.response',
@@ -158,14 +168,16 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
     }
 
     c.header('cache-control', 'no-store')
-    return c.json({ token: result.value, expiresAt: result.expires_at })
+    return c.json({
+      token: result.output.value,
+      expiresAt: result.output.expires_at,
+    })
   })
 
   // Text-to-speech: `{ text }` in, base64 mp3 out (React Native writes it to a file to play).
   app.post('/voice/speak', async (c) => {
-    const body = (await c.req.json().catch(() => null)) as {
-      text?: string
-    } | null
+    const rawBody = await c.req.json().catch(() => null)
+    const body = v.is(speakBodySchema, rawBody) ? rawBody : null
     const text = body?.text?.trim()
     if (!text) {
       return c.json({ error: 'Send `text` to speak.' }, 400)

@@ -6,7 +6,7 @@
 
 import type { DeliveredAttachment } from '@flue/sdk'
 import type { Space } from 'spectrum-ts'
-import type { AgentTransport } from './agent-transport'
+import type { AgentTransport, FirstFocusActionInput } from './agent-transport'
 import {
   isFirstFocusCancellation,
   isFirstFocusConfirmation,
@@ -36,15 +36,16 @@ export type PromptResolution = {
 }
 
 function firstFocusActionInput(preview: FirstFocusPreview) {
-  return {
+  const input: FirstFocusActionInput = {
     requestId: preview.requestId,
     goalTitle: preview.goalTitle,
     projectTitle: preview.projectTitle,
     taskTitle: preview.taskTitle,
-    ...(preview.highlightExpiresAt
-      ? { highlightExpiresAt: preview.highlightExpiresAt }
-      : {}),
   }
+  if (preview.highlightExpiresAt) {
+    input.highlightExpiresAt = preview.highlightExpiresAt
+  }
+  return input
 }
 
 export async function resolvePromptReply(input: {

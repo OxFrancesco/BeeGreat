@@ -17,13 +17,13 @@ import {
 
 export { SCREENSHOT_SHOTS, isScreenshotShot, type ScreenshotShot };
 
-export const SCREENSHOT_HEADLINES: Record<ScreenshotShot, string> = {
+export const SCREENSHOT_HEADLINES = {
   'bee-focus': 'Turn goals into your next step',
   'goals-plan': 'Know exactly what to do next',
   'hive-progress': 'Make focused progress visible',
   'voice-with-bee': 'Talk it through with Bee',
   'mind-bookmarks': 'Keep useful ideas close',
-};
+} satisfies Record<ScreenshotShot, string>;
 
 type ScreenshotStoryTask = {
   title: string;
@@ -31,28 +31,24 @@ type ScreenshotStoryTask = {
   highlight?: boolean;
 };
 
-export const SCREENSHOT_STORY: {
-  goal: string;
-  finalGoal: string;
-  project: string;
-  tasks: ScreenshotStoryTask[];
-  honey: number;
-  honeycombScore: number;
-  royalJelly: number;
-} = {
+const SCREENSHOT_STORY_TASKS: ScreenshotStoryTask[] = [
+  { title: 'Prepare breakfast the night before', done: true },
+  { title: 'Start with a 10-minute stretch', done: false, highlight: true },
+  { title: 'Review the routine after one week', done: false },
+];
+
+export const SCREENSHOT_STORY = {
   goal: 'Build calmer mornings',
   finalGoal: 'Start work feeling clear, prepared, and unhurried.',
   project: 'Weekday morning routine',
-  tasks: [
-    { title: 'Prepare breakfast the night before', done: true },
-    { title: 'Start with a 10-minute stretch', done: false, highlight: true },
-    { title: 'Review the routine after one week', done: false },
-  ],
+  tasks: SCREENSHOT_STORY_TASKS,
   honey: 68,
   honeycombScore: 240,
   royalJelly: 3,
 };
 
+// SAFETY: Screenshot fixtures fabricate Convex document ids purely for offline
+// rendering in the dev harness; they are never sent to a real Convex backend.
 const fixtureId = <TableName extends TableNames>(value: string) =>
   value as Id<TableName>;
 

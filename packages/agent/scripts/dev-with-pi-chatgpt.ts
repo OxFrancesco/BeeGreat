@@ -1,7 +1,11 @@
 import { chmod, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { openaiCodexProvider } from '@earendil-works/pi-ai/providers/openai-codex'
+import type { JsonValue } from '@flue/runtime'
 import lockfile from 'proper-lockfile'
+import * as v from 'valibot'
+
+import { jsonValueSchema } from '../src/shared/json.ts'
 
 const PROVIDER = 'openai-codex'
 const REFRESH_EARLY_MS = 5 * 60 * 1000
@@ -9,32 +13,29 @@ const REFRESH_EARLY_MS = 5 * 60 * 1000
 const AGENT_PORT = 3583
 const AUTH_LOCK_STALE_MS = 30_000
 
-interface OAuthCredential {
-  type: 'oauth'
-  access: string
-  refresh: string
-  expires: number
-  accountId?: string
-}
+/** Pi's own stored OAuth credential shape, as its refresh helper returns it. */
+type PiOAuthCredential = Awaited<
+  ReturnType<
+    NonNullable<ReturnType<typeof openaiCodexProvider>['auth']['oauth']>['refresh']
+  >
+>
 
-type AuthFile = Record<string, OAuthCredential | Record<string, unknown>>
+const oauthCredentialSchema = v.looseObject({
+  type: v.literal('oauth'),
+  access: v.string(),
+  refresh: v.string(),
+  expires: v.number(),
+})
+
+const authFileSchema = v.record(v.string(), jsonValueSchema)
+
+type AuthFile = Record<string, JsonValue | PiOAuthCredential | undefined>
 
 function piAuthPath(): string {
   const home = process.env.HOME
   if (!home) throw new Error('HOME is not set, so Pi credentials cannot be located.')
   const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(home, '.pi', 'agent')
   return join(agentDir, 'auth.json')
-}
-
-function isOAuthCredential(value: unknown): value is OAuthCredential {
-  if (typeof value !== 'object' || value === null) return false
-  const credential = value as Partial<OAuthCredential>
-  return (
-    credential.type === 'oauth' &&
-    typeof credential.access === 'string' &&
-    typeof credential.refresh === 'string' &&
-    typeof credential.expires === 'number'
-  )
 }
 
 async function readAuth(path: string): Promise<AuthFile> {
@@ -45,11 +46,11 @@ async function readAuth(path: string): Promise<AuthFile> {
     )
   }
 
-  const value = (await file.json()) as unknown
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+  const value = await file.json()
+  if (!v.is(authFileSchema, value)) {
     throw new Error(`Pi's auth file is malformed: ${path}`)
   }
-  return value as AuthFile
+  return value
 }
 
 async function writeAuth(path: string, auth: AuthFile): Promise<void> {
@@ -98,7 +99,7 @@ async function currentAccessToken(): Promise<string> {
   const path = piAuthPath()
   let auth = await readAuth(path)
   let credential = auth[PROVIDER]
-  if (!isOAuthCredential(credential)) {
+  if (!v.is(oauthCredentialSchema, credential)) {
     throw new Error(`Pi is not logged into OpenAI Codex. Run \`pi\`, use \`/login\`, and select OpenAI Codex.`)
   }
 
@@ -108,7 +109,7 @@ async function currentAccessToken(): Promise<string> {
     // Pi may have refreshed the rotating token while this launcher waited.
     auth = await readAuth(path)
     credential = auth[PROVIDER]
-    if (!isOAuthCredential(credential)) {
+    if (!v.is(oauthCredentialSchema, credential)) {
       throw new Error('Pi OpenAI Codex credentials disappeared while waiting for the auth lock.')
     }
     if (credential.expires > Date.now() + REFRESH_EARLY_MS) return credential.access

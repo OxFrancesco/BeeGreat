@@ -3,7 +3,9 @@ import type { PublicProfile } from '../lib/profiles'
 import BaseLayout from '../layouts/BaseLayout.astro'
 import BeeMark from './BeeMark.astro'
 
-const { profile } = Astro.props as { profile: PublicProfile }
+type Props = { profile: PublicProfile }
+
+const { profile } = Astro.props
 const description = profile.bio || `Meet ${profile.displayName} on BeeGreat.`
 const initials = profile.displayName
   .split(/\s+/)
@@ -11,7 +13,7 @@ const initials = profile.displayName
   .map((part) => part[0])
   .join('')
   .toUpperCase()
-const providerMarks: Record<string, string> = {
+const providerMarks = {
   instagram: '◎', linkedin: 'in', x: '𝕏', github: '⌘', youtube: '▶',
   tiktok: '♪', facebook: 'f', website: '↗', other: '↗',
 }

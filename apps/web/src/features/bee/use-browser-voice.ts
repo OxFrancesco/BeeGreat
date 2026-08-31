@@ -9,7 +9,7 @@ import { captureWebFailure } from '~/lib/sentry'
 type GetToken = () => Promise<string | null>
 
 function supportedRecordingType() {
-  if (typeof MediaRecorder === 'undefined') return undefined
+  if (!('MediaRecorder' in globalThis)) return undefined
   return ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find((type) =>
     MediaRecorder.isTypeSupported(type),
   )
@@ -173,7 +173,7 @@ export function useBrowserVoice({
       activeRecorder.stop()
       return
     }
-    if (typeof MediaRecorder === 'undefined') {
+    if (!('MediaRecorder' in globalThis)) {
       setVoiceError('This browser does not support microphone recording.')
       return
     }

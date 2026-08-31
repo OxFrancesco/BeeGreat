@@ -11,7 +11,7 @@ import {
   vec,
 } from '@shopify/react-native-skia';
 import { Image } from 'expo-image';
-import { Link, type Href } from 'expo-router';
+import { Link } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { memo, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -60,7 +60,7 @@ export const BookmarkCell = memo(function BookmarkCell({
 }) {
   const href = { pathname: '/mind/[bookmarkId]' as const, params: { bookmarkId: bookmark._id } };
   return (
-    <Link href={href as unknown as Href} asChild>
+    <Link href={href} asChild>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${bookmark.title ?? sourceLabel(bookmark)}`}

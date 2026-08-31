@@ -2,6 +2,10 @@ import type { JsonValue } from '@flue/runtime'
 import { defineTool } from '@flue/runtime'
 import * as v from 'valibot'
 
+import { trustedCast } from './trusted-cast'
+
+const serviceErrorSchema = v.object({ error: v.string() })
+
 export type MindServiceOptions = {
   convexSiteUrl?: string
   brokerSecret?: string
@@ -22,7 +26,7 @@ export async function callMindService<T extends JsonValue = JsonValue>(
   convexUrl: string,
   options: MindServiceOptions,
   operation: 'search' | 'list' | 'get' | 'save' | 'update' | 'delete',
-  input: Record<string, unknown> = {},
+  input: Record<string, JsonValue | undefined> = {},
 ): Promise<T> {
   const secret = options.brokerSecret?.trim()
   if (!secret) {
@@ -43,21 +47,14 @@ export async function callMindService<T extends JsonValue = JsonValue>(
         signal: controller.signal,
       },
     )
-    const body = (await response.json().catch(() => null)) as
-      | { error?: unknown }
-      | T
-      | null
+    const body = await response.json().catch(() => null)
     if (!response.ok) {
-      const message =
-        body &&
-        typeof body === 'object' &&
-        'error' in body &&
-        typeof body.error === 'string'
-          ? body.error
-          : `Mind service failed (HTTP ${response.status})`
+      const message = v.is(serviceErrorSchema, body)
+        ? body.error
+        : `Mind service failed (HTTP ${response.status})`
       throw new Error(message)
     }
-    return body as T
+    return trustedCast<T>(body)
   } finally {
     clearTimeout(timeout)
   }

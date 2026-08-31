@@ -1,5 +1,11 @@
 import { startOAuthCallback } from "./callback-server";
 import type { ClerkCredentials, CredentialStore } from "./credential-store";
+import {
+  isFiniteJsonNumber,
+  isJsonObject,
+  isJsonString,
+  type JsonValue,
+} from "./json";
 import { createPkce, randomState } from "./oauth";
 
 type ClerkAuthConfig = {
@@ -32,21 +38,26 @@ async function defaultOpenBrowser(url: string) {
   }
 }
 
-function tokenResponse(value: unknown): TokenResponse {
-  if (!value || typeof value !== "object")
+function tokenResponse(value: JsonValue): TokenResponse {
+  if (!isJsonObject(value))
     throw new Error("Clerk returned an invalid token response.");
-  const record = value as Record<string, unknown>;
   if (
-    typeof record.access_token !== "string" ||
-    typeof record.expires_in !== "number"
+    !isJsonString(value.access_token) ||
+    !isFiniteJsonNumber(value.expires_in)
   ) {
-    const description =
-      typeof record.error_description === "string"
-        ? record.error_description
-        : "Clerk did not return an access token.";
+    const description = isJsonString(value.error_description)
+      ? value.error_description
+      : "Clerk did not return an access token.";
     throw new Error(description);
   }
-  return record as TokenResponse;
+  const tokens: TokenResponse = {
+    access_token: value.access_token,
+    expires_in: value.expires_in,
+  };
+  if (isJsonString(value.refresh_token)) {
+    tokens.refresh_token = value.refresh_token;
+  }
+  return tokens;
 }
 
 export function createClerkCliAuth(
@@ -65,7 +76,7 @@ export function createClerkCliAuth(
       headers: { "content-type": "application/x-www-form-urlencoded" },
       body,
     });
-    const value: unknown = await response.json().catch(() => null);
+    const value: JsonValue = await response.json().catch(() => null);
     if (!response.ok)
       throw new Error(`Clerk token exchange failed (HTTP ${response.status}).`);
     return tokenResponse(value);
@@ -75,12 +86,11 @@ export function createClerkCliAuth(
     const response = await fetcher(`${issuer}/oauth/userinfo`, {
       headers: { authorization: `Bearer ${accessToken}` },
     });
-    const value = (await response.json().catch(() => null)) as Record<
-      string,
-      unknown
-    > | null;
-    const subject = value && (value.sub ?? value.user_id);
-    if (!response.ok || typeof subject !== "string") {
+    const value: JsonValue = await response.json().catch(() => null);
+    const subject = isJsonObject(value)
+      ? (value.sub ?? value.user_id)
+      : undefined;
+    if (!response.ok || !isJsonString(subject)) {
       throw new Error("Clerk could not identify the signed-in user.");
     }
     return subject;

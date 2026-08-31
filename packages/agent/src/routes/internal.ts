@@ -1,4 +1,5 @@
 import type { Hono } from 'hono'
+import * as v from 'valibot'
 import { dispatchBee } from '../agents/bee.ts'
 import {
   binding,
@@ -6,6 +7,7 @@ import {
   type AppContext,
   type AppEnvironment,
 } from '../app-env.ts'
+import { jsonRecordSchema } from '../shared/json.ts'
 
 /** Convex authenticates to these routes with the server-only broker secret. */
 function brokerSecretMatches(c: AppContext) {
@@ -20,30 +22,78 @@ function brokerSecretMatches(c: AppContext) {
   )
 }
 
+const userIdSchema = v.pipe(v.string(), v.regex(/^user_[A-Za-z0-9]+$/))
+
+function isConversationOf(userId: string, conversationId: string) {
+  return (
+    conversationId === userId ||
+    new RegExp(`^${userId}~[0-9]+$`).test(conversationId)
+  )
+}
+
+const accountDeletionSchema = v.pipe(
+  v.object({
+    userId: userIdSchema,
+    conversationIds: v.pipe(v.array(v.string()), v.maxLength(250)),
+  }),
+  v.check(({ userId, conversationIds }) =>
+    conversationIds.every((id) => isConversationOf(userId, id)),
+  ),
+)
+
+/**
+ * Strictly-validated fields of a settled-action event. Extra descriptive
+ * fields (kind, detail, error, explorerLink) stay unvalidated on purpose:
+ * they are copied into signal attributes only when they are strings.
+ */
+const web3SettledSchema = v.pipe(
+  v.object({
+    userId: userIdSchema,
+    conversationId: v.string(),
+    actionId: v.string(),
+    summary: v.string(),
+    continuation: v.nullish(
+      v.pipe(v.string(), v.minLength(1), v.maxLength(1_000)),
+    ),
+    jobRunId: v.nullish(v.string()),
+    status: v.picklist(['executed', 'failed', 'refunded', 'expired']),
+  }),
+  v.check(({ userId, conversationId }) =>
+    isConversationOf(userId, conversationId),
+  ),
+)
+
+const attributeStringSchema = v.string()
+
+const jobRunSchema = v.object({
+  runId: v.string(),
+  jobId: v.string(),
+  userId: userIdSchema,
+  threadId: v.pipe(
+    v.number(),
+    v.check((value: number) => Number.isSafeInteger(value)),
+    v.minValue(1),
+  ),
+  title: v.pipe(v.string(), v.maxLength(80)),
+  instruction: v.pipe(v.string(), v.maxLength(8_000)),
+  scheduledFor: v.number(),
+  dispatchId: v.pipe(v.string(), v.maxLength(256)),
+  delivery: v.pipe(v.array(v.picklist(['app', 'telegram'])), v.maxLength(2)),
+})
+
 export function registerInternalRoutes(app: Hono<AppEnvironment>) {
   app.post('/internal/account-deletion', async (c) => {
     if (!brokerSecretMatches(c)) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
-    const body = (await c.req.json().catch(() => null)) as {
-      userId?: unknown
-      conversationIds?: unknown
-    } | null
-    if (
-      !body ||
-      typeof body.userId !== 'string' ||
-      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-      !Array.isArray(body.conversationIds) ||
-      body.conversationIds.length > 250 ||
-      body.conversationIds.some(
-        (id) =>
-          typeof id !== 'string' ||
-          (id !== body.userId &&
-            !new RegExp(`^${body.userId}~[0-9]+$`).test(id)),
-      )
-    ) {
+    const parsed = v.safeParse(
+      accountDeletionSchema,
+      await c.req.json().catch(() => null),
+    )
+    if (!parsed.success) {
       return c.json({ error: 'Invalid deletion request' }, 400)
     }
+    const body = parsed.output
 
     const conversationIds = [...new Set(body.conversationIds)]
     for (let index = 0; index < conversationIds.length; index += 20) {
@@ -81,58 +131,39 @@ export function registerInternalRoutes(app: Hono<AppEnvironment>) {
     if (!brokerSecretMatches(c)) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
-    const body = (await c.req.json().catch(() => null)) as {
-      userId?: unknown
-      conversationId?: unknown
-      actionId?: unknown
-      kind?: unknown
-      status?: unknown
-      summary?: unknown
-      continuation?: unknown
-      detail?: unknown
-      error?: unknown
-      explorerLink?: unknown
-      jobRunId?: unknown
-    } | null
-    const status = body?.status
-    if (
-      !body ||
-      typeof body.userId !== 'string' ||
-      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-      typeof body.conversationId !== 'string' ||
-      (body.conversationId !== body.userId &&
-        !new RegExp(`^${body.userId}~[0-9]+$`).test(body.conversationId)) ||
-      typeof body.actionId !== 'string' ||
-      typeof body.summary !== 'string' ||
-      (body.continuation !== undefined &&
-        body.continuation !== null &&
-        (typeof body.continuation !== 'string' ||
-          body.continuation.length < 1 ||
-          body.continuation.length > 1_000)) ||
-      (body.jobRunId !== undefined &&
-        body.jobRunId !== null &&
-        typeof body.jobRunId !== 'string') ||
-      (status !== 'executed' &&
-        status !== 'failed' &&
-        status !== 'refunded' &&
-        status !== 'expired')
-    ) {
+    const rawBody = await c.req.json().catch(() => null)
+    // The record view keeps the loose descriptive fields that the strict
+    // schema does not model; both parse the same decoded body exactly once.
+    if (!v.is(jsonRecordSchema, rawBody)) {
       return c.json({ error: 'Invalid settled-action event' }, 400)
     }
-    const attributes: Record<string, string> = {
-      actionId: body.actionId,
-      status,
+    const extras = rawBody
+    const parsed = v.safeParse(web3SettledSchema, rawBody)
+    if (!parsed.success) {
+      return c.json({ error: 'Invalid settled-action event' }, 400)
     }
-    if (typeof body.kind === 'string') attributes.kind = body.kind
-    if (typeof body.continuation === 'string') {
+    const body = parsed.output
+    const attributes: Record<string, string> = {}
+    attributes.actionId = body.actionId
+    attributes.status = body.status
+    if (v.is(attributeStringSchema, extras.kind)) {
+      attributes.kind = extras.kind
+    }
+    if (v.is(attributeStringSchema, body.continuation)) {
       attributes.continuation = body.continuation
     }
-    if (typeof body.detail === 'string') attributes.detail = body.detail
-    if (typeof body.error === 'string') attributes.error = body.error
-    if (typeof body.explorerLink === 'string') {
-      attributes.explorerLink = body.explorerLink
+    if (v.is(attributeStringSchema, extras.detail)) {
+      attributes.detail = extras.detail
     }
-    if (typeof body.jobRunId === 'string') attributes.jobRunId = body.jobRunId
+    if (v.is(attributeStringSchema, extras.error)) {
+      attributes.error = extras.error
+    }
+    if (v.is(attributeStringSchema, extras.explorerLink)) {
+      attributes.explorerLink = extras.explorerLink
+    }
+    if (v.is(attributeStringSchema, body.jobRunId)) {
+      attributes.jobRunId = body.jobRunId
+    }
     await dispatchBee({
       id: body.conversationId,
       message: {
@@ -150,42 +181,15 @@ export function registerInternalRoutes(app: Hono<AppEnvironment>) {
     if (!brokerSecretMatches(c)) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
-    const body = (await c.req.json().catch(() => null)) as {
-      runId?: unknown
-      jobId?: unknown
-      userId?: unknown
-      threadId?: unknown
-      title?: unknown
-      instruction?: unknown
-      delivery?: unknown
-      scheduledFor?: unknown
-      dispatchId?: unknown
-    } | null
-    if (
-      !body ||
-      typeof body.runId !== 'string' ||
-      typeof body.jobId !== 'string' ||
-      typeof body.userId !== 'string' ||
-      !/^user_[A-Za-z0-9]+$/.test(body.userId) ||
-      typeof body.threadId !== 'number' ||
-      !Number.isSafeInteger(body.threadId) ||
-      body.threadId < 1 ||
-      typeof body.title !== 'string' ||
-      body.title.length > 80 ||
-      typeof body.instruction !== 'string' ||
-      body.instruction.length > 8_000 ||
-      typeof body.scheduledFor !== 'number' ||
-      typeof body.dispatchId !== 'string' ||
-      body.dispatchId.length > 256 ||
-      !Array.isArray(body.delivery) ||
-      body.delivery.length > 2 ||
-      body.delivery.some(
-        (destination) => destination !== 'app' && destination !== 'telegram',
-      )
-    ) {
+    const parsed = v.safeParse(
+      jobRunSchema,
+      await c.req.json().catch(() => null),
+    )
+    if (!parsed.success) {
       return c.json({ error: 'Invalid Job run' }, 400)
     }
-    const destinations = body.delivery as Array<'app' | 'telegram'>
+    const body = parsed.output
+    const destinations = body.delivery
     const deliveryInstruction = destinations.includes('telegram')
       ? 'Before settling the run, send a concise useful result to the user with send_telegram_message.'
       : 'The result remains in this Job thread.'

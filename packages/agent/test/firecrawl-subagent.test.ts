@@ -21,7 +21,7 @@ describe('Firecrawl crawler subagent', () => {
 
     expect(definition.name).toBe('crawler')
     expect(definition.description).toContain('recurring page-change monitors')
-    expect(typeof definition.agent).toBe('function')
+    expect(definition.agent).toBeInstanceOf(Function)
   })
 
   test('discovers tools once and reuses the live MCP connection', async () => {

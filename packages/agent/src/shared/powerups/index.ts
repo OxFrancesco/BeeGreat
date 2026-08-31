@@ -7,18 +7,18 @@ import { googleHealth } from './google-health.ts'
 import { web3 } from './web3.ts'
 import { devin } from './devin.ts'
 
-export type { PowerupDefinition } from './types.ts'
+export type { PowerupDefinition, PowerupRuntime } from './types.ts'
 
 export type PowerupDefinitionLoad =
   | { status: 'available'; definitions: PowerupDefinition[] }
   | { status: 'unavailable' }
 
 /** Every power-up the agent knows how to load, keyed by catalog id. */
-const REGISTRY: Record<string, PowerupDefinition> = {
-  [devin.id]: devin,
-  [web3.id]: web3,
-  [googleHealth.id]: googleHealth,
-}
+const REGISTRY = new Map<string, PowerupDefinition>([
+  [devin.id, devin],
+  [web3.id, web3],
+  [googleHealth.id, googleHealth],
+])
 
 /**
  * Resolves which power-ups the user enabled (Convex `powerups` table) and
@@ -81,7 +81,7 @@ export async function loadPowerupDefinitionsResult(
   return {
     status: 'available',
     definitions: enabledIds
-      .map((id) => REGISTRY[id])
+      .map((id) => REGISTRY.get(id))
       .filter((powerup): powerup is PowerupDefinition => powerup !== undefined),
   }
 }

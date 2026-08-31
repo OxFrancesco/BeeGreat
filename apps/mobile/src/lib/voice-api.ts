@@ -1,6 +1,15 @@
 import { File, Paths } from 'expo-file-system';
+import { z } from 'zod';
 
 import { AGENT_URL, getAuthHeaders } from '@/lib/flue';
+
+const transcriptionResponseSchema = z.object({ text: z.string() });
+const speechResponseSchema = z.object({ audio: z.string() });
+const realtimeTokenResponseSchema = z.object({
+  token: z.string(),
+  expiresAt: z.number(),
+});
+const errorResponseSchema = z.object({ error: z.string().optional() });
 
 export async function transcribeRecording(uri: string): Promise<string> {
   // Raw bytes instead of FormData: Expo's WinterCG fetch rejects RN-style
@@ -10,13 +19,13 @@ export async function transcribeRecording(uri: string): Promise<string> {
   const response = await fetch(`${AGENT_URL}/voice/transcribe`, {
     method: 'POST',
     headers: { 'content-type': 'audio/m4a', ...(await getAuthHeaders()) },
-    // RN's fetch types lag behind Expo's WinterCG fetch, which accepts typed arrays.
-    body: bytes as unknown as BodyInit,
+    // Re-wrap: bytesSync() is typed over ArrayBufferLike, BodyInit wants ArrayBuffer.
+    body: new Uint8Array(bytes),
   });
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, 'Transcription failed.'));
   }
-  const { text } = (await response.json()) as { text: string };
+  const { text } = transcriptionResponseSchema.parse(await response.json());
   return text.trim();
 }
 
@@ -30,7 +39,7 @@ export async function synthesizeSpeech(text: string): Promise<string> {
   if (!response.ok) {
     throw new Error(await readErrorMessage(response, 'Speech synthesis failed.'));
   }
-  const { audio } = (await response.json()) as { audio: string };
+  const { audio } = speechResponseSchema.parse(await response.json());
 
   const file = new File(Paths.cache, `bee-tts-${Date.now()}.mp3`);
   file.create();
@@ -51,13 +60,13 @@ export async function createRealtimeVoiceToken(): Promise<{
       await readErrorMessage(response, 'Conversational voice could not start.'),
     );
   }
-  return (await response.json()) as { token: string; expiresAt: number };
+  return realtimeTokenResponseSchema.parse(await response.json());
 }
 
 /** Prefers the worker's `{ error }` message so the UI shows the real cause. */
 async function readErrorMessage(response: Response, fallback: string): Promise<string> {
-  const body = (await response.json().catch(() => null)) as { error?: string } | null;
-  return body?.error ?? `${fallback} (HTTP ${response.status})`;
+  const body = errorResponseSchema.safeParse(await response.json().catch(() => null));
+  return (body.success ? body.data.error : undefined) ?? `${fallback} (HTTP ${response.status})`;
 }
 
 function base64ToBytes(base64: string): Uint8Array {

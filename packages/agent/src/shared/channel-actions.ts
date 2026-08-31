@@ -34,7 +34,7 @@ export async function callChannelAction<T extends JsonValue = JsonValue>(
   options: ChannelActionOptions,
   userId: string,
   action: ChannelActionName,
-  input: Record<string, unknown> = {},
+  input: Record<string, JsonValue | undefined> = {},
   fetcher: typeof fetch = fetch,
 ): Promise<T> {
   return await callFocusService<T>(

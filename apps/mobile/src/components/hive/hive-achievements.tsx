@@ -1,5 +1,5 @@
 import { Canvas, Path } from "@shopify/react-native-skia";
-import { SymbolView } from "expo-symbols";
+import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { useMemo } from "react";
 import { StyleSheet, View } from "react-native";
 
@@ -164,7 +164,9 @@ function Badge({
   const iconTint = unlocked ? tier.icon : theme.textSecondary;
   const title = hidden ? "???" : badge.title;
   const caption = hidden ? "Keep buzzing to reveal" : badge.caption;
-  const icon = hidden ? "questionmark" : unlocked ? badge.icon : "lock.fill";
+  // SAFETY: Badge definitions only store valid SF Symbol names, and SymbolView
+  // renders the provided fallback glyph for any name the platform does not know.
+  const icon = (hidden ? "questionmark" : unlocked ? badge.icon : "lock.fill") as SymbolViewProps["name"];
 
   return (
     <View
@@ -181,7 +183,7 @@ function Badge({
         <View style={StyleSheet.absoluteFill}>
           <View style={styles.iconCenter}>
             <SymbolView
-              name={icon as never}
+              name={icon}
               size={24}
               tintColor={iconTint}
               fallback={

@@ -15,10 +15,7 @@ export {
 } from '@beegreat/tool-presentation'
 
 /** Splits Bee's response into conversational copy and validated web UI. */
-export function extractBeeUI(text: string): {
-  spoken: string
-  components: Array<UIComponent>
-} {
+export function extractBeeUI(text: string) {
   const { spoken, components } = extractBeeUi(text)
   // The web app is BeeGreat itself: skip cards this build cannot render yet.
   return {

@@ -20,6 +20,9 @@ type Goal = NonNullable<FunctionReturnType<typeof api.goals.get>>
 type Project = Goal['projects'][number]
 
 export function GoalPage({ goalId }: { goalId: string }) {
+  // SAFETY: the route param carries the `goals` document id this page was
+  // linked with; Convex validates the id shape and the page renders the
+  // missing state when a stale or foreign id resolves to null.
   const id = goalId as Id<'goals'>
   const goal = useQuery(api.goals.get, { goalId: id })
   const createProject = useMutation(api.projects.create)
@@ -77,7 +80,9 @@ export function GoalPage({ goalId }: { goalId: string }) {
           ))}
           <InlineCreate
             label="New project"
-            onCreate={(title) => createProject({ goalId: id, title })}
+            onCreate={async (title) => {
+              await createProject({ goalId: id, title })
+            }}
           />
         </div>
       </section>
@@ -87,7 +92,9 @@ export function GoalPage({ goalId }: { goalId: string }) {
           noun="goal"
           initialValue={goal.title}
           onClose={() => setRenameGoal(false)}
-          onSave={(title) => updateGoal({ goalId: id, title })}
+          onSave={async (title) => {
+            await updateGoal({ goalId: id, title })
+          }}
         />
       ) : null}
       {deleteGoal ? (
@@ -107,9 +114,9 @@ export function GoalPage({ goalId }: { goalId: string }) {
           noun="project"
           initialValue={renameProject.title}
           onClose={() => setRenameProject(undefined)}
-          onSave={(title) =>
-            updateProject({ projectId: renameProject.id, title })
-          }
+          onSave={async (title) => {
+            await updateProject({ projectId: renameProject.id, title })
+          }}
         />
       ) : null}
       {deleteProject ? (
@@ -118,7 +125,9 @@ export function GoalPage({ goalId }: { goalId: string }) {
           name={deleteProject.title}
           detail="and all of its tasks will be gone for good."
           onClose={() => setDeleteProject(undefined)}
-          onDelete={() => removeProject({ projectId: deleteProject.id })}
+          onDelete={async () => {
+            await removeProject({ projectId: deleteProject.id })
+          }}
         />
       ) : null}
     </FocusPage>

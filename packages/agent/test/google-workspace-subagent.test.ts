@@ -17,6 +17,8 @@ function options(
     runtime: { brokerSecret: 'broker-secret' },
     account: 'bee@example.com',
     services: ['mail', 'drive'],
+    // SAFETY: the code under test only calls `exec` on the sandbox; this
+    // test double implements exactly that surface.
     sandbox: { exec } as ISandbox,
     getAccessToken,
   }
@@ -40,6 +42,8 @@ describe('Google Workspace subagent', () => {
     const result = await executeGoogleWorkspaceCommand(
       options(async (command, execOptions) => {
         invocation = { command, env: execOptions?.env }
+        // SAFETY: the code under test reads only success/exitCode/stdout/
+        // stderr from the sandbox exec result; the double provides them.
         return {
           success: true,
           exitCode: 0,
@@ -107,6 +111,8 @@ describe('Google Workspace subagent', () => {
       executeGoogleWorkspaceCommand(
         options(
           async () =>
+            // SAFETY: the code under test reads only success/exitCode/stdout/
+            // stderr from the sandbox exec result; the double provides them.
             ({
               success: false,
               exitCode: 2,

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 const STORE_VERSION = 1;
 const MAX_STORED_DRAFTS = 62;
 const STORE_FILE_NAME = 'bee-healthy-drafts-v1.json';
@@ -7,15 +9,17 @@ const BACKUP_TEMP_FILE_NAME = 'bee-healthy-drafts-v1.backup.tmp.json';
 const WEB_STORE_KEY = 'bee-healthy-drafts-v1';
 const WEB_BACKUP_KEY = 'bee-healthy-drafts-v1-backup';
 
-type StoredDraft = {
-  journal: string;
-  updatedAt: number;
-};
+const storedDraftSchema = z.object({
+  journal: z.string(),
+  updatedAt: z.number(),
+});
 
-type DraftStore = {
-  version: typeof STORE_VERSION;
-  drafts: Record<string, StoredDraft>;
-};
+const draftStoreSchema = z.object({
+  version: z.literal(STORE_VERSION),
+  drafts: z.record(z.string(), storedDraftSchema),
+});
+
+type DraftStore = z.infer<typeof draftStoreSchema>;
 
 type StoreReadResult = {
   store: DraftStore;
@@ -40,16 +44,6 @@ function emptyStore(): DraftStore {
   return { version: STORE_VERSION, drafts: {} };
 }
 
-function isStoredDraft(value: unknown): value is StoredDraft {
-  if (!value || typeof value !== 'object') return false;
-  const draft = value as Partial<StoredDraft>;
-  return (
-    typeof draft.journal === 'string' &&
-    typeof draft.updatedAt === 'number' &&
-    Number.isFinite(draft.updatedAt)
-  );
-}
-
 function parseStore(serialized: string): DraftStore {
   let parsed: unknown;
   try {
@@ -58,29 +52,12 @@ function parseStore(serialized: string): DraftStore {
     throw new Error('The stored journal data is not valid JSON.');
   }
 
-  if (!parsed || typeof parsed !== 'object') {
-    throw new Error('The stored journal data has an invalid shape.');
-  }
-
-  const candidate = parsed as { version?: unknown; drafts?: unknown };
-  if (
-    candidate.version !== STORE_VERSION ||
-    !candidate.drafts ||
-    typeof candidate.drafts !== 'object' ||
-    Array.isArray(candidate.drafts)
-  ) {
+  const store = draftStoreSchema.safeParse(parsed);
+  if (!store.success || Array.isArray(store.data.drafts)) {
     throw new Error('The stored journal data has an unsupported format.');
   }
 
-  const entries = Object.entries(candidate.drafts);
-  if (entries.some(([, draft]) => !isStoredDraft(draft))) {
-    throw new Error('One or more stored journal drafts are damaged.');
-  }
-
-  return {
-    version: STORE_VERSION,
-    drafts: Object.fromEntries(entries) as Record<string, StoredDraft>,
-  };
+  return store.data;
 }
 
 function recoverStore(primary: string | null, backup: string | null): StoreReadResult {
@@ -126,12 +103,12 @@ function recoverStore(primary: string | null, backup: string | null): StoreReadR
 }
 
 function isWebRuntime() {
-  return process.env.EXPO_OS === 'web' || typeof document !== 'undefined';
+  return process.env.EXPO_OS === 'web' || 'document' in globalThis;
 }
 
 function browserStorage() {
   try {
-    if (typeof globalThis.localStorage === 'undefined') {
+    if (!('localStorage' in globalThis)) {
       throw new Error('Browser storage is unavailable.');
     }
     return globalThis.localStorage;

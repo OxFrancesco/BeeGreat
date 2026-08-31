@@ -1,6 +1,9 @@
 import { defineTool, type JsonValue } from "@flue/runtime";
 import * as v from "valibot";
 import { isoTimestamp, type FocusServiceOptions } from "./focus-client.ts";
+import { trustedCast } from "./trusted-cast.ts";
+
+const serviceErrorSchema = v.object({ error: v.string() });
 
 type JobDelivery =
   | { kind: "user"; body: string }
@@ -26,7 +29,7 @@ export async function callAgentJobService<T extends JsonValue = JsonValue>(
   convexUrl: string,
   options: FocusServiceOptions,
   operation: string,
-  input: Record<string, unknown> = {},
+  input: Record<string, JsonValue | undefined> = {},
   fetcher: typeof fetch = fetch,
 ): Promise<T> {
   const secret = options.brokerSecret?.trim();
@@ -43,20 +46,15 @@ export async function callAgentJobService<T extends JsonValue = JsonValue>(
       body: JSON.stringify({ userId, operation, ...input }),
     },
   );
-  const body = (await response.json().catch(() => null)) as
-    { error?: unknown } | T | null;
+  const body = await response.json().catch(() => null);
   if (!response.ok) {
-    const serviceError =
-      body && !Array.isArray(body) && typeof body === "object"
-        ? (body as Record<string, unknown>).error
-        : undefined;
     throw new Error(
-      typeof serviceError === "string"
-        ? serviceError
+      v.is(serviceErrorSchema, body)
+        ? body.error
         : `Job service failed (HTTP ${response.status})`,
     );
   }
-  return body as T;
+  return trustedCast<T>(body);
 }
 
 const deliverySchema = v.pipe(
@@ -119,7 +117,21 @@ const web3GrantRequestSchema = v.object({
   ),
 });
 
-function serializedSchedule(schedule: v.InferOutput<typeof scheduleSchema>) {
+/** The exact schedule JSON the Convex Jobs service stores. */
+type SerializedSchedule =
+  | { kind: "once"; at: number }
+  | { kind: "interval"; everyMs: number; anchorAt: number }
+  | {
+      kind: "calendar";
+      frequency: "daily" | "weekly" | "monthly" | "yearly";
+      interval: number;
+      firstOccurrenceAt: number;
+      timeZone: string;
+    };
+
+function serializedSchedule(
+  schedule: v.InferOutput<typeof scheduleSchema>,
+): SerializedSchedule {
   if (schedule.kind === "once") {
     return { kind: schedule.kind, at: isoTimestamp(schedule.at, "at") };
   }
@@ -224,6 +236,7 @@ export function createAgentJobTools(
         delivery: v.optional(deliverySchema),
       }),
       async run({ data }) {
+        const { schedule, ...rest } = data;
         return {
           output: await callAgentJobService(
             userId,
@@ -231,10 +244,10 @@ export function createAgentJobTools(
             options,
             "update",
             {
-              ...data,
-              ...(data.schedule
-                ? { schedule: serializedSchedule(data.schedule) }
-                : {}),
+              ...rest,
+              // JSON.stringify drops the key entirely when there is no
+              // schedule update, exactly like the omitted property did.
+              schedule: schedule ? serializedSchedule(schedule) : undefined,
             },
           ),
         };

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export { scrubIdentifiers } from "./scrub-identifiers";
 export {
   GOOGLE_WORKSPACE_DISCLOSURE,
@@ -69,18 +71,26 @@ type ToolCopy = {
   specialist?: string;
 };
 
-const POWERUP_AGENTS: Record<string, string> = {
+const POWERUP_AGENTS = {
   devin: "Devin",
   web3: "Web3",
   "google-health": "Google Health",
-};
+} satisfies Record<string, string>;
 
-const BUILT_IN_SPECIALISTS: Record<string, string> = {
+const BUILT_IN_SPECIALISTS = {
   imagine: "Imagine",
   "google-workspace": "Google Workspace",
-};
+} satisfies Record<string, string>;
 
-const TOOL_COPY: Record<string, ToolCopy> = {
+/** Looks copy up by a runtime name without widening the owning table's keys. */
+function tableEntry<Value>(
+  table: Record<string, Value>,
+  key: string,
+): Value | undefined {
+  return table[key];
+}
+
+const TOOL_COPY = {
   search_mind: {
     running: "Searching your Mind…",
     done: "Searched your Mind",
@@ -424,14 +434,23 @@ const TOOL_COPY: Record<string, ToolCopy> = {
     failed: "Couldn’t edit your video",
     specialist: "Imagine",
   },
-};
+} satisfies Record<string, ToolCopy>;
 
-function taskCopy(input: unknown): ToolCopy {
-  const agent =
-    typeof input === "object" && input !== null && "agent" in input
-      ? String((input as { agent?: unknown }).agent ?? "")
-      : "";
-  const powerup = POWERUP_AGENTS[agent];
+/**
+ * The only field of a `task` tool input that shapes its copy. The value stays
+ * unvalidated (`z.unknown()`) because a non-string agent must fall through to
+ * the generic side-task copy exactly like an unrecognized agent name.
+ */
+const taskInputSchema = z.object({ agent: z.unknown() });
+
+/** Reads the agent name out of a raw `task` tool input, if one is present. */
+function taskAgent<Input>(input: Input): string {
+  const parsed = taskInputSchema.safeParse(input);
+  return parsed.success ? String(parsed.data.agent ?? "") : "";
+}
+
+function taskCopy(agent: string): ToolCopy {
+  const powerup = tableEntry(POWERUP_AGENTS, agent);
   if (powerup) {
     return {
       running: "At work…",
@@ -440,7 +459,7 @@ function taskCopy(input: unknown): ToolCopy {
       powerup,
     };
   }
-  const specialist = BUILT_IN_SPECIALISTS[agent];
+  const specialist = tableEntry(BUILT_IN_SPECIALISTS, agent);
   if (specialist) {
     return {
       running: "At work…",
@@ -463,10 +482,10 @@ function taskCopy(input: unknown): ToolCopy {
   };
 }
 
-export function getToolCopy(
+export function getToolCopy<Input>(
   name: string,
   state: ToolActivityState,
-  input?: unknown,
+  input?: Input,
 ) {
   const readable = name.replace(/_/g, " ");
   const fallback: ToolCopy = {
@@ -475,7 +494,9 @@ export function getToolCopy(
     failed: `Couldn’t finish ${readable}`,
   };
   const copy =
-    name === "task" ? taskCopy(input) : (TOOL_COPY[name] ?? fallback);
+    name === "task"
+      ? taskCopy(taskAgent(input))
+      : (tableEntry<ToolCopy>(TOOL_COPY, name) ?? fallback);
   return {
     label:
       state === "running"

@@ -46,7 +46,7 @@ export type BeeTuiOptions = {
   /** Background preparation (e.g. waking the local agent) shown as a live activity line. */
   boot?(onActivity: (update: ToolActivityUpdate) => void): Promise<void>;
   newConversation(): Promise<void>;
-  friendlyError(error: unknown): string;
+  friendlyError(cause: unknown): string;
   history?: PromptHistory;
 };
 

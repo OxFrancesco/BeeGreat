@@ -9,15 +9,19 @@ const SYNC_DEBOUNCE_MS = 120;
 const SYNC_RETRY_MAX_MS = 15_000;
 const SYNC_BATCH_SIZE = 200;
 
-type SyncBatch = (messages: ChatMessageSyncEnvelope[]) => Promise<unknown>;
-type ReportSyncError = (error: unknown) => void;
+/** Persists one batch; resolution (a Convex mutation's null) is the only signal consumed. */
+type SyncBatch = (messages: ChatMessageSyncEnvelope[]) => Promise<null | void>;
+type ReportSyncError = (cause: unknown) => void;
 
-function syncErrorCode(error: unknown) {
-  if (!error || typeof error !== 'object') return undefined;
-  const data = (error as { data?: unknown }).data;
-  if (!data || typeof data !== 'object') return undefined;
-  const code = (data as { code?: unknown }).code;
-  return typeof code === 'string' ? code : undefined;
+/** The one deterministic Convex rejection the queue reacts to structurally. */
+type SyncRejectionCode = 'TOO_LARGE';
+
+/** Reads a ConvexError-style `{ data: { code } }` rejection off a sync failure. */
+function syncErrorCode(cause: unknown): SyncRejectionCode | undefined {
+  if (!(cause instanceof Object) || !('data' in cause)) return undefined;
+  const data = cause.data;
+  if (!(data instanceof Object) || !('code' in data)) return undefined;
+  return data.code === 'TOO_LARGE' ? 'TOO_LARGE' : undefined;
 }
 
 /** Debounces live envelopes and serializes writes without losing a newer delta. */

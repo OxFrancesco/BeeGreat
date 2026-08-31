@@ -2,6 +2,7 @@
 // grouped attachments) into one prompt Bee can answer.
 
 import type { DeliveredAttachment } from '@flue/sdk'
+import type { Content } from 'spectrum-ts'
 import type { AgentTransport } from './agent-transport'
 
 export type IncomingPrompt = {
@@ -13,27 +14,18 @@ export type IncomingPrompt = {
 export async function promptFromContent(
   transport: AgentTransport,
   userId: string,
-  content: {
-    type: string
-    text?: string
-    mimeType?: string
-    read?: () => Promise<Buffer>
-    items?: { content: unknown }[]
-  },
+  content: Content,
 ): Promise<IncomingPrompt> {
   if (content.type === 'text') {
     return {
-      text: content.text?.trim() ?? '',
+      text: content.text.trim(),
       images: [],
       unsupportedAttachment: false,
     }
   }
   if (
-    (content.type === 'voice' ||
-      (content.type === 'attachment' &&
-        content.mimeType?.startsWith('audio/'))) &&
-    content.read &&
-    content.mimeType
+    content.type === 'voice' ||
+    (content.type === 'attachment' && content.mimeType.startsWith('audio/'))
   ) {
     return {
       text: await transport.transcribeVoice(
@@ -45,11 +37,7 @@ export async function promptFromContent(
       unsupportedAttachment: false,
     }
   }
-  if (
-    content.type === 'attachment' &&
-    content.mimeType?.startsWith('image/') &&
-    content.read
-  ) {
+  if (content.type === 'attachment' && content.mimeType.startsWith('image/')) {
     return {
       text: '',
       images: [
@@ -62,14 +50,10 @@ export async function promptFromContent(
       unsupportedAttachment: false,
     }
   }
-  if (content.type === 'group' && Array.isArray(content.items)) {
+  if (content.type === 'group') {
     const parts = await Promise.all(
       content.items.map((item) =>
-        promptFromContent(
-          transport,
-          userId,
-          item.content as Parameters<typeof promptFromContent>[2],
-        ),
+        promptFromContent(transport, userId, item.content),
       ),
     )
     return {

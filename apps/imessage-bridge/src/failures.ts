@@ -2,7 +2,7 @@ import { toError } from '@beegreat/observability'
 import * as Sentry from '@sentry/bun'
 
 export function captureBridgeFailure(
-  error: unknown,
+  cause: unknown,
   operation: string,
   userId?: string,
 ) {
@@ -11,6 +11,6 @@ export function captureBridgeFailure(
     scope.setTag('operation', operation)
     scope.setTag('handled', 'true')
     if (userId) scope.setUser({ id: userId })
-    Sentry.captureException(toError(error))
+    Sentry.captureException(toError(cause))
   })
 }

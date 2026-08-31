@@ -145,12 +145,12 @@ export const PromptInput = ({
 
       setItems((prev) => {
         const capacity =
-          typeof maxFiles === 'number'
-            ? Math.max(0, maxFiles - prev.length)
-            : undefined
+          maxFiles === undefined
+            ? undefined
+            : Math.max(0, maxFiles - prev.length)
         const capped =
-          typeof capacity === 'number' ? sized.slice(0, capacity) : sized
-        if (typeof capacity === 'number' && sized.length > capacity) {
+          capacity === undefined ? sized : sized.slice(0, capacity)
+        if (capacity !== undefined && sized.length > capacity) {
           onError?.({
             code: 'max_files',
             message: 'Too many files. Some were not added.',
@@ -209,12 +209,12 @@ export const PromptInput = ({
 
       const currentCount = files.length
       const capacity =
-        typeof maxFiles === 'number'
-          ? Math.max(0, maxFiles - currentCount)
-          : undefined
+        maxFiles === undefined
+          ? undefined
+          : Math.max(0, maxFiles - currentCount)
       const capped =
-        typeof capacity === 'number' ? sized.slice(0, capacity) : sized
-      if (typeof capacity === 'number' && sized.length > capacity) {
+        capacity === undefined ? sized : sized.slice(0, capacity)
+      if (capacity !== undefined && sized.length > capacity) {
         onError?.({
           code: 'max_files',
           message: 'Too many files. Some were not added.',
@@ -392,8 +392,9 @@ export const PromptInput = ({
       const text = usingProvider
         ? controller.textInput.value
         : (() => {
-            const formData = new FormData(form)
-            return (formData.get('message') as string) || ''
+            const message = new FormData(form).get('message')
+            // The message field is a textarea, so its entry is never a File.
+            return message instanceof File ? '' : message || ''
           })()
 
       // Reset form immediately after capturing text to avoid race condition
@@ -526,10 +527,8 @@ export const PromptInputTextarea = ({
 
         // Check if the submit button is disabled before submitting
         const { form } = e.currentTarget
-        const submitButton = form?.querySelector(
-          'button[type="submit"]',
-        ) as HTMLButtonElement | null
-        if (submitButton?.disabled) {
+        const submitButton = form?.querySelector('button[type="submit"]')
+        if (submitButton instanceof HTMLButtonElement && submitButton.disabled) {
           return
         }
 

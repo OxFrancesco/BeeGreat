@@ -6,7 +6,7 @@ import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { router } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
+import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { type PropsWithChildren, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,11 +41,11 @@ import {
 import { captureMobileFailure } from '@/lib/sentry';
 
 /** Icon per power-up id; the glyph is the SymbolView fallback. */
-const POWERUP_ICONS: Record<string, { symbol: string; glyph: string }> = {
+const POWERUP_ICONS = new Map(Object.entries({
   devin: { symbol: 'cloud.fill', glyph: 'D' },
   web3: { symbol: 'tree.fill', glyph: '⌬' },
   'google-health': { symbol: 'heart.fill', glyph: '♥' },
-};
+}));
 const DEFAULT_POWERUP_ICON = { symbol: 'puzzlepiece.extension.fill', glyph: '⌁' };
 
 const CLOSE_HEX_SIZE = 34;
@@ -151,12 +151,15 @@ export default function ProfileScreen() {
     try {
       await updateGoogleHealthPowerup(enabled, {
         connect: googleHealth.connect,
-        disconnect: googleHealth.disconnect,
-        setEnabled: (nextEnabled) =>
-          setPowerupEnabled({
+        disconnect: async () => {
+          await googleHealth.disconnect();
+        },
+        setEnabled: async (nextEnabled) => {
+          await setPowerupEnabled({
             powerupId: 'google-health',
             enabled: nextEnabled,
-          }),
+          });
+        },
       });
     } catch (cause) {
       captureMobileFailure(cause, 'google_health.toggle', { enabled });
@@ -253,9 +256,7 @@ export default function ProfileScreen() {
             accessibilityLabel="Manage Agent Jobs"
             onPress={() => {
               if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
-              // Expo Router's generated route union refreshes on the next dev
-              // server start; the file route itself is present now.
-              router.push('/jobs' as never);
+              router.push('/jobs');
             }}
             style={({ pressed }) => [
               styles.settingRow,
@@ -292,7 +293,7 @@ export default function ProfileScreen() {
             accessibilityLabel="Manage work connectors"
             onPress={() => {
               if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
-              router.push('/connections' as never);
+              router.push('/connections');
             }}
             style={({ pressed }) => [
               styles.settingRow,
@@ -388,7 +389,11 @@ export default function ProfileScreen() {
         {powerups && powerups.length > 0 ? (
           <Section label="Power-ups">
             {powerups.map((powerup) => {
-              const icon = POWERUP_ICONS[powerup.id] ?? DEFAULT_POWERUP_ICON;
+              const icon = POWERUP_ICONS.get(powerup.id) ?? DEFAULT_POWERUP_ICON;
+              // SAFETY: The power-up icon table only stores valid SF Symbol
+              // names, and SymbolView renders the glyph fallback for any name
+              // the platform does not know.
+              const iconSymbol = icon.symbol as SymbolViewProps['name'];
               const isGoogleHealth = powerup.id === 'google-health';
               const googleHealthConnected =
                 googleHealth.status?.state === 'connected';
@@ -407,7 +412,7 @@ export default function ProfileScreen() {
                   <View style={styles.powerupRow}>
                     <View style={[styles.powerupIcon, { backgroundColor: theme.secondary }]}>
                       <SymbolView
-                        name={icon.symbol as never}
+                        name={iconSymbol}
                         size={18}
                         tintColor={theme.secondaryForeground}
                         fallback={

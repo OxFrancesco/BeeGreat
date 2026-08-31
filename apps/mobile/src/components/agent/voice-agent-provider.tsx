@@ -34,7 +34,7 @@ export function VoiceAgentProvider({ children }: PropsWithChildren) {
 
   const toggleRecording = useCallback(async () => {
     if (voiceMode === 'conversation') {
-      router.push('/voice-conversation' as never);
+      router.push('/voice-conversation');
       return;
     }
     await toggleVoiceNoteRecording();
@@ -83,7 +83,7 @@ export function VoiceAgentProvider({ children }: PropsWithChildren) {
         state={agent.orbState}
         onPress={
           conversation.isActive
-            ? () => router.push('/voice-conversation' as never)
+            ? () => router.push('/voice-conversation')
             : undefined
         }
       />

@@ -10,11 +10,11 @@ export type BookmarkKind = "website" | "tweet" | "youtube";
  * Human names for each bookmark kind. Mobile's detail screen deliberately
  * says "Post" instead of "Tweet" and keeps that copy local.
  */
-export const BOOKMARK_KIND_LABELS: Record<BookmarkKind, string> = {
+export const BOOKMARK_KIND_LABELS = {
   website: "Website",
   tweet: "Tweet",
   youtube: "Video",
-};
+} satisfies Record<BookmarkKind, string>;
 
 export function bookmarkKindLabel(kind: BookmarkKind): string {
   return BOOKMARK_KIND_LABELS[kind];

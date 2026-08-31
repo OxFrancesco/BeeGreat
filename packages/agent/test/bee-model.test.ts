@@ -60,6 +60,6 @@ describe('Bee orchestrator model', () => {
     expect(definition.model).toBe('openai-codex-user/gpt-5.6-sol')
     expect(definition.thinkingLevel).toBe('medium')
     // Tools and nested delegates mount when the delegate renders at task time.
-    expect(typeof definition.agent).toBe('function')
+    expect(definition.agent).toBeInstanceOf(Function)
   })
 })

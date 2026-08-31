@@ -54,7 +54,7 @@ describe('iMessage identity service client', () => {
 
 describe('the Worker /bridge/identity route', () => {
   test('resolves senders for the trusted bridge without a user header', async () => {
-    const fetcher = mock(async (_input: unknown, init?: RequestInit) => {
+    const fetcher = mock(async (_input: string | URL | Request, init?: RequestInit) => {
       expect(JSON.parse(String(init?.body))).toEqual({
         operation: 'begin_link',
         address: '+15551234567',
@@ -64,6 +64,8 @@ describe('the Worker /bridge/identity route', () => {
         expiresAt: 900,
       })
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )

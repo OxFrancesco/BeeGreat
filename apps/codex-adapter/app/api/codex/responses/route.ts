@@ -33,6 +33,12 @@ const RESPONSE_HEADER_ALLOWLIST = [
   'x-request-id',
 ] as const
 
+/** Diagnostic detail attached to a captured adapter failure; never request content. */
+export type AdapterFailureDetail = {
+  status?: number
+  upstreamRequestId?: string
+}
+
 export interface CodexAdapterOptions {
   adapterSecret?: string
   upstreamFetch?: (
@@ -43,19 +49,19 @@ export interface CodexAdapterOptions {
     error: Error,
     context: {
       tags: Record<string, string>
-      extra?: Record<string, unknown>
+      extra?: AdapterFailureDetail
     },
-  ) => unknown
+  ) => void
 }
 
 function captureAdapterFailure(
   options: CodexAdapterOptions,
-  error: unknown,
+  cause: unknown,
   operation: string,
-  extra?: Record<string, unknown>,
+  extra?: AdapterFailureDetail,
 ) {
   const captureException = options.captureException ?? Sentry.captureException
-  captureException(toError(error), {
+  captureException(toError(cause), {
     tags: {
       service: 'codex-adapter',
       operation,

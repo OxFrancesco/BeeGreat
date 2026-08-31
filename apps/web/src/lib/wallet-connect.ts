@@ -21,7 +21,7 @@ export const isWalletConnectConfigured = projectId.length > 0
 // TanStack Start evaluates this module while rendering on the server. AppKit
 // initialization belongs to the browser, while the exported configuration flag
 // remains safe for both environments.
-if (typeof window !== 'undefined') {
+if ('window' in globalThis) {
   createAppKit({
     adapters: [new EthersAdapter()],
     projectId: projectId || 'beegreat-wallet-connect-not-configured',

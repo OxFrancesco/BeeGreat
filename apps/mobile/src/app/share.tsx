@@ -2,7 +2,7 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { useMutation } from 'convex/react';
 import * as Haptics from 'expo-haptics';
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { useIncomingShare, type ResolvedSharePayload, type SharePayload } from 'expo-sharing';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -135,7 +135,7 @@ export default function ShareScreen() {
         <View style={styles.actions}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.replace(`/mind/${state.bookmarkId}` as Href)}
+            onPress={() => router.replace(`/mind/${state.bookmarkId}`)}
             style={({ pressed }) => [
               styles.primaryAction,
               { backgroundColor: theme.primary },
@@ -148,7 +148,7 @@ export default function ShareScreen() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.replace('/mind' as Href)}
+            onPress={() => router.replace('/mind')}
             style={({ pressed }) => [
               styles.secondaryAction,
               { borderColor: theme.border },
@@ -175,7 +175,7 @@ export default function ShareScreen() {
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.replace('/mind/add' as Href)}
+            onPress={() => router.replace('/mind/add')}
             style={({ pressed }) => [
               styles.secondaryAction,
               { borderColor: theme.border },

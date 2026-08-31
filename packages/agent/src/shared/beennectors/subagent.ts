@@ -16,6 +16,15 @@ import {
 
 const PROVIDERS = ['github', 'linear', 'notion'] as const
 
+type BeennectorToolRequest = {
+  operation: 'list' | 'search' | 'get' | 'comment'
+  provider: (typeof PROVIDERS)[number]
+  query?: string
+  limit?: number
+  ref?: string
+  body?: string
+}
+
 const INSTRUCTIONS = `You are the Beennectors specialist inside BeeGreat, working for Bee
 (the coordinator). You inspect the user's connected work systems. Your reply goes
 back to Bee, not directly to the user, so be concise and include exact identifiers,
@@ -61,7 +70,7 @@ export async function loadBeennectorSubagent(
       [provider, workspaceName ?? accountName].filter(Boolean).join(': '),
     )
     .join(', ')
-  const request = (input: Record<string, unknown>) =>
+  const request = (input: BeennectorToolRequest) =>
     callBeennectorService<JsonValue>(convexUrl, runtime, { userId, ...input })
 
   const tools = [

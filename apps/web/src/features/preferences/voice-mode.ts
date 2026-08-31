@@ -8,7 +8,7 @@ let memoryValue: VoiceMode | undefined
 
 function readPreference(): VoiceMode {
   if (memoryValue) return memoryValue
-  if (typeof window === 'undefined') return 'voice-note'
+  if (!('window' in globalThis)) return 'voice-note'
   try {
     memoryValue =
       window.localStorage.getItem(STORAGE_KEY) === 'conversation'
@@ -22,7 +22,7 @@ function readPreference(): VoiceMode {
 
 export function setVoiceMode(mode: VoiceMode) {
   memoryValue = mode
-  if (typeof window !== 'undefined') {
+  if ('window' in globalThis) {
     try {
       window.localStorage.setItem(STORAGE_KEY, mode)
     } catch {

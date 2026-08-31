@@ -1,7 +1,7 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import { Image as ExpoImage } from 'expo-image';
-import { Link, type Href } from 'expo-router';
+import { Link } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { Pressable, Share, StyleSheet, View } from 'react-native';
 
@@ -44,7 +44,7 @@ export function JournalEntryCard({
   const excerpt = hasWrittenTitle ? body : bodyAfterFirstLine(body);
 
   return (
-    <Link href={href as unknown as Href} asChild>
+    <Link href={href} asChild>
       <Link.Trigger>
         <Pressable
           accessibilityHint="Opens this journal entry"

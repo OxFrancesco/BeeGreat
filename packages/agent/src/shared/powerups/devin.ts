@@ -1,6 +1,8 @@
-import { defineSubagent, defineTool, useTool } from '@flue/runtime'
+import { defineSubagent, defineTool, useTool, type JsonValue } from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
+
+const bridgeErrorSchema = v.object({ error: v.string() })
 
 const INSTRUCTIONS = `You are the Devin specialist inside BeeGreat, working for Bee
 (the coordinator). You launch and monitor coding work in Devin Cloud. Your reply goes
@@ -32,7 +34,7 @@ export const devin: PowerupDefinition = {
       return url.origin
     })()
 
-    const request = async (input: Record<string, unknown>) => {
+    const request = async (input: Record<string, JsonValue | undefined>) => {
       if (!convexSiteUrl || !runtime.credentialBrokerSecret) {
         throw new Error('Devin is not configured for the Bee worker.')
       }
@@ -50,9 +52,9 @@ export const devin: PowerupDefinition = {
         })
         const body = await response.text()
         if (!response.ok) {
-          const parsed = JSON.parse(body) as { error?: unknown }
+          const parsed = JSON.parse(body)
           throw new Error(
-            typeof parsed.error === 'string'
+            v.is(bridgeErrorSchema, parsed)
               ? parsed.error
               : 'Devin request failed.',
           )

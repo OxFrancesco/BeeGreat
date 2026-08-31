@@ -27,16 +27,16 @@ export async function askBee(
 ): Promise<BeeReply> {
   const client = transport.clientFor(userId, threadId)
   const progress = createIMessageProgressReporter(
-    async (message) => await space.send(text(message)),
+    async (message) => {
+      await space.send(text(message))
+    },
     (error) => captureBridgeFailure(error, 'progress.send', userId),
   )
   try {
     const admission = await client.send({
-      message: {
-        kind: 'user',
-        body,
-        ...(images.length ? { attachments: images } : {}),
-      },
+      message: images.length
+        ? { kind: 'user', body, attachments: images }
+        : { kind: 'user', body },
     })
     let currentStepText = ''
     let finalStepText = ''

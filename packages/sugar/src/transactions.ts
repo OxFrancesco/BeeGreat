@@ -408,28 +408,32 @@ export const unstake = Effect.fn('Sugar.Transactions.unstake')(function* (
   position: Position,
   amount?: bigint,
 ) {
-  assertPosition(position)
-  const pool = position.pool
-  const gaugeAbi = pool.isCl ? abis.gaugeCl : abis.gaugeBasic
-  let value: bigint
-  if (pool.isCl) {
-    if (position.staked === 0n) throw new Error(`CL position #${position.id} is not staked`)
-    value = position.id
-  } else {
-    value = amount ?? position.staked
-    if (value <= 0n) throw new Error('no staked LP to withdraw')
-    if (value > position.staked) throw new Error(`unstake amount ${value} > staked ${position.staked}`)
-  }
-  return [ctx.tx(pool.gauge, ctx.encode(gaugeAbi, 'withdraw', [value]))]
+  return yield* Effect.sync(() => {
+    assertPosition(position)
+    const pool = position.pool
+    const gaugeAbi = pool.isCl ? abis.gaugeCl : abis.gaugeBasic
+    let value: bigint
+    if (pool.isCl) {
+      if (position.staked === 0n) throw new Error(`CL position #${position.id} is not staked`)
+      value = position.id
+    } else {
+      value = amount ?? position.staked
+      if (value <= 0n) throw new Error('no staked LP to withdraw')
+      if (value > position.staked) throw new Error(`unstake amount ${value} > staked ${position.staked}`)
+    }
+    return [ctx.tx(pool.gauge, ctx.encode(gaugeAbi, 'withdraw', [value]))]
+  })
 })
 
 export const claimEmissions = Effect.fn('Sugar.Transactions.claimEmissions')(function* (
   ctx: SugarContext,
   position: Position,
 ) {
-  assertPosition(position)
-  const pool = position.pool
-  return [ctx.tx(pool.gauge, ctx.encode(pool.isCl ? abis.gaugeCl : abis.gaugeBasic, 'getReward', [pool.isCl ? position.id : ctx.signer()]))]
+  return yield* Effect.sync(() => {
+    assertPosition(position)
+    const pool = position.pool
+    return [ctx.tx(pool.gauge, ctx.encode(pool.isCl ? abis.gaugeCl : abis.gaugeBasic, 'getReward', [pool.isCl ? position.id : ctx.signer()]))]
+  })
 })
 
 export const claimFees = Effect.fn('Sugar.Transactions.claimFees')(function* (
@@ -438,10 +442,12 @@ export const claimFees = Effect.fn('Sugar.Transactions.claimFees')(function* (
   burn = false,
   unwrapNative = false,
 ) {
-  assertPosition(position)
-  if (position.staked > 0n) throw new Error('position is staked; unstake first to claim fees')
-  const pool = position.pool
-  if (!pool.isCl) return [ctx.tx(pool.lp, ctx.encode(abis.poolBasic, 'claimFees'))]
-  if (burn && position.liquidity > 0n) throw new Error('burn requires liquidity == 0; drain via withdraw first')
-  return [ctx.tx(pool.nfpm, ctx.encode(abis.nfpm, 'multicall', [cleanupCalls(ctx, pool, position.id, unwrapNative, burn)]))]
+  return yield* Effect.sync(() => {
+    assertPosition(position)
+    if (position.staked > 0n) throw new Error('position is staked; unstake first to claim fees')
+    const pool = position.pool
+    if (!pool.isCl) return [ctx.tx(pool.lp, ctx.encode(abis.poolBasic, 'claimFees'))]
+    if (burn && position.liquidity > 0n) throw new Error('burn requires liquidity == 0; drain via withdraw first')
+    return [ctx.tx(pool.nfpm, ctx.encode(abis.nfpm, 'multicall', [cleanupCalls(ctx, pool, position.id, unwrapNative, burn)]))]
+  })
 })

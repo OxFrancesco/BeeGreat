@@ -28,6 +28,9 @@ import { captureWebFailure } from '~/lib/sentry'
 type Task = FunctionReturnType<typeof api.tasks.listByProject>[number]
 
 export function ProjectPage({ projectId }: { projectId: string }) {
+  // SAFETY: the route param carries the `projects` document id this page was
+  // linked with; Convex validates the id shape and the page renders the
+  // missing state when a stale or foreign id resolves to null.
   const id = projectId as Id<'projects'>
   const project = useQuery(api.projects.get, { projectId: id })
   const tasks = useQuery(api.tasks.listByProject, { projectId: id })
@@ -99,7 +102,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
           <div className="task-family" key={task.id}>
             <TaskRow
               task={task}
-              onToggle={() => toggleTask({ taskId: task.id })}
+              onToggle={async () => {
+                await toggleTask({ taskId: task.id })
+              }}
               onRename={() => setRenamingTask(task)}
               onDue={() => setDatingTask(task)}
               onDelete={() => setDeletingTask(task)}
@@ -114,7 +119,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
                 key={subtask.id}
                 task={subtask}
                 subtask
-                onToggle={() => toggleTask({ taskId: subtask.id })}
+                onToggle={async () => {
+                  await toggleTask({ taskId: subtask.id })
+                }}
                 onRename={() => setRenamingTask(subtask)}
                 onDue={() => setDatingTask(subtask)}
                 onDelete={() => setDeletingTask(subtask)}
@@ -127,13 +134,13 @@ export function ProjectPage({ projectId }: { projectId: string }) {
                   compact
                   label="New subtask"
                   onCancel={() => setSubtaskTarget(undefined)}
-                  onCreate={(title) =>
-                    createTask({
+                  onCreate={async (title) => {
+                    await createTask({
                       projectId: id,
                       parentTaskId: task.id,
                       title,
                     })
-                  }
+                  }}
                 />
               </div>
             ) : null}
@@ -141,7 +148,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
         ))}
         <InlineCreate
           label="New task"
-          onCreate={(title) => createTask({ projectId: id, title })}
+          onCreate={async (title) => {
+            await createTask({ projectId: id, title })
+          }}
         />
       </section>
 
@@ -158,7 +167,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
             <div className="task-family" key={task.id}>
               <TaskRow
                 task={task}
-                onToggle={() => toggleTask({ taskId: task.id })}
+                onToggle={async () => {
+                  await toggleTask({ taskId: task.id })
+                }}
                 onRename={() => setRenamingTask(task)}
                 onDue={() => setDatingTask(task)}
                 onDelete={() => setDeletingTask(task)}
@@ -168,7 +179,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
                   key={subtask.id}
                   task={subtask}
                   subtask
-                  onToggle={() => toggleTask({ taskId: subtask.id })}
+                  onToggle={async () => {
+                    await toggleTask({ taskId: subtask.id })
+                  }}
                   onRename={() => setRenamingTask(subtask)}
                   onDue={() => setDatingTask(subtask)}
                   onDelete={() => setDeletingTask(subtask)}
@@ -184,7 +197,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
           noun="task"
           initialValue={renamingTask.title}
           onClose={() => setRenamingTask(undefined)}
-          onSave={(title) => updateTask({ taskId: renamingTask.id, title })}
+          onSave={async (title) => {
+            await updateTask({ taskId: renamingTask.id, title })
+          }}
         />
       ) : null}
       {deletingTask ? (
@@ -193,14 +208,18 @@ export function ProjectPage({ projectId }: { projectId: string }) {
           name={deletingTask.title}
           detail="and its subtasks will be removed."
           onClose={() => setDeletingTask(undefined)}
-          onDelete={() => removeTask({ taskId: deletingTask.id })}
+          onDelete={async () => {
+            await removeTask({ taskId: deletingTask.id })
+          }}
         />
       ) : null}
       {datingTask ? (
         <TaskDueModal
           task={datingTask}
           onClose={() => setDatingTask(undefined)}
-          onSave={(dueDate) => setTaskDue({ taskId: datingTask.id, dueDate })}
+          onSave={async (dueDate) => {
+            await setTaskDue({ taskId: datingTask.id, dueDate })
+          }}
         />
       ) : null}
       {renamingProject ? (
@@ -208,7 +227,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
           noun="project"
           initialValue={project.title}
           onClose={() => setRenamingProject(false)}
-          onSave={(title) => updateProject({ projectId: id, title })}
+          onSave={async (title) => {
+            await updateProject({ projectId: id, title })
+          }}
         />
       ) : null}
       {deletingProject ? (
@@ -230,7 +251,9 @@ export function ProjectPage({ projectId }: { projectId: string }) {
         <ProjectDueModal
           hasDue={Boolean(project.due)}
           onClose={() => setDatingProject(false)}
-          onSave={(due) => setProjectDue({ projectId: id, due })}
+          onSave={async (due) => {
+            await setProjectDue({ projectId: id, due })
+          }}
         />
       ) : null}
     </FocusPage>
@@ -248,7 +271,7 @@ function TaskRow({
 }: {
   task: Task
   subtask?: boolean
-  onToggle: () => Promise<unknown>
+  onToggle: () => Promise<void>
   onRename: () => void
   onDue: () => void
   onDelete: () => void
@@ -296,7 +319,7 @@ function TaskDueModal({
 }: {
   task: Task
   onClose: () => void
-  onSave: (dueDate: number | null) => Promise<unknown>
+  onSave: (dueDate: number | null) => Promise<void>
 }) {
   const choices = [
     { label: 'Today', value: endOfDayIn(0) },
@@ -325,7 +348,7 @@ function ProjectDueModal({
 }: {
   hasDue: boolean
   onClose: () => void
-  onSave: (due: { year: number; quarter?: number } | null) => Promise<unknown>
+  onSave: (due: { year: number; quarter?: number } | null) => Promise<void>
 }) {
   const year = new Date().getFullYear()
   const choices = [
@@ -370,7 +393,7 @@ function AsyncChoiceModal<T>({
   }>
   grid?: boolean
   onClose: () => void
-  onSave: (value: T) => Promise<unknown>
+  onSave: (value: T) => Promise<void>
 }) {
   const [working, setWorking] = useState<string>()
   const [error, setError] = useState<string>()

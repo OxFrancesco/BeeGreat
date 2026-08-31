@@ -56,8 +56,8 @@ function phaseFromSnapshot(snapshot: SubscriptionSnapshot): SubscriptionPhase {
   return snapshot.isPro ? "active" : "inactive";
 }
 
-function userMessage(error: unknown): string {
-  if (error instanceof SubscriptionClientError) return error.message;
+function userMessage(cause: unknown): string {
+  if (cause instanceof SubscriptionClientError) return cause.message;
   return "BeeGreat Pro could not connect to the App Store. Please try again.";
 }
 

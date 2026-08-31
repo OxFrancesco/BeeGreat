@@ -3,7 +3,7 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { Image as ExpoImage } from 'expo-image';
 import * as Haptics from 'expo-haptics';
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import {
   useCallback,
@@ -202,7 +202,7 @@ export function JournalScreen() {
       router.push({
         pathname: '/journal-entry/[entryId]',
         params: { entryId: entry.id },
-      } as Href);
+      });
     } catch (error) {
       Alert.alert(
         'Could not start a new entry',
@@ -241,10 +241,10 @@ export function JournalScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            void removeEntry({ entryId: entry.id }).catch((error: unknown) => {
+            void removeEntry({ entryId: entry.id }).catch((cause: unknown) => {
               Alert.alert(
                 'Could not delete this entry',
-                error instanceof Error ? error.message : undefined,
+                cause instanceof Error ? cause.message : undefined,
               );
             });
           },

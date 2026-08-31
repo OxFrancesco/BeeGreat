@@ -35,7 +35,10 @@ function deletionEnv(calls: string[], deletedSiteKeys: string[] = []) {
   }
 }
 
-function request(secret: string, body: unknown) {
+function request(
+  secret: string,
+  body: { userId?: string; conversationIds?: string[] },
+) {
   return new Request('https://agent.test/internal/account-deletion', {
     method: 'POST',
     headers: {

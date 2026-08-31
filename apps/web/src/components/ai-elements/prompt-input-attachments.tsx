@@ -21,7 +21,11 @@ export const convertBlobUrlToDataUrl = async (
     return new Promise((resolve) => {
       const reader = new FileReader()
       // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result as string)
+      reader.onloadend = () => {
+        // readAsDataURL only ever produces a string (or null when aborted).
+        const { result } = reader
+        resolve(result instanceof ArrayBuffer ? null : result)
+      }
       // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
       reader.onerror = () => resolve(null)
       reader.readAsDataURL(blob)
@@ -33,7 +37,7 @@ export const convertBlobUrlToDataUrl = async (
 
 const captureScreenshot = async (): Promise<File | null> => {
   if (
-    typeof navigator === 'undefined' ||
+    !('navigator' in globalThis) ||
     !navigator.mediaDevices?.getDisplayMedia
   ) {
     return null

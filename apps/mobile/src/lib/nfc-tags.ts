@@ -56,10 +56,10 @@ export async function writeNfcActionTag(url: string) {
   }
 }
 
-export function nfcErrorMessage(error: unknown) {
-  if (error instanceof NfcUnavailableError) return error.message
-  if (error instanceof Error) {
-    const normalized = error.message.toLowerCase()
+export function nfcErrorMessage(cause: unknown) {
+  if (cause instanceof NfcUnavailableError) return cause.message
+  if (cause instanceof Error) {
+    const normalized = cause.message.toLowerCase()
     if (normalized.includes('cancel') || normalized.includes('invalidate')) {
       return 'Tag writing was cancelled.'
     }

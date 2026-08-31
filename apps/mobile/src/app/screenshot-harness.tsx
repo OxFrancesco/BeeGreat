@@ -9,18 +9,18 @@ import {
   type ScreenshotShot,
 } from '@/lib/screenshot-fixture';
 
-const TARGETS: Record<ScreenshotShot, Href> = {
+const TARGETS = {
   'bee-focus': '/',
   'goals-plan': '/goals/project/fixture_project',
   'hive-progress': '/hive',
   'voice-with-bee': '/',
   'mind-bookmarks': '/mind',
-};
+} satisfies Record<ScreenshotShot, Href>;
 
 export default function ScreenshotHarnessRoute() {
   const fixture = useScreenshotFixture();
   const { shot } = useLocalSearchParams<{ shot?: string }>();
-  const requested = typeof shot === 'string' && isScreenshotShot(shot) ? shot : null;
+  const requested = shot !== undefined && isScreenshotShot(shot) ? shot : null;
 
   useEffect(() => {
     if (!__DEV__ || !fixture || !requested) return;

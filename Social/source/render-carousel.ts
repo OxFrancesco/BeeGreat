@@ -43,9 +43,17 @@ function dataUri(path: string) {
   return `data:image/${ext};base64,${readFileSync(path).toString('base64')}`;
 }
 
-const image = Object.fromEntries(
-  Object.entries(files).map(([name, path]) => [name, dataUri(path)]),
-) as Record<keyof typeof files, string>;
+const image = {
+  texture: dataUri(files.texture),
+  logo: dataUri(files.logo),
+  bee: dataUri(files.bee),
+  beeGreat: dataUri(files.beeGreat),
+  focus: dataUri(files.focus),
+  goals: dataUri(files.goals),
+  hive: dataUri(files.hive),
+  voice: dataUri(files.voice),
+  mind: dataUri(files.mind),
+};
 
 function multiline(
   lines: string[],

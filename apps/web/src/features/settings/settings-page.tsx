@@ -19,11 +19,11 @@ import { useAccountDeletion } from './use-account-deletion'
 import type { ReactNode } from 'react'
 import { captureWebFailure } from '~/lib/sentry'
 
-const POWERUP_SYMBOLS: Record<string, string> = {
-  devin: 'D',
-  web3: '⌬',
-  'google-health': '♥',
-}
+const POWERUP_SYMBOLS = new Map<string, string>([
+  ['devin', 'D'],
+  ['web3', '⌬'],
+  ['google-health', '♥'],
+])
 
 export function SettingsPage() {
   const { user } = useUser()
@@ -259,7 +259,7 @@ export function SettingsPage() {
                   <article className="powerup-card" key={powerup.id}>
                     <div className="powerup-card__row">
                       <span className="powerup-mark" aria-hidden="true">
-                        {POWERUP_SYMBOLS[powerup.id] ?? '⌁'}
+                        {POWERUP_SYMBOLS.get(powerup.id) ?? '⌁'}
                       </span>
                       <div>
                         <h3>{powerup.name}</h3>

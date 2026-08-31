@@ -3,6 +3,9 @@ type FetchHandler = {
 }
 
 const entryUrl = new URL('./dist/server/server.js', import.meta.url)
+// SAFETY: `dist/server/server.js` is the TanStack Start server build artifact,
+// which always default-exports a `{ fetch }` handler. It only exists after
+// `vite build`, so it cannot be statically imported and typechecked here.
 const { default: handler } = (await import(entryUrl.href)) as {
   default: FetchHandler
 }

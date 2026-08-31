@@ -1,10 +1,18 @@
-export type PendingAccountDeletionRecord = {
-  jobId: string;
-  activationToken: string;
-  phase: 'prepared' | 'identity_deleted';
+import { z } from 'zod';
+
+const CLERK_USER_ID_PATTERN = /^user_[A-Za-z0-9]+$/;
+
+const pendingAccountDeletionSchema = z.object({
+  jobId: z.string().min(1),
+  activationToken: z.string().min(1),
+  phase: z.enum(['prepared', 'identity_deleted']),
   /** Missing only on records written before deletion intents were user-bound. */
-  clerkUserId?: string;
-};
+  clerkUserId: z.string().regex(CLERK_USER_ID_PATTERN).optional(),
+});
+
+export type PendingAccountDeletionRecord = z.infer<
+  typeof pendingAccountDeletionSchema
+>;
 
 export type PendingDeletionResumeDecision =
   | 'activate_anonymously'
@@ -13,50 +21,18 @@ export type PendingDeletionResumeDecision =
   | 'cancel_legacy_if_owner'
   | 'wait';
 
-const CLERK_USER_ID_PATTERN = /^user_[A-Za-z0-9]+$/;
-
 /** Parses both current records and the pre-user-binding legacy shape. */
 export function parsePendingAccountDeletion(
   serialized: string,
 ): PendingAccountDeletionRecord | null {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(serialized) as unknown;
+    parsed = JSON.parse(serialized);
   } catch {
     return null;
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return null;
-  }
-  const record = parsed as Record<string, unknown>;
-  if (
-    typeof record.jobId !== 'string' ||
-    record.jobId.length === 0 ||
-    typeof record.activationToken !== 'string' ||
-    record.activationToken.length === 0 ||
-    (record.phase !== 'prepared' && record.phase !== 'identity_deleted')
-  ) {
-    return null;
-  }
-  const hasClerkUserId = Object.prototype.hasOwnProperty.call(
-    record,
-    'clerkUserId',
-  );
-  if (
-    hasClerkUserId &&
-    (typeof record.clerkUserId !== 'string' ||
-      !CLERK_USER_ID_PATTERN.test(record.clerkUserId))
-  ) {
-    return null;
-  }
-  return {
-    jobId: record.jobId,
-    activationToken: record.activationToken,
-    phase: record.phase,
-    ...(hasClerkUserId
-      ? { clerkUserId: record.clerkUserId as string }
-      : {}),
-  };
+  const record = pendingAccountDeletionSchema.safeParse(parsed);
+  return record.success ? record.data : null;
 }
 
 /**

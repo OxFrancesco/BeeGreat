@@ -21,10 +21,9 @@ describe('Bee cold-start resources', () => {
   test('the first turn exposes an enabled Web3 specialist', async () => {
     globalThis.fetch = async (input, init) => {
       const url = String(input)
-      const body = JSON.parse(String(init?.body ?? '{}')) as {
-        operation?: string
-        path?: string
-      }
+      const body: { operation?: string; path?: string } = JSON.parse(
+        String(init?.body ?? '{}'),
+      )
 
       if (url.endsWith('/api/query')) {
         expect(body.path).toBe('powerups:getEnabledIds')
@@ -66,11 +65,8 @@ describe('Bee cold-start resources', () => {
 
   test('a transient entitlement failure preserves the last verified power-ups', async () => {
     let powerupLookupFails = false
-    globalThis.fetch = async (input, init) => {
+    globalThis.fetch = async (input) => {
       const url = String(input)
-      const body = JSON.parse(String(init?.body ?? '{}')) as {
-        operation?: string
-      }
       if (url.endsWith('/api/query')) {
         if (powerupLookupFails) throw new Error('Convex is briefly unavailable')
         return Response.json({ status: 'success', value: ['web3'] })

@@ -73,5 +73,5 @@ export function useScreenshotFixture() {
 }
 
 export function isScreenshotShot(value: string): value is ScreenshotShot {
-  return (SCREENSHOT_SHOTS as readonly string[]).includes(value);
+  return SCREENSHOT_SHOTS.some((shot) => shot === value);
 }

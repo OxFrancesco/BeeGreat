@@ -3,6 +3,7 @@ import { compareDrafts, formatSaveState } from '@beegreat/tool-presentation'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
+import { z } from 'zod'
 
 import beeDoctor from '../../../../mobile/assets/images/bee-doctor.png?url'
 import {
@@ -24,6 +25,9 @@ import type {
   JournalDraft,
   JournalSaveState,
 } from '@beegreat/tool-presentation'
+
+/** Convex storage upload URLs answer with the id of the stored file. */
+const storageUploadResponse = z.object({ storageId: z.string() })
 
 type JournalEntry = FunctionReturnType<
   typeof api.journalEntries.listRecent
@@ -353,6 +357,9 @@ type Draft = JournalDraft
 type SaveState = JournalSaveState
 
 export function JournalEditorPage({ entryId }: { entryId: string }) {
+  // SAFETY: the route param carries the `journalEntries` document id this
+  // page was linked with; Convex validates the id shape and the page renders
+  // the missing state when a stale or foreign id resolves to null.
   const id = entryId as Id<'journalEntries'>
   const entry = useQuery(api.journalEntries.get, { entryId: id })
   const photos = useQuery(api.journalEntries.listPhotos, { entryId: id })
@@ -464,12 +471,12 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
           body: file,
         })
         if (!response.ok) throw new Error('The photo upload did not finish.')
-        const { storageId } = (await response.json()) as {
-          storageId: Id<'_storage'>
-        }
+        const uploaded = storageUploadResponse.parse(await response.json())
         await addPhoto({
           entryId: id,
-          storageId,
+          // SAFETY: Convex's storage upload URL responds with the id of the
+          // file it just stored, which is by construction a `_storage` id.
+          storageId: uploaded.storageId as Id<'_storage'>,
           mimeType: file.type,
           fileName: file.name,
         })
@@ -523,8 +530,9 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
       .filter(Boolean)
       .join('\n\n')
     try {
-      const shareApi = Reflect.get(navigator, 'share') as
-        undefined | ((data: ShareData) => Promise<void>)
+      // The DOM lib declares Web Share unconditionally, but several desktop
+      // browsers still ship without it, so admit its absence explicitly.
+      const shareApi: Navigator['share'] | undefined = navigator.share
       if (shareApi)
         await shareApi.call(navigator, {
           title: title || 'BeeGreat journal entry',

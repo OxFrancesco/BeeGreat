@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
 
 import {
   XAI_SAMPLE_RATE,
@@ -33,7 +34,28 @@ export type RealtimeVoiceTurn = {
   text: string
 }
 
-type XaiEvent = { type?: string; [key: string]: unknown }
+// A field the xai realtime socket may omit or fill with a shape this hook
+// does not consume; both degrade to "absent" instead of dropping the event.
+const lenientString = z.string().optional().catch(undefined)
+
+/** The subset of the xai realtime event vocabulary this hook consumes. */
+const xaiEventSchema = z.object({
+  type: lenientString,
+  transcript: lenientString,
+  item_id: lenientString,
+  delta: lenientString,
+  response_id: lenientString,
+  message: lenientString,
+  response: z.object({ id: lenientString }).optional().catch(undefined),
+  error: z.object({ message: lenientString }).optional().catch(undefined),
+  ping_timestamp: z.unknown(),
+})
+
+type XaiEvent = z.infer<typeof xaiEventSchema>
+
+/** The socket also carries binary frames; only text frames hold events. */
+const textFrame = z.string()
+
 type GetToken = () => Promise<string | null>
 
 export function useRealtimeVoice(getToken: GetToken) {
@@ -205,20 +227,14 @@ export function useRealtimeVoice(getToken: GetToken) {
         type === 'conversation.item.input_audio_transcription.updated' ||
         type === 'conversation.item.input_audio_transcription.completed'
       ) {
-        const transcript = stringField(event, 'transcript')
+        const transcript = event.transcript
         if (transcript) {
-          upsertTurn(
-            stringField(event, 'item_id') ?? `user-${Date.now()}`,
-            'user',
-            transcript,
-          )
+          upsertTurn(event.item_id ?? `user-${Date.now()}`, 'user', transcript)
         }
         return
       }
       if (type === 'response.created') {
-        const response = objectField(event, 'response')
-        const responseId =
-          stringField(response, 'id') ?? `assistant-${Date.now()}`
+        const responseId = event.response?.id ?? `assistant-${Date.now()}`
         responseIdRef.current = responseId
         responseFinishedRef.current = false
         responseHasAudioRef.current = false
@@ -233,9 +249,8 @@ export function useRealtimeVoice(getToken: GetToken) {
         type === 'response.output_audio_transcript.delta' ||
         type === 'response.audio_transcript.delta'
       ) {
-        const delta = stringField(event, 'delta')
-        const responseId =
-          stringField(event, 'response_id') ?? responseIdRef.current
+        const delta = event.delta
+        const responseId = event.response_id ?? responseIdRef.current
         if (delta && responseId)
           upsertTurn(responseId, 'assistant', delta, true)
         return
@@ -244,7 +259,7 @@ export function useRealtimeVoice(getToken: GetToken) {
         type === 'response.output_audio.delta' ||
         type === 'response.audio.delta'
       ) {
-        const delta = stringField(event, 'delta')
+        const delta = event.delta
         if (!delta) return
         const bytes = base64ToBytes(delta)
         outputChunksRef.current.push(bytes)
@@ -285,8 +300,8 @@ export function useRealtimeVoice(getToken: GetToken) {
       }
       if (type === 'error') {
         const message =
-          stringField(event, 'message') ||
-          stringField(objectField(event, 'error'), 'message') ||
+          event.message ||
+          event.error?.message ||
           'The live voice session hit a problem.'
         setErrorMessage(message)
         setStatus('error')
@@ -393,9 +408,11 @@ export function useRealtimeVoice(getToken: GetToken) {
         )
       }
       socket.onmessage = ({ data }) => {
-        if (typeof data !== 'string') return
+        const frame = textFrame.safeParse(data)
+        if (!frame.success) return
         try {
-          handleEvent(JSON.parse(data) as XaiEvent)
+          const event = xaiEventSchema.safeParse(JSON.parse(frame.data))
+          if (event.success) handleEvent(event.data)
         } catch (cause) {
           captureWebFailure(cause, 'voice.xai.event')
         }
@@ -450,16 +467,4 @@ export function useRealtimeVoice(getToken: GetToken) {
     start,
     stop,
   }
-}
-
-function objectField(value: Record<string, unknown>, key: string) {
-  const candidate = value[key]
-  return candidate && typeof candidate === 'object'
-    ? (candidate as Record<string, unknown>)
-    : {}
-}
-
-function stringField(value: Record<string, unknown>, key: string) {
-  const candidate = value[key]
-  return typeof candidate === 'string' ? candidate : undefined
 }

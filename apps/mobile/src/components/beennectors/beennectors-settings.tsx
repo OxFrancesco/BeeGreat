@@ -6,6 +6,7 @@ import {
   type GoogleWorkspaceService,
 } from '@beegreat/tool-presentation';
 import { useAction, useQuery } from 'convex/react';
+import type { FunctionArgs } from 'convex/server';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import { useState, type ReactNode } from 'react';
@@ -26,24 +27,24 @@ import { captureMobileFailure } from '@/lib/sentry';
 type BeennectorProvider = 'github' | 'linear' | 'notion' | 'google';
 
 const APP_REDIRECT_URI = 'beegreat://profile';
-const MARKS: Record<BeennectorProvider, ReactNode> = {
+const MARKS = {
   github: <GitHubLogo size={22} />,
   linear: <LinearLogo size={20} />,
   notion: <NotionLogo size={20} />,
   google: <GoogleLogo size={22} />,
-};
-const BRAND_COLORS: Record<BeennectorProvider, string> = {
+} satisfies Record<BeennectorProvider, ReactNode>;
+const BRAND_COLORS = {
   github: '#24292F',
   linear: '#5E6AD2',
   notion: '#FFFFFF',
   google: '#FFFFFF',
-};
-const PROVIDER_NAMES: Record<BeennectorProvider, string> = {
+} satisfies Record<BeennectorProvider, string>;
+const PROVIDER_NAMES = {
   github: 'GitHub',
   linear: 'Linear',
   notion: 'Notion',
   google: 'Google Workspace',
-};
+} satisfies Record<BeennectorProvider, string>;
 
 export function BeennectorsSettings() {
   const theme = useTheme();
@@ -70,15 +71,15 @@ export function BeennectorsSettings() {
   };
 
   const connect = async (provider: BeennectorProvider) => {
-    const { authorizationUrl } = await beginAuthorization({
-      provider,
-      ...(provider === 'google'
-        ? {
-            googleServices,
-            googleDisclosureVersion: GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
-          }
-        : {}),
-    });
+    const authorizationArgs: FunctionArgs<
+      typeof api.beennectorAuthActions.beginAuthorization
+    > = { provider };
+    if (provider === 'google') {
+      authorizationArgs.googleServices = googleServices;
+      authorizationArgs.googleDisclosureVersion =
+        GOOGLE_WORKSPACE_DISCLOSURE_VERSION;
+    }
+    const { authorizationUrl } = await beginAuthorization(authorizationArgs);
     const result = await WebBrowser.openAuthSessionAsync(
       authorizationUrl,
       APP_REDIRECT_URI,
@@ -254,7 +255,7 @@ export function BeennectorsSettings() {
                 </ThemedText>
               </View>
             ) : null}
-            {connection.message ? (
+            {'message' in connection && connection.message ? (
               <ThemedText type="small" themeColor="destructive">
                 {connection.message}
               </ThemedText>

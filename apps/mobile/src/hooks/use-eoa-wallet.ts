@@ -8,13 +8,16 @@ export function useEoaWallet() {
   const account = useAccount();
   const { provider, providerType } = useProvider();
   const connectedToEvm = account.isConnected && providerType === 'eip155';
+  // SAFETY: When AppKit reports providerType 'eip155' the active provider
+  // speaks EIP-1193 — that is what the eip155 namespace guarantees.
+  const eip1193Provider = connectedToEvm
+    ? (provider as Eip1193Provider | undefined)
+    : undefined;
 
   return {
     address: connectedToEvm ? account.address : undefined,
     isConnected: connectedToEvm,
-    provider: connectedToEvm
-      ? (provider as Eip1193Provider | undefined)
-      : undefined,
+    provider: eip1193Provider,
     isConfigured: isWalletConnectConfigured,
     connect: async () => {
       if (!isWalletConnectConfigured) {

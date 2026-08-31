@@ -3,17 +3,19 @@ import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { z } from 'zod';
 
 import { Shimmer } from '@/components/agent/shimmer';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { getToolCopy, type ToolActivityState } from '@/lib/tool-labels';
+import {
+  getToolCopy,
+  type ToolActivityState,
+  type ToolCallPayload,
+} from '@/lib/tool-labels';
 
-const SPECIALIST_PALETTES: Record<
-  string,
-  { accent: string; solid: string; surface: string; border: string }
-> = {
+const SPECIALIST_PALETTES = new Map(Object.entries({
   Devin: {
     accent: '#F2765A',
     solid: '#D85238',
@@ -32,7 +34,7 @@ const SPECIALIST_PALETTES: Record<
     surface: '#8066E81A',
     border: '#8066E866',
   },
-};
+}));
 
 const DEFAULT_SPECIALIST_PALETTE = {
   accent: '#FAB52A',
@@ -63,21 +65,28 @@ export function ToolActivity({
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const theme = useTheme();
-  const { label, symbol, powerup, specialist } = getToolCopy(name, state, input);
+  // SAFETY: Flue delivers tool inputs over its JSON wire protocol, so the payload is a JSON value.
+  const inputPayload = input as ToolCallPayload | undefined;
+  // SAFETY: Flue delivers tool outputs over its JSON wire protocol, so the payload is a JSON value.
+  const outputPayload = output as ToolCallPayload | undefined;
+  const { label, symbol, powerup, specialist } = getToolCopy(name, state, inputPayload);
+  // SAFETY: The tool symbol table only stores valid SF Symbol names, and SymbolView
+  // renders the provided fallback glyph for any name the platform does not know.
+  const symbolName = symbol as SymbolViewProps['name'];
   const identity = specialist ?? powerup;
   const running = state === 'running';
   const error = state === 'error';
   const specialistPalette = identity
-    ? (SPECIALIST_PALETTES[identity] ?? DEFAULT_SPECIALIST_PALETTE)
+    ? (SPECIALIST_PALETTES.get(identity) ?? DEFAULT_SPECIALIST_PALETTE)
     : null;
 
   const copyDetails = async () => {
     if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
     const result = error
       ? `Error:\n${errorText ?? 'The tool call failed.'}`
-      : `Result:\n${running ? 'Waiting for the result…' : formatToolValue(output)}`;
+      : `Result:\n${running ? 'Waiting for the result…' : formatToolValue(outputPayload)}`;
     await Clipboard.setStringAsync(
-      [`Tool: ${name}`, `Input:\n${formatToolValue(input)}`, result].join('\n\n'),
+      [`Tool: ${name}`, `Input:\n${formatToolValue(inputPayload)}`, result].join('\n\n'),
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -132,7 +141,7 @@ export function ToolActivity({
           ]}
         >
           <SymbolView
-            name={symbol as SymbolViewProps['name']}
+            name={symbolName}
             size={11}
             tintColor={
               error
@@ -186,13 +195,13 @@ export function ToolActivity({
       {expanded ? (
         <View style={[styles.details, { borderTopColor: borderColor }]}>
           <ToolDetail label="Tool" value={name} />
-          <ToolDetail label="Input" value={input} />
+          <ToolDetail label="Input" value={inputPayload} />
           {error ? (
             <ToolDetail label="Error" value={errorText ?? 'The tool call failed.'} />
           ) : (
             <ToolDetail
               label="Result"
-              value={running ? 'Waiting for the result…' : output}
+              value={running ? 'Waiting for the result…' : outputPayload}
             />
           )}
           <Pressable
@@ -226,7 +235,13 @@ export function ToolActivity({
   );
 }
 
-function ToolDetail({ label, value }: { label: string; value: unknown }) {
+function ToolDetail({
+  label,
+  value,
+}: {
+  label: string;
+  value: ToolCallPayload | undefined;
+}) {
   return (
     <View style={styles.detailSection}>
       <ThemedText type="smallBold" themeColor="textSecondary" style={styles.detailLabel}>
@@ -239,9 +254,10 @@ function ToolDetail({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-function formatToolValue(value: unknown) {
+function formatToolValue(value: ToolCallPayload | undefined) {
   if (value === undefined) return 'Not available';
-  if (typeof value === 'string') return value;
+  const text = z.string().safeParse(value);
+  if (text.success) return text.data;
 
   try {
     return JSON.stringify(value, null, 2) ?? String(value);

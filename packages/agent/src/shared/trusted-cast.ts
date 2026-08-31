@@ -11,6 +11,11 @@
  * This performs NO runtime validation — call it only on values whose shape is
  * guaranteed by the platform or verified by the caller afterwards.
  */
-export function trustedCast<T>(value: unknown): T {
+export function trustedCast<T>(value: {} | null | undefined): T {
+  // SAFETY: this helper's documented contract is an unchecked re-type of
+  // values whose shape is guaranteed by the platform (Worker `env`,
+  // `globalThis.process`, webhook payloads narrowed field by field) or
+  // verified by the caller immediately afterwards; callers accept the trust
+  // boundary by choosing this canonical helper.
   return value as T
 }

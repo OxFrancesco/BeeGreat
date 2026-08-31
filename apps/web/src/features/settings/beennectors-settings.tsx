@@ -68,18 +68,18 @@ function GoogleLogo() {
   )
 }
 
-const MARKS: Record<BeennectorProvider, ReactNode> = {
+const MARKS = {
   github: <GitHubLogo />,
   linear: <LinearLogo />,
   notion: <NotionLogo />,
   google: <GoogleLogo />,
-}
-const PROVIDER_NAMES: Record<BeennectorProvider, string> = {
+} satisfies Record<BeennectorProvider, ReactNode>
+const PROVIDER_NAMES = {
   github: 'GitHub',
   linear: 'Linear',
   notion: 'Notion',
   google: 'Google Workspace',
-}
+} satisfies Record<BeennectorProvider, string>
 
 export function BeennectorsSettings() {
   const beennectors = useBeennectors()
@@ -223,7 +223,7 @@ export function BeennectorsSettings() {
                 </p>
               </div>
             ) : null}
-            {connection.message ? (
+            {'message' in connection && connection.message ? (
               <p className="inline-error" role="alert">
                 {connection.message}
               </p>

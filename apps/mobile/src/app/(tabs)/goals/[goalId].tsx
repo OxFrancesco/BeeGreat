@@ -30,7 +30,10 @@ type ProjectSummary = GoalDetail['projects'][number];
 export default function GoalDetailScreen() {
   const theme = useTheme();
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
-  const goal = useQuery(api.goals.get, { goalId: goalId as Id<'goals'> });
+  // SAFETY: This screen is only reached through links built from a Convex goal
+  // document (`/goals/${goal._id}`), so the route param is an Id<'goals'>.
+  const id = goalId as Id<'goals'>;
+  const goal = useQuery(api.goals.get, { goalId: id });
   const createProject = useMutation(api.projects.create);
   const updateGoal = useMutation(api.goals.update);
   const removeGoal = useMutation(api.goals.remove);
@@ -39,7 +42,7 @@ export default function GoalDetailScreen() {
 
   const addProject = async (title: string) => {
     try {
-      await createProject({ goalId: goalId as Id<'goals'>, title });
+      await createProject({ goalId: id, title });
     } catch (error) {
       Alert.alert('Could not add project', error instanceof Error ? error.message : undefined);
     }

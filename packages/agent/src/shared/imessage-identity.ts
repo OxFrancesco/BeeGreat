@@ -1,5 +1,7 @@
 import type { JsonValue } from '@flue/runtime'
 
+import { trustedCast } from './trusted-cast'
+
 export type ImessageServiceOptions = {
   convexSiteUrl?: string
   brokerSecret?: string
@@ -33,7 +35,7 @@ export async function callImessageService<T extends JsonValue = JsonValue>(
   convexUrl: string,
   options: ImessageServiceOptions,
   operation: ImessageIdentityOperation,
-  input: Record<string, unknown> = {},
+  input: Record<string, JsonValue | undefined> = {},
   fetcher: typeof fetch = fetch,
 ): Promise<{ status: number; body: T }> {
   const secret = options.brokerSecret?.trim()
@@ -57,7 +59,7 @@ export async function callImessageService<T extends JsonValue = JsonValue>(
         signal: controller.signal,
       },
     )
-    const body = (await response.json().catch(() => null)) as T
+    const body = trustedCast<T>(await response.json().catch(() => null))
     return { status: response.status, body }
   } finally {
     clearTimeout(timeout)

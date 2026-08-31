@@ -11,6 +11,7 @@ import {
 } from '@beegreat/wallet-connect'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useId, useState } from 'react'
+import { z } from 'zod'
 import { FirstFocusPreviewCard } from './first-focus-preview'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { ReactNode } from 'react'
@@ -79,12 +80,16 @@ function UIComponentView({
     case 'first_focus':
       return <FirstFocusPreviewCard preview={component} />
     case 'confirm': {
-      const web3ActionId = component.payload?.web3ActionId
-      if (typeof web3ActionId === 'string' && web3ActionId.length > 0) {
+      const web3 = web3ConfirmPayload.safeParse(component.payload)
+      if (web3.success) {
         return (
           <Web3ConfirmCard
             summary={component.summary}
-            actionId={web3ActionId}
+            // SAFETY: the agent's beeui confirm contract fills
+            // `payload.web3ActionId` with the Convex `web3Actions` document id
+            // it created for this plan, and the ownership-scoped queries below
+            // reject any id that is not the caller's action.
+            actionId={web3.data.web3ActionId as Id<'web3Actions'>}
             onReply={onReply}
           />
         )
@@ -308,6 +313,9 @@ function GeneratedImageCard({
   )
 }
 
+/** A confirm card is action-bound when the agent attached a web3 action id. */
+const web3ConfirmPayload = z.object({ web3ActionId: z.string().min(1) })
+
 /**
  * Web3 money movement uses an action-bound authorization. Smart-wallet actions
  * call `web3Actions.confirm` and schedule server-side execution; linked-wallet
@@ -321,7 +329,7 @@ function Web3ConfirmCard({
   onReply,
 }: {
   summary: string
-  actionId: string
+  actionId: Id<'web3Actions'>
   onReply?: (text: string) => void | Promise<void>
 }) {
   const confirmAction = useMutation(api.web3Actions.confirm)
@@ -339,7 +347,7 @@ function Web3ConfirmCard({
   // The status query is ownership-scoped (null for anyone else), so it is
   // safe to subscribe immediately — needed to detect YOLO auto-confirmation.
   const live = useQuery(api.web3Actions.status, {
-    actionId: actionId as Id<'web3Actions'>,
+    actionId,
   })
   const autoConfirmed = live?.autoConfirmed === true
   const isEoaAction = live?.kind === 'execute_eoa_plan'
@@ -373,7 +381,7 @@ function Web3ConfirmCard({
     try {
       if (isEoaAction) {
         const plan = await beginEoaExecution({
-          actionId: actionId as Id<'web3Actions'>,
+          actionId,
         })
         eoaClaimed = true
         try {
@@ -383,13 +391,13 @@ function Web3ConfirmCard({
             chainId: plan.chainId,
             buildPlan: async () => {
               const refreshed = await refreshEoaExecution({
-                actionId: actionId as Id<'web3Actions'>,
+                actionId,
               })
               return refreshed.transactionSteps
             },
             onSubmitted: async ({ index, hash, role }) => {
               await recordEoaSubmission({
-                actionId: actionId as Id<'web3Actions'>,
+                actionId,
                 index,
                 hash,
                 role,
@@ -397,7 +405,7 @@ function Web3ConfirmCard({
             },
             onConfirmed: async ({ index, hash }) => {
               await recordEoaReceipt({
-                actionId: actionId as Id<'web3Actions'>,
+                actionId,
                 index,
                 hash,
               })
@@ -405,13 +413,13 @@ function Web3ConfirmCard({
           })
         } catch (cause) {
           await reportEoaFailure({
-            actionId: actionId as Id<'web3Actions'>,
+            actionId,
             reason: eoaFailureReason(cause),
           })
           throw cause
         }
       } else {
-        await confirmAction({ actionId: actionId as Id<'web3Actions'> })
+        await confirmAction({ actionId })
       }
       setDecision('confirmed')
       void onReply?.(
@@ -436,7 +444,7 @@ function Web3ConfirmCard({
   const decline = () => {
     if (decision !== 'idle') return
     setDecision('declined')
-    cancelAction({ actionId: actionId as Id<'web3Actions'> }).catch(() => {
+    cancelAction({ actionId }).catch(() => {
       // Cancelling a stale or unknown action is a no-op.
     })
     void onReply?.('No, I declined the action.')

@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { zstdCompressSync } from 'node:zlib'
-import { proxyCodexRequest } from '../app/api/codex/responses/route'
+import {
+  proxyCodexRequest,
+  type AdapterFailureDetail,
+} from '../app/api/codex/responses/route'
 
 describe('Flue-Codex adapter', () => {
   test('rejects missing and incorrect adapter secrets', async () => {
@@ -105,7 +108,7 @@ describe('Flue-Codex adapter', () => {
   test('reports upstream server failures without exposing the request body', async () => {
     const captured: Array<{
       error: Error
-      context: { tags: Record<string, string>; extra?: Record<string, unknown> }
+      context: { tags: Record<string, string>; extra?: AdapterFailureDetail }
     }> = []
     const response = await proxyCodexRequest(
       new Request('https://adapter.test/api/codex/responses', {

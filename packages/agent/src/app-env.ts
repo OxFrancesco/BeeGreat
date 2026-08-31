@@ -1,7 +1,11 @@
 import { toError } from '@beegreat/observability'
+import type { JsonValue } from '@flue/runtime'
 import * as Sentry from '@sentry/cloudflare'
 import type { Context } from 'hono'
+import * as v from 'valibot'
 import { trustedCast } from './shared/trusted-cast.ts'
+
+const stringBindingSchema = v.string()
 
 export type Bindings = {
   ELEVENLABS_API_KEY: string
@@ -43,6 +47,8 @@ export function binding<K extends keyof Bindings>(
   env: Bindings,
   name: K,
 ): Bindings[K] | undefined {
+  // SAFETY: the local-dev fallback reads `process.env`, whose entry for
+  // `name` carries the same configured string the Worker binding would.
   const configured =
     env[name] ??
     (trustedCast<{
@@ -50,17 +56,20 @@ export function binding<K extends keyof Bindings>(
     }>(globalThis).process?.env?.[name] as Bindings[K] | undefined)
   // Secrets pasted with a trailing newline produce invalid header values
   // ("Bearer <key>\n" throws TypeError deep inside fetch), so sanitize here.
-  return typeof configured === 'string'
-    ? ((configured.trim() || undefined) as Bindings[K] | undefined)
-    : configured
+  if (v.is(stringBindingSchema, configured)) {
+    // SAFETY: trimming a string binding keeps it the same configured string;
+    // TypeScript cannot relate `string` back to the generic `Bindings[K]`.
+    return (configured.trim() || undefined) as Bindings[K] | undefined
+  }
+  return configured
 }
 
 export function captureWorkerFailure(
-  error: unknown,
+  cause: unknown,
   operation: string,
-  extra?: Record<string, unknown>,
+  extra?: Record<string, JsonValue | undefined>,
 ) {
-  Sentry.captureException(toError(error), {
+  Sentry.captureException(toError(cause), {
     tags: { service: 'agent-worker', operation, handled: 'true' },
     extra,
   })

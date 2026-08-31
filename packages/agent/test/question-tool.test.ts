@@ -23,6 +23,8 @@ describe('Bee question tool', () => {
     expect(v.safeParse(questionInputSchema, input).success).toBe(true)
     const tool = createQuestionTool()
     expect(tool.name).toBe('question')
+    // SAFETY: `input` was just validated against questionInputSchema above;
+    // the tool's run context type is wider than this test needs.
     await expect(tool.run({ data: input } as never)).resolves.toEqual({
       output: {
         component: { type: 'question', ...input },

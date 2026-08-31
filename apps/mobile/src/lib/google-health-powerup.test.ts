@@ -11,8 +11,12 @@ test('enabling Google Health turns on the power-up before opening OAuth', async 
       events.push('connect');
       return true;
     },
-    disconnect: async () => events.push('disconnect'),
-    setEnabled: async (enabled) => events.push(`enabled:${enabled}`),
+    disconnect: async () => {
+      events.push('disconnect');
+    },
+    setEnabled: async (enabled) => {
+      events.push(`enabled:${enabled}`);
+    },
   });
 
   expect(events).toEqual(['enabled:true', 'connect']);
@@ -26,8 +30,12 @@ test('cancelled Google Health OAuth rolls the power-up back off', async () => {
       events.push('connect');
       return false;
     },
-    disconnect: async () => events.push('disconnect'),
-    setEnabled: async (enabled) => events.push(`enabled:${enabled}`),
+    disconnect: async () => {
+      events.push('disconnect');
+    },
+    setEnabled: async (enabled) => {
+      events.push(`enabled:${enabled}`);
+    },
   });
 
   expect(connected).toBe(false);

@@ -9,6 +9,9 @@ import {
 } from '../preferences/hotkeys'
 import type { HotkeyAction } from '../preferences/hotkeys'
 
+// SAFETY: `HOTKEY_ACTION_LABELS` declares exactly one label per
+// `HotkeyAction`, so its keys are precisely that union; `Object.keys` cannot
+// carry the literal key evidence itself.
 const ACTIONS = Object.keys(HOTKEY_ACTION_LABELS) as Array<HotkeyAction>
 
 export function HotkeySettings() {

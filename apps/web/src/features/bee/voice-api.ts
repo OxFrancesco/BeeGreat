@@ -1,8 +1,21 @@
+import { z } from 'zod'
+
 // BeeGreat keeps its Flue worker on a dedicated local port to avoid Vite collisions.
 export const AGENT_URL =
   import.meta.env.VITE_AGENT_URL ?? 'http://localhost:3583'
 
 type GetToken = () => Promise<string | null>
+
+const voiceErrorBody = z.object({ error: z.string().optional() })
+const transcriptionBody = z.object({ text: z.string() })
+const speechBody = z.object({
+  audio: z.string(),
+  mimeType: z.string().optional(),
+})
+const realtimeTokenBody = z.object({
+  token: z.string(),
+  expiresAt: z.number(),
+})
 
 async function authHeaders(getToken: GetToken) {
   const token = await getToken()
@@ -12,10 +25,13 @@ async function authHeaders(getToken: GetToken) {
 }
 
 async function readError(response: Response, fallback: string) {
-  const body = (await response.json().catch(() => null)) as {
-    error?: string
-  } | null
-  return body?.error ?? `${fallback} (HTTP ${response.status})`
+  const body = voiceErrorBody.safeParse(
+    await response.json().catch(() => null),
+  )
+  return (
+    (body.success ? body.data.error : undefined) ??
+    `${fallback} (HTTP ${response.status})`
+  )
 }
 
 export async function transcribeBlob(blob: Blob, getToken: GetToken) {
@@ -30,7 +46,7 @@ export async function transcribeBlob(blob: Blob, getToken: GetToken) {
   if (!response.ok) {
     throw new Error(await readError(response, 'Transcription failed.'))
   }
-  const result = (await response.json()) as { text: string }
+  const result = transcriptionBody.parse(await response.json())
   return result.text.trim()
 }
 
@@ -46,7 +62,7 @@ export async function synthesizeSpeech(text: string, getToken: GetToken) {
   if (!response.ok) {
     throw new Error(await readError(response, 'Speech synthesis failed.'))
   }
-  return (await response.json()) as { audio: string; mimeType?: string }
+  return speechBody.parse(await response.json())
 }
 
 export async function createRealtimeVoiceToken(getToken: GetToken) {
@@ -59,5 +75,5 @@ export async function createRealtimeVoiceToken(getToken: GetToken) {
       await readError(response, 'Conversational voice could not start.'),
     )
   }
-  return (await response.json()) as { token: string; expiresAt: number }
+  return realtimeTokenBody.parse(await response.json())
 }

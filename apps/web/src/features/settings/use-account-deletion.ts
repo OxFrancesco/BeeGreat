@@ -2,6 +2,7 @@ import { api } from '@beegreat/backend/convex/_generated/api'
 import { useClerk, useUser } from '@clerk/tanstack-react-start'
 import { useAction, useMutation } from 'convex/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 
 import { captureWebFailure } from '~/lib/sentry'
@@ -15,12 +16,27 @@ type PendingDeletion = {
   clerkUserId: string
 }
 
+const pendingDeletionSchema = z.object({
+  jobId: z.string(),
+  activationToken: z.string(),
+  phase: z.union([z.literal('prepared'), z.literal('identity_deleted')]),
+  clerkUserId: z.string(),
+})
+
 let resumePromise: Promise<void> | null = null
 
 function readPending(): PendingDeletion | null {
   try {
     const value = localStorage.getItem(STORAGE_KEY)
-    return value ? (JSON.parse(value) as PendingDeletion) : null
+    if (!value) return null
+    const pending = pendingDeletionSchema.parse(JSON.parse(value))
+    return {
+      ...pending,
+      // SAFETY: this storage key is written only by `savePending`, so the
+      // parsed job id is the `accountDeletionJobs` id the deletion flow
+      // stored for this browser.
+      jobId: pending.jobId as Id<'accountDeletionJobs'>,
+    }
   } catch {
     return null
   }

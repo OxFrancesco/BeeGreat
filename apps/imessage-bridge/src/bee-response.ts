@@ -59,16 +59,17 @@ export function extractBeeResponse(text: string): BeeResponseProjection {
     : [spoken, ...rendered.map((item) => item.markdown)]
         .filter(Boolean)
         .join('\n\n')
-  return {
+  const projection: BeeResponseProjection = {
     spoken,
     markdown,
     links: [...new Set(rendered.flatMap((item) => item.links))],
-    ...(followUps.firstFocus ? { firstFocus: followUps.firstFocus } : {}),
-    ...(followUps.web3Confirmation
-      ? { web3Confirmation: followUps.web3Confirmation }
-      : {}),
-    ...(followUps.question ? { question: followUps.question } : {}),
   }
+  if (followUps.firstFocus) projection.firstFocus = followUps.firstFocus
+  if (followUps.web3Confirmation) {
+    projection.web3Confirmation = followUps.web3Confirmation
+  }
+  if (followUps.question) projection.question = followUps.question
+  return projection
 }
 
 export function projectWeb3Action(
@@ -84,14 +85,15 @@ export function projectWeb3Action(
   }
   const projected = projectTextWeb3Action(action)
   const { web3Confirmation: _confirmation, ...withoutConfirmation } = response
-  return {
+  const reprojected: BeeResponseProjection = {
     ...withoutConfirmation,
     markdown: response.markdown.replace(original, projected.text),
     links: [...new Set([...response.links, ...projected.links])],
-    ...(projected.requiresTextConfirmation
-      ? { web3Confirmation: canonical }
-      : {}),
   }
+  if (projected.requiresTextConfirmation) {
+    reprojected.web3Confirmation = canonical
+  }
+  return reprojected
 }
 
 function latestAssistantProjection(
@@ -101,9 +103,11 @@ function latestAssistantProjection(
     .reverse()
     .find((message) => message.role === 'assistant')
   if (!latestAssistant) return undefined
-  const projections = (latestAssistant.parts ?? [])
-    .filter((part) => part.type === 'text' && typeof part.text === 'string')
-    .map((part) => extractBeeResponse(part.text!))
+  const projections = (latestAssistant.parts ?? []).flatMap((part) =>
+    part.type === 'text' && part.text !== undefined
+      ? [extractBeeResponse(part.text)]
+      : [],
+  )
   return (
     [...projections].reverse().find((projection) => projection.question) ??
     [...projections]

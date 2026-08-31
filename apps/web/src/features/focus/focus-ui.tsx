@@ -1,11 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 
-import type {
-  CSSProperties,
-  FormEvent,
-  PropsWithChildren,
-  ReactNode,
-} from 'react'
+import type { FormEvent, PropsWithChildren, ReactNode } from 'react'
 import { captureWebFailure } from '~/lib/sentry'
 
 export function FocusPage({ children }: PropsWithChildren) {
@@ -55,7 +50,7 @@ export function InlineCreate({
   onCancel,
 }: {
   label: string
-  onCreate: (title: string) => Promise<unknown>
+  onCreate: (title: string) => Promise<void>
   compact?: boolean
   autoFocus?: boolean
   onCancel?: () => void
@@ -148,7 +143,7 @@ export function CombProgress({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={percentage}
-      style={{ '--comb-progress': `${percentage}%` } as CSSProperties}
+      style={{ '--comb-progress': `${percentage}%` }}
     >
       <span>{percentage}%</span>
     </div>
@@ -199,7 +194,9 @@ export function Modal({
   const titleId = useId()
   const cardRef = useRef<HTMLElement>(null)
   useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null
+    const activeElement = document.activeElement
+    const previouslyFocused =
+      activeElement instanceof HTMLElement ? activeElement : null
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const frame = window.requestAnimationFrame(() => {
@@ -275,7 +272,7 @@ export function RenameModal({
   noun: string
   initialValue: string
   onClose: () => void
-  onSave: (value: string) => Promise<unknown>
+  onSave: (value: string) => Promise<void>
 }) {
   const [value, setValue] = useState(initialValue)
   const [working, setWorking] = useState(false)
@@ -340,7 +337,7 @@ export function DeleteModal({
   name: string
   detail: string
   onClose: () => void
-  onDelete: () => Promise<unknown>
+  onDelete: () => Promise<void>
 }) {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string>()

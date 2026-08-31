@@ -81,6 +81,9 @@ export default function ProjectScreen() {
 
 function LiveProjectScreen() {
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
+  // SAFETY: The live screen is only reached through links built from a Convex
+  // project document (`/goals/project/${project._id}`), so the route param is
+  // an Id<'projects'>; the fixture route renders the harness branch above.
   const id = projectId as Id<'projects'>;
   const project = useQuery(api.projects.get, { projectId: id });
   const tasks = useQuery(api.tasks.listByProject, { projectId: id });
@@ -94,12 +97,12 @@ function LiveProjectScreen() {
   const updateProject = useMutation(api.projects.update);
   const removeProject = useMutation(api.projects.remove);
 
-  const add = async (title: string, parentTaskId?: string) => {
+  const add = async (title: string, parentTaskId?: Id<'tasks'>) => {
     try {
       await createTask({
         projectId: id,
         title,
-        parentTaskId: parentTaskId as Id<'tasks'> | undefined,
+        parentTaskId,
       });
     } catch (error) {
       Alert.alert('Could not add task', error instanceof Error ? error.message : undefined);
@@ -273,7 +276,7 @@ export function ProjectScreenView({
   project: Project | undefined;
   tasks: Task[] | undefined;
   highlightTaskId: string | null;
-  onAddTask: (title: string, parentTaskId?: string) => void | Promise<void>;
+  onAddTask: (title: string, parentTaskId?: Id<'tasks'>) => void | Promise<void>;
   onToggleTask: (task: Task) => void;
   onOpenTaskActions: (task: Task) => void;
   onOpenProjectSettings: () => void;
@@ -284,7 +287,7 @@ export function ProjectScreenView({
   const tree = useMemo(() => buildTree(tasks ?? []), [tasks]);
   const loading = project === undefined || tasks === undefined;
 
-  const add = async (title: string, parentTaskId?: string) => {
+  const add = async (title: string, parentTaskId?: Id<'tasks'>) => {
     setSubtaskTarget(null);
     await onAddTask(title, parentTaskId);
   };

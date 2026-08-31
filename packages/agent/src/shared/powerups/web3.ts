@@ -1,7 +1,32 @@
-import { defineSubagent, defineTool, useSkill, useTool } from '@flue/runtime'
+import {
+  defineSubagent,
+  defineTool,
+  useSkill,
+  useTool,
+  type JsonValue,
+} from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
 import { aerodromeLiquiditySkill, crossChainSwapSkill } from './web3-skills.ts'
+
+const bridgeErrorSchema = v.object({ error: v.string() })
+
+/** JSON-serializable fields a wallet tool forwards to the bridge op. */
+type WalletBridgeParams = Record<string, JsonValue | undefined>
+
+/** Primitive parameters of one Sugar bridge action. */
+type SugarBridgeParameters = Record<string, string | number | boolean | undefined>
+
+/** The JSON body of one authenticated Convex web3 bridge request. */
+type BridgeRequestBody = {
+  userId: string
+  conversationId?: string
+  jobRunId?: string
+  op?: string
+  params?: WalletBridgeParams
+  sugarAction?: string
+  parameters?: SugarBridgeParameters
+}
 
 // Web3: a Crossmint smart wallet per user (server-signed after authenticated
 // client confirmation) plus an optional linked EOA, with Velodrome/Aerodrome DeFi
@@ -167,7 +192,7 @@ type WalletPassthroughSpec = {
   description: string
   /** Wallet bridge op passed to `runWallet`. */
   op: string
-  input?: v.GenericSchema<Record<string, unknown>, Record<string, unknown>>
+  input?: v.GenericSchema<WalletBridgeParams, WalletBridgeParams>
 }
 
 const WALLET_PASSTHROUGH_SPECS: readonly WalletPassthroughSpec[] = [
@@ -250,10 +275,7 @@ type SugarPassthroughSpec = {
   description: string
   /** Sugar bridge action passed to `runSugar`. */
   op: string
-  input: v.GenericSchema<
-    Record<string, unknown>,
-    Record<string, string | number | boolean | undefined>
-  >
+  input: v.GenericSchema<WalletBridgeParams, SugarBridgeParameters>
 }
 
 const SUGAR_PASSTHROUGH_SPECS: readonly SugarPassthroughSpec[] = [
@@ -520,7 +542,7 @@ export const web3: PowerupDefinition = {
       return url.origin
     })()
 
-    const bridgePost = async (path: string, body: Record<string, unknown>) => {
+    const bridgePost = async (path: string, body: BridgeRequestBody) => {
       if (!convexSiteUrl || !runtime.credentialBrokerSecret) {
         throw new Error('Web3 is not configured for the Bee worker.')
       }
@@ -540,8 +562,8 @@ export const web3: PowerupDefinition = {
         if (!response.ok) {
           let message = 'Web3 request failed.'
           try {
-            const parsed = JSON.parse(responseBody) as { error?: unknown }
-            if (typeof parsed.error === 'string') message = parsed.error
+            const parsed = JSON.parse(responseBody)
+            if (v.is(bridgeErrorSchema, parsed)) message = parsed.error
           } catch {
             // Non-JSON error body: keep the generic message.
           }
@@ -555,19 +577,17 @@ export const web3: PowerupDefinition = {
 
     const runSugar = (
       sugarAction: string,
-      parameters: Record<string, string | number | boolean | undefined>,
+      parameters: SugarBridgeParameters,
     ) => bridgePost('/internal/web3/sugar', { userId, sugarAction, parameters })
 
-    const runWallet = (op: string, params: Record<string, unknown> = {}) =>
-      bridgePost('/internal/web3/wallet', {
-        userId,
-        ...(runtime.conversationId
-          ? { conversationId: runtime.conversationId }
-          : {}),
-        ...(runtime.jobRunId ? { jobRunId: runtime.jobRunId } : {}),
-        op,
-        params,
-      })
+    const runWallet = (op: string, params: WalletBridgeParams = {}) => {
+      const body: BridgeRequestBody = { userId }
+      if (runtime.conversationId) body.conversationId = runtime.conversationId
+      if (runtime.jobRunId) body.jobRunId = runtime.jobRunId
+      body.op = op
+      body.params = params
+      return bridgePost('/internal/web3/wallet', body)
+    }
 
     const walletPassthroughTool = (spec: WalletPassthroughSpec) =>
       spec.input

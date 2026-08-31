@@ -40,12 +40,7 @@ export type EoaFailureReason =
  * can record the precise outcome. EIP-1193 code 4001 is the user declining.
  */
 export function eoaFailureReason(cause: unknown): EoaFailureReason {
-  if (
-    typeof cause === "object" &&
-    cause !== null &&
-    "code" in cause &&
-    cause.code === 4001
-  ) {
+  if (cause instanceof Object && "code" in cause && cause.code === 4001) {
     return "user_rejected";
   }
   if (

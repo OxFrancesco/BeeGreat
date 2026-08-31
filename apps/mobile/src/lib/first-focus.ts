@@ -18,9 +18,14 @@ export function getGolieBeeName(seed: string): string {
   return GOLIE_BEE_NAMES[hash % GOLIE_BEE_NAMES.length];
 }
 
+/** The GolieBee customization payload; legacy records may lack a seed. */
+type GolieBeeCustomization = { seed?: string };
+
 /** Uses a persisted customization seed when the backend supplies one. */
-export function getStableGolieBeeSeed(value: unknown, fallback: string): string {
-  if (!value || typeof value !== 'object' || !('seed' in value)) return fallback;
-  const seed = value.seed;
-  return typeof seed === 'string' && seed.trim() ? seed : fallback;
+export function getStableGolieBeeSeed(
+  value: GolieBeeCustomization | null | undefined,
+  fallback: string,
+): string {
+  const seed = value?.seed;
+  return seed && seed.trim() ? seed : fallback;
 }

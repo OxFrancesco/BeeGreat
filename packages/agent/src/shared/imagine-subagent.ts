@@ -41,6 +41,19 @@ type ImagineResult = {
   url: string
 }
 
+type ImagineRequestInput = {
+  operation: 'generate_image' | 'edit_image' | 'generate_video' | 'edit_video'
+  prompt: string
+  sourceUrl?: string
+}
+
+const imagineErrorSchema = v.object({ error: v.string() })
+
+const imagineResultSchema = v.object({
+  kind: v.picklist(['image', 'video']),
+  url: v.string(),
+})
+
 export interface ImagineRuntime {
   convexSiteUrl?: string
   brokerSecret?: string
@@ -60,7 +73,7 @@ export function imagineTools(
   })()
 
   const request = async (
-    input: Record<string, unknown>,
+    input: ImagineRequestInput,
     signal?: AbortSignal,
   ): Promise<ImagineResult> => {
     if (!convexSiteUrl || !runtime.brokerSecret) {
@@ -80,24 +93,15 @@ export function imagineTools(
         body: JSON.stringify(input),
         signal: controller.signal,
       })
-      const body = (await response.json().catch(() => null)) as
-        | {
-            error?: unknown
-            kind?: unknown
-            url?: unknown
-          }
-        | null
+      const body = await response.json().catch(() => null)
       if (!response.ok) {
         throw new Error(
-          typeof body?.error === 'string'
+          v.is(imagineErrorSchema, body)
             ? body.error
             : 'Imagine request failed.',
         )
       }
-      if (
-        (body?.kind !== 'image' && body?.kind !== 'video') ||
-        typeof body.url !== 'string'
-      ) {
+      if (!v.is(imagineResultSchema, body)) {
         throw new Error('Imagine returned an invalid media result.')
       }
       return { kind: body.kind, url: body.url }

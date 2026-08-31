@@ -37,8 +37,8 @@ function ChatGptLogo({ size, color }: { size: number; color: string }) {
   );
 }
 
-function errorMessage(error: unknown) {
-  if (error instanceof Error && error.message.includes('ALREADY_CONNECTED')) {
+function errorMessage(cause: unknown) {
+  if (cause instanceof Error && cause.message.includes('ALREADY_CONNECTED')) {
     return 'ChatGPT is already connected.';
   }
   return 'Could not update the ChatGPT connection. Try again.';
@@ -53,7 +53,7 @@ function useChatGptAuthActions() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (operationName: string, operation: () => Promise<unknown>) => {
+  const run = async (operationName: string, operation: () => Promise<void>) => {
     if (working) return;
     setWorking(true);
     setError(null);
@@ -68,9 +68,18 @@ function useChatGptAuthActions() {
     }
   };
 
-  const connect = () => run('connect', () => start({}));
-  const removeConnection = () => run('disconnect', () => disconnect({}));
-  const skipConnection = () => run('skip', () => skip({}));
+  const connect = () =>
+    run('connect', async () => {
+      await start({});
+    });
+  const removeConnection = () =>
+    run('disconnect', async () => {
+      await disconnect({});
+    });
+  const skipConnection = () =>
+    run('skip', async () => {
+      await skip({});
+    });
   const copyCode = async (userCode: string) => {
     await Clipboard.setStringAsync(userCode);
     setCopied(true);

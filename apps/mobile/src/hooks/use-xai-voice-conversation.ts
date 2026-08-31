@@ -8,6 +8,7 @@ import {
 import { File, Paths } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { z } from 'zod';
 
 import type { OrbState } from '@/components/agent/voice-orb';
 import { captureMobileFailure } from '@/lib/sentry';
@@ -43,10 +44,23 @@ export type RealtimeVoiceTurn = {
   text: string;
 };
 
-type XaiEvent = {
-  type?: string;
-  [key: string]: unknown;
-};
+// Field-tolerant realtime event decoding: a malformed field reads as absent,
+// matching how unknown event types are ignored.
+const tolerantString = z.string().optional().catch(undefined);
+
+const xaiEventSchema = z.object({
+  type: tolerantString,
+  item_id: tolerantString,
+  transcript: tolerantString,
+  delta: tolerantString,
+  response_id: tolerantString,
+  message: tolerantString,
+  ping_timestamp: z.union([z.number(), z.string()]).optional().catch(undefined),
+  response: z.object({ id: tolerantString }).optional().catch(undefined),
+  error: z.object({ message: tolerantString }).optional().catch(undefined),
+});
+
+type XaiEvent = z.infer<typeof xaiEventSchema>;
 
 export function useXaiVoiceConversation() {
   const webSocketRef = useRef<WebSocket | null>(null);
@@ -208,18 +222,16 @@ export function useXaiVoiceConversation() {
         type === 'conversation.item.input_audio_transcription.updated' ||
         type === 'conversation.item.input_audio_transcription.completed'
       ) {
-        const transcript = stringField(event, 'transcript');
+        const transcript = event.transcript;
         if (!transcript) return;
-        const itemId =
-          stringField(event, 'item_id') ?? `user-${Date.now().toString()}`;
+        const itemId = event.item_id ?? `user-${Date.now().toString()}`;
         upsertTurn(itemId, 'user', transcript);
         return;
       }
 
       if (type === 'response.created') {
-        const response = objectField(event, 'response');
         const responseId =
-          stringField(response, 'id') ?? `assistant-${Date.now().toString()}`;
+          event.response?.id ?? `assistant-${Date.now().toString()}`;
         responseIdRef.current = responseId;
         responseHasAudioRef.current = false;
         outputChunksRef.current = [];
@@ -235,9 +247,8 @@ export function useXaiVoiceConversation() {
         type === 'response.output_audio_transcript.delta' ||
         type === 'response.audio_transcript.delta'
       ) {
-        const delta = stringField(event, 'delta');
-        const responseId =
-          stringField(event, 'response_id') ?? responseIdRef.current;
+        const delta = event.delta;
+        const responseId = event.response_id ?? responseIdRef.current;
         if (delta && responseId) {
           upsertTurn(responseId, 'assistant', delta, true);
         }
@@ -248,7 +259,7 @@ export function useXaiVoiceConversation() {
         type === 'response.output_audio.delta' ||
         type === 'response.audio.delta'
       ) {
-        const delta = stringField(event, 'delta');
+        const delta = event.delta;
         if (!delta) return;
         const bytes = base64ToBytes(delta);
         outputChunksRef.current.push(bytes);
@@ -291,8 +302,8 @@ export function useXaiVoiceConversation() {
 
       if (type === 'error') {
         const message =
-          stringField(event, 'message') ??
-          stringField(objectField(event, 'error'), 'message') ??
+          event.message ??
+          event.error?.message ??
           'The live voice session hit a problem.';
         setErrorMessage(message);
       }
@@ -397,9 +408,11 @@ export function useXaiVoiceConversation() {
       };
 
       socket.onmessage = ({ data }) => {
-        if (typeof data !== 'string') return;
+        const text = z.string().safeParse(data);
+        if (!text.success) return;
         try {
-          handleEvent(JSON.parse(data) as XaiEvent);
+          const event = xaiEventSchema.safeParse(JSON.parse(text.data));
+          if (event.success) handleEvent(event.data);
         } catch (cause) {
           captureMobileFailure(cause, 'voice.xai.event');
         }
@@ -482,20 +495,4 @@ export function useXaiVoiceConversation() {
   };
 }
 
-function objectField(
-  value: Record<string, unknown>,
-  key: string,
-): Record<string, unknown> {
-  const candidate = value[key];
-  return candidate && typeof candidate === 'object'
-    ? (candidate as Record<string, unknown>)
-    : {};
-}
 
-function stringField(
-  value: Record<string, unknown>,
-  key: string,
-): string | undefined {
-  const candidate = value[key];
-  return typeof candidate === 'string' ? candidate : undefined;
-}

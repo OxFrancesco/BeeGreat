@@ -70,18 +70,18 @@ export interface GoogleWorkspaceOptions {
   getAccessToken?: () => Promise<string>
 }
 
-const COMMAND_SERVICE: Record<string, GoogleWorkspaceService> = {
-  gmail: 'mail',
-  calendar: 'calendar',
-  drive: 'drive',
-  docs: 'drive',
-  sheets: 'drive',
-  slides: 'drive',
-  contacts: 'contacts',
-  people: 'contacts',
-  tasks: 'tasks',
-  forms: 'forms',
-}
+const COMMAND_SERVICE = new Map<string, GoogleWorkspaceService>([
+  ['gmail', 'mail'],
+  ['calendar', 'calendar'],
+  ['drive', 'drive'],
+  ['docs', 'drive'],
+  ['sheets', 'drive'],
+  ['slides', 'drive'],
+  ['contacts', 'contacts'],
+  ['people', 'contacts'],
+  ['tasks', 'tasks'],
+  ['forms', 'forms'],
+])
 
 function shellQuote(value: string) {
   return `'${value.replaceAll("'", `'"'"'`)}'`
@@ -114,7 +114,7 @@ function validateSelectedService(
   args: string[],
 ) {
   const command = args.find((arg) => !arg.startsWith('-'))?.toLowerCase()
-  const required = command ? COMMAND_SERVICE[command] : undefined
+  const required = command ? COMMAND_SERVICE.get(command) : undefined
   if (required && !services.includes(required)) {
     throw new Error(
       `Google ${required} access was not selected. Reconnect Google Workspace to enable it.`,
@@ -168,7 +168,6 @@ export async function executeGoogleWorkspaceCommand(
   const redact = (value: string) =>
     truncate(value.replaceAll(accessToken, '[credential redacted]').trim())
   const stdout = redact(result.stdout)
-  const stderr = redact(result.stderr)
   if (!result.success) {
     // Provider output can contain Workspace data. Never put it in an Error,
     // because handled errors are eligible for diagnostics and support logs.
@@ -176,7 +175,8 @@ export async function executeGoogleWorkspaceCommand(
   }
   if (!stdout) return { ok: true, output: null }
   try {
-    return { ok: true, output: JSON.parse(stdout) as JsonValue }
+    const parsed: JsonValue = JSON.parse(stdout)
+    return { ok: true, output: parsed }
   } catch {
     return { ok: true, output: stdout }
   }

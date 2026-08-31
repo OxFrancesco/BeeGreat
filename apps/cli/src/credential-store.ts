@@ -1,6 +1,13 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import {
+  isFiniteJsonNumber,
+  isJsonObject,
+  isJsonString,
+  type JsonValue,
+} from "./json";
+
 export type ClerkCredentials = {
   accessToken: string;
   refreshToken: string;
@@ -14,14 +21,13 @@ export type CredentialStore = {
   clear(): Promise<void>;
 };
 
-function validCredentials(value: unknown): value is ClerkCredentials {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
+function validCredentials(value: JsonValue): value is ClerkCredentials {
   return (
-    typeof record.accessToken === "string" &&
-    typeof record.refreshToken === "string" &&
-    typeof record.expiresAt === "number" &&
-    typeof record.userId === "string"
+    isJsonObject(value) &&
+    isJsonString(value.accessToken) &&
+    isJsonString(value.refreshToken) &&
+    isFiniteJsonNumber(value.expiresAt) &&
+    isJsonString(value.userId)
   );
 }
 
@@ -52,7 +58,7 @@ export function createCredentialStore(options: {
 
   async function loadFile() {
     try {
-      const value: unknown = JSON.parse(
+      const value: JsonValue = JSON.parse(
         await readFile(options.fallbackPath, "utf8"),
       );
       return validCredentials(value) ? value : undefined;
@@ -74,7 +80,7 @@ export function createCredentialStore(options: {
             "-w",
           ]);
           if (result.exitCode === 0) {
-            const value: unknown = JSON.parse(result.output);
+            const value: JsonValue = JSON.parse(result.output);
             if (validCredentials(value)) return value;
           }
         } catch {

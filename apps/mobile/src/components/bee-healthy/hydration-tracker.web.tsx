@@ -54,7 +54,7 @@ export function HydrationTracker({
   const percentage = Math.round(fillRatio * 100);
   const overflowMl = Math.max(0, currentMl - normalizedGoalMl);
   const remainingMl = Math.max(0, normalizedGoalMl - currentMl);
-  const waterHeight = `${Math.round(fillRatio * 100)}%` as `${number}%`;
+  const waterHeight = `${percentage}%` as const;
 
   const progressText =
     overflowMl > 0

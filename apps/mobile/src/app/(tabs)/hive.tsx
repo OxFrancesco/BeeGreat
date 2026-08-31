@@ -1,5 +1,4 @@
 import { api } from "@beegreat/backend/convex/_generated/api";
-import type { Id } from "@beegreat/backend/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 import * as Haptics from "expo-haptics";
@@ -146,7 +145,7 @@ function HiveDashboard({
     try {
       const result = await onCompleteHighlight({
         requestId: `complete-highlight:${highlight.highlightId}`,
-        taskId: highlight.taskId as Id<"tasks">,
+        taskId: highlight.taskId,
       });
       setCompletion({
         result,
@@ -354,11 +353,13 @@ function HiveLoading() {
   );
 }
 
+type HiveErrorBoundaryState = { error: Error | null; retryKey: number };
+
 class HiveErrorBoundary extends Component<
   { children: ReactNode },
-  { error: Error | null; retryKey: number }
+  HiveErrorBoundaryState
 > {
-  state = { error: null as Error | null, retryKey: 0 };
+  state: HiveErrorBoundaryState = { error: null, retryKey: 0 };
 
   static getDerivedStateFromError(error: Error) {
     return { error };

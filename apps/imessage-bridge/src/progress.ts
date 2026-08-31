@@ -82,8 +82,8 @@ export function createIMessageProgressProjector(startedAt = Date.now()) {
 }
 
 export function createIMessageProgressReporter(
-  send: (message: string) => Promise<unknown>,
-  onError: (error: unknown) => void,
+  send: (message: string) => Promise<void>,
+  onError: (cause: unknown) => void,
 ) {
   const projector = createIMessageProgressProjector()
   let queue = Promise.resolve()

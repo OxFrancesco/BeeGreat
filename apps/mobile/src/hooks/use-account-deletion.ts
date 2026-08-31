@@ -32,7 +32,14 @@ async function readPendingDeletion(): Promise<PendingDeletion | null> {
   const value = await SecureStore.getItemAsync(PENDING_DELETION_KEY);
   if (!value) return null;
   const parsed = parsePendingAccountDeletion(value);
-  return parsed as PendingDeletion | null;
+  if (!parsed) return null;
+  return {
+    ...parsed,
+    // SAFETY: jobId was minted by api.accountDeletion.prepare and persisted
+    // verbatim in SecureStore; the Convex Id brand cannot be re-derived
+    // client-side from the schema-validated string.
+    jobId: parsed.jobId as Id<'accountDeletionJobs'>,
+  };
 }
 
 async function savePendingDeletion(pending: UserBoundPendingDeletion) {

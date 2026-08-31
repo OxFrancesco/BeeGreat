@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { isJsonObject, isJsonString, type JsonValue } from "./json";
 import { runTelegramCommand } from "./telegram";
 
 describe("Bee CLI Telegram", () => {
@@ -34,10 +35,12 @@ describe("Bee CLI Telegram", () => {
       { agentUrl: "https://bee.example", accessToken: "clerk-token" },
       {
         fetch: async (_input, init) => {
-          const body = JSON.parse(String(init?.body)) as { action: string };
-          actions.push(body.action);
+          const body: JsonValue = JSON.parse(String(init?.body));
+          const action =
+            isJsonObject(body) && isJsonString(body.action) ? body.action : "";
+          actions.push(action);
           return Response.json(
-            body.action === "connect"
+            action === "connect"
               ? { authorizationUrl: "https://oauth.telegram.org/auth?fixture=1" }
               : actions.length === 1
                 ? { status: "missing" }

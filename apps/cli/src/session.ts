@@ -1,8 +1,9 @@
 import {
   createFlueClient,
+  type AgentReadOptions,
+  type AgentSendResult,
   type ConversationStreamChunk,
   type CreateFlueClientOptions,
-  type FlueClient,
 } from "@flue/sdk";
 
 import {
@@ -11,6 +12,12 @@ import {
   type TextWeb3Action,
 } from "@beegreat/tool-presentation";
 
+import {
+  isFiniteJsonNumber,
+  isJsonObject,
+  isJsonString,
+  type JsonValue,
+} from "./json";
 import {
   deriveFollowUp,
   parseBeeReply,
@@ -37,37 +44,150 @@ export type ThreadStateStore = {
   save(threadId: number): Promise<void>;
 };
 
+/** The prompt the CLI session delivers into one Bee conversation. */
+export type ConversationPrompt = {
+  message: { kind: "user"; body: string };
+};
+
+/** The settled reply text the session reads back for one prompt. */
+export type ConversationReply = {
+  text: string;
+};
+
+/** The slice of a Flue conversation client the CLI session drives. */
+export type ConversationClient = {
+  send(options: ConversationPrompt): Promise<AgentSendResult>;
+  read(
+    admission: AgentSendResult,
+    options: AgentReadOptions,
+  ): Promise<ConversationReply>;
+};
+
 type BeeSessionDependencies = {
   fetch(input: string | URL | Request, init?: RequestInit): Promise<Response>;
-  createClient(options: CreateFlueClientOptions): FlueClient;
+  createClient(options: CreateFlueClientOptions): ConversationClient;
 };
+
+/** A decision on a previewed first-focus plan, forwarded to the agent. */
+type FirstFocusDecisionRequest = {
+  action: "confirm_first_focus" | "cancel_first_focus";
+  requestId: string;
+  goalTitle: string;
+  projectTitle: string;
+  taskTitle: string;
+  highlightExpiresAt?: number;
+};
+
+/** Every request body the CLI channel route accepts. */
+type ChannelActionRequest =
+  | { action: "create_cli_thread" }
+  | { action: "title_thread"; threadId: number; title: string }
+  | { action: "get_web3_action"; actionId: string }
+  | { action: "confirm_web3" | "cancel_web3"; actionId: string; summary: string }
+  | FirstFocusDecisionRequest;
+
+/** The agent's canonical Web3 action record addressed by id. */
+type CanonicalWeb3Action = TextWeb3Action & { id: string };
+
+const WEB3_KINDS = [
+  "send_tokens",
+  "execute_plan",
+  "execute_eoa_plan",
+  "socket_swap",
+] as const;
+
+const WEB3_STATUSES = [
+  "pending",
+  "confirmed",
+  "in_progress",
+  "executed",
+  "failed",
+  "refunded",
+  "cancelled",
+  "expired",
+] as const;
+
+/** Parses a `get_web3_action` payload; a malformed record reads as absent. */
+function parseWeb3Action(payload: JsonValue): CanonicalWeb3Action | null {
+  if (!isJsonObject(payload)) return null;
+  const status = WEB3_STATUSES.find((known) => known === payload.status);
+  if (!isJsonString(payload.id) || !isJsonString(payload.summary) || !status) {
+    return null;
+  }
+  const action: CanonicalWeb3Action = {
+    id: payload.id,
+    summary: payload.summary,
+    status,
+    autoConfirmed: payload.autoConfirmed === true,
+  };
+  const kind = WEB3_KINDS.find((known) => known === payload.kind);
+  if (kind) action.kind = kind;
+  if (isJsonString(payload.error)) action.error = payload.error;
+  if (Array.isArray(payload.result)) {
+    action.result = payload.result.map((item) => ({
+      hash: isJsonObject(item) && isJsonString(item.hash) ? item.hash : null,
+      explorerLink:
+        isJsonObject(item) && isJsonString(item.explorerLink)
+          ? item.explorerLink
+          : null,
+    }));
+  }
+  if (
+    isJsonObject(payload.socketProgress) &&
+    isJsonString(payload.socketProgress.detail)
+  ) {
+    const progress: NonNullable<TextWeb3Action["socketProgress"]> = {
+      detail: payload.socketProgress.detail,
+    };
+    if (isJsonString(payload.socketProgress.destinationExplorerLink)) {
+      progress.destinationExplorerLink =
+        payload.socketProgress.destinationExplorerLink;
+    }
+    action.socketProgress = progress;
+  }
+  if (
+    isJsonObject(payload.timing) &&
+    isFiniteJsonNumber(payload.timing.estimatedTimeSeconds)
+  ) {
+    action.timing = {
+      estimatedTimeSeconds: payload.timing.estimatedTimeSeconds,
+    };
+  }
+  return action;
+}
+
+/** Parses a `create_cli_thread` payload into the registered thread id. */
+function parseCliThread(payload: JsonValue): number {
+  if (isJsonObject(payload) && isFiniteJsonNumber(payload.threadId)) {
+    return payload.threadId;
+  }
+  throw new Error("Bee returned an invalid CLI conversation.");
+}
+
+function ignoredReply(): undefined {
+  return undefined;
+}
 
 function canonicalWeb3Reply(action: TextWeb3Action): BeeAskResult {
   const projected = projectTextWeb3Action(action);
-  return {
+  const reply: BeeAskResult = {
     text: [projected.text, ...projected.links].filter(Boolean).join("\n"),
-    ...(projected.requiresTextConfirmation
-      ? {
-          followUp: {
-            kind: "confirm" as const,
-            summary: humanizeWeb3Summary(action.summary),
-          },
-        }
-      : {}),
   };
+  if (projected.requiresTextConfirmation) {
+    reply.followUp = {
+      kind: "confirm",
+      summary: humanizeWeb3Summary(action.summary),
+    };
+  }
+  return reply;
 }
 
 function normalizedUrl(value: string) {
   return value.replace(/\/$/, "");
 }
 
-function errorMessage(body: unknown, fallback: string) {
-  if (
-    typeof body === "object" &&
-    body !== null &&
-    "error" in body &&
-    typeof body.error === "string"
-  ) {
+function errorMessage(body: JsonValue, fallback: string) {
+  if (isJsonObject(body) && isJsonString(body.error)) {
     return body.error;
   }
   return fallback;
@@ -84,12 +204,15 @@ export function createBeeSession(
   let threadId: number | undefined;
   let loaded = false;
   let needsTitle = false;
-  let client: FlueClient | undefined;
+  let client: ConversationClient | undefined;
   let pendingFirstFocus: FirstFocusPreview | undefined;
   let pendingWeb3: Web3Confirmation | undefined;
   let pendingQuestion: BeeQuestion | undefined;
 
-  async function channelAction<T>(body: Record<string, unknown>): Promise<T> {
+  async function channelAction<T>(
+    body: ChannelActionRequest,
+    parse: (payload: JsonValue) => T,
+  ): Promise<T> {
     const response = await fetcher(`${agentUrl}/cli/channel`, {
       method: "POST",
       headers: {
@@ -98,7 +221,7 @@ export function createBeeSession(
       },
       body: JSON.stringify(body),
     });
-    const result = (await response.json().catch(() => null)) as unknown;
+    const result: JsonValue = await response.json().catch(() => null);
     if (!response.ok) {
       if (response.status === 404 && result === null) {
         throw new Error(
@@ -112,20 +235,14 @@ export function createBeeSession(
         ),
       );
     }
-    return result as T;
+    return parse(result);
   }
 
   async function createThread() {
-    const result = await channelAction<{ threadId?: unknown }>({
-      action: "create_cli_thread",
-    });
-    if (
-      typeof result.threadId !== "number" ||
-      !Number.isFinite(result.threadId)
-    ) {
-      throw new Error("Bee returned an invalid CLI conversation.");
-    }
-    threadId = result.threadId;
+    threadId = await channelAction(
+      { action: "create_cli_thread" },
+      parseCliThread,
+    );
     client = undefined;
     loaded = true;
     needsTitle = true;
@@ -168,16 +285,17 @@ export function createBeeSession(
         prompt.trim(),
       );
       if (pendingFirstFocus && (confirms || cancels)) {
-        await channelAction({
+        const decision: FirstFocusDecisionRequest = {
           action: confirms ? "confirm_first_focus" : "cancel_first_focus",
           requestId: pendingFirstFocus.requestId,
           goalTitle: pendingFirstFocus.goalTitle,
           projectTitle: pendingFirstFocus.projectTitle,
           taskTitle: pendingFirstFocus.taskTitle,
-          ...(pendingFirstFocus.highlightExpiresAt
-            ? { highlightExpiresAt: pendingFirstFocus.highlightExpiresAt }
-            : {}),
-        });
+        };
+        if (pendingFirstFocus.highlightExpiresAt) {
+          decision.highlightExpiresAt = pendingFirstFocus.highlightExpiresAt;
+        }
+        await channelAction(decision, ignoredReply);
         deliveredPrompt = confirms
           ? "[BeeGreat app event] The first-focus plan was confirmed and persisted successfully. Acknowledge it; do not create or mutate the plan again."
           : "[BeeGreat app event] The first-focus preview was cancelled. Nothing was created. Acknowledge the cancellation; do not create or mutate the plan.";
@@ -187,17 +305,11 @@ export function createBeeSession(
         (/^yes[.!]?$/i.test(prompt.trim()) || /^no[.!]?$/i.test(prompt.trim()))
       ) {
         const confirmed = /^yes[.!]?$/i.test(prompt.trim());
-        const current = await channelAction<
-          (TextWeb3Action & { id: string }) | null
-        >({
-          action: "get_web3_action",
-          actionId: pendingWeb3.actionId,
-        });
-        if (
-          !current ||
-          typeof current.summary !== "string" ||
-          typeof current.status !== "string"
-        ) {
+        const current = await channelAction(
+          { action: "get_web3_action", actionId: pendingWeb3.actionId },
+          parseWeb3Action,
+        );
+        if (!current) {
           throw new Error("This Web3 confirmation is no longer available.");
         }
         if (
@@ -209,22 +321,23 @@ export function createBeeSession(
           return canonicalWeb3Reply(current);
         }
         if (current.status === "pending") {
-          await channelAction({
-            action: confirmed ? "confirm_web3" : "cancel_web3",
-            actionId: pendingWeb3.actionId,
-            summary: current.summary,
-          });
+          await channelAction(
+            {
+              action: confirmed ? "confirm_web3" : "cancel_web3",
+              actionId: pendingWeb3.actionId,
+              summary: current.summary,
+            },
+            ignoredReply,
+          );
         }
         pendingWeb3 = undefined;
         const decisionApplied =
           current.status === "pending" &&
           !(confirmed && current.kind === "execute_eoa_plan");
-        const updated = await channelAction<
-          (TextWeb3Action & { id: string }) | null
-        >({
-          action: "get_web3_action",
-          actionId: current.id,
-        });
+        const updated = await channelAction(
+          { action: "get_web3_action", actionId: current.id },
+          parseWeb3Action,
+        );
         return canonicalWeb3Reply(
           updated ?? {
             ...current,
@@ -239,11 +352,10 @@ export function createBeeSession(
       const target = await conversation();
       const id = await currentThread();
       if (needsTitle) {
-        await channelAction({
-          action: "title_thread",
-          threadId: id,
-          title: prompt.slice(0, 64),
-        }).catch(() => undefined);
+        await channelAction(
+          { action: "title_thread", threadId: id, title: prompt.slice(0, 64) },
+          ignoredReply,
+        ).catch(() => undefined);
         needsTitle = false;
       }
       const admission = await target.send({
@@ -275,12 +387,13 @@ export function createBeeSession(
       pendingFirstFocus = parsed.firstFocus;
       pendingQuestion = parsed.question;
       if (parsed.web3Confirmation) {
-        const current = await channelAction<
-          (TextWeb3Action & { id: string }) | null
-        >({
-          action: "get_web3_action",
-          actionId: parsed.web3Confirmation.actionId,
-        });
+        const current = await channelAction(
+          {
+            action: "get_web3_action",
+            actionId: parsed.web3Confirmation.actionId,
+          },
+          parseWeb3Action,
+        );
         if (current) {
           pendingWeb3 =
             current.status === "pending"
@@ -294,7 +407,9 @@ export function createBeeSession(
       }
       pendingWeb3 = parsed.web3Confirmation;
       const followUp = deriveFollowUp(parsed);
-      return { text: replyText, ...(followUp ? { followUp } : {}) };
+      const reply: BeeAskResult = { text: replyText };
+      if (followUp) reply.followUp = followUp;
+      return reply;
     },
 
     async newConversation() {

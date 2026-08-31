@@ -148,11 +148,7 @@ for await (const [space, message] of app.messages) {
     void message.react('👀').catch(() => {})
     void space.startTyping().catch(() => {})
 
-    const incoming = await promptFromContent(
-      transport,
-      userId,
-      message.content as Parameters<typeof promptFromContent>[2],
-    )
+    const incoming = await promptFromContent(transport, userId, message.content)
     if (
       incoming.unsupportedAttachment &&
       !incoming.text &&

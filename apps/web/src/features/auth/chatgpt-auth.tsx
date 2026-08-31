@@ -40,7 +40,7 @@ function useChatGptActions() {
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string>()
 
-  async function run(operation: () => Promise<unknown>) {
+  async function run(operation: () => Promise<void>) {
     if (working) return
     setWorking(true)
     setError(undefined)
@@ -58,9 +58,18 @@ function useChatGptActions() {
     working,
     copied,
     error,
-    connect: () => run(() => start({})),
-    disconnect: () => run(() => disconnect({})),
-    skip: () => run(() => skip({})),
+    connect: () =>
+      run(async () => {
+        await start({})
+      }),
+    disconnect: () =>
+      run(async () => {
+        await disconnect({})
+      }),
+    skip: () =>
+      run(async () => {
+        await skip({})
+      }),
     copyCode: async (code: string) => {
       await copyText(code)
       setCopied(true)

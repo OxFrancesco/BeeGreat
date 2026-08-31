@@ -1,6 +1,8 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { isJsonString, type JsonValue } from "./json";
+
 export const MAX_PROMPT_HISTORY = 50;
 
 export type PromptHistory = {
@@ -14,8 +16,8 @@ export function parsePromptHistory(text: string) {
     .filter(Boolean)
     .flatMap((line) => {
       try {
-        const value = JSON.parse(line) as unknown;
-        return typeof value === "string" && value.trim() ? [value] : [];
+        const value: JsonValue = JSON.parse(line);
+        return isJsonString(value) && value.trim() ? [value] : [];
       } catch {
         return [];
       }

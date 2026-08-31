@@ -73,7 +73,9 @@ export function GoalsPage() {
           {goals.length < MAX_GOALS ? (
             <InlineCreate
               label="New goal"
-              onCreate={(title) => createGoal({ title })}
+              onCreate={async (title) => {
+                await createGoal({ title })
+              }}
             />
           ) : (
             <div className="focus-limit-note">
@@ -89,7 +91,9 @@ export function GoalsPage() {
           noun="goal"
           initialValue={renaming.title}
           onClose={() => setRenaming(undefined)}
-          onSave={(title) => updateGoal({ goalId: renaming.id, title })}
+          onSave={async (title) => {
+            await updateGoal({ goalId: renaming.id, title })
+          }}
         />
       ) : null}
       {deleting ? (
@@ -98,7 +102,9 @@ export function GoalsPage() {
           name={deleting.title}
           detail="and all of its projects and tasks will be gone for good."
           onClose={() => setDeleting(undefined)}
-          onDelete={() => removeGoal({ goalId: deleting.id })}
+          onDelete={async () => {
+            await removeGoal({ goalId: deleting.id })
+          }}
         />
       ) : null}
     </FocusPage>

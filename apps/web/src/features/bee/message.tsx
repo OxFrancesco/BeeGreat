@@ -5,6 +5,7 @@ import {
   RotateCcwIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { z } from 'zod'
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { extractBeeUI } from './bee-ui'
 import { GeneratedUI } from './generated-ui'
@@ -198,11 +199,9 @@ function MessageCopyAction({
   )
 }
 
-function ToolActivity({
-  part,
-}: {
-  part: Extract<FlueConversationPart, { type: 'dynamic-tool' }>
-}) {
+type ToolActivityPart = Extract<FlueConversationPart, { type: 'dynamic-tool' }>
+
+function ToolActivity({ part }: { part: ToolActivityPart }) {
   const [copied, setCopied] = useState(false)
   const running = part.state === 'input-available'
   const failed = part.state === 'output-error'
@@ -272,8 +271,13 @@ function ToolActivity({
   )
 }
 
-function formatToolValue(value: unknown) {
-  if (typeof value === 'string') return value
+const plainToolText = z.string()
+
+function formatToolValue(
+  value: ToolActivityPart['input'] | ToolActivityPart['output'],
+) {
+  const text = plainToolText.safeParse(value)
+  if (text.success) return text.data
   if (value === undefined) return 'Not available'
   try {
     return JSON.stringify(value, null, 2)

@@ -1,6 +1,6 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { usePaginatedQuery, useQuery } from 'convex/react';
-import { router, type Href } from 'expo-router';
+import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import {
@@ -91,7 +91,7 @@ function LiveMindScreen() {
 
   return (
     <MindScreenView
-      items={items as BookmarkItem[]}
+      items={items}
       labels={labels ?? []}
       view={view}
       kind={kind}
@@ -216,7 +216,7 @@ export function MindScreenView({
                   : { width: '100%' }
             }
           >
-            <BookmarkCell bookmark={item as BookmarkItem} view={view} width={itemWidth} />
+            <BookmarkCell bookmark={item} view={view} width={itemWidth} />
           </View>
         )}
         onEndReached={() => {
@@ -256,7 +256,7 @@ function MindControls({
           accessibilityRole="button"
           accessibilityLabel="Save a bookmark"
           hitSlop={Spacing.two}
-          onPress={() => router.push('/mind/add' as Href)}
+          onPress={() => router.push('/mind/add')}
           style={({ pressed }) => [
             styles.addButton,
             { backgroundColor: theme.backgroundElement },
@@ -369,7 +369,7 @@ function EmptyMind({ searching }: { searching: boolean }) {
       {!searching ? (
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push('/mind/add' as Href)}
+          onPress={() => router.push('/mind/add')}
           style={({ pressed }) => [
             styles.emptyAction,
             { backgroundColor: theme.primary },

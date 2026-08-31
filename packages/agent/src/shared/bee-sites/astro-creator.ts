@@ -2,10 +2,14 @@ import {
   defineSubagent,
   defineTool,
   useTool,
+  type JsonValue,
   type SubagentDefinition,
 } from '@flue/runtime'
 import type { ISandbox } from '@cloudflare/sandbox'
 import * as v from 'valibot'
+import { trustedCast } from '../trusted-cast.ts'
+
+const serviceErrorSchema = v.object({ error: v.string() })
 
 const SITES_ORIGIN = 'https://sites.buddytools.org'
 const TEMPLATE_ROOT = '/opt/bee-sites-template'
@@ -47,7 +51,8 @@ export interface BeeSitesBucket {
     options?: {
       httpMetadata?: { contentType?: string; cacheControl?: string }
     },
-  ): Promise<unknown>
+    // R2 answers with the stored object's metadata; the creator ignores it.
+  ): Promise<{ key: string } | null>
   get(key: string): Promise<
     | {
         body: ReadableStream<Uint8Array>
@@ -113,7 +118,7 @@ function convexSiteUrl(convexUrl: string) {
 export async function callBeeSitesService<T>(
   convexUrl: string,
   brokerSecret: string | undefined,
-  input: Record<string, unknown>,
+  input: Record<string, JsonValue | undefined>,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
 ): Promise<T> {
@@ -132,18 +137,16 @@ export async function callBeeSitesService<T>(
       signal,
     },
   )
-  const body = (await response.json().catch(() => null)) as
-    | ({ error?: unknown } & T)
-    | null
+  const body = await response.json().catch(() => null)
   if (!response.ok) {
     throw new Error(
-      typeof body?.error === 'string'
+      v.is(serviceErrorSchema, body)
         ? body.error
         : 'Bee Sites request failed.',
     )
   }
   if (!body) throw new Error('Bee Sites returned an invalid response.')
-  return body
+  return trustedCast<T>(body)
 }
 
 function safeRelativePath(path: string, mode: 'read' | 'write') {
@@ -182,27 +185,27 @@ function truncate(value: string) {
     : `${value.slice(0, MAX_LOG_TEXT)}\n… output truncated`
 }
 
+const CONTENT_TYPES = new Map<string, string>([
+  ['css', 'text/css; charset=utf-8'],
+  ['gif', 'image/gif'],
+  ['html', 'text/html; charset=utf-8'],
+  ['ico', 'image/x-icon'],
+  ['jpeg', 'image/jpeg'],
+  ['jpg', 'image/jpeg'],
+  ['json', 'application/json; charset=utf-8'],
+  ['png', 'image/png'],
+  ['svg', 'image/svg+xml'],
+  ['txt', 'text/plain; charset=utf-8'],
+  ['webmanifest', 'application/manifest+json'],
+  ['webp', 'image/webp'],
+  ['woff', 'font/woff'],
+  ['woff2', 'font/woff2'],
+  ['xml', 'application/xml; charset=utf-8'],
+])
+
 function contentType(path: string) {
   const extension = path.split('.').pop()?.toLowerCase()
-  return (
-    {
-      css: 'text/css; charset=utf-8',
-      gif: 'image/gif',
-      html: 'text/html; charset=utf-8',
-      ico: 'image/x-icon',
-      jpeg: 'image/jpeg',
-      jpg: 'image/jpeg',
-      json: 'application/json; charset=utf-8',
-      png: 'image/png',
-      svg: 'image/svg+xml',
-      txt: 'text/plain; charset=utf-8',
-      webmanifest: 'application/manifest+json',
-      webp: 'image/webp',
-      woff: 'font/woff',
-      woff2: 'font/woff2',
-      xml: 'application/xml; charset=utf-8',
-    } as Record<string, string>
-  )[extension ?? ''] ?? 'application/octet-stream'
+  return CONTENT_TYPES.get(extension ?? '') ?? 'application/octet-stream'
 }
 
 function decodeBase64(value: string) {
@@ -224,7 +227,7 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
 
   const broker = <T>(
     operation: string,
-    input: Record<string, unknown> = {},
+    input: Record<string, JsonValue | undefined> = {},
     signal?: AbortSignal,
   ) =>
     callBeeSitesService<T>(

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import type { ComponentProps, ReactNode } from 'react'
 import { isValidElement } from 'react'
+import { z } from 'zod'
 
 import { CodeBlock } from './code-block'
 
@@ -44,7 +45,7 @@ export type ToolHeaderProps = {
     }
 )
 
-const statusLabels: Record<ToolPart['state'], string> = {
+const statusLabels = {
   'approval-requested': 'Awaiting Approval',
   'approval-responded': 'Responded',
   'input-available': 'Running',
@@ -52,9 +53,9 @@ const statusLabels: Record<ToolPart['state'], string> = {
   'output-available': 'Completed',
   'output-denied': 'Denied',
   'output-error': 'Error',
-}
+} satisfies Record<ToolPart['state'], string>
 
-const statusIcons: Record<ToolPart['state'], ReactNode> = {
+const statusIcons = {
   'approval-requested': <ClockIcon className="size-4 text-yellow-600" />,
   'approval-responded': <CheckCircleIcon className="size-4 text-blue-600" />,
   'input-available': <ClockIcon className="size-4 animate-pulse" />,
@@ -62,7 +63,7 @@ const statusIcons: Record<ToolPart['state'], ReactNode> = {
   'output-available': <CheckCircleIcon className="size-4 text-green-600" />,
   'output-denied': <XCircleIcon className="size-4 text-orange-600" />,
   'output-error': <XCircleIcon className="size-4 text-red-600" />,
-}
+} satisfies Record<ToolPart['state'], ReactNode>
 
 export const getStatusBadge = (status: ToolPart['state']) => (
   <Badge className="gap-1.5 rounded-full text-xs" variant="secondary">
@@ -132,6 +133,23 @@ export type ToolOutputProps = ComponentProps<'div'> & {
   errorText: ToolPart['errorText']
 }
 
+/** A tool result reduced to something this component knows how to render. */
+type PresentedOutput =
+  | { kind: 'code'; code: string }
+  | { kind: 'node'; node: ReactNode }
+
+const textOutput = z.string()
+const inlineOutput = z.union([z.number(), z.bigint(), z.boolean(), z.undefined()])
+
+function presentToolOutput(output: ToolPart['output']): PresentedOutput {
+  if (isValidElement(output)) return { kind: 'node', node: output }
+  const text = textOutput.safeParse(output)
+  if (text.success) return { kind: 'code', code: text.data }
+  const inline = inlineOutput.safeParse(output)
+  if (inline.success) return { kind: 'node', node: inline.data }
+  return { kind: 'code', code: JSON.stringify(output, null, 2) }
+}
+
 export const ToolOutput = ({
   className,
   output,
@@ -142,15 +160,13 @@ export const ToolOutput = ({
     return null
   }
 
-  let Output = <div>{output as ReactNode}</div>
-
-  if (typeof output === 'object' && !isValidElement(output)) {
-    Output = (
-      <CodeBlock code={JSON.stringify(output, null, 2)} language="json" />
+  const presented = presentToolOutput(output)
+  const Output =
+    presented.kind === 'code' ? (
+      <CodeBlock code={presented.code} language="json" />
+    ) : (
+      <div>{presented.node}</div>
     )
-  } else if (typeof output === 'string') {
-    Output = <CodeBlock code={output} language="json" />
-  }
 
   return (
     <div className={cn('space-y-2', className)} {...props}>

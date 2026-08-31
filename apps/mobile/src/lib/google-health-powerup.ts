@@ -1,7 +1,7 @@
 type GoogleHealthPowerupOperations = {
   connect: () => Promise<boolean>;
-  disconnect: () => Promise<unknown>;
-  setEnabled: (enabled: boolean) => Promise<unknown>;
+  disconnect: () => Promise<void>;
+  setEnabled: (enabled: boolean) => Promise<void>;
 };
 
 export async function updateGoogleHealthPowerup(

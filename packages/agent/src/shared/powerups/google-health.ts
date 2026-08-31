@@ -1,6 +1,8 @@
-import { defineSubagent, defineTool, useTool } from '@flue/runtime'
+import { defineSubagent, defineTool, useTool, type JsonValue } from '@flue/runtime'
 import * as v from 'valibot'
 import type { PowerupDefinition } from './types.ts'
+
+const bridgeErrorSchema = v.object({ error: v.string() })
 
 const DATA_TYPES = [
   'steps',
@@ -71,7 +73,7 @@ export const googleHealth: PowerupDefinition = {
 
     const request = async (
       path: 'context' | 'query',
-      input: Record<string, unknown>,
+      input: Record<string, JsonValue | undefined>,
     ) => {
       if (!convexSiteUrl || !runtime.credentialBrokerSecret) {
         throw new Error('Google Health is not configured for the Bee worker.')
@@ -93,9 +95,9 @@ export const googleHealth: PowerupDefinition = {
         )
         const body = await response.text()
         if (!response.ok) {
-          const parsed = JSON.parse(body) as { error?: unknown }
+          const parsed = JSON.parse(body)
           throw new Error(
-            typeof parsed.error === 'string'
+            v.is(bridgeErrorSchema, parsed)
               ? parsed.error
               : 'Google Health request failed.',
           )

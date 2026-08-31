@@ -1,6 +1,8 @@
 import { access, mkdir, open } from "node:fs/promises";
 import { dirname, join, parse } from "node:path";
 
+import { isJsonObject, type JsonValue } from "./json";
+
 type AgentHealth = "ready" | "unreachable" | "occupied";
 
 type SpawnedAgent = {
@@ -60,10 +62,10 @@ async function isBeeProjectRoot(path: string) {
       access(join(path, "package.json")),
       access(join(path, "packages", "agent", "package.json")),
     ]);
-    const manifest = (await Bun.file(join(path, "package.json")).json()) as {
-      name?: unknown;
-    };
-    return manifest.name === "beegreat";
+    const manifest: JsonValue = await Bun.file(
+      join(path, "package.json"),
+    ).json();
+    return isJsonObject(manifest) && manifest.name === "beegreat";
   } catch {
     return false;
   }
@@ -96,10 +98,10 @@ async function agentHealth(
       signal: AbortSignal.timeout(1_000),
     });
     if (!response.ok) return "occupied";
-    const body = (await response.json().catch(() => null)) as {
-      service?: unknown;
-    } | null;
-    return body?.service === "beegreat-agent" ? "ready" : "occupied";
+    const body: JsonValue = await response.json().catch(() => null);
+    return isJsonObject(body) && body.service === "beegreat-agent"
+      ? "ready"
+      : "occupied";
   } catch {
     return "unreachable";
   }

@@ -7,6 +7,7 @@ import {
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useAction } from 'convex/react'
 import { useEffect, useState } from 'react'
+import { z } from 'zod'
 
 import beeUrl from '../../../mobile/assets/images/bee.webp?url'
 import { captureWebFailure } from '~/lib/sentry'
@@ -18,10 +19,11 @@ type LinkPreview = {
   expiresAt: number
 }
 
+/** Linking arrives via `?token=`; anything else degrades to the empty token. */
+const linkSearchSchema = z.object({ token: z.string().catch('') })
+
 export const Route = createFileRoute('/link/imessage')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    token: typeof search.token === 'string' ? search.token : '',
-  }),
+  validateSearch: (search) => linkSearchSchema.parse(search),
   component: LinkImessagePage,
 })
 

@@ -20,6 +20,19 @@ export type BeginLinkResult =
   | { status: 'rate_limited' }
   | { status: 'invalid' }
 
+/**
+ * The worker's /bridge/identity endpoint answers every action with one JSON
+ * envelope: `userId` for resolve, `url`/`expiresAt` for begin_link,
+ * `disconnected` for unlink, and `error` on failures.
+ */
+export type IdentityActionBody = {
+  userId?: string | null
+  url?: string
+  expiresAt?: number
+  disconnected?: boolean
+  error?: string
+}
+
 // A resolved user stays cached briefly so a burst of messages costs one
 // lookup; unknown senders re-check quickly so a fresh link works right away.
 const RESOLVED_TTL_MS = 5 * 60 * 1000
@@ -52,10 +65,12 @@ export function createIdentityClient(options: IdentityClientOptions) {
       },
       body: JSON.stringify({ action, address }),
     })
-    const body = (await response.json().catch(() => null)) as Record<
-      string,
-      unknown
-    > | null
+    // SAFETY: /bridge/identity is the bridge's own worker; every action
+    // answers with the identity envelope, and an unparseable body is
+    // normalized to null.
+    const body = (await response.json().catch(() => null)) as
+      | IdentityActionBody
+      | null
     return { status: response.status, body }
   }
 
@@ -69,15 +84,11 @@ export function createIdentityClient(options: IdentityClientOptions) {
         // Unknown state must not silently drop a linked user: surface the
         // failure to the caller instead of caching a guess.
         throw Object.assign(
-          new Error(
-            typeof body?.error === 'string'
-              ? body.error
-              : `Sender resolution failed (HTTP ${status})`,
-          ),
+          new Error(body?.error ?? `Sender resolution failed (HTTP ${status})`),
           { status },
         )
       }
-      const userId = typeof body?.userId === 'string' ? body.userId : null
+      const userId = body?.userId ?? null
       cache.set(address, {
         userId,
         expiresAt: now() + (userId ? RESOLVED_TTL_MS : UNRESOLVED_TTL_MS),
@@ -98,8 +109,8 @@ export function createIdentityClient(options: IdentityClientOptions) {
       if (status === 429) return { status: 'rate_limited' }
       if (
         status !== 200 ||
-        typeof body?.url !== 'string' ||
-        typeof body?.expiresAt !== 'number'
+        body?.url === undefined ||
+        body.expiresAt === undefined
       ) {
         return { status: 'invalid' }
       }

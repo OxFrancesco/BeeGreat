@@ -103,8 +103,25 @@ export type UnsupportedComponent = { type: "unsupported" };
 
 export type ParsedBeeUiComponent = UIComponent | UnsupportedComponent;
 
+// Every component type this build understands. `satisfies` keeps the list in
+// lockstep with uiComponentSchema: adding, removing, or renaming a component
+// type there fails compilation here until this table matches.
+const KNOWN_COMPONENT_FLAGS = {
+  text: true,
+  metric: true,
+  chart: true,
+  tasks: true,
+  highlight: true,
+  image: true,
+  bookmark: true,
+  devin: true,
+  first_focus: true,
+  confirm: true,
+  question: true,
+} satisfies Record<UIComponent["type"], true>;
+
 const KNOWN_COMPONENT_TYPES = new Set<string>(
-  uiComponentSchema.options.map((option) => option.shape.type.value),
+  Object.keys(KNOWN_COMPONENT_FLAGS),
 );
 
 /** Matches an opening beeui fence, e.g. to hide a block that is still streaming. */
@@ -182,11 +199,11 @@ function scrubComponent(component: UIComponent): UIComponent {
   }
 }
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined;
-}
+/** The outer envelope of a fenced beeui block: a components list to inspect. */
+const beeUiEnvelopeSchema = z.object({ components: z.array(z.unknown()) });
+
+/** The minimal header every component must carry before full validation. */
+const componentHeaderSchema = z.object({ type: z.string() });
 
 /**
  * Parses one fenced beeui JSON payload. Component types this build does not
@@ -196,13 +213,13 @@ function record(value: unknown): Record<string, unknown> | undefined {
  */
 export function parseBeeUiBlock(json: string): ParsedBeeUiComponent[] {
   try {
-    const payload = record(JSON.parse(json));
-    if (!payload || !Array.isArray(payload.components)) return [];
+    const envelope = beeUiEnvelopeSchema.safeParse(JSON.parse(json));
+    if (!envelope.success) return [];
     const components: ParsedBeeUiComponent[] = [];
-    for (const value of payload.components) {
-      const type = record(value)?.type;
-      if (typeof type !== "string") return [];
-      if (!KNOWN_COMPONENT_TYPES.has(type)) {
+    for (const value of envelope.data.components) {
+      const header = componentHeaderSchema.safeParse(value);
+      if (!header.success) return [];
+      if (!KNOWN_COMPONENT_TYPES.has(header.data.type)) {
         components.push({ type: "unsupported" });
         continue;
       }
@@ -216,15 +233,17 @@ export function parseBeeUiBlock(json: string): ParsedBeeUiComponent[] {
   }
 }
 
+export type BeeUiExtraction = {
+  spoken: string;
+  components: ParsedBeeUiComponent[];
+};
+
 /**
  * Splits Bee's reply into conversational copy and validated UI components.
  * Specialists may return Markdown images directly; those are promoted into
  * image cards so every channel can make its own rendering decision.
  */
-export function extractBeeUi(text: string): {
-  spoken: string;
-  components: ParsedBeeUiComponent[];
-} {
+export function extractBeeUi(text: string): BeeUiExtraction {
   const components: ParsedBeeUiComponent[] = [];
   const spoken = text
     .replace(beeUiFence(), (_match, json: string) => {
@@ -264,13 +283,16 @@ export type BeeUiFollowUps = {
   question?: BeeQuestion;
 };
 
+/** A confirm card is action-bound only through a non-empty string action id. */
+const web3ActionIdSchema = z.string().min(1);
+
 function web3ConfirmationOf(
   component: ParsedBeeUiComponent,
 ): Web3Confirmation | undefined {
   if (component.type !== "confirm") return undefined;
-  const actionId = component.payload?.web3ActionId;
-  return typeof actionId === "string" && actionId
-    ? { actionId, summary: component.summary }
+  const actionId = web3ActionIdSchema.safeParse(component.payload?.web3ActionId);
+  return actionId.success
+    ? { actionId: actionId.data, summary: component.summary }
     : undefined;
 }
 
@@ -302,14 +324,14 @@ export function deriveBeeUiFollowUps(
     (component): component is Extract<UIComponent, { type: "question" }> =>
       component.type === "question",
   );
-  return {
-    ...(firstFocus ? { firstFocus } : {}),
-    ...(web3Confirmations.length === 1
-      ? { web3Confirmation: web3Confirmations[0] }
-      : {}),
-    ...(confirmation ? { confirmation: { summary: confirmation.summary } } : {}),
-    ...(question ? { question: { questions: question.questions } } : {}),
-  };
+  const followUps: BeeUiFollowUps = {};
+  if (firstFocus) followUps.firstFocus = firstFocus;
+  if (web3Confirmations.length === 1) {
+    followUps.web3Confirmation = web3Confirmations[0];
+  }
+  if (confirmation) followUps.confirmation = { summary: confirmation.summary };
+  if (question) followUps.question = { questions: question.questions };
+  return followUps;
 }
 
 export type BeeUiMarkdown = {

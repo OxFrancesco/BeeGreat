@@ -1,8 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 
-import { createIdentityClient, normalizeAddress } from './identity'
+import {
+  createIdentityClient,
+  normalizeAddress,
+  type IdentityActionBody,
+} from './identity'
 
-function jsonResponse(body: unknown, status = 200) {
+function jsonResponse(body: IdentityActionBody, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -120,7 +124,7 @@ describe('unlink', () => {
       agentUrl: 'https://agent.example',
       bridgeSecret: 'secret',
       fetcher: async (_input, init) => {
-        const body = JSON.parse(String(init?.body)) as { action: string }
+        const body: { action: string } = JSON.parse(String(init?.body))
         if (body.action === 'resolve') {
           resolves += 1
           return jsonResponse({ userId: resolves === 1 ? 'user_123' : null })

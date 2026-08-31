@@ -1,5 +1,6 @@
 import {
   BoxRenderable,
+  type BoxOptions,
   type CliRenderer,
   MarkdownRenderable,
   type ScrollBoxRenderable,
@@ -28,21 +29,23 @@ export function createTranscript(
 
   function addMessage(kind: MessageKind, content: string): TranscriptMessage {
     messageId += 1;
-    const row = new BoxRenderable(renderer, {
+    const rowOptions: BoxOptions = {
       id: `message-${messageId}`,
       width: "100%",
       height: "auto",
       backgroundColor:
         kind === "user" ? palette.honeySurface : palette.canvas,
-      ...(kind === "user"
-        ? { border: ["left"] as ["left"], borderColor: palette.honey }
-        : {}),
       paddingLeft: kind === "user" ? 1 : 0,
       paddingRight: kind === "user" ? 1 : 0,
       flexDirection: "row",
       alignItems: "flex-start",
       gap: 1,
-    });
+    };
+    if (kind === "user") {
+      rowOptions.border = ["left"];
+      rowOptions.borderColor = palette.honey;
+    }
+    const row = new BoxRenderable(renderer, rowOptions);
 
     if (kind !== "user") {
       row.add(
@@ -86,7 +89,7 @@ export function createTranscript(
         row,
         setText,
         finalize: setText,
-        body: undefined as TextRenderable | undefined,
+        body: undefined,
       };
     }
 

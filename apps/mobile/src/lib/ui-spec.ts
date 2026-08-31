@@ -6,10 +6,7 @@ import { extractBeeUi, type UIComponent } from '@beegreat/tool-presentation';
 export { uiComponentSchema, type UIComponent } from '@beegreat/tool-presentation';
 
 /** Splits agent text into the spoken/displayed sentence and validated UI components. */
-export function extractBeeUI(text: string): {
-  spoken: string;
-  components: UIComponent[];
-} {
+export function extractBeeUI(text: string) {
   const { spoken, components } = extractBeeUi(text);
   // The mobile app is BeeGreat itself: skip cards this build cannot render yet.
   return {

@@ -1,8 +1,24 @@
-type UnknownRecord = Record<string, unknown>
+/**
+ * What the sanitizer hands back for an attached value: the filtered/truncated
+ * marker, a rebuilt tree, or the original leaf. Sentry SDKs let apps attach
+ * any JavaScript value, so this is the honest closed union of leaf shapes.
+ */
+type SanitizedValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | object
+  | null
+  | undefined
+
+/** The one structured field the sanitizer rewrites inside an attached payload. */
+type SanitizedPayload = { url?: SanitizedValue }
 
 type SentryLikeRequest = {
   url?: string
-  headers?: UnknownRecord
+  headers?: Record<string, string>
   cookies?: unknown
   data?: unknown
   env?: unknown
@@ -12,16 +28,24 @@ type SentryLikeRequest = {
 export type SentryLikeBreadcrumb = {
   category?: string
   message?: string
-  data?: UnknownRecord
+  data?: object
+}
+
+/** Contact fields are typed so it is explicit that sanitization drops them. */
+type SentryLikeUser = {
+  id?: string | number
+  email?: string
+  ip_address?: string | null
+  username?: string
 }
 
 export type SentryLikeEvent = {
   breadcrumbs?: SentryLikeBreadcrumb[]
-  contexts?: UnknownRecord
+  contexts?: object
   exception?: {
     values?: Array<{ type?: string; value?: string }>
   }
-  extra?: UnknownRecord
+  extra?: object
   logentry?: {
     formatted?: string
     message?: string
@@ -30,7 +54,7 @@ export type SentryLikeEvent = {
   message?: string
   request?: SentryLikeRequest
   transaction?: string
-  user?: UnknownRecord
+  user?: SentryLikeUser
 }
 
 const SAFE_REQUEST_HEADERS = new Set([
@@ -50,8 +74,23 @@ const FILTERED = '[Filtered]'
 const SENSITIVE_DIAGNOSTIC =
   /\b(?:authorization|body|code|cookie|credential|email|health|message|password|phone|prompt|secret|session|text|token|transcript)\b/i
 
-function isRecord(value: unknown): value is UnknownRecord {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
+/**
+ * True for the plain key–value payloads the sanitizer recurses into.
+ * `Object(value) === value` is the primitive test (it also admits objects
+ * without a prototype), and functions are excluded like the arrays handled
+ * separately by each caller.
+ */
+function isAttachedRecord<Value>(value: Value): value is Value & SanitizedPayload {
+  return (
+    Object(value) === value &&
+    !Array.isArray(value) &&
+    !(value instanceof Function)
+  )
+}
+
+/** True only for primitive strings; boxing avoids invoking value `toString`s. */
+function isStringValue<Value>(value: Value): value is Value & string {
+  return Object(value) instanceof String
 }
 
 function isSensitiveKey(key: string) {
@@ -105,25 +144,44 @@ export function sanitizeDiagnosticText(value: string) {
     .replace(/\beyJ[A-Za-z0-9_-]{20,}(?:\.[A-Za-z0-9_-]+){1,2}\b/g, FILTERED)
 }
 
-function sanitizeUnknown(value: unknown, key = '', depth = 0): unknown {
+function sanitizeAttached<Value extends SanitizedValue>(
+  value: Value,
+  key = '',
+  depth = 0,
+): SanitizedValue {
   if (isSensitiveKey(key)) return FILTERED
   if (depth >= 5) return '[Truncated]'
   if (Array.isArray(value)) {
-    return value.slice(0, 50).map((item) => sanitizeUnknown(item, key, depth + 1))
+    return value.slice(0, 50).map((item) => sanitizeAttached(item, key, depth + 1))
   }
-  if (!isRecord(value)) return value
+  if (!isAttachedRecord(value)) return value
 
   return Object.fromEntries(
     Object.entries(value).map(([childKey, childValue]) => [
       childKey,
-      sanitizeUnknown(childValue, childKey, depth + 1),
+      sanitizeAttached(childValue, childKey, depth + 1),
     ]),
   )
 }
 
-function sanitizeHeaders(headers: UnknownRecord | undefined) {
+/** Sanitizes one attached payload without losing its object contract. */
+function sanitizeAttachedObject<Payload extends object>(payload: Payload): object {
+  if (Array.isArray(payload)) {
+    return payload.slice(0, 50).map((item) => sanitizeAttached(item, '', 1))
+  }
+  if (!isAttachedRecord(payload)) return payload
+
+  return Object.fromEntries(
+    Object.entries(payload).map(([key, value]) => [
+      key,
+      sanitizeAttached(value, key, 1),
+    ]),
+  )
+}
+
+function sanitizeHeaders(headers: Record<string, string> | undefined) {
   if (!headers) return undefined
-  const sanitized: UnknownRecord = {}
+  const sanitized: Record<string, string> = {}
   for (const [name, value] of Object.entries(headers)) {
     if (SAFE_REQUEST_HEADERS.has(name.toLowerCase())) sanitized[name] = value
   }
@@ -145,8 +203,10 @@ export function sanitizeSentryBreadcrumb<T extends SentryLikeBreadcrumb>(
   if (copy.message) copy.message = sanitizeDiagnosticText(copy.message)
 
   if (copy.data) {
-    const data = sanitizeUnknown(copy.data) as UnknownRecord
-    if (typeof data.url === 'string') data.url = sanitizeUrl(data.url)
+    const data = sanitizeAttachedObject(copy.data)
+    if (isAttachedRecord(data) && isStringValue(data.url)) {
+      data.url = sanitizeUrl(data.url)
+    }
     copy.data = data
   }
   return copy
@@ -202,9 +262,8 @@ export function sanitizeSentryEvent<T extends SentryLikeEvent>(event: T): T {
       })),
     }
   }
-  if (copy.extra) copy.extra = sanitizeUnknown(copy.extra) as UnknownRecord
-  if (copy.contexts)
-    copy.contexts = sanitizeUnknown(copy.contexts) as UnknownRecord
+  if (copy.extra) copy.extra = sanitizeAttachedObject(copy.extra)
+  if (copy.contexts) copy.contexts = sanitizeAttachedObject(copy.contexts)
   if (copy.breadcrumbs) {
     copy.breadcrumbs = copy.breadcrumbs.map(sanitizeSentryBreadcrumb)
   }
@@ -212,8 +271,8 @@ export function sanitizeSentryEvent<T extends SentryLikeEvent>(event: T): T {
   return copy
 }
 
-export function toError(value: unknown, fallback = 'Unexpected failure') {
-  if (value instanceof Error) return value
-  if (typeof value === 'string') return new Error(value)
-  return new Error(fallback, { cause: value })
+export function toError(cause: unknown, fallback = 'Unexpected failure') {
+  if (cause instanceof Error) return cause
+  if (isStringValue(cause)) return new Error(cause)
+  return new Error(fallback, { cause })
 }

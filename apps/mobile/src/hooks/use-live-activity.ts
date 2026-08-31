@@ -14,6 +14,9 @@ let factory: BeeActivityFactory | null | undefined;
 function getFactory(): BeeActivityFactory | null {
   if (factory !== undefined) return factory;
   try {
+    // SAFETY: The required module is the same one the static
+    // `typeof import('@/components/agent/bee-activity')` type describes, so
+    // its default export is the BeeActivity factory.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     factory = (require('@/components/agent/bee-activity') as {
       default: BeeActivityFactory;
@@ -24,11 +27,11 @@ function getFactory(): BeeActivityFactory | null {
   return factory;
 }
 
-const STATUS_LABELS: Record<Exclude<OrbState, 'idle'>, string> = {
+const STATUS_LABELS = {
   listening: 'Listening',
   thinking: 'Thinking',
   speaking: 'Speaking',
-};
+} satisfies Record<Exclude<OrbState, 'idle'>, string>;
 
 /**
  * Mirrors the agent's live state into the native Dynamic Island / Lock Screen

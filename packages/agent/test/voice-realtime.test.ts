@@ -44,6 +44,8 @@ describe('xAI realtime client secrets', () => {
         expires_at: 1_800_000_000,
       })
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )
@@ -78,6 +80,8 @@ describe('xAI realtime client secrets', () => {
         expires_at: 1_800_000_000,
       })
     })
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )
@@ -98,6 +102,8 @@ describe('xAI realtime client secrets', () => {
 
   test('fails before contacting xAI when the Worker key is missing', async () => {
     const fetcher = mock(async () => Response.json({}))
+    // SAFETY: the test double implements fetch's call signature; the code
+    // under test never uses fetch's static members (e.g. preconnect).
     const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(
       fetcher as typeof fetch,
     )

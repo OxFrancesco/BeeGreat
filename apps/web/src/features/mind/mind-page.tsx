@@ -283,7 +283,7 @@ function BookmarkItem({
     return (
       <button
         className={`mind-hex mind-status--${bookmark.status}`}
-        style={{ '--mind-index': index } as React.CSSProperties}
+        style={{ '--mind-index': index }}
         type="button"
         aria-label={`${title}, ${kindLabel(bookmark.kind)}, ${bookmark.status}`}
         onClick={onSelect}
@@ -894,7 +894,7 @@ function MindLoading({ view }: { view: ViewMode }) {
 }
 
 function readViewPreference(): ViewMode {
-  if (typeof window === 'undefined') return 'hex'
+  if (!('window' in globalThis)) return 'hex'
   const saved = window.localStorage.getItem('beegreat.mind.view')
   return saved === 'cards' || saved === 'list' ? saved : 'hex'
 }

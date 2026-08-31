@@ -138,12 +138,11 @@ export function registerFlueCodexProvider(
     ? { 'x-flue-codex-adapter-secret': transport.adapterSecret }
     : undefined
   const models: Model<Api>[] = Object.values(OPENAI_CODEX_MODELS).map(
-    (model) => ({
-      ...model,
-      provider,
-      baseUrl,
-      ...(headers ? { headers } : {}),
-    }),
+    (model) => {
+      const entry: Model<Api> = { ...model, provider, baseUrl }
+      if (headers) entry.headers = headers
+      return entry
+    },
   )
   setProvider(
     createProvider<Api>({

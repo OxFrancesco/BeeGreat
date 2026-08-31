@@ -25,9 +25,16 @@ function messageKeys(message: FlueConversationMessage) {
   ];
 }
 
+/** True only for primitive strings; boxing avoids invoking value `toString`s. */
+function isStringValue<Value>(value: Value): value is Value & string {
+  return Object(value) instanceof String;
+}
+
 function messageTimestamp(message: FlueConversationMessage, fallback: number) {
+  // Agent-authored metadata carries `timestamp` as an ISO-8601 string by
+  // convention; anything else falls back to the caller-supplied ordering.
   const value = message.metadata?.timestamp;
-  const parsed = typeof value === 'string' ? Date.parse(value) : Number.NaN;
+  const parsed = isStringValue(value) ? Date.parse(value) : Number.NaN;
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
@@ -44,6 +51,11 @@ export type SyncableMessage = FlueConversationMessage & {
   role: 'user' | 'assistant';
 };
 
+/** True for the user/assistant turns Convex stores as chat history. */
+function isSyncable(message: FlueConversationMessage): message is SyncableMessage {
+  return message.role !== 'system';
+}
+
 /** Gives admitted user turns a stable key while Flue reconciles its local echo. */
 export function messagesForConvexSync(
   messages: FlueConversationMessage[],
@@ -51,17 +63,16 @@ export function messagesForConvexSync(
   return messages.flatMap((message) => {
     // Flue 2.0 folds dispatch signals and runtime advisories into
     // system-role messages; they are runtime plumbing, not chat history.
-    if (message.role === 'system') {
+    if (!isSyncable(message)) {
       return [];
     }
-    const syncable = message as SyncableMessage;
-    if (syncable.role === 'user' && syncable.submissionId) {
-      return [{ ...syncable, id: `submission:${syncable.submissionId}` }];
+    if (message.role === 'user' && message.submissionId) {
+      return [{ ...message, id: `submission:${message.submissionId}` }];
     }
-    if (syncable.id.startsWith('local:')) {
+    if (message.id.startsWith('local:')) {
       return [];
     }
-    return [syncable];
+    return [message];
   });
 }
 
@@ -112,6 +123,10 @@ export function mergeConvexMessages(
 
   for (const row of rows ?? []) {
     try {
+      // SAFETY: stored rows are written only from changedMessagesForConvexSync,
+      // which serializes FlueConversationMessage values verbatim, so a parsed
+      // row is one of our own messages; a corrupted row throws here and is
+      // skipped by the catch below.
       const message = JSON.parse(row.contentJson) as FlueConversationMessage;
       const entry = {
         message,

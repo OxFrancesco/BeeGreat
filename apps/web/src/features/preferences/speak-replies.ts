@@ -6,7 +6,7 @@ let memoryValue: boolean | undefined
 
 function readPreference() {
   if (memoryValue !== undefined) return memoryValue
-  if (typeof window === 'undefined') return true
+  if (!('window' in globalThis)) return true
   try {
     memoryValue = window.localStorage.getItem(STORAGE_KEY) !== 'off'
   } catch {
@@ -17,7 +17,7 @@ function readPreference() {
 
 export function setSpeakReplies(enabled: boolean) {
   memoryValue = enabled
-  if (typeof window !== 'undefined') {
+  if ('window' in globalThis) {
     try {
       window.localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off')
     } catch {

@@ -123,8 +123,8 @@ describe("Bee local agent runtime", () => {
       ),
     ).resolves.toBe("started");
     expect(openedPath).toBe("/tmp/beegreat-agent-test.log");
-    expect(stdout as "ignore" | number).toBe(42);
-    expect(stderr as "ignore" | number).toBe(42);
+    expect<"ignore" | number>(stdout).toBe(42);
+    expect<"ignore" | number>(stderr).toBe(42);
     expect(closed).toBeTrue();
   });
 

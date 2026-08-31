@@ -1,7 +1,20 @@
+import {
+  isFiniteJsonNumber,
+  isJsonObject,
+  isJsonString,
+  type JsonObject,
+  type JsonValue,
+} from "./json";
+
 type TelegramCommand = {
   action: "connect" | "status" | "disconnect" | "notify";
   message?: string;
 };
+
+/** Every request body the CLI Telegram route accepts. */
+type TelegramChannelRequest =
+  | { action: "connect" | "status" | "disconnect" }
+  | { action: "notify"; text: string };
 
 type Fetcher = (
   input: string | URL | Request,
@@ -50,20 +63,58 @@ function describeStatus(status: TelegramStatus) {
   return "Telegram is not connected.";
 }
 
-function errorMessage(body: unknown, fallback: string) {
-  return body &&
-    typeof body === "object" &&
-    "error" in body &&
-    typeof body.error === "string"
-    ? body.error
-    : fallback;
+function errorMessage(body: JsonValue, fallback: string) {
+  return isJsonObject(body) && isJsonString(body.error) ? body.error : fallback;
+}
+
+const TELEGRAM_STATUSES = [
+  "missing",
+  "pending",
+  "connected",
+  "needs_reauth",
+  "failed",
+] as const;
+
+/** Reads the agent's Telegram status payload; unknown statuses read as missing. */
+function parseTelegramStatus(payload: JsonValue): TelegramStatus {
+  const record: JsonObject = isJsonObject(payload) ? payload : {};
+  const status =
+    TELEGRAM_STATUSES.find((known) => known === record.status) ?? "missing";
+  const parsed: TelegramStatus = { status };
+  if (isJsonString(record.displayName)) parsed.displayName = record.displayName;
+  if (isJsonString(record.username)) parsed.username = record.username;
+  if (isJsonString(record.message)) parsed.message = record.message;
+  return parsed;
+}
+
+type TelegramNotifyReceipt = { messageId: number };
+
+function parseNotifyReceipt(payload: JsonValue): TelegramNotifyReceipt {
+  if (isJsonObject(payload) && isFiniteJsonNumber(payload.messageId)) {
+    return { messageId: payload.messageId };
+  }
+  throw new Error("Bee returned an invalid Telegram notify receipt.");
+}
+
+type TelegramAuthorization = { authorizationUrl: string };
+
+function parseAuthorization(payload: JsonValue): TelegramAuthorization {
+  if (isJsonObject(payload) && isJsonString(payload.authorizationUrl)) {
+    return { authorizationUrl: payload.authorizationUrl };
+  }
+  throw new Error("Bee returned an invalid Telegram connect response.");
+}
+
+function ignoredReply(): undefined {
+  return undefined;
 }
 
 async function telegramRequest<T>(
   agentUrl: string,
   accessToken: string,
-  body: Record<string, unknown>,
+  body: TelegramChannelRequest,
   fetcher: Fetcher,
+  parse: (payload: JsonValue) => T,
 ): Promise<T> {
   const response = await fetcher(
     `${agentUrl.replace(/\/$/, "")}/cli/telegram`,
@@ -76,7 +127,7 @@ async function telegramRequest<T>(
       body: JSON.stringify(body),
     },
   );
-  const result = (await response.json().catch(() => null)) as unknown;
+  const result: JsonValue = await response.json().catch(() => null);
   if (!response.ok) {
     throw new Error(
       errorMessage(
@@ -85,7 +136,7 @@ async function telegramRequest<T>(
       ),
     );
   }
-  return result as T;
+  return parse(result);
 }
 
 async function waitForConnection(
@@ -95,11 +146,12 @@ async function waitForConnection(
 ) {
   const expiresAt = Date.now() + 10 * 60_000;
   while (Date.now() < expiresAt) {
-    const status = await telegramRequest<TelegramStatus>(
+    const status = await telegramRequest(
       config.agentUrl,
       config.accessToken,
       { action: "status" },
       fetcher,
+      parseTelegramStatus,
     );
     if (status.status === "connected") return status;
     if (status.status === "failed" || status.status === "needs_reauth") {
@@ -120,11 +172,12 @@ export async function runTelegramCommand(
   const sleep = dependencies.sleep ?? Bun.sleep;
 
   if (command.action === "status") {
-    const status = await telegramRequest<TelegramStatus>(
+    const status = await telegramRequest(
       config.agentUrl,
       config.accessToken,
       { action: "status" },
       fetcher,
+      parseTelegramStatus,
     );
     return describeStatus(status);
   }
@@ -134,33 +187,35 @@ export async function runTelegramCommand(
       config.accessToken,
       { action: "disconnect" },
       fetcher,
+      ignoredReply,
     );
     return "Telegram disconnected from BeeGreat.";
   }
   if (command.action === "notify") {
-    const result = await telegramRequest<{ messageId: number }>(
+    const result = await telegramRequest(
       config.agentUrl,
       config.accessToken,
       { action: "notify", text: command.message! },
       fetcher,
+      parseNotifyReceipt,
     );
     return `Sent to Telegram (message ${result.messageId}).`;
   }
 
-  const current = await telegramRequest<TelegramStatus>(
+  const current = await telegramRequest(
     config.agentUrl,
     config.accessToken,
     { action: "status" },
     fetcher,
+    parseTelegramStatus,
   );
   if (current.status === "connected") return describeStatus(current);
-  const { authorizationUrl } = await telegramRequest<{
-    authorizationUrl: string;
-  }>(
+  const { authorizationUrl } = await telegramRequest(
     config.agentUrl,
     config.accessToken,
     { action: "connect" },
     fetcher,
+    parseAuthorization,
   );
   await launchBrowser(authorizationUrl);
   console.error("  Approve BeeGreat in Telegram…");

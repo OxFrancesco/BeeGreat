@@ -34,6 +34,9 @@ const KIND_DETAILS = {
 
 export default function BookmarkDetailScreen() {
   const { bookmarkId } = useLocalSearchParams<{ bookmarkId: string }>();
+  // SAFETY: This screen is only reached through links built from a Convex
+  // bookmark document (`/mind/${bookmark._id}`), so the route param is an
+  // Id<'bookmarks'>.
   const id = bookmarkId as Id<'bookmarks'>;
   const bookmark = useQuery(api.bookmarks.get, { bookmarkId: id });
   const updateBookmark = useMutation(api.bookmarks.update);
@@ -135,8 +138,8 @@ export default function BookmarkDetailScreen() {
         onPress: () => {
           void removeBookmark({ bookmarkId: bookmark._id })
             .then(() => router.back())
-            .catch((error: unknown) =>
-              Alert.alert('Could not delete', error instanceof Error ? error.message : undefined),
+            .catch((cause: unknown) =>
+              Alert.alert('Could not delete', cause instanceof Error ? cause.message : undefined),
             );
         },
       },

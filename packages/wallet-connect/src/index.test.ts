@@ -7,9 +7,44 @@ import {
   signWalletLink,
   weiHex,
   type Eip1193Provider,
+  type Eip1193Request,
 } from './index'
 
 const address = '0x1111111111111111111111111111111111111111'
+
+/** The concrete JSON-RPC results the wallet-connect client reads back. */
+type WalletRpcResult = string | readonly string[] | { status?: string } | null
+
+/**
+ * Builds a faithful EIP-1193 fake. `Eip1193Provider.request<T>` lets each call
+ * site pick its expected result type (EIP-1193 results depend on the JSON-RPC
+ * method), so no concrete handler can satisfy the generic without one
+ * assertion; it lives here so every test stays assertion-free.
+ */
+function providerOf(
+  handle: (request: Eip1193Request) => WalletRpcResult,
+): Eip1193Provider {
+  // SAFETY: every request<T> call in ./index expects exactly the result its
+  // JSON-RPC method defines — string signature/hash, string[] accounts,
+  // receipt object, or null — and `handle` returns those per-method types,
+  // so the caller-chosen T always matches the delivered value.
+  return { request: async (request) => handle(request) } as Eip1193Provider
+}
+
+/** Reads the transaction hash the client sends as the only receipt-poll param. */
+function requestedReceiptHash(request: Eip1193Request): string {
+  const [hash] = Array.isArray(request.params) ? request.params : []
+  return String(hash)
+}
+
+/** Reads the calldata the client sends inside the single transaction param. */
+function sentTransactionData(request: Eip1193Request): string {
+  // SAFETY: sendEoaTransactions and sendFreshEoaTransactions always send
+  // eth_sendTransaction params as one { from, to, data, value } record built
+  // in ./index, so the first param always carries the string calldata.
+  const [transaction] = request.params as readonly [{ data: string }]
+  return transaction.data
+}
 
 describe('wallet connect client', () => {
   test('encodes chain ids and wei as EIP-1193 quantities', () => {
@@ -19,13 +54,11 @@ describe('wallet connect client', () => {
   })
 
   test('signs the exact wallet-link challenge', async () => {
-    const requests: unknown[] = []
-    const provider: Eip1193Provider = {
-      async request(request) {
-        requests.push(request)
-        return '0xsigned' as never
-      },
-    }
+    const requests: Eip1193Request[] = []
+    const provider = providerOf((request) => {
+      requests.push(request)
+      return '0xsigned'
+    })
 
     await expect(
       signWalletLink(provider, address, 'Link BeeGreat'),
@@ -45,24 +78,22 @@ describe('wallet connect client', () => {
     }> = []
     const hashes = [`0x${'aa'.repeat(32)}`, `0x${'bb'.repeat(32)}`]
     const receipts = new Map<string, number>()
-    const provider: Eip1193Provider = {
-      async request(request) {
-        requests.push(request)
-        if (request.method === 'eth_accounts') return [address] as never
-        if (request.method === 'eth_sendTransaction') {
-          const hash = hashes.shift()!
-          receipts.set(hash, 0)
-          return hash as never
-        }
-        if (request.method === 'eth_getTransactionReceipt') {
-          const hash = (request.params as readonly string[])[0]
-          const attempts = receipts.get(hash) ?? 0
-          receipts.set(hash, attempts + 1)
-          return (attempts === 0 ? null : { status: '0x1' }) as never
-        }
-        return null as never
-      },
-    }
+    const provider = providerOf((request) => {
+      requests.push(request)
+      if (request.method === 'eth_accounts') return [address]
+      if (request.method === 'eth_sendTransaction') {
+        const hash = hashes.shift()!
+        receipts.set(hash, 0)
+        return hash
+      }
+      if (request.method === 'eth_getTransactionReceipt') {
+        const hash = requestedReceiptHash(request)
+        const attempts = receipts.get(hash) ?? 0
+        receipts.set(hash, attempts + 1)
+        return attempts === 0 ? null : { status: '0x1' }
+      }
+      return null
+    })
     const submitted: Array<{ index: number; hash: string }> = []
     const confirmed: Array<{ index: number; hash: string }> = []
 
@@ -131,16 +162,14 @@ describe('wallet connect client', () => {
   test('stops the plan when a submitted transaction reverts', async () => {
     const submitted: Array<{ index: number; hash: string }> = []
     const confirmed: Array<{ index: number; hash: string }> = []
-    const provider: Eip1193Provider = {
-      async request(request) {
-        if (request.method === 'eth_accounts') return [address] as never
-        if (request.method === 'eth_sendTransaction')
-          return `0x${'aa'.repeat(32)}` as never
-        if (request.method === 'eth_getTransactionReceipt')
-          return { status: '0x0' } as never
-        return null as never
-      },
-    }
+    const provider = providerOf((request) => {
+      if (request.method === 'eth_accounts') return [address]
+      if (request.method === 'eth_sendTransaction') return `0x${'aa'.repeat(32)}`
+      if (request.method === 'eth_getTransactionReceipt') {
+        return { status: '0x0' }
+      }
+      return null
+    })
 
     await expect(
       sendEoaTransactions({
@@ -170,19 +199,17 @@ describe('wallet connect client', () => {
   test('rebuilds an EOA plan after approval before signing the final action', async () => {
     let builds = 0
     const sentData: string[] = []
-    const provider: Eip1193Provider = {
-      async request(request) {
-        if (request.method === 'eth_accounts') return [address] as never
-        if (request.method === 'eth_sendTransaction') {
-          const data = (request.params as Array<{ data: string }>)[0].data
-          sentData.push(data)
-          return `0x${String(sentData.length).padStart(64, '0')}` as never
-        }
-        if (request.method === 'eth_getTransactionReceipt')
-          return { status: '0x1' } as never
-        return null as never
-      },
-    }
+    const provider = providerOf((request) => {
+      if (request.method === 'eth_accounts') return [address]
+      if (request.method === 'eth_sendTransaction') {
+        sentData.push(sentTransactionData(request))
+        return `0x${String(sentData.length).padStart(64, '0')}`
+      }
+      if (request.method === 'eth_getTransactionReceipt') {
+        return { status: '0x1' }
+      }
+      return null
+    })
 
     const result = await sendFreshEoaTransactions({
       provider,
@@ -217,14 +244,11 @@ describe('wallet connect client', () => {
   })
 
   test('stops before signing when a different account is active', async () => {
-    const provider: Eip1193Provider = {
-      async request(request) {
-        if (request.method === 'eth_accounts') {
-          return ['0x9999999999999999999999999999999999999999'] as never
-        }
-        return null as never
-      },
-    }
+    const provider = providerOf((request) =>
+      request.method === 'eth_accounts'
+        ? ['0x9999999999999999999999999999999999999999']
+        : null,
+    )
 
     await expect(
       sendEoaTransactions({
