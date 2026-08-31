@@ -1,37 +1,64 @@
+import type { ScrollBoxRenderable } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { formatCliError } from '../../cli'
 import type { SugarJson } from '../../types'
-import { fuzzyScore, SelectDialog, type SelectItem } from '../dialogs'
+import { SelectDialog, type SelectItem } from '../dialogs'
+import { fuzzyScore } from '../../fuzzy'
 import { DITHER_COLORS, renderHBar, renderStackBar } from '../analytics/dither'
 import { DitherLines, Legend } from '../analytics/view'
-import { POOLS_BROWSE_PARAMETERS, runTuiAction } from '../sugar'
-import { formatNumber, formatUsd, jsonNumber, jsonRecord, jsonString, pad } from '../format'
+import { POOLS_BROWSE_PARAMETERS, subscribeTuiAction } from '../sugar'
+import { formatAge, formatNumber, formatUsd, jsonNumber, jsonRecord, jsonString, pad } from '../format'
 import { theme } from '../theme'
 import { useApp } from '../store'
 import { ScreenFrame, Spinner } from '../widgets'
 
+export type Freshness = { savedAt?: number; stale: boolean; refreshing: boolean; refreshError?: string }
+
 function useAction(action: 'pools' | 'positions' | 'epochs_latest', parameters: Record<string, string | number | boolean>) {
   const app = useApp()
-  const [state, setState] = useState<{ loading: boolean; error?: string; data?: SugarJson }>({ loading: true })
+  const [state, setState] = useState<{ loading: boolean; error?: string; data?: SugarJson; freshness?: Freshness }>({ loading: true })
   const [nonce, setNonce] = useState(0)
   const wallet = app.wallet?.address
   useEffect(() => {
-    let cancelled = false
     setState({ loading: true })
     const withWallet = action === 'positions' && wallet ? { ...parameters, wallet } : parameters
-    runTuiAction(action, { chain: app.chain, ...withWallet }, { fresh: nonce > 0 })
-      .then((data) => {
-        if (!cancelled) setState({ loading: false, data })
+    return subscribeTuiAction(action, { chain: app.chain, ...withWallet }, (update) => {
+      if (update.data === undefined) {
+        setState({ loading: false, error: update.error === undefined ? undefined : formatCliError(update.error) })
+        return
+      }
+      setState({
+        loading: false,
+        data: update.data,
+        freshness: update.stale || update.refreshing
+          ? {
+            savedAt: update.savedAt,
+            stale: update.stale,
+            refreshing: update.refreshing,
+            refreshError: update.error === undefined ? undefined : formatCliError(update.error),
+          }
+          : undefined,
       })
-      .catch((cause: unknown) => {
-        if (!cancelled) setState({ loading: false, error: formatCliError(cause) })
-      })
-    return () => {
-      cancelled = true
-    }
+    }, { fresh: nonce > 0 })
   }, [action, app.chain, wallet, nonce])
   return { ...state, reload: () => setNonce((current) => current + 1) }
+}
+
+/** One-line badge for data served from a disk snapshot while the live scan runs. */
+function FreshnessBanner(props: { freshness?: Freshness }) {
+  const freshness = props.freshness
+  if (!freshness) return null
+  const age = freshness.savedAt === undefined ? '' : ` from ${formatAge(freshness.savedAt)}`
+  return (
+    <box height={1} flexShrink={0} paddingLeft={1}>
+      {freshness.refreshError !== undefined ? (
+        <text fg={theme.warning}>⚠ refresh failed — showing data{age} (ctrl+r to retry)</text>
+      ) : (
+        <text fg={theme.textMuted}>◌ data{age} — refreshing…</text>
+      )}
+    </box>
+  )
 }
 
 export type BrowseRow = { key: string; line: string; searchText: string; actions?: SelectItem[]; bar?: { value: number; max: number; color?: 'green' | 'blue' | 'purple' } }
@@ -45,6 +72,7 @@ function BrowseList(props: {
   rows: BrowseRow[]
   loading: boolean
   error?: string
+  freshness?: Freshness
   reload: () => void
   empty: string
   banner?: ReactNode
@@ -52,6 +80,12 @@ function BrowseList(props: {
   const app = useApp()
   const [filter, setFilter] = useState('')
   const [selected, setSelected] = useState(0)
+  // The keyboard emitter can deliver several key events in one input chunk
+  // (held arrow key, fast repeat). State reads inside the handler would see
+  // the same stale value for the whole batch, so the live position lives in
+  // a ref and state only mirrors it for rendering.
+  const selectedRef = useRef(0)
+  const scrollRef = useRef<ScrollBoxRenderable>(null)
   const matched = useMemo(() => {
     const scored = props.rows
       .map((row, order) => ({ row, order, score: fuzzyScore(filter, row.searchText) }))
@@ -63,16 +97,31 @@ function BrowseList(props: {
   const overflow = matched.length - filtered.length
   const active = Math.min(selected, Math.max(0, filtered.length - 1))
 
+  const select = (next: number) => {
+    const clamped = Math.max(0, Math.min(next, filtered.length - 1))
+    selectedRef.current = clamped
+    setSelected(clamped)
+  }
+
+  // Keep the active row inside the scrollbox viewport (rows are one line tall).
+  useEffect(() => {
+    const scrollbox = scrollRef.current
+    if (!scrollbox) return
+    const viewportHeight = Math.max(1, scrollbox.viewport.height)
+    if (active < scrollbox.scrollTop) scrollbox.scrollTop = active
+    else if (active >= scrollbox.scrollTop + viewportHeight) scrollbox.scrollTop = active - viewportHeight + 1
+  }, [active])
+
   useKeyboard((key) => {
     if (app.dialogOpen) return
     if (key.name === 'escape') return app.pop()
     if (key.ctrl && key.name === 'r') return props.reload()
-    if (key.name === 'up') return setSelected(Math.max(0, active - 1))
-    if (key.name === 'down') return setSelected(Math.min(filtered.length - 1, active + 1))
-    if (key.name === 'pageup') return setSelected(Math.max(0, active - 10))
-    if (key.name === 'pagedown') return setSelected(Math.min(filtered.length - 1, active + 10))
+    if (key.name === 'up') return select(selectedRef.current - 1)
+    if (key.name === 'down') return select(selectedRef.current + 1)
+    if (key.name === 'pageup') return select(selectedRef.current - 10)
+    if (key.name === 'pagedown') return select(selectedRef.current + 10)
     if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
-      const row = filtered[active]
+      const row = filtered[Math.min(selectedRef.current, filtered.length - 1)]
       if (row?.actions?.length) {
         app.openDialog((close) => <SelectDialog title={row.searchText} items={row.actions!} close={close} />)
       }
@@ -96,7 +145,7 @@ function BrowseList(props: {
             placeholder="Type to filter..."
             onInput={(value) => {
               setFilter(value)
-              setSelected(0)
+              select(0)
             }}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.backgroundElement}
@@ -106,9 +155,10 @@ function BrowseList(props: {
           />
         </box>
         {props.banner}
+        <FreshnessBanner freshness={props.freshness} />
         {props.loading ? (
           <box flexGrow={1} justifyContent="center" alignItems="center">
-            <Spinner label="Loading..." />
+            <Spinner label="Loading..." activity />
           </box>
         ) : props.error ? (
           <box flexGrow={1} paddingTop={1} paddingLeft={1}>
@@ -125,7 +175,7 @@ function BrowseList(props: {
                 <text fg={theme.textMuted}>{props.empty}</text>
               </box>
             ) : (
-              <scrollbox flexGrow={1} minHeight={0}>
+              <scrollbox ref={scrollRef} flexGrow={1} minHeight={0}>
                 {filtered.map((row, index) => (
                   <box key={row.key} height={1} paddingLeft={1} flexDirection="row" backgroundColor={index === active ? theme.primary : undefined}>
                     <text fg={index === active ? theme.selectedText : theme.text}>{row.line}</text>
@@ -162,7 +212,7 @@ const scaled = (value: SugarJson | undefined, decimals = 18): number => {
 
 export function PoolsScreen() {
   const app = useApp()
-  const { loading, error, data, reload } = useAction('pools', POOLS_BROWSE_PARAMETERS)
+  const { loading, error, data, freshness, reload } = useAction('pools', POOLS_BROWSE_PARAMETERS)
   const rows = useMemo<BrowseRow[]>(() => {
     if (!Array.isArray(data)) return []
     const entries = data.flatMap((entry) => {
@@ -203,6 +253,7 @@ export function PoolsScreen() {
       rows={rows}
       loading={loading}
       error={error}
+      freshness={freshness}
       reload={reload}
       empty="No pools matched"
     />
@@ -211,7 +262,7 @@ export function PoolsScreen() {
 
 export function PositionsScreen() {
   const app = useApp()
-  const { loading, error, data, reload } = useAction('positions', {})
+  const { loading, error, data, freshness, reload } = useAction('positions', {})
   const rows = useMemo<BrowseRow[]>(() => {
     if (!Array.isArray(data)) return []
     return data.flatMap((entry) => {
@@ -265,6 +316,7 @@ export function PositionsScreen() {
       rows={rows}
       loading={loading}
       error={error}
+      freshness={freshness}
       reload={reload}
       empty={app.wallet ? 'No positions on this chain' : 'Connect a wallet to see positions'}
       banner={banner}
@@ -278,32 +330,36 @@ const voteSliceColor = (index: number): VoteSlice['color'] => (index === 0 ? 'gr
 
 export function EpochsScreen() {
   const app = useApp()
-  const { loading, error, data, reload } = useAction('epochs_latest', {})
+  const { loading, error, data, freshness, reload } = useAction('epochs_latest', {})
   const rows = useMemo<BrowseRow[]>(() => {
     if (!Array.isArray(data)) return []
-    return data.flatMap((entry) => {
-      const epoch = jsonRecord(entry)
-      const pool = epoch ? jsonRecord(epoch.pool) : undefined
-      if (!epoch || !pool) return []
-      const lp = jsonString(epoch.lp) ?? ''
-      const symbol = jsonString(pool.symbol) ?? lp
-      const line = [
-        pad(symbol, 34),
-        pad(formatNumber(scaled(epoch.votes)), 12),
-        pad(formatNumber(scaled(epoch.emissions)), 12),
-        pad(formatUsd(jsonNumber(epoch.total_fees) ?? 0), 10),
-        formatUsd(jsonNumber(epoch.total_incentives) ?? 0),
-      ].join(' ')
-      return [{
-        key: lp,
-        line,
-        searchText: `${symbol} ${lp}`,
-        actions: [
-          { title: 'Epoch history', description: symbol, onSelect: () => app.push({ name: 'action', action: 'epochs', preset: { lp } }) },
-          { title: 'Deposit liquidity', description: symbol, onSelect: () => app.push({ name: 'action', action: 'deposit', preset: { pool: lp } }) },
-        ],
-      }]
-    })
+    return data
+      .flatMap((entry) => {
+        const epoch = jsonRecord(entry)
+        const pool = epoch ? jsonRecord(epoch.pool) : undefined
+        if (!epoch || !pool) return []
+        const lp = jsonString(epoch.lp) ?? ''
+        const symbol = jsonString(pool.symbol) ?? lp
+        const line = [
+          pad(symbol, 34),
+          pad(formatNumber(scaled(epoch.votes)), 12),
+          pad(formatNumber(scaled(epoch.emissions)), 12),
+          pad(formatUsd(jsonNumber(epoch.total_fees) ?? 0), 10),
+          formatUsd(jsonNumber(epoch.total_incentives) ?? 0),
+        ].join(' ')
+        return [{
+          key: lp,
+          line,
+          searchText: `${symbol} ${lp}`,
+          votes: scaled(epoch.votes),
+          actions: [
+            { title: 'Epoch history', description: symbol, onSelect: () => app.push({ name: 'action', action: 'epochs', preset: { lp } }) },
+            { title: 'Deposit liquidity', description: symbol, onSelect: () => app.push({ name: 'action', action: 'deposit', preset: { pool: lp } }) },
+          ],
+        }]
+      })
+      .sort((left, right) => right.votes - left.votes)
+      .map(({ votes: _votes, ...row }) => row)
   }, [data, app])
   const banner = useMemo(() => {
     if (!Array.isArray(data)) return undefined
@@ -349,6 +405,7 @@ export function EpochsScreen() {
       rows={rows}
       loading={loading}
       error={error}
+      freshness={freshness}
       reload={reload}
       empty="No epochs returned"
       banner={banner}

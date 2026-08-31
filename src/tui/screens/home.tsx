@@ -1,5 +1,5 @@
 import { useKeyboard } from '@opentui/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fetchLlama } from '../analytics/llama'
 import { formatUsd } from '../format'
 import { theme } from '../theme'
@@ -48,6 +48,13 @@ function LiveStats() {
 export function HomeScreen(props: { openPalette: () => void }) {
   const app = useApp()
   const [selected, setSelected] = useState(0)
+  // Several key events can land in one input chunk (fast ↓↓⏎); reading state
+  // in the handler would activate a stale entry, so the live index is a ref.
+  const selectedRef = useRef(0)
+  const select = (next: number) => {
+    selectedRef.current = next
+    setSelected(next)
+  }
 
   const activate = (item: MenuItem) => {
     if (item.route) return app.push(item.route)
@@ -57,9 +64,9 @@ export function HomeScreen(props: { openPalette: () => void }) {
 
   useKeyboard((key) => {
     if (app.dialogOpen) return
-    if (key.name === 'up' || key.name === 'k') return setSelected((at) => (at + MENU.length - 1) % MENU.length)
-    if (key.name === 'down' || key.name === 'j') return setSelected((at) => (at + 1) % MENU.length)
-    if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') return activate(MENU[selected])
+    if (key.name === 'up' || key.name === 'k') return select((selectedRef.current + MENU.length - 1) % MENU.length)
+    if (key.name === 'down' || key.name === 'j') return select((selectedRef.current + 1) % MENU.length)
+    if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') return activate(MENU[selectedRef.current])
     if (key.name === 'q') return app.quit()
   })
 
