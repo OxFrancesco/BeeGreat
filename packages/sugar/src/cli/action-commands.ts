@@ -84,8 +84,8 @@ const quote = Command.make('quote', {
 }, Effect.fn(function* (config) {
   yield* runReadAction('quote', definedParameters({
     chain: config.chain,
-    from_token: config.fromToken,
-    to_token: config.toToken,
+    from_token: optionalValue(config.fromToken),
+    to_token: optionalValue(config.toToken),
     amount: config.amount,
     use_decimals: config.useDecimals,
   }))
@@ -110,8 +110,8 @@ const swap = Command.make('swap', {
   yield* runTxAction('swap', definedParameters({
     chain: config.chain,
     wallet: optionalValue(config.wallet),
-    from_token: config.fromToken,
-    to_token: config.toToken,
+    from_token: optionalValue(config.fromToken),
+    to_token: optionalValue(config.toToken),
     amount: config.amount,
     slippage: optionalValue(config.slippage),
     use_decimals: config.useDecimals,

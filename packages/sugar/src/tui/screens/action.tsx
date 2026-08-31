@@ -4,13 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { executeSugarAction } from '../../actions'
 import { formatCliError } from '../../cli'
 import { isSugarTxAction, type SugarAction, type SugarParameters, type SugarTxAction } from '../../contracts'
+import { toTokenChoice } from '../../token-catalog'
 import { extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type PlanSigner, type PlanStep } from '../../send'
-import type { SugarJson } from '../../types'
+import type { SugarJson, Token } from '../../types'
 import { loadLocalWallet, loadWalletConnectRecord, openSecret } from '../../wallet'
-import { PromptDialog } from '../dialogs'
+import { SelectDialog, PromptDialog } from '../dialogs'
 import { ACTION_FORMS, ACTION_TITLES, buildParameters, initialValues, type FieldSpec, type FormValues } from '../fields'
 import { humanizeResult } from '../humanize'
-import { clearTuiPrefetch, runTuiAction, tuiExecution } from '../sugar'
+import { clearTuiPrefetch, runTuiAction, tuiExecution, tuiTokenCatalog } from '../sugar'
 import { theme } from '../theme'
 import { useApp } from '../store'
 import { ScreenFrame, Spinner } from '../widgets'
@@ -51,7 +52,7 @@ function FieldRow(props: { field: FieldSpec; value: string | boolean; active: bo
           <input
             focused
             value={String(value)}
-            placeholder={field.placeholder}
+            placeholder={field.kind === 'token' ? 'type a symbol, or ⏎ to browse' : field.placeholder}
             onInput={props.onInput}
             backgroundColor={theme.backgroundElement}
             focusedBackgroundColor={theme.backgroundElement}
@@ -105,15 +106,57 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>({ kind: 'form' })
   const [log, setLog] = useState<string[]>([])
+  const [catalog, setCatalog] = useState<Token[] | null>(null)
   const alive = useRef(true)
   useEffect(() => () => {
     alive.current = false
   }, [])
+  useEffect(() => {
+    let mounted = true
+    setCatalog(null)
+    // Best-effort warm-up for the token picker; failures surface when the
+    // user actually opens it.
+    tuiTokenCatalog(app.chain)
+      .then((tokens) => {
+        if (mounted) setCatalog(tokens)
+      })
+      .catch(() => undefined)
+    return () => {
+      mounted = false
+    }
+  }, [app.chain])
   const title = ACTION_TITLES[props.action]
   const isTx = isSugarTxAction(props.action)
   const field = fields[index]
 
   const setValue = (name: string, value: string | boolean) => setValues((current) => ({ ...current, [name]: value }))
+
+  const openTokenPicker = (tokenField: FieldSpec) => {
+    if (!catalog) {
+      return app.toast('info', 'Loading tokens', 'The whitelisted token catalog is still scanning the chain')
+    }
+    app.openDialog((close) => (
+      <SelectDialog
+        title={`Select ${tokenField.label.toLowerCase()}`}
+        items={catalog.map((token) => {
+          const choice = toTokenChoice(token)
+          return {
+            title: choice.title,
+            description: choice.description,
+            onSelect: () => {
+              // Ambiguous symbols fall back to the address so the picked
+              // token is the one that gets swapped.
+              const sameSymbol = catalog.some((other) => other !== token && other.symbol.toLowerCase() === token.symbol.toLowerCase())
+              setValue(tokenField.name, sameSymbol ? token.tokenAddress : token.symbol)
+            },
+          }
+        })}
+        initialFilter={String(values[tokenField.name])}
+        placeholder='Type to filter...'
+        close={close}
+      />
+    ))
+  }
 
   const cycleChoice = (step: number) => {
     if (!field || field.kind !== 'choice') return
@@ -219,6 +262,9 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
       if (field?.kind === 'choice' && (key.name === 'left' || key.name === 'right' || key.name === 'space')) {
         return cycleChoice(key.name === 'left' ? -1 : 1)
       }
+      if (field?.kind === 'token' && (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed')) {
+        return openTokenPicker(field)
+      }
       if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
         if (index < fields.length - 1) return setIndex(index + 1)
         return void run()
@@ -248,7 +294,17 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
   })
 
   const hints = phase.kind === 'form'
-    ? [{ key: '↑↓', label: 'field' }, { key: 'enter', label: index < fields.length - 1 ? 'next' : isTx ? 'build plan' : 'run' }, { key: 'ctrl+r', label: 'run' }, { key: 'esc', label: 'back' }]
+    ? [
+        { key: '↑↓', label: 'field' },
+        {
+          key: 'enter',
+          label: field?.kind === 'token'
+            ? 'browse tokens'
+            : index < fields.length - 1 ? 'next' : isTx ? 'build plan' : 'run',
+        },
+        { key: 'ctrl+r', label: 'run' },
+        { key: 'esc', label: 'back' },
+      ]
     : phase.kind === 'result'
       ? [{ key: '↑↓', label: 'scroll' }, { key: 'j', label: phase.showJson ? 'readable' : 'json' }, { key: 'r', label: 'rerun' }, { key: 'esc', label: 'back' }]
       : phase.kind === 'plan'

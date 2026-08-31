@@ -7,6 +7,7 @@ import { isSugarTxAction, type SugarAction, type SugarParameters, type SugarTxAc
 import { extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type PlanSigner } from '../send'
 import type { SugarJson } from '../types'
 import { getActiveWallet, loadLocalWallet, loadWalletConnectRecord, openSecret } from '../wallet'
+import { resolveTokenParameters } from './tokens'
 
 export type BroadcastOptions = { yes: boolean; dryRun: boolean }
 
@@ -28,9 +29,10 @@ export const runReadAction = Effect.fn('AeroCli.runReadAction')(function* (
   parameters: SugarParameters,
 ) {
   const active = getActiveWallet()
+  const resolved = yield* resolveTokenParameters(action, parameters)
   const withWallet = parameters.wallet === undefined && active && acceptsWalletDefault(action)
-    ? { ...parameters, wallet: active.address }
-    : parameters
+    ? { ...resolved, wallet: active.address }
+    : resolved
   yield* printJson(yield* executeSugarActionEffect(action, withWallet, {}))
 })
 
@@ -64,9 +66,10 @@ export const runTxAction = Effect.fn('AeroCli.runTxAction')(function* (
   options: BroadcastOptions,
 ) {
   const active = getActiveWallet()
+  const resolved = yield* resolveTokenParameters(action, parameters)
   const withWallet = parameters.wallet === undefined && active
-    ? { ...parameters, wallet: active.address }
-    : parameters
+    ? { ...resolved, wallet: active.address }
+    : resolved
   const result = yield* executeSugarActionEffect(action, withWallet, {})
   const walletMatches = active !== undefined
     && String(withWallet.wallet).toLowerCase() === active.address.toLowerCase()

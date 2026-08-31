@@ -7,7 +7,7 @@ import type { SugarAction, SugarParameter, SugarParameters } from '../contracts'
  * humans think in token units, not wei; the headless CLI keeps raw units.
  */
 
-export type FieldKind = 'text' | 'number' | 'boolean' | 'choice'
+export type FieldKind = 'text' | 'number' | 'boolean' | 'choice' | 'token'
 
 export type FieldSpec = {
   name: string
@@ -23,6 +23,12 @@ export type FieldSpec = {
 const poolType: FieldSpec = { name: 'pool_type', label: 'Pool type', kind: 'choice', choices: ['any', 'cl', 'stable', 'volatile'], help: 'Filter or select the pool flavor' }
 const pool: FieldSpec = { name: 'pool', label: 'Pool', kind: 'text', placeholder: '0x pool address', help: 'Pool (liquidity pair) address' }
 const position: FieldSpec = { name: 'position', label: 'Position id', kind: 'text', placeholder: 'id from positions', help: 'Position id (browse them in Positions)' }
+/** Token fields open a fuzzy picker over the whitelisted catalog on Enter; typing still works. */
+const tokenField = (name: string, label: string, required = false): FieldSpec => ({
+  name, label, kind: 'token', required,
+  placeholder: 'type a symbol, or press enter to browse',
+  help: 'Enter browses whitelisted tokens with fuzzy search; typing a symbol or 0x address also works',
+})
 const useDecimals: FieldSpec = { name: 'use_decimals', label: 'Human units', kind: 'boolean', initial: true, help: 'Read amounts as 0.1 ETH instead of raw wei' }
 const slippage: FieldSpec = { name: 'slippage', label: 'Slippage', kind: 'number', placeholder: '0.01 = 1%', help: 'Tolerance between 0 and 1' }
 const deadline: FieldSpec = { name: 'deadline_minutes', label: 'Deadline (min)', kind: 'number', placeholder: '30' }
@@ -34,8 +40,8 @@ export const ACTION_FORMS = {
     { name: 'owner', label: 'Owner', kind: 'text', placeholder: 'defaults to connected wallet' },
   ],
   pools: [
-    { name: 'token0', label: 'Token 0', kind: 'text', placeholder: 'symbol or 0x address' },
-    { name: 'token1', label: 'Token 1', kind: 'text', placeholder: 'symbol or 0x address' },
+    tokenField('token0', 'Token 0'),
+    tokenField('token1', 'Token 1'),
     poolType,
     { name: 'full', label: 'Full details', kind: 'boolean', initial: true, help: 'Hydrate reserves, TVL, and emissions' },
     { name: 'limit', label: 'Limit', kind: 'number', placeholder: '20' },
@@ -48,22 +54,22 @@ export const ACTION_FORMS = {
     { name: 'offset', label: 'Offset', kind: 'number', placeholder: '0' },
   ],
   quote: [
-    { name: 'from_token', label: 'From token', kind: 'text', required: true, placeholder: 'ETH, USDC, or 0x address' },
-    { name: 'to_token', label: 'To token', kind: 'text', required: true, placeholder: 'ETH, USDC, or 0x address' },
+    tokenField('from_token', 'From token', true),
+    tokenField('to_token', 'To token', true),
     { name: 'amount', label: 'Amount', kind: 'text', required: true, placeholder: '0.1' },
     useDecimals,
   ],
   swap: [
-    { name: 'from_token', label: 'From token', kind: 'text', required: true, placeholder: 'ETH, USDC, or 0x address' },
-    { name: 'to_token', label: 'To token', kind: 'text', required: true, placeholder: 'ETH, USDC, or 0x address' },
+    tokenField('from_token', 'From token', true),
+    tokenField('to_token', 'To token', true),
     { name: 'amount', label: 'Amount', kind: 'text', required: true, placeholder: '0.1' },
     slippage,
     useDecimals,
   ],
   deposit: [
     { ...pool, help: 'Pass a pool, or the token pair below' },
-    { name: 'token0', label: 'Token 0', kind: 'text', placeholder: 'symbol or 0x address' },
-    { name: 'token1', label: 'Token 1', kind: 'text', placeholder: 'symbol or 0x address' },
+    tokenField('token0', 'Token 0'),
+    tokenField('token1', 'Token 1'),
     poolType,
     { name: 'amount0', label: 'Amount 0', kind: 'text', placeholder: 'amount of token0' },
     { name: 'amount1', label: 'Amount 1', kind: 'text', placeholder: 'amount of token1' },
