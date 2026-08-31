@@ -89,6 +89,7 @@ import type * as imessageAuth from "../imessageAuth.js";
 import type * as imessageOutbox from "../imessageOutbox.js";
 import type * as imessageValidators from "../imessageValidators.js";
 import type * as journalEntries from "../journalEntries.js";
+import type * as jsonValue from "../jsonValue.js";
 import type * as memories from "../memories.js";
 import type * as memoryRelevance from "../memoryRelevance.js";
 import type * as memoryValidators from "../memoryValidators.js";
@@ -224,6 +225,7 @@ declare const fullApi: ApiFromModules<{
   imessageOutbox: typeof imessageOutbox;
   imessageValidators: typeof imessageValidators;
   journalEntries: typeof journalEntries;
+  jsonValue: typeof jsonValue;
   memories: typeof memories;
   memoryRelevance: typeof memoryRelevance;
   memoryValidators: typeof memoryValidators;
