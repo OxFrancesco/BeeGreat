@@ -44,6 +44,8 @@ export function Dialog(props: { title: string; width?: number; children: ReactNo
 }
 
 export type SelectItem = {
+  /** Stable identity when titles can collide (e.g. token symbols); falls back to title. */
+  id?: string
   title: string
   description?: string
   hint?: string
@@ -116,7 +118,7 @@ export function SelectDialog(props: { title: string; items: SelectItem[]; placeh
             const isActive = offset + index === active
             return (
               <box
-                key={item.title}
+                key={item.id ?? item.title}
                 height={1}
                 flexDirection="row"
                 justifyContent="space-between"

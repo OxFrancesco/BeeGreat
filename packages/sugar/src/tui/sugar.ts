@@ -3,7 +3,7 @@ import { createSugarCacheStore } from '../cache'
 import { SugarClient } from '../client'
 import type { SugarAction, SugarParameters } from '../contracts'
 import * as Effect from 'effect/Effect'
-import { loadTokenCatalog, setTokenCatalogClientFactory } from '../token-catalog'
+import { dedupeTokens, loadTokenCatalog, setTokenCatalogClientFactory } from '../token-catalog'
 import { readSnapshot, writeSnapshot } from './snapshot'
 import type { ChainSettings, SugarJson, SugarRpcObserver, Token } from '../types'
 
@@ -196,7 +196,9 @@ export function tuiTokenCatalog(chainId: number): Promise<Token[]> {
   // answers instantly and fresher than any snapshot.
   if (freshCatalogChains.has(chainId)) return refresh
   const snapshot = readSnapshot<Token[]>(key)
-  return snapshot ? Promise.resolve(snapshot.data) : refresh
+  // Dedupe on read too: snapshots written before catalog deduplication may
+  // still carry the chain scan's repeated rows.
+  return snapshot ? Promise.resolve(dedupeTokens(snapshot.data)) : refresh
 }
 
 /** Fire-and-forget: pre-populate caches and the slowest scans at TUI start. */
