@@ -1,6 +1,7 @@
 import { abis } from '../../abis'
 import { SugarClient } from '../../client'
 import { getChainSettings } from '../../config'
+import { readSnapshot, writeSnapshot } from '../snapshot'
 import { cacheStore, tuiExecution } from '../sugar'
 import { duneApiKey, fetchDune, type DuneSnapshot } from './dune'
 import { fetchLlama, type LlamaSnapshot } from './llama'
@@ -61,7 +62,7 @@ export async function fetchVeStats(client: SugarClient): Promise<VeStats | undef
 }
 
 export async function loadOnchain(chain: number): Promise<{ onchain: OnchainAnalytics; ve?: VeStats }> {
-  const client = new SugarClient(chain, { cacheStore, settings: tuiExecution.settings })
+  const client = new SugarClient(chain, { cacheStore, settings: tuiExecution.settings, onRpcEvent: tuiExecution.onRpcEvent })
   const [pools, epochs] = await Promise.all([
     client.getPools(),
     client.getLatestPoolEpochs(),
@@ -131,8 +132,15 @@ export async function loadAnalytics(
 const REPORT_TTL_MS = 60_000
 const sharedReports = new Map<number, { report?: AnalyticsReport; promise?: Promise<AnalyticsReport>; startedAt: number }>()
 
+const reportSnapshotKey = (chain: number) => `analytics:${chain}`
+
+/** Last finished report from a previous TUI session; loadedAt stays honest. */
+function readReportSnapshot(chain: number): AnalyticsReport | undefined {
+  return readSnapshot<AnalyticsReport>(reportSnapshotKey(chain))?.data
+}
+
 export function peekReport(chain: number): AnalyticsReport | undefined {
-  return sharedReports.get(chain)?.report
+  return sharedReports.get(chain)?.report ?? readReportSnapshot(chain)
 }
 
 export function loadAnalyticsShared(
@@ -145,14 +153,30 @@ export function loadAnalyticsShared(
     return entry.promise
   }
   const startedAt = Date.now()
-  let latest: AnalyticsReport | undefined
+  // Disk tier: a report persisted by a previous session renders instantly
+  // while the fresh Sugar+Dune+Llama sweep replaces it below. Partial fresh
+  // publishes keep the disk sections they have not superseded yet, so the
+  // screen never downgrades from a complete (old) report to a sparse one.
+  const disk = entry?.report ? undefined : readReportSnapshot(chain)
+  let latest: AnalyticsReport | undefined = entry?.report ?? disk
+  if (disk) onUpdate?.(disk)
   const promise = loadAnalytics(chain, (snapshot) => {
-    latest = snapshot
-    onUpdate?.(snapshot)
+    const merged = disk
+      ? {
+        ...snapshot,
+        onchain: snapshot.onchain ?? disk.onchain,
+        dune: snapshot.dune ?? disk.dune,
+        llama: snapshot.llama ?? disk.llama,
+        ve: snapshot.ve ?? disk.ve,
+      }
+      : snapshot
+    latest = merged
+    onUpdate?.(merged)
   }).then((final) => {
     const current = sharedReports.get(chain)
     if (current && current.startedAt === startedAt) current.report = final
     else sharedReports.set(chain, { report: final, promise, startedAt })
+    writeSnapshot(reportSnapshotKey(chain), final)
     return final
   }).catch((cause: unknown) => {
     const current = sharedReports.get(chain)

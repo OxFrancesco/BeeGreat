@@ -142,6 +142,16 @@ and the epochs screen opens with a stacked vote-share banner. Analytics
 reports are cached session-wide (60s SWR) so tab flips and back-navigation
 replay instantly; `ctrl+r` forces a cold reload.
 
+Pools, positions, epochs, the swap token catalog, and analytics persist to disk snapshots
+(`~/.cache/aero/snapshots`, override with `AERO_CACHE_DIR`), so a relaunch
+renders the last dataset instantly with a `◌ data from Xm ago — refreshing…`
+badge while the live scan replaces it in the background. Snapshots feed
+browse/analytics screens only — quotes and transaction building always read
+live chain state. Loading spinners show live scan progress (`N rpc reads`).
+Pinning your own endpoint (`SUGAR_RPC_URI_<chainId>`) additionally raises
+the scan concurrency from 5 to 16 and parallelizes startup warming, since a
+dedicated RPC tolerates the fan-out that public endpoints rate-limit.
+
 On-chain reads use the same Sugar client as the rest of the TUI.
 Each number is tagged with its source:
 

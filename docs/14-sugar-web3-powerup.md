@@ -198,6 +198,14 @@ braille sub-pixel line charts (2×4 dots per cell), donuts, calendar
 heatmaps, waterfalls, and scatter quadrant maps. Reports are cached
 per session with a 60s stale-while-revalidate window; `ctrl+r` forces a
 cold reload.
+
+TUI browse data (pools, positions, epochs, token catalog) and the analytics report also
+persist to disk snapshots under `~/.cache/aero/snapshots` (`AERO_CACHE_DIR`
+overrides), so a relaunch renders instantly from the last dataset — badged
+with its age — while the live scan refreshes in the background. Snapshots
+never feed quotes or transaction building. With a pinned RPC
+(`SUGAR_RPC_URI_<chainId>`) the TUI raises scan concurrency to 16 and warms
+caches in parallel.
 This is CLI-local — the agent bridge, Bee chat, and mobile/web clients
 are unchanged.
 
