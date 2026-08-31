@@ -1,6 +1,7 @@
 import { RGBA, TextAttributes } from '@opentui/core'
 import { useKeyboard, usePaste, useTerminalDimensions } from '@opentui/react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { fuzzyScore } from '../fuzzy'
 import { theme } from './theme'
 import { KeyHints } from './widgets'
 
@@ -42,44 +43,6 @@ export function Dialog(props: { title: string; width?: number; children: ReactNo
   )
 }
 
-/**
- * Contiguous matches score far better than scattered subsequences. The
- * positional signal is capped so prefix matches still edge ahead, but a
- * match a few characters later never outranks the caller's own ordering
- * (browse lists come pre-sorted by TVL).
- */
-function fuzzyWordScore(word: string, lower: string): number | undefined {
-  const direct = lower.indexOf(word)
-  if (direct !== -1) return Math.min(direct, 3)
-  let score = 1000
-  let index = -1
-  for (const char of word) {
-    const found = lower.indexOf(char, index + 1)
-    if (found === -1) return undefined
-    score += found - index
-    index = found
-  }
-  return score
-}
-
-/**
- * Case-insensitive fuzzy match; lower score is better. Every whitespace
- * separated word must match on its own, so "weth usdc" finds
- * "vAMM-WETH/USDC" regardless of separators or word order.
- */
-export function fuzzyScore(query: string, candidate: string): number | undefined {
-  const words = query.trim().toLowerCase().split(/\s+/).filter((word) => word.length > 0)
-  if (words.length === 0) return 0
-  const lower = candidate.toLowerCase()
-  let total = 0
-  for (const word of words) {
-    const score = fuzzyWordScore(word, lower)
-    if (score === undefined) return undefined
-    total += score
-  }
-  return total
-}
-
 export type SelectItem = {
   title: string
   description?: string
@@ -87,9 +50,12 @@ export type SelectItem = {
   onSelect: () => void
 }
 
-export function SelectDialog(props: { title: string; items: SelectItem[]; placeholder?: string; close: () => void }) {
-  const [filter, setFilter] = useState('')
+export function SelectDialog(props: { title: string; items: SelectItem[]; placeholder?: string; initialFilter?: string; close: () => void }) {
+  const [filter, setFilter] = useState(props.initialFilter ?? '')
   const [selected, setSelected] = useState(0)
+  // Live cursor for batched key events (held arrow / fast ↓↓⏎); state only
+  // mirrors it for rendering. See BrowseList for the same pattern.
+  const selectedRef = useRef(0)
   const filtered = useMemo(() => {
     const scored = props.items
       .map((item) => ({ item, score: fuzzyScore(filter, `${item.title} ${item.description ?? ''}`) }))
@@ -101,14 +67,20 @@ export function SelectDialog(props: { title: string; items: SelectItem[]; placeh
   const offset = Math.max(0, Math.min(active - visibleCount + 2, filtered.length - visibleCount))
   const visible = filtered.slice(offset, offset + visibleCount)
 
+  const select = (next: number) => {
+    const clamped = Math.max(0, Math.min(next, filtered.length - 1))
+    selectedRef.current = clamped
+    setSelected(clamped)
+  }
+
   useKeyboard((key) => {
     if (key.name === 'escape') return props.close()
-    if (key.name === 'up' || (key.ctrl && key.name === 'p')) return setSelected(Math.max(0, active - 1))
-    if (key.name === 'down' || (key.ctrl && key.name === 'n')) return setSelected(Math.min(filtered.length - 1, active + 1))
-    if (key.name === 'pageup') return setSelected(Math.max(0, active - visibleCount))
-    if (key.name === 'pagedown') return setSelected(Math.min(filtered.length - 1, active + visibleCount))
+    if (key.name === 'up' || (key.ctrl && key.name === 'p')) return select(selectedRef.current - 1)
+    if (key.name === 'down' || (key.ctrl && key.name === 'n')) return select(selectedRef.current + 1)
+    if (key.name === 'pageup') return select(selectedRef.current - visibleCount)
+    if (key.name === 'pagedown') return select(selectedRef.current + visibleCount)
     if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
-      const item = filtered[active]
+      const item = filtered[Math.min(selectedRef.current, filtered.length - 1)]
       if (item) {
         props.close()
         item.onSelect()
