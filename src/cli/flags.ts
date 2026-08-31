@@ -34,13 +34,15 @@ export const poolType = Flag.choice('pool-type', ['cl', 'stable', 'volatile']).p
 )
 
 export const fromToken = Flag.string('from-token').pipe(
+  Flag.optional,
   Flag.withMetavar('<symbol|0x address>'),
-  Flag.withDescription('Token you pay with (symbol like ETH/USDC, or address)'),
+  Flag.withDescription('Token you pay with (symbol like ETH/USDC, or address; omitted interactively opens a fuzzy token finder)'),
 )
 
 export const toToken = Flag.string('to-token').pipe(
+  Flag.optional,
   Flag.withMetavar('<symbol|0x address>'),
-  Flag.withDescription('Token you receive (symbol like ETH/USDC, or address)'),
+  Flag.withDescription('Token you receive (symbol like ETH/USDC, or address; omitted interactively opens a fuzzy token finder)'),
 )
 
 export const amount = Flag.string('amount').pipe(
