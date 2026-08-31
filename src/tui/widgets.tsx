@@ -2,21 +2,35 @@ import { TextAttributes } from '@opentui/core'
 import { useTerminalDimensions } from '@opentui/react'
 import { Fragment, useEffect, useState } from 'react'
 import { getChainSettings } from '../config'
+import { subscribeTuiRpcActivity, tuiRpcReadCount } from './sugar'
 import { theme } from './theme'
 import { useApp, type ToastVariant } from './store'
 
 export const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
-export function Spinner(props: { label?: string }) {
+/** Live RPC reads completed since this spinner mounted — visible scan progress. */
+function useRpcActivity(enabled: boolean): number {
+  const [reads, setReads] = useState(0)
+  useEffect(() => {
+    if (!enabled) return
+    const base = tuiRpcReadCount()
+    return subscribeTuiRpcActivity(() => setReads(tuiRpcReadCount() - base))
+  }, [enabled])
+  return enabled ? reads : 0
+}
+
+export function Spinner(props: { label?: string; activity?: boolean }) {
   const [frame, setFrame] = useState(0)
+  const reads = useRpcActivity(props.activity === true)
   useEffect(() => {
     const timer = setInterval(() => setFrame((current) => (current + 1) % SPINNER_FRAMES.length), 80)
     return () => clearInterval(timer)
   }, [])
+  const label = reads > 0 ? `${props.label ?? ''} ${reads} rpc reads`.trim() : props.label
   return (
     <box flexDirection="row" gap={1}>
       <text fg={theme.primary}>{SPINNER_FRAMES[frame]}</text>
-      {props.label ? <text fg={theme.textMuted}>{props.label}</text> : null}
+      {label ? <text fg={theme.textMuted}>{label}</text> : null}
     </box>
   )
 }

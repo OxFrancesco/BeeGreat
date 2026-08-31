@@ -25,6 +25,15 @@ export function formatRatio(value: number | undefined, digits = 2): string {
   return value.toFixed(digits)
 }
 
+export function formatAge(savedAt: number): string {
+  const seconds = Math.max(0, Math.round((Date.now() - savedAt) / 1000))
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`
+}
+
 export function weekLabel(ts: number): string {
   const date = new Date(ts * 1000)
   return `${date.getUTCMonth() + 1}/${date.getUTCDate()}`

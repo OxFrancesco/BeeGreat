@@ -146,7 +146,7 @@ export function AnalyticsScreen() {
         <TabBar tab={tab} />
         {loading && !report ? (
           <box flexGrow={1} justifyContent="center" alignItems="center">
-            <Spinner label="Loading Sugar, Dune, and DefiLlama…" />
+            <Spinner label="Loading Sugar, Dune, and DefiLlama…" activity />
           </box>
         ) : error && !report ? (
           <box paddingTop={1} paddingLeft={1}>
