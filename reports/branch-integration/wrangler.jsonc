@@ -1,0 +1,20 @@
+{
+  "name": "beegreat-branch-integration-report",
+  "account_id": "157a8b025a13404b16f11ad7078e53f1",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    {
+      "pattern": "reports.buddytools.org/branch-integration",
+      "zone_name": "buddytools.org"
+    },
+    {
+      "pattern": "reports.buddytools.org/branch-integration/*",
+      "zone_name": "buddytools.org"
+    }
+  ],
+  "assets": {
+    "directory": "./public"
+  }
+}

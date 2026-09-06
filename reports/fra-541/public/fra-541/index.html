@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Aero performance and reliability · FRA-541</title>
+<style>
+  :root{color-scheme:light;--paper:#f9f9f9;--ink:#202020;--muted:#62605e;--line:#d8d8d8;--accent:#644a40}
+  *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.6 Georgia,serif}
+  main{max-width:940px;margin:auto;padding:64px 28px}a{color:var(--accent);text-underline-offset:4px}
+  .meta,th,.status,nav,figcaption{font:13px/1.6 ui-monospace,SFMono-Regular,monospace}.meta{color:var(--muted)}
+  h1{font-size:clamp(36px,6vw,66px);font-weight:400;line-height:1.06;letter-spacing:-2px;max-width:760px;margin:24px 0}
+  h2{font-size:26px;font-weight:400;margin:42px 0 16px}.intro{font-size:21px;max-width:690px}.status{padding:14px 0;border-block:1px solid var(--line);margin:30px 0}
+  table{width:100%;border-collapse:collapse;font-size:16px}th{text-align:left;color:var(--muted)}th,td{padding:13px 12px 13px 0;border-bottom:1px solid var(--line);vertical-align:top}td:first-child{width:48%}
+  p,li{max-width:780px}li{margin:8px 0}figure{margin:32px 0}video{width:100%;display:block;background:#0a0c10;border:1px solid var(--line);border-radius:4px}figcaption{color:var(--muted);margin-top:10px}
+  nav{display:flex;gap:24px;flex-wrap:wrap;margin-top:26px}footer{border-top:1px solid var(--line);margin-top:44px;padding-top:20px;color:var(--muted);font-size:14px}
+  @media(max-width:600px){main{padding:32px 20px}h1{letter-spacing:-1px}table{font-size:14px}.intro{font-size:19px}}
+</style>
+<main>
+  <h1>Aero CLI/TUI performance</h1>
+  <p class="intro">Pool decoding and analytics now run in a background worker. The animation follows a 60 fps render clock. The worst measured intro frame gap fell from 371 ms to 33 ms.</p>
+  <div class="status">286 tests passed · Typecheck passed · Lint passed · CLI and worker build passed</div>
+  <nav><a href="report.md">Download Markdown</a><a href="animation.mp4">Download animation recording</a><a href="https://linear.app/francesco-oddo/issue/FRA-541">FRA-541</a></nav>
+  <h2>Animation measurements</h2>
+  <p>The first completion report did not measure smoothness. The follow-up found long pauses during background scans. That work now runs off the UI thread, including quotes, unsigned plan construction, analytics, and disk snapshots.</p>
+  <table><thead><tr><th>Three live launches per version</th><th>Before</th><th>After</th></tr></thead><tbody>
+    <tr><td>Median startup to menu</td><td>439 ms</td><td>468 ms</td></tr>
+    <tr><td>Worst intro frame gap</td><td>371 ms</td><td>33 ms</td></tr>
+    <tr><td>95th percentile gap across runs</td><td>188 to 371 ms</td><td>26 to 28 ms</td></tr>
+  </tbody></table>
+  <p>These measure terminal output on this Mac. The built TUI also passed, with a worst gap of 31 ms. A regression command checks frame timing, and the worker tests decode 10,000 tokens while the UI thread keeps ticking.</p>
+  <p>A live quote through the TUI worker returned 2.501257 USDC for 0.001 ETH in 6.4 seconds. The UI thread's longest heartbeat gap during the request was 30 ms. No transaction was sent.</p>
+  <figure><video controls preload="metadata" poster="animation.jpg"><source src="animation.mp4" type="video/mp4"></video><figcaption>Ghostty startup, pool refresh, back navigation, and token selection. Normal speed, 60 fps.</figcaption></figure>
+  <h2>The bugs and their fixes</h2>
+  <table>
+    <thead><tr><th>Before</th><th>Now</th></tr></thead>
+    <tbody>
+      <tr><td>ETH highlighted, WETH selected after filtering</td><td>Keyboard selection resets with the filter</td></tr>
+      <tr><td>Fast typing and Enter submitted an older query</td><td>Submission uses the current input before React renders</td></tr>
+      <tr><td>Failed catalog loads stayed stuck</td><td>Enter retries and opens the recovered picker</td></tr>
+      <tr><td>Overlapping refreshes repeated scans</td><td>Pending requests share one scan</td></tr>
+      <tr><td>Old failures evicted newer results</td><td>Cache updates belong to the current request</td></tr>
+      <tr><td>Refresh could reuse SDK data; quotes could stay cached</td><td>Ctrl+R invalidates SDK data; quotes bypass the result cache</td></tr>
+      <tr><td>Public reads accessed the Keychain; execution could repeat token scans</td><td>Public reads skip wallets; CLI stages share one client</td></tr>
+    </tbody>
+  </table>
+  <h2>Measured and exercised</h2>
+  <p>A live Base read loaded 2,671 listed tokens in 3,645 ms. Reusing that catalog took 1 ms with no additional RPC read. These numbers measure the scan cost, not an end-to-end before/after speedup.</p>
+  <p>A live CLI quote of 0.001 ETH to USDC succeeded in 11,842 ms. No transaction was broadcast. Nine new regression tests reproduce the failures and verify the fixes.</p>
+  <figure><video controls preload="metadata" poster="verification.jpg"><source src="verification.mp4" type="video/mp4"></video><figcaption>Real Ghostty capture. Navigate, filter for ETH, then select it in the Swap form. Playback at 6× speed.</figcaption></figure>
+  <h2>Available locally</h2>
+  <p>The installed <code>aero</code> command points to this package. The updated TUI was verified from the home directory in Ghostty. Existing checkout edits were preserved; the combined worktree was not committed or pushed.</p>
+  <p>These changes affect Aero's CLI and TUI. Bee's other clients, model providers, transaction contracts, and backend deployments are unchanged.</p>
+  <p>Apple Terminal failed even a standalone Bun console command. That environment problem remains; Ghostty and the test terminal ran Aero successfully.</p>
+  <footer>Implementation and verification by Codex. Report hosted on Francesco's personal Cloudflare account.</footer>
+</main>
+</html>
