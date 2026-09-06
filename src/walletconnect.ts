@@ -17,10 +17,10 @@ import {
  */
 
 const METADATA = {
-  name: 'sugar-ts (aero CLI)',
-  description: 'Aerodrome/Velodrome CLI built on the BeeGreat Sugar SDK',
-  url: 'https://github.com/velodrome-finance/sdk.js',
-  icons: ['https://raw.githubusercontent.com/velodrome-finance/sdk.js/main/sugar.png'],
+  name: 'BeeGreat aero CLI (unofficial)',
+  description: 'Independent CLI. Not affiliated with or endorsed by Aerodrome Finance, Velodrome Finance, or Dromos Labs.',
+  url: 'https://github.com/OxFrancesco/aerodrome-sdk-ts',
+  icons: [],
 }
 
 type SignClientInstance = Awaited<ReturnType<(typeof import('@walletconnect/sign-client'))['SignClient']['init']>>
