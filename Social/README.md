@@ -2,6 +2,8 @@
 
 Four landscape images designed as one X post. X currently accepts up to four photos per post, so the set tells one compact story while keeping the real mobile app at the center.
 
+> This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
 ## Post copy
 
 Most productivity apps give you more to manage. BeeGreat gives you one clear next focus.

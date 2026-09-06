@@ -1,3 +1,6 @@
+// Portions derived from the Python Sugar SDK, Copyright 2025 Velodrome Finance.
+// Modified by Francesco Oddo and BeeGreat contributors: TypeScript port and subsequent changes.
+// Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
 import * as Effect from 'effect/Effect'
 import { SugarClient } from './client'
 import type { SugarAction, SugarParameters } from './contracts'

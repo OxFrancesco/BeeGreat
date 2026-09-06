@@ -1,5 +1,7 @@
 # BeeGreat public profiles
 
+> This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
 One Astro application renders every published BeeGreat profile from the shared
 Convex deployment. It runs on Cloudflare Workers; users do not receive separate
 deployments.

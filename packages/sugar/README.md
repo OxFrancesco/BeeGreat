@@ -1,5 +1,7 @@
 # `@beegreat/sugar`
 
+> This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
 > ⚠️ **Vibecoded & early beta — use at your own risk.** This SDK and the
 > `aero` CLI were vibecoded with AI agents and are in early beta. Expect
 > rough edges and breaking changes. Always review unsigned plans
@@ -13,7 +15,9 @@ RPC reads and ABI encoding and never signs or broadcasts transactions.
 
 This package is developed in the BeeGreat monorepo (`packages/sugar`) and
 mirrored to [OxFrancesco/aerodrome-sdk-ts](https://github.com/OxFrancesco/aerodrome-sdk-ts)
-(MIT). The monorepo is the source of truth; mirror after landing changes with
+with an MIT license for original contributions. Third-party material retains its
+applicable terms; see the licensing review below before redistribution. The
+monorepo is the source of truth; mirror after landing changes with
 `bun run sugar:mirror` from the monorepo root. Standalone usage:
 
 ```sh
@@ -22,6 +26,53 @@ bun add github:OxFrancesco/aerodrome-sdk-ts   # as a dependency
 bun install && bun test && bun run typecheck
 bun run cli -- pools --chain=8453 --pool-type=cl --limit=5
 ```
+
+## Licensing review 2026-09-06
+
+This is a technical license review, not a legal opinion or a finding of
+non-infringement. Do not treat the MIT file or the non-affiliation notice as
+clearance for upstream material. The following issues remain open before further
+redistribution or production use of potentially restricted derivatives.
+
+| Source | Verified terms | Consequence for this package |
+| --- | --- | --- |
+| [Python Sugar SDK](https://github.com/velodrome-finance/sugar-sdk/blob/e8f7c6a8c069aa23376837fb4eafc53b1377bfdd/LICENSE) | Apache-2.0. [Metadata](https://github.com/velodrome-finance/sugar-sdk/blob/e8f7c6a8c069aa23376837fb4eafc53b1377bfdd/settings.ini) identifies copyright 2025 Velodrome Finance. | Commercial use and ports are permitted subject to the license. Section 4 requires a license copy, notices on modified files, retained applicable attribution, and relevant NOTICE content if supplied. The package now includes LICENSE.Apache-2.0, NOTICE, and change notices on the identified ported TypeScript modules. Fifteen ABI files match the inspected Python reference byte-for-byte. Remaining ABI provenance and historical attribution checks are listed in NOTICE. |
+| [Official TypeScript SDK](https://github.com/velodrome-finance/sdk.js/blob/6b0be4a253a317a0bf5e4620f4e5327db0f80b58/packages/sugar-sdk/package.json) | `UNLICENSED` in package and root metadata. No LICENSE or NOTICE file found in the main tree at review time. | No general reuse grant was found. Do not copy or translate its implementation without permission. This package does not list it as a dependency, but references to its behavior are not proof of independent authorship. Review source history and ABI provenance. |
+| [Aerodrome contracts license](https://github.com/aerodrome-finance/contracts/blob/1ba30815bba620f7e9faa34769ffd00c214c9b82/LICENSE) and [NOTICE](https://github.com/aerodrome-finance/contracts/blob/1ba30815bba620f7e9faa34769ffd00c214c9b82/NOTICE) | Mixed BSL-1.1, GPL-3.0, and MIT. The local Velodrome contracts reference has the same BSL parameters. | Check each copied file, not just the repository license. Calling a deployed contract through RPC is distinct from distributing or deploying its implementation. Generated ABI artifacts still need provenance review; no blanket exemption is assumed. |
+| [Mellow PulseStrategyModule](https://github.com/mellow-finance/mellow-alm-toolkit/blob/bb6da8fe6697dd09ecdd55d327b91a83ae6e7cb9/src/modules/strategies/PulseStrategyModule.sol) | `BUSL-1.1`; [license parameters](https://github.com/mellow-finance/mellow-alm-toolkit/blob/bb6da8fe6697dd09ecdd55d327b91a83ae6e7cb9/licenses/LICENSE) name February 15, 2028 as the change date. The inspected production-use grant list contains only a newline. | `src/alm/strategy.ts` says it replicates this module. LICENSE.Mellow-BUSL-1.1 and NOTICE preserve the upstream terms without claiming production permission. ALM execution remains unchanged at the maintainer's request. Obtain permission or resolve derivative-work status before production use; dry-run mode is not legal clearance. |
+
+The contracts' BSL parameters name Perpetual Cyclist Services LLC and refer to
+`v2-license-grants.velodrome.eth` and `v2-license-date.velodrome.eth`. The license
+converts each version to GPL-2.0-or-later on its change date or the fourth
+anniversary of that version's first public BSL distribution, whichever is earlier.
+This review did not resolve those ENS records or establish version-specific first
+publication dates. Do not assume the whole repository has already converted.
+GPL-covered implementation redistribution has its own source and notice duties.
+
+Apache section 6 and the contracts' BSL text do not grant general trademark or logo
+rights. New CLI WalletConnect pairings now use our own repository URL, an
+unofficial description, and no upstream logo. Existing sessions may cache old
+metadata until disconnected and paired again. Repository names, other UI assets,
+API terms, patents, and jurisdiction-specific trademark questions are not cleared
+by this review.
+
+Release follow-up:
+
+- Map ported source and every ABI to an upstream file and revision. Include the
+  full applicable license texts and copyright notices in source and binary
+  distributions. Mark modified files as required. The ignored `resources/` folder
+  does not supply notices to consumers of this package or its standalone mirror.
+- Obtain written permission for any reused `UNLICENSED` implementation, or replace
+  it through a documented independent implementation process. A language rewrite
+  alone does not remove copyright obligations.
+- Resolve the Mellow ALM provenance and BSL grant before claiming production reuse
+  is permitted. Have qualified counsel review uncertain derivative-work questions.
+- Keep [LICENSE](./LICENSE), [LICENSE.Apache-2.0](./LICENSE.Apache-2.0),
+  [LICENSE.Mellow-BUSL-1.1](./LICENSE.Mellow-BUSL-1.1), and [NOTICE](./NOTICE)
+  in source mirrors and bundled distributions. Package metadata explicitly includes
+  them. Bundled dependencies require their own applicable license notices.
+- Keep non-affiliation notices in other integrations and future repositories.
+  This review is not an exhaustive audit of every repository or historical release.
 
 ## Client API
 

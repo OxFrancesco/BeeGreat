@@ -1,5 +1,7 @@
 # BeeGreat screenshot harness
 
+> This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
 This harness routes through BeeGreat's real Expo Router tree and renders the
 shipping screens, native tab bar, cards, safe areas, and responsive layouts.
 A typed fixture context replaces only the Clerk/Convex/Flue data adapters with
