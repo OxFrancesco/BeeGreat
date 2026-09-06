@@ -1,5 +1,8 @@
 import { join } from 'node:path'
-import type { Address, Hex } from 'viem'
+import * as Schema from 'effect/Schema'
+import { normalizeAddress } from './helpers'
+import { walletConnectSessionRecord } from './walletconnect-session'
+import type { Hex } from 'viem'
 import { SUPPORTED_CHAIN_IDS } from './config'
 import type { UnsignedTransaction } from './types'
 import {
@@ -32,35 +35,53 @@ export function walletConnectProjectId(): string {
   return process.env.WALLETCONNECT_PROJECT_ID ?? process.env.REOWN_PROJECT_ID ?? DEFAULT_PROJECT_ID
 }
 
-async function initSignClient(): Promise<SignClientInstance> {
-  const { SignClient } = await import('@walletconnect/sign-client')
-  return SignClient.init({
-    projectId: walletConnectProjectId(),
-    metadata: METADATA,
+let sharedClient: Promise<SignClientInstance> | undefined
+let invalidatedTopic: string | undefined
+
+function initSignClient(): Promise<SignClientInstance> {
+  if (sharedClient) return sharedClient
+  sharedClient = import('@walletconnect/sign-client').then(({ SignClient }) => SignClient.init({
+    projectId: walletConnectProjectId(), metadata: METADATA,
     storageOptions: { database: join(walletDir(), 'walletconnect') },
-  })
+  })).then((client) => {
+    const clear = ({ topic }: { topic: string }) => {
+      if (loadWalletConnectRecord()?.topic === topic) deleteWalletConnectRecord()
+      if (invalidatedTopic === topic) invalidatedTopic = undefined
+    }
+    client.on('session_delete', clear)
+    client.on('session_expire', clear)
+    client.on('session_update', ({ topic, params }) => {
+      const record = loadWalletConnectRecord()
+      const session = client.session.getAll().find((entry) => entry.topic === topic)
+      if (!record || record.topic !== topic || !session) return
+      try { saveWalletConnectRecord(walletConnectSessionRecord({ ...session, namespaces: params.namespaces }, undefined, record.address)) }
+      catch { invalidatedTopic = topic; deleteWalletConnectRecord() }
+    })
+    client.on('session_event', ({ topic, params }) => {
+      if (params.event.name === 'accountsChanged' && loadWalletConnectRecord()?.topic === topic) {
+        invalidatedTopic = topic
+        deleteWalletConnectRecord()
+      }
+    })
+    return client
+  }).catch((cause: unknown) => { sharedClient = undefined; throw cause })
+  return sharedClient
 }
 
-function accountsToRecord(topic: string, accounts: string[], peer?: string): WalletConnectRecord {
-  const parsed = accounts.map((account) => {
-    const [, chain, address] = account.split(':')
-    // SAFETY: WalletConnect CAIP-10 accounts are `eip155:<chain>:<0x address>`.
-    return { chain: Number(chain), address: address as Address }
-  })
-  if (parsed.length === 0) throw new Error('wallet approved the session without any account')
-  return {
-    version: 1,
-    topic,
-    address: parsed[0].address,
-    chains: [...new Set(parsed.map((item) => item.chain))],
-    peer,
-  }
+export async function stopWalletConnect(): Promise<void> {
+  const pending = sharedClient
+  if (!pending) return
+  sharedClient = undefined
+  const client = await pending
+  for (const event of ['session_delete', 'session_expire', 'session_update', 'session_event'] as const) client.removeAllListeners(event)
+  await client.core.relayer.transportClose()
 }
 
 export async function connectWalletConnect(
   log: (line: string) => void = console.log,
   chainId = 8453,
 ): Promise<WalletConnectRecord> {
+  if (loadWalletConnectRecord() || invalidatedTopic) await disconnectWalletConnect()
   const client = await initSignClient()
   const optionalChains = SUPPORTED_CHAIN_IDS.filter((chain) => chain !== chainId)
   const { uri, approval } = await client.connect({
@@ -73,7 +94,7 @@ export async function connectWalletConnect(
     },
     optionalNamespaces: {
       eip155: {
-        methods: ['eth_sendTransaction', 'personal_sign', 'eth_signTypedData_v4'],
+        methods: ['eth_sendTransaction'],
         chains: optionalChains.map((chain) => `eip155:${chain}`),
         events: ['accountsChanged', 'chainChanged'],
       },
@@ -86,7 +107,7 @@ export async function connectWalletConnect(
   log(`\n${uri}\n`)
   log('Waiting for wallet approval...')
   const session = await approval()
-  const record = accountsToRecord(session.topic, session.namespaces.eip155?.accounts ?? [], session.peer.metadata.name)
+  const record = walletConnectSessionRecord(session, chainId)
   saveWalletConnectRecord(record)
   return record
 }
@@ -104,8 +125,11 @@ export async function walletConnectSendTransaction(
     deleteWalletConnectRecord()
     throw new Error('the WalletConnect session expired; run: wallet connect')
   }
+  if (normalizeAddress(transaction.from) !== normalizeAddress(record.address)) throw new Error('WalletConnect account differs from the reviewed sender')
+  const current = walletConnectSessionRecord(session, chainId, transaction.from)
+  saveWalletConnectRecord(current)
   log('Approve the transaction in your wallet...')
-  const hash = await client.request<Hex>({
+  const hash = await client.request<unknown>({
     topic: record.topic,
     chainId: `eip155:${chainId}`,
     request: {
@@ -118,19 +142,22 @@ export async function walletConnectSendTransaction(
       }],
     },
   })
-  return hash
+  const parsed = Schema.decodeUnknownSync(Schema.String.check(Schema.isPattern(/^0x[0-9a-f]{64}$/i)))(hash)
+  return `0x${parsed.slice(2)}`
 }
 
 export async function disconnectWalletConnect(): Promise<boolean> {
   const record = loadWalletConnectRecord()
-  if (!record) return false
+  const topic = record?.topic ?? invalidatedTopic
+  if (!topic) return false
   try {
     const client = await initSignClient()
     await client.disconnect({
-      topic: record.topic,
+      topic,
       reason: { code: 6000, message: 'User disconnected' },
     })
   } catch { /* the relay session may already be gone; local cleanup still applies */ }
   deleteWalletConnectRecord()
+  invalidatedTopic = undefined
   return true
 }

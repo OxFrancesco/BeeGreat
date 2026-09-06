@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { formatCliError } from '../../cli'
 import { formatNumber, formatPercent, formatRatio, formatUsd, pad, weekLabel } from '../format'
 import { renderColumns, renderDonut, renderHBar, renderHeatmap, renderLines, renderScatter, renderWaterfall, DITHER_COLORS, type DitherColor } from '../analytics/dither'
-import { invalidateReport, loadAnalyticsShared, peekReport, type AnalyticsReport } from '../analytics/load'
+import type { AnalyticsReport } from '../analytics/load'
+import { loadTuiAnalytics } from '../sugar'
 import { isSaneTurnover, laneLabel, type AssetLane, type PoolScore } from '../analytics/metrics'
 import { SOURCE } from '../analytics/sources'
 import { ChartBox, DitherLines, Kpi, Legend, Panel } from '../analytics/view'
@@ -50,20 +51,14 @@ export function AnalyticsScreen() {
 
   useEffect(() => {
     let cancelled = false
-    const cached = peekReport(app.chain)
-    if (cached) {
-      setReport(cached)
-      setLoading(false)
-    } else {
-      setLoading(true)
-      setError(undefined)
-    }
-    loadAnalyticsShared(app.chain, (next) => {
+    setLoading(true)
+    setError(undefined)
+    loadTuiAnalytics(app.chain, (next) => {
       if (!cancelled) {
         setReport(next)
         setLoading(false)
       }
-    }).then((next) => {
+    }, nonce > 0).then((next) => {
       if (!cancelled) {
         setReport(next)
         setLoading(false)
@@ -101,7 +96,6 @@ export function AnalyticsScreen() {
     if (app.dialogOpen) return
     if (key.name === 'escape') return app.pop()
     if (key.ctrl && key.name === 'r') {
-      invalidateReport(app.chain)
       return setNonce((current) => current + 1)
     }
     if (key.name === 'left' || key.name === 'h') return setTab(TABS[(TABS.indexOf(tab) + TABS.length - 1) % TABS.length])

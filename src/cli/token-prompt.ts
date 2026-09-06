@@ -116,9 +116,11 @@ export function tokenPickPrompt(options: PickerOptions): Prompt.Prompt<TokenPick
           case 'tab':
             return nextFrame({ ...state, index: moveIndex(state.index, input.key.shift ? -1 : 1, length()) })
           case 'k':
-            return input.key.ctrl ? nextFrame({ ...state, index: moveIndex(state.index, -1, length()) }) : Beep
+            if (input.key.ctrl) return nextFrame({ ...state, index: moveIndex(state.index, -1, length()) })
+            break
           case 'j':
-            return input.key.ctrl ? nextFrame({ ...state, index: moveIndex(state.index, 1, length()) }) : Beep
+            if (input.key.ctrl) return nextFrame({ ...state, index: moveIndex(state.index, 1, length()) })
+            break
           case 'pageup':
             return nextFrame({ ...state, index: moveIndex(state.index, -(options.maxPerPage ?? 10), length()) })
           case 'pagedown':

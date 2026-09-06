@@ -68,7 +68,7 @@ export function App() {
     : route.name === 'epochs' ? <EpochsScreen />
     : route.name === 'analytics' ? <AnalyticsScreen />
     : route.name === 'wallet' ? <WalletScreen />
-    : <ActionScreen key={`${route.action}:${JSON.stringify(route.preset ?? {})}`} action={route.action} preset={route.preset} />
+    : <ActionScreen key={`${app.chain}:${walletAddress}:${route.action}:${JSON.stringify(route.preset ?? {})}`} action={route.action} preset={route.preset} />
 
   const topDialog = app.dialogs[app.dialogs.length - 1]
 

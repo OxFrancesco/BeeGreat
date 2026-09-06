@@ -1,8 +1,11 @@
 import * as Predicate from 'effect/Predicate'
-import type { Address, Hex, PublicClient } from 'viem'
+import type { Address, Hex, TransactionReceipt } from 'viem'
 import { createPublicClient, createWalletClient, defineChain, http } from 'viem'
 import { mnemonicToAccount } from 'viem/accounts'
-import { getChainSettings } from './config'
+import { getChainSettings, isSupportedChainId } from './config'
+import { normalizeAddress } from './helpers'
+import { createFileJournalStore } from './execution-journal'
+import { parseMnemonic } from './wallet'
 import type { SugarTxAction } from './contracts'
 import type { SugarJson, UnsignedTransaction } from './types'
 
@@ -63,6 +66,8 @@ export function renderPlanSummary(action: SugarTxAction, result: SugarJson, step
     const to = asRecord(quote.to_token)
     lines.push(
       ...summaryLine('swap', `${quote.amount_in_decimal} ${from.symbol} -> ${quote.amount_out_decimal} ${to.symbol}`),
+      ...summaryLine('from asset', from.address),
+      ...summaryLine('to asset', to.address),
       ...summaryLine('min out', `${quote.min_amount_out_decimal} ${to.symbol} (slippage ${quote.slippage})`),
       ...summaryLine('price impact', quote.price_impact_pct === null ? undefined : `${Number(quote.price_impact_pct).toFixed(3)}%`),
     )
@@ -72,6 +77,8 @@ export function renderPlanSummary(action: SugarTxAction, result: SugarJson, step
     const pool = asRecord(deposit.pool)
     lines.push(
       ...summaryLine('pool', pool.symbol),
+      ...summaryLine('token0 asset', pool.token0_address),
+      ...summaryLine('token1 asset', pool.token1_address),
       ...summaryLine('amount0', `${deposit.amount0_decimal} ${pool.token0}`),
       ...summaryLine('amount1', `${deposit.amount1_decimal} ${pool.token1}`),
       ...summaryLine('creates pool', deposit.creates_pool === true ? 'yes' : undefined),
@@ -82,6 +89,8 @@ export function renderPlanSummary(action: SugarTxAction, result: SugarJson, step
     const pool = asRecord(withdrawal.pool)
     lines.push(
       ...summaryLine('pool', pool.symbol),
+      ...summaryLine('token0 asset', pool.token0_address),
+      ...summaryLine('token1 asset', pool.token1_address),
       ...summaryLine('amount0', `${withdrawal.amount0_decimal} ${pool.token0}`),
       ...summaryLine('amount1', `${withdrawal.amount1_decimal} ${pool.token1}`),
       ...summaryLine('burn', withdrawal.burn === true ? 'yes' : undefined),
@@ -116,7 +125,7 @@ export function chainForSettings(chainId: number, rpcUrl?: string) {
 }
 
 export function localMnemonicSigner(mnemonic: string, rpcUrl?: string): PlanSigner {
-  const account = mnemonicToAccount(mnemonic)
+  const account = mnemonicToAccount(parseMnemonic(mnemonic))
   return {
     address: account.address,
     describe: 'local wallet',
@@ -132,31 +141,136 @@ export function localMnemonicSigner(mnemonic: string, rpcUrl?: string): PlanSign
   }
 }
 
-export type SendPlanOptions = {
-  steps: PlanStep[]
+export type ExecutionPlan = Readonly<{
+  id: string
   chainId: number
+  sender: Address
+  createdAt: number
+  expiresAt: number
+  steps: readonly Readonly<{ role: PlanStep['role']; transaction: Readonly<UnsignedTransaction> }>[]
+}>
+
+export type ExecutionStepState =
+  | { kind: 'ready' }
+  | { kind: 'submitting' }
+  | { kind: 'submitted'; hash: Hex }
+  | { kind: 'confirmed'; hash: Hex }
+  | { kind: 'reverted'; hash: Hex }
+
+export type ExecutionJournal = {
+  plan: ExecutionPlan
+  status: 'active' | 'complete' | 'failed' | 'cancelled'
+  steps: ExecutionStepState[]
+}
+
+export type PlanJournalStore = {
+  load(id: string): ExecutionJournal | undefined
+  save(journal: ExecutionJournal): void
+  list(): ExecutionJournal[]
+  acquire(chainId: number, sender: Address): () => void
+}
+
+export function createExecutionPlan(input: {
+  steps: readonly PlanStep[]
+  chainId: number
+  sender: Address
+  createdAt?: number
+  expiresAt?: number
+  id?: string
+}): ExecutionPlan {
+  if (!isSupportedChainId(input.chainId)) throw new Error('Unsupported execution chain')
+  const sender = normalizeAddress(input.sender)
+  const createdAt = input.createdAt ?? Date.now()
+  const expiresAt = input.expiresAt ?? createdAt + 10 * 60_000
+  if (![createdAt, expiresAt].every(Number.isSafeInteger) || expiresAt <= 0) throw new Error('Invalid plan timestamps')
+  const id = input.id ?? crypto.randomUUID()
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new Error('Invalid execution id')
+  const steps = input.steps.map(({ role, transaction }) => {
+    if (role !== 'approval' && role !== 'action') throw new Error('Invalid transaction role')
+    if (normalizeAddress(transaction.from) !== sender) throw new Error('Transaction sender differs from plan sender')
+    if (!/^0x(?:[0-9a-f]{2})*$/i.test(transaction.data) || transaction.value < 0n) throw new Error('Invalid transaction calldata or value')
+    return Object.freeze({ role, transaction: Object.freeze({ from: sender, to: normalizeAddress(transaction.to), data: transaction.data, value: transaction.value }) })
+  })
+  return Object.freeze({ id, chainId: input.chainId, sender, createdAt, expiresAt, steps: Object.freeze(steps) })
+}
+
+export function executionPlanToJson(plan: ExecutionPlan) {
+  return { ...plan, steps: plan.steps.map((step) => ({ ...step, transaction: { ...step.transaction, value: step.transaction.value.toString() } })) }
+}
+
+export type SendPlanOptions = {
+  plan: ExecutionPlan
   signer: PlanSigner
+  store?: PlanJournalStore
   rpcUrl?: string
   log?: (line: string) => void
-  publicClient?: PublicClient
+  publicClient?: { waitForTransactionReceipt: (input: { hash: Hex }) => Promise<Pick<TransactionReceipt, 'status' | 'blockNumber' | 'transactionHash'>> }
+  beforeSend?: () => Promise<void>
 }
 
 export async function sendPlan(options: SendPlanOptions): Promise<Hex[]> {
-  const { steps, chainId, signer, rpcUrl, log = console.log } = options
-  const publicClient = options.publicClient
-    ?? createPublicClient({ chain: chainForSettings(chainId, rpcUrl), transport: http() })
-  const hashes: Hex[] = []
-  for (const [index, step] of steps.entries()) {
-    const label = `[${index + 1}/${steps.length}] ${step.role}`
-    log(`${label}: sending via ${signer.describe}...`)
-    const hash = await signer.send(step.transaction, chainId)
-    hashes.push(hash)
-    log(`${label}: ${hash} (waiting for confirmation)`)
-    const receipt = await publicClient.waitForTransactionReceipt({ hash })
-    if (receipt.status !== 'success') {
-      throw new Error(`${label} reverted on-chain: ${hash}`)
+  const { plan, signer, rpcUrl, log = console.log } = options
+  if (normalizeAddress(signer.address) !== plan.sender) throw new Error('Signing wallet differs from plan sender')
+  const store = options.store ?? createFileJournalStore()
+  const existing = store.load(plan.id)
+  if (!existing && Date.now() >= plan.expiresAt) throw new Error('Plan expired; build and review a new plan')
+  const release = store.acquire(plan.chainId, plan.sender)
+  try {
+    const journal = store.load(plan.id) ?? { plan, status: 'active' as const, steps: plan.steps.map((): ExecutionStepState => ({ kind: 'ready' })) }
+    const serialize = (value: ExecutionPlan) => JSON.stringify(executionPlanToJson(value))
+    if (serialize(journal.plan) !== serialize(plan)) throw new Error('Stored execution does not match the reviewed plan')
+    if (journal.status === 'cancelled' || journal.status === 'failed') throw new Error(`Execution ${journal.status}; build a new plan after reviewing its receipts`)
+    if (store.list().some((entry) => entry.plan.id !== plan.id && entry.status === 'active' && entry.plan.chainId === plan.chainId && entry.plan.sender === plan.sender)) {
+      throw new Error('Wallet has an unresolved execution; inspect and resume it before starting another plan')
     }
-    log(`${label}: confirmed in block ${receipt.blockNumber}`)
+    const publicClient = options.publicClient
+      ?? createPublicClient({ chain: chainForSettings(plan.chainId, rpcUrl), transport: http() })
+    const hashes: Hex[] = []
+    store.save(journal)
+    for (const [index, step] of plan.steps.entries()) {
+      const label = `[${index + 1}/${plan.steps.length}] ${step.role}`
+      let state = journal.steps[index]
+      if (state.kind === 'confirmed') { hashes.push(state.hash); continue }
+      if (state.kind === 'submitting') throw new Error(`Execution outcome unknown for step ${index + 1}; inspect the wallet activity before recovery`)
+      if (state.kind === 'reverted') throw new Error(`Transaction reverted: ${state.hash}`)
+      if (state.kind === 'ready') {
+        if (Date.now() >= plan.expiresAt) throw new Error('Plan expired; cancel unsubmitted steps and build a new plan')
+        await options.beforeSend?.()
+        if (Date.now() >= plan.expiresAt) throw new Error('Plan expired before submission')
+        journal.steps[index] = { kind: 'submitting' }
+        store.save(journal)
+        log(`${label}: sending via ${signer.describe}...`)
+        let hash: Hex
+        try {
+          hash = await signer.send(step.transaction, plan.chainId)
+          if (!/^0x[0-9a-f]{64}$/i.test(hash)) throw new Error('Wallet returned an invalid transaction hash')
+        } catch (cause) {
+          throw new Error('Submission outcome unknown; this execution is blocked until reconciled', { cause })
+        }
+        state = { kind: 'submitted', hash }
+        journal.steps[index] = state
+        store.save(journal)
+      }
+      const hash = state.hash
+      log(`${label}: ${hash} (waiting for confirmation)`)
+      let receipt
+      try {
+        receipt = await publicClient.waitForTransactionReceipt({ hash })
+      } catch (cause) {
+        throw new Error(`Execution outcome unknown; resume ${plan.id} to check ${hash} without resending`, { cause })
+      }
+      if (receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) throw new Error('Receipt belongs to a replacement transaction; review the replacement before recovery')
+      journal.steps[index] = { kind: receipt.status === 'success' ? 'confirmed' : 'reverted', hash }
+      if (receipt.status !== 'success') journal.status = 'failed'
+      store.save(journal)
+      if (receipt.status !== 'success') throw new Error(`${label} reverted on-chain: ${hash}`)
+      hashes.push(hash)
+      log(`${label}: confirmed in block ${receipt.blockNumber}`)
+    }
+    journal.status = 'complete'
+    store.save(journal)
+    return hashes
+  } finally {
+    release()
   }
-  return hashes
 }

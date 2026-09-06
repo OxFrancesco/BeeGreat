@@ -105,6 +105,11 @@ describe('send plan plumbing', () => {
     expect(summary).toContain('0.123%')
   })
 
+  test('invalid mnemonic words and checksums are rejected before signing', () => {
+    expect(() => localMnemonicSigner('notaword '.repeat(12).trim())).toThrow('BIP-39')
+    expect(() => localMnemonicSigner('abandon '.repeat(12).trim())).toThrow('BIP-39')
+  })
+
   test('localMnemonicSigner derives the standard dev address', () => {
     const signer = localMnemonicSigner(TEST_MNEMONIC)
     expect(signer.address).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')

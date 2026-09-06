@@ -238,7 +238,7 @@ export function keeperPermissionCalls(input: KeeperPermissionInput, roleKey: Hex
   const gauges = [...new Set(input.gauges.map(normalizeAddress))]
   const tokens = [...new Set(input.tokens.map(normalizeAddress))]
   const calls: RoleConfigCall[] = []
-  const targets = [input.nfpm, input.swapper, input.permit2, ...gauges, ...tokens]
+  const targets = [input.nfpm, ...gauges, ...tokens]
   for (const target of targets) {
     calls.push({ functionName: 'scopeTarget', args: [roleKey, target] })
   }
@@ -266,20 +266,14 @@ export function keeperPermissionCalls(input: KeeperPermissionInput, roleKey: Hex
     )
   }
   // Swapper + Permit2 — swaps of the rebalance float.
-  calls.push(
-    allowed(input.swapper, 'execute(bytes,bytes[])', roleKey),
-    scoped(input.permit2, 'approve(address,address,uint160,uint48)', [
-      passStatic,
-      { kind: 'one-of-addresses', addresses: [input.swapper] },
-      passStatic,
-      passStatic,
-    ], roleKey),
-  )
+  if (calls.some((call) => call.args[1] === input.swapper || call.args[1] === input.permit2)) {
+    throw new Error('Swapper and Permit2 permissions are disabled for Safe ALM')
+  }
   // ERC20 approvals — only ever to the NFPM or Permit2.
   for (const token of tokens) {
     calls.push(
       scoped(token, 'approve(address,uint256)', [
-        { kind: 'one-of-addresses', addresses: [input.nfpm, input.permit2] },
+        { kind: 'one-of-addresses', addresses: [input.nfpm] },
         passStatic,
       ], roleKey),
     )
@@ -287,7 +281,12 @@ export function keeperPermissionCalls(input: KeeperPermissionInput, roleKey: Hex
   return calls
 }
 
+export function assertSafeAlmSupported(): void {
+  throw new Error('Safe ALM execution and permission setup are disabled for 0.1 pending on-chain permission verification. Existing roles must be revoked by the Safe owners.')
+}
+
 export function encodeRoleConfigCall(rolesModifier: Address, call: RoleConfigCall) {
+  assertSafeAlmSupported()
   // SAFETY: RoleConfigCall args are built above to match the corresponding
   // rolesAbi entry; viem cannot statically connect a dynamic functionName to
   // its argument tuple.

@@ -42,20 +42,32 @@ export async function readTwapTick(client: PublicClient, pool: Address, seconds:
 export type TickHistory = { samples: Array<{ at: number; tick: number }> }
 
 export function pushTickSample(history: TickHistory, tick: number, at: number, windowMs: number): void {
+  if (!Number.isFinite(at) || !Number.isInteger(tick)) throw new Error('Invalid tick sample')
+  const previous = history.samples.at(-1)
+  if (previous && at < previous.at) history.samples = []
+  if (previous?.at === at) history.samples.pop()
   history.samples.push({ at, tick })
   const cutoff = at - windowMs
-  while (history.samples.length > 0 && history.samples[0].at < cutoff) history.samples.shift()
+  while (history.samples.length > 1 && history.samples[1].at <= cutoff) history.samples.shift()
 }
 
-export function averageTick(history: TickHistory, windowMs: number, now: number): number | undefined {
+export function averageTick(history: TickHistory, windowMs: number, now: number, maxGapMs = windowMs): number | undefined {
+  if (!Number.isFinite(windowMs) || windowMs <= 0 || !Number.isFinite(now)) return undefined
   const cutoff = now - windowMs
-  const samples = history.samples.filter((sample) => sample.at >= cutoff)
+  const samples = history.samples
   // A single sample is just the spot tick again; it cannot smooth anything.
   if (samples.length < 2) return undefined
   // Require coverage of most of the window so a burst of fresh samples
   // cannot masquerade as a time-weighted average.
-  if (samples[0].at > cutoff + windowMs * 0.5) return undefined
-  return Math.round(samples.reduce((sum, sample) => sum + sample.tick, 0) / samples.length)
+  if (samples[0].at > cutoff || samples.at(-1)?.at !== now) return undefined
+  let weighted = 0
+  for (const [index, sample] of samples.entries()) {
+    if (!Number.isInteger(sample.tick) || !Number.isFinite(sample.at) || sample.at > now) return undefined
+    const end = samples[index + 1]?.at ?? now
+    if (end < sample.at || (end > cutoff && end - sample.at > maxGapMs)) return undefined
+    weighted += sample.tick * Math.max(0, end - Math.max(sample.at, cutoff))
+  }
+  return Math.floor(weighted / windowMs)
 }
 
 export type TwapGate =
@@ -67,7 +79,7 @@ export type TwapGate =
  * deviates from the time-weighted average by more than the configured limit.
  */
 export function checkTwapGate(spotTick: number, twapTick: number | undefined, maxDeviationTicks: number): TwapGate {
-  if (twapTick === undefined) {
+  if (twapTick === undefined || !Number.isFinite(twapTick) || !Number.isFinite(spotTick) || !Number.isFinite(maxDeviationTicks) || maxDeviationTicks < 0) {
     return { allowed: false, reason: 'no TWAP available yet (pool oracle too young and local history too short); waiting' }
   }
   const deviation = Math.abs(spotTick - twapTick)

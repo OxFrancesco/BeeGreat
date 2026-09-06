@@ -279,16 +279,46 @@ guard, a per-position cooldown, and a rolling daily cap persisted in
 `alm-state.json`; `"telegram": true` sends buddytg push notifications.
 `AERO_ALM_CONFIG` overrides the config path. See `aero guide alm`.
 
-**Safe mode** (`aero alm safe-setup --safe 0x...`): keep the positions in a
-Safe and let a low-privilege keeper key rebalance through a Zodiac Roles
-Modifier v2 (`src/alm/roles.ts`). The generated Transaction Builder batch
-deploys the Roles proxy, enables it as a module, assigns the keeper, and
-scopes the role so mint/collect recipients are pinned to the Safe
-(EqualToAvatar), the NFT can only be approved to the pool gauges, ERC20
-approvals only go to the NFPM/Permit2, and ether/delegatecall are forbidden.
-`aero serve` picks up the `safe` section in `alm.json` and executes via
-`execTransactionWithRole`; a leaked keeper key cannot move funds out.
-Safe mode is ERC20-only (no native legs) and disables auto-compounding.
+Safe execution and `aero alm safe-setup` are disabled for 0.1. Safe dry-run
+observation remains available. The previous role allowed unrestricted router
+command bytes. This update does not revoke deployed permissions: Safe owners
+must review and revoke old keeper roles or disable their Roles module.
+Do not treat the old role as protection against a compromised keeper.
+
+EOA execution remains experimental pending fork tests. Rebalances and compounds
+check TWAP before every submission. Local fallback weights elapsed time and
+requires a full window without gaps longer than two poll intervals. It is a
+sampled estimate, not an on-chain oracle or protection against all MEV.
+
+The daemon records the wallet, pool, original NFT, intended range, balance
+baselines and phase journal IDs before sending. Transaction journals preserve
+submitted hashes and receipt state. Rebalance attempts consume the daily cap
+and cooldown when the cycle starts; compound attempts start the 24-hour delay.
+Partial failures do not reset those limits. State writes are atomic and synced,
+and an exclusive state-file lock prevents overlapping local ALM passes.
+
+ALM config entries accept `positionId` as a decimal string. `aero alm init
+--position-id <id>` selects one NFT when several share a pool. Each pool has one
+managed NFT; successful rebalances persist its replacement ID across restarts.
+Manual recovery accepts `--position-id <repaired-id>` and verifies a funded NFT
+owned by the same wallet in the same pool before updating that identity.
+
+After interruption, the daemon reconciles known hashes but does not replay
+phases or start another cycle for that wallet and chain. Use:
+
+```sh
+aero alm status
+aero alm recover --id <cycle-id>
+aero alm resolve --id <cycle-id> --note "Verified receipts and repaired the position"
+```
+
+`recover` only reads receipts. Repair partial positions manually before
+confirming `resolve`, which cancels unsubmitted remainder and keeps attempt
+limits. Pending submissions or unknown outcomes without a hash block resolution.
+Those require operator investigation; the daemon never guesses that a send failed.
+Missing/corrupt journals and stale process locks also require review. Do not
+clear state or locks to retry blindly. Automatic phase resumption, multi-host
+coordination and concurrent external trading in the managed wallet are unsupported.
 
 ## Chain clients
 
@@ -386,3 +416,8 @@ Override `SUGAR_HEADLESS_CHAIN_ID`, `SUGAR_HEADLESS_RPC_URL`, token names,
 amount, or public wallet address as needed. The upstream SDK does not ship a
 public testnet deployment; its supported test environment is local Supersim,
 so point `SUGAR_HEADLESS_RPC_URL` at the appropriate fork when it is running.
+
+CLI and TUI swap confirmations show both resolved asset addresses before signing.
+WalletConnect uses one client per process and checks the current session against
+the exact sender, chain and transaction permission before every submission.
+Session expiry, deletion and account changes invalidate the local connection.

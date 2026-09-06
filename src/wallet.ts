@@ -3,7 +3,16 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync, timingSafeEq
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { Address } from 'viem'
+import { getAddress, type Address } from 'viem'
+import * as Schema from 'effect/Schema'
+import { validateMnemonic } from '@scure/bip39'
+import { wordlist } from '@scure/bip39/wordlists/english'
+
+export function parseMnemonic(value: string): string {
+  const mnemonic = value.normalize('NFKD').trim().toLowerCase().replace(/\s+/g, ' ')
+  if (!validateMnemonic(mnemonic, wordlist)) throw new Error('Invalid BIP-39 mnemonic: check the words and checksum')
+  return mnemonic
+}
 
 /**
  * Wallet storage for the sugar-ts / aero CLI.
@@ -64,13 +73,30 @@ export type LocalWalletRecord = {
   sealed: SealedSecret
 }
 
-export type WalletConnectRecord = {
-  version: 1
+type WalletConnectIdentity = {
   topic: string
   address: Address
   chains: number[]
   peer?: string
 }
+
+export type WalletConnectRecord = WalletConnectIdentity & (
+  | { version: 1 }
+  | { version: 2; accounts: { chainId: number; address: Address }[] }
+)
+
+const walletConnectIdentitySchema = Schema.Struct({
+  topic: Schema.NonEmptyString,
+  address: Schema.String,
+  chains: Schema.Array(Schema.Int.check(Schema.isGreaterThan(0))),
+  peer: Schema.optionalKey(Schema.String),
+})
+const walletConnectRecordSchema = Schema.Union([
+  Schema.Struct({ ...walletConnectIdentitySchema.fields, version: Schema.Literal(1) }),
+  Schema.Struct({ ...walletConnectIdentitySchema.fields, version: Schema.Literal(2), accounts: Schema.Array(Schema.Struct({
+    chainId: Schema.Int.check(Schema.isGreaterThan(0)), address: Schema.String,
+  })) }),
+])
 
 export type ActiveWallet =
   | { source: 'local'; address: Address }
@@ -163,9 +189,10 @@ export function saveWalletConnectRecord(record: WalletConnectRecord): void {
 export function loadWalletConnectRecord(): WalletConnectRecord | undefined {
   if (!existsSync(wcPath())) return undefined
   try {
-    // SAFETY: the session file is only ever written by saveWalletConnectRecord,
-    // which serializes a WalletConnectRecord; unreadable files return undefined.
-    return JSON.parse(readFileSync(wcPath(), 'utf8')) as WalletConnectRecord
+    const record = Schema.decodeUnknownSync(walletConnectRecordSchema)(JSON.parse(readFileSync(wcPath(), 'utf8')))
+    const identity = { ...record, address: getAddress(record.address), chains: [...record.chains] }
+    if (record.version === 1) return { ...identity, version: 1 }
+    return { ...identity, version: 2, accounts: record.accounts.map((account) => ({ ...account, address: getAddress(account.address) })) }
   } catch {
     return undefined
   }
@@ -202,9 +229,11 @@ export async function promptLine(label: string, hidden = false): Promise<string>
   stdin.resume()
   try {
     let value = ''
+    const decoder = new TextDecoder()
     // SAFETY: a resumed raw-mode TTY ReadStream async-iterates Buffer chunks.
     for await (const chunk of stdin as AsyncIterable<Buffer>) {
-      for (const byte of chunk) {
+      for (const char of decoder.decode(chunk, { stream: true })) {
+        const byte = char.codePointAt(0)
         if (byte === 0x03) throw new Error('cancelled')
         if (byte === 0x0d || byte === 0x0a) {
           stdout.write('\n')
@@ -212,12 +241,12 @@ export async function promptLine(label: string, hidden = false): Promise<string>
         }
         if (byte === 0x7f || byte === 0x08) {
           if (value.length > 0) {
-            value = value.slice(0, -1)
+            value = Array.from(value).slice(0, -1).join('')
             if (!hidden) stdout.write('\b \b')
           }
           continue
         }
-        const char = String.fromCharCode(byte)
+        if (byte === undefined || byte < 0x20) continue
         value += char
         stdout.write(hidden ? '' : char)
       }

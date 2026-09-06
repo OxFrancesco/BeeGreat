@@ -52,25 +52,30 @@ export type SelectItem = {
   onSelect: () => void
 }
 
+function filterSelectItems(items: SelectItem[], filter: string): SelectItem[] {
+  if (filter.trim() === '') return items
+  const scored = items
+    .map((item) => ({ item, score: fuzzyScore(filter, `${item.title} ${item.description ?? ''}`) }))
+    .filter((entry): entry is { item: SelectItem; score: number } => entry.score !== undefined)
+  return scored.sort((left, right) => left.score - right.score).map((entry) => entry.item)
+}
+
 export function SelectDialog(props: { title: string; items: SelectItem[]; placeholder?: string; initialFilter?: string; close: () => void }) {
   const [filter, setFilter] = useState(props.initialFilter ?? '')
+  const filterRef = useRef(filter)
   const [selected, setSelected] = useState(0)
   // Live cursor for batched key events (held arrow / fast ↓↓⏎); state only
   // mirrors it for rendering. See BrowseList for the same pattern.
   const selectedRef = useRef(0)
-  const filtered = useMemo(() => {
-    const scored = props.items
-      .map((item) => ({ item, score: fuzzyScore(filter, `${item.title} ${item.description ?? ''}`) }))
-      .filter((entry): entry is { item: SelectItem; score: number } => entry.score !== undefined)
-    return scored.sort((left, right) => left.score - right.score).map((entry) => entry.item)
-  }, [props.items, filter])
+  const filtered = useMemo(() => filterSelectItems(props.items, filter), [props.items, filter])
+  const currentItems = () => filterRef.current === filter ? filtered : filterSelectItems(props.items, filterRef.current)
   const active = Math.min(selected, Math.max(0, filtered.length - 1))
   const visibleCount = 10
   const offset = Math.max(0, Math.min(active - visibleCount + 2, filtered.length - visibleCount))
   const visible = filtered.slice(offset, offset + visibleCount)
 
   const select = (next: number) => {
-    const clamped = Math.max(0, Math.min(next, filtered.length - 1))
+    const clamped = Math.max(0, Math.min(next, currentItems().length - 1))
     selectedRef.current = clamped
     setSelected(clamped)
   }
@@ -82,7 +87,8 @@ export function SelectDialog(props: { title: string; items: SelectItem[]; placeh
     if (key.name === 'pageup') return select(selectedRef.current - visibleCount)
     if (key.name === 'pagedown') return select(selectedRef.current + visibleCount)
     if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
-      const item = filtered[Math.min(selectedRef.current, filtered.length - 1)]
+      const items = currentItems()
+      const item = items[Math.min(selectedRef.current, items.length - 1)]
       if (item) {
         props.close()
         item.onSelect()
@@ -98,7 +104,9 @@ export function SelectDialog(props: { title: string; items: SelectItem[]; placeh
           value={filter}
           placeholder={props.placeholder ?? 'Type to filter...'}
           onInput={(value) => {
+            filterRef.current = value
             setFilter(value)
+            selectedRef.current = 0
             setSelected(0)
           }}
           backgroundColor={theme.backgroundElement}
@@ -209,10 +217,10 @@ export function PromptDialog(props: {
     if (key.name === 'escape') return cancel()
     if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') return submit(value)
     if (!props.mask) return
-    if (key.name === 'backspace') return setValue((current) => current.slice(0, -1))
+    if (key.name === 'backspace') return setValue((current) => Array.from(current).slice(0, -1).join(''))
     if (key.ctrl && key.name === 'u') return setValue('')
     if (key.ctrl || key.meta || key.option) return
-    if (key.sequence && key.sequence.length === 1 && key.sequence.charCodeAt(0) >= 0x20) {
+    if (key.sequence && Array.from(key.sequence).length === 1 && key.sequence.charCodeAt(0) >= 0x20) {
       setValue((current) => current + key.sequence)
     }
   })

@@ -15,6 +15,7 @@ import { ALM_STRATEGIES, defaultStrategySettings, type StrategySettings } from '
 
 const PositionEntrySchema = Schema.Struct({
   pool: Schema.String,
+  positionId: Schema.optionalKey(Schema.String.check(Schema.isPattern(/^[1-9]\d*$/))),
   strategy: Schema.optionalKey(Schema.Literals(ALM_STRATEGIES)),
   widthTicks: Schema.optionalKey(Schema.Int),
   tickNeighborhood: Schema.optionalKey(Schema.Int),
@@ -50,6 +51,7 @@ export type AlmConfigFile = typeof AlmConfigFileSchema.Type
 
 export type AlmPositionConfig = {
   pool: Address
+  positionId?: bigint
   strategy: AlmPositionEntry['strategy']
   widthTicks?: number
   tickNeighborhood?: number
@@ -115,6 +117,7 @@ export function almStatePath(): string {
 function resolvePosition(entry: AlmPositionEntry): AlmPositionConfig {
   return {
     pool: normalizeAddress(entry.pool),
+    positionId: entry.positionId === undefined ? undefined : BigInt(entry.positionId),
     strategy: entry.strategy,
     widthTicks: entry.widthTicks,
     tickNeighborhood: entry.tickNeighborhood,

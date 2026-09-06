@@ -30,6 +30,7 @@ export async function simulatePlan(client: PublicClient, account: Address, steps
     }
     return { outcome: 'revert', step: 0, role: steps[0]?.role ?? 'action', reason: message.split('\n')[0] }
   }
+  if (results.length !== steps.length) return { outcome: 'revert', step: 0, role: steps[0]?.role ?? 'action', reason: 'RPC returned an incomplete simulation' }
   for (const [index, result] of results.entries()) {
     if (result.status !== 'success') {
       return {

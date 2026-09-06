@@ -5,6 +5,13 @@ import { checkRebalanceGate, loadAlmState, positionStateKey, recordCompound, rec
 const POOL = '0x1000000000000000000000000000000000000001'
 
 describe('parseAlmConfig', () => {
+  test('preserves exact NFT ids without numeric rounding', () => {
+    const positionId = '9007199254740993123'
+    expect(parseAlmConfig({ version: 1, positions: [{ pool: POOL, positionId }] }).positions[0].positionId).toBe(9007199254740993123n)
+    for (const invalid of ['0', '-1', '1.5', 'not-an-id']) {
+      expect(() => parseAlmConfig({ version: 1, positions: [{ pool: POOL, positionId: invalid }] })).toThrow()
+    }
+  })
   test('applies Mellow-equivalent defaults to a minimal config', () => {
     const config = parseAlmConfig({ version: 1, positions: [{ pool: POOL }] })
     expect(config.chain).toBe(8453)

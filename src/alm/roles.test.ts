@@ -92,7 +92,7 @@ describe('keeperPermissionCalls', () => {
   test('scopes every target exactly once (gauges and tokens deduped)', () => {
     const targets = calls.filter((call) => call.functionName === 'scopeTarget').map((call) => String(call.args[1]).toLowerCase())
     expect(new Set(targets).size).toBe(targets.length)
-    expect(targets).toHaveLength(7) // nfpm, swapper, permit2, 2 gauges, 2 tokens
+    expect(targets).toHaveLength(5) // nfpm, swapper, permit2, 2 gauges, 2 tokens
   })
 
   test('every condition tree satisfies the Integrity rules', () => {
@@ -115,20 +115,17 @@ describe('keeperPermissionCalls', () => {
     expect(compValues).toEqual([pad(GAUGE_A, { size: 32 }), pad(GAUGE_B, { size: 32 })].map((value) => value.toLowerCase()))
   })
 
-  test('ERC20 approvals are pinned to the NFPM or Permit2 only', () => {
+  test('ERC20 approvals are pinned to the NFPM only', () => {
     for (const token of [WETH, USDC]) {
       const call = scopeFunctions.find((c) => String(c.args[1]).toLowerCase() === token.toLowerCase())
       expect(call).toBeDefined()
       const spenders = conditionsOf(call!).filter((node) => node.operator === OPERATOR.EqualTo).map((node) => node.compValue.toLowerCase())
-      expect(spenders.sort()).toEqual([pad(NFPM, { size: 32 }), pad(PERMIT2, { size: 32 })].map((v) => v.toLowerCase()).sort())
+      expect(spenders).toEqual([pad(NFPM, { size: 32 }).toLowerCase()])
     }
   })
 
-  test('permit2 allowances only name the swapper as spender', () => {
-    const call = scopeFunctions.find((c) => c.args[1] === PERMIT2)
-    expect(call).toBeDefined()
-    const spenders = conditionsOf(call!).filter((node) => node.operator === OPERATOR.EqualTo).map((node) => node.compValue.toLowerCase())
-    expect(spenders).toEqual([pad(SWAPPER, { size: 32 }).toLowerCase()])
+  test('does not grant swapper or Permit2 permissions', () => {
+    expect(calls.some((call) => call.args[1] === SWAPPER || call.args[1] === PERMIT2)).toBe(false)
   })
 
   test('no permission ever allows ether or delegatecall (ExecutionOptions.None)', () => {

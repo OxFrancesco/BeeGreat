@@ -225,32 +225,38 @@ every recenter. Wider ranges and longer cooldowns rebalance less.
 --execute needs the LOCAL encrypted wallet (aero wallet create/restore);
 WalletConnect cannot approve transactions unattended.
 
-Safe mode (recommended for serious funds)
------------------------------------------
+Recovery and 0.1 limits
+-----------------------
 
-Instead of a full hot wallet, keep the positions in a Safe and let a
-low-privilege keeper key rebalance through a Zodiac Roles Modifier — the
-same pattern DAO treasuries use. The role is scoped on-chain so the keeper
-can ONLY rebalance: mint/collect recipients are pinned to the Safe, the
-position NFT can only be approved to the pool gauges, ERC20 approvals only
-to the NFPM/Permit2, no ether, no delegatecalls. A leaked keeper key
-cannot exfiltrate funds.
+EOA execution is experimental pending fork tests. Every submission, including
+compound transactions and actions after approvals, rechecks TWAP. The local
+fallback weights elapsed time, requires a full window, and rejects gaps longer
+than two poll intervals. Attempts count toward cooldowns and caps even if a
+later phase fails.
 
-  1. aero alm safe-setup --safe 0xYourSafe
-       Writes a Safe Transaction Builder JSON batch (deploy Roles v2 proxy,
-       enable module, assign the local wallet as keeper, scope the role)
-       and records the safe section in alm.json.
-  2. Import the JSON at app.safe.global -> Transaction Builder and execute
-       (one signature). Move the CL position NFTs into the Safe (unstake,
-       then NFPM.safeTransferFrom). Fund the keeper with a little ETH.
-  3. aero serve / aero serve --execute
-       The daemon detects the safe section and signs everything through
-       execTransactionWithRole with the keeper key.
+A persisted cycle binds chain, wallet, pool and NFT identity to its range,
+balance baselines and transaction journals. Interrupted cycles block new work
+for that wallet and chain, even if the old NFT was burned. The daemon checks
+known receipts on restart but never automatically repeats a phase.
 
-Safe-mode notes: pools must be ERC20-only paths (WETH stays WETH — fine on
-Aerodrome), auto-compounding is off (emissions accrue in the Safe), and
-adding a pool later means re-running safe-setup so the role learns the new
-gauge and tokens.`,
+  aero alm status
+  aero alm recover --id <cycle-id>
+  aero alm resolve --id <cycle-id> --note <verified-outcome>
+
+Recover only checks receipts. Inspect balances, NFT ownership and staking,
+repair partial work manually, then confirm resolve to permit future cycles.
+Resolve cancels unsubmitted remainder; unknown or pending submissions block it.
+A send with no known hash, missing/corrupt state, or a stale lock needs operator
+investigation. Never delete safety state just to force a retry.
+
+Safe execution and safe-setup are disabled for 0.1 pending on-chain permission
+verification. Safe observation in dry-run remains available. Old deployed
+keeper roles are NOT revoked by this update. Safe owners must review and revoke
+them or disable the Roles module; the old unrestricted router permission did
+not establish protection against a compromised keeper.
+
+Automatic phase resumption, multi-host locking, and concurrent external trades
+in the managed wallet are unsupported.`,
 
   analytics: `Analytics (Dune Analytics in the TUI)
 =====================================

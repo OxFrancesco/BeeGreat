@@ -2,6 +2,7 @@ import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
 import { App } from './app'
 import { AppProvider } from './store'
+import { stopTuiWorker } from './sugar'
 
 /**
  * Boot the full-screen TUI and resolve once the user quits, so the `aero tui`
@@ -10,7 +11,7 @@ import { AppProvider } from './store'
 export async function runAeroTui(): Promise<void> {
   const renderer = await createCliRenderer({
     exitOnCtrlC: false,
-    targetFps: 30,
+    targetFps: 60,
   })
   await new Promise<void>((resolve) => {
     const root = createRoot(renderer)
@@ -18,6 +19,7 @@ export async function runAeroTui(): Promise<void> {
     const quit = () => {
       if (done) return
       done = true
+      stopTuiWorker()
       root.unmount()
       renderer.destroy()
       resolve()
