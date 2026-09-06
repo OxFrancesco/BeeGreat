@@ -1,3 +1,6 @@
+// Portions derived from the Python Sugar SDK, Copyright 2025 Velodrome Finance.
+// Modified by Francesco Oddo and BeeGreat contributors: TypeScript port and subsequent changes.
+// Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
 import type { Address } from 'viem'
 import { addressKey, createAmount, normalizeAddress, poolSymbol, tupleValues } from './helpers'
 import { ADDRESS_ZERO, type Amount, type ChainSettings, type DepositQuote, type LiquidityPool, type LiquidityPoolEpoch, type LiquidityPoolForSwap, type Position, type Price, type Token, type VeNft, type VeNftReward, type VeNftState, type Withdrawal } from './types'

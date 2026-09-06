@@ -1,5 +1,25 @@
 # `@beegreat/sugar`
 
+> This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
+## Licensing
+
+This is a modified TypeScript port of the Apache-2.0 Python Sugar SDK.
+Original contributions use the MIT terms in [LICENSE](./LICENSE), but those terms
+do not replace upstream obligations. Keep [LICENSE.Apache-2.0](./LICENSE.Apache-2.0)
+and [NOTICE](./NOTICE) in source and bundled distributions. Identified ported
+modules carry upstream attribution and modification notices.
+
+The official `velodrome-finance/sdk.js` TypeScript SDK is a separate project and
+declares `UNLICENSED`. Its public source does not grant general reuse permission.
+A complete historical source and ABI provenance review remains open. This update
+does not establish that all third-party obligations have been satisfied.
+
+This standalone revision does not contain BeeGreat's later wallet-connected CLI
+or Mellow-derived ALM module. Do not import those changes without carrying their
+applicable notices and resolving the ALM production-permission question. A
+non-affiliation disclaimer does not grant copyright or trademark rights.
+
 Native TypeScript port of Velodrome/Aerodrome's Sugar SDK. It uses Viem for
 RPC reads and ABI encoding and never signs or broadcasts transactions.
 
@@ -7,8 +27,10 @@ RPC reads and ABI encoding and never signs or broadcasts transactions.
 
 This package is developed in the BeeGreat monorepo (`packages/sugar`) and
 mirrored to [OxFrancesco/aerodrome-sdk-ts](https://github.com/OxFrancesco/aerodrome-sdk-ts)
-(MIT). The monorepo is the source of truth; mirror after landing changes with
-`bun run sugar:mirror` from the monorepo root. Standalone usage:
+with MIT terms for original contributions and Apache-2.0 obligations for the
+Python port. The monorepo is the source of truth. Before the next
+`bun run sugar:mirror`, reconcile this standalone compliance commit with the
+monorepo subtree history; do not force-push over the notices. Standalone usage:
 
 ```sh
 bun add github:OxFrancesco/aerodrome-sdk-ts   # as a dependency

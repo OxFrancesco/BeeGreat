@@ -1,3 +1,11 @@
+License scope
+
+The MIT terms below apply to original contributions by Francesco Oddo.
+They do not replace licenses or notices applicable to third-party material.
+The Python Sugar SDK port remains subject to Apache-2.0; see
+LICENSE.Apache-2.0 and NOTICE. No permission is granted here for material
+from the official TypeScript SDK that is marked UNLICENSED.
+
 MIT License
 
 Copyright (c) 2026 Francesco Oddo

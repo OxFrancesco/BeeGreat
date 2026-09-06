@@ -1,3 +1,6 @@
+// Portions derived from the Python Sugar SDK, Copyright 2025 Velodrome Finance.
+// Modified by Francesco Oddo and BeeGreat contributors: TypeScript port and subsequent changes.
+// Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
 import type { Abi } from 'viem'
 import bridgeGetFeeJson from './abis/bridge_get_fee.json'
 import bridgeTransferRemoteJson from './abis/bridge_transfer_remote.json'
