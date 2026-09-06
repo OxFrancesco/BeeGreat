@@ -44,6 +44,20 @@ function client(readContract: PublicClientStub['readContract'] = async () => 0n)
 }
 
 describe('unsigned transaction builders', () => {
+  test('WETH deposits spend ERC20 tokens while explicit ETH deposits carry native value', async () => {
+    const base = new BaseChain()
+    const sugar = new SugarClient(8453, { account, env: {}, publicClient: stubPublicClient({ readContract: async () => 0n }) })
+    const wrapped: Token = { ...base.eth, tokenAddress: base.settings.wrappedNativeTokenAddress, wrappedTokenAddress: undefined, symbol: 'WETH' }
+    const target: LiquidityPool = { ...pool(), chainId: 8453, chainName: 'Base', token0: wrapped, token1: BaseChain.usdc }
+    const erc20Plan = await sugar.deposit({ pool: target, amountToken0: 100n, amountToken1: 200n, sqrtPriceX96: 0n })
+    expect(erc20Plan.at(-1)?.value).toBe(0n)
+    expect(erc20Plan).toHaveLength(3)
+    const nativePlan = await sugar.deposit({ pool: { ...target, token0: base.eth }, amountToken0: 100n, amountToken1: 200n, sqrtPriceX96: 0n })
+    expect(nativePlan.at(-1)?.value).toBe(100n)
+    expect(nativePlan).toHaveLength(2)
+    expect(await sugar.poolSpec(base.eth, BaseChain.usdc, { tickSpacing: 100 })).toMatchObject({ token0: base.eth, token1: BaseChain.usdc })
+  })
+
   test('builds the Base ETH -> USDC -> ETH round trip with correct value and approval order', async () => {
     const base = new BaseChain()
     const baseClient = new SugarClient(8453, {

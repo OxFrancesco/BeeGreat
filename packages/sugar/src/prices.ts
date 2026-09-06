@@ -6,8 +6,8 @@ import type { Address } from 'viem'
 import { abis } from './abis'
 import { addressKey, chunk, tokenContractAddress } from './helpers'
 import type { SugarContext } from './internal/context'
-import { preparePrices } from './models'
-import type { Token } from './types'
+import { nativeToken, preparePrices, tokenFromTuple } from './models'
+import { ADDRESS_ZERO, type Token } from './types'
 
 export function getPriceRequestTokens(tokens: Token[]): Token[] {
   return [...new Map(tokens.filter((token) => token.wrappedTokenAddress || token.listed || token.emerging).map((token) => [token.tokenAddress, token])).values()]
@@ -21,7 +21,15 @@ export const getPrices = Effect.fn('Sugar.Prices.getPrices')(function* (
   ctx: SugarContext,
   tokens: Token[],
 ) {
-  const requestTokens = ctx.client.getPriceRequestTokens(tokens)
+  if (tokens.length === 0) return []
+  if (tokens.some((token) => token.chainId !== ctx.settings.chainId)) throw new Error('Price token chain does not match client chain')
+  let stable = tokens.find((token) => addressKey(token.tokenAddress) === addressKey(ctx.settings.stableTokenAddress))
+  if (!stable) {
+    const raw = yield* ctx.read<unknown[]>(ctx.settings.sugarContractAddress, abis.sugar, 'tokens', [1n, 0n, ADDRESS_ZERO, [ctx.settings.stableTokenAddress]])
+    stable = raw.map((item) => tokenFromTuple(item, ctx.settings)).find((token) => addressKey(token.tokenAddress) === addressKey(ctx.settings.stableTokenAddress))
+  }
+  if (!stable) throw new Error('Stable pricing anchor is unavailable')
+  const requestTokens = ctx.client.getPriceRequestTokens([...tokens, nativeToken(ctx.settings), stable])
   const rateMap = new Map<string, bigint>()
   const now = Date.now()
   const staleTokens = requestTokens.filter((token) => {
@@ -56,5 +64,7 @@ export const getPrices = Effect.fn('Sugar.Prices.getPrices')(function* (
       ctx.caches.priceRateCache.set(addressKey(token.tokenAddress), { expiresAt, rate })
     }))
   }
-  return preparePrices(tokens, tokens.map((token) => rateMap.get(token.tokenAddress) ?? 0n), ctx.settings)
+  const requested = new Set(tokens.map((token) => addressKey(token.tokenAddress)))
+  return preparePrices(requestTokens, requestTokens.map((token) => rateMap.get(token.tokenAddress) ?? 0n), ctx.settings)
+    .filter((price) => requested.has(addressKey(price.token.tokenAddress)) && Number.isFinite(price.price) && price.price > 0)
 })

@@ -17,6 +17,8 @@ import { getChainSettings } from './config'
 import { normalizeAddress } from './helpers'
 import type { ReadArgs, SugarContext } from './internal/context'
 import { runSugar } from './internal/interop'
+import { invalidateSugarCaches } from './internal/caches'
+import * as Cache from 'effect/Cache'
 import { getPoolCount, getPoolPaginator, pageSize } from './internal/pagination'
 import {
   makeRpcReadExecutor,
@@ -103,7 +105,7 @@ export class SugarClient {
       account,
       publicClient,
       rpc,
-      caches: options.cacheStore?.cachesFor(this.settings.chainId, this.settings.rpcUrl)
+      caches: options.cacheStore?.cachesFor(this.settings.chainId, this.settings.rpcUrl, JSON.stringify(this.settings))
         ?? { priceRateCache: new Map() },
       poolLocatorStore: options.poolLocatorStore,
       resolvedPoolLocators: Effect.runSync(poolsApi.makeResolvedPoolLocatorCache(() => this.ctx)),
@@ -125,6 +127,13 @@ export class SugarClient {
         }
       },
     }
+  }
+
+  invalidate(): Promise<void> {
+    return runSugar(Effect.all([
+      invalidateSugarCaches(this.ctx.caches),
+      Cache.invalidateAll(this.ctx.resolvedPoolLocators),
+    ]).pipe(Effect.asVoid))
   }
 
   buildTransaction(to: Address, data: Hex, value = 0n): UnsignedTransaction {
@@ -334,6 +343,14 @@ export class SugarClient {
 
   getPositions(owner = this.account): Promise<Position[]> {
     return runSugar(positionsApi.getPositions(this.ctx, owner))
+  }
+
+  getPositionById(id: bigint, owner = this.account, poolAddress?: Address): Promise<Position | undefined> {
+    return runSugar(positionsApi.getPositionById(this.ctx, id, owner, poolAddress))
+  }
+
+  getPositionsByPool(poolAddress: Address, owner = this.account): Promise<Position[]> {
+    return runSugar(positionsApi.getPositionsByPool(this.ctx, poolAddress, owner))
   }
 
   getPositionByPool(poolAddress: Address, owner = this.account): Promise<Position | undefined> {

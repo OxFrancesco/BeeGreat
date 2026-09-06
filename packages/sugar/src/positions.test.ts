@@ -78,6 +78,26 @@ function positionTuple(lp: Address): unknown[] {
 }
 
 describe('Sugar positions', () => {
+  test('selects the requested NFT when an owner has multiple positions in one pool', async () => {
+    const first = positionTuple(POSITION_POOL)
+    const second = [...first]
+    second[0] = 43n
+    const sugar = new SugarClient(10, {
+      account: OWNER,
+      settings: { stableTokenAddress: STABLE_TOKEN },
+      poolLocatorStore: { get: async () => ({ offset: 7 }), set: async () => {}, delete: async () => {} },
+      publicClient: stubPublicClient({ readContract: async (request) => {
+        if (request.functionName === 'all') return [poolTuple(POSITION_POOL, TOKEN_A, TOKEN_B)]
+        if (request.functionName === 'positions') return [first, second]
+        if (request.functionName === 'tokens') return [tokenTuple(STABLE_TOKEN, 'USDC', 6), tokenTuple(TOKEN_A, 'A'), tokenTuple(TOKEN_B, 'B')]
+        if (request.functionName === 'getManyRatesToEthWithCustomConnectors') return stringListArgument(request, 0).map(() => 10n ** 18n)
+        throw new Error(`Unexpected read ${request.functionName}`)
+      } }),
+    })
+    expect((await sugar.getPositionById(43n, OWNER, POSITION_POOL))?.id).toBe(43n)
+    await expect(sugar.getPositionByPool(POSITION_POOL)).rejects.toThrow('multiple positions')
+  })
+
   test('uses a verified persisted pool locator without a global scan', async () => {
     const reads: string[] = []
     const sugar = new SugarClient(10, {

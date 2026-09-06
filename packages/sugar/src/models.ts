@@ -3,7 +3,7 @@
 // Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
 import * as Predicate from 'effect/Predicate'
 import type { Address } from 'viem'
-import { addressKey, createAmount, normalizeAddress, poolSymbol, tupleValues } from './helpers'
+import { addressKey, createAmount, normalizeAddress, poolSymbol, tokenContractAddress, tupleValues } from './helpers'
 import { ADDRESS_ZERO, type Amount, type ChainSettings, type DepositQuote, type LiquidityPool, type LiquidityPoolEpoch, type LiquidityPoolForSwap, type Position, type Price, type Token, type VeNft, type VeNftReward, type VeNftState, type Withdrawal } from './types'
 
 // SAFETY: Sugar contract tuples encode numeric fields as bigint, number, or decimal string; BigInt applies the same coercion the previous boundary relied on.
@@ -260,7 +260,8 @@ export function createPoolSpec(
   options: { tickSpacing?: number; stable?: boolean; basicFactoryAddress?: Address },
 ): LiquidityPool {
   if ((options.tickSpacing === undefined) === (options.stable === undefined)) throw new Error('supply exactly one of tickSpacing / stable')
-  if (addressKey(token0.tokenAddress) >= addressKey(token1.tokenAddress)) throw new Error('tokens must be canonically ordered: token0.address < token1.address')
+  if (token0.chainId !== settings.chainId || token1.chainId !== settings.chainId) throw new Error('Pool tokens must belong to the client chain')
+  if (addressKey(tokenContractAddress(token0)) >= addressKey(tokenContractAddress(token1))) throw new Error('tokens must be canonically ordered by contract address, using the wrapped address for native tokens')
   const isCl = options.tickSpacing !== undefined
   if (isCl && options.tickSpacing! <= 0) throw new Error('tickSpacing must be positive')
   if (!isCl && !options.basicFactoryAddress) throw new Error('basic pool requires basicFactoryAddress')
@@ -330,7 +331,12 @@ export function findToken(tokens: Token[], reference: string | bigint | number):
     try { return addressKey(token.tokenAddress) === addressKey(normalizeAddress(ref)) }
     catch { return false }
   })
-  return tokens.find((token) => token.symbol.toLowerCase() === ref.toLowerCase())
+  const matches = tokens.filter((token) => token.symbol.toLowerCase() === ref.toLowerCase())
+  const native = matches.find((token) => token.wrappedTokenAddress !== undefined)
+  if (native) return native
+  const unique = new Map(matches.map((token) => [addressKey(token.tokenAddress), token]))
+  if (unique.size > 1) throw new Error(`Ambiguous token symbol ${ref}; use a contract address`)
+  return unique.values().next().value
 }
 
 export function bridgeToken(tokens: Token[], settings: ChainSettings): Token {

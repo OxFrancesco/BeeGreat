@@ -264,9 +264,9 @@ export const quoteConcentratedDeposit = Effect.fn('Sugar.Transactions.quoteConce
   return validateDepositQuote({ pool, amountToken0, amountToken1: options.amountToken1!, tickLower, tickUpper, sqrtPriceX96 })
 })
 
-/** A pool leg is native when it is the native token itself (pool specs) or its wrapped form (indexed pools). */
+/** A pool leg is native only when its token explicitly represents native currency. */
 function isNativeLeg(ctx: SugarContext, token: Token): boolean {
-  return token.wrappedTokenAddress !== undefined || addressKey(token.tokenAddress) === addressKey(ctx.settings.wrappedNativeTokenAddress)
+  return token.wrappedTokenAddress !== undefined && addressKey(token.wrappedTokenAddress) === addressKey(ctx.settings.wrappedNativeTokenAddress)
 }
 
 const collectApprovals = Effect.fn('Sugar.Transactions.collectApprovals')(function* (
@@ -352,8 +352,8 @@ export const withdraw = Effect.fn('Sugar.Transactions.withdraw')(function* (
   const deadline = futureTimestamp(deadlineMinutes)
   if (!pool.isCl) {
     const approval = yield* approveAddressIfNeeded(ctx, pool.lp, ctx.settings.routerContractAddress, withdrawal.liquidity)
-    const native0 = addressKey(pool.token0.tokenAddress) === addressKey(ctx.settings.wrappedNativeTokenAddress)
-    const native1 = addressKey(pool.token1.tokenAddress) === addressKey(ctx.settings.wrappedNativeTokenAddress)
+    const native0 = unwrapNative && addressKey(tokenContractAddress(pool.token0)) === addressKey(ctx.settings.wrappedNativeTokenAddress)
+    const native1 = unwrapNative && addressKey(tokenContractAddress(pool.token1)) === addressKey(ctx.settings.wrappedNativeTokenAddress)
     const data = native0 || native1
       ? ctx.encode(abis.router, 'removeLiquidityETH', [
           native0 ? normalizeAddress(pool.token1.tokenAddress) : normalizeAddress(pool.token0.tokenAddress), pool.isStable, withdrawal.liquidity,

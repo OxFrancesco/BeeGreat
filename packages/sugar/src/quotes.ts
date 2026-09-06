@@ -5,7 +5,7 @@ import * as Effect from 'effect/Effect'
 import * as Predicate from 'effect/Predicate'
 import type { Address } from 'viem'
 import { abis } from './abis'
-import { addressKey, applySlippage, chunk, findAllPaths, packPath, tokenContractAddress, tupleValues } from './helpers'
+import { addressKey, applySlippage, chunk, findAllPaths, packPath, tokenContractAddress, tokenToNumber, tupleValues } from './helpers'
 import type { SugarContext } from './internal/context'
 import { clientCall } from './internal/interop'
 import type { LiquidityPoolForSwap, PathHop, Quote, Token } from './types'
@@ -37,7 +37,8 @@ export function getPathsForQuote(
   const allowedIntermediates = new Set(
     [...ctx.settings.connectorTokenAddresses, tokenContractAddress(fromToken), tokenContractAddress(toToken)].map(addressKey),
   )
-  return findAllPaths(pools, tokenContractAddress(fromToken), tokenContractAddress(toToken), 3).filter((path) =>
+  const eligible = pools.filter((pool) => [pool.token0Address, pool.token1Address].every((address) => allowedIntermediates.has(addressKey(address)) && !excluded.has(addressKey(address))))
+  return findAllPaths(eligible, tokenContractAddress(fromToken), tokenContractAddress(toToken), 3, ctx.settings.quoteMaxPaths).filter((path) =>
     !path.some((hop, index) => {
       if (index === 0) return false
       const hopInput = addressKey(hop.reversed ? hop.pool.token1Address : hop.pool.token0Address)
@@ -70,6 +71,8 @@ export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
   amount: bigint,
   filter?: (quote: Quote) => boolean,
 ) {
+  if (fromToken.chainId !== ctx.settings.chainId || toToken.chainId !== ctx.settings.chainId) throw new Error('Quote tokens must belong to the client chain')
+  if (amount <= 0n) throw new Error('Swap amount must be positive')
   const poolsForSwaps = yield* clientCall(() => ctx.client.getPoolsForSwaps())
   const pools = ctx.client.filterPoolsForSwap(poolsForSwaps, fromToken, toToken)
   const paths = prioritizeQuotePaths(ctx, ctx.client.getPathsForQuote(fromToken, toToken, pools))
@@ -160,7 +163,14 @@ export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
       }
     })
   }
-  const valid = quotes.filter((quote) => !filter || filter(quote))
+  const prices = fromToken.listed && toToken.listed
+    ? yield* clientCall(() => ctx.client.getPrices([fromToken, toToken])).pipe(Effect.catchCause(() => Effect.succeed([])))
+    : []
+  const fromPrice = prices.find((price) => addressKey(price.token.tokenAddress) === addressKey(fromToken.tokenAddress))?.price
+  const toPrice = prices.find((price) => addressKey(price.token.tokenAddress) === addressKey(toToken.tokenAddress))?.price
+  const ceiling = fromPrice && toPrice ? 2 * tokenToNumber(fromToken, amount) * fromPrice / toPrice : undefined
+  const valid = quotes.filter((quote) => (!filter || filter(quote))
+    && (ceiling === undefined || !Number.isFinite(ceiling) || tokenToNumber(toToken, quote.amountOut) < ceiling))
   const best = valid.reduce<Quote | undefined>(
     (current, quote) => !current || quote.amountOut > current.amountOut ? quote : current,
     undefined,

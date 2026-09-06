@@ -97,9 +97,10 @@ export const paginate = Effect.fn('Sugar.Pagination.paginate')(function* <T>(
  */
 export function getPoolCountWithin(ctx: SugarContext, deadline: RpcDeadline): Effect.Effect<number, SugarRpcError> {
   return Effect.suspend(() => {
-    if (!ctx.caches.poolCountCache) {
+    if (!ctx.caches.poolCountCache || (ctx.caches.poolCountExpiresAt ?? 0) <= Date.now()) {
       const promise = runSugar(readPoolCount(ctx, deadline))
       ctx.caches.poolCountCache = promise
+      ctx.caches.poolCountExpiresAt = Date.now() + (ctx.caches.ttlMs ?? 120_000)
       void promise.catch(() => {
         if (ctx.caches.poolCountCache === promise) ctx.caches.poolCountCache = undefined
       })

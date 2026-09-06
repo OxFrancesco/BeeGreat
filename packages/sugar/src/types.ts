@@ -127,6 +127,8 @@ export type SugarPoolLocatorStore = {
  * keeps serving every client on the same chain and RPC.
  */
 export type SugarClientCaches = {
+  ttlMs?: number
+  poolCountExpiresAt?: number
   /**
    * @internal The client currently driving a shared-cache lookup. Shared
    * lookups are late-bound to this context so one client's broken transport
@@ -158,7 +160,8 @@ export type SugarClientCaches = {
  * instances, so repeated quotes do not re-scan every pool on each request.
  */
 export type SugarCacheStore = {
-  cachesFor(chainId: number, rpcUrl: string): SugarClientCaches
+  cachesFor(chainId: number, rpcUrl: string, settingsKey?: string): SugarClientCaches
+  invalidate?(): Promise<void>
 }
 
 export type Token = {

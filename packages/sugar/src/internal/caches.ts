@@ -6,9 +6,9 @@ import type { SugarRpcError } from '../errors'
 import type { SugarClientCaches } from '../types'
 import type { SugarContext } from './context'
 
-/** Successes live for the cache's lifetime; failures are never retained. */
-const successOnly = <A>(exit: Exit.Exit<A, SugarRpcError>) =>
-  Exit.isSuccess(exit) ? Duration.infinity : Duration.zero
+/** Successes expire after the configured TTL; failures are never retained. */
+const successOnly = (ttlMs: number) => <A>(exit: Exit.Exit<A, SugarRpcError>) =>
+  Exit.isSuccess(exit) ? Duration.millis(ttlMs) : Duration.zero
 
 /**
  * Keyed dedupe cache for chain reads owned by a single client: concurrent
@@ -18,8 +18,9 @@ const successOnly = <A>(exit: Exit.Exit<A, SugarRpcError>) =>
 export function makeReadCache<Key, A>(
   lookup: (key: Key) => Effect.Effect<A, SugarRpcError>,
   capacity = 16,
+  ttlMs = 120_000,
 ): Effect.Effect<Cache.Cache<Key, A, SugarRpcError>> {
-  return Cache.makeWith(lookup, { capacity, timeToLive: successOnly })
+  return Cache.makeWith(lookup, { capacity, timeToLive: successOnly(ttlMs) })
 }
 
 /**
@@ -40,11 +41,20 @@ export function makeSharedReadCache<Key, A>(
       if (!ctx) return Effect.die(new Error('shared Sugar cache lookup without an active client context'))
       return lookup(ctx, key)
     }),
-    { capacity, timeToLive: successOnly },
+    { capacity, timeToLive: successOnly(caches.ttlMs ?? 120_000) },
   )
 }
 
-/** Read through a shared cache on behalf of `ctx` (see makeSharedReadCache). */
+/** Invalidate mutable reads after confirmation or an explicit refresh. */
+export const invalidateSugarCaches = Effect.fn('Sugar.Cache.invalidate')(function* (caches: SugarClientCaches) {
+  caches.poolCountCache = undefined
+  caches.poolCountExpiresAt = undefined
+  caches.priceRateCache.clear()
+  if (caches.tokenCache) yield* Cache.invalidateAll(caches.tokenCache)
+  if (caches.rawPoolCache) yield* Cache.invalidateAll(caches.rawPoolCache)
+  if (caches.poolCache) yield* Cache.invalidateAll(caches.poolCache)
+})
+
 export function sharedCacheGet<Key, A>(
   ctx: SugarContext,
   cache: Cache.Cache<Key, A, SugarRpcError>,

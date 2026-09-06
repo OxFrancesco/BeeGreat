@@ -266,7 +266,8 @@ describe('Sugar RPC policy', () => {
     let attempts = 0
     const sugar = new SugarClient(10, {
       publicClient: stubPublicClient({
-        readContract: async () => {
+        readContract: async (request) => {
+          if (request.functionName === 'tokens') return stringListArgument(request, 3).map((address) => [address, 'USDC', 6, 0n, true, false])
           attempts += 1
           throw upstream
         },
@@ -319,6 +320,7 @@ describe('Sugar RPC policy', () => {
     const sugar = new SugarClient(10, {
       publicClient: stubPublicClient({
         readContract: async (request) => {
+          if (request.functionName === 'tokens') return stringListArgument(request, 3).map((address) => [address, 'USDC', 6, 0n, true, false])
           const address = String(stringListArgument(request, 0)[0])
           started.push(address)
           if (address === tokens[0].tokenAddress) throw upstream
@@ -865,6 +867,7 @@ describe('Sugar RPC policy', () => {
     const sugar = new SugarClient(10, {
       publicClient: stubPublicClient({
         readContract: async (request) => {
+          if (request.functionName === 'tokens') return stringListArgument(request, 3).map((address) => [address, 'USDC', 6, 0n, true, false])
           const address = String(stringListArgument(request, 0)[0])
           if (address === recoveringToken.tokenAddress) {
             recoveringAttempts += 1
@@ -875,7 +878,7 @@ describe('Sugar RPC policy', () => {
             await Bun.sleep(100)
             return [1n]
           }
-          throw new Error(`Unexpected token: ${address}`)
+          return [1n]
         },
       }),
       rpcPolicy: { baseDelayMs: 0, deadlineMs: 30, maxRetries: 1 },
