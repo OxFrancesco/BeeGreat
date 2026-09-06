@@ -49,13 +49,14 @@ export type SelectItem = {
   title: string
   description?: string
   hint?: string
+  searchText?: string
   onSelect: () => void
 }
 
 function filterSelectItems(items: SelectItem[], filter: string): SelectItem[] {
   if (filter.trim() === '') return items
   const scored = items
-    .map((item) => ({ item, score: fuzzyScore(filter, `${item.title} ${item.description ?? ''}`) }))
+    .map((item) => ({ item, score: fuzzyScore(filter, `${item.title} ${item.description ?? ''} ${item.searchText ?? ''}`) }))
     .filter((entry): entry is { item: SelectItem; score: number } => entry.score !== undefined)
   return scored.sort((left, right) => left.score - right.score).map((entry) => entry.item)
 }
