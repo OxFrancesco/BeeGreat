@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
+import { xaiEventSchema, type XaiEvent } from './xai-event'
 
 import {
   XAI_SAMPLE_RATE,
@@ -33,25 +34,6 @@ export type RealtimeVoiceTurn = {
   role: 'user' | 'assistant'
   text: string
 }
-
-// A field the xai realtime socket may omit or fill with a shape this hook
-// does not consume; both degrade to "absent" instead of dropping the event.
-const lenientString = z.string().optional().catch(undefined)
-
-/** The subset of the xai realtime event vocabulary this hook consumes. */
-const xaiEventSchema = z.object({
-  type: lenientString,
-  transcript: lenientString,
-  item_id: lenientString,
-  delta: lenientString,
-  response_id: lenientString,
-  message: lenientString,
-  response: z.object({ id: lenientString }).optional().catch(undefined),
-  error: z.object({ message: lenientString }).optional().catch(undefined),
-  ping_timestamp: z.unknown(),
-})
-
-type XaiEvent = z.infer<typeof xaiEventSchema>
 
 /** The socket also carries binary frames; only text frames hold events. */
 const textFrame = z.string()

@@ -47,6 +47,28 @@ afterEach(() => {
   }
 })
 
+test('Notion accepts nullable token and account metadata during connect and refresh', async () => {
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({
+    access_token: 'notion-access',
+    refresh_token: null,
+    workspace_id: 'workspace-1',
+    workspace_name: null,
+    bot_id: 'bot-1',
+    owner: { type: 'user', user: { id: 'user-1', name: null } },
+  }), { status: 200 }))
+
+  const result = await exchangeBeennectorCode('notion', 'authorization-code')
+  expect(result.accessToken).toBe('notion-access')
+  expect(result.refreshToken).toBeUndefined()
+  expect(result.identity).toMatchObject({ externalAccountId: 'user-1', workspaceId: 'workspace-1' })
+  expect(result.identity.workspaceName).toBeUndefined()
+  expect(result.identity.externalAccountName).toBeUndefined()
+
+  const refreshed = await refreshBeennectorToken('notion', 'existing-refresh-token')
+  expect(refreshed.accessToken).toBe('notion-access')
+  expect(refreshed.refreshToken).toBe('existing-refresh-token')
+})
+
 test('GitHub, Linear, and Google use PKCE while Notion uses scoped page selection', () => {
   const github = createBeennectorAuthorization('github')
   const linear = createBeennectorAuthorization('linear')

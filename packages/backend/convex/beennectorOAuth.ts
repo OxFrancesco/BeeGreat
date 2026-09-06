@@ -197,7 +197,7 @@ export function createBeennectorAuthorization(
 
 const tokenBodySchema = Schema.Struct({
   access_token: Schema.optional(Schema.String),
-  refresh_token: Schema.optional(Schema.String),
+  refresh_token: Schema.optional(Schema.NullOr(Schema.String)),
   expires_in: Schema.optional(Schema.Number),
   scope: Schema.optional(
     Schema.Union([Schema.String, Schema.mutable(Schema.Array(Schema.String))]),
@@ -205,14 +205,14 @@ const tokenBodySchema = Schema.Struct({
   error: Schema.optional(Schema.String),
   error_description: Schema.optional(Schema.String),
   workspace_id: Schema.optional(Schema.String),
-  workspace_name: Schema.optional(Schema.String),
+  workspace_name: Schema.optional(Schema.NullOr(Schema.String)),
   bot_id: Schema.optional(Schema.String),
   owner: Schema.optional(
     Schema.Struct({
       user: Schema.optional(
         Schema.Struct({
           id: Schema.optional(Schema.String),
-          name: Schema.optional(Schema.String),
+          name: Schema.optional(Schema.NullOr(Schema.String)),
         }),
       ),
     }),
@@ -451,9 +451,9 @@ export async function exchangeBeennectorCode(
     return Promise.resolve({
       externalAccountId:
         body.owner?.user?.id ?? body.bot_id ?? body.workspace_id!,
-      externalAccountName: body.owner?.user?.name,
+      externalAccountName: body.owner?.user?.name ?? undefined,
       workspaceId: body.workspace_id,
-      workspaceName: body.workspace_name,
+      workspaceName: body.workspace_name ?? undefined,
       botId: body.bot_id,
     })
   })()
@@ -466,7 +466,7 @@ export async function exchangeBeennectorCode(
   }
   return {
     accessToken: body.access_token!,
-    refreshToken: body.refresh_token,
+    refreshToken: body.refresh_token ?? undefined,
     expiresAt: body.expires_in
       ? Date.now() + body.expires_in * 1_000
       : undefined,
