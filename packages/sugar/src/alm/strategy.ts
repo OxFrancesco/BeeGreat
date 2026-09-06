@@ -1,3 +1,7 @@
+// Mellow PulseStrategyModule reference: Copyright 2021-2025 G3M Labs S. A.
+// Modified TypeScript implementation by Francesco Oddo and BeeGreat contributors.
+// Derivative-work status and production permission remain unresolved.
+// Any Mellow-derived portions remain under ../../LICENSE.Mellow-BUSL-1.1. See ../../NOTICE.
 import { MAX_ABS_TICK } from '../types'
 
 /**

@@ -4,6 +4,18 @@ The Web3 specialist manages the user's wallets, routes Base ↔ Arbitrum swaps
 through Socket V3, and exposes Velodrome/Aerodrome DeFi through the native
 TypeScript Sugar SDK (`packages/sugar`).
 
+## Independence and licensing
+
+BeeGreat and its Sugar SDK are independent projects, not affiliated with,
+endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance,
+Dromos Labs, or Mellow Protocol. Names identify compatibility or source attribution;
+third-party licenses still apply. See the [licensing review](../packages/sugar/README.md#licensing-review-2026-09-06)
+for unresolved provenance and redistribution checks before release.
+
+New CLI WalletConnect pairings identify BeeGreat's unofficial CLI and link to our
+repository without the upstream Sugar logo. Existing pairings may retain cached
+metadata until disconnected and paired again.
+
 ## Wallets
 
 - **Bee smart wallet** (Crossmint): created idempotently per user, owned by

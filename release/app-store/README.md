@@ -1,5 +1,7 @@
 # BeeGreat App Store release packet
 
+> This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
 This directory is the version-controlled source of truth for the BeeGreat
 1.0.0 App Store submission. It prepares copy, review guidance, questionnaire
 recommendations, and screenshot production without treating any dashboard-only

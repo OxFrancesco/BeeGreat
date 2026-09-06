@@ -1,5 +1,7 @@
 # Bee Sites
 
+> This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
 This Cloudflare Worker serves versioned static Astro output from the shared
 `beegreat-sites` R2 bucket. Live slugs and preview versions are resolved through
 Convex, so unpublishing or deleting a site takes effect immediately.

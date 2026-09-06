@@ -84,3 +84,18 @@ default to `http://localhost:3583`; mobile deliberately defaults to the
 production worker because a device build cannot reach the developer's
 localhost. Keep new configuration aligned with this table — do not invent a
 fifth name.
+
+## Aerodrome licensing and non-affiliation
+
+Keep the non-affiliation notice from `packages/sugar/README.md` in every owned
+README, including standalone mirrors and new repositories derived from this
+project. Never edit upstream reference READMEs to claim ownership. Describe
+integrations as independent or unofficial, and use our own URLs and artwork in
+wallet metadata rather than upstream branding.
+
+Before copying reference code, check its exact file/version license. The Python
+Sugar SDK is Apache-2.0; `velodrome-finance/sdk.js` declares `UNLICENSED`; protocol
+contracts have mixed licenses. Mellow's PulseStrategyModule is marked BUSL-1.1.
+A public repository or non-affiliation disclaimer does not grant reuse rights.
+See the dated licensing review in `packages/sugar/README.md` for unresolved release
+checks. Preserve applicable upstream licenses and notices in every distribution.

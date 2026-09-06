@@ -1,4 +1,7 @@
 #!/usr/bin/env bun
+// Portions derived from the Python Sugar SDK, Copyright 2025 Velodrome Finance.
+// Modified by Francesco Oddo and BeeGreat contributors: TypeScript port and subsequent changes.
+// Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
 
 import * as Predicate from 'effect/Predicate'
 import { executeSugarAction, type SugarExecutionOptions } from './actions'
