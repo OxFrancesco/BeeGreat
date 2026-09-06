@@ -144,6 +144,7 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
             id: `${token.tokenAddress}:${token.symbol}`,
             title: choice.title,
             description: choice.description,
+            searchText: token.tokenAddress,
             onSelect: () => {
               // Ambiguous symbols fall back to the address so the picked
               // token is the one that gets swapped.
