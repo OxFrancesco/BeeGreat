@@ -12,6 +12,7 @@ import { readPoolTick } from '../alm/chain'
 import { almConfigPath, DEFAULT_ROLE_KEY, loadAlmConfig, saveAlmConfigFile, strategySettingsFor, type AlmConfigFile } from '../alm/config'
 import { buddytgNotifier, noopNotifier } from '../alm/notify'
 import {
+  assertSafeAlmSupported,
   encodeRoleConfigCall,
   encodeRoleKey,
   keeperPermissionCalls,
@@ -23,13 +24,14 @@ import {
   ROLES_V2_MASTERCOPY,
   safeAbi,
 } from '../alm/roles'
-import { checkRebalanceGate, loadAlmState, positionStateKey } from '../alm/state'
+import { checkRebalanceGate, loadAlmState, managedPositionId, positionStateKey } from '../alm/state'
 import { ALM_STRATEGIES } from '../alm/strategy'
 import { SugarClient } from '../client'
 import { normalizeAddress, tokenToNumber } from '../helpers'
 import { localMnemonicSigner, type PlanSigner } from '../send'
 import { ADDRESS_ZERO } from '../types'
 import { getActiveWallet, loadLocalWallet, openSecret, promptLine } from '../wallet'
+import { almRecoverCommand, almResolveCommand } from './alm-recovery-commands'
 import * as flags from './flags'
 import { optionalValue } from './flags'
 import { fromPromise } from './run-action'
@@ -67,7 +69,9 @@ const serve = Command.make('serve', {
 }, Effect.fn(function* (config) {
   const almConfig = loadAlmConfig(optionalValue(config.config))
   const pollSeconds = optionalValue(config.interval) ?? almConfig.pollSeconds
+  if (!Number.isFinite(pollSeconds) || pollSeconds < 1) throw new Error('ALM poll interval must be at least one second')
   const safe = almConfig.safe
+  if (config.execute && safe) assertSafeAlmSupported()
   let signer: PlanSigner | undefined
   let wallet: Address
   if (config.execute) {
@@ -86,7 +90,7 @@ const serve = Command.make('serve', {
   }
   const log = (line: string) => console.log(`${new Date().toISOString()} ${line}`)
   const engine = new AlmEngine({
-    config: almConfig,
+    config: { ...almConfig, pollSeconds },
     wallet,
     signer,
     safe: safe ? { rolesModifier: safe.rolesModifier, roleKey: encodeRoleKey(safe.roleKey) } : undefined,
@@ -119,6 +123,7 @@ const serve = Command.make('serve', {
 const init = Command.make('init', {
   chain: flags.chain,
   wallet: flags.wallet,
+  positionId: Flag.string('position-id').pipe(Flag.optional, Flag.withDescription('Only configure this NFT, required when a pool has multiple positions')),
   strategy: Flag.choice('strategy', ALM_STRATEGIES).pipe(Flag.optional, Flag.withDescription('Strategy for every scaffolded position (default original)')),
   force: Flag.boolean('force').pipe(Flag.withDescription('Overwrite an existing config file')),
   config: configFlag,
@@ -129,16 +134,22 @@ const init = Command.make('init', {
   const wallet = optionalValue(config.wallet) ?? active?.address
   if (!wallet) throw new Error('no wallet: connect one (aero wallet connect/create) or pass --wallet')
   const client = new SugarClient(config.chain, { account: normalizeAddress(wallet) })
+  const selectedId = optionalValue(config.positionId)
+  if (selectedId !== undefined && !/^[1-9]\d*$/.test(selectedId)) throw new Error('position-id must be a positive NFT id')
   const positions = (yield* fromPromise(() => client.getPositions())).filter(
-    (position) => position.pool.isCl && !position.isAlm && (position.liquidity > 0n || position.staked > 0n),
+    (position) => position.pool.isCl && !position.isAlm && (position.liquidity > 0n || position.staked > 0n)
+      && (selectedId === undefined || position.id === BigInt(selectedId)),
   )
   if (positions.length === 0) {
     yield* Console.log('No CL positions found to manage. Open one first (aero deposit --pool ... --tick-lower ... --tick-upper ...).')
     return
   }
   const strategy = optionalValue(config.strategy)
+  if (new Set(positions.map((position) => position.pool.lp.toLowerCase())).size !== positions.length) {
+    throw new Error('Multiple NFTs share a pool; pass --position-id to choose which position to manage')
+  }
   const entries = positions.map((position) =>
-    strategy === undefined ? { pool: position.pool.lp } : { pool: position.pool.lp, strategy },
+    strategy === undefined ? { pool: position.pool.lp, positionId: position.id.toString() } : { pool: position.pool.lp, positionId: position.id.toString(), strategy },
   )
   const file: AlmConfigFile = { version: 1, chain: config.chain, positions: entries }
   saveAlmConfigFile(file, path)
@@ -166,6 +177,7 @@ const safeSetup = Command.make('safe-setup', {
   out: Flag.string('out').pipe(Flag.optional, Flag.withMetavar('<path>'), Flag.withDescription('Output path for the Transaction Builder JSON (default ./aero-alm-safe-setup.json)')),
   config: configFlag,
 }, Effect.fn(function* (config) {
+  assertSafeAlmSupported()
   const configPath = optionalValue(config.config) ?? almConfigPath()
   const almConfig = loadAlmConfig(configPath)
   const safe = normalizeAddress(config.safe)
@@ -273,21 +285,30 @@ const status = Command.make('status', {
   if (!wallet) throw new Error('no wallet: connect one (aero wallet connect/create) or pass --wallet')
   const client = new SugarClient(almConfig.chain, { account: normalizeAddress(wallet) })
   const state = loadAlmState()
+  const pending = Object.values(state).flatMap((entry) => entry.cycle?.status.kind === 'active' ? [entry.cycle] : [])
+    .filter((cycle) => cycle.chain === almConfig.chain && normalizeAddress(cycle.wallet) === normalizeAddress(wallet))
+  if (pending.length > 0) {
+    yield* Console.log(JSON.stringify({ status: 'manual recovery required', cycles: pending }, null, 2))
+    return
+  }
   const now = Date.now()
   const report = []
   for (const entry of almConfig.positions) {
+    const positionState = state[positionStateKey(almConfig.chain, entry.pool, wallet)] ?? state[positionStateKey(almConfig.chain, entry.pool)]
+    const selectedId = managedPositionId(positionState, entry.positionId)
     const [spot, position] = yield* fromPromise(() => Promise.all([
       readPoolTick(client.publicClient, entry.pool),
-      client.getPositionByPool(entry.pool),
+      selectedId === undefined ? client.getPositionByPool(entry.pool) : client.getPositionById(selectedId, client.account, entry.pool),
     ]))
     if (!position) {
       report.push({ pool: entry.pool, status: 'no position found for this wallet' })
       continue
     }
     const settings = strategySettingsFor(entry, position.pool.type, position.tickUpper - position.tickLower)
-    const gate = checkRebalanceGate(state[positionStateKey(almConfig.chain, entry.pool)], now, entry.cooldownMinutes, entry.maxRebalancesPerDay)
+    const gate = checkRebalanceGate(positionState, now, entry.cooldownMinutes, entry.maxRebalancesPerDay)
     report.push({
       pool: entry.pool,
+      position_id: position.id.toString(),
       symbol: position.pool.symbol,
       strategy: settings.strategy,
       width_ticks: settings.widthTicks,
@@ -304,7 +325,7 @@ const status = Command.make('status', {
 
 export const almCommand = Command.make('alm').pipe(
   Command.withDescription('Configure the self-hosted ALM used by aero serve'),
-  Command.withSubcommands([init, status, safeSetup]),
+  Command.withSubcommands([init, status, safeSetup, almRecoverCommand, almResolveCommand]),
 )
 
 export const serveCommand = serve

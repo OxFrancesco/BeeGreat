@@ -3,7 +3,7 @@ import { useKeyboard } from '@opentui/react'
 import { useEffect, useRef, useState } from 'react'
 import type { Address } from 'viem'
 import { formatCliError } from '../../cli'
-import { deleteLocalWallet, loadLocalWallet, loadWalletConnectRecord, saveLocalWallet, sealSecret, walletDir } from '../../wallet'
+import { deleteLocalWallet, loadLocalWallet, loadWalletConnectRecord, parseMnemonic, saveLocalWallet, sealSecret, walletDir } from '../../wallet'
 import { ConfirmDialog, Dialog, PromptDialog } from '../dialogs'
 import { theme } from '../theme'
 import { useApp } from '../store'
@@ -98,9 +98,12 @@ export function WalletScreen() {
             mask
             close={close}
             onSubmit={(raw) => {
-              const mnemonic = raw.trim().toLowerCase().replace(/\s+/g, ' ')
               try {
-                finishSave(mnemonicToAccount(mnemonic).address, mnemonic, true)
+                const mnemonic = parseMnemonic(raw)
+                const address = mnemonicToAccount(mnemonic).address
+                app.openDialog((closeConfirm) => (
+                  <ConfirmDialog title="Confirm restored address" message={`${address}. Default Ethereum account, no BIP-39 passphrase. Is this the wallet you expect?`} close={closeConfirm} onConfirm={() => finishSave(address, mnemonic, true)} />
+                ))
               } catch {
                 app.toast('error', 'Invalid mnemonic', 'That is not a valid BIP-39 mnemonic')
               }

@@ -3,16 +3,18 @@ import { abis } from '../abis'
 import { SugarClient } from '../client'
 import { addressKey, applySlippage, futureTimestamp, normalizeAddress, tickToPrice, tokenToNumber, parseTokenUnits } from '../helpers'
 import { withdrawalFromPosition } from '../models'
-import { sendPlan, type PlanSigner, type PlanStep } from '../send'
+import { createFileJournalStore } from '../execution-journal'
+import { createExecutionPlan, sendPlan, type PlanJournalStore, type PlanSigner, type PlanStep } from '../send'
 import { ADDRESS_ZERO, type LiquidityPool, type Position, type Token, type UnsignedTransaction } from '../types'
 import { averageTick, checkTwapGate, pushTickSample, readPoolTick, readTwapTick, type TickHistory } from './chain'
 import { strategySettingsFor, type AlmConfig, type AlmPositionConfig } from './config'
 import { compoundNotification, errorNotification, noopNotifier, rebalanceNotification, type AlmNotifier } from './notify'
 import { planRangeSwap, token0ValueShare } from './rebalance'
-import { wrapWithRole } from './roles'
+import { assertSafeAlmSupported, wrapWithRole } from './roles'
+import { reconcileAlmCycle } from './recovery'
 import { buildSafeDeposit, buildSafeWithdraw } from './safe-builders'
 import { simulatePlan } from './simulate'
-import { checkRebalanceGate, loadAlmState, positionStateKey, recordCompound, recordRebalance, saveAlmState, type AlmState } from './state'
+import { acquireAlmStateLock, checkRebalanceGate, loadAlmState, managedPositionId, positionStateKey, recordCompound, recordRebalance, saveAlmState, type AlmCycle, type AlmState } from './state'
 import { decideRange, type RangeDecision } from './strategy'
 
 /**
@@ -55,6 +57,7 @@ export type EngineOptions = {
   notifier?: AlmNotifier
   now?: () => number
   statePath?: string
+  journalStore?: PlanJournalStore
   /** Test hooks. */
   clientFactory?: (chainId: number) => SugarClient
   publicClient?: PublicClient
@@ -88,8 +91,12 @@ export class AlmEngine {
   private readonly log: (line: string) => void
   private readonly now: () => number
   private state: AlmState
+  private readonly journalStore: PlanJournalStore
 
   constructor(options: EngineOptions) {
+    if (options.signer && (options.safe || options.config.safe)) assertSafeAlmSupported()
+    if (options.signer && normalizeAddress(options.signer.address) !== normalizeAddress(options.wallet)) throw new Error('ALM signer must match the managed wallet')
+    this.journalStore = options.journalStore ?? createFileJournalStore()
     this.options = options
     this.positions = options.config.positions.map((config) => ({ config, history: { samples: [] } }))
     this.publicClient = options.publicClient
@@ -116,6 +123,29 @@ export class AlmEngine {
 
   /** One full poll over every configured position. Never throws. */
   async runPass(): Promise<void> {
+    let release: (() => void) | undefined
+    try {
+      if (this.executing) release = acquireAlmStateLock(this.options.statePath)
+      this.state = loadAlmState(this.options.statePath)
+      if (this.executing && await this.publicClient.getChainId() !== this.options.config.chain) throw new Error('ALM RPC chain differs from configured chain')
+      const pending = Object.values(this.state).flatMap((entry) => entry.cycle?.status.kind === 'active' ? [entry.cycle] : [])
+        .filter((cycle) => cycle.chain === this.options.config.chain && addressKey(cycle.wallet) === addressKey(this.options.wallet))
+      if (pending.length > 0) {
+        for (const cycle of pending) {
+          if (this.executing) await reconcileAlmCycle(cycle, this.journalStore, this.publicClient)
+          this.log(`ALM cycle ${cycle.id} requires manual recovery; run aero alm recover --id ${cycle.id}. No new cycle will start.`)
+        }
+        return
+      }
+      await this.runUnlockedPass()
+    } catch (cause) {
+      this.log(`ALM pass blocked: ${cause instanceof Error ? cause.message : String(cause)}`)
+    } finally {
+      release?.()
+    }
+  }
+
+  private async runUnlockedPass(): Promise<void> {
     for (const runtime of this.positions) {
       try {
         await this.runPositionPass(runtime)
@@ -131,6 +161,8 @@ export class AlmEngine {
             message,
           }))
         }
+        runtime.snapshot = undefined
+        if (this.executing) return
       }
     }
   }
@@ -162,7 +194,7 @@ export class AlmEngine {
 
     const label = `${position.pool.symbol} ${rangeLabel(position.tickLower, position.tickUpper)} -> ${rangeLabel(decision.tickLower, decision.tickUpper)}`
     const gate = checkRebalanceGate(
-      this.state[positionStateKey(this.options.config.chain, config.pool)],
+      this.positionState(runtime),
       now,
       config.cooldownMinutes,
       config.maxRebalancesPerDay,
@@ -172,7 +204,7 @@ export class AlmEngine {
       return
     }
     const twapTick = await readTwapTick(this.publicClient, config.pool, config.twapSeconds)
-      ?? averageTick(runtime.history, config.twapSeconds * 1_000, now)
+      ?? averageTick(runtime.history, config.twapSeconds * 1_000, now, this.options.config.pollSeconds * 2_000)
     const twapGate = checkTwapGate(spot.tick, twapTick, config.maxTwapDeviationTicks)
     if (!twapGate.allowed) {
       this.log(`[${position.pool.symbol}] rebalance wanted (${decision.reason}) but ${twapGate.reason}`)
@@ -185,10 +217,9 @@ export class AlmEngine {
     }
 
     this.log(`[${position.pool.symbol}] rebalancing: ${decision.reason}`)
+    this.beginCycle(runtime, 'rebalance', position, decision)
     const hashes = await this.executeRebalance(runtime, decision)
-    const key = positionStateKey(this.options.config.chain, config.pool)
-    this.state = recordRebalance(this.state, key, this.now())
-    saveAlmState(this.state, this.options.statePath)
+    this.updateCycle(runtime, { status: { kind: 'complete' } })
     runtime.snapshot = undefined
     await this.notifier(rebalanceNotification({
       dryRun: false,
@@ -205,8 +236,12 @@ export class AlmEngine {
 
   private async ensureSnapshot(runtime: PositionRuntime): Promise<PositionRuntime['snapshot']> {
     const now = this.now()
-    if (runtime.snapshot && now - runtime.snapshot.fetchedAt < SNAPSHOT_TTL_MS) return runtime.snapshot
-    const position = await this.newClient().getPositionByPool(runtime.config.pool, this.options.wallet)
+    if (!this.executing && runtime.snapshot && now - runtime.snapshot.fetchedAt < SNAPSHOT_TTL_MS) return runtime.snapshot
+    const selectedId = managedPositionId(this.positionState(runtime), runtime.config.positionId)
+    const client = this.newClient()
+    const position = selectedId === undefined
+      ? await client.getPositionByPool(runtime.config.pool, this.options.wallet)
+      : await client.getPositionById(selectedId, this.options.wallet, runtime.config.pool)
     if (!position || !position.pool.isCl) {
       runtime.snapshot = undefined
       return undefined
@@ -257,7 +292,60 @@ export class AlmEngine {
 
   // --- execution ---
 
-  private async sendPhase(phase: string, poolSymbol: string, rawSteps: PlanStep[]): Promise<Hex[]> {
+  private stateKey(runtime: PositionRuntime): string {
+    return positionStateKey(this.options.config.chain, runtime.config.pool, this.options.wallet)
+  }
+
+  private positionId(runtime: PositionRuntime): bigint {
+    const cycle = this.state[this.stateKey(runtime)]?.cycle
+    if (!cycle || cycle.status.kind !== 'active') throw new Error('No active ALM position identity')
+    return BigInt(cycle.positionId)
+  }
+
+  private positionState(runtime: PositionRuntime) {
+    return this.state[this.stateKey(runtime)] ?? this.state[positionStateKey(this.options.config.chain, runtime.config.pool)]
+  }
+
+  private beginCycle(runtime: PositionRuntime, kind: AlmCycle['kind'], position: Position, interval: { tickLower: number; tickUpper: number }): void {
+    const key = this.stateKey(runtime)
+    const startedAt = this.now()
+    const entry = this.positionState(runtime) ?? { rebalances: [] }
+    if (entry.cycle?.status.kind === 'active') throw new Error('ALM cycle requires recovery')
+    this.state = { ...this.state, [key]: { ...entry,
+      configuredPositionId: runtime.config.positionId?.toString(), managedPositionId: position.id.toString(), cycle: {
+      id: crypto.randomUUID(), kind, chain: this.options.config.chain, wallet: this.options.wallet,
+      pool: runtime.config.pool, positionId: position.id.toString(), tickLower: interval.tickLower, tickUpper: interval.tickUpper, startedAt,
+      balances: {}, phases: [], status: { kind: 'active' },
+    } } }
+    this.state = kind === 'rebalance' ? recordRebalance(this.state, key, startedAt) : recordCompound(this.state, key, startedAt)
+    saveAlmState(this.state, this.options.statePath)
+  }
+
+  private updateCycle(runtime: PositionRuntime, update: Partial<Pick<AlmCycle, 'balances' | 'phases' | 'status' | 'resultPositionId'>>): AlmCycle {
+    const key = this.stateKey(runtime)
+    const entry = this.state[key]
+    if (!entry?.cycle || entry.cycle.status.kind !== 'active') throw new Error('No active ALM cycle')
+    const cycle = { ...entry.cycle, ...update }
+    this.state = { ...this.state, [key]: { ...entry, cycle,
+      managedPositionId: cycle.status.kind === 'complete' ? cycle.resultPositionId ?? cycle.positionId : entry.managedPositionId,
+    } }
+    saveAlmState(this.state, this.options.statePath)
+    return cycle
+  }
+
+  private async guardedTick(runtime: PositionRuntime): Promise<number> {
+    const config = runtime.config
+    const tick = (await readPoolTick(this.publicClient, config.pool)).tick
+    const now = this.now()
+    pushTickSample(runtime.history, tick, now, config.twapSeconds * 2_000)
+    const twap = await readTwapTick(this.publicClient, config.pool, config.twapSeconds)
+      ?? averageTick(runtime.history, config.twapSeconds * 1_000, now, this.options.config.pollSeconds * 2_000)
+    const gate = checkTwapGate(tick, twap, config.maxTwapDeviationTicks)
+    if (!gate.allowed) throw new Error(gate.reason)
+    return tick
+  }
+
+  private async sendPhase(runtime: PositionRuntime, phase: string, poolSymbol: string, rawSteps: PlanStep[]): Promise<Hex[]> {
     const signer = this.options.signer
     if (!signer) throw new Error('sendPhase called without a signer')
     if (rawSteps.length === 0) return []
@@ -277,15 +365,24 @@ export class AlmEngine {
       }
       this.log(`[${poolSymbol}] WARNING: ${phase} not simulated (${simulation.reason})`)
     }
+    await this.guardedTick(runtime)
+    const plan = createExecutionPlan({ steps, chainId: this.options.config.chain, sender: signer.address })
+    const cycle = this.state[this.stateKey(runtime)]?.cycle
+    if (!cycle) throw new Error('No ALM cycle to journal')
+    this.updateCycle(runtime, { phases: [...cycle.phases, { name: phase, executionId: plan.id }] })
+    this.journalStore.save({ plan, status: 'active', steps: steps.map(() => ({ kind: 'ready' })) })
     this.log(`[${poolSymbol}] ${phase}: sending ${steps.length} tx(s)`)
-    return sendPlan({
-      steps,
-      chainId: this.options.config.chain,
+    const hashes = await sendPlan({
+      plan,
       signer,
+      store: this.journalStore,
+      beforeSend: async () => { await this.guardedTick(runtime) },
       rpcUrl: this.options.rpcUrl,
       publicClient: this.publicClient,
       log: (line) => this.log(`[${poolSymbol}] ${line}`),
     })
+    runtime.snapshot = undefined
+    return hashes
   }
 
   private isNativeLeg(client: SugarClient, token: Token): boolean {
@@ -293,7 +390,7 @@ export class AlmEngine {
     // carries ether (the role forbids Send).
     if (this.options.safe) return false
     return token.wrappedTokenAddress !== undefined
-      || addressKey(token.tokenAddress) === addressKey(client.settings.wrappedNativeTokenAddress)
+      && addressKey(token.wrappedTokenAddress) === addressKey(client.settings.wrappedNativeTokenAddress)
   }
 
   /** The tradable token for a pool leg: the native pseudo-token for wrapped-native legs. */
@@ -316,21 +413,22 @@ export class AlmEngine {
     const config = runtime.config
     const hashes: string[] = []
     let client = this.newClient()
-    let position = await client.getPositionByPool(config.pool, this.options.wallet)
+    let position = await client.getPositionById(this.positionId(runtime), this.options.wallet, config.pool)
     if (!position) throw new Error('position disappeared before rebalancing')
+    const previousIds = new Set((await client.getPositionsByPool(config.pool, this.options.wallet)).map((entry) => entry.id))
     const pool = position.pool
     const wasStaked = position.staked > 0n
 
     // Phase 1: claim pending emissions so they are not left behind on the gauge.
     if (wasStaked && position.emissionsEarned > 0n) {
-      hashes.push(...await this.sendPhase('claim emissions', pool.symbol, toPlanSteps(await client.claimEmissions(position))))
+      hashes.push(...await this.sendPhase(runtime, 'claim emissions', pool.symbol, toPlanSteps(await client.claimEmissions(position))))
     }
 
     // Phase 2: unstake the NFT out of the gauge.
     if (wasStaked) {
-      hashes.push(...await this.sendPhase('unstake', pool.symbol, toPlanSteps(await client.unstake(position))))
+      hashes.push(...await this.sendPhase(runtime, 'unstake', pool.symbol, toPlanSteps(await client.unstake(position))))
       client = this.newClient()
-      position = await client.getPositionByPool(config.pool, this.options.wallet)
+      position = await client.getPositionById(this.positionId(runtime), this.options.wallet, config.pool)
       if (!position) throw new Error('position disappeared after unstaking')
     }
     if (position.liquidity === 0n) throw new Error('position has no liquidity to withdraw')
@@ -340,14 +438,15 @@ export class AlmEngine {
     const hasNativeLeg = this.isNativeLeg(client, pool.token0) || this.isNativeLeg(client, pool.token1)
     const baseline0 = await this.legBalance(client, pool.token0)
     const baseline1 = await this.legBalance(client, pool.token1)
+    this.updateCycle(runtime, { balances: { token0: baseline0.toString(), token1: baseline1.toString() } })
     const withdrawPlan = this.options.safe
       ? buildSafeWithdraw(this.options.wallet, position, config.slippage)
       : await client.withdraw(withdrawalFromPosition(position, { burn: true }), 30, config.slippage, true, hasNativeLeg)
-    hashes.push(...await this.sendPhase('withdraw', pool.symbol, toPlanSteps(withdrawPlan)))
+    hashes.push(...await this.sendPhase(runtime, 'withdraw', pool.symbol, toPlanSteps(withdrawPlan)))
 
     // Phase 4: swap the surplus side so holdings match the new interval ratio.
     client = this.newClient()
-    const freshTick = (await readPoolTick(this.publicClient, config.pool)).tick
+    const freshTick = await this.guardedTick(runtime)
     const available = async () => {
       const [now0, now1] = [await this.legBalance(client, pool.token0), await this.legBalance(client, pool.token1)]
       return {
@@ -375,7 +474,7 @@ export class AlmEngine {
         ? (rawIn > afterWithdraw.amount0 ? afterWithdraw.amount0 : rawIn)
         : (rawIn > afterWithdraw.amount1 ? afterWithdraw.amount1 : rawIn)
       if (capped > 0n) {
-        hashes.push(...await this.sendPhase(
+        hashes.push(...await this.sendPhase(runtime,
           `swap ${fromLeg.symbol} -> ${toLeg.symbol}`,
           pool.symbol,
           toPlanSteps(await client.swap(fromToken, toToken, capped, config.swapSlippage)),
@@ -388,21 +487,22 @@ export class AlmEngine {
     const freshPool = await client.getPoolByAddress(config.pool)
     if (!freshPool) throw new Error('pool vanished from the catalog')
     const funds = await available()
-    hashes.push(...await this.sendPhase(
+    hashes.push(...await this.sendPhase(runtime,
       'deposit',
       pool.symbol,
       toPlanSteps(await this.buildDeposit(client, freshPool, decision, funds, config.slippage)),
     ))
 
     // Phase 6: stake the new position when the gauge is live.
+    client = this.newClient()
+    const candidates = (await client.getPositionsByPool(config.pool, this.options.wallet)).filter((entry) => !previousIds.has(entry.id))
+    const minted = candidates.length === 1 ? candidates[0] : undefined
+    if (!minted || minted.id === this.positionId(runtime) || minted.tickLower !== decision.tickLower || minted.tickUpper !== decision.tickUpper || minted.staked !== 0n || minted.liquidity === 0n) {
+      throw new Error('Could not identify the freshly minted position; inspect the cycle and recover manually')
+    }
+    this.updateCycle(runtime, { resultPositionId: minted.id.toString() })
     if (freshPool.gaugeAlive && freshPool.gauge !== ADDRESS_ZERO) {
-      client = this.newClient()
-      const minted = await client.getPositionByPool(config.pool, this.options.wallet)
-      if (minted && minted.tickLower === decision.tickLower && minted.tickUpper === decision.tickUpper && minted.staked === 0n) {
-        hashes.push(...await this.sendPhase('stake', pool.symbol, toPlanSteps(await client.stake(minted))))
-      } else {
-        this.log(`[${pool.symbol}] WARNING: could not identify the freshly minted position to stake it; stake manually`)
-      }
+      hashes.push(...await this.sendPhase(runtime, 'stake', pool.symbol, toPlanSteps(await client.stake(minted))))
     }
     return hashes
   }
@@ -453,10 +553,10 @@ export class AlmEngine {
     if (!emissionsToken) return
     const earnedDecimal = tokenToNumber(emissionsToken, position.emissionsEarned)
     if (earnedDecimal < config.minCompoundEmissionsDecimal) return
-    const key = positionStateKey(this.options.config.chain, config.pool)
-    const lastCompoundAt = this.state[key]?.lastCompoundAt
+    const lastCompoundAt = this.positionState(runtime)?.lastCompoundAt
     const now = this.now()
     if (lastCompoundAt !== undefined && now - lastCompoundAt < COMPOUND_MIN_INTERVAL_MS) return
+    tick = await this.guardedTick(runtime)
 
     if (!this.executing) {
       const intent = `compound:${position.emissionsEarned}`
@@ -468,9 +568,9 @@ export class AlmEngine {
     }
 
     this.log(`[${position.pool.symbol}] compounding ${earnedDecimal.toFixed(4)} ${emissionsToken.symbol}`)
+    this.beginCycle(runtime, 'compound', position, position)
     const hashes = await this.executeCompound(runtime, tick)
-    this.state = recordCompound(this.state, key, this.now())
-    saveAlmState(this.state, this.options.statePath)
+    this.updateCycle(runtime, { status: { kind: 'complete' } })
     runtime.snapshot = undefined
     await this.notifier(compoundNotification({ dryRun: false, poolSymbol: position.pool.symbol, amountDecimal: earnedDecimal, symbol: emissionsToken.symbol, hashes }))
   }
@@ -479,7 +579,7 @@ export class AlmEngine {
     const config = runtime.config
     const hashes: string[] = []
     let client = this.newClient()
-    let position = await client.getPositionByPool(config.pool, this.options.wallet)
+    let position = await client.getPositionById(this.positionId(runtime), this.options.wallet, config.pool)
     if (!position || position.staked === 0n) throw new Error('staked position disappeared before compounding')
     const pool = position.pool
     const emissionsToken = pool.emissionsToken
@@ -488,22 +588,24 @@ export class AlmEngine {
     const baseline0 = await this.legBalance(client, pool.token0)
     const baseline1 = await this.legBalance(client, pool.token1)
     const emissionsBaseline = await client.balanceOf(normalizeAddress(emissionsToken.tokenAddress), this.options.wallet)
+    this.updateCycle(runtime, { balances: { token0: baseline0.toString(), token1: baseline1.toString(), emissions: emissionsBaseline.toString() } })
 
     // Phase 1: claim the emissions from the gauge.
-    hashes.push(...await this.sendPhase('claim emissions', pool.symbol, toPlanSteps(await client.claimEmissions(position))))
+    hashes.push(...await this.sendPhase(runtime, 'claim emissions', pool.symbol, toPlanSteps(await client.claimEmissions(position))))
     client = this.newClient()
     const claimedTotal = await client.balanceOf(normalizeAddress(emissionsToken.tokenAddress), this.options.wallet) - emissionsBaseline
     if (claimedTotal <= 0n) throw new Error('no emissions arrived after claiming')
 
     // Phase 2: swap the claimed emissions into the pool legs by value share.
+    tick = await this.guardedTick(runtime)
     const share0 = token0ValueShare(tick, position.tickLower, position.tickUpper)
-    const toLeg0 = BigInt(Math.floor(Number(claimedTotal) * share0))
+    const toLeg0 = claimedTotal * BigInt(Math.floor(share0 * 1_000_000_000)) / 1_000_000_000n
     const toLeg1 = claimedTotal - toLeg0
     for (const [legRaw, leg] of [[toLeg0, pool.token0], [toLeg1, pool.token1]] as const) {
       if (legRaw <= 0n) continue
       if (addressKey(emissionsToken.tokenAddress) === addressKey(leg.tokenAddress)) continue
       const toToken = await this.legToken(client, leg)
-      hashes.push(...await this.sendPhase(
+      hashes.push(...await this.sendPhase(runtime,
         `swap ${emissionsToken.symbol} -> ${leg.symbol}`,
         pool.symbol,
         toPlanSteps(await client.swap(emissionsToken, toToken, legRaw, config.swapSlippage)),
@@ -512,9 +614,9 @@ export class AlmEngine {
 
     // Phase 3: unstake, add the liquidity to the same interval, restake.
     client = this.newClient()
-    position = await client.getPositionByPool(config.pool, this.options.wallet)
+    position = await client.getPositionById(this.positionId(runtime), this.options.wallet, config.pool)
     if (!position) throw new Error('position disappeared while compounding')
-    hashes.push(...await this.sendPhase('unstake', pool.symbol, toPlanSteps(await client.unstake(position))))
+    hashes.push(...await this.sendPhase(runtime, 'unstake', pool.symbol, toPlanSteps(await client.unstake(position))))
 
     client = this.newClient()
     const funds = {
@@ -525,17 +627,16 @@ export class AlmEngine {
     if (funds.amount1 < 0n) funds.amount1 = 0n
     const freshPool = await client.getPoolByAddress(config.pool)
     if (!freshPool) throw new Error('pool vanished from the catalog')
-    hashes.push(...await this.sendPhase(
+    hashes.push(...await this.sendPhase(runtime,
       'increase liquidity',
       pool.symbol,
       toPlanSteps(await this.buildIncreaseLiquidity(client, freshPool, position, funds, config.slippage)),
     ))
 
     client = this.newClient()
-    const restaked = await client.getPositionByPool(config.pool, this.options.wallet)
-    if (restaked && restaked.staked === 0n && restaked.liquidity > 0n) {
-      hashes.push(...await this.sendPhase('stake', pool.symbol, toPlanSteps(await client.stake(restaked))))
-    }
+    const restaked = await client.getPositionById(this.positionId(runtime), this.options.wallet, config.pool)
+    if (!restaked || restaked.staked !== 0n || restaked.liquidity === 0n) throw new Error('Could not identify the position to restake; manual recovery required')
+    hashes.push(...await this.sendPhase(runtime, 'stake', pool.symbol, toPlanSteps(await client.stake(restaked))))
     return hashes
   }
 

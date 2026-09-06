@@ -1,7 +1,8 @@
 import { useKeyboard } from '@opentui/react'
 import { useEffect, useRef, useState } from 'react'
-import { fetchLlama } from '../analytics/llama'
+import { fetchTuiLlama } from '../sugar'
 import { formatUsd } from '../format'
+import { AeroMark } from '../logo'
 import { theme } from '../theme'
 import { useApp, type Route } from '../store'
 import { StatusBar } from '../widgets'
@@ -27,7 +28,7 @@ function LiveStats() {
   const [stats, setStats] = useState<{ tvl?: number; fees24h?: number; volume24h?: number }>({})
   useEffect(() => {
     let cancelled = false
-    fetchLlama(chain).then((llama) => {
+    fetchTuiLlama(chain).then((llama) => {
       if (!cancelled && llama) setStats({ tvl: llama.tvlNow, fees24h: llama.fees24h, volume24h: llama.volume24h })
     }).catch(() => undefined)
     return () => {
@@ -75,7 +76,10 @@ export function HomeScreen(props: { openPalette: () => void }) {
       <box flexGrow={1} minHeight={0} alignItems="center">
         <box flexGrow={1} maxHeight={3} minHeight={0} />
         <box flexShrink={0} alignItems="center">
-          <ascii-font font="tiny" text="AERO" color={theme.primary} />
+          <box flexDirection="row" gap={2} alignItems="center">
+            <AeroMark />
+            <ascii-font font="block" text="AERO" color={theme.primary} />
+          </box>
           <text fg={theme.textMuted}>Aerodrome & Velodrome from your terminal</text>
           <LiveStats />
           <text fg={theme.warning}>⚠ vibecoded & early beta — never risk funds you cannot afford to lose</text>

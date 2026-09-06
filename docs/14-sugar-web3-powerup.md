@@ -202,6 +202,29 @@ Per-chain Sugar RPC overrides use the standard names (`SUGAR_RPC_URI_8453`,
 
 ## Developer CLI wallet flow (aero)
 
+### CLI and TUI responsiveness
+
+The CLI reuses one Sugar client for token selection and action execution, so a
+symbol lookup does not force execution to scan the same token catalog again.
+Public reads such as pools and quotes do not open the local wallet or Keychain.
+An explicit wallet or owner also avoids the wallet lookup for position reads.
+
+TUI browse refreshes share a pending request, even when a scan exceeds the
+60-second result TTL. The TTL starts when the request succeeds. An obsolete
+request cannot delete a newer result or overwrite its disk snapshot. Ctrl+R
+invalidates the shared SDK cache before a new scan. Quotes and transaction
+plans bypass the result cache.
+
+Token pickers keep keyboard selection aligned with the displayed filter,
+including input and Enter received in the same batch. If loading the catalog
+fails, Enter retries and opens the picker after recovery. Forms without token
+fields do not request a token catalog.
+
+These changes are local to Aero's CLI and TUI. Bee's web, mobile, iMessage,
+voice, agent providers, and transaction contracts are unchanged.
+
+### Terminal and wallet commands
+
 The `aero tui` Analytics screen tags every metric with its source:
 on-chain Sugar (TVL, epochs, locks), Dune Analytics (`DUNE_API_KEY`,
 Hoodie Crew #7907454 and `dex.trades` SQL), and DefiLlama (fees, TVL
@@ -218,6 +241,19 @@ with its age — while the live scan refreshes in the background. Snapshots
 never feed quotes or transaction building. With a pinned RPC
 (`SUGAR_RPC_URI_<chainId>`) the TUI raises scan concurrency to 16 and warms
 caches in parallel.
+The TUI runs scans, quotes, unsigned plan construction, analytics, and snapshot
+I/O in one background worker. React rendering and keyboard input stay on the
+main thread. The worker owns the shared caches, forwards RPC progress, and
+stops when the TUI exits. If it crashes, pending screens show an error and the
+next request starts a new worker. Failed worker requests are not replayed automatically.
+
+The logo follows the renderer's 60 fps clock using elapsed time, so delayed
+frames do not stretch the animation. The render loop stops between sweeps.
+`bun run --cwd packages/sugar test:performance` measures three live launches
+and fails if intro frame gaps exceed 80 ms or their 95th percentile exceeds
+34 ms. `bun run --cwd packages/sugar build` emits `dist/cli.js` and the required
+`dist/worker.js`. Keep both files together when distributing that build.
+
 This is CLI-local — the agent bridge, Bee chat, and mobile/web clients
 are unchanged.
 
@@ -256,17 +292,45 @@ Mellow's production widths per tick spacing are the defaults.
   daily rebalance cap persisted in `~/.config/sugar-ts/alm-state.json`, and
   optional buddytg Telegram notifications (`"telegram": true`).
 
-Safe mode (`aero alm safe-setup`) upgrades the custody model: positions live
-in a Safe and the daemon's keeper key executes through a Zodiac Roles
-Modifier v2 (mastercopy `0x9646fDAD…D337`, deployed via the canonical
-ModuleProxyFactory) whose role is scoped on-chain — mint/collect recipients
-pinned to the Safe via `EqualToAvatar`, NFT approvals pinned to the pool
-gauges, ERC20 approvals pinned to the NFPM/Permit2, `ExecutionOptions.None`
-everywhere. Setup ships as a Safe Transaction Builder JSON batch (one owner
-signature); plans avoid `NFPM.multicall` and native legs so the
-per-selector conditions always apply, and compounding is disabled
-(`increaseLiquidity`'s tokenId cannot be pinned). Reference codebase:
-`resources/zodiac-roles`.
+Safe keeper execution and `aero alm safe-setup` are disabled for 0.1 pending
+on-chain permission verification. Safe observation in dry-run remains available.
+The former policy allowed unrestricted router command bytes. This update does
+not revoke deployed roles; Safe owners must review and revoke the old keeper
+membership or disable the Roles module. The Zodiac reference remains at
+`resources/zodiac-roles` for the future restricted executor design.
+
+EOA ALM execution is experimental pending fork tests. Both rebalance and
+compound transactions check TWAP immediately before submission, including after
+approvals. Local fallback weights elapsed time, requires the full window and
+rejects gaps longer than two poll intervals. It remains a sampled estimate.
+
+Cycles persist chain/wallet/pool identity, original and replacement NFT IDs,
+intended range, balance baselines and phase journal IDs. Transaction journals
+persist hashes and receipt outcomes. Atomic synced writes and an exclusive
+state-file lock prevent partial state writes and overlapping local ALM passes.
+Corrupt state blocks execution. Rebalance attempts consume cooldown/daily limits
+at cycle start; compound attempts start the 24-hour delay. Failed attempts count.
+
+ALM config entries accept `positionId` as a decimal string. `aero alm init
+--position-id <id>` selects one NFT when several share a pool. Each pool has one
+managed NFT; successful rebalances persist its replacement ID across restarts.
+Manual recovery accepts `--position-id <repaired-id>` and verifies a funded NFT
+owned by the same wallet in the same pool before updating that identity.
+
+After interruption, known hashes are reconciled but phases are not automatically
+replayed. The wallet and chain remain blocked even if the old NFT was burned:
+
+- `aero alm status` shows unresolved cycles before querying positions.
+- `aero alm recover --id <cycle-id>` checks receipts without signing.
+- After repairing the position manually, `aero alm resolve --id <cycle-id>
+  --note <verified-outcome>` asks for confirmation, cancels unsent remainder and
+  permits future cycles without resetting attempt limits.
+
+Unknown or pending submissions prevent resolution. A send without a known hash,
+missing/corrupt journals or stale locks needs operator investigation, not a blind
+retry. Automatic phase continuation, multi-host coordination and concurrent
+external trading in the managed wallet are unsupported. The release analysis in
+`artifacts/aero-0.1-review.md` lists the outstanding fork and recovery checks.
 
 This is deliberately CLI-only: the agent bridge, `SUGAR_ACTIONS`, and the
 app confirmation gate are untouched — Bee's own web3 tools never sign, and
@@ -276,7 +340,7 @@ user-facing walkthrough.
 Run the focused checks with Bun:
 
 ```sh
-bun test packages/sugar
+bun run --cwd packages/sugar test
 bun run --cwd packages/backend test
 bun run --cwd packages/sugar typecheck
 bun run --cwd packages/backend typecheck
@@ -297,3 +361,8 @@ single smart-wallet transactions:
 The final audit found zero liquid AERO, WETH, LP liquidity, staked LP, and
 relevant allowances. Net ETH spent was `0.000005496705892972`; existing veNFT
 `#130435` remained locked with `2.281406549154201269 AERO`.
+
+CLI and TUI swap confirmations show both resolved asset addresses before signing.
+WalletConnect uses one client per process and checks the current session against
+the exact sender, chain and transaction permission before every submission.
+Session expiry, deletion and account changes invalidate the local connection.

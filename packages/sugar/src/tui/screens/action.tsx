@@ -1,22 +1,21 @@
 import { TextAttributes } from '@opentui/core'
 import { useKeyboard } from '@opentui/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { executeSugarAction } from '../../actions'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { formatCliError } from '../../cli'
-import { isSugarTxAction, type SugarAction, type SugarParameters, type SugarTxAction } from '../../contracts'
+import { isSugarTxAction, type SugarAction, type SugarParameters } from '../../contracts'
 import { toTokenChoice } from '../../token-catalog'
-import { extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type PlanSigner, type PlanStep } from '../../send'
+import { createExecutionPlan, extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type ExecutionPlan, type PlanSigner, type PlanStep } from '../../send'
 import type { SugarJson, Token } from '../../types'
 import { loadLocalWallet, loadWalletConnectRecord, openSecret } from '../../wallet'
 import { SelectDialog, PromptDialog } from '../dialogs'
 import { ACTION_FORMS, ACTION_TITLES, buildParameters, initialValues, type FieldSpec, type FormValues } from '../fields'
 import { humanizeResult } from '../humanize'
-import { clearTuiPrefetch, runTuiAction, tuiExecution, tuiTokenCatalog } from '../sugar'
+import { clearTuiPrefetch, runTuiAction, tuiTokenCatalog } from '../sugar'
 import { theme } from '../theme'
 import { useApp } from '../store'
 import { ScreenFrame, Spinner } from '../widgets'
 
-type Plan = { result: SugarJson; steps: PlanStep[]; summary: string }
+type Plan = { result: SugarJson; steps: PlanStep[]; summary: string; execution: ExecutionPlan }
 type Phase =
   | { kind: 'form' }
   | { kind: 'running'; label: string }
@@ -107,38 +106,39 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
   const [phase, setPhase] = useState<Phase>({ kind: 'form' })
   const [log, setLog] = useState<string[]>([])
   const [catalog, setCatalog] = useState<Token[] | null>(null)
+  const catalogRequest = useRef<Promise<Token[]> | null>(null)
+  const pickerPending = useRef(false)
   const alive = useRef(true)
-  useEffect(() => () => {
-    alive.current = false
-  }, [])
   useEffect(() => {
-    let mounted = true
-    setCatalog(null)
-    // Best-effort warm-up for the token picker; failures surface when the
-    // user actually opens it.
-    tuiTokenCatalog(app.chain)
-      .then((tokens) => {
-        if (mounted) setCatalog(tokens)
-      })
-      .catch(() => undefined)
-    return () => {
-      mounted = false
-    }
+    alive.current = true
+    return () => { alive.current = false }
+  }, [])
+  const loadCatalog = useCallback(() => {
+    if (catalogRequest.current) return catalogRequest.current
+    const pending = tuiTokenCatalog(app.chain)
+    catalogRequest.current = pending
+    void pending.then((tokens) => {
+      if (alive.current) setCatalog(tokens)
+    }).catch(() => undefined).finally(() => {
+      if (catalogRequest.current === pending) catalogRequest.current = null
+    })
+    return pending
   }, [app.chain])
+  const needsCatalog = fields.some((entry) => entry.kind === 'token')
+  useEffect(() => {
+    if (needsCatalog) void loadCatalog().catch(() => undefined)
+  }, [loadCatalog, needsCatalog])
   const title = ACTION_TITLES[props.action]
   const isTx = isSugarTxAction(props.action)
   const field = fields[index]
 
   const setValue = (name: string, value: string | boolean) => setValues((current) => ({ ...current, [name]: value }))
 
-  const openTokenPicker = (tokenField: FieldSpec) => {
-    if (!catalog) {
-      return app.toast('info', 'Loading tokens', 'The whitelisted token catalog is still scanning the chain')
-    }
+  const showTokenPicker = (tokenField: FieldSpec, tokens: Token[]) => {
     app.openDialog((close) => (
       <SelectDialog
         title={`Select ${tokenField.label.toLowerCase()}`}
-        items={catalog.map((token) => {
+        items={tokens.map((token) => {
           const choice = toTokenChoice(token)
           return {
             id: `${token.tokenAddress}:${token.symbol}`,
@@ -147,8 +147,7 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
             onSelect: () => {
               // Ambiguous symbols fall back to the address so the picked
               // token is the one that gets swapped.
-              const sameSymbol = catalog.some((other) => other !== token && other.symbol.toLowerCase() === token.symbol.toLowerCase())
-              setValue(tokenField.name, sameSymbol ? token.tokenAddress : token.symbol)
+              setValue(tokenField.name, token.tokenAddress)
             },
           }
         })}
@@ -157,6 +156,18 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
         close={close}
       />
     ))
+  }
+
+  const openTokenPicker = (tokenField: FieldSpec) => {
+    if (catalog) return showTokenPicker(tokenField, catalog)
+    if (pickerPending.current) return
+    pickerPending.current = true
+    app.toast('info', 'Loading tokens', 'The picker will open when the catalog is ready')
+    void loadCatalog().then((tokens) => {
+      if (alive.current) showTokenPicker(tokenField, tokens)
+    }).catch((cause: unknown) => {
+      if (alive.current) app.toast('error', 'Token loading failed', `${formatCliError(cause)}. Press Enter to retry`)
+    }).finally(() => { pickerPending.current = false })
   }
 
   const cycleChoice = (step: number) => {
@@ -182,16 +193,13 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
     const rerun = phase.kind === 'result'
     setPhase({ kind: 'running', label: isTx ? 'Building the transaction plan...' : 'Fetching...' })
     try {
-      // Plans must always be built fresh; reads may reuse a warm prefetch.
-      const result = isTx
-        ? await executeSugarAction(props.action, parameters, tuiExecution)
-        : await runTuiAction(props.action, parameters, { fresh: rerun })
+      const result = await runTuiAction(props.action, parameters, { fresh: rerun })
       if (!alive.current) return
-      if (isTx) {
+      if (isSugarTxAction(props.action)) {
         const steps = extractPlanSteps(result)
-        // SAFETY: isTx above is isSugarTxAction(props.action), so the action
-        // is one of the transaction-building members of SugarAction.
-        setPhase({ kind: 'plan', plan: { result, steps, summary: renderPlanSummary(props.action as SugarTxAction, result, steps) }, showJson: false })
+        if (!app.wallet) throw new Error('Wallet disconnected while building the plan')
+        const execution = createExecutionPlan({ steps, chainId: Number(parameters.chain), sender: app.wallet.address })
+        setPhase({ kind: 'plan', plan: { result, steps, execution, summary: renderPlanSummary(props.action, result, steps) }, showJson: false })
       } else {
         setPhase({ kind: 'result', data: result, showJson: false })
       }
@@ -203,12 +211,15 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
   }
 
   const broadcast = async (signer: PlanSigner, plan: Plan) => {
+    if (plan.execution.chainId !== app.chain || plan.execution.sender.toLowerCase() !== app.wallet?.address.toLowerCase()) {
+      return app.toast('error', 'Plan invalidated', 'Rebuild the plan for the current chain and wallet')
+    }
     setLog([])
     setPhase({ kind: 'broadcast' })
-    const append = (line: string) => setLog((lines) => [...lines, line])
+    const append = (line: string) => { if (alive.current) setLog((lines) => [...lines, line]) }
     try {
-      const hashes = await sendPlan({ steps: plan.steps, chainId: app.chain, signer, log: append })
-      clearTuiPrefetch()
+      const hashes = await sendPlan({ plan: plan.execution, signer, log: append })
+      await clearTuiPrefetch()
       if (!alive.current) return
       app.toast('success', 'Broadcast complete', `${hashes.length} transaction${hashes.length === 1 ? '' : 's'} confirmed`)
       setPhase({ kind: 'sent', hashes })

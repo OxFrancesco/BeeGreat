@@ -10,6 +10,8 @@ import { almCommand, serveCommand } from './alm-commands'
 import { guideCommand } from './guide'
 import { fromPromise } from './run-action'
 import { walletCommand } from './wallet-commands'
+import { executionCommand } from './execution-commands'
+import { stopWalletConnect } from '../walletconnect'
 
 const tuiCommand = Command.make('tui', {}, Effect.fn(function* () {
   const { runAeroTui } = yield* Effect.promise(() => import('../tui/run'))
@@ -37,7 +39,7 @@ export const rootCommand = Command.make('aero').pipe(
     "with '--wizard', and '--completions <shell>' prints shell completion",
     'scripts.',
   ].join('\n')),
-  Command.withSubcommands([tuiCommand, ...actionCommands, serveCommand, almCommand, walletCommand, guideCommand]),
+  Command.withSubcommands([tuiCommand, ...actionCommands, serveCommand, almCommand, walletCommand, executionCommand, guideCommand]),
 )
 
 /**
@@ -58,6 +60,7 @@ export function runAeroCliMain(): void {
         process.exitCode = 1
       }),
     ),
+    Effect.ensuring(Effect.promise(stopWalletConnect)),
     Effect.tap(() => Effect.sync(() => process.exit(process.exitCode ?? 0))),
   )
   BunRuntime.runMain(program, { disableErrorReporting: true })

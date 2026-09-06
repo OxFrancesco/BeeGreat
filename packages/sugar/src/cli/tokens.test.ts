@@ -43,10 +43,10 @@ const run = (action: string, parameters: Parameters<typeof resolveTokenParameter
   Effect.runPromise(Effect.provide(resolveTokenParameters(action, parameters, { interactive: false, tokens: TOKENS }), inertEnv))
 
 describe('CLI token parameter resolution', () => {
-  test('exact symbols pass through untouched', async () => {
+  test('resolved tokens retain their identity instead of being looked up by symbol again', async () => {
     const resolved = await run('swap', { chain: 8453, from_token: 'eth', to_token: 'USDC', amount: '1' })
-    expect(resolved.from_token).toBe('eth')
-    expect(resolved.to_token).toBe('USDC')
+    expect(resolved.from_token).toBe('ETH')
+    expect(resolved.to_token).toBe('0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913')
   })
 
   test('addresses pass through even when unknown to the catalog', async () => {

@@ -99,3 +99,11 @@ contracts have mixed licenses. Mellow's PulseStrategyModule is marked BUSL-1.1.
 A public repository or non-affiliation disclaimer does not grant reuse rights.
 See the dated licensing review in `packages/sugar/README.md` for unresolved release
 checks. Preserve applicable upstream licenses and notices in every distribution.
+
+## Aero SDK verification
+
+Run Sugar tests with `bun run --cwd packages/sugar test`. Running
+`bun test packages/sugar` from the monorepo root also matches tests under
+`resources/velodrome-sdk-js/packages/sugar-sdk`, whose dependencies are separate.
+Use `bun run --cwd packages/sugar typecheck` and
+`bun run --cwd packages/sugar lint` for the package checks.

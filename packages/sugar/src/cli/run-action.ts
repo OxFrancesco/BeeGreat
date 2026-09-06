@@ -3,8 +3,10 @@ import * as Effect from 'effect/Effect'
 import * as Redacted from 'effect/Redacted'
 import * as Prompt from 'effect/unstable/cli/Prompt'
 import { executeSugarActionEffect } from '../actions'
+import { SugarClient } from '../client'
+import { DEFAULT_CHAIN } from './flags'
 import { isSugarTxAction, type SugarAction, type SugarParameters, type SugarTxAction } from '../contracts'
-import { extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type PlanSigner } from '../send'
+import { createExecutionPlan, extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type PlanSigner } from '../send'
 import type { SugarJson } from '../types'
 import { getActiveWallet, loadLocalWallet, loadWalletConnectRecord, openSecret } from '../wallet'
 import { resolveTokenParameters } from './tokens'
@@ -28,15 +30,18 @@ export const runReadAction = Effect.fn('AeroCli.runReadAction')(function* (
   action: SugarAction,
   parameters: SugarParameters,
 ) {
-  const active = getActiveWallet()
-  const resolved = yield* resolveTokenParameters(action, parameters)
+  const active = parameters.wallet === undefined && parameters.owner === undefined && acceptsWalletDefault(action)
+    ? getActiveWallet()
+    : undefined
+  const client = new SugarClient(Number(parameters.chain ?? DEFAULT_CHAIN))
+  const resolved = yield* resolveTokenParameters(action, parameters, { client })
   const withWallet = parameters.wallet === undefined && active && acceptsWalletDefault(action)
     ? { ...resolved, wallet: active.address }
     : resolved
-  yield* printJson(yield* executeSugarActionEffect(action, withWallet, {}))
+  yield* printJson(yield* executeSugarActionEffect(action, withWallet, { clientFactory: () => client }))
 })
 
-const resolveSigner = Effect.fn('AeroCli.resolveSigner')(function* () {
+export const resolveSigner = Effect.fn('AeroCli.resolveSigner')(function* () {
   const wc = loadWalletConnectRecord()
   if (wc) {
     const { walletConnectSendTransaction } = yield* Effect.promise(() => import('../walletconnect'))
@@ -66,11 +71,12 @@ export const runTxAction = Effect.fn('AeroCli.runTxAction')(function* (
   options: BroadcastOptions,
 ) {
   const active = getActiveWallet()
-  const resolved = yield* resolveTokenParameters(action, parameters)
+  const client = new SugarClient(Number(parameters.chain ?? DEFAULT_CHAIN))
+  const resolved = yield* resolveTokenParameters(action, parameters, { client })
   const withWallet = parameters.wallet === undefined && active
     ? { ...resolved, wallet: active.address }
     : resolved
-  const result = yield* executeSugarActionEffect(action, withWallet, {})
+  const result = yield* executeSugarActionEffect(action, withWallet, { clientFactory: () => client })
   const walletMatches = active !== undefined
     && String(withWallet.wallet).toLowerCase() === active.address.toLowerCase()
   if (options.dryRun || !walletMatches) {
@@ -84,7 +90,8 @@ export const runTxAction = Effect.fn('AeroCli.runTxAction')(function* (
     return
   }
   const steps = extractPlanSteps(result)
-  yield* Console.log(renderPlanSummary(action, result, steps))
+  const plan = createExecutionPlan({ steps, chainId: Number(withWallet.chain), sender: active.address })
+  yield* Console.log(`Chain ${plan.chainId}, sender ${plan.sender}\n${renderPlanSummary(action, result, steps)}`)
   if (!options.yes) {
     if (!process.stdin.isTTY) throw new Error('no TTY for the confirmation prompt; pass --yes or --dry-run')
     const confirmed = yield* Prompt.confirm({ message: 'Sign and broadcast?' })
@@ -95,6 +102,6 @@ export const runTxAction = Effect.fn('AeroCli.runTxAction')(function* (
   }
   const chainId = Number(withWallet.chain)
   const signer = yield* resolveSigner()
-  const hashes = yield* fromPromise(() => sendPlan({ steps, chainId, signer, log: console.log }))
+  const hashes = yield* fromPromise(() => sendPlan({ plan, signer, log: console.log }))
   yield* printJson({ status: 'sent', chain: chainId, wallet: signer.address, hashes })
 })

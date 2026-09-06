@@ -1,5 +1,6 @@
 import * as Effect from 'effect/Effect'
-import { loadTokenCatalog, resolveTokenReference, searchTokens, toTokenChoice, type TokenChoice } from '../token-catalog'
+import { dedupeTokens, loadTokenCatalog, resolveTokenReference, searchTokens, toTokenChoice, type TokenChoice } from '../token-catalog'
+import type { SugarClient } from '../client'
 import type { SugarParameters } from '../contracts'
 import type { Token } from '../types'
 import { DEFAULT_CHAIN } from './flags'
@@ -54,7 +55,7 @@ function suggestionLine(flag: string, reference: string, candidates: Token[]): s
 export const resolveTokenParameters = Effect.fn('AeroCli.resolveTokenParameters')(function* (
   action: string,
   parameters: SugarParameters,
-  injected: { interactive?: boolean; tokens?: Token[] } = {},
+  injected: { interactive?: boolean; tokens?: Token[]; client?: SugarClient } = {},
 ) {
   const required = REQUIRED_TOKEN_PARAMS.get(action) ?? []
   const names = [...TOKEN_PARAMS].filter((name) =>
@@ -63,13 +64,21 @@ export const resolveTokenParameters = Effect.fn('AeroCli.resolveTokenParameters'
   const chainId = Number(parameters.chain ?? DEFAULT_CHAIN)
   const resolved: SugarParameters = { ...parameters }
   let choices: TokenChoice[] | undefined
+  let catalog = injected.tokens
+  const client = injected.client
   for (const name of names) {
     const raw = resolved[name] === undefined ? '' : String(resolved[name])
     // Addresses are intentional; unknown ones keep failing downstream.
     if (raw.startsWith('0x')) continue
-    const tokens = injected.tokens ?? (yield* loadTokenCatalog(chainId))
+    catalog ??= client
+      ? dedupeTokens(yield* Effect.tryPromise(() => client.getAllTokens(true)))
+      : yield* loadTokenCatalog(chainId)
+    const tokens = catalog
     const { exact } = resolveTokenReference(tokens, raw)
-    if (exact !== undefined) continue
+    if (exact !== undefined) {
+      resolved[name] = exact.tokenAddress
+      continue
+    }
     if (!(injected.interactive ?? interactive())) {
       // Keep the action layer's own "<flag> is required" error for headless runs.
       if (raw === '') continue

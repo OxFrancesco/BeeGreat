@@ -8,6 +8,7 @@ import {
   getActiveWallet,
   loadLocalWallet,
   promptLine,
+  parseMnemonic,
   saveLocalWallet,
   sealSecret,
   walletDir,
@@ -31,7 +32,7 @@ const createOrRestoreWallet = Effect.fn('AeroCli.createOrRestoreWallet')(functio
     : generateMnemonic(english)
   let address: Address
   try {
-    address = mnemonicToAccount(mnemonic).address
+    address = mnemonicToAccount(parseMnemonic(mnemonic)).address
   } catch {
     throw new Error('that is not a valid BIP-39 mnemonic')
   }
@@ -45,7 +46,8 @@ const createOrRestoreWallet = Effect.fn('AeroCli.createOrRestoreWallet')(functio
     const repeat = yield* fromPromise(() => promptLine('Repeat passphrase: ', true))
     if (repeat !== passphrase) throw new Error('passphrases do not match')
   }
-  saveLocalWallet({ version: 1, kind: 'mnemonic', address, sealed: sealSecret(mnemonic, passphrase) })
+  if (!(yield* fromPromise(() => confirmPrompt(`Use ${address}? Default Ethereum account, no BIP-39 passphrase.`)))) return
+  saveLocalWallet({ version: 1, kind: 'mnemonic', address, sealed: sealSecret(parseMnemonic(mnemonic), passphrase) })
   const backend = process.platform === 'darwin' && process.env.SUGAR_WALLET_NO_KEYCHAIN !== '1'
     ? 'macOS Keychain' : `encrypted file in ${walletDir()}`
   yield* Console.log(`Wallet ${restore ? 'restored' : 'created'}: ${address} (sealed with scrypt + AES-256-GCM, stored in the ${backend})`)
