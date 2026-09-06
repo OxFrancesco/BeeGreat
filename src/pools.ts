@@ -179,6 +179,7 @@ export function makeResolvedPoolLocatorCache(getCtx: () => SugarContext) {
   return makeReadCache(
     (cacheKey: string) => Effect.suspend(() => lookupPoolLocator(getCtx(), normalizeAddress(cacheKey))),
     4_096,
+    0,
   )
 }
 

@@ -82,7 +82,9 @@ function positionPoolJson(pool: LiquidityPool) {
     is_cl: pool.isCl,
     type_label: poolTypeLabel(pool.type),
     token0: pool.token0.symbol,
+    token0_address: pool.token0.tokenAddress,
     token1: pool.token1.symbol,
+    token1_address: pool.token1.tokenAddress,
   }
 }
 
@@ -139,12 +141,9 @@ const findPosition = Effect.fn('SugarActions.findPosition')(function* (
   if (!pool && position === undefined) throw new Error('requires pool or position')
   const id = position === undefined ? 0n : BigInt(position)
   if (id === 0n && !pool) throw new Error('position=0 is ambiguous; pass pool too')
-  const candidates = pool
-    ? [yield* clientCall(() => client.getPositionByPool(normalizeAddress(pool)))].filter(
-        (candidate): candidate is Position => candidate !== undefined,
-      )
-    : yield* clientCall(() => client.getPositions())
-  const match = candidates.find((candidate) => candidate.id === id)
+  const match = id > 0n
+    ? yield* clientCall(() => client.getPositionById(id, client.account, pool ? normalizeAddress(pool) : undefined))
+    : pool ? yield* clientCall(() => client.getPositionByPool(normalizeAddress(pool))) : undefined
   if (!match) throw new Error('position not found')
   return match
 })

@@ -191,7 +191,9 @@ export function findAllPaths(
   startToken: Address,
   endToken: Address,
   cutoff = 3,
+  maxPaths = 3_000,
 ): PathHop[][] {
+  if (!Number.isSafeInteger(maxPaths) || maxPaths < 1 || !Number.isSafeInteger(cutoff) || cutoff < 1 || cutoff > 3) throw new Error('Invalid route search budget')
   const pairs: Pair[] = pools.map((pool) => ({ token0: pool.token0Address, token1: pool.token1Address, pool }))
   const adjacency = new Map<string, Pair[]>()
   for (const pair of pairs) {
@@ -204,22 +206,28 @@ export function findAllPaths(
   }
   const target = addressKey(endToken)
   const results: PathHop[][] = []
-  const visit = (current: Address, path: PathHop[], visitedTokens: Set<string>) => {
-    if (path.length >= cutoff) return
+  let visits = 0
+  const budget = Math.min(1_000_000, maxPaths * 64)
+  const visit = (current: Address, path: PathHop[], visitedTokens: Set<string>, depth: number) => {
+    if (path.length >= depth) return
     for (const pair of adjacency.get(addressKey(current)) ?? []) {
+      if (results.length >= maxPaths || visits++ >= budget) return
       const currentKey = addressKey(current)
-      const isForward = addressKey(pair.token0) === currentKey
       const isReverse = addressKey(pair.token1) === currentKey
-      if (!isForward && !isReverse) continue
-      const next = isForward ? pair.token1 : pair.token0
+      const next = isReverse ? pair.token0 : pair.token1
       const nextKey = addressKey(next)
       if (visitedTokens.has(nextKey)) continue
       const nextPath = [...path, { pool: pair.pool, reversed: isReverse }]
-      if (nextKey === target) results.push(nextPath)
-      else visit(next, nextPath, new Set([...visitedTokens, nextKey]))
+      if (nextKey === target) {
+        if (nextPath.length === depth) results.push(nextPath)
+      } else if (nextPath.length < depth) {
+        visit(next, nextPath, new Set([...visitedTokens, nextKey]), depth)
+      }
     }
   }
-  visit(startToken, [], new Set([addressKey(startToken)]))
+  for (let depth = 1; depth <= cutoff && results.length < maxPaths && visits < budget; depth++) {
+    visit(startToken, [], new Set([addressKey(startToken)]), depth)
+  }
   return results
 }
 

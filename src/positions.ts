@@ -70,7 +70,7 @@ export const getPositions = Effect.fn('Sugar.Positions.getPositions')(function* 
   return yield* hydratePositions(ctx, raw, rawPools)
 })
 
-export const getPositionByPool = Effect.fn('Sugar.Positions.getPositionByPool')(function* (
+export const getPositionsByPool = Effect.fn('Sugar.Positions.getPositionsByPool')(function* (
   ctx: SugarContext,
   poolAddress: Address,
   owner?: Address,
@@ -78,7 +78,7 @@ export const getPositionByPool = Effect.fn('Sugar.Positions.getPositionByPool')(
   if (!owner) throw new Error('Owner address is required to get a position')
   const normalizedPool = normalizeAddress(poolAddress)
   const resolved = yield* resolvePoolLocator(ctx, normalizedPool)
-  if (!resolved) return undefined
+  if (!resolved) return []
 
   // Sugar's offset is the pool index. Once the pool catalog is cached, a
   // known basic-pool position is one bounded read instead of a global scan.
@@ -91,6 +91,29 @@ export const getPositionByPool = Effect.fn('Sugar.Positions.getPositionByPool')(
   const matches = raw.filter((position) =>
     addressKey(String(tupleValues(position)[1])) === addressKey(normalizedPool),
   )
-  if (matches.length === 0) return undefined
-  return (yield* hydratePositions(ctx, matches, [resolved.rawPool]))[0]
+  if (matches.length === 0) return []
+  return yield* hydratePositions(ctx, matches, [resolved.rawPool])
+})
+
+export const getPositionByPool = Effect.fn('Sugar.Positions.getPositionByPool')(function* (
+  ctx: SugarContext,
+  poolAddress: Address,
+  owner?: Address,
+) {
+  const positions = yield* getPositionsByPool(ctx, poolAddress, owner)
+  if (positions.length > 1) throw new Error('Owner has multiple positions in this pool; select an NFT id')
+  return positions[0]
+})
+
+export const getPositionById = Effect.fn('Sugar.Positions.getPositionById')(function* (
+  ctx: SugarContext,
+  id: bigint,
+  owner?: Address,
+  poolAddress?: Address,
+) {
+  if (id <= 0n) throw new Error('NFT id must be positive')
+  const positions = poolAddress
+    ? yield* getPositionsByPool(ctx, poolAddress, owner)
+    : yield* getPositions(ctx, owner)
+  return positions.find((position) => position.id === id)
 })

@@ -51,9 +51,10 @@ describe('Sugar cache store', () => {
   test('expires shared caches after the TTL', async () => {
     const counters = { count: 0, forSwaps: 0 }
     const cacheStore = createSugarCacheStore({ ttlMs: 1 })
-    await new SugarClient(10, { cacheStore, publicClient: countingClient(counters) }).getPoolsForSwaps()
+    const client = new SugarClient(10, { cacheStore, publicClient: countingClient(counters) })
+    const previous = await client.getPoolsForSwaps()
     await new Promise((resolve) => setTimeout(resolve, 5))
-    await new SugarClient(10, { cacheStore, publicClient: countingClient(counters) }).getPoolsForSwaps()
+    expect(await client.getPoolsForSwaps()).not.toBe(previous)
 
     expect(counters.count).toBe(2)
   })

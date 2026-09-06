@@ -44,6 +44,38 @@ describe('SDK parity helpers', () => {
 })
 
 describe('native action seam', () => {
+  test('ambiguous symbols require an address and cannot select an unlisted namesake', async () => {
+    const unlisted = '0x2222222222222222222222222222222222222222'
+    const listed = '0x3333333333333333333333333333333333333333'
+    const client = new SugarClient(8453, { env: {}, publicClient: stubPublicClient({
+      readContract: async ({ functionName, args }) => {
+        if (functionName === 'count') return 1n
+        if (functionName === 'tokens') return Number(args?.[1]) === 0
+          ? [[unlisted, 'USDC', 6, 0n, false, false], [listed, 'USDC', 6, 0n, true, false]]
+          : []
+        throw new Error(`Unexpected read ${functionName}`)
+      },
+    }) })
+    await expect(client.getToken('USDC')).rejects.toThrow('Ambiguous token symbol')
+    expect((await client.getToken(listed))?.tokenAddress).toBe(listed)
+    expect((await client.getToken('ETH'))?.wrappedTokenAddress).toBeDefined()
+  })
+
+  test('prices a single token by loading its native and stable anchors internally', async () => {
+    const settings = getChainSettings(8453, { env: {} })
+    const aero: Token = { chainId: 8453, chainName: 'Base', tokenAddress: '0x940181a94A35A4569E4529A3CDfB74e38FD98631', symbol: 'AERO', decimals: 18, listed: true, emerging: false }
+    const client = new SugarClient(8453, { env: {}, publicClient: stubPublicClient({
+      readContract: async (request) => {
+        if (request.functionName === 'tokens') return [[settings.stableTokenAddress, 'USDC', 6, 0n, true, false]]
+        if (request.functionName === 'getManyRatesToEthWithCustomConnectors') return stringListArgument(request, 0).map((address) =>
+          address.toLowerCase() === settings.stableTokenAddress.toLowerCase() ? 5n * 10n ** 26n
+            : address.toLowerCase() === settings.wrappedNativeTokenAddress.toLowerCase() ? 10n ** 18n : 10n ** 15n)
+        throw new Error(`Unexpected read ${request.functionName}`)
+      },
+    }) })
+    expect(await client.getPrices([aero])).toEqual([{ token: aero, price: 2 }])
+  })
+
   test('hydrates one addressed pool without loading the global token catalog', async () => {
     const lp: Address = '0x4444444444444444444444444444444444444444'
     const weth: Address = '0x4200000000000000000000000000000000000006'
