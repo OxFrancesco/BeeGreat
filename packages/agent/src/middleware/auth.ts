@@ -35,9 +35,9 @@ const PUBLIC_PATH_RULES: ReadonlyArray<{
       path === '/internal/job-run',
   },
   {
-    // Sender identity has no user yet (unknown senders are the point), so the
-    // route verifies the bridge secret itself instead of this middleware.
-    matches: (path) => path === '/bridge/identity',
+    // Unknown senders and background delivery polling have no user header.
+    // These exact routes verify the bridge secret in their own handlers.
+    matches: (path) => path === '/bridge/identity' || path === '/bridge/outbox',
   },
 ]
 

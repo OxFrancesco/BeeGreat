@@ -54,6 +54,9 @@ environment variable is gone.
 - Confirmation acknowledgement is deterministic: the bridge mutates Convex,
   re-reads the action, and projects that canonical state without asking the
   model for a second status turn.
+- Background polls call `/bridge/outbox` with the bridge secret and no user
+  header. This exact route authenticates the secret in its handler; other
+  bridge routes still require their user identity.
 - Terminal Web3 transitions enqueue `imessageDeliveries`. The Railway bridge
   leases, sends, and acknowledges each row; failed sends back off and expired
   leases recover after a bridge restart.
