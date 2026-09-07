@@ -28,7 +28,7 @@ Deploy in this order so nothing speaks the wrong protocol for long:
    (the bridge imports workspace packages, so the whole monorepo is uploaded;
    the service's root/start command are configured in the Railway dashboard)
 4. **Web** — from `apps/web`, run `NITRO_PRESET=vercel bun run build`, then `bunx vercel deploy --prebuilt --prod`. Confirm the linked project and production environment before deploying. The build checks the isolated server artifact.
-5. Rebuild mobile and restart local clients when shared chat code or the SDK changes.
+5. Rebuild mobile and restart local clients when shared chat code or the SDK changes. Keep signing enabled for iOS simulator builds, for example `CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES`. An unsigned build can fail before sign-in because SecureStore cannot access Keychain without the generated entitlements. Verify app startup after the build passes.
 
 Keep the deployed web origin in `packages/agent/wrangler.jsonc` under `WEB_ALLOWED_ORIGINS`. Verify an OPTIONS request from that origin and a signed-in browser conversation after every worker deployment. A health response alone does not prove browser chat works.
 
