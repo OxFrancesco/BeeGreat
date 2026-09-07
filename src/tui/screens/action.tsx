@@ -185,7 +185,7 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
     } catch (cause) {
       return app.toast('error', 'Invalid input', formatCliError(cause))
     }
-    if ((isTx || props.action === 'positions') && parameters.wallet === undefined && app.wallet) {
+    if ((isTx || props.action === 'positions' || props.action === 'stocks') && parameters.wallet === undefined && app.wallet) {
       parameters.wallet = app.wallet.address
     }
     if (isTx && parameters.wallet === undefined) {
@@ -198,6 +198,10 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
       if (!alive.current) return
       if (isSugarTxAction(props.action)) {
         const steps = extractPlanSteps(result)
+        if (steps.length === 0) {
+          setPhase({ kind: 'result', data: result, showJson: false })
+          return
+        }
         if (!app.wallet) throw new Error('Wallet disconnected while building the plan')
         const execution = createExecutionPlan({ steps, chainId: Number(parameters.chain), sender: app.wallet.address })
         setPhase({ kind: 'plan', plan: { result, steps, execution, summary: renderPlanSummary(props.action, result, steps) }, showJson: false })

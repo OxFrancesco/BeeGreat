@@ -1,3 +1,4 @@
+import { stocksCommand, indexCommand } from './stock-commands'
 import * as BunRuntime from '@effect/platform-bun/BunRuntime'
 import * as BunServices from '@effect/platform-bun/BunServices'
 import * as Cause from 'effect/Cause'
@@ -39,7 +40,7 @@ export const rootCommand = Command.make('aero').pipe(
     "with '--wizard', and '--completions <shell>' prints shell completion",
     'scripts.',
   ].join('\n')),
-  Command.withSubcommands([tuiCommand, ...actionCommands, serveCommand, almCommand, walletCommand, executionCommand, guideCommand]),
+  Command.withSubcommands([tuiCommand, stocksCommand, indexCommand, ...actionCommands, serveCommand, almCommand, walletCommand, executionCommand, guideCommand]),
 )
 
 /**

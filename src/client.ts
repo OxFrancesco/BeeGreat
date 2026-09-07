@@ -397,6 +397,10 @@ export class SugarClient {
     return runSugar(transactionsApi.swap(this.ctx, fromToken, toToken, amount, slippage))
   }
 
+  swapBasketFromQuotes(quotes: Quote[], slippage = this.settings.swapSlippage): Promise<UnsignedTransaction[]> {
+    return runSugar(transactionsApi.swapBasketFromQuotes(this.ctx, quotes, slippage))
+  }
+
   swapFromQuote(quote: Quote, slippage = this.settings.swapSlippage): Promise<UnsignedTransaction[]> {
     return runSugar(transactionsApi.swapFromQuote(this.ctx, quote, slippage))
   }

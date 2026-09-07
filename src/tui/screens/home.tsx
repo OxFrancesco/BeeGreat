@@ -10,6 +10,8 @@ import { StatusBar } from '../widgets'
 type MenuItem = { title: string; description: string; route?: Route; act?: 'palette' | 'quit' }
 
 const MENU: MenuItem[] = [
+  { title: 'Stocks', description: 'buy and sell tokenized stocks', route: { name: 'stocks' } },
+  { title: 'Indices', description: 'target weights and rebalancing', route: { name: 'indices' } },
   { title: 'Swap', description: 'trade through the best route', route: { name: 'action', action: 'swap' } },
   { title: 'Quote', description: 'price a swap without sending', route: { name: 'action', action: 'quote' } },
   { title: 'Pools', description: 'browse liquidity pools', route: { name: 'pools' } },

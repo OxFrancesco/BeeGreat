@@ -2,7 +2,7 @@
 // Modified by Francesco Oddo and BeeGreat contributors: TypeScript port and subsequent changes.
 // Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
 import * as Effect from 'effect/Effect'
-import { pad, type Address, type Hex } from 'viem'
+import { concatHex, pad, type Address, type Hex } from 'viem'
 import { abis } from './abis'
 import {
   addressKey,
@@ -151,6 +151,33 @@ export const swapFromQuote = Effect.fn('Sugar.Transactions.swapFromQuote')(funct
   if (quote.input.fromToken.wrappedTokenAddress) return [main]
   const approvals = yield* permit2Approvals(ctx, quote.input.fromToken, quote.input.amountIn)
   return [...approvals, main]
+})
+
+export const swapBasketFromQuotes = Effect.fn('Sugar.Transactions.swapBasketFromQuotes')(function* (
+  ctx: SugarContext,
+  quotes: Quote[],
+  slippage: number,
+) {
+  if (quotes.length === 0) return []
+  if (!Number.isFinite(slippage) || slippage < 0 || slippage >= 1) throw new Error('Invalid basket slippage')
+  const totals = new Map<string, { token: Token; amount: bigint }>()
+  const plans = quotes.map((quote) => {
+    if (quote.input.fromToken.wrappedTokenAddress) throw new Error('Basket inputs must be ERC-20 tokens')
+    const key = addressKey(tokenContractAddress(quote.input.fromToken))
+    const previous = totals.get(key)
+    totals.set(key, { token: quote.input.fromToken, amount: (previous?.amount ?? 0n) + quote.input.amountIn })
+    return setupPlanner(quote, slippage, ctx.signer(), ctx.settings.swapperContractAddress, {
+      newFactory: ctx.settings.slipstreamFactoryAddress,
+      oldFactory: ctx.settings.oldSlipstreamFactoryAddress,
+    })
+  })
+  const approvals: UnsignedTransaction[] = []
+  for (const { token, amount } of totals.values()) {
+    approvals.push(...(yield* permit2Approvals(ctx, token, amount)))
+  }
+  return [...approvals, ctx.tx(ctx.settings.swapperContractAddress, ctx.encode(abis.swapper, 'execute', [
+    concatHex(plans.map((plan) => plan.commands)), plans.flatMap((plan) => plan.inputs),
+  ]))]
 })
 
 const getPermit2Address = Effect.fn('Sugar.Transactions.getPermit2Address')(function* (

@@ -1,3 +1,4 @@
+import { normalizeAddress } from '../helpers'
 import * as Console from 'effect/Console'
 import * as Effect from 'effect/Effect'
 import * as Redacted from 'effect/Redacted'
@@ -20,7 +21,7 @@ export function fromPromise<A>(evaluate: () => Promise<A>) {
 
 /** Actions that read the connected wallet when --wallet is omitted. */
 function acceptsWalletDefault(action: SugarAction): boolean {
-  return isSugarTxAction(action) || action === 'positions'
+  return isSugarTxAction(action) || action === 'positions' || action === 'stocks'
 }
 
 const printJson = (value: SugarJson) => Console.log(JSON.stringify(value, null, 2))
@@ -33,7 +34,7 @@ export const runReadAction = Effect.fn('AeroCli.runReadAction')(function* (
   const active = parameters.wallet === undefined && parameters.owner === undefined && acceptsWalletDefault(action)
     ? getActiveWallet()
     : undefined
-  const client = new SugarClient(Number(parameters.chain ?? DEFAULT_CHAIN))
+  const client = new SugarClient(Number(parameters.chain ?? DEFAULT_CHAIN), { account: parameters.wallet === undefined ? active?.address : normalizeAddress(String(parameters.wallet)) })
   const resolved = yield* resolveTokenParameters(action, parameters, { client })
   const withWallet = parameters.wallet === undefined && active && acceptsWalletDefault(action)
     ? { ...resolved, wallet: active.address }
@@ -71,7 +72,7 @@ export const runTxAction = Effect.fn('AeroCli.runTxAction')(function* (
   options: BroadcastOptions,
 ) {
   const active = getActiveWallet()
-  const client = new SugarClient(Number(parameters.chain ?? DEFAULT_CHAIN))
+  const client = new SugarClient(Number(parameters.chain ?? DEFAULT_CHAIN), { account: parameters.wallet === undefined ? active?.address : normalizeAddress(String(parameters.wallet)) })
   const resolved = yield* resolveTokenParameters(action, parameters, { client })
   const withWallet = parameters.wallet === undefined && active
     ? { ...resolved, wallet: active.address }
@@ -90,6 +91,10 @@ export const runTxAction = Effect.fn('AeroCli.runTxAction')(function* (
     return
   }
   const steps = extractPlanSteps(result)
+  if (steps.length === 0) {
+    yield* Console.log('Already balanced. No transactions needed.')
+    return
+  }
   const plan = createExecutionPlan({ steps, chainId: Number(withWallet.chain), sender: active.address })
   yield* Console.log(`Chain ${plan.chainId}, sender ${plan.sender}\n${renderPlanSummary(action, result, steps)}`)
   if (!options.yes) {

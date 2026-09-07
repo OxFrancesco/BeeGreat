@@ -1,3 +1,4 @@
+import { STOCKS } from '../stocks/catalog'
 import * as Predicate from 'effect/Predicate'
 import type { SugarAction, SugarParameter, SugarParameters } from '../contracts'
 
@@ -35,7 +36,17 @@ const deadline: FieldSpec = { name: 'deadline_minutes', label: 'Deadline (min)',
 const burn: FieldSpec = { name: 'burn', label: 'Burn NFT', kind: 'boolean', initial: false, help: 'Burn the emptied CL position NFT' }
 const unwrapNative: FieldSpec = { name: 'unwrap_native', label: 'Unwrap native', kind: 'boolean', initial: false, help: 'Unwrap the wrapped native leg back to ETH' }
 
+const stockField: FieldSpec = { name: 'stock', label: 'Stock', kind: 'choice', choices: STOCKS.map((stock) => stock.symbol) }
+
 export const ACTION_FORMS = {
+  stocks: [],
+  stock_buy: [stockField, { name: 'amount', label: 'Spend USDC', kind: 'text', required: true }, slippage],
+  stock_sell: [stockField, { name: 'amount', label: 'Token units', kind: 'text', required: true }, slippage],
+  index_rebalance: [
+    { name: 'allocations', label: 'Target weights', kind: 'text', required: true, placeholder: 'NVDAc=50,AAPLc=50', help: 'All wallet holdings of these stocks are included. Keep a stock at 0% to exit it.' },
+    { name: 'cash', label: 'Add USDC', kind: 'text', initial: '0', help: 'Only this USDC amount is added. Other wallet USDC stays untouched.' },
+    slippage,
+  ],
   positions: [
     { name: 'owner', label: 'Owner', kind: 'text', placeholder: 'defaults to connected wallet' },
   ],
@@ -109,6 +120,7 @@ export const ACTION_FORMS = {
 } satisfies Record<SugarAction, FieldSpec[]>
 
 export const ACTION_TITLES = {
+  stocks: 'Stocks', stock_buy: 'Buy stock', stock_sell: 'Sell stock', index_rebalance: 'Rebalance index',
   quote: 'Quote',
   swap: 'Swap',
   pools: 'Pools',
@@ -125,6 +137,7 @@ export const ACTION_TITLES = {
 } satisfies Record<SugarAction, string>
 
 export const ACTION_DESCRIPTIONS = {
+  stocks: 'Tokenized stocks on Base', stock_buy: 'Buy with USDC', stock_sell: 'Sell token units for USDC', index_rebalance: 'Trade wallet holdings toward target weights',
   quote: 'Best route and price impact, no transactions',
   swap: 'Swap tokens through the best route',
   pools: 'Browse liquidity pools',
