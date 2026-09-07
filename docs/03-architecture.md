@@ -99,6 +99,9 @@ Continuous fatigue retains fractional accrual server-side and materializes only 
 - Built with **Flue** (`@flue/runtime`): agent defined via `defineAgent(...)` with instructions, tools, and skills; durable streams give session recovery for free
 - Voice session: client streams audio → ElevenLabs STT → Flue agent loop (OpenRouter models) → response as text + ElevenLabs TTS + **UI spec** (structured JSON the client renders as cards/charts/lists)
 - Deployed to Cloudflare Workers; Durable Objects for per-user session state; R2 for media
+- The Worker allows browser requests from `https://beegreat-web.vercel.app` through `WEB_ALLOWED_ORIGINS` in its deployment configuration. Clerk still authenticates each chat request. New web domains must be added before publishing a client there.
+- Web and mobile merge live and persisted messages through `packages/chat-sync`. Runtime system messages and envelopes marked hidden or diagnostic do not appear in the conversation.
+- On narrow web screens, the app shell reserves space above the bottom navigation for the chat composer and keeps the Bee link available from every page.
 - Every Bee admission resolves the user's current provider, Power-up, and Beennector snapshot before Flue's first synchronous render; direct chat and dispatched signals share this boundary so a cold Worker exposes the same specialists as a warm one.
 - Agent tools: query Convex and propose commands, but user-facing writes that create the first plan require an editable preview and explicit confirmation
 - Memory: Convex is the canonical long-term store for user facts, preferences, and Goal context; a future semantic service may only be a deletable, rebuildable derived index

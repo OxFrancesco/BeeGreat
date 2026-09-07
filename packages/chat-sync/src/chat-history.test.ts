@@ -25,6 +25,23 @@ function message(
 }
 
 describe('chat history', () => {
+  test('hides runtime and non-visible messages from live and persisted history', () => {
+    const reply = message('assistant:reply', 'assistant', 'Hello');
+    const internal: FlueConversationMessage[] = [
+      { ...reply, id: 'system:1', role: 'system', purpose: 'advisory' },
+      { ...reply, id: 'hidden:1', display: 'hidden' },
+      { ...reply, id: 'diagnostic:1', display: 'diagnostic' },
+    ];
+    const rows = internal.map((entry, index) => ({
+      id: entry.id,
+      contentJson: JSON.stringify(entry),
+      createdAt: index,
+    }));
+
+    expect(mergeConvexMessages([], [...internal, reply])).toEqual([reply]);
+    expect(mergeConvexMessages(rows, [reply])).toEqual([reply]);
+  });
+
   test('keeps distinct user and assistant turns that share a submission', () => {
     const user = message('user:1', 'user', 'Hello', 'submission:1');
     const assistant = message(

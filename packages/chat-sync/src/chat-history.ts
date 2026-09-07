@@ -181,5 +181,10 @@ export function mergeConvexMessages(
   return ordered
     .sort((left, right) => left.createdAt - right.createdAt)
     .map(({ message }) => message)
+    .filter((message) =>
+      isSyncable(message) &&
+      message.display !== 'hidden' &&
+      message.display !== 'diagnostic',
+    )
     .filter((message) => !isHiddenMessage(message, hiddenIds));
 }

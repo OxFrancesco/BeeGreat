@@ -14,7 +14,7 @@ metadata:
 | Convex backend | `packages/backend/convex` | Convex Cloud `quirky-hyena-231` (the dev deployment — currently serves all clients; prod `youthful-rhinoceros-185` is unused) | team `oddofrancesco000-gmail-com`, project `beegreat` |
 | Agent worker | `packages/agent` | Cloudflare Worker `beegreat-agent` → `https://beegreat-agent.oddofrancesco000.workers.dev` | Cloudflare account **oddofrancesco000@gmail.com** (`157a8b025a13404b16f11ad7078e53f1`) — NOT admin@oddofrancesco.com, NOT Mentasuave01 |
 | iMessage bridge | `apps/imessage-bridge` | Railway project **BeeGreat**, `production` env, service `f8b5c392` | Railway account OxFrancesco; repo is linked in `~/.railway/config.json` |
-| Web (TanStack) | `apps/web` | No production hosting yet — local dev only (`bun run web`) | — |
+| Web (TanStack) | `apps/web` | Vercel `https://beegreat-web.vercel.app` | `oddo-francesco/beegreat-web`; linked in `apps/web/.vercel/project.json` |
 | Mobile | `apps/mobile` | Expo dev builds from source; `.env` points `EXPO_PUBLIC_AGENT_URL` at the deployed worker | — |
 
 ## Required order
@@ -27,7 +27,12 @@ Deploy in this order so nothing speaks the wrong protocol for long:
 3. **iMessage bridge** — `bunx @railway/cli up --detach` from the **repo root**
    (the bridge imports workspace packages, so the whole monorepo is uploaded;
    the service's root/start command are configured in the Railway dashboard)
-4. Restart any local dev clients (web/mobile) if the SDK major changed.
+4. **Web** — from `apps/web`, run `NITRO_PRESET=vercel bun run build`, then `bunx vercel deploy --prebuilt --prod`. Confirm the linked project and production environment before deploying. The build checks the isolated server artifact.
+5. Rebuild mobile and restart local clients when shared chat code or the SDK changes.
+
+Keep the deployed web origin in `packages/agent/wrangler.jsonc` under `WEB_ALLOWED_ORIGINS`. Verify an OPTIONS request from that origin and a signed-in browser conversation after every worker deployment. A health response alone does not prove browser chat works.
+
+For worker-only changes with no container changes, `bun run build` followed by `bunx wrangler deploy --containers-rollout=none` preserves the existing container and does not require local Docker. Do not use that flag when shipping a container change.
 
 ## Pre-deploy checks
 

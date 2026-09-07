@@ -9,6 +9,7 @@
     "head_sampling_rate": 1
   },
   "vars": {
+    "WEB_ALLOWED_ORIGINS": "https://beegreat-web.vercel.app,http://localhost:3000,http://127.0.0.1:3000",
     "CODEX_ADAPTER_URL": "https://codex-adapter.vercel.app/api"
   },
   "secrets": {

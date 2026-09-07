@@ -508,9 +508,6 @@
     width: auto;
     padding: 0 12px;
   }
-  .glass-nav__brand {
-    display: none;
-  }
   .glass-nav__links {
     flex: 1;
     justify-content: space-around;
@@ -535,8 +532,8 @@
   .app-shell .bee-panel {
     height: 100%;
   }
-  .composer-dock {
-    padding-bottom: 84px;
+  .app-shell .composer-dock {
+    padding-bottom: calc(74px + max(10px, env(safe-area-inset-bottom)));
   }
   .voice-island {
     top: 8px;
