@@ -13,6 +13,7 @@ export type SugarTransactionStep = {
 }
 
 export type SugarBounds = {
+  basket?: { fromToken: string; toToken: string; maximumInput: string; minimumOutput: string }[]
   minimumOutput?: string
   maximumDeposit0?: string
   maximumDeposit1?: string
@@ -81,6 +82,20 @@ export function sugarTransactionSteps(plan: SugarJson): SugarTransactionStep[] {
   return parsed
 }
 
+function basketBounds(trades: SugarJson | undefined): NonNullable<SugarBounds['basket']> | undefined {
+  if (trades === undefined) return undefined
+  if (!Array.isArray(trades)) throw new Error('Invalid basket trades')
+  return trades.map((value) => {
+    const trade = record(value)
+    const maximumInput = integerString(trade?.amount_raw)
+    const minimumOutput = integerString(trade?.minimum_raw)
+    const fromToken = trade?.from_address
+    const toToken = trade?.to_address
+    if (!maximumInput || !minimumOutput || !Predicate.isString(fromToken) || !Predicate.isString(toToken)) throw new Error('Basket trade omitted its execution bounds')
+    return { fromToken, toToken, maximumInput, minimumOutput }
+  })
+}
+
 export function captureSugarBounds(plan: SugarJson): SugarBounds {
   const item = record(plan) ?? {}
   const quote = record(item.quote)
@@ -88,6 +103,8 @@ export function captureSugarBounds(plan: SugarJson): SugarBounds {
   const withdrawal = record(item.withdrawal)
   const veNft = record(item.ve_nft)
   const bounds: SugarBounds = {}
+  const basket = basketBounds(item.trades)
+  if (basket) bounds.basket = basket
   const minimumOutput = integerString(quote?.min_amount_out)
   if (minimumOutput) bounds.minimumOutput = minimumOutput
   const maximumDeposit0 = integerString(deposit?.amount0)
@@ -124,6 +141,18 @@ function compareBound(
 
 export function assertSugarBounds(plan: SugarJson, bounds: SugarBounds): void {
   const item = record(plan) ?? {}
+  const basket = basketBounds(item.trades)
+  if (basket || bounds.basket) {
+    if (!basket || !bounds.basket || basket.length !== bounds.basket.length) throw new Error('The basket changed. Prepare it again for confirmation.')
+    for (let index = 0; index < basket.length; index++) {
+      const actual = basket[index]
+      const expected = bounds.basket[index]
+      if (actual.fromToken.toLowerCase() !== expected.fromToken.toLowerCase() || actual.toToken.toLowerCase() !== expected.toToken.toLowerCase()
+        || BigInt(actual.maximumInput) > BigInt(expected.maximumInput) || BigInt(actual.minimumOutput) < BigInt(expected.minimumOutput)) {
+        throw new Error('The refreshed basket exceeds a confirmed input or reduces a minimum output. Prepare it again for confirmation.')
+      }
+    }
+  }
   const quote = record(item.quote)
   const deposit = record(item.deposit)
   const withdrawal = record(item.withdrawal)

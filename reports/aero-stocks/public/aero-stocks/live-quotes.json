@@ -1,0 +1,82 @@
+[
+  {
+    "symbol": "NVDAc",
+    "name": "NVIDIA",
+    "address": "0xb20000000000000000000078ee7ce2fe4908108c",
+    "price_usdc": "232.255271",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "AAPLc",
+    "name": "Apple",
+    "address": "0xb200000000000000000000c2e324d24d7eecd1fb",
+    "price_usdc": "320.437519",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "GOOGLc",
+    "name": "Alphabet",
+    "address": "0xb2000000000000000000002d0ba3164cc74f58b7",
+    "price_usdc": "338.629232",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "METAc",
+    "name": "Meta",
+    "address": "0xb2000000000000000000008bc8786b856e61707c",
+    "price_usdc": "612.925387",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "AMZNc",
+    "name": "Amazon",
+    "address": "0xb200000000000000000000d9192b6b456483c2e8",
+    "price_usdc": "280.609946",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "MSFTc",
+    "name": "Microsoft",
+    "address": "0xb200000000000000000000ab99cfa739e253872b",
+    "price_usdc": "502.445646",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "TSLAc",
+    "name": "Tesla",
+    "address": "0xb2000000000000000000001e800a7f5189430cd0",
+    "price_usdc": "354.698067",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "MSTRc",
+    "name": "Strategy",
+    "address": "0xb2000000000000000000004884b426556b92883d",
+    "price_usdc": "144.072142",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "SNDKc",
+    "name": "Sandisk",
+    "address": "0xb200000000000000000000397293cb8cda9a10c5",
+    "price_usdc": "1782.50039",
+    "balance": null,
+    "error": null
+  },
+  {
+    "symbol": "SPCXc",
+    "name": "SpaceX",
+    "address": "0xb2000000000000000000007b9fcbd005511acbd5",
+    "price_usdc": "150.3951",
+    "balance": null,
+    "error": null
+  }
+]

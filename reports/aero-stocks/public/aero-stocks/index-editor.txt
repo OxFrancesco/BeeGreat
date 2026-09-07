@@ -1,0 +1,24 @@
+  Create index                                                            aero
+
+  Name  tech
+
+  NVDAc     ━━━━━━━━━━━━━                50%
+  AAPLc     ━━━━━━━━━━━━━                50%
+  GOOGLc                                  0%
+  METAc                                   0%
+  AMZNc                                   0%
+  MSFTc                                   0%
+  TSLAc                                   0%
+  MSTRc                                   0%
+  SNDKc                                   0%
+  SPCXc                                   0%
+
+
+
+
+
+
+
+
+  Allocated 100% / 100%
+  ↑↓ field  enter edit  s save  esc cancel                 ⬡ Base  ○ no wallet

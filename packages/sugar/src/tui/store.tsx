@@ -5,6 +5,9 @@ import { DEFAULT_CHAIN } from '../cli/flags'
 
 export type Route =
   | { name: 'home' }
+  | { name: 'stocks' }
+  | { name: 'indices' }
+  | { name: 'index_editor'; index?: import('../stocks/indices').StockIndex }
   | { name: 'pools' }
   | { name: 'positions' }
   | { name: 'epochs' }

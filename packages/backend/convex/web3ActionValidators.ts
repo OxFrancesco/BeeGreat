@@ -8,6 +8,7 @@ export const web3TransactionValidator = v.object({
 })
 
 export const sugarBoundsValidator = v.object({
+  basket: v.optional(v.array(v.object({ fromToken: v.string(), toToken: v.string(), maximumInput: v.string(), minimumOutput: v.string() }))),
   minimumOutput: v.optional(v.string()),
   maximumDeposit0: v.optional(v.string()),
   maximumDeposit1: v.optional(v.string()),

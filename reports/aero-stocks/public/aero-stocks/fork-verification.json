@@ -1,0 +1,52 @@
+{
+  "ok": true,
+  "atomicRollback": true,
+  "mode": "local-base-fork",
+  "mainnetBroadcast": false,
+  "evidence": [
+    {
+      "action": "stock_buy",
+      "parameters": {
+        "stock": "NVDAc",
+        "amount": "20"
+      },
+      "transactions": 3,
+      "usdc": "980000000",
+      "nvda": "8602699",
+      "aapl": "0"
+    },
+    {
+      "action": "stock_sell",
+      "parameters": {
+        "stock": "NVDAc",
+        "amount": "0.01"
+      },
+      "transactions": 3,
+      "usdc": "982322527",
+      "nvda": "7602699",
+      "aapl": "0"
+    },
+    {
+      "action": "index_rebalance",
+      "parameters": {
+        "allocations": "NVDAc=50,AAPLc=50",
+        "cash": "50"
+      },
+      "transactions": 3,
+      "usdc": "932322528",
+      "nvda": "14558524",
+      "aapl": "10553142"
+    },
+    {
+      "action": "index_rebalance",
+      "parameters": {
+        "allocations": "NVDAc=0,AAPLc=100",
+        "cash": "0"
+      },
+      "transactions": 5,
+      "usdc": "932660657",
+      "nvda": "0",
+      "aapl": "20995756"
+    }
+  ]
+}

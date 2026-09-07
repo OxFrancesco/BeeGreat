@@ -1,3 +1,4 @@
+import { StocksScreen, IndicesScreen, IndexEditorScreen } from './screens/stocks'
 import { useKeyboard } from '@opentui/react'
 import { useEffect } from 'react'
 import { SUPPORTED_CHAIN_IDS } from '../config'
@@ -37,12 +38,14 @@ export function App() {
 
   const openPalette = () => {
     const items: SelectItem[] = [
-      ...SUGAR_ACTIONS.map((action) => ({
+      ...SUGAR_ACTIONS.filter((action) => action !== 'stocks').map((action) => ({
         title: ACTION_TITLES[action],
         description: ACTION_DESCRIPTIONS[action],
         hint: isSugarTxAction(action) ? 'tx' : 'read',
         onSelect: () => app.push({ name: 'action', action }),
       })),
+      { title: 'Stocks', onSelect: () => app.push({ name: 'stocks' }) },
+      { title: 'Indices', onSelect: () => app.push({ name: 'indices' }) },
       { title: 'Pools', description: 'browse pools with TVL and gauges', onSelect: () => app.push({ name: 'pools' }) },
       { title: 'Positions', description: 'your liquidity with one-key actions', onSelect: () => app.push({ name: 'positions' }) },
       { title: 'Epochs', description: 'latest voting round per pool', onSelect: () => app.push({ name: 'epochs' }) },
@@ -63,6 +66,9 @@ export function App() {
 
   const route = app.route
   const screen = route.name === 'home' ? <HomeScreen openPalette={openPalette} />
+    : route.name === 'stocks' ? <StocksScreen />
+    : route.name === 'indices' ? <IndicesScreen />
+    : route.name === 'index_editor' ? <IndexEditorScreen index={route.index} />
     : route.name === 'pools' ? <PoolsScreen />
     : route.name === 'positions' ? <PositionsScreen />
     : route.name === 'epochs' ? <EpochsScreen />

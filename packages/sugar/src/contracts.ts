@@ -1,4 +1,5 @@
 export const SUGAR_ACTIONS = [
+  'stocks',
   'deposit',
   'positions',
   'pools',
@@ -12,6 +13,9 @@ export const SUGAR_ACTIONS = [
   'create_venft',
   'quote',
   'swap',
+  'stock_buy',
+  'stock_sell',
+  'index_rebalance',
 ] as const
 
 export type SugarAction = (typeof SUGAR_ACTIONS)[number]
@@ -25,6 +29,9 @@ export function isSugarAction(value: string): value is SugarAction {
 /** The subset of actions that build transactions (executable plans). */
 export const SUGAR_TX_ACTIONS = [
   'swap',
+  'stock_buy',
+  'stock_sell',
+  'index_rebalance',
   'deposit',
   'withdraw',
   'stake',

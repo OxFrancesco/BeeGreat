@@ -30,6 +30,10 @@ const COMMON_POSITION = {
 } as const
 
 const ACTION_SPECS = {
+  stocks: { required: ['chain'], allowed: { chain: 'number', wallet: 'address' } },
+  stock_buy: { required: ['chain', 'wallet', 'stock', 'amount'], allowed: { chain: 'number', wallet: 'address', stock: 'string', amount: 'string', slippage: 'number' } },
+  stock_sell: { required: ['chain', 'wallet', 'stock', 'amount'], allowed: { chain: 'number', wallet: 'address', stock: 'string', amount: 'string', slippage: 'number' } },
+  index_rebalance: { required: ['chain', 'wallet', 'allocations'], allowed: { chain: 'number', wallet: 'address', allocations: 'string', cash: 'string', slippage: 'number' } },
   deposit: {
     required: ['chain', 'wallet'],
     allowed: {

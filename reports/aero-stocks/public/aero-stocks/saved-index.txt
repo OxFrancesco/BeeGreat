@@ -1,0 +1,24 @@
+  Indices                                                                 aero
+
+  › tech
+
+  NVDAc     ━━━━━━━━━━━━━                50%
+  AAPLc     ━━━━━━━━━━━━━                50%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  n create  e edit  r rebalance  d delete  esc back        ⬡ Base  ○ no wallet

@@ -134,6 +134,9 @@ export function describeSugarExecution(
   options: { chainName?: string; walletLabel?: string } = {},
 ) {
   const interesting = [
+    'stock',
+    'allocations',
+    'cash',
     'from_token',
     'to_token',
     'amount',
@@ -181,6 +184,12 @@ export function describeSugarPlanOutcome(plan: SugarJson): string {
   const symbolOf = (value: SugarJson | undefined) => {
     const symbol = planRecord(value)?.symbol
     return Predicate.isString(symbol) ? symbol : null
+  }
+  if (Array.isArray(record.trades)) {
+    return record.trades.map((item) => {
+      const trade = planRecord(item)
+      return trade ? `; ${trade.amount} ${trade.from} to ${trade.expected} ${trade.to}, minimum ${trade.minimum}` : ''
+    }).join('')
   }
   const quote = planRecord(record.quote)
   if (quote) {
@@ -263,6 +272,8 @@ export async function prepareSugarExecutionForUser(
     planParameters,
     sugarOptions(ctx),
   )
+  const trades = planRecord(plan)?.trades
+  if (Array.isArray(trades) && trades.length === 0) throw new Error('Already balanced. No transactions needed.')
   const transactions = executableSugarTransactions(plan)
   const summary =
     describeSugarExecution(sugarAction, parameters) +
@@ -346,6 +357,8 @@ export async function prepareEoaSugarExecutionForUser(
     },
     sugarOptions(ctx),
   )
+  const trades = planRecord(plan)?.trades
+  if (Array.isArray(trades) && trades.length === 0) throw new Error('Already balanced. No transactions needed.')
   const transactions = executableSugarTransactions(plan)
   const summary =
     describeSugarExecution(sugarAction, parameters, {

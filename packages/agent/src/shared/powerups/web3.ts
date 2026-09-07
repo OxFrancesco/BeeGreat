@@ -280,6 +280,21 @@ type SugarPassthroughSpec = {
 
 const SUGAR_PASSTHROUGH_SPECS: readonly SugarPassthroughSpec[] = [
   {
+    name: 'sugar_stocks', op: 'stocks',
+    description: 'Read live USDC quotes for the ten Base tokenized stocks tracked by Dromos Kitchen. Optional wallet includes held token units. Prices are on-chain sale quotes, not exchange share prices.',
+    input: v.object({ chain: v.literal(8453), wallet: v.optional(address('Public wallet address')) }),
+  },
+  ...(['buy', 'sell'] as const).map((side): SugarPassthroughSpec => ({
+    name: `sugar_stock_${side}`, op: `stock_${side}`,
+    description: `Build an unsigned tokenized-stock ${side} plan on Base. ${side === 'buy' ? 'Amount is USDC to spend.' : 'Amount is stock token units to sell for USDC.'} Does not sign or broadcast. Use prepare_sugar_execution or prepare_linked_wallet_execution to execute after confirmation.`,
+    input: v.object({ chain: v.literal(8453), wallet: address('Public signer address'), stock: v.string(), amount: v.string(), slippage }),
+  })),
+  {
+    name: 'sugar_index_rebalance', op: 'index_rebalance',
+    description: 'Build an unsigned atomic basket for wallet-held tokenized stocks on Base. Allocations are target percentages such as NVDAc=50,AAPLc=50, totaling 100. All holdings of listed stocks are included. A 0% weight exits that holding. Cash is an explicit USDC contribution, default 0; other USDC is excluded. Returns current/target weights and each trade minimum. Saved named indices belong to the local Aero CLI; pass allocations here. Does not sign or broadcast.',
+    input: v.object({ chain: v.literal(8453), wallet: address('Public signer address'), allocations: v.string(), cash: v.optional(v.string()), slippage }),
+  },
+  {
     name: 'sugar_pools',
     op: 'pools',
     description:
@@ -677,6 +692,9 @@ export const web3: PowerupDefinition = {
           sugar_action: v.picklist(
             [
               'swap',
+              'stock_buy',
+              'stock_sell',
+              'index_rebalance',
               'deposit',
               'withdraw',
               'stake',
@@ -716,6 +734,9 @@ export const web3: PowerupDefinition = {
           sugar_action: v.picklist(
             [
               'swap',
+              'stock_buy',
+              'stock_sell',
+              'index_rebalance',
               'deposit',
               'withdraw',
               'stake',

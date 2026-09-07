@@ -1,6 +1,7 @@
 // Portions derived from the Python Sugar SDK, Copyright 2025 Velodrome Finance.
 // Modified by Francesco Oddo and BeeGreat contributors: TypeScript port and subsequent changes.
 // Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
+import { stockMarket, stockTrade, rebalanceIndex } from './stocks/trading'
 import * as Effect from 'effect/Effect'
 import { SugarClient } from './client'
 import type { SugarAction, SugarParameters } from './contracts'
@@ -407,6 +408,10 @@ const executePositionAction = Effect.fn('SugarActions.positionAction')(function*
 type ActionHandler = (client: SugarClient, p: SugarParameters) => Effect.Effect<unknown, unknown>
 
 const ACTION_HANDLERS = {
+  stocks: (client) => clientCall(() => stockMarket(client)),
+  stock_buy: (client, p) => clientCall(() => stockTrade(client, 'buy', String(p.stock), String(p.amount), Number(p.slippage ?? 0.01))),
+  stock_sell: (client, p) => clientCall(() => stockTrade(client, 'sell', String(p.stock), String(p.amount), Number(p.slippage ?? 0.01))),
+  index_rebalance: (client, p) => clientCall(() => rebalanceIndex(client, String(p.allocations), String(p.cash ?? '0'), Number(p.slippage ?? 0.01))),
   positions: executePositions,
   pools: executePools,
   epochs_latest: executeEpochsLatest,

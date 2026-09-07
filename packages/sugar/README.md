@@ -421,3 +421,23 @@ CLI and TUI swap confirmations show both resolved asset addresses before signing
 WalletConnect uses one client per process and checks the current session against
 the exact sender, chain and transaction permission before every submission.
 Session expiry, deletion and account changes invalidate the local connection.
+
+## Tokenized stocks and wallet indices
+
+`aero stocks list` reads the ten Base stocks tracked by Dromos Kitchen.
+`aero stocks buy --stock NVDAc --amount 25` spends 25 USDC;
+`aero stocks sell --stock NVDAc --amount 0.1` sells 0.1 token units.
+Both use the existing review and wallet-signing flow. Add `--dry-run` to
+print the unsigned plan.
+
+Create a local allocation with
+`aero index create --name tech --allocations 'NVDAc=50,AAPLc=50'`, then preview
+`aero index rebalance --name tech --cash 100 --dry-run`.
+`index list`, `show`, `update`, and `delete` manage the saved definitions.
+Stocks and Indices are also available in `aero tui`, including weight bars,
+an editor, and a current-versus-target rebalance preview.
+
+Indices use all wallet holdings of their named stocks. They are local recipes,
+not separate funds. Only the explicit `--cash` contribution spends existing
+USDC. Keep an exiting stock at 0% until sold. The basket executes atomically,
+and approvals account for the total spending across every leg.

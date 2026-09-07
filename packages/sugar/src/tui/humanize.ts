@@ -122,6 +122,8 @@ function epochLines(data: SugarJson): string[] | undefined {
 export type HumanResult = { lines: string[]; hasHeader: boolean }
 
 export function humanizeResult(action: SugarAction, data: SugarJson): HumanResult {
+  const trades = jsonRecord(data)?.trades
+  if (action === 'index_rebalance' && Array.isArray(trades) && trades.length === 0) return { lines: ['Already balanced. No transactions needed.'], hasHeader: false }
   const tabular = action === 'positions' || action === 'pools' || action === 'epochs' || action === 'epochs_latest'
   const lines = action === 'quote'
     ? quoteLines(data)

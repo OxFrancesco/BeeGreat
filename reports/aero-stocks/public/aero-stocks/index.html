@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aero stocks and indices</title><style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0a0c10;color:#e6e9f0;font:16px/1.6 system-ui,sans-serif}main{max-width:960px;margin:auto;padding:40px 24px 64px}h1{font-size:30px;line-height:1.2;margin:0 0 16px}h2{font-size:19px;margin:32px 0 12px}p{max-width:76ch}a{color:#83aff9}pre{overflow:auto;padding:16px;background:#12151c;border:1px solid #2a3040;font:13px/1.45 ui-monospace,monospace}table{width:100%;border-collapse:collapse;margin:20px 0}td,th{padding:10px 0;text-align:left;border-bottom:1px solid #2a3040}td:last-child,th:last-child{padding-left:24px}th{color:#a3adc1;font-weight:500}.links{display:flex;gap:20px;flex-wrap:wrap}code{font-family:ui-monospace,monospace}small{color:#a3adc1}</style><main>
+<h1>Aero stocks and indices</h1><p>Buy and sell tokenized stocks, save target weights, and rebalance wallet holdings from the CLI or TUI. Available in the local Aero checkout.</p>
+<div class="links"><a href="report.md">Full report</a><a href="fork-verification.json">Fork execution results</a><a href="live-quotes.json">Live quotes</a></div>
+<h2>Index editor</h2><small>Actual terminal renderer output from the keyboard test.</small><pre aria-label="Index editor terminal output">  Create index                                                            aero
+
+  Name  tech
+
+  NVDAc     ━━━━━━━━━━━━━                50%
+  AAPLc     ━━━━━━━━━━━━━                50%
+  GOOGLc                                  0%
+  METAc                                   0%
+  AMZNc                                   0%
+  MSFTc                                   0%
+  TSLAc                                   0%
+  MSTRc                                   0%
+  SNDKc                                   0%
+  SPCXc                                   0%
+
+
+
+
+
+
+
+
+  Allocated 100% / 100%
+  ↑↓ field  enter edit  s save  esc cancel                 ⬡ Base  ○ no wallet
+</pre>
+<h2>Verification</h2><table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody><tr><td>Tests</td><td>305 Sugar + 9 backend passed</td></tr><tr><td>Types, lint, build</td><td>Passed</td></tr><tr><td>Live stock quotes</td><td>All ten contracts</td></tr><tr><td>Native Base fork</td><td>Buy, sell, index funding, rebalance, zero-weight exit</td></tr><tr><td>Failed basket leg</td><td>All trades reverted; balances unchanged</td></tr><tr><td>Keyboard controls</td><td>Create, edit, delete, stock selection passed</td></tr><tr><td>TUI timing</td><td>21 ms p95 and maximum frame gap, three runs</td></tr></tbody></table>
+<p>No mainnet transactions were sent. Computer Use failed to start, so native screenshots and CAP recording were unavailable. Shared Bee tool changes need agent and Convex deployment before hosted clients receive them.</p>
+<h2>Run it</h2><pre>aero tui
+
+aero stocks buy --stock NVDAc --amount 25 --dry-run
+aero stocks sell --stock NVDAc --amount 0.1 --dry-run
+
+aero index create --name tech --allocations 'NVDAc=50,AAPLc=50'
+aero index rebalance --name tech --cash 100 --dry-run</pre>
+<p>Indices include all wallet holdings of their named stocks. Overlapping indices share holdings. Only the explicit cash contribution spends existing USDC. Keep an exiting stock at 0% until sold.</p>
+</main></html>

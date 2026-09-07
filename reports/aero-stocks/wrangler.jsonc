@@ -1,0 +1,12 @@
+{
+  "name": "aero-stocks-report",
+  "account_id": "157a8b025a13404b16f11ad7078e53f1",
+  "compatibility_date": "2026-09-07",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "reports.buddytools.org/aero-stocks", "zone_name": "buddytools.org" },
+    { "pattern": "reports.buddytools.org/aero-stocks/*", "zone_name": "buddytools.org" }
+  ],
+  "assets": { "directory": "./public" }
+}

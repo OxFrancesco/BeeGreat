@@ -60,6 +60,22 @@ const summaryLine = (label: string, value: SugarJson | undefined): string[] =>
 export function renderPlanSummary(action: SugarTxAction, result: SugarJson, steps: PlanStep[]): string {
   const record = asRecord(result)
   const lines: string[] = [`Plan: ${action.replaceAll('_', '-')} (${steps.length} transaction${steps.length === 1 ? '' : 's'}${steps.length > 1 ? ', approvals first' : ''})`]
+  if (action === 'index_rebalance') lines.push(...summaryLine('Portfolio value in USDC', record.total_usdc), ...summaryLine('Add USDC', record.cash_contribution))
+  if (Array.isArray(record.allocation) && record.allocation.length > 0) {
+    lines.push('  Stock        Current       Target')
+    for (const item of record.allocation) {
+      const row = asRecord(item)
+      lines.push(`  ${String(row.symbol).padEnd(12)} ${String(row.current_pct).padStart(6)}% -> ${row.target_pct}%`)
+    }
+  }
+  if (Array.isArray(record.trades)) {
+    for (const item of record.trades) {
+      const trade = asRecord(item)
+      lines.push(`  ${trade.amount} ${trade.from} -> ${trade.expected} ${trade.to}, minimum ${trade.minimum}`)
+    }
+    if (record.trades.length === 0) lines.push('  Already balanced. No transactions needed.')
+    else lines.push('  All trades execute together. A failed trade reverts the basket.')
+  }
   if (action === 'swap' && record.quote) {
     const quote = asRecord(record.quote)
     const from = asRecord(quote.from_token)

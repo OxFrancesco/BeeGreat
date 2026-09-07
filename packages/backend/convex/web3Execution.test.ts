@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   CrossmintTransactionPendingError,
   captureSugarBounds,
+  assertSugarBounds,
   executeFreshSugarPlan,
   executeSmartWalletIntent,
   prepareAndApproveCrossmintBatch,
@@ -179,5 +180,20 @@ describe('fresh Sugar execution', () => {
   test('requires explicit role metadata instead of array-position inference', () => {
     expect(() => sugarTransactionSteps({ transactions: [approval, action] }))
       .toThrow('transaction_steps')
+  })
+})
+
+
+describe('stock basket confirmation bounds', () => {
+  const trade = { from_address: 'USDC', to_address: 'NVDAc', amount_raw: '100', minimum_raw: '50' }
+  test('preserves each confirmed input, output and asset when refreshing', () => {
+    const bounds = captureSugarBounds({ trades: [trade] })
+    expect(bounds.basket).toEqual([{ fromToken: 'USDC', toToken: 'NVDAc', maximumInput: '100', minimumOutput: '50' }])
+    expect(() => assertSugarBounds({ trades: [{ ...trade, minimum_raw: '51' }] }, bounds)).not.toThrow()
+    for (const replacement of [{ ...trade, amount_raw: '101' }, { ...trade, minimum_raw: '49' }, { ...trade, to_address: 'AAPLc' }]) {
+      expect(() => assertSugarBounds({ trades: [replacement] }, bounds)).toThrow('refreshed basket')
+    }
+    expect(() => assertSugarBounds({ trades: [] }, bounds)).toThrow('basket changed')
+    expect(() => assertSugarBounds({ trades: [trade] }, {})).toThrow('basket changed')
   })
 })
