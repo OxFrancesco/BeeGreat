@@ -1,0 +1,3 @@
+[install]
+# Native modules and React must resolve to one installation across workspace consumers.
+linker = "hoisted"

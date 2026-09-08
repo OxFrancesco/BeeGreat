@@ -1,6 +1,6 @@
 # Local verification
 
-The source fixes cover all 163 exported scanner findings. This record applies to the working tree, not deployed services. Per-finding evidence is in checklist.json. Evidence logs and review notes are copied into evidence/ with a SHA-256 manifest. Early candidate review notes may describe a defect subsequently corrected; use the final checklist and final validation logs for the resulting disposition.
+The source fixes cover all 163 exported scanner findings. The remediation is committed as `2568e69` on `main`. This record covers local source and follow-up dependency validation, not deployed services. Per-finding evidence is in checklist.json. Evidence logs and review notes are copied into evidence/ with a SHA-256 manifest. Early candidate review notes may describe a defect subsequently corrected; use the final checklist and final validation logs for the resulting disposition.
 
 ## Completed gates
 
@@ -31,7 +31,7 @@ The regular suites total 1,060 passing tests. Focused route, component, runtime,
 
 ## Diagnostics and limits
 
-Expo Doctor reports 16 of 21 checks passing. The five remaining checks concern a missing direct expo-asset peer, duplicate native installations, a Hermes version regression advisory, React Native Directory metadata and SDK package-version alignment. The mobile package declarations are identical to the pre-task baseline. These findings require a separate dependency and native release pass. No warning suppression or dependency exclusion was added.
+Expo Doctor now passes all 21 checks after aligning Expo SDK 57 packages, adding the required direct expo-asset dependency and using one hoisted native dependency graph. Two React Native Directory metadata exceptions are documented in `docs/25-expo-dependency-validation.md`. Version and duplicate checks remain enabled. The follow-up passed affected package type checks, mobile and Sugar lint, web/agent/Codex/Sugar builds, both native JavaScript exports and all 333 Sugar tests. Installed-device checks remain open.
 
 The local web build skips its Vercel-specific artifact gate outside a Vercel build. Nitro output and startup are tested; deployment-specific output still needs the provider build.
 

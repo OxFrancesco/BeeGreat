@@ -60,7 +60,7 @@ The local implementation requires coordinated release. Review these items agains
 6. Inspect legacy settlement recovery against provider receipts. A watchdog may resume observation after deployment, but it must not replay approval or submission. Resolve hashless or approval-uncertain records with provider evidence.
 7. Inspect old webhook delivery rows. Rows created before payload persistence cannot reconstruct an event that was never saved. Provider replay is a separate, deliberate operation.
 8. Verify paid-service limits and Devin access with the intended billing configuration. Reconcile prior usage separately. Existing telemetry and already-issued browser cache headers are historical effects; the source changes cannot retroactively remove them.
-9. Resolve Expo Doctor's dependency findings before the native release gate. Then verify Android and iOS dialog interaction, journal recovery, audio interruption, NFC and subscription lifecycle on installed builds. JavaScript export and mocked native tests do not prove hardware behavior.
+9. Expo Doctor's dependency findings are resolved, with two documented Directory metadata exceptions in `docs/25-expo-dependency-validation.md`. Before native release, verify Android and iOS dialog interaction, journal recovery, audio interruption, NFC and subscription lifecycle on installed builds. JavaScript export and mocked native tests do not prove hardware behavior.
 
 ## Local verification
 
