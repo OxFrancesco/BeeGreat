@@ -507,3 +507,34 @@ test('privacy deletion anonymizes weekly roster slots without changing progress'
     })
   })
 })
+
+test('achievement migration adds historical and live completions once, including previously undercounted history', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    const userId = 'user_achievementmigration'
+    const ownerKey = `issuer|${userId}`
+    const owner = t.withIdentity({ subject: userId, tokenIdentifier: ownerKey })
+    const goalId = await owner.mutation(createGoal, { title: 'History' })
+    const projectId = await owner.mutation(createProject, { goalId, title: 'Work' })
+    const live = await owner.mutation(createTask, { projectId, title: 'Live completion' })
+    await owner.mutation(toggleTask, { taskId: live })
+    await t.run(async ctx => {
+      for (let i = 0; i < 2; i++) {
+        const taskId = await ctx.db.insert('tasks', { userId, projectId, goalId, title: `History ${i}`, status: 'done' })
+        await ctx.db.insert('verifiedProgressEvents', { ownerKey, userId, taskId, goalId, projectId, requestId: `history-${i}`, kind: 'task-completed', honeyDelta: 0, scoreDelta: 0, occurredAt: Date.now() - 1000 + i, achievementBackfilledAt: Date.now() - 100 })
+      }
+      const stats = await ctx.db.query('goalEconomyStats').withIndex('by_owner_key_and_goal_id', q => q.eq('ownerKey', ownerKey).eq('goalId', goalId)).unique()
+      await ctx.db.patch(stats!._id, { taskProgressCount: 2, backfilledProgressCount: 2 })
+      const state = await ctx.db.query('achievementBackfillStates').withIndex('by_owner_key', q => q.eq('ownerKey', ownerKey)).unique()
+      await ctx.db.patch(state!._id, { completedAt: Date.now(), countVersion: undefined })
+    })
+    await owner.mutation(reconcileAchievements, {})
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    const getStats = () => t.run(ctx => ctx.db.query('goalEconomyStats').withIndex('by_owner_key_and_goal_id', q => q.eq('ownerKey', ownerKey).eq('goalId', goalId)).unique())
+    expect(await getStats()).toMatchObject({ taskProgressCount: 3, countedProgressV2: 3 })
+    await owner.mutation(reconcileAchievements, {})
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    expect(await getStats()).toMatchObject({ taskProgressCount: 3, countedProgressV2: 3 })
+  } finally { vi.useRealTimers() }
+})

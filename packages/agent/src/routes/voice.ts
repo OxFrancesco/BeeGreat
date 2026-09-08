@@ -1,9 +1,13 @@
 import type { Hono } from 'hono'
+import { BodyTooLargeError, readLimitedBody } from '../shared/limited-body'
+import { reserveUsage, releaseUsage } from '../shared/paid-usage'
+import { issueRealtimeTicket, registerRealtimeProxy, voiceUsageRuntime } from './realtime-proxy'
 import * as v from 'valibot'
 import {
   binding,
   captureWorkerFailure,
   type AppEnvironment,
+  type AppContext,
 } from '../app-env.ts'
 import { trustedCast } from '../shared/trusted-cast.ts'
 
@@ -13,16 +17,9 @@ type ScribeTranscription = {
   language_code?: string
 }
 
-const realtimeTokenSchema = v.object({
-  value: v.pipe(v.string(), v.minLength(1)),
-  expires_at: v.number(),
-})
-
 const speakBodySchema = v.object({ text: v.optional(v.string()) })
 
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1'
-const XAI_REALTIME_CLIENT_SECRETS =
-  'https://api.x.ai/v1/realtime/client_secrets'
 // "Rachel" premade voice; override per-deployment with ELEVENLABS_VOICE_ID.
 const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'
 const MAX_SPOKEN_CHARS = 2000
@@ -44,17 +41,21 @@ function voiceErrorMessage(fallback: string, detail: string) {
     : fallback
 }
 
+async function readVoiceBody(c: AppContext, maxBytes: number) {
+  try { return await readLimitedBody(c.req.raw, maxBytes) }
+  catch (error) { if (error instanceof BodyTooLargeError) return c.json({ error: error.message }, 413); throw error }
+}
+
+async function voiceReservation(c: AppContext, operation: 'voice_transcribe' | 'voice_speak', units: number) {
+  try { return await reserveUsage(c.get('userId'), operation, units, voiceUsageRuntime(c), c.req.raw.signal) }
+  catch (error) { return c.json({ error: error instanceof Error ? error.message : 'Voice is temporarily unavailable.' }, 429) }
+}
+
 export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
   // Speech-to-text: raw audio bytes in, proxied to ElevenLabs Scribe.
   // The client sends raw bytes (React Native FormData is unreliable), and the
   // worker wraps them in the multipart request ElevenLabs expects.
   app.post('/voice/transcribe', async (c) => {
-    const audio = await c.req.arrayBuffer()
-    if (audio.byteLength === 0) {
-      return c.json({ error: 'Send audio bytes in the request body.' }, 400)
-    }
-    const mimeType = c.req.header('content-type') ?? 'audio/m4a'
-    const extension = mimeType.split('/')[1]?.split(';')[0] ?? 'm4a'
     const apiKey = binding(c.env, 'ELEVENLABS_API_KEY')
     if (!apiKey) {
       captureWorkerFailure(
@@ -64,6 +65,16 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
       return c.json({ error: 'Voice transcription is not configured.' }, 500)
     }
 
+    const reservation = await voiceReservation(c, 'voice_transcribe', 1)
+    if (reservation instanceof Response) return reservation
+    try {
+    const audio = await readVoiceBody(c, 5 * 1024 * 1024)
+    if (audio instanceof Response) return audio
+    if (audio.byteLength === 0) {
+      return c.json({ error: 'Send audio bytes in the request body.' }, 400)
+    }
+    const mimeType = c.req.header('content-type') ?? 'audio/m4a'
+    const extension = mimeType.split('/')[1]?.split(';')[0] ?? 'm4a'
     const upstream = new FormData()
     upstream.append(
       'file',
@@ -74,6 +85,7 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
     upstream.append('model_id', 'scribe_v2')
 
     const response = await fetch(`${ELEVENLABS_BASE}/speech-to-text`, {
+      signal: AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(55_000)]),
       method: 'POST',
       headers: { 'xi-api-key': apiKey },
       body: upstream,
@@ -104,83 +116,22 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
       text: result.text,
       languageCode: result.language_code ?? null,
     })
+    } finally { c.executionCtx.waitUntil(releaseUsage(c.get('userId'), reservation.leaseId, voiceUsageRuntime(c)).catch(error => captureWorkerFailure(error, 'voice.release'))) }
   })
 
-  // Short-lived xAI credential for direct mobile → xAI realtime audio.
-  // The long-lived API key stays in the Worker; the returned client secret
-  // expires automatically and is scoped to realtime connections.
-  app.post('/voice/realtime-token', async (c) => {
-    // Secrets pasted with line breaks or smart quotes make `Bearer ${key}` an
-    // invalid header value, which used to crash the route. Strip whitespace and
-    // fail with a clear message if the remainder still can't go in a header.
-    const apiKey = binding(c.env, 'XAI_API_KEY')?.replace(/\s+/g, '')
-    if (!apiKey || !/^[\x21-\x7e]+$/.test(apiKey)) {
-      captureWorkerFailure(
-        new Error(
-          apiKey
-            ? 'XAI_API_KEY contains characters that are invalid in a header — re-set the secret'
-            : 'XAI_API_KEY is not configured',
-        ),
-        'voice.realtime.configuration',
-      )
-      return c.json({ error: 'Conversational voice is not configured.' }, 500)
-    }
-
-    const response = await fetch(XAI_REALTIME_CLIENT_SECRETS, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${apiKey}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ expires_after: { seconds: 300 } }),
-    })
-
-    if (!response.ok) {
-      const detail = await response.text()
-      console.error('xai realtime token failed', response.status, detail)
-      captureWorkerFailure(
-        new Error(`xAI realtime token returned HTTP ${response.status}`),
-        'voice.realtime.upstream',
-        {
-          status: response.status,
-          upstreamRequestId:
-            response.headers.get('request-id') ??
-            response.headers.get('x-request-id') ??
-            undefined,
-        },
-      )
-      return c.json(
-        { error: 'Conversational voice could not start. Try again.' },
-        502,
-      )
-    }
-
-    const result = v.safeParse(realtimeTokenSchema, await response.json())
-    if (!result.success) {
-      captureWorkerFailure(
-        new Error('xAI realtime token response was malformed'),
-        'voice.realtime.response',
-      )
-      return c.json(
-        { error: 'Conversational voice could not start. Try again.' },
-        502,
-      )
-    }
-
-    c.header('cache-control', 'no-store')
-    return c.json({
-      token: result.output.value,
-      expiresAt: result.output.expires_at,
-    })
-  })
+  app.post('/voice/realtime-token', issueRealtimeTicket)
+  registerRealtimeProxy(app)
 
   // Text-to-speech: `{ text }` in, base64 mp3 out (React Native writes it to a file to play).
   app.post('/voice/speak', async (c) => {
-    const rawBody = await c.req.json().catch(() => null)
+    const bytes = await readVoiceBody(c, 16 * 1024)
+    if (bytes instanceof Response) return bytes
+    let rawBody: unknown
+    try { rawBody = JSON.parse(new TextDecoder().decode(bytes)) } catch { rawBody = null }
     const body = v.is(speakBodySchema, rawBody) ? rawBody : null
-    const text = body?.text?.trim()
+    const text = body?.text?.trim().slice(0, MAX_SPOKEN_CHARS)
     if (!text) {
-      return c.json({ error: 'Send `text` to speak.' }, 400)
+      return c.json({ error: 'Send text of up to 2,000 characters to speak.' }, 400)
     }
 
     const apiKey = binding(c.env, 'ELEVENLABS_API_KEY')
@@ -191,17 +142,21 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
       )
       return c.json({ error: 'Voice synthesis is not configured.' }, 500)
     }
+    const reservation = await voiceReservation(c, 'voice_speak', text.length)
+    if (reservation instanceof Response) return reservation
+    try {
     const voiceId = binding(c.env, 'ELEVENLABS_VOICE_ID') ?? DEFAULT_VOICE_ID
     const response = await fetch(
       `${ELEVENLABS_BASE}/text-to-speech/${voiceId}?output_format=mp3_44100_64`,
       {
-        method: 'POST',
+        signal: AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(55_000)]),
+      method: 'POST',
         headers: {
           'xi-api-key': apiKey,
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          text: text.slice(0, MAX_SPOKEN_CHARS),
+          text,
           model_id: 'eleven_flash_v2_5',
         }),
       },
@@ -230,5 +185,6 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
       audio: toBase64(await response.arrayBuffer()),
       mimeType: 'audio/mpeg',
     })
+    } finally { c.executionCtx.waitUntil(releaseUsage(c.get('userId'), reservation.leaseId, voiceUsageRuntime(c)).catch(error => captureWorkerFailure(error, 'voice.release'))) }
   })
 }

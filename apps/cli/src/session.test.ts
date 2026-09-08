@@ -409,3 +409,41 @@ describe("Bee CLI session", () => {
     expect(prompts).toEqual(["Claim my fees"]);
   });
 });
+
+test('mixed cards bind the decision to the displayed wallet and re-present changed details', async () => {
+  const actions: JsonValue[] = [];
+  let summary = 'Send 10 USDC on Base to 0x' + '12'.repeat(20);
+  let status = 'pending';
+  const text = '```beeui\n' + JSON.stringify({ components: [{ type: 'first_focus', requestId: 'hidden', goalTitle: 'Goal', projectTitle: 'Project', taskTitle: 'Task' }, { type: 'confirm', summary: 'Untrusted summary', action: 'web3', payload: { web3ActionId: 'action-1' } }] }) + '\n```';
+  const session = createBeeSession({ agentUrl: 'https://agent.example', userId: 'user_owner', getToken: async () => 'fixture' }, { load: async () => 7, save: async () => {} }, {
+    fetch: async (_input, init) => {
+      const action: JsonValue = JSON.parse(String(init?.body)); actions.push(action);
+      if (isJsonObject(action) && action.action === 'confirm_web3') status = 'confirmed';
+      return isJsonObject(action) && action.action === 'get_web3_action' ? Response.json({ id: 'action-1', summary, kind: 'send_tokens', status, autoConfirmed: false }) : Response.json(null);
+    },
+    createClient: () => ({ send: async () => fakeAdmission('one'), read: async () => ({ text }) }),
+  });
+  expect((await session.ask('Prepare')).followUp).toEqual({ kind: 'confirm', summary });
+  summary = 'Send 10 USDC on Base to 0x' + '34'.repeat(20);
+  expect((await session.ask('yes')).text).toContain(summary);
+  expect(actions.some((a) => isJsonObject(a) && a.action === 'confirm_web3')).toBe(false);
+  await session.ask('yes');
+  expect(actions.some((a) => isJsonObject(a) && a.action === 'confirm_first_focus')).toBe(false);
+  expect(actions.filter((a) => isJsonObject(a) && a.action === 'confirm_web3')).toEqual([{ action: 'confirm_web3', actionId: 'action-1', summary }]);
+});
+
+test('failed wallet lookup cannot arm an undisplayed first-focus plan', async () => {
+  const actions: string[] = [];
+  let responses = 0;
+  const mixed = '```beeui\n' + JSON.stringify({ components: [{ type: 'first_focus', requestId: 'hidden', goalTitle: 'Goal', projectTitle: 'Project', taskTitle: 'Task' }, { type: 'confirm', summary: 'Wallet', action: 'web3', payload: { web3ActionId: 'action-1' } }] }) + '\n```';
+  const session = createBeeSession({ agentUrl: 'https://agent.example', userId: 'user_owner', getToken: async () => 'fixture' }, { load: async () => 7, save: async () => {} }, {
+    fetch: async (_input, init) => {
+      const body = JSON.parse(String(init?.body)); actions.push(body.action);
+      return Response.json({ error: 'temporary failure' }, { status: 503 });
+    },
+    createClient: () => ({ send: async () => fakeAdmission('one'), read: async () => ({ text: responses++ === 0 ? mixed : 'Please start again.' }) }),
+  });
+  await expect(session.ask('Prepare')).rejects.toThrow('temporary failure');
+  await session.ask('yes');
+  expect(actions).toEqual(['get_web3_action']);
+});

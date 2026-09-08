@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import {
   deleteRevenueCatCustomer,
   fetchRevenueCatSubscription,
@@ -220,4 +220,19 @@ describe('deleteRevenueCatCustomer', () => {
       retryable: false,
     })
   })
+})
+
+test('subscription timeout remains active while reading the response body', async () => {
+  vi.useFakeTimers()
+  try {
+    const operation = fetchRevenueCatSubscription('user_owner', 'test-secret', NOW, async (_input, init) => {
+      return new Response(new ReadableStream({
+        start(controller) {
+          init?.signal?.addEventListener('abort', () => controller.error(new Error('aborted')))
+        },
+      }), { status: 200 })
+    })
+    await vi.advanceTimersByTimeAsync(8_001)
+    await expect(operation).resolves.toMatchObject({ status: 'unavailable' })
+  } finally { vi.useRealTimers() }
 })

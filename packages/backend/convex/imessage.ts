@@ -1,4 +1,6 @@
 import { ConvexError, v } from 'convex/values'
+import { internal } from './_generated/api'
+import type { Doc } from './_generated/dataModel'
 import {
   internalMutation,
   internalQuery,
@@ -26,11 +28,19 @@ export const LINK_SESSION_TTL_MS = 15 * 60 * 1000
 // Bee's number cannot make Bee flood an arbitrary victim with links.
 const MAX_SESSIONS_PER_HOUR = 5
 
-async function connectionsForUser(ctx: QueryCtx | MutationCtx, userId: string) {
-  return await ctx.db
-    .query('imessageConnections')
-    .withIndex('by_user', (q) => q.eq('userId', userId))
-    .take(20)
+async function revokedBefore(ctx: QueryCtx | MutationCtx, userId: string) {
+  const row = await ctx.db.query('imessageRevocations').withIndex('by_user', q => q.eq('userId', userId)).unique()
+  return row?.revokedBefore ?? -Infinity
+}
+
+export async function connectionIsActive(ctx: QueryCtx | MutationCtx, connection: Doc<'imessageConnections'>) {
+  return connection.connectedAt > await revokedBefore(ctx, connection.userId)
+}
+
+export async function connectionsForUser(ctx: QueryCtx | MutationCtx, userId: string) {
+  const cutoff = await revokedBefore(ctx, userId)
+  return await ctx.db.query('imessageConnections')
+    .withIndex('by_user_and_connected_at', q => q.eq('userId', userId).gt('connectedAt', cutoff)).collect()
 }
 
 /** Verifies and returns the linked sender row used to bind a channel thread. */
@@ -45,7 +55,7 @@ export async function connectionIdForBridgeAddress(
       q.eq('address', normalizeImessageAddress(address)),
     )
     .unique()
-  if (!connection || connection.userId !== userId) {
+  if (!connection || connection.userId !== userId || !(await connectionIsActive(ctx, connection))) {
     throw new ConvexError({
       code: 'INVALID_CHANNEL_ADDRESS',
       message: 'This iMessage sender is not linked to the mapped user.',
@@ -107,7 +117,7 @@ export const resolveAddressForBridge = internalQuery({
         q.eq('address', normalizeImessageAddress(args.address)),
       )
       .unique()
-    return connection ? { userId: connection.userId } : null
+    return connection && await connectionIsActive(ctx, connection) ? { userId: connection.userId } : null
   },
 })
 
@@ -225,10 +235,17 @@ export const completeLinkSession = internalMutation({
       .query('imessageConnections')
       .withIndex('by_address', (q) => q.eq('address', session.address))
       .unique()
+    const cutoff = await revokedBefore(ctx, args.userId)
+    const connectedAt = Math.max(now, cutoff + 1)
+    const activeConnections = await ctx.db.query('imessageConnections')
+      .withIndex('by_user_and_connected_at', q => q.eq('userId', args.userId).gt('connectedAt', cutoff)).take(20)
+    if ((existing?.userId !== args.userId || !(await connectionIsActive(ctx, existing))) && activeConnections.length >= 20) {
+      throw new ConvexError({ code: 'CONNECTION_LIMIT', message: 'Disconnect an iMessage address before linking another. The limit is 20.' })
+    }
     if (existing) {
       await ctx.db.patch('imessageConnections', existing._id, {
         userId: args.userId,
-        connectedAt: now,
+        connectedAt,
         updatedAt: now,
       })
     } else {
@@ -236,7 +253,7 @@ export const completeLinkSession = internalMutation({
         userId: args.userId,
         address: session.address,
         addressKind: session.addressKind,
-        connectedAt: now,
+        connectedAt,
         updatedAt: now,
       })
     }
@@ -276,16 +293,31 @@ export const connectionsForAgent = internalQuery({
 /** CLI disconnect: one address when given, otherwise every linked address. */
 export const disconnectForAgent = internalMutation({
   args: { userId: v.string(), address: v.optional(v.string()) },
-  returns: v.object({ disconnected: v.number() }),
+  returns: v.object({ disconnected: v.number(), all: v.optional(v.boolean()) }),
   handler: async (ctx, args) => {
     if (args.address) {
       const result = await removeAddress(ctx, args.address, args.userId)
       return { disconnected: result.disconnected ? 1 : 0 }
     }
-    const rows = await connectionsForUser(ctx, args.userId)
-    await Promise.all(
-      rows.map((row) => ctx.db.delete('imessageConnections', row._id)),
-    )
-    return { disconnected: rows.length }
+    const cutoff = Date.now()
+    const revocation = await ctx.db.query('imessageRevocations').withIndex('by_user', q => q.eq('userId', args.userId)).unique()
+    const revokedAt = Math.max(cutoff, revocation?.revokedBefore ?? cutoff)
+    if (revocation) await ctx.db.patch(revocation._id, { revokedBefore: revokedAt })
+    else await ctx.db.insert('imessageRevocations', { userId: args.userId, revokedBefore: revokedAt })
+    const removed = await removeRevokedConnections(ctx, args.userId, revokedAt)
+    return { disconnected: removed, ...(removed === 100 ? { all: true } : {}) }
   },
+})
+
+async function removeRevokedConnections(ctx: MutationCtx, userId: string, cutoff: number) {
+  const rows = await ctx.db.query('imessageConnections')
+    .withIndex('by_user_and_connected_at', q => q.eq('userId', userId).lte('connectedAt', cutoff)).take(100)
+  for (const row of rows) await ctx.db.delete(row._id)
+  if (rows.length === 100) await ctx.scheduler.runAfter(0, internal.imessage.cleanupRevoked, { userId, cutoff })
+  return rows.length
+}
+
+export const cleanupRevoked = internalMutation({
+  args: { userId: v.string(), cutoff: v.number() },
+  handler: async (ctx, args) => { await removeRevokedConnections(ctx, args.userId, args.cutoff) },
 })

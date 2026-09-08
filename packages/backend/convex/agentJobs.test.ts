@@ -2,6 +2,7 @@ import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import schema from "./schema";
+import { api, internal } from "./_generated/api";
 import { modules } from "./test.setup";
 import type { Id } from "./_generated/dataModel";
 import { nextAgentJobRunAt } from "./agentJobs";
@@ -325,4 +326,38 @@ describe("Agent Jobs", () => {
       submissionId: "submission_1",
     });
   });
+});
+
+test("cancelled queued jobs cannot dispatch, while completed one-shot jobs can", async () => {
+  const t = convexTest(schema, modules);
+  const owner = t.withIdentity(identity);
+  for (const cancel of [true, false]) {
+    const job = await owner.mutation(api.agentJobs.create, {
+      title: "One shot", instruction: "Summarize", delivery: ["app"],
+      schedule: { kind: "once", at: Date.now() + 60_000 },
+    });
+    await t.mutation(internal.agentJobs.materialize, { jobId: job.id, occurrenceAt: job.nextRunAt! });
+    const run = await t.run(ctx => ctx.db.query("agentJobRuns").withIndex("by_job_id_and_scheduled_for", q => q.eq("jobId", job.id)).first());
+    expect(run).not.toBeNull();
+    if (cancel) await owner.mutation(api.agentJobs.cancel, { jobId: job.id });
+    const claim = await t.mutation(internal.agentJobRuns.claimDispatch, { runId: run!._id });
+    if (cancel) {
+      expect(claim).toBeNull();
+      expect(await t.run(ctx => ctx.db.get(run!._id))).toMatchObject({ status: "skipped" });
+      expect((await t.run(ctx => ctx.db.get(job.id)))?.activeRunId).toBeUndefined();
+    } else expect(claim?.jobId).toBe(job.id);
+  }
+});
+
+test("rescheduling completed jobs respects active and paused capacity", async () => {
+  const t = convexTest(schema, modules);
+  const owner = t.withIdentity(identity);
+  const schedule = { kind: "interval" as const, everyMs: 3600_000, anchorAt: Date.now() + 60_000 };
+  const completed = await owner.mutation(api.agentJobs.create, { title: "Old", instruction: "Summarize", delivery: ["app"], schedule });
+  await t.run(ctx => ctx.db.patch(completed.id, { status: "completed" }));
+  for (let index = 0; index < 50; index++) {
+    await owner.mutation(api.agentJobs.create, { title: `Job ${index}`, instruction: "Summarize", delivery: ["app"], schedule });
+  }
+  await expect(owner.mutation(api.agentJobs.update, { jobId: completed.id, schedule })).rejects.toThrow("up to 50");
+  await expect(owner.mutation(api.agentJobs.update, { jobId: completed.id, title: "Renamed" })).resolves.toMatchObject({ status: "completed" });
 });

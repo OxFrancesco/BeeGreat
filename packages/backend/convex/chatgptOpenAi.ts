@@ -133,7 +133,7 @@ async function tokenCredentials(response: Response): Promise<OpenAiCodexCredenti
 
 async function fetchAuth(input: string, init: RequestInit) {
   try {
-    return await fetch(input, init)
+    return await fetch(input, { ...init, signal: AbortSignal.timeout(10_000) })
   } catch {
     throw new OpenAiCodexAuthError('network_error', true)
   }

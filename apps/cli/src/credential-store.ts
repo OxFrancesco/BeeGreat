@@ -31,21 +31,14 @@ function validCredentials(value: JsonValue): value is ClerkCredentials {
   );
 }
 
-async function runSecurity(args: string[]) {
-  const child = Bun.spawn(["security", ...args], {
-    stdout: "pipe",
-    stderr: "ignore",
-  });
-  const output = await new Response(child.stdout).text();
-  return { exitCode: await child.exited, output: output.trim() };
-}
-
 export function createCredentialStore(options: {
   account: string;
   fallbackPath: string;
   warn?: (message: string) => void;
+  secrets?: typeof Bun.secrets;
 }): CredentialStore {
   const service = "com.beegreat.cli";
+  const secrets = options.secrets ?? Bun.secrets;
   let warned = false;
 
   function warnFallback() {
@@ -69,49 +62,25 @@ export function createCredentialStore(options: {
 
   return {
     async load() {
-      if (process.platform === "darwin") {
-        try {
-          const result = await runSecurity([
-            "find-generic-password",
-            "-s",
-            service,
-            "-a",
-            options.account,
-            "-w",
-          ]);
-          if (result.exitCode === 0) {
-            const value: JsonValue = JSON.parse(result.output);
-            if (validCredentials(value)) return value;
-          }
-        } catch {
-          warnFallback();
+      const fallback = await loadFile();
+      if (fallback) return fallback;
+      try {
+        const value = await secrets.get({ service, name: options.account });
+        if (value !== null) {
+          const parsed: JsonValue = JSON.parse(value);
+          if (validCredentials(parsed)) return parsed;
         }
-      } else {
-        warnFallback();
-      }
-      return await loadFile();
+      } catch { warnFallback(); }
+      return undefined;
     },
 
     async save(credentials) {
-      if (process.platform === "darwin") {
-        try {
-          const result = await runSecurity([
-            "add-generic-password",
-            "-U",
-            "-s",
-            service,
-            "-a",
-            options.account,
-            "-w",
-            JSON.stringify(credentials),
-          ]);
-          if (result.exitCode === 0) {
-            await rm(options.fallbackPath, { force: true });
-            return;
-          }
-        } catch {
-          // Fall through to the protected file store.
-        }
+      try {
+        await secrets.set({ service, name: options.account, value: JSON.stringify(credentials) });
+        await rm(options.fallbackPath, { force: true });
+        return;
+      } catch {
+        // Keep the newest credential in the protected fallback if Keychain fails.
       }
       warnFallback();
       await mkdir(dirname(options.fallbackPath), {
@@ -126,19 +95,8 @@ export function createCredentialStore(options: {
     },
 
     async clear() {
-      if (process.platform === "darwin") {
-        try {
-          await runSecurity([
-            "delete-generic-password",
-            "-s",
-            service,
-            "-a",
-            options.account,
-          ]);
-        } catch {
-          // The key may not exist.
-        }
-      }
+      try { await secrets.delete({ service, name: options.account }); }
+      catch { /* The operating system store may be unavailable. */ }
       await rm(options.fallbackPath, { force: true });
     },
   };

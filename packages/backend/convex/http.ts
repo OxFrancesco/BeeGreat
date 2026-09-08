@@ -1,3 +1,5 @@
+import { journalPhotoUpload, journalPhotoOptions } from './http/journalPhotos'
+import { paidUsage } from './http/paidUsage'
 import { httpRouter } from 'convex/server'
 import { beennectorsInternal, beennectorsOauthCallback } from './http/beennectors'
 import { beeSites } from './http/beeSites'
@@ -19,6 +21,11 @@ import { web3Sugar, web3Wallet } from './http/web3'
 import { clerkWebhook, revenueCatWebhook } from './http/webhooks'
 
 const http = httpRouter()
+
+http.route({ path: '/journal/photo', method: 'POST', handler: journalPhotoUpload })
+http.route({ path: '/journal/photo', method: 'OPTIONS', handler: journalPhotoOptions })
+
+http.route({ path: '/internal/paid-usage', method: 'POST', handler: paidUsage })
 
 http.route({
   path: '/webhooks/clerk',

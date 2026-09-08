@@ -36,15 +36,6 @@ type ConversationMessageLike = {
   }[]
 }
 
-function web3ConfirmMarkdown(confirmation: Web3Confirmation): string {
-  return renderBeeUiMarkdown({
-    type: 'confirm',
-    summary: confirmation.summary,
-    action: 'web3',
-    payload: { web3ActionId: confirmation.actionId },
-  }).markdown
-}
-
 export function extractBeeResponse(text: string): BeeResponseProjection {
   const { spoken, components } = extractBeeUi(text)
   const rendered = components.map(renderBeeUiMarkdown)
@@ -78,17 +69,15 @@ export function projectWeb3Action(
 ): BeeResponseProjection {
   const confirmation = response.web3Confirmation
   if (!confirmation) return response
-  const original = web3ConfirmMarkdown(confirmation)
   const canonical = {
     actionId: confirmation.actionId,
     summary: action.summary,
   }
   const projected = projectTextWeb3Action(action)
-  const { web3Confirmation: _confirmation, ...withoutConfirmation } = response
   const reprojected: BeeResponseProjection = {
-    ...withoutConfirmation,
-    markdown: response.markdown.replace(original, projected.text),
-    links: [...new Set([...response.links, ...projected.links])],
+    spoken: '',
+    markdown: projected.text,
+    links: projected.links,
   }
   if (projected.requiresTextConfirmation) {
     reprojected.web3Confirmation = canonical

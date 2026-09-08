@@ -41,7 +41,7 @@ export const setYolo = mutation({
   args: { enabled: v.boolean() },
   handler: async (ctx, { enabled }) => {
     const userId = await requireUserId(ctx)
-    await requirePowerup(ctx, userId, 'web3')
+    if (enabled) await requirePowerup(ctx, userId, 'web3')
     const existing = await ctx.db
       .query('web3Prefs')
       .withIndex('by_user', (q) => q.eq('userId', userId))

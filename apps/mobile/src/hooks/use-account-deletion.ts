@@ -1,3 +1,4 @@
+import { clearJournalEditorDrafts } from '@/lib/journal-editor-storage';
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { useClerk, useUser } from '@clerk/clerk-expo';
@@ -20,7 +21,7 @@ const PENDING_DELETION_KEY = 'bee.pendingAccountDeletion.v1';
 type PendingDeletion = {
   jobId: Id<'accountDeletionJobs'>;
   activationToken: string;
-  phase: 'prepared' | 'identity_deleted';
+  phase: 'prepared' | 'identity_deleting' | 'identity_deleted';
   clerkUserId?: string;
 };
 
@@ -54,6 +55,7 @@ export function useAccountDeletion() {
   const { user } = useUser();
   const clerk = useClerk();
   const prepareBeeGreatDeletion = useMutation(api.accountDeletion.prepare);
+  const beginIdentityDeletion = useMutation(api.accountDeletion.beginIdentityDeletion);
   const revokeAppleBeforeIdentityDeletion = useAction(
     api.accountDeletionActions.revokeAppleBeforeIdentityDeletion,
   );
@@ -91,22 +93,14 @@ export function useAccountDeletion() {
           jobId: pending.jobId,
           activationToken: pending.activationToken,
         });
+        if (pending.clerkUserId) clearJournalEditorDrafts(pending.clerkUserId);
         await clearPendingDeletion();
         if (decision === 'activate_same_user' && pending.clerkUserId) {
           await signOutIfCurrentUserMatches(pending.clerkUserId);
         }
         return;
       }
-      if (
-        decision === 'cancel_same_user' ||
-        decision === 'cancel_legacy_if_owner'
-      ) {
-        const result = await cancelBeeGreatDeletion({
-          jobId: pending.jobId,
-          activationToken: pending.activationToken,
-        });
-        if (result.status === 'cancelled') await clearPendingDeletion();
-      }
+
     })()
       .catch((cause) => {
         captureMobileFailure(cause, 'account.delete_resume');
@@ -149,6 +143,9 @@ export function useAccountDeletion() {
         jobId: pending.jobId,
         activationToken: pending.activationToken,
       });
+      await beginIdentityDeletion({ jobId: pending.jobId, activationToken: pending.activationToken });
+      pending = { ...pending, phase: 'identity_deleting' };
+      await savePendingDeletion(pending);
       await user.delete();
       identityDeleted = true;
       pending = { ...pending, phase: 'identity_deleted' };
@@ -157,11 +154,12 @@ export function useAccountDeletion() {
         jobId: pending.jobId,
         activationToken: pending.activationToken,
       });
+      clearJournalEditorDrafts(initiatingClerkUserId);
       await clearPendingDeletion();
       await signOutIfCurrentUserMatches(initiatingClerkUserId);
     } catch (cause) {
       captureMobileFailure(cause, 'account.delete');
-      if (!identityDeleted && pending) {
+      if (!identityDeleted && pending?.phase === 'prepared') {
         try {
           const cancelled = await cancelBeeGreatDeletion({
             jobId: pending.jobId,
@@ -203,6 +201,7 @@ export function useAccountDeletion() {
     activateBeeGreatDeletion,
     cancelBeeGreatDeletion,
     prepareBeeGreatDeletion,
+    beginIdentityDeletion,
     revokeAppleBeforeIdentityDeletion,
     signOutIfCurrentUserMatches,
     user,

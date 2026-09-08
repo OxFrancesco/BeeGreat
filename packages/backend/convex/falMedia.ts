@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import { internal } from './_generated/api'
 import { env, internalAction } from './_generated/server'
 import {
   createFalMediaClient,
@@ -46,16 +47,21 @@ function configuredClient() {
 
 export const execute = internalAction({
   args: {
+    userId: v.string(),
     operation: operationValidator,
     prompt: v.string(),
     sourceUrl: v.optional(v.string()),
   },
   returns: resultValidator,
-  handler: async (_ctx, input) => {
-    return await configuredClient().generate({
+  handler: async (ctx, input) => {
+    const client = configuredClient()
+    const reservation = await ctx.runMutation(internal.paidUsage.reserve, { userId: input.userId, operation: input.operation.endsWith('image') ? 'media_image' : 'media_video', units: 1 })
+    try {
+    return await client.generate({
       operation: input.operation,
       prompt: input.prompt,
       sourceUrl: input.sourceUrl,
     })
+    } finally { await ctx.runMutation(internal.paidUsage.release, { userId: input.userId, leaseId: reservation.leaseId }).catch(() => console.warn('Paid usage lease cleanup will expire automatically')) }
   },
 })

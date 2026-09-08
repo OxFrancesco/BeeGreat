@@ -78,6 +78,14 @@ afterEach(() => {
 })
 
 describe('web3 action confirmation gate', () => {
+  test('authorization requires the exact saved summary and rejects spoofed copy', async () => {
+    const t = convexTest(schema, modules)
+    const created = await prepare(t)
+    const app = t.withIdentity(identity(owner))
+    await expect(app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: 'Harmless action' })).rejects.toThrow('does not match')
+    expect((await t.query(internal.web3Actions.get, { actionId: created.id }))?.status).toBe('pending')
+  })
+
   test('preparation durably binds a continuation to its originating conversation', async () => {
     const t = convexTest(schema, modules)
     await t.run(async (ctx) => {
@@ -155,7 +163,7 @@ describe('web3 action confirmation gate', () => {
     const created = await prepare(t)
     const app = t.withIdentity(identity(owner))
 
-    await app.mutation(api.web3Actions.confirm, { actionId: created.id })
+    await app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, })
 
     const action = await t.run(async (ctx) => await ctx.db.get(created.id))
     expect(action?.status).toBe('confirmed')
@@ -163,7 +171,7 @@ describe('web3 action confirmation gate', () => {
 
     // A second confirm of the same action must not double-execute.
     await expect(
-      app.mutation(api.web3Actions.confirm, { actionId: created.id }),
+      app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, }),
     ).rejects.toThrow('already confirmed')
   })
 
@@ -176,7 +184,7 @@ describe('web3 action confirmation gate', () => {
       await other.query(api.web3Actions.status, { actionId: created.id }),
     ).toBeNull()
     await expect(
-      other.mutation(api.web3Actions.confirm, { actionId: created.id }),
+      other.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, }),
     ).rejects.toThrow('no longer available')
 
     const action = await t.run(async (ctx) => await ctx.db.get(created.id))
@@ -187,7 +195,7 @@ describe('web3 action confirmation gate', () => {
     const t = convexTest(schema, modules)
     const created = await prepare(t)
     await expect(
-      t.mutation(api.web3Actions.confirm, { actionId: created.id }),
+      t.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, }),
     ).rejects.toThrow('Not signed in')
   })
 
@@ -201,7 +209,7 @@ describe('web3 action confirmation gate', () => {
     })
 
     await expect(
-      app.mutation(api.web3Actions.confirm, { actionId: created.id }),
+      app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, }),
     ).rejects.toThrow('not enabled')
   })
 
@@ -213,7 +221,7 @@ describe('web3 action confirmation gate', () => {
     vi.setSystemTime(Date.now() + ACTION_TTL_MS + 1)
 
     await expect(
-      app.mutation(api.web3Actions.confirm, { actionId: created.id }),
+      app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, }),
     ).rejects.toThrow('expired')
     const status = await app.query(api.web3Actions.status, {
       actionId: created.id,
@@ -233,7 +241,7 @@ describe('web3 action confirmation gate', () => {
     expect(status?.status).toBe('cancelled')
 
     await expect(
-      app.mutation(api.web3Actions.confirm, { actionId: created.id }),
+      app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, }),
     ).rejects.toThrow('already cancelled')
   })
 
@@ -252,7 +260,7 @@ describe('web3 action confirmation gate', () => {
     expect(action?.status).toBe('pending')
 
     const app = t.withIdentity(identity(owner))
-    await app.mutation(api.web3Actions.confirm, { actionId: created.id })
+    await app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, })
     await t.mutation(internal.web3Actions.recordResult, {
       actionId: created.id,
       result: [
@@ -268,7 +276,7 @@ describe('web3 action confirmation gate', () => {
     const t = convexTest(schema, modules)
     const created = await prepare(t)
     const app = t.withIdentity(identity(owner))
-    await app.mutation(api.web3Actions.confirm, { actionId: created.id })
+    await app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, })
 
     await t.mutation(internal.web3Actions.recordResult, {
       actionId: created.id,
@@ -315,7 +323,7 @@ describe('web3 action confirmation gate', () => {
       },
     })
     await t.withIdentity(identity(owner)).mutation(api.web3Actions.confirm, {
-      actionId: created.id,
+      actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary,
     })
 
     await t.mutation(internal.web3Actions.recordCrossmintPrepared, {
@@ -403,7 +411,7 @@ describe('web3 action confirmation gate', () => {
       payload: socketPayload,
     })
     const app = t.withIdentity(identity(owner))
-    await app.mutation(api.web3Actions.confirm, { actionId: created.id })
+    await app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, })
 
     const sourceTxHash = `0x${'ab'.repeat(32)}`
     await t.mutation(internal.web3Actions.recordSocketSubmitted, {
@@ -466,7 +474,7 @@ describe('web3 action confirmation gate', () => {
       payload: socketPayload,
     })
     const app = t.withIdentity(identity(owner))
-    await app.mutation(api.web3Actions.confirm, { actionId: created.id })
+    await app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, })
 
     await t.mutation(internal.web3Actions.recordSocketPrepared, {
       actionId: created.id,
@@ -547,7 +555,7 @@ describe('socket route refresh', () => {
     })
     await t
       .withIdentity(identity(owner))
-      .mutation(api.web3Actions.confirm, { actionId: created.id })
+      .mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, })
     return created.id
   }
 
@@ -623,7 +631,7 @@ describe('socket route refresh', () => {
 
     await t
       .withIdentity(identity(owner))
-      .mutation(api.web3Actions.confirm, { actionId: send.id })
+      .mutation(api.web3Actions.confirm, { actionId: send.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: send.id }))!.summary, })
     await expect(
       t.mutation(internal.web3Actions.refreshSocketRoute, {
         actionId: send.id,
@@ -795,10 +803,10 @@ describe('YOLO mode', () => {
 
     const app = t.withIdentity(identity(owner))
     await expect(
-      app.mutation(api.web3Actions.confirm, { actionId: created.id }),
+      app.mutation(api.web3Actions.confirm, { actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary, }),
     ).rejects.toThrow('linked wallet')
     const plan = await app.mutation(api.web3Actions.beginEoaExecution, {
-      actionId: created.id,
+      actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary,
     })
     expect(plan.walletAddress).toBe(firstEoa.address)
     expect(plan.transactions).toHaveLength(2)
@@ -889,7 +897,7 @@ describe('YOLO mode', () => {
     })
     const app = t.withIdentity(identity(owner))
     await app.mutation(api.web3Actions.beginEoaExecution, {
-      actionId: created.id,
+      actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary,
     })
     await app.mutation(api.web3Actions.recordEoaSubmission, {
       actionId: created.id,
@@ -945,7 +953,7 @@ describe('YOLO mode', () => {
     })
     const app = t.withIdentity(identity(owner))
     await app.mutation(api.web3Actions.beginEoaExecution, {
-      actionId: created.id,
+      actionId: created.id, expectedSummary: (await t.query(internal.web3Actions.get, { actionId: created.id }))!.summary,
     })
     await app.mutation(api.web3Actions.reportEoaFailure, {
       actionId: created.id,

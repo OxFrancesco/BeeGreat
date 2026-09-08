@@ -300,6 +300,7 @@ export const cleanup = internalAction({
     await ctx.runMutation(internal.accountDeletion.finishExternalCleanup, {
       jobId: args.jobId,
       retryableFailure,
+      workerCleanupSucceeded: flue.status === 'deleted',
     })
     return null
   },

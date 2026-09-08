@@ -38,6 +38,22 @@ export const claimDispatch = internalMutation({
       });
       return null;
     }
+    if (job.status === "cancelled") {
+      const now = Date.now();
+      await ctx.db.patch("agentJobRuns", run._id, {
+        status: "skipped",
+        error: "Job was cancelled before dispatch",
+        completedAt: now,
+        updatedAt: now,
+      });
+      if (job.activeRunId === run._id) {
+        await ctx.db.patch("agentJobs", job._id, {
+          activeRunId: undefined,
+          updatedAt: now,
+        });
+      }
+      return null;
+    }
     const attempt = run.attempt + 1;
     const now = Date.now();
     await ctx.db.patch("agentJobRuns", run._id, {

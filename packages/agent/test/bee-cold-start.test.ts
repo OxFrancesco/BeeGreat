@@ -25,9 +25,9 @@ describe('Bee cold-start resources', () => {
         String(init?.body ?? '{}'),
       )
 
-      if (url.endsWith('/api/query')) {
-        expect(body.path).toBe('powerups:getEnabledIds')
-        return Response.json({ status: 'success', value: ['web3'] })
+      if (url.endsWith('/internal/focus') && body.operation === 'get_powerups') {
+        expect(init?.headers).toMatchObject({ authorization: 'Bearer test-broker-secret' })
+        return Response.json(['web3'])
       }
       if (url.endsWith('/internal/focus')) {
         expect(body.operation).toBe('get_context')
@@ -65,11 +65,12 @@ describe('Bee cold-start resources', () => {
 
   test('a transient entitlement failure preserves the last verified power-ups', async () => {
     let powerupLookupFails = false
-    globalThis.fetch = async (input) => {
+    globalThis.fetch = async (input, init) => {
       const url = String(input)
-      if (url.endsWith('/api/query')) {
+      const body = JSON.parse(String(init?.body ?? '{}'))
+      if (url.endsWith('/internal/focus') && body.operation === 'get_powerups') {
         if (powerupLookupFails) throw new Error('Convex is briefly unavailable')
-        return Response.json({ status: 'success', value: ['web3'] })
+        return Response.json(['web3'])
       }
       if (url.endsWith('/internal/focus')) {
         return Response.json({

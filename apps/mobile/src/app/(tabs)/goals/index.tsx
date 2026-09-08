@@ -1,3 +1,4 @@
+import { useInputDialog } from '@/components/input-dialog';
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { useMutation, useQuery } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
@@ -208,11 +209,12 @@ function GoalCard({ goal }: { goal: GoalSummary }) {
 }
 
 function LiveGoalCard({ goal }: { goal: GoalSummary }) {
+  const dialog = useInputDialog();
   const updateGoal = useMutation(api.goals.update);
   const removeGoal = useMutation(api.goals.remove);
 
   const rename = () => {
-    Alert.prompt(
+    dialog.prompt(
       'Rename goal',
       undefined,
       [
@@ -220,7 +222,7 @@ function LiveGoalCard({ goal }: { goal: GoalSummary }) {
         {
           text: 'Save',
           onPress: (title?: string) => {
-            if (title?.trim()) updateGoal({ goalId: goal.id, title });
+            if (title?.trim()) return updateGoal({ goalId: goal.id, title });
           },
         },
       ],

@@ -1,3 +1,4 @@
+import { getDisplayedWeb3, recordDisplayedWeb3 } from './displayed-confirmations'
 // Interprets an incoming prompt against Bee's pending interactive state — the
 // first-focus preview / web3 confirmation / highlight-completion decision
 // ladder — and produces the reply. Guard clauses keep the original decision
@@ -72,7 +73,7 @@ export async function resolvePromptReply(input: {
       context.threadId,
     )
     const preview = interactive.firstFocus
-    if (preview) {
+    if (preview && !interactive.web3) {
       if (isFirstFocusConfirmation(prompt)) {
         await transport.channelAction(userId, {
           action: 'confirm_first_focus',
@@ -133,11 +134,16 @@ export async function resolvePromptReply(input: {
           directWeb3Reply: true,
         }
       }
+      const displayed = getDisplayedWeb3(userId, context.threadId)
+      if (!displayed || displayed.actionId !== web3Confirmation.actionId || displayed.summary !== current.summary) {
+        return { reply: replyForWeb3Action(current), celebrate: false, directWeb3Reply: true }
+      }
       await transport.channelAction(userId, {
         action: confirmed ? 'confirm_web3' : 'cancel_web3',
         actionId: web3Confirmation.actionId,
-        summary: current.summary,
+        summary: displayed.summary,
       })
+      recordDisplayedWeb3(userId, context.threadId)
       const updated = await transport.web3ActionFor(
         userId,
         web3Confirmation.actionId,

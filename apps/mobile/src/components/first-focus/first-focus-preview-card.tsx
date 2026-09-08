@@ -1,5 +1,5 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
-import { useMutation } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import type { FunctionArgs, FunctionReturnType } from 'convex/server';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
@@ -37,17 +37,22 @@ export function FirstFocusPreviewCard({ preview }: { preview: FirstFocusPreview 
 
 function LiveFirstFocusPreviewCard({ preview }: { preview: FirstFocusPreview }) {
   const confirmPlan = useMutation(api.firstFocus.confirmPlan);
+  const confirmation = useQuery(api.firstFocus.getConfirmation, { requestId: preview.requestId });
   return (
-    <FirstFocusPreviewCardView preview={preview} confirmPlan={confirmPlan} />
+    <FirstFocusPreviewCardView key={preview.requestId} preview={preview} confirmPlan={confirmPlan} confirmation={confirmation} loading={confirmation === undefined} />
   );
 }
 
 export function FirstFocusPreviewCardView({
   preview,
   confirmPlan,
+  confirmation,
+  loading = false,
 }: {
   preview: FirstFocusPreview;
   confirmPlan: ConfirmPlan;
+  confirmation?: FunctionReturnType<typeof api.firstFocus.getConfirmation>;
+  loading?: boolean;
 }) {
   const theme = useTheme();
   const reducedMotion = useReducedMotion();
@@ -61,14 +66,14 @@ export function FirstFocusPreviewCardView({
   const [error, setError] = useState<string | null>(null);
 
   const valid = Boolean(goalTitle.trim() && projectTitle.trim() && taskTitle.trim());
-  const busy = status === 'saving' || status === 'cancelling';
+  const busy = loading || !!confirmation || status === 'saved' || status === 'saving' || status === 'cancelling';
 
   const save = useCallback(async () => {
     if (!valid || busy) return false;
     setStatus('saving');
     setError(null);
     try {
-      await confirmPlan({
+      const result = await confirmPlan({
         requestId: preview.requestId,
         confirmed: true,
         goalTitle: goalTitle.trim(),
@@ -76,9 +81,10 @@ export function FirstFocusPreviewCardView({
         taskTitle: taskTitle.trim(),
         highlightExpiresAt,
       });
+      if (result.status === 'cancelled') return false;
       clearPendingFirstFocus(preview.requestId);
       setStatus('saved');
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       return true;
     } catch (cause) {
       setStatus('editing');
@@ -97,16 +103,16 @@ export function FirstFocusPreviewCardView({
   ]);
 
   useEffect(() => {
-    if (status !== 'editing') return;
+    if (status !== 'editing' || loading || confirmation) return;
     return registerPendingFirstFocus(preview.requestId, save);
-  }, [preview.requestId, save, status]);
+  }, [preview.requestId, save, status, loading, confirmation]);
 
   const cancel = async () => {
     if (busy) return;
     setStatus('cancelling');
     setError(null);
     try {
-      await confirmPlan({
+      const result = await confirmPlan({
         requestId: preview.requestId,
         confirmed: false,
         goalTitle: goalTitle.trim() || preview.goalTitle,
@@ -115,7 +121,7 @@ export function FirstFocusPreviewCardView({
         highlightExpiresAt,
       });
       clearPendingFirstFocus(preview.requestId);
-      setStatus('cancelled');
+      setStatus(result.status === 'cancelled' ? 'cancelled' : 'saved');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (cause) {
       setStatus('editing');
@@ -123,7 +129,7 @@ export function FirstFocusPreviewCardView({
     }
   };
 
-  if (status === 'saved') {
+  if (confirmation || status === 'saved') {
     return (
       <Animated.View
         entering={reducedMotion ? undefined : FadeIn.duration(220)}
@@ -133,10 +139,10 @@ export function FirstFocusPreviewCardView({
           <SymbolView name="checkmark.seal.fill" size={24} tintColor={theme.secondaryForeground} />
           <View style={styles.flex}>
             <ThemedText type="smallBold" themeColor="secondaryForeground" selectable>
-              Your first focus is live
+              Focus saved
             </ThemedText>
             <ThemedText type="small" themeColor="secondaryForeground" selectable>
-              The Goal, Project, Task, and Highlight were created together.
+              {confirmation ? [confirmation.goalTitle, confirmation.projectTitle, confirmation.taskTitle].filter(Boolean).join(' · ') : 'Your saved focus is available in the Hive.'}
             </ThemedText>
           </View>
         </View>

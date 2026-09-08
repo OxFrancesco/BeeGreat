@@ -1,3 +1,4 @@
+import { connectionIsActive, connectionsForUser } from './imessage'
 import type { WithoutSystemFields } from 'convex/server'
 import { v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
@@ -146,11 +147,8 @@ export const claimNext = internalMutation({
     let connection = delivery.imessageConnectionId
       ? await ctx.db.get(delivery.imessageConnectionId)
       : null
-    if (!connection || connection.userId !== delivery.userId) {
-      const connections = await ctx.db
-        .query('imessageConnections')
-        .withIndex('by_user', (q) => q.eq('userId', delivery.userId))
-        .take(20)
+    if (!connection || connection.userId !== delivery.userId || !(await connectionIsActive(ctx, connection))) {
+      const connections = await connectionsForUser(ctx, delivery.userId)
       connection = connections.reduce<(typeof connections)[number] | null>(
         (latest, item) =>
           !latest || item.updatedAt > latest.updatedAt ? item : latest,

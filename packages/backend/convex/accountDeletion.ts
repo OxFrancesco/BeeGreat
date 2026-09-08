@@ -1,3 +1,4 @@
+import { removeJournalStorage } from './journalStorage'
 import { ConvexError, v } from 'convex/values'
 import type { Doc, Id, TableNames } from './_generated/dataModel'
 import { internal } from './_generated/api'
@@ -25,13 +26,14 @@ const WATCHDOG_BATCH_SIZE = 50
 
 const activeStatusValidator = v.union(
   v.literal('awaiting_identity_deletion'),
+  v.literal('identity_deleting'),
   v.literal('external_cleanup'),
   v.literal('purging'),
   v.literal('tombstoned'),
 )
 
 type ActiveStatus =
-  'awaiting_identity_deletion' | 'external_cleanup' | 'purging' | 'tombstoned'
+  'awaiting_identity_deletion' | 'identity_deleting' | 'external_cleanup' | 'purging' | 'tombstoned'
 
 // Each scheduled mutation visits exactly one stage and deletes at most one
 // batch. References and child records precede their parent records.
@@ -78,19 +80,26 @@ const DATA_STAGES = [
   'imessageLinkSessions',
   'imessageDeliveries',
   'imessageConnections',
+  'imessageRevocations',
   'journalAttachments',
+  'journalDraftImports',
   'journalEntries',
   'healthJournalEntries',
   'nfcActionExecutions',
   'nfcActions',
   'beennectorAuthSessions',
+  'beennectorCommentActions',
   'beennectorCredentials',
   'beennectorDeliveries',
   'powerups',
+  'paidUsage',
+  'paidUsageLeases',
   'devinSessions',
   'beeSiteDeployments',
   'beeSiteUsage',
   'beeSites',
+  'walletLinkChallenges',
+  'web3Prefs',
   'wallets',
   'web3Actions',
   'tasks',
@@ -195,6 +204,7 @@ const STAGE_REMOVERS = {
   telegramAuthSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('telegramAuthSessions').withIndex('by_user', (q) => q.eq('userId', userId))),
   telegramConnections: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('telegramConnections').withIndex('by_user', (q) => q.eq('userId', userId))),
   imessageLinkSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('imessageLinkSessions').withIndex('by_user', (q) => q.eq('userId', userId))),
+  imessageRevocations: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('imessageRevocations').withIndex('by_user', (q) => q.eq('userId', userId))),
   imessageConnections: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('imessageConnections').withIndex('by_user', (q) => q.eq('userId', userId))),
   // Cascades beyond the row: each attachment's stored blob is deleted too.
   journalAttachments: async (ctx, ownerKey) => {
@@ -203,23 +213,29 @@ const STAGE_REMOVERS = {
       .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
       .take(BATCH_SIZE)
     for (const attachment of attachments) {
-      await ctx.storage.delete(attachment.storageId)
+      await removeJournalStorage(ctx, attachment)
       await ctx.db.delete(attachment._id)
     }
     return attachments.length
   },
+  journalDraftImports: removesBatch((ctx, ownerKey) => ctx.db.query('journalDraftImports').withIndex('by_owner_key_and_draft_key', q => q.eq('ownerKey', ownerKey))),
   journalEntries: removesBatch((ctx, ownerKey) => ctx.db.query('journalEntries').withIndex('by_owner_key_and_local_date_and_occurred_at', (q) => q.eq('ownerKey', ownerKey))),
   healthJournalEntries: removesBatch((ctx, ownerKey) => ctx.db.query('healthJournalEntries').withIndex('by_owner_key_and_local_date', (q) => q.eq('ownerKey', ownerKey))),
   nfcActionExecutions: removesBatch((ctx, ownerKey) => ctx.db.query('nfcActionExecutions').withIndex('by_owner_key_and_executed_at', (q) => q.eq('ownerKey', ownerKey))),
   nfcActions: removesBatch((ctx, ownerKey) => ctx.db.query('nfcActions').withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
   beennectorAuthSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beennectorAuthSessions').withIndex('by_user_and_provider', (q) => q.eq('userId', userId))),
+  beennectorCommentActions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beennectorCommentActions').withIndex('by_user', q => q.eq('userId', userId))),
   beennectorCredentials: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beennectorCredentials').withIndex('by_user_and_provider', (q) => q.eq('userId', userId))),
   beennectorDeliveries: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beennectorDeliveries').withIndex('by_user', (q) => q.eq('userId', userId))),
+  paidUsage: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('paidUsage').withIndex('by_scope', q => q.eq('scope', userId))),
+  paidUsageLeases: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('paidUsageLeases').withIndex('by_user', q => q.eq('userId', userId))),
   powerups: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('powerups').withIndex('by_user', (q) => q.eq('userId', userId))),
   devinSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('devinSessions').withIndex('by_user_and_updated_at', (q) => q.eq('userId', userId))),
   beeSiteDeployments: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beeSiteDeployments').withIndex('by_user_id_and_created_at', (q) => q.eq('userId', userId))),
   beeSiteUsage: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beeSiteUsage').withIndex('by_user_id_and_month_key', (q) => q.eq('userId', userId))),
   beeSites: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('beeSites').withIndex('by_user_id_and_updated_at', (q) => q.eq('userId', userId))),
+  walletLinkChallenges: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('walletLinkChallenges').withIndex('by_user', (q) => q.eq('userId', userId))),
+  web3Prefs: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('web3Prefs').withIndex('by_user', (q) => q.eq('userId', userId))),
   wallets: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('wallets').withIndex('by_user', (q) => q.eq('userId', userId))),
   web3Actions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('web3Actions').withIndex('by_user', (q) => q.eq('userId', userId))),
   tasks: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('tasks').withIndex('by_user', (q) => q.eq('userId', userId))),
@@ -339,7 +355,7 @@ async function scheduleExternalCleanup(
 async function activateJob(ctx: MutationCtx, job: Doc<'accountDeletionJobs'>) {
   const status: ActiveStatus = job.status ?? 'purging'
   const now = Date.now()
-  if (status === 'awaiting_identity_deletion') {
+  if (status === 'awaiting_identity_deletion' || status === 'identity_deleting') {
     await ctx.db.patch(job._id, {
       status: 'external_cleanup',
       activatedAt: now,
@@ -440,7 +456,7 @@ export const authorizeAppleRevocation = internalQuery({
   handler: async (ctx, args) => {
     const job = await requireValidDeletionJob(ctx, args, {
       authorize: (candidate) =>
-        candidate.status === 'awaiting_identity_deletion' &&
+        (candidate.status === 'awaiting_identity_deletion' || candidate.status === 'identity_deleting') &&
         candidate.ownerKey === args.ownerKey &&
         candidate.userId === args.userId,
     })
@@ -461,7 +477,7 @@ export const completeAppleRevocation = internalMutation({
   handler: async (ctx, args) => {
     const job = await requireValidDeletionJob(ctx, args, {
       authorize: (candidate) =>
-        candidate.status === 'awaiting_identity_deletion' &&
+        (candidate.status === 'awaiting_identity_deletion' || candidate.status === 'identity_deleting') &&
         candidate.ownerKey === args.ownerKey &&
         candidate.userId === args.userId,
     })
@@ -470,6 +486,22 @@ export const completeAppleRevocation = internalMutation({
       appleRevocationCompletedAt: Date.now(),
       updatedAt: Date.now(),
     })
+    return null
+  },
+})
+
+/** Protects the cleanup manifest before the client starts deleting its identity. */
+export const beginIdentityDeletion = mutation({
+  args: { jobId: v.id('accountDeletionJobs'), activationToken: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new ConvexError({ code: 'UNAUTHENTICATED', message: 'Authentication required' })
+    const job = await requireValidDeletionJob(ctx, args, {
+      authorize: candidate => candidate.ownerKey === identity.tokenIdentifier,
+    })
+    if (job.status !== 'awaiting_identity_deletion' && job.status !== 'identity_deleting') throw new Error('Account deletion is already active')
+    await ctx.db.patch(job._id, { status: 'identity_deleting', expiresAt: undefined, updatedAt: Date.now() })
     return null
   },
 })
@@ -612,6 +644,7 @@ export const finishExternalCleanup = internalMutation({
   args: {
     jobId: v.id('accountDeletionJobs'),
     retryableFailure: v.boolean(),
+    workerCleanupSucceeded: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -619,8 +652,8 @@ export const finishExternalCleanup = internalMutation({
     if (!job || job.status !== 'external_cleanup') return null
     const attempts = (job.externalCleanupAttempts ?? 0) + 1
     const now = Date.now()
-    if (args.retryableFailure && attempts < 4) {
-      const delayMs = Math.min(60_000 * 2 ** (attempts - 1), STALLED_JOB_MS)
+    if (!args.workerCleanupSucceeded || (args.retryableFailure && attempts < 4)) {
+      const delayMs = Math.min(60_000 * 2 ** Math.min(attempts - 1, 10), STALLED_JOB_MS)
       await ctx.db.patch(job._id, {
         externalCleanupAttempts: attempts,
         externalCleanupNextAttemptAt: now + delayMs,
@@ -774,7 +807,12 @@ export const watchdog = internalMutation({
       expiredTombstoned.map((job) => job._id.toString()),
     )
     for (const job of expiredTombstoned) {
-      await ctx.db.delete('accountDeletionJobs', job._id)
+      const unresolvedStorage = await ctx.db.query('journalStorageReviews').withIndex('by_owner_key', q => q.eq('ownerKey', job.ownerKey)).first()
+      if (unresolvedStorage) {
+        await ctx.db.patch(job._id, { expiresAt: now + TOMBSTONE_RETENTION_MS, updatedAt: now })
+      } else {
+        await ctx.db.delete('accountDeletionJobs', job._id)
+      }
     }
     for (const job of tombstoned) {
       if (expiredTombstoneIds.has(job._id.toString())) continue

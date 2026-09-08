@@ -154,6 +154,10 @@ export const toggle = mutation({
         },
       )
     } else {
+      const goal = await ctx.db.get(task.goalId)
+      if (goal?.status !== 'active') {
+        throw new Error('Reactivate the goal before reopening its tasks')
+      }
       await ctx.db.patch(taskId, { status: 'todo', completedAt: undefined })
     }
   },

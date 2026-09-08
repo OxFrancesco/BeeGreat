@@ -30,11 +30,13 @@ export async function beginEoaExecutionForUser(
   ctx: MutationCtx,
   userId: string,
   actionId: Id<'web3Actions'>,
+  expectedSummary: string,
 ) {
   const action = await ctx.db.get(actionId)
   if (!action || action.userId !== userId) {
     throw new Error('This confirmation is no longer available.')
   }
+  if (action.summary !== expectedSummary) throw new Error('The saved confirmation changed. Review it again.')
   await requirePowerup(ctx, userId, 'web3')
   if (action.payload.kind !== 'execute_eoa_plan') {
     throw new Error('This action does not use your linked wallet.')

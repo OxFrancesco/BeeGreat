@@ -458,3 +458,14 @@ test('the app-facing query requires Clerk authentication', async () => {
     authenticated(t, 'user_owner').query(api.subscriptions.status, {}),
   ).resolves.toMatchObject({ active: false, entitlementId: 'pro' })
 })
+
+test('an inactive REST observation wins over a delayed first purchase with no cached entitlement', async () => {
+  const t = convexTest(schema, modules)
+  await t.mutation(internal.subscriptions.applyRevenueCatRestSnapshot, {
+    userId: 'user_owner', checkedAt: 1_500, observedAt: 1_400, active: false,
+  })
+  expect(await t.mutation(internal.subscriptions.applyRevenueCatEvent, lifecycleEvent())).toMatchObject({ status: 'stale' })
+  expect(await t.query(internal.subscriptions.statusForUser, { userId: 'user_owner', now: 1_600 })).toMatchObject({ active: false })
+  expect(await t.mutation(internal.subscriptions.applyRevenueCatEvent, lifecycleEvent({ eventId: 'new-purchase', eventTimestampMs: 1_700, purchasedAtMs: 1_700, expirationAtMs: 5_000 }))).toMatchObject({ status: 'applied' })
+  expect(await t.query(internal.subscriptions.statusForUser, { userId: 'user_owner', now: 1_800 })).toMatchObject({ active: true })
+})

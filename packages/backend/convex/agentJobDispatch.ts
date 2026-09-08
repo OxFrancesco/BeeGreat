@@ -56,6 +56,14 @@ export const dispatch = internalAction({
       const body = Result.getOrNull(
         decodeDispatchResponse(await response.json().catch(() => null)),
       );
+      if (response.status === 402) {
+        await ctx.runMutation(internal.agentJobRuns.recordDispatchFailure, {
+          runId: args.runId,
+          error: body?.error ?? "BeeGreat Pro is required for this Job",
+          retry: false,
+        });
+        return null;
+      }
       if (!response.ok) {
         throw new Error(
           body?.error ?? `Agent dispatch failed (HTTP ${response.status})`,

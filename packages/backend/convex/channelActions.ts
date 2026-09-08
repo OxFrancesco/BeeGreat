@@ -379,11 +379,12 @@ export const cancelWeb3 = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const identity = channelIdentity(args)
-    return await cancelWeb3Action(
+    await cancelWeb3Action(
       ctx,
       identity.userId,
       args.actionId,
       args.summary,
     )
+    return null
   },
 })

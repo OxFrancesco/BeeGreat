@@ -1,7 +1,8 @@
+import { removeJournalStorage } from './journalStorage'
 import type { WithoutSystemFields } from 'convex/server'
 import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
-import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
+import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 
 const MAX_BODY_LENGTH = 50_000
 const MAX_TITLE_LENGTH = 160
@@ -102,8 +103,8 @@ function validateTimeZone(timeZone: string) {
 }
 
 function validateOccurredAt(occurredAt: number) {
-  if (!Number.isSafeInteger(occurredAt) || occurredAt <= 0) {
-    invalidArgument('occurredAt must be a positive timestamp')
+  if (!Number.isSafeInteger(occurredAt) || Math.abs(occurredAt) > 8_640_000_000_000_000) {
+    invalidArgument('occurredAt must be a valid timestamp')
   }
 }
 
@@ -114,6 +115,16 @@ function validateEntryMoment(localDate: string, timeZone: string, occurredAt: nu
   if (localDateForTimestamp(occurredAt, timeZone) !== localDate) {
     invalidArgument('localDate must match occurredAt in timeZone')
   }
+}
+
+function legacyOccurredAt(localDate: string, timeZone: string, createdAt: number) {
+  if (localDateForTimestamp(createdAt, timeZone) === localDate) return createdAt
+  const noon = Date.parse(`${localDate}T12:00:00Z`)
+  for (const hours of [0, -12, 12, -24, 24]) {
+    const timestamp = noon + hours * 60 * 60 * 1000
+    if (localDateForTimestamp(timestamp, timeZone) === localDate) return timestamp
+  }
+  invalidArgument('This legacy journal date does not exist in its time zone')
 }
 
 function validateLimit(limit: number) {
@@ -274,6 +285,7 @@ export const createDraft = mutation({
 export const update = mutation({
   args: {
     entryId: v.id('journalEntries'),
+    expectedUpdatedAt: v.number(),
     title: v.optional(v.string()),
     body: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
@@ -290,6 +302,7 @@ export const update = mutation({
     if (!entry || entry.ownerKey !== ownerKey) {
       throw new ConvexError({ code: 'NOT_FOUND', message: 'Journal entry not found' })
     }
+    if (args.expectedUpdatedAt !== entry.updatedAt) throw new ConvexError({ code: 'CONFLICT', message: 'This entry changed elsewhere. Review the saved version before replacing it.' })
     if (args.title !== undefined) validateTitle(args.title)
     if (args.body !== undefined) validateBody(args.body)
 
@@ -298,19 +311,20 @@ export const update = mutation({
     const tags = args.tags === undefined ? (entry.tags ?? []) : normalizeTags(args.tags)
     const localDate = args.localDate ?? entry.localDate
     const timeZone = args.timeZone ?? entry.timeZone
-    const occurredAt = args.occurredAt ?? entry.occurredAt
+    const occurredAt = args.occurredAt ?? (entry.legacyLocalDate && args.localDate === undefined && args.timeZone === undefined
+      ? legacyOccurredAt(localDate, timeZone, entry.occurredAt) : entry.occurredAt)
     validateEntryMoment(localDate, timeZone, occurredAt)
 
     const patch: Partial<WithoutSystemFields<Doc<'journalEntries'>>> = {
       searchText: `${title}\n${body}\n${tags.join(' ')}`.trim(),
-      updatedAt: Date.now(),
+      updatedAt: Math.max(Date.now(), entry.updatedAt + 1),
     }
     if (args.title !== undefined) patch.title = args.title
     if (args.body !== undefined) patch.body = args.body
     if (args.tags !== undefined) patch.tags = tags
     if (args.localDate !== undefined) patch.localDate = localDate
     if (args.timeZone !== undefined) patch.timeZone = timeZone
-    if (args.occurredAt !== undefined) patch.occurredAt = occurredAt
+    if (occurredAt !== entry.occurredAt) patch.occurredAt = occurredAt
     if (args.isPinned !== undefined) patch.isPinned = args.isPinned
     if (args.isFavorite !== undefined) patch.isFavorite = args.isFavorite
     await ctx.db.patch('journalEntries', args.entryId, patch)
@@ -441,12 +455,26 @@ export const generatePhotoUploadUrl = mutation({
   returns: v.string(),
   handler: async (ctx) => {
     await requireIdentity(ctx)
-    return ctx.storage.generateUploadUrl()
+    const site = process.env.CONVEX_SITE_URL
+    if (!site) throw new Error('Journal uploads are not configured')
+    return new URL('/journal/photo', site).toString()
   },
 })
 
-export const addPhoto = mutation({
+export const authorizePhotoUpload = internalQuery({
+  args: { ownerKey: v.string(), entryId: v.id('journalEntries') },
+  handler: async (ctx, args) => {
+    const entry = await ctx.db.get(args.entryId)
+    if (!entry || entry.ownerKey !== args.ownerKey) return false
+    const photos = await ctx.db.query('journalAttachments').withIndex('by_entry_id_and_created_at', q => q.eq('entryId', args.entryId)).take(MAX_PHOTOS)
+    return photos.length < MAX_PHOTOS
+  },
+})
+
+export const addPhoto = internalMutation({
   args: {
+    ownerKey: v.string(),
+    userId: v.string(),
     entryId: v.id('journalEntries'),
     storageId: v.id('_storage'),
     mimeType: v.string(),
@@ -456,7 +484,7 @@ export const addPhoto = mutation({
   },
   returns: photoValidator,
   handler: async (ctx, args) => {
-    const identity = await requireIdentity(ctx)
+    const identity = { ownerKey: args.ownerKey, userId: args.userId }
     const entry = await ctx.db.get('journalEntries', args.entryId)
     if (!entry || entry.ownerKey !== identity.ownerKey) {
       throw new ConvexError({ code: 'NOT_FOUND', message: 'Journal entry not found' })
@@ -474,6 +502,7 @@ export const addPhoto = mutation({
       ...identity,
       entryId: args.entryId,
       kind: 'photo',
+      uploadVerified: true,
       storageId: args.storageId,
       mimeType: args.mimeType,
       createdAt: Date.now(),
@@ -487,7 +516,7 @@ export const addPhoto = mutation({
       'journalAttachments',
       attachmentDocument,
     )
-    await ctx.db.patch('journalEntries', args.entryId, { updatedAt: Date.now() })
+    await ctx.db.patch('journalEntries', args.entryId, { updatedAt: Math.max(Date.now(), entry.updatedAt + 1) })
     const attachment = await ctx.db.get('journalAttachments', attachmentId)
     if (!attachment) throw new Error('Journal photo disappeared during creation')
     const view = await attachmentView(ctx, attachment)
@@ -505,9 +534,10 @@ export const removePhoto = mutation({
     if (!attachment || attachment.ownerKey !== ownerKey) {
       throw new ConvexError({ code: 'NOT_FOUND', message: 'Journal photo not found' })
     }
-    await ctx.storage.delete(attachment.storageId)
+    await removeJournalStorage(ctx, attachment)
     await ctx.db.delete('journalAttachments', attachment._id)
-    await ctx.db.patch('journalEntries', attachment.entryId, { updatedAt: Date.now() })
+    const entry = await ctx.db.get(attachment.entryId)
+    if (entry) await ctx.db.patch(entry._id, { updatedAt: Math.max(Date.now(), entry.updatedAt + 1) })
     return null
   },
 })
@@ -526,8 +556,13 @@ export const remove = mutation({
       .withIndex('by_entry_id_and_created_at', (q) => q.eq('entryId', args.entryId))
       .collect()
     for (const attachment of attachments) {
-      await ctx.storage.delete(attachment.storageId)
+      await removeJournalStorage(ctx, attachment)
       await ctx.db.delete('journalAttachments', attachment._id)
+    }
+    if (entry.legacyLocalDate) {
+      const legacy = await ctx.db.query('healthJournalEntries')
+        .withIndex('by_owner_key_and_local_date', q => q.eq('ownerKey', ownerKey).eq('localDate', entry.legacyLocalDate!)).unique()
+      if (legacy) await ctx.db.patch(legacy._id, { journalMigratedAt: Date.now(), journal: undefined })
     }
     await ctx.db.delete('journalEntries', args.entryId)
     return null
@@ -546,6 +581,7 @@ export const importLegacy = mutation({
     let imported = 0
 
     for (const legacy of legacyEntries) {
+      if (legacy.journalMigratedAt !== undefined) continue
       const body = legacy.journal?.trim() ?? ''
       if (!body) continue
       const existing = await ctx.db
@@ -554,13 +590,16 @@ export const importLegacy = mutation({
           q.eq('ownerKey', identity.ownerKey).eq('legacyLocalDate', legacy.localDate),
         )
         .unique()
+      await ctx.db.patch(legacy._id, { journalMigratedAt: Date.now() })
       if (existing) continue
+      const occurredAt = legacyOccurredAt(legacy.localDate, legacy.timeZone, legacy.createdAt)
+      validateEntryMoment(legacy.localDate, legacy.timeZone, occurredAt)
 
       await ctx.db.insert('journalEntries', {
         ...identity,
         localDate: legacy.localDate,
         timeZone: legacy.timeZone,
-        occurredAt: legacy.createdAt,
+        occurredAt,
         title: '',
         body: legacy.journal ?? '',
         tags: [],
@@ -575,5 +614,34 @@ export const importLegacy = mutation({
     }
 
     return { imported }
+  },
+})
+
+export const importOfflineDraft = mutation({
+  args: { sourceUserId: v.string(), localDate: v.string(), timeZone: v.string(), body: v.string(), draftUpdatedAt: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const identity = await requireIdentity(ctx)
+    if (args.sourceUserId !== identity.userId) throw new ConvexError({ code: 'UNAUTHENTICATED', message: 'Sign back into the account that owns these offline drafts.' })
+    validateLocalDate(args.localDate)
+    validateTimeZone(args.timeZone)
+    validateOccurredAt(args.draftUpdatedAt)
+    validateBody(args.body)
+    if (!args.body.trim()) return null
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([args.localDate, args.draftUpdatedAt, args.body])))
+    const draftKey = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+    if (await ctx.db.query('journalDraftImports').withIndex('by_owner_key_and_draft_key', q => q.eq('ownerKey', identity.ownerKey).eq('draftKey', draftKey)).first()) return null
+    const occurredAt = legacyOccurredAt(args.localDate, args.timeZone, args.draftUpdatedAt)
+    const legacy = await ctx.db.query('healthJournalEntries').withIndex('by_owner_key_and_local_date', q => q.eq('ownerKey', identity.ownerKey).eq('localDate', args.localDate)).unique()
+    // Identical server reflections are handled by importLegacy; record the
+    // receipt only after that entry exists so an interrupted import is safe.
+    const matching = legacy?.journal === args.body ? await ctx.db.query('journalEntries').withIndex('by_owner_key_and_legacy_local_date', q => q.eq('ownerKey', identity.ownerKey).eq('legacyLocalDate', args.localDate)).unique() : null
+    const entryId = matching?._id ?? await ctx.db.insert('journalEntries', {
+      ...identity, localDate: args.localDate, timeZone: args.timeZone, occurredAt,
+      title: '', body: args.body, tags: [], searchText: args.body,
+      isPinned: false, isFavorite: false, createdAt: args.draftUpdatedAt, updatedAt: Date.now(),
+    })
+    await ctx.db.insert('journalDraftImports', { ownerKey: identity.ownerKey, draftKey, entryId })
+    return null
   },
 })

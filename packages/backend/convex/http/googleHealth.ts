@@ -1,4 +1,4 @@
-import type { FunctionArgs } from 'convex/server'
+import { oauthCompletionRedirect } from './oauthCompletion'
 import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { httpAction } from '../_generated/server'
@@ -11,31 +11,7 @@ import {
   type JsonValue,
 } from './middleware'
 
-export const googleHealthOauthCallback = httpAction(async (ctx, request) => {
-  const url = new URL(request.url)
-  const state = url.searchParams.get('state')
-  const code = url.searchParams.get('code')
-  const oauthError = url.searchParams.get('error')
-  let connected = false
-  if (state) {
-    const args: FunctionArgs<
-      typeof internal.googleHealthAuthActions.completeAuthorization
-    > = { state }
-    if (code) args.code = code
-    if (oauthError) args.errorCode = oauthError
-    const result = await ctx.runAction(
-      internal.googleHealthAuthActions.completeAuthorization,
-      args,
-    )
-    connected = result.ok
-  }
-  const appUrl = new URL(
-    process.env.GOOGLE_HEALTH_APP_REDIRECT_URI?.trim() ||
-      'beegreat://profile',
-  )
-  appUrl.searchParams.set('googleHealth', connected ? 'connected' : 'failed')
-  return Response.redirect(appUrl.toString(), 302)
-})
+export const googleHealthOauthCallback = httpAction(async (_ctx, request) => oauthCompletionRedirect(request, 'google-health'))
 
 const GoogleHealthContextRequest = Schema.Struct({ userId: AgentUserId })
 

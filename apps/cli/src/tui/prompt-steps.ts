@@ -1,3 +1,4 @@
+import { terminalText } from '../terminal-text';
 import type { SelectOption } from "@opentui/core";
 
 import { scrubIdentifiers } from "@beegreat/tool-presentation";
@@ -28,14 +29,14 @@ export function questionPromptSteps(
   }
   let optionNumber = 0;
   return question.questions.map((prompt) => ({
-    title: `${scrubIdentifiers(prompt.header)} — ${scrubIdentifiers(prompt.question)}`,
+    title: `${terminalText(scrubIdentifiers(prompt.header))} — ${terminalText(scrubIdentifiers(prompt.question))}`,
     options: [
       ...(prompt.options ?? []).map((option) => {
         optionNumber += 1;
         return {
-          name: scrubIdentifiers(option.label),
+          name: terminalText(scrubIdentifiers(option.label)),
           description: option.description
-            ? scrubIdentifiers(option.description)
+            ? terminalText(scrubIdentifiers(option.description))
             : "",
           value: String(optionNumber),
         };
@@ -52,7 +53,7 @@ export function questionPromptSteps(
 export function confirmPromptSteps(summary: string): PromptStep[] {
   return [
     {
-      title: summary,
+      title: terminalText(summary),
       options: [
         {
           name: "Yes",

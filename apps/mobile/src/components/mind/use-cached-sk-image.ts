@@ -12,10 +12,10 @@ import { useEffect, useState } from 'react';
 const MAX_CACHE_ENTRIES = 96;
 const MAX_IMAGE_DIMENSION = 512;
 
-const cache = new Map<string, SkImage | null>();
+const cache = new Map<string, SkImage>();
 const pending = new Map<string, Promise<SkImage | null>>();
 
-function remember(key: string, image: SkImage | null) {
+function remember(key: string, image: SkImage) {
   if (cache.size >= MAX_CACHE_ENTRIES && !cache.has(key)) {
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
@@ -65,10 +65,9 @@ function fetchImage(url: string) {
   let promise = pending.get(url);
   if (!promise) {
     promise = loadImage(url, MAX_IMAGE_DIMENSION).then((image) => {
-      remember(url, image);
-      pending.delete(url);
+      if (image) remember(url, image);
       return image;
-    });
+    }).finally(() => pending.delete(url));
     pending.set(url, promise);
   }
   return { cached: undefined, promise };

@@ -7,6 +7,7 @@ import {
   type AppContext,
   type AppEnvironment,
 } from '../app-env.ts'
+import { checkPaidSubscription } from '../subscription-gate'
 import { jsonRecordSchema } from '../shared/json.ts'
 
 /** Convex authenticates to these routes with the server-only broker secret. */
@@ -82,6 +83,24 @@ const jobRunSchema = v.object({
 })
 
 export function registerInternalRoutes(app: Hono<AppEnvironment>) {
+  app.post('/internal/beennector-delivery', async (c) => {
+    if (!brokerSecretMatches(c)) return c.json({ error: 'Unauthorized' }, 401)
+    const parsed = v.safeParse(v.object({
+      userId: userIdSchema,
+      provider: v.picklist(['github', 'linear', 'notion']),
+      deliveryKey: v.pipe(v.string(), v.minLength(1), v.maxLength(256)),
+      message: v.object({ kind: v.literal('signal'), type: v.string(), body: v.pipe(v.string(), v.maxLength(32_000)), attributes: v.record(v.string(), v.string()) }),
+    }), await c.req.json().catch(() => null))
+    if (!parsed.success) return c.json({ error: 'Invalid provider delivery' }, 400)
+    const body = parsed.output
+    const subscription = await checkPaidSubscription(body.userId, {
+      CONVEX_URL: binding(c.env, 'CONVEX_URL'), CONVEX_SITE_URL: binding(c.env, 'CONVEX_SITE_URL'), AGENT_CREDENTIAL_BROKER_SECRET: binding(c.env, 'AGENT_CREDENTIAL_BROKER_SECRET'),
+    })
+    if (subscription.status !== 'active') return c.json({ error: 'Subscription verification is unavailable.' }, 503)
+    const receipt = await dispatchBee({ id: `${body.userId}~beennector-${body.provider}`, idempotencyKey: body.deliveryKey, message: body.message })
+    return c.json({ submissionId: receipt.submissionId })
+  })
+
   app.post('/internal/account-deletion', async (c) => {
     if (!brokerSecretMatches(c)) {
       return c.json({ error: 'Unauthorized' }, 401)
@@ -189,6 +208,19 @@ export function registerInternalRoutes(app: Hono<AppEnvironment>) {
       return c.json({ error: 'Invalid Job run' }, 400)
     }
     const body = parsed.output
+    if (binding(c.env, 'REQUIRE_SUBSCRIPTION')?.trim().toLowerCase() === 'true') {
+      const subscription = await checkPaidSubscription(body.userId, {
+        CONVEX_URL: binding(c.env, 'CONVEX_URL'),
+        CONVEX_SITE_URL: binding(c.env, 'CONVEX_SITE_URL'),
+        AGENT_CREDENTIAL_BROKER_SECRET: binding(c.env, 'AGENT_CREDENTIAL_BROKER_SECRET'),
+      })
+      if (subscription.status === 'inactive') {
+        return c.json({ error: 'BeeGreat Pro is required for this Job.' }, 402)
+      }
+      if (subscription.status === 'unavailable') {
+        return c.json({ error: 'Subscription verification is unavailable.' }, 503)
+      }
+    }
     const destinations = body.delivery
     const deliveryInstruction = destinations.includes('telegram')
       ? 'Before settling the run, send a concise useful result to the user with send_telegram_message.'

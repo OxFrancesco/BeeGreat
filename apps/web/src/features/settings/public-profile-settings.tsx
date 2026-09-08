@@ -128,16 +128,11 @@ export function PublicProfileSettings() {
       if (bio.trim()) draft.bio = bio
       if (profile.avatarUrl) draft.avatarUrl = profile.avatarUrl
       const saved = await saveProfile(draft)
-      setHandle(saved.handle)
-      setDisplayName(saved.displayName)
-      setBio(saved.bio ?? '')
-      setPublished(saved.published)
-      setLinks(
-        saved.links.map((link, index) => ({
-          id: `${index}-${link.url}`,
-          ...link,
-        })),
-      )
+      setHandle((current) => current === handle ? saved.handle : current)
+      setDisplayName((current) => current === displayName ? saved.displayName : current)
+      setBio((current) => current === bio ? saved.bio ?? '' : current)
+      setPublished((current) => current === published ? saved.published : current)
+      setLinks((current) => current === links ? saved.links.map((link, index) => ({ id: `${index}-${link.url}`, ...link })) : current)
       setMessage(
         saved.published ? 'Profile saved and published.' : 'Draft saved.',
       )

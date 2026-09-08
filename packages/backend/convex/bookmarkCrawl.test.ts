@@ -498,3 +498,14 @@ describe('bookmark crawl coordination', () => {
     ).rejects.toThrow()
   })
 })
+
+test('an uncertain identity deletion keeps a signed-in owner able to process bookmarks', async () => {
+  const t = convexTest(schema, modules)
+  const user = identity('user_deletionuncertain')
+  const client = t.withIdentity(user)
+  const activationToken = 'uncertain-delete-capability-long-enough'
+  const pending = await client.mutation(api.accountDeletion.prepare, { confirmation: 'DELETE', activationToken })
+  await client.mutation(api.accountDeletion.beginIdentityDeletion, { jobId: pending.jobId, activationToken })
+  const bookmarkId = await insertRawWebsite(t, { ownerKey: user.tokenIdentifier, url: 'https://example.com/after-failed-delete', status: 'pending', updatedAt: Date.now() })
+  expect(await t.mutation(internal.bookmarkCrawl.prepare, { bookmarkId })).not.toEqual({ state: 'noop' })
+})

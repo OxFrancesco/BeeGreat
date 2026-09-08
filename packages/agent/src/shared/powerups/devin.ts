@@ -89,12 +89,12 @@ export const devin: PowerupDefinition = {
             ),
             mode: v.optional(
               v.picklist(
-                ['normal', 'fast'],
-                'normal is the cost-conscious default; fast is about twice as fast and four times as expensive',
+                ['normal'],
+                'Shared organization access uses normal mode with a maximum of 5 ACUs per session',
               ),
             ),
             maxAcuLimit: v.optional(
-              v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(1000)),
+              v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(5)),
             ),
           }),
           async run({ data }) {

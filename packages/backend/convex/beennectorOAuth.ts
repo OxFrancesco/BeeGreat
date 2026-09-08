@@ -238,6 +238,7 @@ async function requestToken(
   let response: Response
   try {
     response = await fetch(url, {
+      signal: AbortSignal.timeout(10_000),
       method: 'POST',
       headers: notion
         ? {
@@ -279,7 +280,7 @@ async function requestToken(
       body.error_description ??
         body.error ??
         `${PROVIDER_CONFIG[provider].label} token request failed`,
-      code,
+      response.status === 429 ? 'rate_limited' : code,
       !permanent && (response.status === 429 || response.status >= 500),
     )
   }

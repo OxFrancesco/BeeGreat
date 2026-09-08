@@ -15,17 +15,11 @@ Sentry.init({
   release: import.meta.env.VITE_SENTRY_RELEASE?.trim(),
   sendDefaultPii: false,
   beforeSend: sanitizeSentryEvent,
+  beforeSendTransaction: sanitizeSentryEvent,
   beforeBreadcrumb: sanitizeSentryBreadcrumb,
   initialScope: { tags: { service: 'web-app' } },
-  integrations: [
-    Sentry.replayIntegration({
-      maskAllText: true,
-      maskAllInputs: true,
-      blockAllMedia: true,
-    }),
-  ],
   tracesSampleRate: import.meta.env.DEV ? 1 : 0.2,
   replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: 1,
+  replaysOnErrorSampleRate: 0,
   maxBreadcrumbs: 75,
 })

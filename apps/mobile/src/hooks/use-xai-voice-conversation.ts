@@ -1,3 +1,4 @@
+import { enqueueAudioOperation } from '@/lib/audio-operation-queue';
 import {
   AudioModule,
   setAudioModeAsync,
@@ -20,8 +21,6 @@ import {
   pcm16ToWav,
 } from '@/lib/xai-audio';
 
-const XAI_REALTIME_URL =
-  'wss://api.x.ai/v1/realtime?model=grok-voice-think-fast-2.0';
 const OUTPUT_SAMPLE_RATE = 24_000;
 const PLAYBACK_BATCH_BYTES = 24_000;
 const SESSION_INSTRUCTIONS = `You are Bee, BeeGreat's warm conversational companion.
@@ -65,6 +64,7 @@ type XaiEvent = z.infer<typeof xaiEventSchema>;
 export function useXaiVoiceConversation() {
   const webSocketRef = useRef<WebSocket | null>(null);
   const activeRef = useRef(false);
+  const generationRef = useRef(0);
   const configuredRef = useRef(false);
   const responseIdRef = useRef<string | null>(null);
   const outputChunksRef = useRef<Uint8Array[]>([]);
@@ -135,8 +135,7 @@ export function useXaiVoiceConversation() {
   }, []);
 
   const clearPlayback = useCallback(() => {
-    playlist.pause();
-    playlist.clear();
+    try { playlist.pause(); playlist.clear(); } catch { /* Native teardown may have released the playlist already. */ }
     outputChunksRef.current = [];
     outputByteLengthRef.current = 0;
     responseHasAudioRef.current = false;
@@ -182,19 +181,59 @@ export function useXaiVoiceConversation() {
     [],
   );
 
+  const stop = useCallback(() => {
+    const wasActive = activeRef.current;
+    activeRef.current = false;
+    generationRef.current += 1;
+    configuredRef.current = false;
+    responseIdRef.current = null;
+    clearConnectTimeout();
+    stopStream();
+    const socket = webSocketRef.current;
+    webSocketRef.current = null;
+    socket?.close(1000, 'Conversation ended');
+    clearPlayback();
+    setResponseFinished(false);
+    setStatus('disconnected');
+    if (wasActive) void enqueueAudioOperation(() => setAudioModeAsync({
+      allowsRecording: false,
+      playsInSilentMode: true,
+    })).catch(cause => captureMobileFailure(cause, 'voice.xai.release_audio'));
+  }, [clearConnectTimeout, clearPlayback, stopStream]);
+
+  const runAudioOperation = useCallback((generation: number, operation: () => Promise<void>) => {
+    const current = () => activeRef.current && generationRef.current === generation;
+    const pending = enqueueAudioOperation(async () => {
+      if (!current()) return false;
+      try { await operation(); }
+      catch (cause) { if (current()) throw cause; }
+      if (!current()) {
+        stopStream();
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        return false;
+      }
+      return true;
+    });
+    return pending;
+  }, [stopStream]);
+
   const resumeListening = useCallback(async () => {
     if (!activeRef.current || stream.isStreaming) return;
+    const generation = generationRef.current;
     try {
       clearPlayback();
-      await stream.start();
+      if (!(await runAudioOperation(generation, async () => { if (!stream.isStreaming) await stream.start(); }))) return;
+      if (!activeRef.current || generationRef.current !== generation) return;
       setResponseFinished(false);
       setStatus('listening');
     } catch (cause) {
+      if (!activeRef.current || generationRef.current !== generation) return;
+      stop();
       captureMobileFailure(cause, 'voice.xai.resume_microphone');
       setErrorMessage('The microphone could not resume.');
       setStatus('error');
     }
-  }, [clearPlayback, stream]);
+  }, [clearPlayback, runAudioOperation, stop, stream]);
 
   const handleEvent = useCallback(
     (event: XaiEvent) => {
@@ -305,7 +344,9 @@ export function useXaiVoiceConversation() {
           event.message ??
           event.error?.message ??
           'The live voice session hit a problem.';
+        stop();
         setErrorMessage(message);
+        setStatus('error');
       }
     },
     [
@@ -313,27 +354,10 @@ export function useXaiVoiceConversation() {
       queueOutputAudio,
       resumeListening,
       stopStream,
+      stop,
       upsertTurn,
     ],
   );
-
-  const stop = useCallback(() => {
-    activeRef.current = false;
-    configuredRef.current = false;
-    responseIdRef.current = null;
-    clearConnectTimeout();
-    stopStream();
-    const socket = webSocketRef.current;
-    webSocketRef.current = null;
-    socket?.close(1000, 'Conversation ended');
-    clearPlayback();
-    setResponseFinished(false);
-    setStatus('disconnected');
-    void setAudioModeAsync({
-      allowsRecording: false,
-      playsInSilentMode: true,
-    });
-  }, [clearConnectTimeout, clearPlayback, stopStream]);
 
   const start = useCallback(async () => {
     if (activeRef.current) return;
@@ -343,6 +367,8 @@ export function useXaiVoiceConversation() {
       return;
     }
 
+    const generation = ++generationRef.current;
+    const sessionIsCurrent = () => activeRef.current && generationRef.current === generation;
     activeRef.current = true;
     configuredRef.current = false;
     setTurns([]);
@@ -352,29 +378,30 @@ export function useXaiVoiceConversation() {
 
     try {
       const permission = await AudioModule.requestRecordingPermissionsAsync();
+      if (!sessionIsCurrent()) return;
       if (!permission.granted) {
         throw new Error(
           'Microphone access is off. Enable it in Settings to talk live.',
         );
       }
 
-      const { token } = await createRealtimeVoiceToken();
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-        interruptionMode: 'doNotMix',
-        shouldRouteThroughEarpiece: false,
-      });
-      await stream.start();
+      const { token, websocketUrl } = await createRealtimeVoiceToken();
+      if (!sessionIsCurrent()) return;
+      if (!(await runAudioOperation(generation, async () => {
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, interruptionMode: 'doNotMix', shouldRouteThroughEarpiece: false });
+        if (sessionIsCurrent()) await stream.start();
+      }))) return;
+      if (!sessionIsCurrent()) return;
 
       const inputSampleRate = stream.sampleRate || OUTPUT_SAMPLE_RATE;
-      const socket = new WebSocket(XAI_REALTIME_URL, [
-        `xai-client-secret.${token}`,
+      const socket = new WebSocket(websocketUrl, [
+        `bee-voice.${token}`,
       ]);
       webSocketRef.current = socket;
+      const socketIsCurrent = () => sessionIsCurrent() && webSocketRef.current === socket;
 
       socket.onopen = () => {
-        if (!activeRef.current) {
+        if (!socketIsCurrent()) {
           socket.close(1000, 'Conversation ended');
           return;
         }
@@ -408,6 +435,7 @@ export function useXaiVoiceConversation() {
       };
 
       socket.onmessage = ({ data }) => {
+        if (!socketIsCurrent()) return;
         const text = z.string().safeParse(data);
         if (!text.success) return;
         try {
@@ -419,35 +447,32 @@ export function useXaiVoiceConversation() {
       };
 
       socket.onerror = () => {
-        if (!activeRef.current) return;
+        if (!socketIsCurrent()) return;
+        stop();
         setErrorMessage('Bee could not connect to conversational voice.');
+        setStatus('error');
       };
 
       socket.onclose = ({ code }) => {
-        if (!activeRef.current) return;
-        activeRef.current = false;
-        configuredRef.current = false;
-        stopStream();
+        if (!socketIsCurrent()) return;
+        stop();
         setErrorMessage(`The live voice session ended (${code}).`);
         setStatus('error');
       };
 
       connectTimeoutRef.current = setTimeout(() => {
-        if (configuredRef.current || !activeRef.current) return;
+        if (configuredRef.current || !socketIsCurrent()) return;
+        stop();
         setErrorMessage('Conversational voice took too long to connect.');
         setStatus('error');
-        activeRef.current = false;
-        stopStream();
-        socket.close();
       }, 10_000);
 
       if (process.env.EXPO_OS === 'ios') {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     } catch (cause) {
-      activeRef.current = false;
-      stopStream();
-      clearPlayback();
+      if (!sessionIsCurrent()) return;
+      stop();
       captureMobileFailure(cause, 'voice.xai.start');
       setErrorMessage(
         cause instanceof Error
@@ -456,7 +481,7 @@ export function useXaiVoiceConversation() {
       );
       setStatus('error');
     }
-  }, [clearPlayback, handleEvent, stopStream, stream]);
+  }, [handleEvent, runAudioOperation, stop, stream]);
 
   useEffect(() => {
     if (

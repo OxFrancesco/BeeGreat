@@ -24,5 +24,8 @@ COPY --from=gog-builder /out/gog-agent-safe /usr/local/bin/gog-agent-safe
 COPY site-template /opt/bee-sites-template
 WORKDIR /opt/bee-sites-template
 RUN bun install
+RUN cp /root/.bun/bin/bun /usr/local/bin/bun \
+  && useradd --system --create-home --home-dir /tmp/bee-site-build bee-site-build \
+  && command -v runuser && command -v pkill
 
 WORKDIR /workspace

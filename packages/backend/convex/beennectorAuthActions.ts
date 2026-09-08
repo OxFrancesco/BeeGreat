@@ -1,5 +1,7 @@
 'use node'
 
+import { isRevokedRefreshCode, isUnconsumedRefreshCode } from './credentialRefreshPolicy'
+
 import type { FunctionArgs } from 'convex/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
@@ -47,12 +49,13 @@ function credentialAad(
 
 export const beginAuthorization = action({
   args: {
+    client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))),
     provider: beennectorProviderValidator,
     googleServices: v.optional(v.array(googleWorkspaceServiceValidator)),
     googleDisclosureVersion: v.optional(v.string()),
   },
-  returns: v.object({ authorizationUrl: v.string() }),
-  handler: async (ctx, args) => {
+  returns: v.object({ authorizationUrl: v.string(), sessionId: v.id('beennectorAuthSessions') }),
+  handler: async (ctx, args): Promise<{ authorizationUrl: string; sessionId: Id<'beennectorAuthSessions'> }> => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not signed in')
     const userId = identity.subject
@@ -69,8 +72,9 @@ export const beginAuthorization = action({
     const stateHash = hashBeennectorValue(authorization.state)
     const sessionArgs: FunctionArgs<
       typeof internal.beennectors.createSession
-    > = {
+> = {
       userId,
+      client: args.client ?? 'mobile',
       provider: args.provider,
       stateHash,
       expiresAt: Date.now() + SESSION_TTL_MS,
@@ -86,12 +90,12 @@ export const beginAuthorization = action({
       sessionArgs.disclosureAcceptedAt = Date.now()
       sessionArgs.requestedGoogleServices = args.googleServices
     }
-    await ctx.runMutation(internal.beennectors.createSession, sessionArgs)
-    return { authorizationUrl: authorization.authorizationUrl }
+    const sessionId: Id<'beennectorAuthSessions'> = await ctx.runMutation(internal.beennectors.createSession, sessionArgs)
+    return { authorizationUrl: authorization.authorizationUrl, sessionId }
   },
 })
 
-export const completeAuthorization = internalAction({
+export const completeAuthorization = action({
   args: {
     code: v.optional(v.string()),
     state: v.string(),
@@ -99,6 +103,7 @@ export const completeAuthorization = internalAction({
   },
   returns: v.object({
     ok: v.boolean(),
+    client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))),
     provider: v.optional(beennectorProviderValidator),
     errorCode: v.optional(v.string()),
   }),
@@ -107,13 +112,18 @@ export const completeAuthorization = internalAction({
     args,
   ): Promise<{
     ok: boolean
+    client?: 'mobile' | 'browser'
     provider?: BeennectorProvider
     errorCode?: string
   }> => {
+    const completingIdentity = await ctx.auth.getUserIdentity()
+    if (!completingIdentity) throw new Error('Sign in to complete this connection')
+    const attemptId = crypto.randomUUID()
     const stateHash = hashBeennectorValue(args.state)
     const session: {
       sessionId: Id<'beennectorAuthSessions'>
       userId: string
+      client: 'mobile' | 'browser'
       provider: BeennectorProvider
       status: string
       encryptedCodeVerifier?: {
@@ -126,8 +136,8 @@ export const completeAuthorization = internalAction({
         'mail' | 'calendar' | 'drive' | 'contacts' | 'tasks' | 'forms'
       >
       expiresAt: number
-    } | null = await ctx.runQuery(internal.beennectors.getSessionByStateHash, {
-      stateHash,
+    } | null = await ctx.runMutation(internal.beennectors.claimSessionByStateHash, {
+      stateHash, userId: completingIdentity.subject, attemptId,
     })
     if (!session) {
       return { ok: false, errorCode: 'invalid_state' }
@@ -135,7 +145,7 @@ export const completeAuthorization = internalAction({
     if (!args.code || args.errorCode) {
       const errorCode = args.errorCode ?? 'missing_authorization_code'
       await ctx.runMutation(internal.beennectors.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode,
       })
       return { ok: false, provider: session.provider, errorCode }
@@ -146,7 +156,7 @@ export const completeAuthorization = internalAction({
       (session.provider !== 'notion' && !session.encryptedCodeVerifier)
     ) {
       await ctx.runMutation(internal.beennectors.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode: 'invalid_or_expired_state',
       })
       return {
@@ -176,7 +186,7 @@ export const completeAuthorization = internalAction({
       const completionArgs: FunctionArgs<
         typeof internal.beennectors.completeAuthorization
       > = {
-        sessionId: session.sessionId,
+        sessionId: session.sessionId, attemptId,
         encryptedAccess: encryptBeennectorSecret(
           tokens.accessToken,
           credentialAad(session.userId, session.provider, 'access'),
@@ -199,7 +209,7 @@ export const completeAuthorization = internalAction({
         completionArgs,
       )
       return stored
-        ? { ok: true, provider: session.provider }
+        ? { ok: true, provider: session.provider, client: session.client }
         : {
             ok: false,
             provider: session.provider,
@@ -226,7 +236,7 @@ export const completeAuthorization = internalAction({
         )
       }
       await ctx.runMutation(internal.beennectors.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode,
       })
       return { ok: false, provider: session.provider, errorCode }
@@ -241,8 +251,8 @@ export const disconnect = action({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not signed in')
     const userId = identity.subject
-    const credential = await ctx.runQuery(
-      internal.beennectors.getCredentialForDisconnect,
+    const credential = await ctx.runMutation(
+      internal.beennectors.removeConnection,
       { userId, provider: args.provider },
     )
     const encryptedRevocationToken =
@@ -267,10 +277,6 @@ export const disconnect = action({
         })
       }
     }
-    await ctx.runMutation(internal.beennectors.removeConnection, {
-      userId,
-      provider: args.provider,
-    })
     return null
   },
 })
@@ -299,11 +305,11 @@ type CredentialClaim =
       leaseId: string
     }
 
-export async function resolveBeennectorAccessToken(
+export async function resolveBeennectorCredential(
   ctx: ActionCtx,
   userId: string,
   provider: BeennectorProvider,
-): Promise<string> {
+): Promise<{ accessToken: string; encryptedAccess: ReturnType<typeof encryptBeennectorSecret> }> {
   const leaseId = crypto.randomUUID()
   const claim: CredentialClaim = await ctx.runMutation(
     internal.beennectors.claimCredential,
@@ -329,16 +335,18 @@ export async function resolveBeennectorAccessToken(
     throw new Error(`${provider} credentials are refreshing. Try again shortly.`)
   }
   if (claim.status === 'ready') {
-    return decryptBeennectorSecret(
+    return { accessToken: decryptBeennectorSecret(
       claim.encryptedAccess,
       credentialAad(userId, provider, 'access'),
-    )
+    ), encryptedAccess: claim.encryptedAccess }
   }
+  let refreshAttempted = false
   try {
     const refreshToken = decryptBeennectorSecret(
       claim.encryptedRefresh,
       credentialAad(userId, provider, 'refresh'),
     )
+    refreshAttempted = true
     const tokens = await refreshBeennectorToken(provider, refreshToken)
     const refreshArgs: FunctionArgs<
       typeof internal.beennectors.finishRefresh
@@ -364,15 +372,16 @@ export async function resolveBeennectorAccessToken(
     if (!stored) {
       throw new Error(`${provider} credentials changed while refreshing.`)
     }
-    return tokens.accessToken
+    return { accessToken: tokens.accessToken, encryptedAccess: refreshArgs.encryptedAccess }
   } catch (error) {
     const permanent =
-      error instanceof BeennectorOAuthError ? !error.retryable : true
+      error instanceof BeennectorOAuthError && isRevokedRefreshCode(error.code)
     await ctx.runMutation(internal.beennectors.failRefresh, {
       userId,
       provider,
       leaseId: claim.leaseId,
       permanent,
+      uncertain: refreshAttempted && !permanent && !(error instanceof BeennectorOAuthError && isUnconsumedRefreshCode(error.code)),
     })
     throw permanent
       ? new Error(
@@ -391,6 +400,6 @@ export const googleAccessTokenForAgent = internalAction({
   args: { userId: v.string() },
   returns: v.object({ accessToken: v.string() }),
   handler: async (ctx, args) => ({
-    accessToken: await resolveBeennectorAccessToken(ctx, args.userId, 'google'),
+    accessToken: (await resolveBeennectorCredential(ctx, args.userId, 'google')).accessToken,
   }),
 })

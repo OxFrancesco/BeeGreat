@@ -15,6 +15,7 @@ import type { Doc, Id } from '../_generated/dataModel'
 import { SOCKET_CHAINS } from '../socketSwap'
 import {
   CrossmintTransactionPendingError,
+  CrossmintTransactionFailedError,
   executeSmartWalletIntent,
   prepareAndApproveCrossmintBatch,
   type SugarTransactionStep,
@@ -109,6 +110,7 @@ export async function executeConfirmedActionForId(
           if (error instanceof CrossmintTransactionPendingError) return null
           await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
             actionId,
+            ...(error instanceof CrossmintTransactionFailedError ? { transactionId: error.transactionId } : {}),
             error:
               error instanceof Error ? error.message : 'Execution failed',
           })
@@ -238,6 +240,7 @@ export async function executeConfirmedActionForId(
           internal.web3Actions.recordSocketOriginFailure,
           {
             actionId,
+            ...(error instanceof CrossmintTransactionFailedError ? { transactionId: error.transactionId } : {}),
             error:
               error instanceof Error ? error.message : 'Execution failed',
           },

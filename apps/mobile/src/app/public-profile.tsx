@@ -155,16 +155,11 @@ export default function PublicProfileScreen() {
       if (bio.trim()) saveArgs.bio = bio;
       if (profile.avatarUrl) saveArgs.avatarUrl = profile.avatarUrl;
       const saved = await saveProfile(saveArgs);
-      setHandle(saved.handle);
-      setDisplayName(saved.displayName);
-      setBio(saved.bio ?? "");
-      setPublished(saved.published);
-      setLinks(
-        saved.links.map((link, index) => ({
-          id: `${index}-${link.url}`,
-          ...link,
-        })),
-      );
+      setHandle((current) => current === handle ? saved.handle : current);
+      setDisplayName((current) => current === displayName ? saved.displayName : current);
+      setBio((current) => current === bio ? saved.bio ?? '' : current);
+      setPublished((current) => current === published ? saved.published : current);
+      setLinks((current) => current === links ? saved.links.map((link, index) => ({ id: `${index}-${link.url}`, ...link })) : current);
       if (process.env.EXPO_OS === "ios") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }

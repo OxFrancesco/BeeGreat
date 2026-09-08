@@ -1004,3 +1004,20 @@ test('Active Goal limits are isolated by Clerk issuer for a shared subject', asy
   expect((await firstIssuer.query(getCurrent, {})).activeGoals).toHaveLength(7)
   expect((await secondIssuer.query(getCurrent, {})).activeGoals).toHaveLength(2)
 })
+
+test('confirmation lookup returns the owned historical plan and cancellation cannot erase success', async () => {
+  const { api } = await import('./_generated/api')
+  const t = convexTest(schema, modules)
+  const owner = t.withIdentity({ subject: 'confirmation_owner', tokenIdentifier: 'issuer|confirmation_owner' })
+  const other = t.withIdentity({ subject: 'confirmation_other', tokenIdentifier: 'issuer|confirmation_other' })
+  const input = { requestId: 'historic-focus', confirmed: true, goalTitle: 'Original goal', projectTitle: 'Original project', taskTitle: 'Original task', highlightExpiresAt: Date.now() + 60_000 }
+  expect(await owner.query(api.firstFocus.getConfirmation, { requestId: input.requestId })).toBeNull()
+  await owner.mutation(api.firstFocus.confirmPlan, input)
+  await owner.mutation(api.firstFocus.confirmPlan, { ...input, requestId: 'newer-focus', goalTitle: 'Newer goal' })
+  const canonical = await owner.query(api.firstFocus.getConfirmation, { requestId: input.requestId })
+  expect(canonical).toEqual({ goalTitle: 'Original goal', projectTitle: 'Original project', taskTitle: 'Original task' })
+  expect(await owner.query(api.firstFocus.getConfirmation, { requestId: ` ${input.requestId} ` })).toEqual(canonical)
+  expect(await other.query(api.firstFocus.getConfirmation, { requestId: input.requestId })).toBeNull()
+  expect(await owner.mutation(api.firstFocus.confirmPlan, { ...input, confirmed: false, taskTitle: 'Unapplied edit' })).toMatchObject({ status: 'existing' })
+  expect(await owner.query(api.firstFocus.getConfirmation, { requestId: input.requestId })).toEqual(canonical)
+})

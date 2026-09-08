@@ -93,6 +93,7 @@ export function SubscriptionProvider({
   useEffect(() => {
     sessionVersionRef.current += 1;
     let cancelled = false;
+    const leaseId = Symbol('subscription connection');
     let unsubscribe = () => {};
 
     if (!clerkUserId) {
@@ -146,12 +147,10 @@ export function SubscriptionProvider({
         const snapshot = await subscriptionClient.connect({
           appUserId: clerkUserId,
           apiKey,
+          leaseId,
         });
-        if (cancelled) {
-          subscriptionClient.disconnect(clerkUserId);
-          return;
-        }
-        unsubscribe = subscriptionClient.subscribe(clerkUserId, applySnapshot);
+        if (cancelled) return;
+        unsubscribe = subscriptionClient.subscribe(clerkUserId, applySnapshot, leaseId);
         applySnapshot(snapshot);
       } catch (error) {
         if (cancelled) return;
@@ -169,7 +168,7 @@ export function SubscriptionProvider({
     return () => {
       cancelled = true;
       unsubscribe();
-      subscriptionClient.disconnect(clerkUserId);
+      subscriptionClient.disconnect(clerkUserId, leaseId);
       operationRef.current = null;
     };
   }, [applySnapshot, clerkUserId, connectionAttempt, revenueCatApiKey]);

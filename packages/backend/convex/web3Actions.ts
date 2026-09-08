@@ -143,9 +143,9 @@ export const status = query({
  * `confirmWeb3Action` in web3lib/actionLifecycle.ts.
  */
 export const confirm = mutation({
-  args: { actionId: v.id('web3Actions') },
-  handler: async (ctx, { actionId }) =>
-    await confirmWeb3Action(ctx, await requireUserId(ctx), actionId),
+  args: { actionId: v.id('web3Actions'), expectedSummary: v.string() },
+  handler: async (ctx, { actionId, expectedSummary }) =>
+    await confirmWeb3Action(ctx, await requireUserId(ctx), actionId, expectedSummary),
 })
 
 /**
@@ -153,14 +153,14 @@ export const confirm = mutation({
  * does not schedule the server signer; only the connected wallet can submit it.
  */
 export const beginEoaExecution = mutation({
-  args: { actionId: v.id('web3Actions') },
+  args: { actionId: v.id('web3Actions'), expectedSummary: v.string() },
   returns: v.object({
     walletAddress: v.string(),
     chainId: v.number(),
     transactions: v.array(web3TransactionValidator),
   }),
-  handler: async (ctx, { actionId }) =>
-    await beginEoaExecutionForUser(ctx, await requireUserId(ctx), actionId),
+  handler: async (ctx, { actionId, expectedSummary }) =>
+    await beginEoaExecutionForUser(ctx, await requireUserId(ctx), actionId, expectedSummary),
 })
 
 /** Record each WalletConnect hash as submitted, never as settled. */

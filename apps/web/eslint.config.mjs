@@ -5,7 +5,7 @@ import convexPlugin from '@convex-dev/eslint-plugin'
 export default defineConfig([
   ...tanstackConfig,
   ...convexPlugin.configs.recommended,
-  globalIgnores(['convex/_generated', '.output', '.nitro']),
+  globalIgnores(['convex/_generated', '.output', '.nitro', '.vercel']),
   {
     // Vendored shadcn/ui + AI Elements registry code. Kept close to upstream
     // so future `npx ai-elements add --overwrite` pulls stay reviewable.

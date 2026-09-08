@@ -63,3 +63,9 @@ describe('Bee orchestrator model', () => {
     expect(definition.agent).toBeInstanceOf(Function)
   })
 })
+
+test('private OpenRouter keeps the catalog model namespace for every specialist', () => {
+  expect(resolveBeeOrchestratorModel('openrouter-private')).toBe('openrouter-private/openai/gpt-5.6-terra')
+  expect(resolveBeeEscalationModel('openrouter-private')).toBe('openrouter-private/openai/gpt-5.6-sol')
+  expect(resolveBeeSiteCreatorModel('openrouter-private')).toBe('openrouter-private/openai/gpt-5.6-terra')
+})

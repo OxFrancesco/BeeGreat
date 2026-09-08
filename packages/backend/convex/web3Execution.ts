@@ -268,6 +268,11 @@ export class CrossmintTransactionPendingError extends Error {
   }
 }
 
+export class CrossmintTransactionFailedError extends Error {
+  override readonly name = 'CrossmintTransactionFailedError'
+  constructor(readonly transactionId: string) { super('Crossmint reported that the transaction failed.') }
+}
+
 export type CrossmintTransactionResult = {
   hash: string
   explorerLink: string
@@ -312,12 +317,27 @@ function settledCrossmintResult(
 ): CrossmintTransactionResult | undefined {
   if (response.status !== 'success') return undefined
   const hash = response.onChain?.txId ?? response.onChain?.txHash
-  if (!hash) throw new Error('Crossmint succeeded without an on-chain hash.')
+  if (!hash || !/^0x[0-9a-f]{64}$/i.test(hash)) return undefined
   return {
     hash,
     explorerLink: response.onChain?.explorerLink ?? '',
     transactionId: response.id,
   }
+}
+
+async function approvePersistedCrossmint(wallet: Pick<CrossmintWalletLike, 'approve' | 'transaction'>, transactionId: string): Promise<CrossmintTransactionResult> {
+  try {
+    const result = await wallet.approve({ transactionId })
+    if (result.transactionId === transactionId && /^0x[0-9a-f]{64}$/i.test(result.hash)) return result
+  } catch { /* Approval may have reached the provider before its response failed. */ }
+  let response: Awaited<ReturnType<CrossmintWalletLike['transaction']>>
+  try { response = await wallet.transaction(transactionId) }
+  catch { throw new CrossmintTransactionPendingError(transactionId) }
+  if (response.id !== transactionId) throw new CrossmintTransactionPendingError(transactionId)
+  const settled = settledCrossmintResult(response)
+  if (settled) return settled
+  if (response.status === 'failed') throw new CrossmintTransactionFailedError(transactionId)
+  throw new CrossmintTransactionPendingError(transactionId)
 }
 
 export async function prepareAndApproveCrossmintStep({
@@ -339,17 +359,7 @@ export async function prepareAndApproveCrossmintStep({
     options: { prepareOnly: true },
   })
   await onPrepared(prepared.transactionId)
-  try {
-    return await wallet.approve({ transactionId: prepared.transactionId })
-  } catch (approvalError) {
-    const response = await wallet.transaction(prepared.transactionId)
-    const settled = settledCrossmintResult(response)
-    if (settled) return settled
-    if (response.status === 'pending' || response.status === 'awaiting-approval') {
-      throw new CrossmintTransactionPendingError(prepared.transactionId)
-    }
-    throw approvalError
-  }
+  return approvePersistedCrossmint(wallet, prepared.transactionId)
 }
 
 export async function prepareAndApproveCrossmintBatch({
@@ -386,20 +396,11 @@ export async function prepareAndApproveCrossmintBatch({
     throw new Error('Crossmint rejected the smart-wallet transaction batch.')
   }
   await onPrepared(prepared.id)
-  try {
-    return await wallet.approve({ transactionId: prepared.id })
-  } catch (approvalError) {
-    const response = await wallet.transaction(prepared.id)
-    const settled = settledCrossmintResult(response)
-    if (settled) return settled
-    if (response.status === 'pending' || response.status === 'awaiting-approval') {
-      throw new CrossmintTransactionPendingError(prepared.id)
-    }
-    throw approvalError
-  }
+  return approvePersistedCrossmint(wallet, prepared.id)
 }
 
-export function reconcileCrossmintTransaction(response: Awaited<ReturnType<CrossmintWalletLike['transaction']>>) {
+export function reconcileCrossmintTransaction(response: Awaited<ReturnType<CrossmintWalletLike['transaction']>>, expectedTransactionId?: string) {
+  if (expectedTransactionId !== undefined && response.id !== expectedTransactionId) return { status: 'pending' as const }
   const settled = settledCrossmintResult(response)
   if (settled) return { status: 'success' as const, result: settled }
   if (response.status === 'failed') return { status: 'failed' as const }

@@ -320,6 +320,10 @@ export function createBeeSession(
           pendingWeb3 = undefined;
           return canonicalWeb3Reply(current);
         }
+        if (current.status === "pending" && current.summary !== pendingWeb3.summary) {
+          pendingWeb3 = { actionId: current.id, summary: current.summary };
+          return canonicalWeb3Reply(current);
+        }
         if (current.status === "pending") {
           await channelAction(
             {
@@ -384,8 +388,9 @@ export function createBeeSession(
       const replyText =
         (finalStepText || currentStepText).trim() || result.text;
       const parsed = parseBeeReply(replyText);
-      pendingFirstFocus = parsed.firstFocus;
-      pendingQuestion = parsed.question;
+      pendingFirstFocus = undefined;
+      pendingQuestion = undefined;
+      pendingWeb3 = undefined;
       if (parsed.web3Confirmation) {
         const current = await channelAction(
           {
@@ -395,6 +400,8 @@ export function createBeeSession(
           parseWeb3Action,
         );
         if (current) {
+          pendingFirstFocus = undefined;
+          pendingQuestion = undefined;
           pendingWeb3 =
             current.status === "pending"
               ? {
@@ -405,7 +412,14 @@ export function createBeeSession(
           return canonicalWeb3Reply(current);
         }
       }
-      pendingWeb3 = parsed.web3Confirmation;
+      pendingWeb3 = undefined;
+      if (parsed.web3Confirmation) {
+        pendingFirstFocus = undefined;
+        pendingQuestion = undefined;
+        return { text: 'This wallet confirmation is no longer available. Ask Bee to prepare it again.' };
+      }
+      pendingFirstFocus = parsed.firstFocus;
+      pendingQuestion = parsed.question;
       const followUp = deriveFollowUp(parsed);
       const reply: BeeAskResult = { text: replyText };
       if (followUp) reply.followUp = followUp;

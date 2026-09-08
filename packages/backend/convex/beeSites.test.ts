@@ -29,7 +29,7 @@ test('a signed-in free user can reserve one Bee Site slug', async () => {
     slug: 'oddo-studio',
     status: 'draft',
     pageCount: 0,
-    publicUrl: 'https://sites.buddytools.org/oddo-studio',
+    publicUrl: 'https://sites.buddytools.org/oddo-studio/',
   })
   expect(created.limits).toEqual({
     tier: 'free',
@@ -176,7 +176,7 @@ test('the Astro Creator broker meters generations and validates deployment size'
       userId,
       siteId: prepared!.siteId,
       version: 'too-many-pages',
-      kind: 'production',
+      kind: 'preview',
       pageCount: 6,
       fileCount: 12,
       totalBytes: 50_000,
@@ -198,6 +198,7 @@ test('the Astro Creator broker meters generations and validates deployment size'
     userId,
     deploymentId: preview.deploymentId,
     manifestKey: previewPrefix,
+    contentDigest: 'a'.repeat(64),
   })
   await expect(
     t.query(api.beeSites.publicPreviewByVersion, { version: previewVersion }),
@@ -214,24 +215,56 @@ test('the Astro Creator broker meters generations and validates deployment size'
     t.query(api.beeSites.publicBySlug, { slug: 'creator-site' }),
   ).resolves.toBeNull()
 
-  const deployment = await t.mutation(internal.beeSites.beginDeployment, {
-    userId,
-    siteId: prepared!.siteId,
-    version: 'version-1',
-    kind: 'production',
-    pageCount: 2,
-    fileCount: 4,
-    totalBytes: 50_000,
-  })
-  await expect(
-    t.mutation(internal.beeSites.completeDeployment, {
-      userId,
-      deploymentId: deployment.deploymentId,
-      manifestKey: `users/${userId}/sites/${prepared!.siteId}/deployments/version-1/`,
-    }),
-  ).resolves.toMatchObject({
-    status: 'published',
-    pageCount: 2,
-    publicUrl: 'https://sites.buddytools.org/creator-site',
-  })
+  await expect(t.mutation(internal.beeSites.beginDeployment, {
+    userId, siteId: prepared!.siteId, version: 'version-1', kind: 'production', pageCount: 2, fileCount: 4, totalBytes: 50_000,
+  })).rejects.toThrow('Review and approve the exact preview')
+})
+
+async function readyPreview(t: ReturnType<typeof convexTest>, userId: string, siteId: import('./_generated/dataModel').Id<'beeSites'>, version: string) {
+  const deployment = await t.mutation(internal.beeSites.beginDeployment, { userId, siteId, version, kind: 'preview', pageCount: 1, fileCount: 1, totalBytes: 100 })
+  await t.mutation(internal.beeSites.completeDeployment, { userId, deploymentId: deployment.deploymentId, manifestKey: `users/${userId}/sites/${siteId}/deployments/${version}/`, contentDigest: 'a'.repeat(64) })
+  return deployment
+}
+
+test('signed-in approval publishes exact preview once and blocks changed content, destination and owner', async () => {
+  const t = convexTest(schema, modules); const userId = 'publication_owner'; const owner = authenticated(t, userId)
+  const { siteId } = await owner.mutation(api.beeSites.create, { title: 'Publication' })
+  const preview = await readyPreview(t, userId, siteId, 'version-reviewed')
+  const review = (await owner.query(api.beeSites.reviewPreview, { version: preview.version }))!
+  const approval = { version: review.version, expectedContentDigest: review.contentDigest!, expectedSlug: review.slug, expectedPublicationRevision: review.publicationRevision }
+  await expect(t.mutation(api.beeSites.publishPreview, approval)).rejects.toThrow('Sign in')
+  await expect(authenticated(t, 'stranger').mutation(api.beeSites.publishPreview, approval)).rejects.toThrow('unavailable')
+  await expect(owner.mutation(api.beeSites.publishPreview, { ...approval, expectedContentDigest: 'b'.repeat(64) })).rejects.toThrow('changed')
+  await expect(owner.mutation(api.beeSites.publishPreview, { ...approval, expectedSlug: 'wrong' })).rejects.toThrow('changed')
+  await Promise.all([owner.mutation(api.beeSites.publishPreview, approval), owner.mutation(api.beeSites.publishPreview, approval)])
+  const published = await t.query(api.beeSites.publicBySlug, { slug: review.slug })
+  expect(published?.assetPrefix).toBe(`users/${userId}/sites/${siteId}/deployments/${preview.version}/`)
+  expect((await t.run(ctx => ctx.db.query('beeSiteUsage').first()))?.publishCount).toBe(1)
+  expect(await t.query(api.beeSites.publicPreviewByVersion, { version: preview.version })).not.toBeNull()
+  await t.run(ctx => ctx.db.patch(siteId, { status: 'suspended' }))
+  expect(await t.query(api.beeSites.publicPreviewByVersion, { version: preview.version })).toBeNull()
+  await t.run(ctx => ctx.db.patch(siteId, { status: 'published' }))
+  await owner.mutation(api.beeSites.unpublish, { siteId })
+  expect(await t.query(api.beeSites.publicBySlug, { slug: review.slug })).toBeNull()
+  expect(await t.query(api.beeSites.publicPreviewByVersion, { version: preview.version })).toBeNull()
+  await expect(owner.mutation(api.beeSites.publishPreview, approval)).rejects.toThrow('already approved')
+})
+
+test('publication rejects old reviews after unpublish, cancelled/expired previews, suspension and legacy production uploads', async () => {
+  const t = convexTest(schema, modules); const userId = 'publication_owner'; const owner = authenticated(t, userId)
+  const { siteId } = await owner.mutation(api.beeSites.create, { title: 'Publication' })
+  const preview = await readyPreview(t, userId, siteId, 'version-first')
+  const review = (await owner.query(api.beeSites.reviewPreview, { version: preview.version }))!
+  const approval = { version: review.version, expectedContentDigest: review.contentDigest!, expectedSlug: review.slug, expectedPublicationRevision: review.publicationRevision }
+  await owner.mutation(api.beeSites.unpublish, { siteId })
+  await expect(owner.mutation(api.beeSites.publishPreview, approval)).rejects.toThrow('published site changed')
+  await owner.mutation(api.beeSites.cancelPublication, { version: preview.version })
+  await expect(owner.mutation(api.beeSites.publishPreview, { ...approval, expectedPublicationRevision: 1 })).rejects.toThrow('no longer awaiting')
+  const expired = await readyPreview(t, userId, siteId, 'version-expired')
+  await t.run(ctx => ctx.db.patch(expired.deploymentId, { expiresAt: Date.now() - 1 }))
+  await expect(owner.mutation(api.beeSites.publishPreview, { ...approval, version: expired.version, expectedPublicationRevision: 1 })).rejects.toThrow('no longer awaiting')
+  const legacy = await t.run(ctx => ctx.db.insert('beeSiteDeployments', { userId, siteId, version: 'version-legacy', kind: 'production', status: 'uploading', pageCount: 1, fileCount: 1, totalBytes: 100, createdAt: Date.now() }))
+  await expect(t.mutation(internal.beeSites.completeDeployment, { userId, deploymentId: legacy, manifestKey: `users/${userId}/sites/${siteId}/deployments/version-legacy/`, contentDigest: 'a'.repeat(64) })).rejects.toThrow('new preview and signed-in approval')
+  await t.run(ctx => ctx.db.patch(siteId, { status: 'suspended' }))
+  await expect(owner.mutation(api.beeSites.publishPreview, approval)).rejects.toThrow('suspended')
 })

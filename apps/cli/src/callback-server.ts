@@ -19,9 +19,6 @@ export function startOAuthCallback(expectedState: string) {
       const code = url.searchParams.get("code");
       const oauthError = url.searchParams.get("error");
       if (state !== expectedState) {
-        queueMicrotask(() =>
-          rejectCallback(new Error("Clerk login returned an invalid state.")),
-        );
         return new Response("BeeGreat CLI could not verify this login.", {
           status: 400,
         });
@@ -53,7 +50,7 @@ export function startOAuthCallback(expectedState: string) {
   );
   const result = callback.finally(() => {
     clearTimeout(timeout);
-    void server.stop(true);
+    void server.stop(false);
   });
   return {
     redirectUri: `http://127.0.0.1:${server.port}/callback`,

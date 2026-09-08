@@ -1,3 +1,4 @@
+import { InputDialogProvider } from '@/components/input-dialog';
 import { ClerkProvider, useAuth, useUser } from '@clerk/clerk-expo';
 import { ConvexReactClient } from 'convex/react';
 import { ConvexProviderWithClerk } from 'convex/react-clerk';
@@ -220,7 +221,7 @@ function RootNavigator() {
 
   const signedInExperience = (
     <ChatGptAuthGate>
-      <VoiceAgentProvider>{navigator}</VoiceAgentProvider>
+      <VoiceAgentProvider><InputDialogProvider>{navigator}</InputDialogProvider></VoiceAgentProvider>
     </ChatGptAuthGate>
   );
 

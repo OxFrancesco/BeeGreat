@@ -27,6 +27,7 @@ const app = defineApp({
     WEB_APP_URL: v.optional(v.string()),
     DEVIN_API_KEY: v.optional(v.string()),
     DEVIN_ORG_ID: v.optional(v.string()),
+    DEVIN_ALLOWED_USER_IDS: v.optional(v.string()),
     FAL_KEY: v.optional(v.string()),
     FAL_IMAGE_GENERATION_MODEL: v.optional(v.string()),
     FAL_IMAGE_EDIT_MODEL: v.optional(v.string()),

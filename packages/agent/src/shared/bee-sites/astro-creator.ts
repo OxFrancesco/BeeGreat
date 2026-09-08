@@ -26,8 +26,8 @@ for Bee, the coordinator, and your compact result goes back to Bee rather than d
 to the user.
 
 - Build only the static Astro site the user requested. Use the locked starter and the
-  guarded tools; you do not have a general shell, network tool, secrets, or arbitrary
-  package installation.
+  guarded tools. Each build runs in a disposable environment without external network
+  access, other sites, secrets, or persistent build state.
 - Start every creation or editing run with list_bee_sites, then call
   prepare_site_workspace for the exact site. Preparing a workspace consumes one monthly
   generation, so call it once per delegated run and never speculatively.
@@ -37,10 +37,9 @@ to the user.
 - Use relative internal links and files in public for local assets. Remote HTTPS images
   are acceptable only when the user supplied or explicitly requested them.
 - Run check_site after editing. Fix reported errors before offering a preview.
-- preview_site is safe for review. publish_site changes the live public site and counts
-  against the user's publish allowance: call it only when Bee states that the user
-  explicitly asked to publish or confirmed the preview. Never publish merely because a
-  build succeeds.
+- preview_site and publish_site both create review previews. Give the user the returned
+  reviewUrl to approve or cancel publication from their signed-in account. You cannot
+  publish by calling a tool or interpreting a chat reply as approval.
 - Report the preview or public URL and a short summary. Never expose internal site,
   deployment, or user ids.`
 
@@ -71,7 +70,7 @@ export interface AstroCreatorOptions {
   model: string
   convexUrl: string
   brokerSecret?: string
-  sandbox: ISandbox
+  createBuildSandbox: () => ISandbox & { destroy(): Promise<void> }
   bucket: BeeSitesBucket
 }
 
@@ -224,6 +223,8 @@ function newVersion() {
 /** The guarded site-workspace toolset the delegate mounts; exported for tests. */
 export function astroCreatorTools(options: AstroCreatorOptions) {
   let activeSite: PreparedSite | null = null
+  let sourceFiles = new Map<string, string>()
+  let templateFiles = new Map<string, string>()
 
   const broker = <T>(
     operation: string,
@@ -248,137 +249,113 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
     }
   }
 
-  const check = async (signal?: AbortSignal) => {
-    const { workspace } = requireActive()
-    const result = await options.sandbox.exec(
-      'bun run check && bun run build',
-      { cwd: workspace, timeout: 120_000, signal },
-    )
-    return {
-      ok: result.success,
-      exitCode: result.exitCode,
-      stdout: truncate(result.stdout),
-      stderr: truncate(result.stderr),
+  const validateSourceSize = (files: Map<string, string>) => {
+    if (files.size > 1_000 || [...files.values()].some(content => content.length > MAX_TOOL_TEXT) || [...files.values()].reduce((sum, content) => sum + new TextEncoder().encode(content).length, 0) > 5_000_000) {
+      throw new Error('Bee Site source exceeds the size limit.')
     }
   }
 
-  const restoreSource = async (site: PreparedSite, workspace: string) => {
-    const sourcePrefix = sourcePrefixFor(options.userId, site.siteId)
-    const snapshot = await options.bucket.list({
-      prefix: sourcePrefix,
-      limit: 1_000,
+  const withFreshSandbox = async <T>(run: (sandbox: ReturnType<AstroCreatorOptions['createBuildSandbox']>) => Promise<T>) => {
+    const sandbox = options.createBuildSandbox()
+    try { return await run(sandbox) } finally { await sandbox.destroy() }
+  }
+
+  const loadSource = async (site: PreparedSite) => {
+    const template = await withFreshSandbox(async sandbox => {
+      const files = new Map<string, string>()
+      const listed = await sandbox.exec("find src public -type f -print", { cwd: TEMPLATE_ROOT, timeout: 10_000 })
+      if (!listed.success) throw new Error('Could not load the trusted Astro starter.')
+      for (const path of [...listed.stdout.trim().split('\n').filter(Boolean), 'astro.config.mjs', 'package.json', 'tsconfig.json', 'AGENTS.md']) {
+        safeRelativePath(path, 'read')
+        const result = await sandbox.readFile(`${TEMPLATE_ROOT}/${path}`)
+        if (!result.success) throw new Error(`Could not load ${path}.`)
+        files.set(path, result.content)
+      }
+      return files
     })
+    const files = new Map([...template].filter(([path]) => WRITABLE_FILE.test(path)))
+    const prefix = sourcePrefixFor(options.userId, site.siteId)
+    const snapshot = await options.bucket.list({ prefix, limit: 1_000 })
     for (const object of snapshot.objects) {
-      const relativePath = object.key.slice(sourcePrefix.length)
-      const path = safeRelativePath(relativePath, 'write')
+      const path = safeRelativePath(object.key.slice(prefix.length), 'write')
       const stored = await options.bucket.get(object.key)
       if (!stored) continue
-      const parent = path.slice(0, path.lastIndexOf('/'))
-      if (parent) {
-        await options.sandbox.mkdir(`${workspace}/${parent}`, {
-          recursive: true,
-        })
-      }
-      const result = await options.sandbox.writeFile(
-        `${workspace}/${path}`,
-        stored.body,
-      )
-      if (!result.success) {
-        throw new Error(`Could not restore ${path} into Astro Creator.`)
-      }
+      const content = await new Response(stored.body).text()
+      files.set(path, content)
+      validateSourceSize(files)
     }
+    return { template, files }
   }
 
-  const snapshotSource = async (
-    site: PreparedSite,
-    workspace: string,
-    signal?: AbortSignal,
-  ) => {
-    const sourcePrefix = sourcePrefixFor(options.userId, site.siteId)
-    const previous = await options.bucket.list({
-      prefix: sourcePrefix,
-      limit: 1_000,
-    })
-    const listed = await options.sandbox.exec(
-      "find src public -type f -printf '%p\\t%s\\n' | sort",
-      { cwd: workspace, timeout: 10_000, signal },
+  const snapshotSource = async (site: PreparedSite, files: Map<string, string>) => {
+    const prefix = sourcePrefixFor(options.userId, site.siteId)
+    const previous = await options.bucket.list({ prefix, limit: 1_000 })
+    for (const [path, content] of files) {
+      await options.bucket.put(`${prefix}${path}`, content, { httpMetadata: { contentType: contentType(path), cacheControl: 'private, no-store' } })
+    }
+    const stale = previous.objects.map(({ key }) => key).filter(key => !files.has(key.slice(prefix.length)))
+    if (stale.length) await options.bucket.delete(stale)
+  }
+
+  const build = async (site: PreparedSite, sources: Map<string, string>, includeOutput: boolean, signal?: AbortSignal) => withFreshSandbox(async sandbox => {
+    const workspace = workspaceFor(site.siteId)
+    const prepared = await sandbox.exec(`mkdir -p ${workspace} && cp -a ${TEMPLATE_ROOT}/. ${workspace}/`, { timeout: 30_000, signal })
+    if (!prepared.success) throw new Error('Could not prepare a fresh Astro build.')
+    for (const [path, content] of sources) {
+      safeRelativePath(path, 'write')
+      await sandbox.mkdir(`${workspace}/${path.slice(0, path.lastIndexOf('/'))}`, { recursive: true })
+      const written = await sandbox.writeFile(`${workspace}/${path}`, content)
+      if (!written.success) throw new Error(`Could not stage ${path}.`)
+    }
+    const result = await sandbox.exec(
+      `chown -R bee-site-build:bee-site-build ${workspace} && runuser -u bee-site-build -- env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp/bee-site-build ASTRO_TELEMETRY_DISABLED=1 sh -c 'bun run check && bun run build'`,
+      { cwd: workspace, timeout: 120_000, signal },
     )
-    if (!listed.success) {
-      throw new Error(`Could not snapshot the Astro source: ${listed.stderr}`)
-    }
-    const currentKeys = new Set<string>()
-    for (const line of listed.stdout.trim().split('\n').filter(Boolean)) {
+    // Stop background children before collecting bytes. The whole VM is discarded in finally.
+    const stopped = await sandbox.exec('pkill -KILL -u bee-site-build; code=$?; test "$code" -eq 0 -o "$code" -eq 1', { timeout: 10_000 })
+    if (!stopped.success) throw new Error('Could not stop Astro build processes.')
+    const checked = { ok: result.success, exitCode: result.exitCode, stdout: truncate(result.stdout), stderr: truncate(result.stderr) }
+    const files: Array<{ path: string; size: number; bytes: Uint8Array }> = []
+    if (!checked.ok || !includeOutput) return { checked, files }
+    const manifest = await sandbox.exec("find dist -type l -print | sed -n '1p'; find dist -type f -printf '%P\\t%s\\n' | sort", { cwd: workspace, timeout: 10_000, signal })
+    if (!manifest.success) throw new Error('Could not inspect the built site.')
+    let totalBytes = 0
+    for (const line of manifest.stdout.trim().split('\n').filter(Boolean)) {
       const tab = line.lastIndexOf('\t')
-      const path = safeRelativePath(
-        tab > 0 ? line.slice(0, tab) : '',
-        'write',
-      )
-      const result = await options.sandbox.readFile(`${workspace}/${path}`, {
-        encoding: 'base64',
-      })
-      if (!result.success) throw new Error(`Could not snapshot ${path}.`)
-      const key = `${sourcePrefix}${path}`
-      currentKeys.add(key)
-      await options.bucket.put(
-        key,
-        decodeBase64(result.content),
-        {
-          httpMetadata: {
-            contentType: contentType(path),
-            cacheControl: 'private, no-store',
-          },
-        },
-      )
+      const path = tab > 0 ? line.slice(0, tab) : ''
+      const size = Number(tab > 0 ? line.slice(tab + 1) : NaN)
+      if (!path || !SAFE_PATH.test(path) || path.includes('..') || path.startsWith('/') || !Number.isSafeInteger(size) || size < 0) throw new Error('The Astro build produced an unsafe file manifest.')
+      totalBytes += size
+      if (files.length >= 1_000 || totalBytes > 50 * 1024 * 1024) throw new Error('The Astro build exceeds the output limit.')
+      const result = await sandbox.readFile(`${workspace}/dist/${path}`, { encoding: 'base64' })
+      if (!result.success) throw new Error(`Could not read ${path}.`)
+      const bytes = decodeBase64(result.content)
+      if (bytes.length !== size) throw new Error('The Astro output changed while being collected.')
+      files.push({ path, size, bytes })
     }
-    const staleKeys = previous.objects
-      .map((object) => object.key)
-      .filter((key) => !currentKeys.has(key))
-    if (staleKeys.length) await options.bucket.delete(staleKeys)
+    if (!files.length) throw new Error('The Astro build produced no files.')
+    return { checked, files }
+  })
+
+  const check = async (signal?: AbortSignal) => {
+    const { site } = requireActive()
+    return (await build(site, new Map(sourceFiles), false, signal)).checked
   }
 
   const deploy = async (
-    kind: 'preview' | 'production',
     signal?: AbortSignal,
   ) => {
-    const { site, workspace } = requireActive()
-    const checked = await check(signal)
-    if (!checked.ok) {
-      throw new Error(
-        `Astro validation failed.\n${checked.stderr || checked.stdout}`,
-      )
-    }
-
-    const manifestResult = await options.sandbox.exec(
-      "find dist -type l -print | sed -n '1p'; find dist -type f -printf '%P\\t%s\\n' | sort",
-      { cwd: workspace, timeout: 10_000, signal },
-    )
-    if (!manifestResult.success) {
-      throw new Error(`Could not inspect the built site: ${manifestResult.stderr}`)
-    }
-    const lines = manifestResult.stdout.trim().split('\n').filter(Boolean)
-    if (lines[0]?.startsWith('dist/') && !lines[0].includes('\t')) {
-      throw new Error('Built sites cannot contain symbolic links.')
-    }
-    const files = lines.map((line) => {
-      const tab = line.lastIndexOf('\t')
-      const path = tab > 0 ? line.slice(0, tab) : ''
-      const size = Number(tab > 0 ? line.slice(tab + 1) : Number.NaN)
-      if (
-        !path ||
-        path.includes('..') ||
-        path.startsWith('/') ||
-        !Number.isSafeInteger(size) ||
-        size < 0
-      ) {
-        throw new Error('The Astro build produced an unsafe file manifest.')
-      }
-      return { path, size }
-    })
-    if (!files.length) throw new Error('The Astro build produced no files.')
+    const { site } = requireActive()
+    const sources = new Map(sourceFiles)
+    const { checked, files } = await build(site, sources, true, signal)
+    if (!checked.ok) throw new Error(`Astro validation failed.\n${checked.stderr || checked.stdout}`)
 
     const pageCount = files.filter((file) => file.path.endsWith('.html')).length
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0)
     const version = newVersion()
+    const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), value => value.toString(16).padStart(2, '0')).join('')
+    const hashes = await Promise.all(files.map(async file => [file.path, hex(await crypto.subtle.digest('SHA-256', file.bytes))]))
+    const contentDigest = hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(hashes))))
     let started: DeploymentStart | null = null
     try {
       started = await broker<DeploymentStart>(
@@ -386,7 +363,7 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
         {
           siteId: site.siteId,
           version,
-          kind,
+          kind: 'preview',
           pageCount,
           fileCount: files.length,
           totalBytes,
@@ -395,36 +372,27 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
       )
       const assetPrefix = `users/${options.userId}/sites/${site.siteId}/deployments/${version}/`
       for (const file of files) {
-        const result = await options.sandbox.readFile(
-          `${workspace}/dist/${file.path}`,
-          { encoding: 'base64' },
-        )
-        if (!result.success) throw new Error(`Could not read ${file.path}.`)
         await options.bucket.put(
           `${assetPrefix}${file.path}`,
-          decodeBase64(result.content),
+          file.bytes,
           {
             httpMetadata: {
               contentType: contentType(file.path),
-              cacheControl: file.path.endsWith('.html')
-                ? 'public, max-age=60'
-                : 'public, max-age=31536000, immutable',
+              cacheControl: 'public, max-age=0, must-revalidate',
             },
           },
         )
       }
-      await snapshotSource(site, workspace, signal)
-      await broker(
+      await snapshotSource(site, sources)
+      const completed = await broker<{ reviewUrl: string }>(
         'complete_deployment',
-        { deploymentId: started.deploymentId, manifestKey: assetPrefix },
+        { deploymentId: started.deploymentId, manifestKey: assetPrefix, contentDigest },
         signal,
       )
       return {
-        kind,
-        url:
-          kind === 'preview'
-            ? `${SITES_ORIGIN}/preview/${version}`
-            : started.publicUrl,
+        kind: 'preview',
+        url: `${SITES_ORIGIN}/preview/${version}/`,
+        reviewUrl: completed.reviewUrl,
         pageCount,
         fileCount: files.length,
         totalBytes,
@@ -468,7 +436,7 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
         ),
       }),
       async run({ data, signal }) {
-        activeSite = await broker<PreparedSite>(
+        const site = await broker<PreparedSite>(
           'prepare',
           {
             siteId: data.siteId,
@@ -477,19 +445,10 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
           },
           signal,
         )
-        const workspace = workspaceFor(activeSite.siteId)
-        const exists = await options.sandbox.exists(`${workspace}/package.json`)
-        if (!exists.exists) {
-          const result = await options.sandbox.exec(
-            `mkdir -p ${workspace} && cp -a ${TEMPLATE_ROOT}/. ${workspace}/`,
-            { timeout: 30_000, signal },
-          )
-          if (!result.success) {
-            activeSite = null
-            throw new Error(`Could not prepare the Astro workspace: ${result.stderr}`)
-          }
-          await restoreSource(activeSite, workspace)
-        }
+        const loaded = await loadSource(site)
+        templateFiles = loaded.template
+        sourceFiles = loaded.files
+        activeSite = site
         const { siteId: _siteId, ...publicSite } = activeSite
         return { output: publicSite }
       },
@@ -499,14 +458,12 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
       description: 'Read one approved text file from the selected Astro workspace.',
       input: v.object({ path: filePath }),
       async run({ data }) {
-        const { workspace } = requireActive()
+        requireActive()
         const path = safeRelativePath(data.path, 'read')
-        const result = await options.sandbox.readFile(`${workspace}/${path}`)
-        if (!result.success) throw new Error(`Could not read ${path}.`)
-        if (result.content.length > MAX_TOOL_TEXT) {
-          throw new Error(`${path} is too large to read through Astro Creator.`)
-        }
-        return { output: { path, content: result.content } }
+        const content = sourceFiles.get(path) ?? templateFiles.get(path)
+        if (content === undefined) throw new Error(`Could not read ${path}.`)
+        if (content.length > MAX_TOOL_TEXT) throw new Error(`${path} is too large to read through Astro Creator.`)
+        return { output: { path, content } }
       },
     }),
     defineTool({
@@ -518,15 +475,11 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
         content: v.pipe(v.string(), v.maxLength(MAX_TOOL_TEXT)),
       }),
       async run({ data }) {
-        const { workspace } = requireActive()
+        requireActive()
         const path = safeRelativePath(data.path, 'write')
-        const parent = path.slice(0, path.lastIndexOf('/'))
-        if (parent) await options.sandbox.mkdir(`${workspace}/${parent}`, { recursive: true })
-        const result = await options.sandbox.writeFile(
-          `${workspace}/${path}`,
-          data.content,
-        )
-        if (!result.success) throw new Error(`Could not write ${path}.`)
+        const updated = new Map(sourceFiles).set(path, data.content)
+        validateSourceSize(updated)
+        sourceFiles = updated
         return { output: { path, saved: true } }
       },
     }),
@@ -544,16 +497,16 @@ export function astroCreatorTools(options: AstroCreatorOptions) {
         'Build and upload an unlisted review preview. This does not change the public site.',
       input: v.object({}),
       async run({ signal }) {
-        return { output: await deploy('preview', signal) }
+        return { output: await deploy(signal) }
       },
     }),
     defineTool({
       name: 'publish_site',
       description:
-        'Publish a checked site to its public address. Use only after explicit user approval.',
+        'Prepare an exact preview and return its signed-in publication review link. Only the user can publish from that page.',
       input: v.object({}),
       async run({ signal }) {
-        return { output: await deploy('production', signal) }
+        return { output: await deploy(signal) }
       },
     }),
   ]

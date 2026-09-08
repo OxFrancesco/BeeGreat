@@ -1,7 +1,6 @@
 import type { SubagentDefinition } from '@flue/runtime'
 import * as Sentry from '@sentry/cloudflare'
-import { ConvexHttpClient } from 'convex/browser'
-import { anyApi } from 'convex/server'
+import { callFocusService } from '../focus-client.ts'
 import type { PowerupDefinition, PowerupRuntime } from './types.ts'
 import { googleHealth } from './google-health.ts'
 import { web3 } from './web3.ts'
@@ -36,7 +35,7 @@ export async function loadPowerups(
   convexUrl: string,
   runtime: PowerupRuntime = {},
 ): Promise<SubagentDefinition[]> {
-  return (await loadPowerupDefinitions(userId, convexUrl)).map((powerup) =>
+  return (await loadPowerupDefinitions(userId, convexUrl, runtime)).map((powerup) =>
     powerup.profile(userId, convexUrl, runtime),
   )
 }
@@ -49,8 +48,9 @@ export async function loadPowerups(
 export async function loadPowerupDefinitions(
   userId: string,
   convexUrl: string,
+  runtime: PowerupRuntime = {},
 ): Promise<PowerupDefinition[]> {
-  const result = await loadPowerupDefinitionsResult(userId, convexUrl)
+  const result = await loadPowerupDefinitionsResult(userId, convexUrl, runtime)
   return result.status === 'available' ? result.definitions : []
 }
 
@@ -58,11 +58,11 @@ export async function loadPowerupDefinitions(
 export async function loadPowerupDefinitionsResult(
   userId: string,
   convexUrl: string,
+  runtime: PowerupRuntime = {},
 ): Promise<PowerupDefinitionLoad> {
   let enabledIds: string[]
   try {
-    const convex = new ConvexHttpClient(convexUrl)
-    enabledIds = await convex.query(anyApi.powerups.getEnabledIds, { userId })
+    enabledIds = await callFocusService<string[]>(userId, convexUrl, { convexSiteUrl: runtime.convexSiteUrl, brokerSecret: runtime.credentialBrokerSecret }, 'get_powerups')
   } catch (error) {
     Sentry.captureException(error, {
       tags: {

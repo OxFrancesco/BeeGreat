@@ -1,3 +1,4 @@
+import { enqueueAudioOperation } from '@/lib/audio-operation-queue';
 import { useAuth } from '@clerk/clerk-expo';
 import { useFlueAgent } from '@flue/react';
 import { api } from '@beegreat/backend/convex/_generated/api';
@@ -6,7 +7,7 @@ import {
   AudioModule,
   RecordingPresets,
   setAudioModeAsync,
-  useAudioPlayer,
+  createAudioPlayer,
   useAudioRecorder,
 } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
@@ -34,7 +35,7 @@ import { BEE_AGENT_LIVE_MODE } from '@/lib/flue-transport';
 import { captureMobileFailure } from '@/lib/sentry';
 import { getToolCopy, type ToolCallPayload } from '@/lib/tool-labels';
 import { extractBeeUI } from '@/lib/ui-spec';
-import { synthesizeSpeech, transcribeRecording } from '@/lib/voice-api';
+import { synthesizeSpeech, transcribeRecording, type SynthesizedSpeech } from '@/lib/voice-api';
 
 function isAuthHiccup(error: Error | undefined) {
   return Boolean(error && /401|sign in/i.test(error.message));
@@ -103,13 +104,34 @@ export function useVoiceAgent() {
   }, [agent.error, conversationId]);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const player = useAudioPlayer();
   const speakReplies = useSpeakReplies();
 
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceError, setVoiceError] = useState<string | undefined>();
+
+  const speechFileRef = useRef<SynthesizedSpeech | null>(null);
+  const playbackRef = useRef<{ player: ReturnType<typeof createAudioPlayer>; unsubscribe: () => void } | null>(null);
+  const speechGenerationRef = useRef(0);
+  const disposeSpeechFile = useCallback((speech: SynthesizedSpeech | null) => {
+    try { speech?.dispose(); } catch (cause) { captureMobileFailure(cause, 'voice.speech_file_cleanup'); }
+  }, []);
+  const stopSpeech = useCallback((cancelPending = true) => {
+    if (cancelPending) speechGenerationRef.current += 1;
+    const playback = playbackRef.current;
+    playbackRef.current = null;
+    if (playback) {
+      playback.unsubscribe();
+      try { playback.player.pause(); } catch { /* Playback may already have stopped. */ }
+      try { playback.player.remove(); } catch (cause) { captureMobileFailure(cause, 'voice.player_cleanup'); }
+    }
+    const speech = speechFileRef.current;
+    speechFileRef.current = null;
+    disposeSpeechFile(speech);
+    setSpeaking(false);
+  }, [disposeSpeechFile]);
+  useEffect(() => () => stopSpeech(), [conversationId, stopSpeech]);
 
   const spokenIds = useRef(new Set<string>());
   const seededHistory = useRef(false);
@@ -162,53 +184,57 @@ export function useVoiceAgent() {
     if (!spoken) return;
 
     let cancelled = false;
-    (async () => {
+    let acquired: SynthesizedSpeech | null = null;
+    let handedOff = false;
+    const generation = ++speechGenerationRef.current;
+    const current = () => !cancelled && speechGenerationRef.current === generation && getSpeakReplies();
+    void (async () => {
       try {
-        const uri = await synthesizeSpeech(spoken);
-        if (cancelled) return;
-        await setAudioModeAsync({
-          allowsRecording: false,
-          playsInSilentMode: true,
+        acquired = await synthesizeSpeech(spoken);
+        if (!current()) return;
+        await enqueueAudioOperation(async () => {
+          if (current()) await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
         });
-        player.replace(uri);
+        if (!current()) return;
+        stopSpeech(false);
+        speechFileRef.current = acquired;
+        handedOff = true;
+        const player = createAudioPlayer(acquired.uri);
+        const playback = { player, unsubscribe: () => {} };
+        playbackRef.current = playback;
+        const subscription = player.addListener('playbackStatusUpdate', (status) => {
+          if (playbackRef.current === playback && (status.didJustFinish || status.error)) stopSpeech(false);
+        });
+        playback.unsubscribe = () => subscription.remove();
         player.play();
         setSpeaking(true);
       } catch (cause) {
+        if (handedOff && speechFileRef.current === acquired) stopSpeech();
         captureMobileFailure(cause, 'voice.synthesize_or_play');
-        // Voice output failed; the reply is still on screen.
+      } finally {
+        if (!handedOff) disposeSpeechFile(acquired);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [agent.status, agent.messages, player, speakReplies]);
+    return () => { cancelled = true; };
+  }, [agent.status, agent.messages, conversationId, disposeSpeechFile, speakReplies, stopSpeech]);
 
   // Cut off any in-progress speech when voice replies are turned off.
   useEffect(
     () =>
       subscribeSpeakReplies(() => {
         if (getSpeakReplies()) return;
-        player.pause();
-        setSpeaking(false);
+        stopSpeech();
       }),
-    [player],
+    [stopSpeech],
   );
-
-  useEffect(() => {
-    const subscription = player.addListener('playbackStatusUpdate', (status) => {
-      if (status.didJustFinish) setSpeaking(false);
-    });
-    return () => subscription.remove();
-  }, [player]);
 
   /** Ends the current conversation and starts a fresh thread. */
   const resetConversation = useCallback(async () => {
     setVoiceError(undefined);
-    player.pause();
-    setSpeaking(false);
+    stopSpeech();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     await createThread();
-  }, [createThread, player]);
+  }, [createThread, stopSpeech]);
 
   const sendText = useCallback(
     async (text: string) => {
@@ -219,10 +245,7 @@ export function useVoiceAgent() {
         return;
       }
       setVoiceError(undefined);
-      if (speaking) {
-        player.pause();
-        setSpeaking(false);
-      }
+      stopSpeech();
       // A visible first-focus preview is authoritative. Voice transcripts and
       // typed confirmations take the same authenticated client mutation path
       // as tapping the card, avoiding a second server-side interpretation.
@@ -271,9 +294,8 @@ export function useVoiceAgent() {
       agent,
       completeHighlight,
       activeHighlight,
-      player,
+      stopSpeech,
       resetConversation,
-      speaking,
     ],
   );
 
@@ -340,16 +362,12 @@ export function useVoiceAgent() {
         setVoiceError('Microphone access is off. Enable it in Settings to talk to Bee.');
         return;
       }
-      if (speaking) {
-        player.pause();
-        setSpeaking(false);
-      }
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
+      stopSpeech();
+      await enqueueAudioOperation(async () => {
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        await recorder.prepareToRecordAsync();
+        recorder.record();
       });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setRecording(true);
     } catch (error) {
@@ -358,7 +376,7 @@ export function useVoiceAgent() {
       setTranscribing(false);
       setVoiceError(error instanceof Error ? error.message : 'Something went wrong.');
     }
-  }, [recording, recorder, sendText, speaking, player]);
+  }, [recording, recorder, sendText, stopSpeech]);
 
   const busy = agent.status === 'submitted' || agent.status === 'streaming';
   const orbState: OrbState = recording

@@ -251,6 +251,8 @@ export const focus = httpAction(async (ctx, request) => {
         body.operation === 'channel_confirm_web3'
           ? await ctx.runMutation(internal.channelActions.confirmWeb3, args)
           : await ctx.runMutation(internal.channelActions.cancelWeb3, args)
+    } else if (body.operation === 'get_powerups') {
+      result = await ctx.runQuery(internal.powerups.getEnabledIds, { userId: body.userId })
     } else if (body.operation === 'get_context') {
       result = await ctx.runQuery(internal.agentFocus.getContext, {
         userId: body.userId,

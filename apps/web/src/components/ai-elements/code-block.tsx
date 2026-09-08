@@ -29,6 +29,7 @@ import type {
   ThemedToken,
 } from 'shiki'
 import { createHighlighter } from 'shiki'
+import { CodeTokenCache, codeTokenKey } from './code-token-cache'
 
 // Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
 // oxlint-disable-next-line eslint(no-bitwise)
@@ -140,15 +141,13 @@ const highlighterCache = new Map<
 >()
 
 // Token cache
-const tokensCache = new Map<string, TokenizedCode>()
+const tokensCache = new CodeTokenCache<TokenizedCode>()
 
 // Subscribers for async token updates
 const subscribers = new Map<string, Set<(result: TokenizedCode) => void>>()
 
 const getTokensCacheKey = (code: string, language: BundledLanguage) => {
-  const start = code.slice(0, 100)
-  const end = code.length > 100 ? code.slice(-100) : ''
-  return `${language}:${code.length}:${start}:${end}`
+  return codeTokenKey(code, language)
 }
 
 const getHighlighter = (
@@ -230,7 +229,7 @@ export const highlightCode = (
       }
 
       // Cache the result
-      tokensCache.set(tokensCacheKey, tokenized)
+      tokensCache.set(tokensCacheKey, tokenized, tokensCacheKey.length + code.length + result.tokens.reduce((sum, line) => sum + line.length * 64, 0))
 
       // Notify all subscribers
       const subs = subscribers.get(tokensCacheKey)

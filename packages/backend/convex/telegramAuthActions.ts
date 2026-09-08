@@ -75,7 +75,7 @@ export const beginAuthorizationForAgent = internalAction({
     await createAuthorizationSession(ctx, args.userId, args.client),
 })
 
-export const completeAuthorization = internalAction({
+export const completeAuthorization = action({
   args: {
     code: v.optional(v.string()),
     state: v.string(),
@@ -94,6 +94,9 @@ export const completeAuthorization = internalAction({
     client?: 'mobile' | 'browser'
     errorCode?: string
   }> => {
+    const completingIdentity = await ctx.auth.getUserIdentity()
+    if (!completingIdentity) throw new Error('Sign in to complete this connection')
+    const attemptId = crypto.randomUUID()
     const stateHash = hashTelegramValue(args.state)
     const session: {
       sessionId: Id<'telegramAuthSessions'>
@@ -103,8 +106,8 @@ export const completeAuthorization = internalAction({
       encryptedCodeVerifier?: EncryptedTelegramSecret
       encryptedNonce?: EncryptedTelegramSecret
       expiresAt: number
-    } | null = await ctx.runQuery(internal.telegram.getSessionByStateHash, {
-      stateHash,
+    } | null = await ctx.runMutation(internal.telegram.claimSessionByStateHash, {
+      stateHash, userId: completingIdentity.subject, attemptId,
     })
     if (
       !session ||
@@ -112,7 +115,7 @@ export const completeAuthorization = internalAction({
       session.expiresAt <= Date.now()
     ) {
       await ctx.runMutation(internal.telegram.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode: 'invalid_or_expired_state',
       })
       return { ok: false, errorCode: 'invalid_or_expired_state' }
@@ -120,14 +123,14 @@ export const completeAuthorization = internalAction({
     if (!args.code || args.errorCode) {
       const errorCode = args.errorCode ?? 'missing_authorization_code'
       await ctx.runMutation(internal.telegram.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode,
       })
       return { ok: false, client: session.client, errorCode }
     }
     if (!session.encryptedCodeVerifier || !session.encryptedNonce) {
       await ctx.runMutation(internal.telegram.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode: 'invalid_session',
       })
       return {
@@ -150,7 +153,7 @@ export const completeAuthorization = internalAction({
       )
       const stored: boolean = await ctx.runMutation(
         internal.telegram.completeAuthorization,
-        { sessionId: session.sessionId, ...identity },
+        { sessionId: session.sessionId, attemptId, ...identity },
       )
       return stored
         ? { ok: true, client: session.client }
@@ -164,7 +167,7 @@ export const completeAuthorization = internalAction({
         { userId: session.userId, extra: { errorCode } },
       )
       await ctx.runMutation(internal.telegram.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode,
       })
       return { ok: false, client: session.client, errorCode }

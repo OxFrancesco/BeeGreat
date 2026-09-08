@@ -23,7 +23,7 @@ export const firstFocusPreviewSchema = z.object({
   projectTitle: z.string().min(1),
   taskTitle: z.string().min(1),
   seed: z.string().min(1).optional(),
-  highlightExpiresAt: z.number().finite().optional(),
+  highlightExpiresAt: z.number().finite().min(-8_640_000_000_000_000).max(8_640_000_000_000_000).optional(),
 });
 
 export type FirstFocusPreview = z.infer<typeof firstFocusPreviewSchema>;

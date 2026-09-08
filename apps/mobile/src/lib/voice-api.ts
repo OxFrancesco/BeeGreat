@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { z } from 'zod';
 
@@ -8,6 +9,7 @@ const speechResponseSchema = z.object({ audio: z.string() });
 const realtimeTokenResponseSchema = z.object({
   token: z.string(),
   expiresAt: z.number(),
+  websocketUrl: z.string().url(),
 });
 const errorResponseSchema = z.object({ error: z.string().optional() });
 
@@ -29,8 +31,10 @@ export async function transcribeRecording(uri: string): Promise<string> {
   return text.trim();
 }
 
-/** Synthesizes speech for `text` and returns a local file URI ready for playback. */
-export async function synthesizeSpeech(text: string): Promise<string> {
+export type SynthesizedSpeech = { uri: string; dispose: () => void };
+
+/** The caller owns this cache file and must dispose it after playback. */
+export async function synthesizeSpeech(text: string): Promise<SynthesizedSpeech> {
   const response = await fetch(`${AGENT_URL}/voice/speak`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...(await getAuthHeaders()) },
@@ -41,15 +45,22 @@ export async function synthesizeSpeech(text: string): Promise<string> {
   }
   const { audio } = speechResponseSchema.parse(await response.json());
 
-  const file = new File(Paths.cache, `bee-tts-${Date.now()}.mp3`);
-  file.create();
-  file.write(base64ToBytes(audio));
-  return file.uri;
+  const file = new File(Paths.cache, `bee-tts-${randomUUID()}.mp3`);
+  const dispose = () => { if (file.exists) file.delete(); };
+  try {
+    file.create();
+    file.write(base64ToBytes(audio));
+    return { uri: file.uri, dispose };
+  } catch (cause) {
+    dispose();
+    throw cause;
+  }
 }
 
 export async function createRealtimeVoiceToken(): Promise<{
   token: string;
   expiresAt: number;
+  websocketUrl: string;
 }> {
   const response = await fetch(`${AGENT_URL}/voice/realtime-token`, {
     method: 'POST',

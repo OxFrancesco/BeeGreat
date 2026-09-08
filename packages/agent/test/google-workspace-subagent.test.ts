@@ -125,3 +125,22 @@ describe('Google Workspace subagent', () => {
     ).rejects.toThrow('Google command failed with exit code 2')
   })
 })
+
+
+test('cleanup failure preserves the successful draft receipt and staged bytes never inherit credentials', async () => {
+  const commands: string[] = []
+  const configured = options(async (command, execOptions) => {
+    commands.push(command)
+    if (command.startsWith('rm ')) throw new Error('cleanup unavailable')
+    if (command.startsWith('mkdir ')) expect(execOptions?.env).toBeUndefined()
+    return { success: true, exitCode: 0, stdout: command.startsWith('/usr/local/bin/gog') ? '{"draftId":"draft-existing"}' : '', stderr: '' } as Awaited<ReturnType<ISandbox['exec']>>
+  })
+  configured.sandbox.writeFile = async (path, content, writeOptions) => {
+    expect(path).toMatch(/^\/tmp\/beegreat-gog-input-[a-z0-9-]+\/note.txt$/)
+    expect(content).toBe(btoa('Attachment bytes'))
+    expect(writeOptions?.encoding).toBe('base64')
+    return {} as Awaited<ReturnType<ISandbox['writeFile']>>
+  }
+  expect(await executeGoogleWorkspaceCommand(configured, ['gmail', 'drafts', 'create', '--body=- reminder', '--attach=note.txt'], undefined, [{ name: 'note.txt', contentBase64: btoa('Attachment bytes') }])).toEqual({ ok: true, output: { draftId: 'draft-existing' } })
+  expect(commands.filter(command => command.startsWith('/usr/local/bin/gog'))).toHaveLength(1)
+})

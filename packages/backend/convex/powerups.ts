@@ -1,3 +1,4 @@
+import { hasDevinOrganizationAccess, requireDevinOrganizationAccess } from './devinAccess'
 import { v } from 'convex/values'
 import { internalQuery, mutation, query } from './_generated/server'
 import type { QueryCtx } from './_generated/server'
@@ -51,7 +52,7 @@ async function getPowerupRow(ctx: QueryCtx, userId: string, powerupId: string) {
 /** True when the user has the given power-up switched on. */
 export async function isPowerupEnabled(ctx: QueryCtx, userId: string, powerupId: PowerupId) {
   const row = await getPowerupRow(ctx, userId, powerupId)
-  return row?.enabled ?? false
+  return (row?.enabled ?? false) && (powerupId !== 'devin' || hasDevinOrganizationAccess(userId))
 }
 
 /** Guard for power-up functions: throws unless the user enabled the power-up. */
@@ -73,7 +74,7 @@ export const list = query({
       .query('powerups')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
-    const enabled = new Set(rows.filter((row) => row.enabled).map((row) => row.powerupId))
+    const enabled = new Set(rows.filter((row) => row.enabled && (row.powerupId !== 'devin' || hasDevinOrganizationAccess(userId))).map((row) => row.powerupId))
     return POWERUP_CATALOG.map((powerup) => ({ ...powerup, enabled: enabled.has(powerup.id) }))
   },
 })
@@ -86,7 +87,12 @@ export const setEnabled = mutation({
     if (!KNOWN_POWERUP_IDS.has(powerupId)) {
       throw new Error(`Unknown power-up "${powerupId}"`)
     }
+    if (powerupId === 'devin' && enabled) requireDevinOrganizationAccess(userId)
     const existing = await getPowerupRow(ctx, userId, powerupId)
+    if (powerupId === 'web3' && (!enabled || !existing?.enabled)) {
+      const prefs = await ctx.db.query('web3Prefs').withIndex('by_user', q => q.eq('userId', userId)).unique()
+      if (prefs) await ctx.db.patch(prefs._id, { yoloEnabled: false, updatedAt: Date.now() })
+    }
     if (existing) {
       if (existing.enabled !== enabled) await ctx.db.patch(existing._id, { enabled })
     } else {
@@ -98,7 +104,7 @@ export const setEnabled = mutation({
 
 // Agent-facing: the Flue worker passes its instance id as userId (see agent.ts)
 // and uses this to decide which power-up tool bundles to load for the session.
-export const getEnabledIds = query({
+export const getEnabledIds = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {
     const rows = await ctx.db
@@ -106,7 +112,7 @@ export const getEnabledIds = query({
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
     return rows
-      .filter((row) => row.enabled && KNOWN_POWERUP_IDS.has(row.powerupId))
+      .filter((row) => row.enabled && KNOWN_POWERUP_IDS.has(row.powerupId) && (row.powerupId !== 'devin' || hasDevinOrganizationAccess(userId)))
       .map((row) => row.powerupId)
   },
 })
@@ -116,6 +122,6 @@ export const checkEnabled = internalQuery({
   args: { userId: v.string(), powerupId: v.string() },
   handler: async (ctx, { userId, powerupId }) => {
     const row = await getPowerupRow(ctx, userId, powerupId)
-    return row?.enabled ?? false
+    return (row?.enabled ?? false) && (powerupId !== 'devin' || hasDevinOrganizationAccess(userId))
   },
 })

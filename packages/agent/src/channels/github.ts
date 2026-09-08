@@ -1,7 +1,5 @@
 import { createGitHubChannel } from '@flue/github'
-import { dispatchBee } from '../agents/bee.ts'
 import {
-  beennectorAgentId,
   channelSecret,
   claimBeennectorDelivery,
   signalAttributes,
@@ -19,12 +17,6 @@ export const channel = createGitHubChannel({
       return undefined
     }
     const payload = delivery.payload
-    const claim = await claimBeennectorDelivery({
-      provider: 'github',
-      deliveryId: delivery.deliveryId,
-      actorId: String(payload.sender.id),
-    })
-    if (claim.status !== 'accepted') return undefined
 
     const repository = payload.repository
     const issue = 'issue' in payload ? payload.issue : undefined
@@ -37,8 +29,10 @@ export const channel = createGitHubChannel({
     const title = issue?.title ?? pullRequest?.title ?? null
     const commentBody =
       comment && 'body' in comment ? (comment.body ?? '') : null
-    await dispatchBee({
-      id: beennectorAgentId(claim.userId, 'github'),
+    await claimBeennectorDelivery({
+      provider: 'github',
+      deliveryId: delivery.deliveryId,
+      actorId: String(payload.sender.id),
       message: {
         kind: 'signal',
         type: `github.${delivery.name}`,

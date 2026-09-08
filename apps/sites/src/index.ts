@@ -68,12 +68,7 @@ function headersFor(
   )
   headers.set(
     'cache-control',
-    preview
-      ? 'no-store'
-      : object.httpMetadata?.cacheControl ??
-          (path.endsWith('.html')
-            ? 'public, max-age=60'
-            : 'public, max-age=31536000, immutable'),
+    preview ? 'no-store' : 'public, max-age=0, must-revalidate',
   )
   if (preview) headers.set('x-robots-tag', 'noindex, nofollow')
   return headers
@@ -139,6 +134,11 @@ async function serveAsset(
   for (const path of assetCandidates(segments, trailingSlash)) {
     const object = await bucket.get(`${assetPrefix}${path}`)
     if (!object) continue
+    if (!trailingSlash && (segments.length === 0 || path === `${segments.join('/')}/index.html`)) {
+      const canonical = new URL(request.url)
+      canonical.pathname += '/'
+      return new Response(null, { status: 308, headers: { ...SECURITY_HEADERS, location: canonical.toString(), 'cache-control': 'no-store' } })
+    }
     return new Response(request.method === 'HEAD' ? null : object.body, {
       status: 200,
       headers: headersFor(object, path, preview),

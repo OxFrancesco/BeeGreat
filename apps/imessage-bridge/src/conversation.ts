@@ -32,8 +32,15 @@ export async function askBee(
     },
     (error) => captureBridgeFailure(error, 'progress.send', userId),
   )
+  transport.signal?.throwIfAborted()
+  let abortCompletion: Promise<unknown> | undefined
+  const abortWork = () => {
+    abortCompletion = client.abort({ signal: AbortSignal.timeout(5_000) }).catch(error => captureBridgeFailure(error, 'prompt.abort', userId))
+  }
+  transport.signal?.addEventListener('abort', abortWork, { once: true })
   try {
     const admission = await client.send({
+      signal: transport.signal,
       message: images.length
         ? { kind: 'user', body, attachments: images }
         : { kind: 'user', body },
@@ -43,6 +50,7 @@ export async function askBee(
     // read() awaits settlement and resolves with the reply; wait() alone no
     // longer carries the assistant text in Flue 2.0.
     const result = await client.read(admission, {
+      signal: transport.signal,
       onEvent: (event) => {
         progress.event(event)
         if (event.type === 'message-started') {
@@ -57,9 +65,10 @@ export async function askBee(
         }
       },
     })
+    transport.signal?.removeEventListener('abort', abortWork)
     try {
       const messages = changedMessagesForConvexSync(
-        (await client.history()).messages,
+        (await client.history({ signal: transport.signal })).messages,
         new Map(),
       ).slice(-200)
       await transport.channelAction(userId, {
@@ -78,6 +87,8 @@ export async function askBee(
       (finalStepText || currentStepText).trim() || result.text,
     )
   } finally {
+    transport.signal?.removeEventListener('abort', abortWork)
+    await abortCompletion
     await progress.stop()
   }
 }
@@ -89,7 +100,7 @@ export async function latestInteractiveReply(
 ) {
   let messages: Awaited<ReturnType<FlueClient['history']>>['messages']
   try {
-    messages = (await transport.clientFor(userId, threadId).history()).messages
+    messages = (await transport.clientFor(userId, threadId).history({ signal: transport.signal })).messages
   } catch (error) {
     // Flue 2 only creates a conversation's stream on its first prompt, so a
     // fresh thread has no history yet — that just means nothing interactive.

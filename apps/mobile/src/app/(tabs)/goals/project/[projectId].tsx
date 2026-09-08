@@ -1,3 +1,4 @@
+import { useInputDialog } from '@/components/input-dialog';
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
@@ -80,6 +81,7 @@ export default function ProjectScreen() {
 }
 
 function LiveProjectScreen() {
+  const dialog = useInputDialog();
   const { projectId } = useLocalSearchParams<{ projectId: string }>();
   // SAFETY: The live screen is only reached through links built from a Convex
   // project document (`/goals/project/${project._id}`), so the route param is
@@ -121,7 +123,7 @@ function LiveProjectScreen() {
   };
 
   const pickDueDate = (task: Task) => {
-    Alert.alert('Due date', `When is "${task.title}" due?`, [
+    dialog.alert('Due date', `When is "${task.title}" due?`, [
       { text: 'Today', onPress: () => setTaskDueDate({ taskId: task.id, dueDate: endOfDayIn(0) }) },
       {
         text: 'Tomorrow',
@@ -150,11 +152,11 @@ function LiveProjectScreen() {
 
   // Long-press opens the task's actions: rename + due date + delete.
   const openTaskActions = (task: Task) => {
-    Alert.alert(task.title, undefined, [
+    dialog.alert(task.title, undefined, [
       {
         text: 'Rename',
         onPress: () =>
-          Alert.prompt(
+          dialog.prompt(
             'Rename task',
             undefined,
             [
@@ -162,7 +164,7 @@ function LiveProjectScreen() {
               {
                 text: 'Save',
                 onPress: (title?: string) => {
-                  if (title?.trim()) renameTask({ taskId: task.id, title });
+                  if (title?.trim()) return renameTask({ taskId: task.id, title });
                 },
               },
             ],
@@ -183,7 +185,7 @@ function LiveProjectScreen() {
       {
         text: 'Rename',
         onPress: () =>
-          Alert.prompt(
+          dialog.prompt(
             'Rename project',
             undefined,
             [
@@ -191,7 +193,7 @@ function LiveProjectScreen() {
               {
                 text: 'Save',
                 onPress: (title?: string) => {
-                  if (title?.trim()) updateProject({ projectId: id, title });
+                  if (title?.trim()) return updateProject({ projectId: id, title });
                 },
               },
             ],
@@ -226,7 +228,7 @@ function LiveProjectScreen() {
   const pickProjectDue = () => {
     if (!project) return;
     const thisYear = new Date().getFullYear();
-    Alert.alert('Target date', 'When should this project land?', [
+    dialog.alert('Target date', 'When should this project land?', [
       ...upcomingQuarters().map((entry) => ({
         text: `Q${entry.quarter} ${entry.year}`,
         onPress: () => setProjectDue({ projectId: id, due: entry }),

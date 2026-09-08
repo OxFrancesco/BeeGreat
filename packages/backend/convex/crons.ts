@@ -2,6 +2,7 @@ import { cronJobs } from 'convex/server'
 import { internal } from './_generated/api'
 
 const crons = cronJobs()
+crons.interval('resolve interrupted comment submissions', { minutes: 5 }, internal.beennectorComments.watchdog, {})
 
 crons.cron(
   'settle continuous Brain Fatigue',
@@ -46,5 +47,11 @@ crons.interval(
   internal.agentJobRuns.watchdog,
   {},
 )
+
+crons.interval('paid usage retention', { minutes: 10 }, internal.paidUsage.sweep, {})
+
+crons.interval('recover submitted Web3 transactions', { minutes: 5 }, internal.web3Reconciliation.watchdog, {})
+
+crons.interval('recover Beennector webhook deliveries', { minutes: 1 }, internal.beennectorDispatch.watchdog, {})
 
 export default crons

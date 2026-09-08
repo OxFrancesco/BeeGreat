@@ -40,6 +40,8 @@ type SentryLikeUser = {
 }
 
 export type SentryLikeEvent = {
+  spans?: Array<{ description?: string; data?: object; tags?: object }>
+  tags?: object
   breadcrumbs?: SentryLikeBreadcrumb[]
   contexts?: object
   exception?: {
@@ -94,7 +96,7 @@ function isStringValue<Value>(value: Value): value is Value & string {
 }
 
 function isSensitiveKey(key: string) {
-  const normalized = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+  const normalized = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[.\-]/g, '_')
   return SENSITIVE_KEY.test(normalized)
 }
 
@@ -151,6 +153,10 @@ function sanitizeAttached<Value extends SanitizedValue>(
 ): SanitizedValue {
   if (isSensitiveKey(key)) return FILTERED
   if (depth >= 5) return '[Truncated]'
+  if (typeof value === 'string') {
+    if (/(?:^|[_.-])(?:url|uri|from|to|target)(?:$|[_.-])/i.test(key)) return sanitizeUrl(value)
+    return sanitizeDiagnosticText(value)
+  }
   if (Array.isArray(value)) {
     return value.slice(0, 50).map((item) => sanitizeAttached(item, key, depth + 1))
   }
@@ -262,6 +268,13 @@ export function sanitizeSentryEvent<T extends SentryLikeEvent>(event: T): T {
       })),
     }
   }
+  if (copy.spans) copy.spans = copy.spans.map(span => ({
+    ...span,
+    description: span.description ? sanitizeDiagnosticText(span.description) : undefined,
+    data: span.data ? sanitizeAttachedObject(span.data) : undefined,
+    tags: span.tags ? sanitizeAttachedObject(span.tags) : undefined,
+  }))
+  if (copy.tags) copy.tags = sanitizeAttachedObject(copy.tags)
   if (copy.extra) copy.extra = sanitizeAttachedObject(copy.extra)
   if (copy.contexts) copy.contexts = sanitizeAttachedObject(copy.contexts)
   if (copy.breadcrumbs) {

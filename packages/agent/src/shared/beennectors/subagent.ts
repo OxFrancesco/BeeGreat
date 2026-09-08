@@ -34,8 +34,9 @@ titles, states, URLs, assignees, due dates, and source provider.
   or identifier such as ENG-123. Notion references use a page id.
 - Start with list or search when the requested item is ambiguous.
 - Search syntax is provider-native for GitHub and plain text for Linear/Notion.
-- GitHub and Linear comments are write operations. Post only when Bee's delegated
-  request says the user explicitly asked to send that exact message.
+- GitHub and Linear comment tools prepare the exact message for approval. Return the
+  reviewUrl so the user can approve or cancel from their signed-in account. A chat
+  reply or delegated instruction cannot approve a comment.
 - Notion is read-only. Never claim to edit or comment on a page.
 - Beennectors are account/workspace connections, never Power-ups or PowerBees.
 - If authentication is missing or expired, tell Bee to reconnect the provider from
@@ -114,7 +115,7 @@ export async function loadBeennectorSubagent(
     defineTool({
       name: 'comment_on_beennector_item',
       description:
-        'Post a GitHub issue/PR or Linear issue comment after an explicit user request. Notion is read-only.',
+        'Prepare a GitHub issue/PR or Linear issue comment and return its signed-in review link. The user must approve the exact text and destination there before it posts. Notion is read-only.',
       input: v.object({
         provider: v.picklist(['github', 'linear'] as const),
         ref: v.pipe(v.string(), v.minLength(1)),
@@ -129,7 +130,7 @@ export async function loadBeennectorSubagent(
   return [
     defineSubagent({
       name: 'beennectors',
-      description: `Connected work systems (${connectedNames}): find and read GitHub issues/PRs, Linear issues, and Notion pages; post GitHub/Linear comments only on explicit request.`,
+      description: `Connected work systems (${connectedNames}): find and read GitHub issues/PRs, Linear issues, and Notion pages; prepare GitHub/Linear comments for signed-in user approval.`,
       agent: () => {
         for (const tool of tools) useTool(tool)
         return INSTRUCTIONS

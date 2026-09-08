@@ -3,9 +3,9 @@ import {
   GOOGLE_WORKSPACE_DISCLOSURE,
   GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
   GOOGLE_WORKSPACE_SERVICES,
-  type GoogleWorkspaceService,
 } from '@beegreat/tool-presentation'
 import { useBeennectors } from './use-beennectors'
+import type { GoogleWorkspaceService } from '@beegreat/tool-presentation'
 import type { ReactNode } from 'react'
 import type { BeennectorProvider } from './use-beennectors'
 import { captureWebFailure } from '~/lib/sentry'
@@ -86,7 +86,7 @@ export function BeennectorsSettings() {
   const [working, setWorking] = useState<BeennectorProvider>()
   const [info, setInfo] = useState<BeennectorProvider>()
   const [googleDisclosureOpen, setGoogleDisclosureOpen] = useState(false)
-  const [googleServices, setGoogleServices] = useState<GoogleWorkspaceService[]>([])
+  const [googleServices, setGoogleServices] = useState<Array<GoogleWorkspaceService>>([])
   const [error, setError] = useState<{
     provider: BeennectorProvider
     message: string

@@ -82,7 +82,7 @@ async function walkToProjectRoot(start: string) {
 }
 
 export async function findBeeProjectRoot() {
-  for (const start of [process.cwd(), import.meta.dir]) {
+  for (const start of [import.meta.dir]) {
     const root = await walkToProjectRoot(start);
     if (root) return root;
   }

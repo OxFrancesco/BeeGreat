@@ -1,9 +1,9 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
-import { compareDrafts, formatSaveState } from '@beegreat/tool-presentation'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { useConvexAuth, useMutation, useQuery } from 'convex/react'
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
-import { z } from 'zod'
+import { JournalSession, formatSaveState } from '@beegreat/tool-presentation'
+import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
+import { useConvex, useConvexAuth, useMutation, useQuery } from 'convex/react'
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useAuth } from '@clerk/tanstack-react-start'
 
 import beeDoctor from '../../../../mobile/assets/images/bee-doctor.png?url'
 import {
@@ -18,16 +18,14 @@ import {
   shiftMonth,
 } from './health-utils'
 import { HealthLoading } from './health-pages'
+import { clearJournalEditorDrafts, journalEditorStorage } from './journal-editor-storage'
 import type { ChangeEvent } from 'react'
 import type { FunctionReturnType } from 'convex/server'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type {
-  JournalDraft,
   JournalSaveState,
 } from '@beegreat/tool-presentation'
 
-/** Convex storage upload URLs answer with the id of the stored file. */
-const storageUploadResponse = z.object({ storageId: z.string() })
 
 type JournalEntry = FunctionReturnType<
   typeof api.journalEntries.listRecent
@@ -37,6 +35,7 @@ type JournalPhoto = FunctionReturnType<
 >[number]
 
 export function JournalPage() {
+  const { userId } = useAuth()
   const { isAuthenticated } = useConvexAuth()
   const { localDate, timeZone } = useMemo(currentLocalDay, [])
   const [query, setQuery] = useState('')
@@ -118,7 +117,7 @@ export function JournalPage() {
   async function toggle(entry: JournalEntry, field: 'isPinned' | 'isFavorite') {
     setError(undefined)
     try {
-      await updateEntry({ entryId: entry.id, [field]: !entry[field] })
+      await updateEntry({ entryId: entry.id, expectedUpdatedAt: entry.updatedAt, [field]: !entry[field] })
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'Could not update this entry.',
@@ -136,6 +135,7 @@ export function JournalPage() {
     setError(undefined)
     try {
       await removeEntry({ entryId: entry.id })
+      if (userId) clearJournalEditorDrafts(userId, entry.id)
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'Could not delete this entry.',
@@ -353,10 +353,10 @@ function JournalCalendar({
 }
 
 // Draft comparison and save-state copy are shared with the mobile editor.
-type Draft = JournalDraft
 type SaveState = JournalSaveState
 
 export function JournalEditorPage({ entryId }: { entryId: string }) {
+  const { getToken, userId } = useAuth()
   // SAFETY: the route param carries the `journalEntries` document id this
   // page was linked with; Convex validates the id shape and the page renders
   // the missing state when a stale or foreign id resolves to null.
@@ -372,60 +372,40 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
   const generateUploadUrl = useMutation(
     api.journalEntries.generatePhotoUploadUrl,
   )
-  const addPhoto = useMutation(api.journalEntries.addPhoto)
   const removePhoto = useMutation(api.journalEntries.removePhoto)
   const navigate = useNavigate()
-  const [title, setTitle] = useState('')
-  const [body, setBody] = useState('')
-  const [tags, setTags] = useState<Array<string>>([])
+  const convex = useConvex()
+  const session = useMemo(() => {
+    return new JournalSession({
+      persist: (draft, expectedUpdatedAt) => updateEntry({ entryId: id, expectedUpdatedAt, ...draft }),
+      load: () => convex.query(api.journalEntries.get, { entryId: id }),
+      storage: journalEditorStorage(userId ?? '', id),
+    })
+  }, [convex, id, updateEntry, userId])
+  const editor = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot)
+  const { title, body, tags } = editor.draft
+  const saveState = editor.status
+  const setTitle = (value: string) => session.edit({ title: value })
+  const setBody = (value: string) => session.edit({ body: value })
+  const setTags = (value: Array<string>) => session.edit({ tags: value })
   const [tagInput, setTagInput] = useState('')
-  const [saveState, setSaveState] = useState<SaveState>('loading')
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string>()
-  const hydrated = useRef<string | undefined>(undefined)
-  const persisted = useRef<Draft>({ title: '', body: '', tags: [] })
 
   useEffect(() => {
-    if (!entry || hydrated.current === entry.id) return
-    hydrated.current = entry.id
-    const draft = { title: entry.title, body: entry.body, tags: entry.tags }
-    persisted.current = draft
-    setTitle(draft.title)
-    setBody(draft.body)
-    setTags(draft.tags)
-    setSaveState('saved')
-  }, [entry])
-
+    if (entry) session.receive(entry)
+    else if (entry === null && userId) { clearJournalEditorDrafts(userId, id); session.discard() }
+  }, [entry, id, session, userId])
   useEffect(() => {
-    if (!entry || hydrated.current !== entry.id) return
-    const draft = { title, body, tags }
-    if (compareDrafts(draft, persisted.current)) {
-      setSaveState('saved')
-      return
-    }
-    setSaveState('unsaved')
-    const timeout = window.setTimeout(() => {
-      setSaveState('saving')
-      void updateEntry({ entryId: id, ...draft })
-        .then((saved) => {
-          persisted.current = {
-            title: saved.title,
-            body: saved.body,
-            tags: saved.tags,
-          }
-          setSaveState('saved')
-        })
-        .catch((cause) => {
-          setSaveState('error')
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : 'This entry is not saved yet.',
-          )
-        })
-    }, 650)
-    return () => window.clearTimeout(timeout)
-  }, [body, entry, id, tags, title, updateEntry])
+    if (editor.status !== 'unsaved') return
+    const timer = window.setTimeout(() => { void session.save() }, 650)
+    return () => window.clearTimeout(timer)
+  }, [editor.draft, editor.status, session])
+  useBlocker({
+    shouldBlockFn: async () => (session.getSnapshot().dirty || session.getSnapshot().status === 'saving') && !(await session.save()),
+    disabled: entry === null,
+    enableBeforeUnload: () => session.getSnapshot().dirty || session.getSnapshot().status === 'saving',
+  })
 
   function addTag() {
     const tag = tagInput.trim().replace(/\s+/g, ' ')
@@ -436,22 +416,8 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
   }
 
   async function saveAndClose() {
-    setSaveState('saving')
     setError(undefined)
-    try {
-      const saved = await updateEntry({ entryId: id, title, body, tags })
-      persisted.current = {
-        title: saved.title,
-        body: saved.body,
-        tags: saved.tags,
-      }
-      await navigate({ to: '/health/journal' })
-    } catch (cause) {
-      setSaveState('error')
-      setError(
-        cause instanceof Error ? cause.message : 'This entry is not saved yet.',
-      )
-    }
+    if (await session.save()) await navigate({ to: '/health/journal' })
   }
 
   async function uploadPhotos(event: ChangeEvent<HTMLInputElement>) {
@@ -464,22 +430,17 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
     setError(undefined)
     try {
       for (const file of files) {
-        const uploadUrl = await generateUploadUrl({})
-        const response = await fetch(uploadUrl, {
+        const uploadUrl = new URL(await generateUploadUrl({}))
+        uploadUrl.searchParams.set('entryId', id)
+        uploadUrl.searchParams.set('fileName', file.name)
+        const token = await getToken({ template: 'convex' })
+        if (!token) throw new Error('Sign in to upload a photo.')
+        const response = await fetch(uploadUrl.toString(), {
           method: 'POST',
-          headers: { 'Content-Type': file.type },
+          headers: { 'Content-Type': file.type, Authorization: `Bearer ${token}` },
           body: file,
         })
-        if (!response.ok) throw new Error('The photo upload did not finish.')
-        const uploaded = storageUploadResponse.parse(await response.json())
-        await addPhoto({
-          entryId: id,
-          // SAFETY: Convex's storage upload URL responds with the id of the
-          // file it just stored, which is by construction a `_storage` id.
-          storageId: uploaded.storageId as Id<'_storage'>,
-          mimeType: file.type,
-          fileName: file.name,
-        })
+        if (!response.ok) throw new Error('The photo upload did not finish. Photos must be at most 10 MB.')
       }
       event.target.value = ''
     } catch (cause) {
@@ -505,6 +466,7 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
     try {
       await updateEntry({
         entryId: id,
+        expectedUpdatedAt: entry.updatedAt,
         localDate: localDateKey(next),
         occurredAt: next.getTime(),
         timeZone:
@@ -532,7 +494,8 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
     try {
       // The DOM lib declares Web Share unconditionally, but several desktop
       // browsers still ship without it, so admit its absence explicitly.
-      const shareApi: Navigator['share'] | undefined = navigator.share
+      const browserApi: Partial<Pick<Navigator, 'share'>> = navigator
+      const shareApi = browserApi.share
       if (shareApi)
         await shareApi.call(navigator, {
           title: title || 'BeeGreat journal entry',
@@ -550,7 +513,10 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
 
   async function deleteEntry() {
     if (!window.confirm('Delete this memory permanently?')) return
+    await session.save()
     await removeEntry({ entryId: id })
+    if (userId) clearJournalEditorDrafts(userId, id)
+    session.discard()
     await navigate({ to: '/health/journal' })
   }
 
@@ -590,6 +556,12 @@ export function JournalEditorPage({ entryId }: { entryId: string }) {
           Done
         </button>
       </header>
+      {editor.error ? <p className="inline-error" role="alert">{editor.error}</p> : null}
+      {editor.status === 'conflict' ? <div className="journal-editor-actions">
+        <button className="button button--quiet" type="button" onClick={() => void session.resolve('reload')}>Reload saved entry</button>
+        <button className="button button--primary" type="button" onClick={() => void session.resolve('keep')}>Save my version</button>
+      </div> : editor.status === 'error' ? <button className="button button--quiet" type="button" onClick={() => void session.save()}>Try saving again</button> : null}
+
       <div className="journal-editor__meta">
         <label>
           Date{' '}

@@ -508,3 +508,7 @@ export function getToolCopy<Input>(
     specialist: copy.specialist ?? null,
   };
 }
+
+export { normalizeImessageAddress, imessageAddressKind, isValidImessageAddress, maskImessageAddress, type ImessageAddressKind } from './imessage-address';
+
+export { JournalSession, type JournalRevision, type JournalDraftStorage } from "./journal-session";

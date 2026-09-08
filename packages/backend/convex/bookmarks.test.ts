@@ -1,3 +1,4 @@
+import type { FunctionReturnType } from 'convex/server'
 import { convexTest } from 'convex-test'
 import { describe, expect, test } from 'vitest'
 import { api } from './_generated/api'
@@ -67,4 +68,41 @@ describe('Mind bookmarks', () => {
       await owner.query(api.bookmarks.get, { bookmarkId: added._id }),
     ).toBeNull()
   })
+})
+
+test('atomic label changes compose and reject another owner', async () => {
+  const t = convexTest(schema, modules)
+  const owner = t.withIdentity(identity('label_owner'))
+  const other = t.withIdentity(identity('label_other'))
+  const bookmark = await owner.mutation(api.bookmarks.add, { url: 'https://example.com/labels' })
+  await owner.mutation(api.bookmarks.update, { bookmarkId: bookmark._id, labels: ['a', 'b', 'c'] })
+  await owner.mutation(api.bookmarks.changeLabel, { bookmarkId: bookmark._id, label: 'a', operation: 'remove' })
+  const result = await owner.mutation(api.bookmarks.changeLabel, { bookmarkId: bookmark._id, label: 'b', operation: 'remove' })
+  expect(result.labels).toEqual(['c'])
+  await expect(other.mutation(api.bookmarks.changeLabel, { bookmarkId: bookmark._id, label: 'c', operation: 'remove' })).rejects.toThrow('Bookmark not found')
+})
+
+test('label search can continue beyond the first page without crossing owners', async () => {
+  const t = convexTest(schema, modules)
+  const owner = t.withIdentity(identity('search_owner'))
+  const other = t.withIdentity(identity('search_other'))
+  for (let i = 0; i < 30; i++) {
+    const bookmark = await owner.mutation(api.bookmarks.add, { url: `https://example.com/search/${i}` })
+    await owner.mutation(api.bookmarks.update, { bookmarkId: bookmark._id, title: 'Needle', labels: i === 29 ? ['chosen'] : [] })
+  }
+  const foreign = await other.mutation(api.bookmarks.add, { url: 'https://example.com/foreign' })
+  await other.mutation(api.bookmarks.update, { bookmarkId: foreign._id, title: 'Needle', labels: ['chosen'] })
+  let cursor: string | null = null
+  const found: string[] = []
+  let pages = 0
+  do {
+    const page: FunctionReturnType<typeof api.bookmarks.searchPage> = await owner.query(api.bookmarks.searchPage, { query: 'Needle', label: 'chosen', paginationOpts: { numItems: 24, cursor } })
+    found.push(...page.page.map((item) => item._id))
+    pages++
+    if (page.isDone) break
+    cursor = page.continueCursor
+  } while (pages < 5)
+  expect(pages).toBe(2)
+  expect(found).toHaveLength(1)
+  expect(found).not.toContain(foreign._id)
 })

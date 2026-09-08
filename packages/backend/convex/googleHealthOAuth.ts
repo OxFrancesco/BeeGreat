@@ -84,6 +84,7 @@ async function tokenRequest(params: URLSearchParams) {
   let response: Response
   try {
     response = await fetch(TOKEN_URL, {
+      signal: AbortSignal.timeout(10_000),
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
       body: params.toString(),
@@ -106,7 +107,7 @@ async function tokenRequest(params: URLSearchParams) {
       body.error_description ??
         body.error ??
         'Google OAuth token exchange failed',
-      body.error ?? `http_${response.status}`,
+      response.status === 429 ? 'rate_limited' : body.error ?? `http_${response.status}`,
       !permanent && (response.status === 429 || response.status >= 500),
     )
   }

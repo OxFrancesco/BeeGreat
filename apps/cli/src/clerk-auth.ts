@@ -19,6 +19,12 @@ type ClerkAuthDependencies = {
   openBrowser(url: string): Promise<void>;
 };
 
+class ClerkOAuthError extends Error {
+  constructor(readonly code: string | undefined, readonly status: number) {
+    super(`Clerk token exchange failed (HTTP ${status}).`);
+  }
+}
+
 type TokenResponse = {
   access_token: string;
   refresh_token?: string;
@@ -43,7 +49,7 @@ function tokenResponse(value: JsonValue): TokenResponse {
     throw new Error("Clerk returned an invalid token response.");
   if (
     !isJsonString(value.access_token) ||
-    !isFiniteJsonNumber(value.expires_in)
+    !isFiniteJsonNumber(value.expires_in) || value.expires_in <= 0
   ) {
     const description = isJsonString(value.error_description)
       ? value.error_description
@@ -69,6 +75,8 @@ export function createClerkCliAuth(
   const openBrowser = dependencies.openBrowser ?? defaultOpenBrowser;
   const issuer = config.issuer.replace(/\/$/, "");
   let cached: ClerkCredentials | undefined;
+  let pendingSave = false;
+  let inFlight: Promise<ClerkCredentials> | undefined;
 
   async function exchange(body: URLSearchParams) {
     const response = await fetcher(`${issuer}/oauth/token`, {
@@ -78,7 +86,7 @@ export function createClerkCliAuth(
     });
     const value: JsonValue = await response.json().catch(() => null);
     if (!response.ok)
-      throw new Error(`Clerk token exchange failed (HTTP ${response.status}).`);
+      throw new ClerkOAuthError(isJsonObject(value) && isJsonString(value.error) ? value.error : undefined, response.status);
     return tokenResponse(value);
   }
 
@@ -134,8 +142,10 @@ export function createClerkCliAuth(
       expiresAt: Date.now() + tokens.expires_in * 1_000,
       userId: await userId(tokens.access_token),
     };
-    await dependencies.store.save(credentials);
     cached = credentials;
+    pendingSave = true;
+    await dependencies.store.save(credentials);
+    pendingSave = false;
     return credentials;
   }
 
@@ -153,24 +163,36 @@ export function createClerkCliAuth(
       refreshToken: tokens.refresh_token ?? credentials.refreshToken,
       expiresAt: Date.now() + tokens.expires_in * 1_000,
     };
-    await dependencies.store.save(updated);
     cached = updated;
+    pendingSave = true;
+    await dependencies.store.save(updated);
+    pendingSave = false;
     return updated;
   }
 
-  return {
-    async session(options: { forceLogin?: boolean } = {}) {
+  async function resolveSession(options: { forceLogin?: boolean }) {
       if (options.forceLogin) return await login();
       const stored = cached ?? (await dependencies.store.load());
       cached = stored;
       if (!stored) return await login();
+      if (pendingSave) {
+        await dependencies.store.save(stored);
+        pendingSave = false;
+      }
       if (stored.expiresAt > Date.now() + 30_000) return stored;
       try {
         return await refresh(stored);
-      } catch {
+      } catch (error) {
+        if (!(error instanceof ClerkOAuthError) || error.code !== 'invalid_grant' || (error.status !== 400 && error.status !== 401)) throw error;
         await dependencies.store.clear();
+        cached = undefined;
         return await login();
       }
+  }
+  return {
+    session(options: { forceLogin?: boolean } = {}) {
+      if (!inFlight) inFlight = resolveSession(options).finally(() => { inFlight = undefined; });
+      return inFlight;
     },
     async logout() {
       const stored = cached ?? (await dependencies.store.load());

@@ -24,6 +24,7 @@ import {
 } from './imessageValidators'
 import {
   beennectorCredentialStatusValidator,
+  beennectorSignalValidator,
   beennectorProviderValidator,
   beennectorSessionStatusValidator,
   googleWorkspaceServiceValidator,
@@ -135,6 +136,7 @@ export default defineSchema({
     status: v.optional(
       v.union(
         v.literal('awaiting_identity_deletion'),
+        v.literal('identity_deleting'),
         v.literal('external_cleanup'),
         v.literal('purging'),
         v.literal('tombstoned'),
@@ -334,11 +336,19 @@ export default defineSchema({
   // The public profile is deliberately separate from Clerk identity and all
   // private Bee data. `publicId` never changes, so printed QR codes remain
   // valid when a user edits their handle or profile content.
+  paidUsage: defineTable({ scope: v.string(), operation: v.string(), day: v.number(), units: v.number() })
+    .index('by_scope_operation_day', ['scope', 'operation', 'day']).index('by_day', ['day']).index('by_scope', ['scope']),
+  paidUsageLeases: defineTable({ userId: v.string(), operation: v.string(), expiresAt: v.number(), ticketHash: v.optional(v.string()), ticketExpiresAt: v.optional(v.number()), claimedAt: v.optional(v.number()) })
+    .index('by_user_operation_expiry', ['userId', 'operation', 'expiresAt'])
+    .index('by_operation_expiry', ['operation', 'expiresAt']).index('by_expiry', ['expiresAt'])
+    .index('by_ticket_hash', ['ticketHash']).index('by_user', ['userId']),
+
   publicProfiles: defineTable({
     ownerKey: v.string(),
     userId: v.string(),
     publicId: v.string(),
     handle: v.string(),
+    handleChangedAt: v.optional(v.number()),
     displayName: v.string(),
     bio: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
@@ -374,8 +384,7 @@ export default defineSchema({
     .index('by_owner_key', ['ownerKey'])
     .index('by_profile_id_and_position', ['profileId', 'position']),
 
-  // Previous handles stay reserved and resolve to the same profile. That
-  // protects old shared links without making the QR depend on a mutable name.
+  // Previous handles redirect for 30 days; permanent QR links use publicId.
   publicProfileAliases: defineTable({
     ownerKey: v.string(),
     profileId: v.id('publicProfiles'),
@@ -402,6 +411,8 @@ export default defineSchema({
     ),
     pageCount: v.number(),
     activeDeploymentId: v.optional(v.id('beeSiteDeployments')),
+    pendingProductionDeploymentId: v.optional(v.id('beeSiteDeployments')),
+    publicationRevision: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
     publishedAt: v.optional(v.number()),
@@ -419,6 +430,9 @@ export default defineSchema({
       v.literal('ready'),
       v.literal('failed'),
     ),
+    contentDigest: v.optional(v.string()),
+    approvedAt: v.optional(v.number()),
+    publicationCancelledAt: v.optional(v.number()),
     manifestKey: v.optional(v.string()),
     pageCount: v.number(),
     fileCount: v.number(),
@@ -460,6 +474,7 @@ export default defineSchema({
     ),
     hydrationMl: v.number(),
     journal: v.optional(v.string()),
+    journalMigratedAt: v.optional(v.number()),
     timeZone: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -530,7 +545,21 @@ export default defineSchema({
       filterFields: ['ownerKey'],
     }),
 
+  journalDraftImports: defineTable({
+    ownerKey: v.string(),
+    draftKey: v.string(),
+    entryId: v.id('journalEntries'),
+  }).index('by_owner_key_and_draft_key', ['ownerKey', 'draftKey']),
+
+  journalStorageReviews: defineTable({
+    ownerKey: v.string(),
+    storageId: v.id('_storage'),
+    attachmentId: v.string(),
+    requestedAt: v.number(),
+  }).index('by_owner_key', ['ownerKey']),
+
   journalAttachments: defineTable({
+    uploadVerified: v.optional(v.boolean()),
     ownerKey: v.string(),
     userId: v.string(),
     entryId: v.id('journalEntries'),
@@ -575,7 +604,9 @@ export default defineSchema({
   // is hashed for lookup and the verifier is encrypted at rest.
   googleHealthAuthSessions: defineTable({
     userId: v.string(),
+    client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))),
     stateHash: v.string(),
+    exchangeAttemptId: v.optional(v.string()),
     status: googleHealthSessionStatusValidator,
     encryptedCodeVerifier: v.optional(encryptedSecretValidator),
     expiresAt: v.number(),
@@ -603,6 +634,7 @@ export default defineSchema({
     userId: v.string(),
     client: v.union(v.literal('mobile'), v.literal('browser')),
     stateHash: v.string(),
+    exchangeAttemptId: v.optional(v.string()),
     status: telegramSessionStatusValidator,
     encryptedCodeVerifier: v.optional(encryptedSecretValidator),
     encryptedNonce: v.optional(encryptedSecretValidator),
@@ -645,6 +677,8 @@ export default defineSchema({
   // Links one normalized iMessage sender address (phone or email) to a Clerk
   // user. The bridge resolves inbound senders here; presenting a valid magic
   // link proves control of the address, so a re-link moves it to the new user.
+  imessageRevocations: defineTable({ userId: v.string(), revokedBefore: v.number() }).index('by_user', ['userId']),
+
   imessageConnections: defineTable({
     userId: v.string(),
     address: v.string(),
@@ -653,7 +687,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_address', ['address'])
-    .index('by_user', ['userId']),
+    .index('by_user', ['userId'])
+    .index('by_user_and_connected_at', ['userId', 'connectedAt']),
 
   // Terminal Web3 updates are delivered by the Railway bridge from this
   // lease-based outbox. One action/status pair is enqueued once; a bridge
@@ -704,8 +739,10 @@ export default defineSchema({
   // sandbox; they never enter model context or tool arguments.
   beennectorAuthSessions: defineTable({
     userId: v.string(),
+    client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))),
     provider: beennectorProviderValidator,
     stateHash: v.string(),
+    exchangeAttemptId: v.optional(v.string()),
     status: beennectorSessionStatusValidator,
     encryptedCodeVerifier: v.optional(encryptedSecretValidator),
     disclosureVersion: v.optional(v.string()),
@@ -722,6 +759,14 @@ export default defineSchema({
 
   // One encrypted connection per Clerk user and provider. `externalAccountId`
   // and `workspaceId` let verified Flue webhooks resolve their Bee owner.
+  beennectorCommentActions: defineTable({
+    userId: v.string(), provider: v.union(v.literal('github'), v.literal('linear')),
+    targetId: v.string(), targetLabel: v.string(), targetUrl: v.string(), body: v.string(),
+    connectionId: v.id('beennectorCredentials'), externalAccountId: v.string(), accountName: v.string(),
+    state: v.union(v.literal('pending'), v.literal('confirmed'), v.literal('executing'), v.literal('posted'), v.literal('failed'), v.literal('unknown'), v.literal('cancelled')),
+    createdAt: v.number(), expiresAt: v.number(), confirmedAt: v.optional(v.number()), executionStartedAt: v.optional(v.number()), submissionStartedAt: v.optional(v.number()), resultUrl: v.optional(v.string()), error: v.optional(v.string()),
+  }).index('by_user', ['userId']).index('by_state_and_execution', ['state', 'executionStartedAt']),
+
   beennectorCredentials: defineTable({
     userId: v.string(),
     provider: beennectorProviderValidator,
@@ -753,11 +798,20 @@ export default defineSchema({
     provider: beennectorProviderValidator,
     deliveryId: v.string(),
     userId: v.string(),
+    actorId: v.optional(v.string()),
+    message: v.optional(beennectorSignalValidator),
+    state: v.optional(v.union(v.literal('queued'), v.literal('processing'), v.literal('delivered'), v.literal('cancelled'))),
+    leaseId: v.optional(v.string()),
+    leaseUntil: v.optional(v.number()),
+    nextAttemptAt: v.optional(v.number()),
+    attempts: v.optional(v.number()),
+    submissionId: v.optional(v.string()),
     receivedAt: v.number(),
     expiresAt: v.number(),
   })
     .index('by_provider_and_delivery', ['provider', 'deliveryId'])
     .index('by_user', ['userId'])
+    .index('by_state_due', ['state', 'nextAttemptAt'])
     .index('by_expires_at', ['expiresAt']),
 
   goals: defineTable({
@@ -855,6 +909,7 @@ export default defineSchema({
     ),
     geniusActivated: v.optional(v.boolean()),
     achievementBackfilledAt: v.optional(v.number()),
+    achievementCountVersion: v.optional(v.number()),
   })
     .index('by_owner_key_and_request_id', ['ownerKey', 'requestId'])
     .index('by_owner_key_and_task_id', ['ownerKey', 'taskId'])
@@ -903,6 +958,7 @@ export default defineSchema({
     fatigueRemainderMs: v.number(),
     taskProgressCount: v.number(),
     backfilledProgressCount: v.optional(v.number()),
+    countedProgressV2: v.optional(v.number()),
     lastVerifiedProgressAt: v.optional(v.number()),
     resurrectionRefundClaimed: v.optional(v.boolean()),
     updatedAt: v.number(),
@@ -999,6 +1055,7 @@ export default defineSchema({
     .index('by_owner_key_and_unlocked_at', ['ownerKey', 'unlockedAt']),
 
   achievementBackfillStates: defineTable({
+    countVersion: v.optional(v.number()),
     ownerKey: v.string(),
     userId: v.string(),
     cursor: v.union(v.string(), v.null()),
@@ -1092,7 +1149,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_owner_key_and_active', ['ownerKey', 'active'])
-    .index('by_user_id_and_active', ['userId', 'active']),
+    .index('by_user_id_and_active', ['userId', 'active'])
+    .index('by_goal_id', ['goalId']),
 
   // Opt-in capability packs. A row exists once the user has touched the toggle;
   // absence means the power-up was never enabled. Catalog lives in powerups.ts.
@@ -1106,6 +1164,13 @@ export default defineSchema({
   // source of truth; this bounded cache establishes BeeGreat ownership and
   // gives the agent a safe list of sessions it may inspect or follow up on.
   devinSessions: defineTable({
+    usageLeaseId: v.optional(v.id('paidUsageLeases')),
+    safetyAcuLimit: v.optional(v.number()),
+    pollGeneration: v.optional(v.number()),
+    pollAttempt: v.optional(v.number()),
+    pollScheduledId: v.optional(v.id('_scheduled_functions')),
+    pollRunning: v.optional(v.boolean()),
+    pollLeaseExpiresAt: v.optional(v.number()),
     userId: v.string(),
     sessionId: v.string(),
     title: v.optional(v.string()),
@@ -1178,6 +1243,11 @@ export default defineSchema({
     confirmedAt: v.optional(v.number()),
     executionStartedAt: v.optional(v.number()),
     submittedAt: v.optional(v.number()),
+    recoveryObservationOnly: v.optional(v.boolean()),
+    reconcileAt: v.optional(v.number()),
+    reconcileLeaseUntil: v.optional(v.number()),
+    settlementFailureSource: v.optional(v.union(v.literal('provider'), v.literal('pre_submission'))),
+    recoveryDetail: v.optional(v.string()),
     settledAt: v.optional(v.number()),
     autoConfirmed: v.optional(v.boolean()),
     result: v.optional(web3ActionResultValidator),

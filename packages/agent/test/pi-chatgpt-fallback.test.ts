@@ -174,3 +174,28 @@ describe('Codex → OpenRouter inference fallback', () => {
     expect(result.stopReason).toBe('stop')
   })
 })
+
+test('a started primary stream emits one terminal error without starting a second provider', async () => {
+  const respond = () => {
+    const stream = createAssistantMessageEventStream()
+    const partial = assistantMessage({ content: [{ type: 'text', text: 'Partial' }] })
+    stream.push({ type: 'start', partial })
+    stream.push({ type: 'error', reason: 'error', error: { ...partial, stopReason: 'error', errorMessage: 'failed' } })
+    stream.end()
+    return stream
+  }
+  let rerouted = false
+  const provider = withOpenRouterFallback({ stream: respond, streamSimple: respond }, openRouterReroute({}, () => { rerouted = true }))
+  const events = []
+  for await (const event of provider.streamSimple(model('openai-codex-test', 'gpt-5.6-terra'), context)) events.push(event.type)
+  expect(events).toEqual(['start', 'error'])
+  expect(rerouted).toBe(false)
+})
+
+test('a thrown provider error terminates the outer event stream', async () => {
+  const respond = () => { throw new Error('provider failed to start') }
+  const provider = withOpenRouterFallback({ stream: respond, streamSimple: respond }, openRouterReroute())
+  const events = []
+  for await (const event of provider.streamSimple(model('openai-codex-test', 'gpt-5.6-terra'), context)) events.push(event.type)
+  expect(events).toEqual(['error'])
+})

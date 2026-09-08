@@ -1,7 +1,5 @@
-import {
-  extractBeeUi,
-  type UIComponent,
-} from '@beegreat/tool-presentation'
+import { extractBeeUi } from '@beegreat/tool-presentation'
+import type { UIComponent } from '@beegreat/tool-presentation'
 
 // The beeui contract (schema, parsing, scrubbing) lives in
 // @beegreat/tool-presentation so every client shares one vocabulary.

@@ -203,6 +203,7 @@ function TapActionCard({
   action: HydrationTapAction
   onWrite: () => void
   onUpdate: (patch: {
+    expectedUpdatedAt: number
     label?: string
     enabled?: boolean
     definition?: { type: 'hydration'; amountMl: number }
@@ -212,6 +213,7 @@ function TapActionCard({
   const [editing, setEditing] = useState(false)
   const [label, setLabel] = useState(action.label)
   const [amount, setAmount] = useState(action.definition.amountMl)
+  const [baseline, setBaseline] = useState(action)
   const [saving, setSaving] = useState(false)
   const supportsWebNfc = hasWebNfc()
   return (
@@ -228,7 +230,7 @@ function TapActionCard({
           role="switch"
           aria-label={`${action.label} tap action`}
           aria-checked={action.enabled}
-          onClick={() => void onUpdate({ enabled: !action.enabled })}
+          onClick={() => void onUpdate({ enabled: !action.enabled, expectedUpdatedAt: action.updatedAt }).catch(() => undefined)}
         >
           <span />
         </button>
@@ -259,10 +261,12 @@ function TapActionCard({
               onClick={() => {
                 setSaving(true)
                 void onUpdate({
-                  label: label.trim(),
-                  definition: { type: 'hydration', amountMl: amount },
+                  expectedUpdatedAt: baseline.updatedAt,
+                  ...(label.trim() !== baseline.label ? { label: label.trim() } : {}),
+                  ...(amount !== baseline.definition.amountMl ? { definition: { type: 'hydration', amountMl: amount } as const } : {}),
                 })
                   .then(() => setEditing(false))
+                  .catch(() => undefined)
                   .finally(() => setSaving(false))
               }}
             >
@@ -283,7 +287,7 @@ function TapActionCard({
           <button
             className="button button--quiet"
             type="button"
-            onClick={() => setEditing(true)}
+            onClick={() => { setLabel(action.label); setAmount(action.definition.amountMl); setBaseline(action); setEditing(true) }}
           >
             Edit
           </button>

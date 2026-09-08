@@ -4,6 +4,7 @@ type NfcModule = typeof import('react-native-nfc-manager')
 
 let modulePromise: Promise<NfcModule> | null = null
 let started = false
+let writing = false
 
 async function loadNfcModule() {
   modulePromise ??= import('react-native-nfc-manager').catch(() => {
@@ -40,10 +41,12 @@ export async function isNfcAvailable() {
 }
 
 export async function writeNfcActionTag(url: string) {
-  const nfc = await getReadyNfc()
-  const bytes = nfc.Ndef.encodeMessage([nfc.Ndef.uriRecord(url)])
-
+  if (writing) throw new NfcUnavailableError('Another tag write is in progress.')
+  writing = true
+  let nfc: NfcModule | undefined
   try {
+    nfc = await getReadyNfc()
+    const bytes = nfc.Ndef.encodeMessage([nfc.Ndef.uriRecord(url)])
     await nfc.default.requestTechnology(nfc.NfcTech.Ndef, {
       alertMessage: 'Hold your phone near the NFC tag.',
     })
@@ -52,7 +55,11 @@ export async function writeNfcActionTag(url: string) {
       await nfc.default.setAlertMessageIOS('Your BeeGreat tap action is ready.')
     }
   } finally {
-    await nfc.default.cancelTechnologyRequest({ throwOnError: false })
+    try {
+      if (nfc) await nfc.default.cancelTechnologyRequest({ throwOnError: false })
+    } finally {
+      writing = false
+    }
   }
 }
 

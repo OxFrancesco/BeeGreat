@@ -1,7 +1,8 @@
+import { oauthCompletionRedirect } from './oauthCompletion'
 import type { FunctionArgs } from 'convex/server'
 import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
-import { env, httpAction } from '../_generated/server'
+import { httpAction } from '../_generated/server'
 import {
   ClerkUserId,
   decodeRequestBody,
@@ -12,44 +13,7 @@ import {
   type JsonValue,
 } from './middleware'
 
-export const telegramOauthCallback = httpAction(async (ctx, request) => {
-  const url = new URL(request.url)
-  const state = url.searchParams.get('state')
-  const code = url.searchParams.get('code')
-  const oauthError = url.searchParams.get('error')
-  let connected = false
-  let client: 'mobile' | 'browser' | undefined
-  if (state) {
-    const args: FunctionArgs<
-      typeof internal.telegramAuthActions.completeAuthorization
-    > = { state }
-    if (code) args.code = code
-    if (oauthError) args.errorCode = oauthError
-    const result = await ctx.runAction(
-      internal.telegramAuthActions.completeAuthorization,
-      args,
-    )
-    connected = result.ok
-    client = result.client
-  }
-  if (client === 'mobile') {
-    const appUrl = new URL(
-      env.TELEGRAM_APP_REDIRECT_URI?.trim() || 'beegreat://profile',
-    )
-    appUrl.searchParams.set('telegram', connected ? 'connected' : 'failed')
-    return Response.redirect(appUrl.toString(), 302)
-  }
-  return new Response(
-    `<!doctype html><title>BeeGreat</title><main style="font:16px system-ui;max-width:36rem;margin:15vh auto;padding:2rem"><h1>${connected ? 'Telegram connected' : 'Telegram connection failed'}</h1><p>${connected ? 'You can close this tab and return to BeeGreat.' : 'Return to BeeGreat and try again.'}</p></main><script>if(window.opener)setTimeout(()=>window.close(),700)</script>`,
-    {
-      status: connected ? 200 : 400,
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'no-store',
-      },
-    },
-  )
-})
+export const telegramOauthCallback = httpAction(async (_ctx, request) => oauthCompletionRedirect(request, 'telegram'))
 
 const TelegramRequest = Schema.Struct({
   userId: ClerkUserId,

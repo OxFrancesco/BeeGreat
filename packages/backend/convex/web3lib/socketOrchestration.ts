@@ -215,25 +215,14 @@ export async function reconcileSocketCrossmintActionForId(
     (step) => step.status === 'prepared',
   )
   if (!pending) return null
-  if (
-    Date.now() >
-    (action.executionStartedAt ?? action.createdAt) + 15 * 60_000
-  ) {
-    await ctx.runMutation(internal.web3Actions.recordSocketOriginFailure, {
-      actionId,
-      transactionId: pending.transactionId,
-      error:
-        'Crossmint did not settle the origin transaction within 15 minutes.',
-    })
-    return null
-  }
+  if (!await ctx.runMutation(internal.web3Reconciliation.claim, { actionId })) return null
   try {
     const wallet = EVMWallet.from(
       await walletForUser(action.userId, action.payload.originChain),
     )
-    const status = reconcileCrossmintTransaction(
-      await wallet.transaction(pending.transactionId),
-    )
+    const response = await wallet.transaction(pending.transactionId)
+    if (response.id === pending.transactionId && response.status === 'awaiting-approval') await ctx.runMutation(internal.web3Reconciliation.noteAwaitingApproval, { actionId, transactionId: pending.transactionId })
+    const status = reconcileCrossmintTransaction(response, pending.transactionId)
     if (status.status === 'success') {
       await ctx.runMutation(internal.web3Actions.recordSocketOriginSuccess, {
         actionId,
@@ -248,18 +237,10 @@ export async function reconcileSocketCrossmintActionForId(
         error: 'Crossmint reported that the origin transaction failed.',
       })
     } else {
-      await ctx.scheduler.runAfter(
-        15_000,
-        internal.web3.reconcileSocketCrossmintAction,
-        { actionId },
-      )
+      await ctx.runMutation(internal.web3Reconciliation.schedule, { actionId })
     }
   } catch {
-    await ctx.scheduler.runAfter(
-      15_000,
-      internal.web3.reconcileSocketCrossmintAction,
-      { actionId },
-    )
+    await ctx.runMutation(internal.web3Reconciliation.schedule, { actionId })
   }
   return null
 }
@@ -302,23 +283,8 @@ export async function pollSocketSwapStatusForId(
   ) {
     return null
   }
-  if (Date.now() >= action.payload.monitoringDeadlineAt) {
-    const progress: FunctionArgs<
-      typeof internal.web3Actions.recordSocketProgress
-    >['progress'] = {
-      status: 'EXPIRED',
-      detail:
-        'Destination settlement could not be confirmed before the monitoring window closed.',
-      updatedAt: Date.now(),
-    }
-    const knownOriginTxHash = action.socketProgress?.originTxHash
-    if (knownOriginTxHash) progress.originTxHash = knownOriginTxHash
-    await ctx.runMutation(internal.web3Actions.recordSocketProgress, {
-      actionId,
-      progress,
-    })
-    return null
-  }
+  if (action.crossmintExecution?.some((step) => step.status === 'prepared')) return null
+  if (!await ctx.runMutation(internal.web3Reconciliation.claim, { actionId })) return null
 
   try {
     const status = await getSocketStatus(

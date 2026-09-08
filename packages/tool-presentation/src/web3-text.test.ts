@@ -3,12 +3,12 @@ import { describe, expect, test } from "bun:test";
 import { humanizeWeb3Summary, projectTextWeb3Action } from "./web3-text";
 
 describe("text-channel Web3 projection", () => {
-  test("humanizes raw pool addresses", () => {
+  test("preserves full financial addresses", () => {
     expect(
       humanizeWeb3Summary(
         `Aerodrome claim emissions on Base: pool 0x${"ab".repeat(20)}`,
       ),
-    ).toBe("Aerodrome claim emissions on Base · the selected pool");
+    ).toBe(`Aerodrome claim emissions on Base: pool 0x${"ab".repeat(20)}`);
   });
 
   test("routes linked-wallet authorization to BeeGreat instead of arming yes", () => {
@@ -41,3 +41,14 @@ describe("text-channel Web3 projection", () => {
     expect(projected.links).toEqual(["https://arbiscan.io/tx/0x123"]);
   });
 });
+
+test('different recipients produce different approval text', () => {
+  const recipientA = `0x${'12'.repeat(20)}`
+  const recipientB = `0x${'34'.repeat(20)}`
+  const base = { status: 'pending' as const, autoConfirmed: false }
+  const first = projectTextWeb3Action({ ...base, summary: `Send 10 USDC on Base to ${recipientA}` }).text
+  const second = projectTextWeb3Action({ ...base, summary: `Send 10 USDC on Base to ${recipientB}` }).text
+  expect(first).toContain(recipientA)
+  expect(second).toContain(recipientB)
+  expect(first).not.toBe(second)
+})

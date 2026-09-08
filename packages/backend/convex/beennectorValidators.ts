@@ -80,3 +80,7 @@ export type GoogleWorkspaceService =
   | 'contacts'
   | 'tasks'
   | 'forms'
+
+export const beennectorSignalValidator = v.object({
+  kind: v.literal('signal'), type: v.string(), body: v.string(), attributes: v.record(v.string(), v.string()),
+})

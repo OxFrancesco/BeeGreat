@@ -197,3 +197,28 @@ describe('stock basket confirmation bounds', () => {
     expect(() => assertSugarBounds({ trades: [trade] }, {})).toThrow('basket changed')
   })
 })
+
+describe('ambiguous Crossmint approval outcomes', () => {
+  for (const batch of [false, true]) {
+    for (const outcome of ['lookup_error', 'unknown', 'hash_missing', 'wrong_id', 'failed'] as const) {
+      test(`${batch ? 'batch' : 'single'} approval preserves ${outcome} correctly`, async () => {
+        const events: string[] = []
+        const wallet = {
+          address: '0x3333333333333333333333333333333333333333', chain: 'base', signer: { locator: () => 'test' },
+          apiClient: { createTransaction: vi.fn(async () => ({ id: 'durable-id' })) },
+          sendTransaction: vi.fn(async () => ({ transactionId: 'durable-id' })),
+          approve: vi.fn(async () => { events.push('approve'); throw new Error('response lost') }),
+          transaction: vi.fn(async () => {
+            if (outcome === 'lookup_error') throw new Error('provider unavailable')
+            return { id: outcome === 'wrong_id' ? 'other-id' : 'durable-id', status: outcome === 'failed' ? 'failed' : outcome === 'unknown' ? 'unexpected' : 'success' }
+          }),
+        }
+        const onPrepared = async (id: string) => { events.push(`persist:${id}`) }
+        const promise = batch ? prepareAndApproveCrossmintBatch({ wallet, steps: [{ role: 'action', transaction: action }], onPrepared }) : prepareAndApproveCrossmintStep({ wallet, step: { role: 'action', transaction: action }, onPrepared })
+        await expect(promise).rejects.toMatchObject({ name: outcome === 'failed' ? 'CrossmintTransactionFailedError' : 'CrossmintTransactionPendingError', transactionId: 'durable-id' })
+        expect(events).toEqual(['persist:durable-id', 'approve'])
+        expect(wallet.approve).toHaveBeenCalledOnce()
+      })
+    }
+  }
+})

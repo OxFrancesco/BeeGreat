@@ -167,9 +167,8 @@ export async function fetchRevenueCatSubscription(
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 8_000)
-  let response: Response
   try {
-    response = await fetchImpl(
+    const response = await fetchImpl(
       `${REVENUECAT_API_BASE_URL}/subscribers/${encodeURIComponent(userId)}`,
       {
         method: 'GET',
@@ -180,19 +179,20 @@ export async function fetchRevenueCatSubscription(
         signal: controller.signal,
       },
     )
+
+    if (response.status !== 200 && response.status !== 201) {
+      return { status: 'unavailable', reason: 'upstream' }
+    }
+    const body = await response.json().catch(() => null)
+    const parsed = parseRevenueCatCustomerInfo(body, now)
+    return parsed.ok
+      ? { status: 'ok', snapshot: parsed.snapshot }
+      : { status: 'unavailable', reason: parsed.error }
   } catch {
     return { status: 'unavailable', reason: 'network' }
   } finally {
     clearTimeout(timeout)
   }
-  if (response.status !== 200 && response.status !== 201) {
-    return { status: 'unavailable', reason: 'upstream' }
-  }
-  const body = await response.json().catch(() => null)
-  const parsed = parseRevenueCatCustomerInfo(body, now)
-  return parsed.ok
-    ? { status: 'ok', snapshot: parsed.snapshot }
-    : { status: 'unavailable', reason: parsed.error }
 }
 
 /**

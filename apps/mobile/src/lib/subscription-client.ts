@@ -76,6 +76,7 @@ function normalizedError(cause: unknown): SubscriptionClientError {
 
 class RevenueCatSubscriptionClient implements SubscriptionClient {
   private activeAppUserId: string | null = null;
+  private activeLeaseId: symbol | null = null;
   private offerings: PurchasesOfferings | null = null;
   private monthlyPackage: PurchasesPackage | null = null;
   private operationTail: Promise<void> = Promise.resolve();
@@ -92,6 +93,7 @@ class RevenueCatSubscriptionClient implements SubscriptionClient {
   connect(input: {
     appUserId: string;
     apiKey: string;
+    leaseId: symbol;
   }): Promise<SubscriptionSnapshot> {
     return this.enqueue(() => this.connectSerialized(input));
   }
@@ -99,6 +101,7 @@ class RevenueCatSubscriptionClient implements SubscriptionClient {
   private async connectSerialized(input: {
     appUserId: string;
     apiKey: string;
+    leaseId: symbol;
   }): Promise<SubscriptionSnapshot> {
     if (process.env.EXPO_OS !== "ios") {
       throw new SubscriptionClientError(
@@ -150,16 +153,18 @@ class RevenueCatSubscriptionClient implements SubscriptionClient {
       }
 
       this.activeAppUserId = appUserId;
+      this.activeLeaseId = input.leaseId;
       return await this.fetchSnapshot();
     } catch (error) {
       throw normalizedError(error);
     }
   }
 
-  disconnect(appUserId: string): void {
+  disconnect(appUserId: string, leaseId: symbol): void {
     void this.enqueue(async () => {
-      if (this.activeAppUserId !== appUserId) return;
+      if (this.activeAppUserId !== appUserId || this.activeLeaseId !== leaseId) return;
       this.activeAppUserId = null;
+      this.activeLeaseId = null;
       this.offerings = null;
       this.monthlyPackage = null;
       // Purchases.logOut() intentionally is not called: it creates a RevenueCat
@@ -170,9 +175,10 @@ class RevenueCatSubscriptionClient implements SubscriptionClient {
   subscribe(
     appUserId: string,
     listener: (snapshot: SubscriptionSnapshot) => void,
+    leaseId: symbol,
   ): () => void {
     const customerInfoListener = (customerInfo: CustomerInfo) => {
-      if (this.activeAppUserId !== appUserId) return;
+      if (this.activeAppUserId !== appUserId || this.activeLeaseId !== leaseId) return;
       listener(
         subscriptionSnapshot(customerInfo, this.offerings ?? { current: null }),
       );

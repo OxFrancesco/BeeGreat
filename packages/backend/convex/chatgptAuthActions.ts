@@ -1,5 +1,7 @@
 'use node'
 
+import { isRevokedRefreshCode, isUnconsumedRefreshCode } from './credentialRefreshPolicy'
+
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalAction } from './_generated/server'
@@ -240,15 +242,17 @@ export const resolveForAgent = internalAction({
           'chatgpt.decrypt_access_credential',
           { userId: args.userId },
         )
-        return { status: 'reauth' as const }
+        return { status: 'unavailable' as const, retryAfterMs: 1_000 }
       }
     }
 
+    let refreshAttempted = false
     try {
       const refreshToken = decryptSecret(
         claim.encryptedRefresh,
         credentialAad(args.userId, 'refresh'),
       )
+      refreshAttempted = true
       const credentials = await refreshCredentials(refreshToken)
       const stored = await ctx.runMutation(internal.chatgptAuth.finishRefresh, {
         userId: args.userId,
@@ -279,11 +283,12 @@ export const resolveForAgent = internalAction({
         )
       }
       const permanent =
-        error instanceof OpenAiCodexAuthError ? !error.retryable : true
+        error instanceof OpenAiCodexAuthError && isRevokedRefreshCode(error.code)
       await ctx.runMutation(internal.chatgptAuth.failRefresh, {
         userId: args.userId,
         leaseId: claim.leaseId,
         permanent,
+      uncertain: refreshAttempted && !permanent && !(error instanceof OpenAiCodexAuthError && isUnconsumedRefreshCode(error.code)),
       })
       return permanent
         ? { status: 'reauth' as const }

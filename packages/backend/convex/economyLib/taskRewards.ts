@@ -235,10 +235,12 @@ export async function completeTaskWithEconomy(
         : 'awarded',
     geniusActivated: newlyActivatedGenius,
     achievementBackfilledAt: now,
+    achievementCountVersion: 2,
   })
   await ctx.db.patch('goalEconomyStats', stats._id, {
     honeyEarned: stats.honeyEarned + honeyAwarded,
     taskProgressCount: stats.taskProgressCount + 1,
+    countedProgressV2: (stats.countedProgressV2 ?? 0) + 1,
     lastVerifiedProgressAt: now,
     updatedAt: now,
   })

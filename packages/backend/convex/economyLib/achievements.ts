@@ -139,9 +139,15 @@ export async function ensureAchievementBackfillScheduled(
     .query('achievementBackfillStates')
     .withIndex('by_owner_key', (q) => q.eq('ownerKey', keys.ownerKey))
     .unique()
-  if (existing) return existing
+  if (existing?.countVersion === 2) return existing
+  if (existing) {
+    await ctx.db.patch(existing._id, { countVersion: 2, cursor: null, completedAt: undefined, recentGoalProgress: [], updatedAt: now })
+    await ctx.scheduler.runAfter(0, internal.economy.continueAchievementBackfill, { ...keys, cursor: null })
+    return await ctx.db.get(existing._id)
+  }
   const stateId = await ctx.db.insert('achievementBackfillStates', {
     ...keys,
+    countVersion: 2,
     cursor: null,
     recentGoalProgress: [],
     geniusDetected: false,
@@ -191,6 +197,7 @@ export async function continueAchievementBackfillPage(
     .unique()
   if (
     !state ||
+    state.countVersion !== 2 ||
     state.completedAt !== undefined ||
     state.cursor !== args.cursor
   ) {
@@ -206,7 +213,7 @@ export async function continueAchievementBackfillPage(
     .paginate({ cursor: args.cursor, numItems: 128 })
   const now = Date.now()
   const uncounted = page.page.filter(
-    (event) => event.achievementBackfilledAt === undefined,
+    (event) => event.achievementCountVersion !== 2,
   )
   const pageStats = new Map<
     string,
@@ -229,16 +236,15 @@ export async function continueAchievementBackfillPage(
     const stats = await ensureGoalStats(ctx, keys, pageStat.goalId)
     const backfilledProgressCount =
       (stats.backfilledProgressCount ?? 0) + pageStat.count
-    const taskProgressCount = Math.max(
-      stats.taskProgressCount,
-      backfilledProgressCount,
-    )
+    const countedProgressV2 = (stats.countedProgressV2 ?? 0) + pageStat.count
+    const taskProgressCount = Math.max(stats.taskProgressCount, countedProgressV2)
     const lastVerifiedProgressAt = Math.max(
       stats.lastVerifiedProgressAt ?? 0,
       pageStat.lastProgressAt,
     )
     await ctx.db.patch('goalEconomyStats', stats._id, {
       backfilledProgressCount,
+      countedProgressV2,
       taskProgressCount,
       lastVerifiedProgressAt,
       updatedAt: now,
@@ -246,6 +252,7 @@ export async function continueAchievementBackfillPage(
     affectedStats.push({
       ...stats,
       backfilledProgressCount,
+      countedProgressV2,
       taskProgressCount,
       lastVerifiedProgressAt,
     })
@@ -253,6 +260,7 @@ export async function continueAchievementBackfillPage(
   for (const event of uncounted) {
     await ctx.db.patch('verifiedProgressEvents', event._id, {
       achievementBackfilledAt: now,
+      achievementCountVersion: 2,
     })
   }
 

@@ -1,12 +1,12 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import {
+  bookmarkSourceLabel,
   bookmarkKindGlyph as kindGlyph,
   bookmarkKindLabel as kindLabel,
   bookmarkRelativeDate as relativeDate,
-  bookmarkSourceLabel,
 } from '@beegreat/tool-presentation'
 import { useMutation, usePaginatedQuery, useQuery } from 'convex/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 
@@ -42,9 +42,10 @@ export function MindPage() {
   const [adding, setAdding] = useState(false)
 
   const labels = useQuery(api.bookmarks.labels, {})
-  const searched = useQuery(
-    api.bookmarks.search,
-    debouncedSearch ? { query: debouncedSearch, kind } : 'skip',
+  const searched = usePaginatedQuery(
+    api.bookmarks.searchPage,
+    debouncedSearch ? { query: debouncedSearch, kind, label } : 'skip',
+    { initialNumItems: 24 },
   )
   const listed = usePaginatedQuery(
     api.bookmarks.list,
@@ -64,13 +65,8 @@ export function MindPage() {
     window.localStorage.setItem('beegreat.mind.view', view)
   }, [view])
 
-  const bookmarks = useMemo(() => {
-    const source = debouncedSearch ? searched : listed.results
-    if (!source) return undefined
-    return label
-      ? source.filter((bookmark) => bookmark.labels.includes(label))
-      : source
-  }, [debouncedSearch, label, listed.results, searched])
+  const activePage = debouncedSearch ? searched : listed
+  const bookmarks = activePage.status === 'LoadingFirstPage' ? undefined : activePage.results
 
   return (
     <main className="mind-page">
@@ -184,16 +180,16 @@ export function MindPage() {
           />
         )}
 
-        {!debouncedSearch && listed.status === 'CanLoadMore' ? (
+        {activePage.status === 'CanLoadMore' ? (
           <button
             className="button button--quiet mind-load-more"
             type="button"
-            onClick={() => listed.loadMore(24)}
+            onClick={() => activePage.loadMore(24)}
           >
             Gather more
           </button>
         ) : null}
-        {!debouncedSearch && listed.status === 'LoadingMore' ? (
+        {activePage.status === 'LoadingMore' ? (
           <p className="mind-loading-more">Gathering more…</p>
         ) : null}
       </section>

@@ -10,6 +10,7 @@ import { captureBridgeFailure } from './failures'
 import { createIdentityClient, normalizeAddress } from './identity'
 import { startTerminalDeliveryPolling } from './outbox'
 import { sendReply } from './reply'
+import { acceptsPrivateMessage, createInboundQueue, untilAborted } from './inbound-queue'
 
 // Bridges iMessage (via Spectrum Cloud) to the BeeGreat Flue agent worker.
 // Senders linked in Convex are answered as their BeeGreat user; unknown
@@ -90,8 +91,8 @@ if (greetFlagIndex !== -1) {
 }
 
 /** One magic link (or a gentle throttle) for a sender Bee doesn't know yet. */
-async function welcomeUnknownSender(space: Space, address: string) {
-  const link = await identity.beginLink(address)
+async function welcomeUnknownSender(space: Space, address: string, signal: AbortSignal) {
+  const link = await identity.beginLink(address, signal)
   if (link.status === 'throttled') return
   if (link.status === 'rate_limited') {
     await space.send(
@@ -117,30 +118,28 @@ async function welcomeUnknownSender(space: Space, address: string) {
   await space.send(richlink(link.url))
 }
 
-for await (const [space, message] of app.messages) {
+type IncomingMessage = typeof app.messages extends AsyncIterable<infer T> ? T : never
+
+function messageSpace(originalSpace: Space, signal: AbortSignal) {
+  return new Proxy(originalSpace, {
+    get(target, key, receiver) {
+      if (key === 'send') return (...args: Parameters<Space['send']>) => {
+        signal.throwIfAborted()
+        return untilAborted(target.send(...args), signal)
+      }
+      return Reflect.get(target, key, receiver)
+    },
+  })
+}
+
+async function handleMessage([originalSpace, message]: IncomingMessage, signal: AbortSignal, userId: string) {
+  if (!acceptsPrivateMessage(imessage(originalSpace))) return
+  const space = messageSpace(originalSpace, signal)
+  const transport = createAgentTransport({ agentUrl: AGENT_URL, bridgeSecret: BRIDGE_SECRET, signal })
   // For iMessage the sender's cross-provider id is their address (phone/email).
   const rawAddress = message.sender?.id
-  if (!rawAddress) continue
+  if (!rawAddress) return
   const senderAddress = normalizeAddress(rawAddress)
-
-  let userId: string | null
-  try {
-    userId = await identity.resolve(senderAddress)
-  } catch (error) {
-    captureBridgeFailure(error, 'identity.resolve')
-    console.error('imessage-bridge: sender resolution failed', error)
-    continue
-  }
-
-  if (!userId) {
-    try {
-      await welcomeUnknownSender(space, senderAddress)
-    } catch (error) {
-      captureBridgeFailure(error, 'identity.begin_link')
-      console.error('imessage-bridge: welcome link failed', error)
-    }
-    continue
-  }
 
   try {
     // Tapback 👀 so the sender knows Bee is on it (replies can take a while).
@@ -159,16 +158,16 @@ for await (const [space, message] of app.messages) {
           'I can read text, voice notes, and images here. Open another file in BeeGreat or paste its text.',
         ),
       )
-      continue
+      return
     }
     const prompt =
       incoming.text ||
       (incoming.images.length ? 'Please help me with the image I sent.' : '')
-    if (!prompt) continue
+    if (!prompt) return
 
     const command = prompt.trim().toLowerCase()
     if (UNLINK_COMMANDS.has(command)) {
-      const disconnected = await identity.unlink(senderAddress)
+      const disconnected = await identity.unlink(senderAddress, signal)
       await space.send(
         text(
           disconnected
@@ -176,7 +175,7 @@ for await (const [space, message] of app.messages) {
             : "This number wasn't linked, so there was nothing to disconnect.",
         ),
       )
-      continue
+      return
     }
 
     const context = await transport.channelAction<ChannelContext>(userId, {
@@ -193,7 +192,7 @@ for await (const [space, message] of app.messages) {
       await space.send(
         text('New conversation started. What would you like to work on?'),
       )
-      continue
+      return
     }
 
     // Fire-and-forget: the thread title is cosmetic and must not delay Bee.
@@ -214,7 +213,7 @@ for await (const [space, message] of app.messages) {
       images: incoming.images,
     })
 
-    await sendReply(transport, space, reply, userId, celebrate)
+    await sendReply(transport, space, reply, userId, celebrate, context.threadId)
     if (directWeb3Reply) {
       await syncDirectExchange(
         transport,
@@ -231,8 +230,32 @@ for await (const [space, message] of app.messages) {
   } catch (error) {
     captureBridgeFailure(error, 'prompt.handle', userId)
     console.error('imessage-bridge: prompt failed', error)
-    await space.send(text(promptFailureReply(error)))
+    await space.send(text(promptFailureReply(error))).catch(sendError => captureBridgeFailure(sendError, 'prompt.error_reply', userId))
   } finally {
-    await space.stopTyping().catch(() => {})
+    await untilAborted(space.stopTyping(), AbortSignal.timeout(5_000)).catch(() => {})
   }
+}
+
+const inbound = createInboundQueue({
+  onError: error => captureBridgeFailure(error, 'inbound.handle'),
+})
+const identities = createInboundQueue({
+  concurrency: 8,
+  timeoutMs: 15_000,
+  onError: error => captureBridgeFailure(error, 'identity.resolve'),
+})
+for await (const incoming of app.messages) {
+  const [space, message] = incoming
+  if (!acceptsPrivateMessage(imessage(space)) || !message.sender?.id) continue
+  const sender = normalizeAddress(message.sender.id)
+  identities.enqueue(sender, async signal => {
+    const userId = await identity.resolve(sender, signal)
+    if (!userId) {
+      await welcomeUnknownSender(messageSpace(space, signal), sender, signal)
+      return
+    }
+    if (!inbound.enqueue(userId, signal => handleMessage(incoming, signal, userId))) {
+      captureBridgeFailure(new Error('Inbound account queue is full'), 'inbound.capacity')
+    }
+  })
 }

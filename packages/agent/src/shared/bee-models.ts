@@ -8,6 +8,7 @@ export const BEE_SITE_CREATOR_MODEL_ID = 'gpt-5.6-terra'
 export const BEE_SITE_CREATOR_THINKING_LEVEL = 'high' as const
 
 function resolveBeeModel(modelId: string, providerId?: string): string {
+  if (providerId === 'openrouter-private' || providerId === 'openrouter') return `${providerId}/openai/${modelId}`
   return providerId
     ? `${providerId}/${modelId}`
     : `openrouter/openai/${modelId}`

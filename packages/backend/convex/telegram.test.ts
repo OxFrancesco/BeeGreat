@@ -39,8 +39,9 @@ test('Telegram connection state is private to the signed-in BeeGreat user', asyn
     state: 'disconnected',
   })
 
+  await t.mutation(internal.telegram.claimSessionByStateHash, { stateHash: 'telegram-state-hash', userId: 'user_telegram_owner', attemptId: 'test-exchange' })
   await t.mutation(internal.telegram.completeAuthorization, {
-    sessionId,
+    sessionId, attemptId: 'test-exchange',
     telegramUserId: '123456789',
     displayName: 'Francesco',
     username: 'francesco',

@@ -3,8 +3,9 @@
 import * as Predicate from 'effect/Predicate'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
-import { internalAction } from './_generated/server'
-import { resolveBeennectorAccessToken } from './beennectorAuthActions'
+import { internalAction, type ActionCtx } from './_generated/server'
+import type { Id } from './_generated/dataModel'
+import { resolveBeennectorCredential } from './beennectorAuthActions'
 import { beennectorProviderValidator } from './beennectorValidators'
 import { jsonRecord, type JsonValue } from './jsonValue'
 
@@ -13,7 +14,7 @@ const LINEAR_API_URL = 'https://api.linear.app/graphql'
 const NOTION_API_URL = 'https://api.notion.com/v1'
 const NOTION_VERSION = '2026-03-11'
 
-type Operation = 'list' | 'search' | 'get' | 'comment'
+type Operation = 'list' | 'search' | 'get'
 
 /** Provider payloads flow through untouched; wrapped reads pair two of them. */
 type BeennectorOperationResult =
@@ -91,16 +92,7 @@ async function githubRequest(
     ])
     return { issue, comments }
   }
-  const body = args.body?.trim()
-  if (!body) throw new Error('A GitHub comment body is required.')
-  return await responseJson(
-    await fetch(`${endpoint}/comments`, {
-      method: 'POST',
-      headers: { ...headers, 'content-type': 'application/json' },
-      body: JSON.stringify({ body }),
-    }),
-    'GitHub',
-  )
+  throw new Error('Unsupported GitHub read operation.')
 }
 
 async function linearGraphql(
@@ -110,6 +102,7 @@ async function linearGraphql(
 ) {
   const response = await fetch(LINEAR_API_URL, {
     method: 'POST',
+    signal: AbortSignal.timeout(20_000),
     headers: {
       authorization: `Bearer ${token}`,
       'content-type': 'application/json',
@@ -172,17 +165,7 @@ async function linearRequest(
       { id },
     )
   }
-  const body = args.body?.trim()
-  if (!body) throw new Error('A Linear comment body is required.')
-  return await linearGraphql(
-    token,
-    `mutation BeennectorComment($issueId: String!, $body: String!) {
-      commentCreate(input: { issueId: $issueId, body: $body }) {
-        success comment { id url }
-      }
-    }`,
-    { issueId: id, body },
-  )
+  throw new Error('Unsupported Linear read operation.')
 }
 
 type NotionSearchBody = {
@@ -205,9 +188,6 @@ async function notionRequest(
   operation: Operation,
   args: { query?: string; ref?: string; limit?: number },
 ) {
-  if (operation === 'comment') {
-    throw new Error('The Notion Beennector is read-only.')
-  }
   if (operation === 'list' || operation === 'search') {
     const searchBody: NotionSearchBody = {
       filter: { property: 'object', value: 'page' },
@@ -261,12 +241,14 @@ export const execute = internalAction({
   },
   returns: v.any(),
   handler: async (ctx, args): Promise<BeennectorOperationResult> => {
+    if (args.operation === 'comment') return prepareCommentForAgent(ctx, args)
     const provider = args.provider
-    const token: string = await resolveBeennectorAccessToken(
+    const credential = await resolveBeennectorCredential(
       ctx,
       args.userId,
       provider,
     )
+    const token = credential.accessToken
     try {
       if (provider === 'github') {
         return await githubRequest(token, args.operation, args)
@@ -285,6 +267,7 @@ export const execute = internalAction({
         await ctx.runMutation(internal.beennectors.markNeedsReauth, {
           userId: args.userId,
           provider,
+          expectedEncryptedAccess: credential.encryptedAccess,
         })
         throw new Error(
           `${provider} must be connected again from Profile → Beennectors.`,
@@ -293,4 +276,76 @@ export const execute = internalAction({
       throw error
     }
   },
+})
+
+
+function providerUrl(value: unknown, provider: 'github' | 'linear') {
+  if (typeof value !== 'string') throw new Error('The provider did not return the comment destination.')
+  const url = new URL(value)
+  if (url.protocol !== 'https:' || url.hostname !== (provider === 'github' ? 'github.com' : 'linear.app')) throw new Error('The provider returned an invalid comment destination.')
+  return url.toString()
+}
+
+export async function prepareCommentForAgent(ctx: ActionCtx, args: { userId: string; provider: string; ref?: string; body?: string }) {
+  if (args.provider !== 'github' && args.provider !== 'linear') throw new Error('This provider is read-only.')
+  const provider = args.provider
+  const body = args.body?.trim()
+  if (!body || body.length > 20_000) throw new Error('A comment body of at most 20,000 characters is required.')
+  const credential = await resolveBeennectorCredential(ctx, args.userId, provider)
+  let result: BeennectorOperationResult
+  try {
+    result = provider === 'github'
+      ? await githubRequest(credential.accessToken, 'get', args)
+      : await linearRequest(credential.accessToken, 'get', args)
+  } catch (error) {
+    if (error instanceof BeennectorApiError && error.status === 401) await ctx.runMutation(internal.beennectors.markNeedsReauth, { userId: args.userId, provider, expectedEncryptedAccess: credential.encryptedAccess })
+    throw error
+  }
+  const issue = jsonRecord(jsonRecord(result)?.issue)
+  const targetId = issue?.[provider === 'github' ? 'node_id' : 'id']
+  const title = issue?.title
+  if (typeof targetId !== 'string' || !targetId || typeof title !== 'string') throw new Error('The provider did not resolve this comment destination.')
+  const targetUrl = providerUrl(issue?.[provider === 'github' ? 'html_url' : 'url'], provider)
+  return await ctx.runMutation(internal.beennectorComments.createPending, { userId: args.userId, provider, targetId, targetLabel: title, targetUrl, body, expectedEncryptedAccess: credential.encryptedAccess })
+}
+
+export async function executeApprovedCommentForId(ctx: ActionCtx, actionId: Id<'beennectorCommentActions'>) {
+  const row = await ctx.runMutation(internal.beennectorComments.claim, { actionId })
+  if (!row) return null
+  let resultUrl: string
+  let credential: Awaited<ReturnType<typeof resolveBeennectorCredential>> | undefined
+  try {
+    credential = await resolveBeennectorCredential(ctx, row.userId, row.provider)
+    await ctx.runMutation(internal.beennectorComments.authorizeSubmission, { actionId, expectedEncryptedAccess: credential.encryptedAccess })
+    if (row.provider === 'github') {
+      const result = jsonRecord(await responseJson(await fetch(`${GITHUB_API_URL}/graphql`, {
+        method: 'POST', signal: AbortSignal.timeout(20_000),
+        headers: { authorization: `Bearer ${credential.accessToken}`, 'content-type': 'application/json', 'user-agent': 'BeeGreat-Beennector' },
+        body: JSON.stringify({ query: 'mutation BeeApprovedComment($subjectId: ID!, $body: String!) { addComment(input: {subjectId: $subjectId, body: $body}) { commentEdge { node { url } } } }', variables: { subjectId: row.targetId, body: row.body } }),
+      }), 'GitHub'))
+      if (Array.isArray(result?.errors) && result.errors.length) throw new Error('GitHub did not acknowledge the comment.')
+      resultUrl = providerUrl(jsonRecord(jsonRecord(jsonRecord(jsonRecord(result?.data)?.addComment)?.commentEdge)?.node)?.url, 'github')
+    } else {
+      const result = jsonRecord(await linearGraphql(credential.accessToken,
+        'mutation BeeApprovedComment($issueId: String!, $body: String!) { commentCreate(input: {issueId: $issueId, body: $body}) { success comment { id url } } }',
+        { issueId: row.targetId, body: row.body }))
+      const created = jsonRecord(result?.commentCreate)
+      if (created?.success !== true) throw new Error('Linear did not acknowledge the comment.')
+      resultUrl = providerUrl(jsonRecord(created.comment)?.url, 'linear')
+    }
+  } catch (error) {
+    if (credential && error instanceof BeennectorApiError && error.status === 401) {
+      await ctx.runMutation(internal.beennectors.markNeedsReauth, { userId: row.userId, provider: row.provider, expectedEncryptedAccess: credential.encryptedAccess })
+    }
+    await ctx.runMutation(internal.beennectorComments.finish, { actionId })
+    return null
+  }
+  // A lost database acknowledgement must never repeat the provider write.
+  await ctx.runMutation(internal.beennectorComments.finish, { actionId, resultUrl })
+  return null
+}
+
+export const executeApprovedComment = internalAction({
+  args: { actionId: v.id('beennectorCommentActions') },
+  handler: (ctx, { actionId }) => executeApprovedCommentForId(ctx, actionId),
 })

@@ -56,8 +56,10 @@ export function createIdentityClient(options: IdentityClientOptions) {
   async function identityAction(
     action: 'resolve' | 'begin_link' | 'unlink',
     address: string,
+    signal?: AbortSignal,
   ) {
     const response = await fetcher(`${agentUrl}/bridge/identity`, {
+      signal,
       method: 'POST',
       headers: {
         'x-bridge-secret': options.bridgeSecret,
@@ -76,10 +78,10 @@ export function createIdentityClient(options: IdentityClientOptions) {
 
   return {
     /** Maps a normalized sender address to its BeeGreat user, if linked. */
-    async resolve(address: string): Promise<string | null> {
+    async resolve(address: string, signal?: AbortSignal): Promise<string | null> {
       const cached = cache.get(address)
       if (cached && cached.expiresAt > now()) return cached.userId
-      const { status, body } = await identityAction('resolve', address)
+      const { status, body } = await identityAction('resolve', address, signal)
       if (status !== 200) {
         // Unknown state must not silently drop a linked user: surface the
         // failure to the caller instead of caching a guess.
@@ -97,7 +99,7 @@ export function createIdentityClient(options: IdentityClientOptions) {
     },
 
     /** Mints one magic link for an unknown sender, throttled per address. */
-    async beginLink(address: string): Promise<BeginLinkResult> {
+    async beginLink(address: string, signal?: AbortSignal): Promise<BeginLinkResult> {
       const lastOffer = linkOffers.get(address)
       if (
         lastOffer !== undefined &&
@@ -105,7 +107,7 @@ export function createIdentityClient(options: IdentityClientOptions) {
       ) {
         return { status: 'throttled' }
       }
-      const { status, body } = await identityAction('begin_link', address)
+      const { status, body } = await identityAction('begin_link', address, signal)
       if (status === 429) return { status: 'rate_limited' }
       if (
         status !== 200 ||
@@ -119,10 +121,14 @@ export function createIdentityClient(options: IdentityClientOptions) {
     },
 
     /** Removes the sender's link (`/unlink`) and forgets the cached user. */
-    async unlink(address: string): Promise<boolean> {
-      const { status, body } = await identityAction('unlink', address)
+    async unlink(address: string, signal?: AbortSignal): Promise<boolean> {
+      const { status, body } = await identityAction('unlink', address, signal)
+      if (status !== 200 || typeof body?.disconnected !== 'boolean') {
+        throw new Error('Could not disconnect iMessage. Try again.')
+      }
       cache.delete(address)
-      return status === 200 && body?.disconnected === true
+      linkOffers.delete(address)
+      return body.disconnected
     },
 
     /** A completed link invalidates any cached negative resolution. */

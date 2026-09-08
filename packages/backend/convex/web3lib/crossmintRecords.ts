@@ -1,3 +1,4 @@
+import { scheduleWeb3Reconciliation } from '../web3Reconciliation'
 // Durable Crossmint execution bookkeeping for confirmed smart-wallet plans:
 // each prepared operation id is persisted before approval so a crashed
 // executor can be reconciled instead of double-spending. Plain TypeScript
@@ -26,14 +27,17 @@ export async function recordCrossmintPreparedStep(
     action.payload.kind !== 'execute_plan' ||
     (action.status !== 'confirmed' && action.status !== 'in_progress')
   )
-    return null
+    throw new Error('This action cannot accept a prepared transaction.')
   if (!transactionId.trim())
     throw new Error('Crossmint transaction id is empty.')
   const execution = action.crossmintExecution ?? []
   const existing = execution.find(
     (step) => step.transactionId === transactionId,
   )
-  if (existing) return null
+  if (existing) {
+    if (existing.status !== 'prepared') throw new Error('This transaction is already settled.')
+    return null
+  }
   if (execution.some((step) => step.status === 'prepared')) {
     throw new Error(
       'A Crossmint transaction is already pending for this action.',
@@ -48,13 +52,7 @@ export async function recordCrossmintPreparedStep(
       { role, transactionId, status: 'prepared' as const },
     ],
   })
-  await ctx.scheduler.runAfter(
-    70_000,
-    internal.web3.reconcileCrossmintAction,
-    {
-      actionId,
-    },
-  )
+  await scheduleWeb3Reconciliation(ctx, actionId, 70_000)
   return null
 }
 
@@ -74,7 +72,7 @@ export async function recordCrossmintSuccessStep(
   },
 ) {
   const action = await ctx.db.get(actionId)
-  if (!action || action.payload.kind !== 'execute_plan') return null
+  if (!action || action.payload.kind !== 'execute_plan' || (action.status !== 'confirmed' && action.status !== 'in_progress')) return null
   const execution = action.crossmintExecution ?? []
   const index = execution.findIndex(
     (step) => step.transactionId === transactionId,
@@ -93,8 +91,15 @@ export async function recordCrossmintSuccessStep(
   const finalAction = execution[index].role === 'action'
   const patch: Partial<Doc<'web3Actions'>> = {
     crossmintExecution: settled,
+    error: undefined, recoveryDetail: undefined, settlementFailureSource: undefined, reconcileAt: undefined, reconcileLeaseUntil: undefined, settledAt: undefined,
     result,
     status: finalAction ? 'executed' : 'confirmed',
+  }
+  if (!finalAction && action.recoveryObservationOnly) {
+    patch.status = 'failed'
+    patch.settlementFailureSource = 'pre_submission'
+    patch.error = 'An earlier approval succeeded. Recovery did not submit the remaining action. Review the saved receipts before preparing another action.'
+    patch.settledAt = Date.now()
   }
   if (finalAction) patch.settledAt = Date.now()
   await ctx.db.patch(actionId, patch)
@@ -102,7 +107,7 @@ export async function recordCrossmintSuccessStep(
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
       actionId,
     })
-  } else {
+  } else if (!action.recoveryObservationOnly) {
     await ctx.scheduler.runAfter(0, internal.web3.executeConfirmedAction, {
       actionId,
     })
@@ -130,6 +135,11 @@ export async function recordCrossmintFailureStep(
     (action.status !== 'confirmed' && action.status !== 'in_progress')
   )
     return null
+  if (!transactionId && action.crossmintExecution?.length) {
+    await scheduleWeb3Reconciliation(ctx, actionId)
+    return null
+  }
+  if (transactionId && !action.crossmintExecution?.some((step) => step.transactionId === transactionId && step.status === 'prepared')) return null
   const execution = (action.crossmintExecution ?? []).map((step) =>
     transactionId && step.transactionId === transactionId
       ? { ...step, status: 'failed' as const }
@@ -138,6 +148,8 @@ export async function recordCrossmintFailureStep(
   await ctx.db.patch(actionId, {
     crossmintExecution: execution,
     status: 'failed',
+    settlementFailureSource: transactionId ? 'provider' : 'pre_submission',
+    reconcileAt: undefined, reconcileLeaseUntil: undefined,
     error,
     settledAt: Date.now(),
   })

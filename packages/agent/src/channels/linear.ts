@@ -1,9 +1,7 @@
 import { createLinearChannel } from '@flue/linear'
 import type { JsonValue } from '@flue/runtime'
 import * as v from 'valibot'
-import { dispatchBee } from '../agents/bee.ts'
 import {
-  beennectorAgentId,
   channelSecret,
   claimBeennectorDelivery,
   signalAttributes,
@@ -29,13 +27,6 @@ export const channel = createLinearChannel({
     const actor = asRecord(event.actor)
     const actorId = asString(actor?.id) ?? undefined
     const workspaceId = asString(event.organizationId) ?? undefined
-    const claim = await claimBeennectorDelivery({
-      provider: 'linear',
-      deliveryId,
-      actorId,
-      workspaceId,
-    })
-    if (claim.status !== 'accepted') return undefined
 
     const data = asRecord(event.data)
     const type = `linear.${String(event.type ?? 'event')}`
@@ -43,8 +34,11 @@ export const channel = createLinearChannel({
     const identifier = asString(data?.identifier)
     const title = asString(data?.title)
     const body = asString(data?.body)
-    await dispatchBee({
-      id: beennectorAgentId(claim.userId, 'linear'),
+    await claimBeennectorDelivery({
+      provider: 'linear',
+      deliveryId,
+      actorId,
+      workspaceId,
       message: {
         kind: 'signal',
         type,

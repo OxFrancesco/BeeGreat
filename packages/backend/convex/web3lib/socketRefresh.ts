@@ -1,3 +1,4 @@
+import { scheduleWeb3Reconciliation } from '../web3Reconciliation'
 // Socket route refresh and cross-chain progress bookkeeping for confirmed
 // swap actions: re-quoted route swaps, origin-chain settlement, and the
 // destination status poller's state transitions. Plain TypeScript helpers
@@ -85,12 +86,15 @@ export async function recordSocketPreparedStep(
     action.payload.kind !== 'socket_swap' ||
     (action.status !== 'confirmed' && action.status !== 'in_progress')
   )
-    return null
+    throw new Error('This action cannot accept a prepared transaction.')
   if (!transactionId.trim())
     throw new Error('Crossmint transaction id is empty.')
   const execution = action.crossmintExecution ?? []
-  if (execution.some((step) => step.transactionId === transactionId))
+  const existing = execution.find((step) => step.transactionId === transactionId)
+  if (existing) {
+    if (existing.status !== 'prepared') throw new Error('This transaction is already settled.')
     return null
+  }
   if (execution.some((step) => step.status === 'prepared')) {
     throw new Error('A Socket origin transaction is already pending.')
   }
@@ -109,11 +113,7 @@ export async function recordSocketPreparedStep(
       updatedAt: now,
     },
   })
-  await ctx.scheduler.runAfter(
-    70_000,
-    internal.web3.reconcileSocketCrossmintAction,
-    { actionId },
-  )
+  await scheduleWeb3Reconciliation(ctx, actionId, 70_000)
   return null
 }
 
@@ -128,7 +128,7 @@ export async function recordSocketOriginSuccessStep(
   },
 ) {
   const action = await ctx.db.get(args.actionId)
-  if (!action || action.payload.kind !== 'socket_swap') return null
+  if (!action || action.payload.kind !== 'socket_swap' || (action.status !== 'confirmed' && action.status !== 'in_progress')) return null
   const execution = action.crossmintExecution ?? []
   const index = execution.findIndex(
     (step) => step.transactionId === args.transactionId,
@@ -137,6 +137,7 @@ export async function recordSocketOriginSuccessStep(
   const now = Date.now()
   await ctx.db.patch(args.actionId, {
     status: 'in_progress',
+    error: undefined, settledAt: undefined, settlementFailureSource: undefined, recoveryDetail: undefined,
     crossmintExecution: execution.map((step, stepIndex) =>
       stepIndex === index
         ? {
@@ -158,11 +159,7 @@ export async function recordSocketOriginSuccessStep(
       updatedAt: now,
     },
   })
-  await ctx.scheduler.runAfter(
-    action.payload.statusIntervalSeconds * 1_000,
-    internal.web3.pollSocketSwapStatus,
-    { actionId: args.actionId },
-  )
+  await scheduleWeb3Reconciliation(ctx, args.actionId)
   return null
 }
 
@@ -181,8 +178,15 @@ export async function recordSocketOriginFailureStep(
     (action.status !== 'confirmed' && action.status !== 'in_progress')
   )
     return null
+  if (!args.transactionId && action.crossmintExecution?.length) {
+    await scheduleWeb3Reconciliation(ctx, args.actionId)
+    return null
+  }
+  if (args.transactionId && !action.crossmintExecution?.some((step) => step.transactionId === args.transactionId && step.status === 'prepared')) return null
   await ctx.db.patch(args.actionId, {
     status: 'failed',
+    settlementFailureSource: args.transactionId ? 'provider' : 'pre_submission',
+    reconcileAt: undefined, reconcileLeaseUntil: undefined,
     settledAt: Date.now(),
     error: args.error,
     crossmintExecution: (action.crossmintExecution ?? []).map((step) =>
@@ -230,12 +234,11 @@ export async function recordSocketSubmittedStep(
     submittedAt: action.submittedAt ?? Date.now(),
     result,
     socketProgress: progress,
+    error: undefined, recoveryDetail: undefined, settledAt: undefined,
+    settlementFailureSource: undefined,
+    reconcileAt: undefined, reconcileLeaseUntil: undefined,
   })
-  await ctx.scheduler.runAfter(
-    action.payload.statusIntervalSeconds * 1_000,
-    internal.web3.pollSocketSwapStatus,
-    { actionId },
-  )
+  await scheduleWeb3Reconciliation(ctx, actionId)
   return null
 }
 
@@ -271,6 +274,9 @@ export async function recordSocketProgressStep(
   const patch: Partial<Doc<'web3Actions'>> = {
     status,
     socketProgress: progress,
+    error: undefined, recoveryDetail: undefined, settledAt: undefined,
+    settlementFailureSource: status === 'failed' ? 'provider' : undefined,
+    reconcileAt: undefined, reconcileLeaseUntil: undefined,
   }
   if (result) patch.result = result
   if (status !== 'in_progress') patch.settledAt = Date.now()
@@ -280,11 +286,7 @@ export async function recordSocketProgressStep(
   }
   await ctx.db.patch(actionId, patch)
   if (status === 'in_progress') {
-    await ctx.scheduler.runAfter(
-      action.payload.statusIntervalSeconds * 1_000,
-      internal.web3.pollSocketSwapStatus,
-      { actionId },
-    )
+    await scheduleWeb3Reconciliation(ctx, actionId)
   } else {
     // Terminal transition: wake the agent so it can continue the plan.
     await ctx.scheduler.runAfter(0, internal.web3Notify.notifyActionSettled, {
@@ -318,10 +320,6 @@ export async function recordSocketPollingDelayStep(
       updatedAt: Date.now(),
     },
   })
-  await ctx.scheduler.runAfter(
-    action.payload.statusIntervalSeconds * 1_000,
-    internal.web3.pollSocketSwapStatus,
-    { actionId },
-  )
+  await scheduleWeb3Reconciliation(ctx, actionId)
   return null
 }

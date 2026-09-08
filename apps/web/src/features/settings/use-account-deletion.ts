@@ -3,6 +3,7 @@ import { useClerk, useUser } from '@clerk/tanstack-react-start'
 import { useAction, useMutation } from 'convex/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
+import { clearJournalEditorDrafts } from '../health/journal-editor-storage'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 
 import { captureWebFailure } from '~/lib/sentry'
@@ -12,14 +13,14 @@ const STORAGE_KEY = 'bee.pendingAccountDeletion.v1'
 type PendingDeletion = {
   jobId: Id<'accountDeletionJobs'>
   activationToken: string
-  phase: 'prepared' | 'identity_deleted'
+  phase: 'prepared' | 'identity_deleting' | 'identity_deleted'
   clerkUserId: string
 }
 
 const pendingDeletionSchema = z.object({
   jobId: z.string(),
   activationToken: z.string(),
-  phase: z.union([z.literal('prepared'), z.literal('identity_deleted')]),
+  phase: z.enum(['prepared', 'identity_deleting', 'identity_deleted']),
   clerkUserId: z.string(),
 })
 
@@ -59,7 +60,7 @@ function useDeletionOperations() {
 
 export function AccountDeletionResume() {
   const { user } = useUser()
-  const { activate, cancel } = useDeletionOperations()
+  const { activate } = useDeletionOperations()
 
   useEffect(() => {
     if (resumePromise) return
@@ -72,21 +73,17 @@ export function AccountDeletionResume() {
           jobId: pending.jobId,
           activationToken: pending.activationToken,
         })
+        clearJournalEditorDrafts(pending.clerkUserId)
         clearPending()
         return
       }
-      if (user?.id !== pending.clerkUserId) return
-      const result = await cancel({
-        jobId: pending.jobId,
-        activationToken: pending.activationToken,
-      })
-      if (result.status === 'cancelled') clearPending()
+
     })()
       .catch((cause) => captureWebFailure(cause, 'account.delete_resume'))
       .finally(() => {
         resumePromise = null
       })
-  }, [activate, cancel, user?.id])
+  }, [activate, user?.id])
 
   return null
 }
@@ -95,6 +92,7 @@ export function useAccountDeletion() {
   const { user } = useUser()
   const clerk = useClerk()
   const prepare = useMutation(api.accountDeletion.prepare)
+  const beginIdentityDeletion = useMutation(api.accountDeletion.beginIdentityDeletion)
   const revokeApple = useAction(
     api.accountDeletionActions.revokeAppleBeforeIdentityDeletion,
   )
@@ -133,16 +131,20 @@ export function useAccountDeletion() {
       }
       savePending(pending)
       await revokeApple({ jobId: pending.jobId, activationToken })
+      await beginIdentityDeletion({ jobId: pending.jobId, activationToken })
+      pending = { ...pending, phase: 'identity_deleting' }
+      savePending(pending)
       await user.delete()
       identityDeleted = true
       pending = { ...pending, phase: 'identity_deleted' }
       savePending(pending)
       await activate({ jobId: pending.jobId, activationToken })
+      clearJournalEditorDrafts(pending.clerkUserId)
       clearPending()
       await clerk.signOut()
     } catch (cause) {
       captureWebFailure(cause, 'account.delete')
-      if (!identityDeleted && pending) {
+      if (!identityDeleted && pending?.phase === 'prepared') {
         try {
           const result = await cancel({ jobId: pending.jobId, activationToken })
           if (result.status === 'cancelled') clearPending()
@@ -153,13 +155,15 @@ export function useAccountDeletion() {
       setError(
         identityDeleted
           ? 'Your sign-in account was deleted. BeeGreat data cleanup will resume automatically.'
-          : 'Your account could not be deleted. No BeeGreat data was erased; try again or contact support.',
+          : pending?.phase === 'identity_deleting'
+            ? 'Account deletion could not be confirmed. If your sign-in account was deleted, the signed callback will finish data cleanup. You can retry if you can still sign in.'
+            : 'Your account could not be deleted. No BeeGreat data was erased; try again or contact support.',
       )
     } finally {
       working.current = false
       setDeleting(false)
     }
-  }, [activate, cancel, clerk, prepare, revokeApple, user])
+  }, [activate, beginIdentityDeletion, cancel, clerk, prepare, revokeApple, user])
 
   return { deleting, error, requestDeletion }
 }

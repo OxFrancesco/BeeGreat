@@ -14,6 +14,7 @@ Sentry.init({
   release: process.env.NEXT_PUBLIC_SENTRY_RELEASE,
   sendDefaultPii: false,
   beforeSend: sanitizeSentryEvent,
+  beforeSendTransaction: sanitizeSentryEvent,
   beforeBreadcrumb: sanitizeSentryBreadcrumb,
   initialScope: { tags: { service: 'codex-adapter' } },
   tracesSampleRate: process.env.NODE_ENV === 'development' ? 1 : 0.2,

@@ -2,6 +2,7 @@ import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { httpAction } from '../_generated/server'
 import {
+  AgentUserId,
   decodeRequestBody,
   jsonResponse,
   parseLimitedJsonBody,
@@ -10,6 +11,7 @@ import {
 } from './middleware'
 
 const FalMediaRequest = Schema.Struct({
+  userId: AgentUserId,
   operation: Schema.Literals([
     'generate_image',
     'edit_image',
@@ -37,6 +39,7 @@ export const falMediaInternal = httpAction(async (ctx, request) => {
   }
   try {
     const result = await ctx.runAction(internal.falMedia.execute, {
+      userId: body.userId,
       operation: body.operation,
       prompt: body.prompt,
       sourceUrl: body.sourceUrl,

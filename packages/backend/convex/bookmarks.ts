@@ -238,6 +238,20 @@ export const search = query({
   },
 })
 
+export const searchPage = query({
+  args: { query: v.string(), kind: v.optional(bookmarkKindValidator), label: v.optional(v.string()), paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(bookmarkListItemValidator),
+  handler: async (ctx, args) => {
+    const { ownerKey } = await requireIdentity(ctx)
+    const result = await ctx.db.query('bookmarks').withSearchIndex('search_text', (q) => {
+      const scoped = q.search('searchText', args.query.trim().slice(0, 500)).eq('ownerKey', ownerKey)
+      return args.kind ? scoped.eq('kind', args.kind) : scoped
+    }).paginate(args.paginationOpts)
+    const label = args.label?.trim().toLowerCase()
+    return { ...result, page: result.page.filter((item) => !label || item.labels.includes(label)).map(bookmarkListItem) }
+  },
+})
+
 export const get = query({
   args: { bookmarkId: v.id('bookmarks') },
   returns: v.union(v.null(), bookmarkValidator),
@@ -295,6 +309,19 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { ownerKey } = await requireIdentity(ctx)
     return await updateBookmarkForOwner(ctx, { ownerKey, ...args })
+  },
+})
+
+export const changeLabel = mutation({
+  args: { bookmarkId: v.id('bookmarks'), label: v.string(), operation: v.union(v.literal('add'), v.literal('remove')) },
+  returns: bookmarkValidator,
+  handler: async (ctx, args) => {
+    const { ownerKey } = await requireIdentity(ctx)
+    const bookmark = await ownedBookmark(ctx, ownerKey, args.bookmarkId)
+    const [label] = normalizeLabels([args.label])
+    if (!label) throw new ConvexError('A label is required')
+    const labels = args.operation === 'add' ? [...bookmark.labels, label] : bookmark.labels.filter((item) => item !== label)
+    return await updateBookmarkForOwner(ctx, { ownerKey, bookmarkId: bookmark._id, labels })
   },
 })
 

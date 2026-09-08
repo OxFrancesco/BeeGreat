@@ -244,6 +244,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@beegreat/observability": "workspace:*",
+        "@beegreat/tool-presentation": "workspace:*",
         "@cloudflare/sandbox": "0.12.4",
         "@earendil-works/pi-ai": "^0.83.0",
         "@flue/github": "2.0.3",
@@ -274,6 +275,7 @@
       "dependencies": {
         "@beegreat/observability": "workspace:*",
         "@beegreat/sugar": "workspace:*",
+        "@beegreat/tool-presentation": "workspace:*",
         "@clerk/backend": "^2.33.5",
         "@crossmint/wallets-sdk": "1.7.0",
         "@sentry/node": "^10.65.0",

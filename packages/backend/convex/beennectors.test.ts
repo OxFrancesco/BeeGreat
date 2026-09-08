@@ -106,6 +106,7 @@ test('verified delivery claims map conservatively and deduplicate provider ids',
     })
   })
   const first = await t.mutation(internal.beennectors.claimDelivery, {
+    message: { kind: 'signal', type: 'provider.event', body: 'Saved webhook', attributes: {} },
     provider: 'github',
     deliveryId: 'delivery-1',
     actorId: '4242',
@@ -113,6 +114,7 @@ test('verified delivery claims map conservatively and deduplicate provider ids',
   expect(first).toEqual({ status: 'accepted', userId: 'user_github' })
   expect(
     await t.mutation(internal.beennectors.claimDelivery, {
+    message: { kind: 'signal', type: 'provider.event', body: 'Saved webhook', attributes: {} },
       provider: 'github',
       deliveryId: 'delivery-1',
       actorId: '4242',
@@ -120,9 +122,49 @@ test('verified delivery claims map conservatively and deduplicate provider ids',
   ).toEqual({ status: 'duplicate' })
   expect(
     await t.mutation(internal.beennectors.claimDelivery, {
+    message: { kind: 'signal', type: 'provider.event', body: 'Saved webhook', attributes: {} },
       provider: 'github',
       deliveryId: 'delivery-2',
       actorId: '9999',
     }),
   ).toEqual({ status: 'unmapped' })
+})
+
+test('workspace ownership never authorizes an unmapped external actor', async () => {
+  const t = convexTest(schema, modules)
+  await t.run(ctx => ctx.db.insert('beennectorCredentials', {
+    userId: 'user_workspace', provider: 'linear', status: 'connected',
+    encryptedAccess: encryptedFixture, scopes: [], externalAccountId: 'owner',
+    workspaceId: 'workspace', updatedAt: Date.now(),
+  }))
+  for (const actorId of [undefined, 'stranger']) {
+    expect(await t.mutation(internal.beennectors.claimDelivery, {
+    message: { kind: 'signal', type: 'provider.event', body: 'Saved webhook', attributes: {} },
+      provider: 'linear', deliveryId: `event-${actorId}`, workspaceId: 'workspace', actorId,
+    })).toEqual({ status: 'unmapped' })
+  }
+  expect(await t.mutation(internal.beennectors.claimDelivery, {
+    message: { kind: 'signal', type: 'provider.event', body: 'Saved webhook', attributes: {} },
+    provider: 'linear', deliveryId: 'owner-event', workspaceId: 'workspace', actorId: 'owner',
+  })).toEqual({ status: 'accepted', userId: 'user_workspace' })
+})
+
+test('disconnect detaches old credentials and stale request failures cannot invalidate reconnect', async () => {
+  const t = convexTest(schema, modules)
+  const userId = 'user_disconnect_race'
+  await t.run(ctx => ctx.db.insert('beennectorCredentials', {
+    userId, provider: 'github', status: 'connected', encryptedAccess: encryptedFixture,
+    scopes: [], externalAccountId: "fixture-account", updatedAt: 1,
+  }))
+  const detached = await t.mutation(internal.beennectors.removeConnection, { userId, provider: 'github' })
+  expect(detached?.encryptedAccess).toEqual(encryptedFixture)
+  const newer = { ...encryptedFixture, iv: 'new-generation' }
+  const newId = await t.run(ctx => ctx.db.insert('beennectorCredentials', {
+    userId, provider: 'github', status: 'connected', encryptedAccess: newer,
+    scopes: [], externalAccountId: "fixture-account", updatedAt: 1,
+  }))
+  await t.mutation(internal.beennectors.markNeedsReauth, { userId, provider: 'github', expectedEncryptedAccess: encryptedFixture })
+  expect((await t.run(ctx => ctx.db.get(newId)))?.status).toBe('connected')
+  await t.mutation(internal.beennectors.markNeedsReauth, { userId, provider: 'github', expectedEncryptedAccess: newer })
+  expect((await t.run(ctx => ctx.db.get(newId)))?.status).toBe('needs_reauth')
 })

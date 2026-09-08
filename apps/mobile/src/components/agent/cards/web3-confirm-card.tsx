@@ -25,7 +25,7 @@ import { sharedStyles } from './shared';
  * actions, in which case the card shows live progress instead of buttons.
  */
 export function Web3ConfirmCard({
-  summary,
+  summary: _summary,
   actionId,
   onReply,
 }: {
@@ -67,7 +67,7 @@ export function Web3ConfirmCard({
   );
 
   const confirm = async () => {
-    if (decision !== 'idle') return;
+    if (decision !== 'idle' || !live || live.status !== 'pending') return;
     if (isEoaAction && !eoaSessionMatches) {
       setError(null);
       try {
@@ -92,6 +92,7 @@ export function Web3ConfirmCard({
       if (isEoaAction) {
         const plan = await beginEoaExecution({
           actionId: web3ActionId,
+          expectedSummary: live.summary,
         });
         eoaClaimed = true;
         try {
@@ -129,7 +130,7 @@ export function Web3ConfirmCard({
           throw cause;
         }
       } else {
-        await confirmAction({ actionId: web3ActionId });
+        await confirmAction({ actionId: web3ActionId, expectedSummary: live.summary });
       }
       setDecision('confirmed');
       onReply?.(
@@ -138,27 +139,24 @@ export function Web3ConfirmCard({
           : 'I confirmed the action in the app. Check its status.',
       );
     } catch (cause) {
-      setDecision(
-        isEoaAction && eoaClaimed
-          ? eoaFailureReason(cause) === 'user_rejected'
-            ? 'declined'
-            : 'confirmed'
-          : 'idle',
-      );
+      setDecision(isEoaAction && eoaClaimed ? 'confirmed' : 'idle');
       setError(
         cause instanceof Error ? cause.message : 'Couldn’t confirm the action.',
       );
     }
   };
 
-  const decline = () => {
-    if (decision !== 'idle') return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setDecision('declined');
-    cancelAction({ actionId: web3ActionId }).catch(() => {
-      // Cancelling a stale or unknown action is a no-op.
-    });
-    onReply?.('No, I declined the action.');
+  const decline = async () => {
+    if (decision !== 'idle' || !live || live.status !== 'pending') return;
+    setDecision('working');
+    try {
+      const cancelled = await cancelAction({ actionId: web3ActionId });
+      setDecision('idle');
+      if (cancelled) void onReply?.('No, I declined the action.');
+    } catch (cause) {
+      setDecision('idle');
+      setError(cause instanceof Error ? cause.message : 'Could not decline the action.');
+    }
   };
 
   const status = live?.status;
@@ -171,7 +169,7 @@ export function Web3ConfirmCard({
   const resolved =
     decision === 'confirmed' ||
     autoConfirmed ||
-    (isEoaAction && status !== undefined && status !== 'pending');
+    (status !== undefined && status !== 'pending');
   const loading = live === undefined;
 
   return (
@@ -195,31 +193,23 @@ export function Web3ConfirmCard({
             ? 'Needs your wallet signature'
             : 'Needs your confirmation'}
       </ThemedText>
-      <ThemedText selectable>{summary}</ThemedText>
+      <ThemedText selectable>{live?.summary ?? 'Checking saved action…'}</ThemedText>
       {error ? (
         <ThemedText type="small" themeColor="destructive">
           {error}
         </ThemedText>
       ) : null}
-      {decision === 'declined' || status === 'cancelled' ? (
+      {status === 'cancelled' ? (
         <ThemedText type="small" themeColor="textSecondary">
-          Declined — nothing was sent.
+          Declined before execution.
         </ThemedText>
+      ) : live === null ? (
+        <ThemedText>This confirmation is unavailable.</ThemedText>
       ) : resolved ? (
         status === 'executed' ? (
           <View style={sharedStyles.confirmRow}>
             <ThemedText type="smallBold">Done ✓</ThemedText>
-            {explorerLink ? (
-              <Pressable
-                accessibilityRole="link"
-                onPress={() => Linking.openURL(explorerLink)}
-                style={({ pressed }) => pressed && sharedStyles.taskRowPressed}
-              >
-                <ThemedText type="smallBold" themeColor="textSecondary">
-                  View transaction ↗
-                </ThemedText>
-              </Pressable>
-            ) : null}
+
           </View>
         ) : status === 'failed' ? (
           <ThemedText
@@ -252,7 +242,7 @@ export function Web3ConfirmCard({
               {status === 'in_progress'
                 ? isEoaAction
                   ? `${live?.result?.length ?? 0} of ${live?.eoaRequest?.stepCount ?? 1} transactions submitted…`
-                  : (live?.socketProgress?.detail ?? 'Moving funds…')
+                  : (live?.recoveryDetail ?? live?.socketProgress?.detail ?? 'Checking transaction settlement…')
                 : isEoaAction
                   ? 'Check your wallet to sign each transaction…'
                   : 'Confirmed — preparing…'}
@@ -296,7 +286,7 @@ export function Web3ConfirmCard({
             accessibilityRole="button"
             accessibilityLabel="Decline"
             disabled={decision === 'working'}
-            onPress={decline}
+            onPress={() => void decline()}
             style={({ pressed }) => [
               sharedStyles.confirmButton,
               sharedStyles.confirmButtonOutline,
@@ -308,6 +298,11 @@ export function Web3ConfirmCard({
           </Pressable>
         </View>
       )}
+      {explorerLink ? (
+        <Pressable accessibilityRole="link" onPress={() => Linking.openURL(explorerLink)}>
+          <ThemedText type="small">View submitted transaction</ThemedText>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

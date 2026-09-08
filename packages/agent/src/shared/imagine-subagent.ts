@@ -61,6 +61,7 @@ export interface ImagineRuntime {
 
 /** The FAL toolset the Imagine delegate mounts; exported for tests. */
 export function imagineTools(
+  userId: string,
   convexUrl: string,
   runtime: ImagineRuntime = {},
 ) {
@@ -90,7 +91,7 @@ export function imagineTools(
           authorization: `Bearer ${runtime.brokerSecret}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify(input),
+        body: JSON.stringify({ ...input, userId }),
         signal: controller.signal,
       })
       const body = await response.json().catch(() => null)
@@ -181,10 +182,11 @@ export function imagineTools(
 
 /** Built-in media specialist. Bee receives this delegate for every conversation. */
 export function imagineSubagent(
+  userId: string,
   convexUrl: string,
   runtime: ImagineRuntime = {},
 ) {
-  const tools = imagineTools(convexUrl, runtime)
+  const tools = imagineTools(userId, convexUrl, runtime)
   return defineSubagent({
     name: 'imagine',
     description:

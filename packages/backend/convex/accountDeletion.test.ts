@@ -34,6 +34,16 @@ async function prepareAndActivate(
 }
 
 async function finishDeletion(t: ReturnType<typeof convexTest>) {
+  // These database-erasure fixtures explicitly acknowledge the Worker phase.
+  // Failure and retry behavior is covered independently below.
+  const jobs = await t.run(ctx => ctx.db.query('accountDeletionJobs').collect())
+  for (const job of jobs) {
+    if (job.status === 'external_cleanup') {
+      await t.mutation(internal.accountDeletion.finishExternalCleanup, {
+        jobId: job._id, retryableFailure: false, workerCleanupSucceeded: true,
+      })
+    }
+  }
   // The eraser deliberately schedules one bounded mutation per table/batch.
   // A heavily populated fixture can exceed convex-test's hidden default of
   // 100 iterations without being recursive or unbounded.
@@ -885,3 +895,67 @@ test('account erasure resumes in bounded batches and preserves another Clerk sub
     vi.useRealTimers()
   }
 }, 30_000)
+
+test('Worker erasure failure preserves recovery data beyond four attempts', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    const owner = authenticated(t, 'cleanup_owner')
+    const prepared = await prepareAndActivate(t, owner)
+    for (let attempt = 0; attempt < 6; attempt++) {
+      await t.mutation(internal.accountDeletion.finishExternalCleanup, {
+        jobId: prepared.jobId, retryableFailure: attempt % 2 === 0,
+        workerCleanupSucceeded: false,
+      })
+      expect(await t.run(ctx => ctx.db.get(prepared.jobId))).toMatchObject({
+        status: 'external_cleanup', externalCleanupAttempts: attempt + 1,
+      })
+    }
+    await t.mutation(internal.accountDeletion.finishExternalCleanup, {
+      jobId: prepared.jobId, retryableFailure: false, workerCleanupSucceeded: true,
+    })
+    expect(await t.run(ctx => ctx.db.get(prepared.jobId))).toMatchObject({ status: 'purging' })
+    await finishDeletion(t)
+    expect(await t.run(ctx => ctx.db.get(prepared.jobId))).toMatchObject({ status: 'tombstoned' })
+  } finally { vi.useRealTimers() }
+})
+
+test('account erasure removes wallet challenges and preferences in batches', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    await t.run(async ctx => {
+      for (const userId of ['wallet_erasure_owner', 'unrelated_owner']) {
+        for (let index = 0; index < 105; index++) {
+          await ctx.db.insert('walletLinkChallenges', { userId, address: `address-${index}`, expiresAt: Date.now() + 60_000 })
+        }
+        await ctx.db.insert('web3Prefs', { userId, yoloEnabled: true, updatedAt: Date.now() })
+      }
+    })
+    await prepareAndActivate(t, authenticated(t, 'wallet_erasure_owner'))
+    await finishDeletion(t)
+    const remaining = await t.run(async ctx => ({
+      challenges: await ctx.db.query('walletLinkChallenges').collect(),
+      preferences: await ctx.db.query('web3Prefs').collect(),
+    }))
+    expect(remaining.challenges).toHaveLength(105)
+    expect(remaining.challenges.every(row => row.userId === 'unrelated_owner')).toBe(true)
+    expect(remaining.preferences.map(row => row.userId)).toEqual(['unrelated_owner'])
+  } finally { vi.useRealTimers() }
+})
+
+test('a second authenticated client cannot cancel cleanup after identity deletion starts', async () => {
+  vi.useFakeTimers()
+  try {
+    const t = convexTest(schema, modules)
+    const owner = authenticated(t, 'delete_race')
+    const pending = await owner.mutation(api.accountDeletion.prepare, { confirmation: 'DELETE', activationToken: ACTIVATION_TOKEN })
+    await owner.mutation(api.accountDeletion.beginIdentityDeletion, { jobId: pending.jobId, activationToken: ACTIVATION_TOKEN })
+    expect(await owner.mutation(api.accountDeletion.cancel, { jobId: pending.jobId, activationToken: ACTIVATION_TOKEN })).toEqual({ status: 'already_activated' })
+    vi.advanceTimersByTime(8 * 24 * 60 * 60 * 1000)
+    await t.mutation(internal.accountDeletion.watchdog, {})
+    expect(await t.run(ctx => ctx.db.get(pending.jobId))).toMatchObject({ status: 'identity_deleting' })
+    await t.mutation(api.accountDeletion.activate, { jobId: pending.jobId, activationToken: ACTIVATION_TOKEN })
+    expect(await t.run(ctx => ctx.db.get(pending.jobId))).toMatchObject({ status: 'external_cleanup' })
+  } finally { vi.useRealTimers() }
+})

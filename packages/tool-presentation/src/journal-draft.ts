@@ -9,7 +9,8 @@ export type JournalSaveState =
   | "saved"
   | "unsaved"
   | "saving"
-  | "error";
+  | "error"
+  | "conflict";
 
 /**
  * True when two drafts would persist identically. Tags are compared
@@ -45,6 +46,8 @@ export function formatSaveState(
       return "Saving…";
     case "unsaved":
       return "Unsaved changes";
+    case "conflict":
+      return "Conflicting changes";
     case "error":
       return labels.error;
     default:

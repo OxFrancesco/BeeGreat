@@ -139,3 +139,12 @@ describe('unlink', () => {
     expect(resolves).toBe(2)
   })
 })
+
+test('unlink distinguishes failed provider responses from confirmed absence', async () => {
+  for (const [status, body] of [[500, { error: 'unavailable' }], [200, {}], [200, { disconnected: 'false' }]] as const) {
+    const client = createIdentityClient({ agentUrl: 'https://agent.example', bridgeSecret: 'fixture', fetcher: async () => Response.json(body, { status }) })
+    await expect(client.unlink('+15551234567')).rejects.toThrow()
+  }
+  const client = createIdentityClient({ agentUrl: 'https://agent.example', bridgeSecret: 'fixture', fetcher: async () => jsonResponse({ disconnected: false }) })
+  await expect(client.unlink('+15551234567')).resolves.toBe(false)
+})

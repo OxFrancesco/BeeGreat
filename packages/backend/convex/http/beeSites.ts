@@ -34,6 +34,7 @@ const SiteDeployment = Schema.Struct({
 const DeploymentCompletion = Schema.Struct({
   deploymentId: Schema.String,
   manifestKey: Schema.String,
+  contentDigest: Schema.String,
 })
 
 const DeploymentFailure = Schema.Struct({
@@ -115,6 +116,7 @@ export const beeSites = httpAction(async (ctx, request) => {
               completion.deploymentId,
             ),
             manifestKey: completion.manifestKey,
+            contentDigest: completion.contentDigest,
           }),
           200,
         )

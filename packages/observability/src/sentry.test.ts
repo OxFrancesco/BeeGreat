@@ -112,3 +112,17 @@ describe('Sentry privacy policy', () => {
     expect(toError({ reason: 'boom' }).message).toBe('Unexpected failure')
   })
 })
+
+test('transaction spans and navigation metadata do not retain credentials or URL state', () => {
+  const sanitized = sanitizeSentryEvent({
+    request: { url: 'https://bee.example/connect-callback#code=private', headers: { authorization: 'Bearer private' } },
+    spans: [{
+      description: 'GET https://bee.example/link/imessage?token=private',
+      data: { 'http.request.header.authorization': 'Bearer private', 'http.request.headers.x-flue-codex-adapter-secret': 'adapter-private', 'url.full': 'https://bee.example/connect-callback#code=private' },
+    }],
+    breadcrumbs: [{ category: 'navigation', data: { from: '/link/imessage?token=private', to: '/connect-callback#code=private' } }],
+  })
+  const serialized = JSON.stringify(sanitized)
+  expect(serialized).not.toContain('private')
+  expect(sanitized.breadcrumbs[0]?.data).toEqual({ from: '/link/imessage', to: '/connect-callback' })
+})

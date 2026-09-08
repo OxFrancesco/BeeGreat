@@ -1,0 +1,9 @@
+**
+!Dockerfile
+!safety-profiles/
+!safety-profiles/**
+!site-template/
+!site-template/**
+site-template/node_modules
+site-template/dist
+site-template/.astro

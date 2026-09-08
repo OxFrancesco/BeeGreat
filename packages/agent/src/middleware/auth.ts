@@ -14,9 +14,11 @@ import { checkPaidSubscription } from '../subscription-gate'
  * secret+user pair. Rules are evaluated in order and any match skips the auth
  * gate entirely; every rule documents why its handler is safe on its own.
  */
+// /voice/realtime consumes a short-lived, one-use ticket in its own handler.
 const PUBLIC_PATH_RULES: ReadonlyArray<{
   matches(path: string): boolean
 }> = [
+  { matches: path => path === '/voice/realtime' },
   {
     // Provider webhook routes authenticate with the exact-body signature checks
     // in @flue/github, @flue/linear, and @flue/notion. They must reach Flue
@@ -32,7 +34,8 @@ const PUBLIC_PATH_RULES: ReadonlyArray<{
     matches: (path) =>
       path === '/internal/account-deletion' ||
       path === '/internal/web3-settled' ||
-      path === '/internal/job-run',
+      path === '/internal/job-run' ||
+      path === '/internal/beennector-delivery',
   },
   {
     // Unknown senders and background delivery polling have no user header.
@@ -46,6 +49,14 @@ const PUBLIC_PATH_RULES: ReadonlyArray<{
 let jwks: ReturnType<typeof createRemoteJWKSet> | undefined
 
 export const authGate: MiddlewareHandler<AppEnvironment> = async (c, next) => {
+  const webhookProvider = c.req.path.match(/^\/channels\/(github|linear|notion)\/webhook$/)?.[1]
+  if (webhookProvider) {
+    const secretName = webhookProvider === 'github' ? 'GITHUB_WEBHOOK_SECRET'
+      : webhookProvider === 'linear' ? 'LINEAR_WEBHOOK_SECRET' : 'NOTION_VERIFICATION_TOKEN'
+    if (!binding(c.env, secretName)?.trim()) {
+      return c.json({ error: 'This webhook is not configured.' }, 503)
+    }
+  }
   if (PUBLIC_PATH_RULES.some((rule) => rule.matches(c.req.path))) {
     await next()
     return
@@ -81,7 +92,7 @@ export const authGate: MiddlewareHandler<AppEnvironment> = async (c, next) => {
     try {
       const { payload } = await jwtVerify(token, jwks, { issuer })
       if (!payload.sub) throw new Error('Token has no subject')
-      const oauthClientId = binding(c.env, 'BEE_CLERK_CLIENT_ID')
+      const oauthClientId = binding(c.env, 'BEE_CLERK_CLIENT_ID')?.trim()
       const audiences = Array.isArray(payload.aud)
         ? payload.aud
         : payload.aud
@@ -89,8 +100,7 @@ export const authGate: MiddlewareHandler<AppEnvironment> = async (c, next) => {
           : []
       if (
         audiences.length > 0 &&
-        oauthClientId &&
-        !audiences.includes(oauthClientId)
+        (!oauthClientId || !audiences.includes(oauthClientId))
       ) {
         throw new Error('OAuth token has the wrong audience')
       }

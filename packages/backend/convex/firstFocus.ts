@@ -283,6 +283,18 @@ export const getCurrent = query({
   },
 })
 
+export const getConfirmation = query({
+  args: { requestId: v.string() },
+  returns: v.union(v.null(), v.object({ goalTitle: v.union(v.string(), v.null()), projectTitle: v.union(v.string(), v.null()), taskTitle: v.union(v.string(), v.null()) })),
+  handler: async (ctx, args) => {
+    const { ownerKey, userId } = await requireIdentity(ctx)
+    const receipt = await ctx.db.query('firstFocusBundles').withIndex('by_owner_key_and_request_id', (q) => q.eq('ownerKey', ownerKey).eq('requestId', requiredText(args.requestId, 'Request id'))).unique()
+    if (!receipt) return null
+    const [goal, project, task] = await Promise.all([ctx.db.get('goals', receipt.goalId), ctx.db.get('projects', receipt.projectId), ctx.db.get('tasks', receipt.taskId)])
+    return { goalTitle: goal?.userId === userId ? goal.title : null, projectTitle: project?.userId === userId ? project.title : null, taskTitle: task?.userId === userId ? task.title : null }
+  },
+})
+
 /**
  * Confirms the editable preview in one Convex transaction. Both authenticated
  * apps and trusted text-channel adapters cross this same mutation seam.
@@ -293,10 +305,6 @@ export async function confirmFirstFocusPlan(
   identity: IdentityKeys,
   args: FirstFocusPlanInput,
 ) {
-  if (!args.confirmed) {
-    return { status: 'cancelled' as const, bundle: null }
-  }
-
   const requestId = requiredText(args.requestId, 'Request id')
   const existing = await ctx.db
     .query('firstFocusBundles')
@@ -310,6 +318,8 @@ export async function confirmFirstFocusPlan(
       bundle: bundleFromReceipt(existing),
     }
   }
+
+  if (!args.confirmed) return { status: 'cancelled' as const, bundle: null }
 
   const goalTitle = requiredText(args.goalTitle, 'Goal title')
   const projectTitle = requiredText(args.projectTitle, 'Project title')

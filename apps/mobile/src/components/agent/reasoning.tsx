@@ -37,7 +37,7 @@ export function Reasoning({
   // `userOpen` overrides the automatic behavior once the user toggles manually.
   const [userOpen, setUserOpen] = useState<boolean | undefined>(undefined);
   const [autoClosed, setAutoClosed] = useState(false);
-  const [startedAt, setStartedAt] = useState<number | undefined>(undefined);
+  const [startedAt, setStartedAt] = useState<number | undefined>(() => isStreaming ? Date.now() : undefined);
   const [duration, setDuration] = useState<number | undefined>(undefined);
 
   // Sanctioned "adjust state during render" pattern for streaming transitions.
@@ -46,6 +46,7 @@ export function Reasoning({
     setPrevStreaming(isStreaming);
     if (isStreaming) {
       setStartedAt((current) => current ?? Date.now());
+      setAutoClosed(false);
     }
   }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
-import { xaiEventSchema, type XaiEvent } from './xai-event'
+import {  xaiEventSchema } from './xai-event'
 
 import {
   XAI_SAMPLE_RATE,
@@ -10,10 +10,9 @@ import {
   pcm16ToFloat,
 } from './realtime-audio'
 import { createRealtimeVoiceToken } from './voice-api'
+import type {XaiEvent} from './xai-event';
 import { captureWebFailure } from '~/lib/sentry'
 
-const XAI_REALTIME_URL =
-  'wss://api.x.ai/v1/realtime?model=grok-voice-think-fast-2.0'
 const PLAYBACK_BATCH_BYTES = 24_000
 const SESSION_INSTRUCTIONS = `You are Bee, BeeGreat's warm conversational companion.
 You are speaking live, so respond naturally and concisely. Keep most turns to a few sentences.
@@ -47,7 +46,6 @@ export function useRealtimeVoice(getToken: GetToken) {
   const generationRef = useRef(0)
   const responseIdRef = useRef<string | null>(null)
   const responseFinishedRef = useRef(false)
-  const responseHasAudioRef = useRef(false)
   const recordingEnabledRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
   const contextRef = useRef<AudioContext | null>(null)
@@ -95,7 +93,6 @@ export function useRealtimeVoice(getToken: GetToken) {
     if (!activeRef.current || !configuredRef.current) return
     recordingEnabledRef.current = true
     responseFinishedRef.current = false
-    responseHasAudioRef.current = false
     setStatus('listening')
   }, [])
 
@@ -115,10 +112,11 @@ export function useRealtimeVoice(getToken: GetToken) {
       )
       playbackCursorRef.current = startAt + buffer.duration
       scheduledSourcesRef.current.add(source)
+      const generation = generationRef.current
       source.onended = () => {
+        if (!activeRef.current || generationRef.current !== generation || contextRef.current !== context) return
         scheduledSourcesRef.current.delete(source)
         if (
-          activeRef.current &&
           responseFinishedRef.current &&
           scheduledSourcesRef.current.size === 0
         ) {
@@ -126,7 +124,6 @@ export function useRealtimeVoice(getToken: GetToken) {
         }
       }
       source.start(startAt)
-      responseHasAudioRef.current = true
       setStatus('speaking')
     },
     [resumeListening],
@@ -151,9 +148,9 @@ export function useRealtimeVoice(getToken: GetToken) {
     configuredRef.current = false
     responseIdRef.current = null
     responseFinishedRef.current = false
-    responseHasAudioRef.current = false
     outputChunksRef.current = []
     outputByteLengthRef.current = 0
+    if (processorRef.current) processorRef.current.onaudioprocess = null
     processorRef.current?.disconnect()
     processorRef.current = null
     inputSourceRef.current?.disconnect()
@@ -164,6 +161,7 @@ export function useRealtimeVoice(getToken: GetToken) {
     streamRef.current = null
     for (const source of scheduledSourcesRef.current) {
       try {
+        source.onended = null
         source.stop()
       } catch {
         // A source that already ended does not need another stop.
@@ -173,7 +171,7 @@ export function useRealtimeVoice(getToken: GetToken) {
     playbackCursorRef.current = 0
     const context = contextRef.current
     contextRef.current = null
-    if (context && context.state !== 'closed') void context.close()
+    if (context && context.state !== 'closed') void context.close().catch(() => undefined)
   }, [clearConnectTimeout])
 
   const stop = useCallback(() => {
@@ -219,8 +217,7 @@ export function useRealtimeVoice(getToken: GetToken) {
         const responseId = event.response?.id ?? `assistant-${Date.now()}`
         responseIdRef.current = responseId
         responseFinishedRef.current = false
-        responseHasAudioRef.current = false
-        recordingEnabledRef.current = false
+            recordingEnabledRef.current = false
         outputChunksRef.current = []
         outputByteLengthRef.current = 0
         upsertTurn(responseId, 'assistant', '')
@@ -262,7 +259,6 @@ export function useRealtimeVoice(getToken: GetToken) {
         responseFinishedRef.current = true
         flushOutput()
         if (
-          !responseHasAudioRef.current &&
           scheduledSourcesRef.current.size === 0
         ) {
           resumeListening()
@@ -285,11 +281,12 @@ export function useRealtimeVoice(getToken: GetToken) {
           event.message ||
           event.error?.message ||
           'The live voice session hit a problem.'
+        stop()
         setErrorMessage(message)
         setStatus('error')
       }
     },
-    [clearConnectTimeout, flushOutput, resumeListening, upsertTurn],
+    [clearConnectTimeout, flushOutput, resumeListening, stop, upsertTurn],
   )
 
   const start = useCallback(async () => {
@@ -309,32 +306,33 @@ export function useRealtimeVoice(getToken: GetToken) {
     setErrorMessage(undefined)
     setStatus('connecting')
 
+    const sessionIsCurrent = () => activeRef.current && generationRef.current === generation
+    let acquiredStream: MediaStream | undefined
+    let acquiredContext: AudioContext | undefined
+    const releaseAcquired = () => {
+      acquiredStream?.getTracks().forEach(track => track.stop())
+      if (acquiredContext && acquiredContext.state !== 'closed') void acquiredContext.close().catch(() => undefined)
+    }
     try {
-      const [stream, { token }] = await Promise.all([
-        navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          },
-        }),
-        createRealtimeVoiceToken(getToken),
-      ])
-      const sessionIsCurrent = () =>
-        activeRef.current && generationRef.current === generation
-      if (!sessionIsCurrent()) {
-        stream.getTracks().forEach((track) => track.stop())
-        return
-      }
-
-      const context = new AudioContext()
-      await context.resume()
-      contextRef.current = context
+      const { token, websocketUrl } = await createRealtimeVoiceToken(getToken)
+      if (!sessionIsCurrent()) return
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
+      acquiredStream = stream
+      if (!sessionIsCurrent()) { releaseAcquired(); return }
       streamRef.current = stream
+      const context = new AudioContext()
+      acquiredContext = context
+      contextRef.current = context
+      await context.resume()
+      if (!sessionIsCurrent()) { releaseAcquired(); return }
       const inputSource = context.createMediaStreamSource(stream)
+      inputSourceRef.current = inputSource
       const processor = context.createScriptProcessor(4096, 1, 1)
+      processorRef.current = processor
       const silentGain = context.createGain()
+      silentGainRef.current = silentGain
       silentGain.gain.value = 0
       inputSource.connect(processor)
       processor.connect(silentGain)
@@ -343,7 +341,7 @@ export function useRealtimeVoice(getToken: GetToken) {
       processorRef.current = processor
       silentGainRef.current = silentGain
       processor.onaudioprocess = (event) => {
-        if (!recordingEnabledRef.current || !configuredRef.current) return
+        if (!sessionIsCurrent() || !recordingEnabledRef.current || !configuredRef.current) return
         const socket = socketRef.current
         if (!socket || socket.readyState !== WebSocket.OPEN) return
         const pcm = floatToPcm16(
@@ -358,12 +356,13 @@ export function useRealtimeVoice(getToken: GetToken) {
         )
       }
 
-      const socket = new WebSocket(XAI_REALTIME_URL, [
-        `xai-client-secret.${token}`,
+      const socket = new WebSocket(websocketUrl, [
+        `bee-voice.${token}`,
       ])
       socketRef.current = socket
+      const socketIsCurrent = () => sessionIsCurrent() && socketRef.current === socket
       socket.onopen = () => {
-        if (!activeRef.current) return socket.close(1000, 'Conversation ended')
+        if (!socketIsCurrent()) return socket.close(1000, 'Conversation ended')
         socket.send(
           JSON.stringify({
             type: 'session.update',
@@ -390,6 +389,7 @@ export function useRealtimeVoice(getToken: GetToken) {
         )
       }
       socket.onmessage = ({ data }) => {
+        if (!socketIsCurrent()) return
         const frame = textFrame.safeParse(data)
         if (!frame.success) return
         try {
@@ -400,29 +400,27 @@ export function useRealtimeVoice(getToken: GetToken) {
         }
       }
       socket.onerror = () => {
-        if (activeRef.current) {
+        if (socketIsCurrent()) {
+          stop()
           setErrorMessage('Bee could not connect to conversational voice.')
           setStatus('error')
         }
       }
       socket.onclose = ({ code }) => {
-        if (!activeRef.current) return
-        activeRef.current = false
-        cleanupResources()
+        if (!socketIsCurrent()) return
+        stop()
         setErrorMessage(`The live voice session ended (${code}).`)
         setStatus('error')
       }
       connectTimeoutRef.current = window.setTimeout(() => {
-        if (configuredRef.current || !activeRef.current) return
-        activeRef.current = false
-        socket.close()
-        cleanupResources()
+        if (configuredRef.current || !socketIsCurrent()) return
+        stop()
         setErrorMessage('Conversational voice took too long to connect.')
         setStatus('error')
       }, 10_000)
     } catch (cause) {
-      activeRef.current = false
-      cleanupResources()
+      if (!sessionIsCurrent()) { releaseAcquired(); return }
+      stop()
       captureWebFailure(cause, 'voice.xai.start')
       setErrorMessage(
         cause instanceof DOMException && cause.name === 'NotAllowedError'
@@ -433,7 +431,7 @@ export function useRealtimeVoice(getToken: GetToken) {
       )
       setStatus('error')
     }
-  }, [cleanupResources, getToken, handleEvent])
+  }, [getToken, handleEvent, stop])
 
   useEffect(() => () => stop(), [stop])
 

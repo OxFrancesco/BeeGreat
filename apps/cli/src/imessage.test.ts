@@ -68,3 +68,11 @@ describe("Bee CLI iMessage", () => {
     ).rejects.toThrow("Sign in to talk to Bee.");
   });
 });
+
+test('invalid explicit addresses never become disconnect-all', async () => {
+  let calls = 0;
+  for (const address of ['', '   ', 'not-an-address']) {
+    await expect(runImessageCommand({ action: 'disconnect', address }, { agentUrl: 'https://agent.example', accessToken: 'fixture' }, { fetch: async () => { calls++; return Response.json({ disconnected: 5 }) } })).rejects.toThrow('valid phone');
+  }
+  expect(calls).toBe(0);
+});

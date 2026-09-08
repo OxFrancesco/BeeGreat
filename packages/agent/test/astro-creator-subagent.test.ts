@@ -14,7 +14,7 @@ describe('Astro Creator subagent', () => {
       brokerSecret: 'broker-secret',
       // SAFETY: this test only inspects tool/subagent metadata; the sandbox
       // double is never invoked.
-      sandbox: {} as never,
+      createBuildSandbox: () => ({} as never),
       // SAFETY: this test only inspects tool/subagent metadata; the bucket
       // double is never invoked.
       bucket: {} as never,

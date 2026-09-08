@@ -34,7 +34,7 @@ describe('Bee Sites public worker', () => {
     }
 
     const response = await worker.fetch(
-      new Request('https://sites.buddytools.org/studio/about'),
+      new Request('https://sites.buddytools.org/studio/about/'),
       env,
     )
 
@@ -69,7 +69,7 @@ describe('Bee Sites public worker', () => {
     }
 
     const response = await worker.fetch(
-      new Request(`https://sites.buddytools.org/preview/${token}`),
+      new Request(`https://sites.buddytools.org/preview/${token}/`),
       env,
     )
 
@@ -102,4 +102,23 @@ describe('Bee Sites public worker', () => {
 
     expect(responses.map((response) => response.status)).toEqual([404, 404, 404])
   })
+})
+
+test('directory roots redirect with query intact while page.html routes stay slashless', async () => {
+  const worker = createSitesWorker({ resolveSite: async () => ({ assetPrefix: 'users/u/sites/s/deployments/v1/' }), resolvePreview: async () => ({ assetPrefix: 'users/u/sites/s/deployments/v1/' }) })
+  const env = { CONVEX_URL: 'https://bee.convex.cloud', BEE_SITES_BUCKET: bucket({ 'users/u/sites/s/deployments/v1/index.html': 'home', 'users/u/sites/s/deployments/v1/about/index.html': 'about', 'users/u/sites/s/deployments/v1/contact.html': 'contact' }) }
+  for (const path of ['/studio', '/studio/about', `/preview/${'a'.repeat(32)}`]) {
+    const result = await worker.fetch(new Request(`https://sites.buddytools.org${path}?view=1`, { method: 'HEAD' }), env)
+    expect(result.status).toBe(308)
+    expect(result.headers.get('location')).toBe(`https://sites.buddytools.org${path}/?view=1`)
+    expect(await result.text()).toBe('')
+  }
+  expect((await worker.fetch(new Request('https://sites.buddytools.org/studio/contact'), env)).status).toBe(200)
+  expect((await worker.fetch(new Request('https://sites.buddytools.org/studio/index.html'), env)).status).toBe(200)
+  expect((await worker.fetch(new Request('https://sites.buddytools.org/studio/about/index.html'), env)).status).toBe(200)
+})
+test('mutable asset URLs override legacy immutable metadata', async () => {
+  const worker = createSitesWorker({ resolveSite: async () => ({ assetPrefix: 'users/u/sites/s/deployments/v1/' }) })
+  const result = await worker.fetch(new Request('https://sites.buddytools.org/studio/logo.svg'), { CONVEX_URL: 'https://bee.convex.cloud', BEE_SITES_BUCKET: { get: async () => ({ body: 'image', httpMetadata: { contentType: 'image/svg+xml', cacheControl: 'public, max-age=31536000, immutable' } }) } })
+  expect(result.headers.get('cache-control')).toBe('public, max-age=0, must-revalidate')
 })

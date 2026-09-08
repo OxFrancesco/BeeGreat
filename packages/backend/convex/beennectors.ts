@@ -4,6 +4,7 @@ import type { Doc } from './_generated/dataModel'
 import {
   internalMutation,
   internalQuery,
+  mutation,
   query,
 } from './_generated/server'
 import { requireUserId } from './helpers'
@@ -11,6 +12,7 @@ import {
   beennectorConnectionValidator,
   beennectorCredentialClaimValidator,
   beennectorDeliveryClaimValidator,
+  beennectorSignalValidator,
   beennectorProviderValidator,
   encryptedSecretValidator,
   googleWorkspaceServiceValidator,
@@ -101,6 +103,7 @@ export const list = query({
 export const createSession = internalMutation({
   args: {
     userId: v.string(),
+    client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))),
     provider: beennectorProviderValidator,
     stateHash: v.string(),
     encryptedCodeVerifier: v.optional(encryptedSecretValidator),
@@ -140,13 +143,14 @@ export const createSession = internalMutation({
   },
 })
 
-export const getSessionByStateHash = internalQuery({
-  args: { stateHash: v.string() },
+export const claimSessionByStateHash = internalMutation({
+  args: { stateHash: v.string(), userId: v.string(), attemptId: v.string() },
   returns: v.union(
     v.null(),
     v.object({
       sessionId: v.id('beennectorAuthSessions'),
       userId: v.string(),
+      client: v.union(v.literal('mobile'), v.literal('browser')),
       provider: beennectorProviderValidator,
       status: v.string(),
       encryptedCodeVerifier: v.optional(encryptedSecretValidator),
@@ -161,10 +165,13 @@ export const getSessionByStateHash = internalQuery({
       .query('beennectorAuthSessions')
       .withIndex('by_state_hash', (q) => q.eq('stateHash', args.stateHash))
       .unique()
-    if (!session) return null
+    if (!session || session.userId !== args.userId || session.status !== 'pending' ||
+      session.expiresAt <= Date.now() || session.exchangeAttemptId) return null
+    await ctx.db.patch('beennectorAuthSessions', session._id, { exchangeAttemptId: args.attemptId })
     return {
       sessionId: session._id,
       userId: session.userId,
+      client: session.client ?? 'mobile',
       provider: session.provider,
       status: session.status,
       encryptedCodeVerifier: session.encryptedCodeVerifier,
@@ -177,6 +184,7 @@ export const getSessionByStateHash = internalQuery({
 export const completeAuthorization = internalMutation({
   args: {
     sessionId: v.id('beennectorAuthSessions'),
+    attemptId: v.string(),
     encryptedAccess: encryptedSecretValidator,
     encryptedRefresh: v.optional(encryptedSecretValidator),
     expiresAt: v.optional(v.number()),
@@ -194,6 +202,7 @@ export const completeAuthorization = internalMutation({
     if (
       !session ||
       session.status !== 'pending' ||
+      session.exchangeAttemptId !== args.attemptId ||
       session.expiresAt <= Date.now()
     ) {
       return false
@@ -240,14 +249,14 @@ export const completeAuthorization = internalMutation({
 })
 
 export const failSession = internalMutation({
-  args: { stateHash: v.string(), errorCode: v.string() },
+  args: { stateHash: v.string(), errorCode: v.string(), attemptId: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query('beennectorAuthSessions')
       .withIndex('by_state_hash', (q) => q.eq('stateHash', args.stateHash))
       .unique()
-    if (session?.status === 'pending') {
+    if (session?.status === 'pending' && session.exchangeAttemptId === args.attemptId) {
       await ctx.db.patch('beennectorAuthSessions', session._id, {
         status: session.expiresAt <= Date.now() ? 'expired' : 'failed',
         encryptedCodeVerifier: undefined,
@@ -256,30 +265,6 @@ export const failSession = internalMutation({
       })
     }
     return null
-  },
-})
-
-export const getCredentialForDisconnect = internalQuery({
-  args: { userId: v.string(), provider: beennectorProviderValidator },
-  returns: v.union(
-    v.null(),
-    v.object({
-      encryptedAccess: v.optional(encryptedSecretValidator),
-      encryptedRefresh: v.optional(encryptedSecretValidator),
-    }),
-  ),
-  handler: async (ctx, args) => {
-    const credential = await ctx.db
-      .query('beennectorCredentials')
-      .withIndex('by_user_and_provider', (q) =>
-        q.eq('userId', args.userId).eq('provider', args.provider),
-      )
-      .unique()
-    if (!credential) return null
-    return {
-      encryptedAccess: credential.encryptedAccess,
-      encryptedRefresh: credential.encryptedRefresh,
-    }
   },
 })
 
@@ -311,7 +296,10 @@ export const listConnectedForAgent = internalQuery({
 
 export const removeConnection = internalMutation({
   args: { userId: v.string(), provider: beennectorProviderValidator },
-  returns: v.null(),
+  returns: v.union(v.null(), v.object({
+    encryptedAccess: v.optional(encryptedSecretValidator),
+    encryptedRefresh: v.optional(encryptedSecretValidator),
+  })),
   handler: async (ctx, args) => {
     const [credential, sessions] = await Promise.all([
       ctx.db
@@ -340,7 +328,10 @@ export const removeConnection = internalMutation({
           }),
         ),
     )
-    return null
+    return credential ? {
+      encryptedAccess: credential.encryptedAccess,
+      encryptedRefresh: credential.encryptedRefresh,
+    } : null
   },
 })
 
@@ -374,14 +365,14 @@ export const claimCredential = internalMutation({
       }
     }
     if (!credential.encryptedRefresh) return { status: 'reauth' as const }
-    if (
-      credential.refreshLeaseId &&
-      credential.refreshLeaseExpiresAt &&
-      credential.refreshLeaseExpiresAt > args.now
-    ) {
+    if (credential.refreshLeaseId) {
+      if (!credential.refreshLeaseExpiresAt || credential.refreshLeaseExpiresAt <= args.now) {
+        await ctx.db.patch('beennectorCredentials', credential._id, { status: 'needs_reauth' })
+        return { status: 'reauth' as const }
+      }
       return {
         status: 'busy' as const,
-        retryAfterMs: credential.refreshLeaseExpiresAt - args.now,
+        retryAfterMs: Math.max(250, credential.refreshLeaseExpiresAt - args.now),
       }
     }
     await ctx.db.patch('beennectorCredentials', credential._id, {
@@ -435,7 +426,7 @@ export const failRefresh = internalMutation({
     userId: v.string(),
     provider: beennectorProviderValidator,
     leaseId: v.string(),
-    permanent: v.boolean(),
+    uncertain: v.optional(v.boolean()), permanent: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -447,8 +438,8 @@ export const failRefresh = internalMutation({
       .unique()
     if (credential?.refreshLeaseId === args.leaseId) {
       const patch: Partial<Doc<'beennectorCredentials'>> = {
-        refreshLeaseId: undefined,
-        refreshLeaseExpiresAt: undefined,
+        refreshLeaseId: args.uncertain ? credential.refreshLeaseId : undefined,
+        refreshLeaseExpiresAt: args.uncertain ? credential.refreshLeaseExpiresAt : undefined,
         updatedAt: Date.now(),
       }
       if (args.permanent) patch.status = 'needs_reauth'
@@ -459,7 +450,7 @@ export const failRefresh = internalMutation({
 })
 
 export const markNeedsReauth = internalMutation({
-  args: { userId: v.string(), provider: beennectorProviderValidator },
+  args: { userId: v.string(), provider: beennectorProviderValidator, expectedEncryptedAccess: encryptedSecretValidator },
   returns: v.null(),
   handler: async (ctx, args) => {
     const credential = await ctx.db
@@ -468,7 +459,10 @@ export const markNeedsReauth = internalMutation({
         q.eq('userId', args.userId).eq('provider', args.provider),
       )
       .unique()
-    if (credential) {
+    if (credential?.encryptedAccess &&
+      credential.encryptedAccess.iv === args.expectedEncryptedAccess.iv &&
+      credential.encryptedAccess.ciphertext === args.expectedEncryptedAccess.ciphertext &&
+      credential.encryptedAccess.tag === args.expectedEncryptedAccess.tag) {
       await ctx.db.patch('beennectorCredentials', credential._id, {
         status: 'needs_reauth',
         refreshLeaseId: undefined,
@@ -484,6 +478,7 @@ export const claimDelivery = internalMutation({
   args: {
     provider: beennectorProviderValidator,
     deliveryId: v.string(),
+    message: beennectorSignalValidator,
     actorId: v.optional(v.string()),
     workspaceId: v.optional(v.string()),
   },
@@ -510,28 +505,21 @@ export const claimDelivery = internalMutation({
     candidates = candidates.filter(
       (credential) => credential.status === 'connected',
     )
-    if (candidates.length === 0 && args.workspaceId) {
-      candidates = (
-        await ctx.db
-          .query('beennectorCredentials')
-          .withIndex('by_provider_and_workspace', (q) =>
-            q.eq('provider', args.provider).eq('workspaceId', args.workspaceId),
-          )
-          .collect()
-      ).filter((credential) => credential.status === 'connected')
-    }
     if (candidates.length === 0) return { status: 'unmapped' as const }
     const userIds = [...new Set(candidates.map((candidate) => candidate.userId))]
     if (userIds.length !== 1) return { status: 'ambiguous' as const }
     const userId = userIds[0]!
     const now = Date.now()
-    await ctx.db.insert('beennectorDeliveries', {
+    if (args.message.body.length > 32_000 || args.deliveryId.length > 256 || JSON.stringify(args.message).length > 64_000) throw new Error('Provider delivery is too large.')
+    const id = await ctx.db.insert('beennectorDeliveries', {
       provider: args.provider,
       deliveryId: args.deliveryId,
       userId,
+      actorId: args.actorId, message: args.message, state: 'queued', nextAttemptAt: now, attempts: 0,
       receivedAt: now,
       expiresAt: now + DELIVERY_RETENTION_MS,
     })
+    await ctx.scheduler.runAfter(0, internal.beennectorDispatch.deliver, { id })
     return { status: 'accepted' as const, userId }
   },
 })
@@ -555,6 +543,21 @@ export const deleteExpiredDeliveries = internalMutation({
         internal.beennectors.deleteExpiredDeliveries,
         {},
       )
+    }
+    return null
+  },
+})
+
+export const cancelAuthorization = mutation({
+  args: { sessionId: v.id('beennectorAuthSessions') },
+  returns: v.null(),
+  handler: async (ctx, { sessionId }) => {
+    const userId = await requireUserId(ctx)
+    const session = await ctx.db.get(sessionId)
+    if (session?.userId === userId && session.status === 'pending') {
+      await ctx.db.patch(sessionId, {
+        status: 'cancelled', encryptedCodeVerifier: undefined, updatedAt: Date.now(),
+      })
     }
     return null
   },

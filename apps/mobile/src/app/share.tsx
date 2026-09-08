@@ -90,7 +90,7 @@ export default function ShareScreen() {
   };
 
   const saved = state.status === 'saved';
-  const unresolved = !url && (isResolving || state.status === 'waiting') && !shareError;
+  const unresolved = !url && isResolving && !shareError;
 
   return (
     <ScrollView

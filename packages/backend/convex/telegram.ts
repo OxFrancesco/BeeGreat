@@ -97,8 +97,8 @@ export const createSession = internalMutation({
   },
 })
 
-export const getSessionByStateHash = internalQuery({
-  args: { stateHash: v.string() },
+export const claimSessionByStateHash = internalMutation({
+  args: { stateHash: v.string(), userId: v.string(), attemptId: v.string() },
   returns: v.union(
     v.null(),
     v.object({
@@ -116,7 +116,9 @@ export const getSessionByStateHash = internalQuery({
       .query('telegramAuthSessions')
       .withIndex('by_state_hash', (q) => q.eq('stateHash', args.stateHash))
       .unique()
-    if (!session) return null
+    if (!session || session.userId !== args.userId || session.status !== 'pending' ||
+      session.expiresAt <= Date.now() || session.exchangeAttemptId) return null
+    await ctx.db.patch('telegramAuthSessions', session._id, { exchangeAttemptId: args.attemptId })
     return {
       sessionId: session._id,
       userId: session.userId,
@@ -132,6 +134,7 @@ export const getSessionByStateHash = internalQuery({
 export const completeAuthorization = internalMutation({
   args: {
     sessionId: v.id('telegramAuthSessions'),
+    attemptId: v.string(),
     telegramUserId: v.string(),
     displayName: v.string(),
     username: v.optional(v.string()),
@@ -143,6 +146,7 @@ export const completeAuthorization = internalMutation({
     if (
       !session ||
       session.status !== 'pending' ||
+      session.exchangeAttemptId !== args.attemptId ||
       session.expiresAt <= Date.now()
     ) {
       return false
@@ -180,14 +184,14 @@ export const completeAuthorization = internalMutation({
 })
 
 export const failSession = internalMutation({
-  args: { stateHash: v.string(), errorCode: v.string() },
+  args: { stateHash: v.string(), errorCode: v.string(), attemptId: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query('telegramAuthSessions')
       .withIndex('by_state_hash', (q) => q.eq('stateHash', args.stateHash))
       .unique()
-    if (session?.status === 'pending') {
+    if (session?.status === 'pending' && session.exchangeAttemptId === args.attemptId) {
       await ctx.db.patch('telegramAuthSessions', session._id, {
         status: session.expiresAt <= Date.now() ? 'expired' : 'failed',
         encryptedCodeVerifier: undefined,

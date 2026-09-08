@@ -1,3 +1,4 @@
+import { prepareGoogleArguments, type GoogleCommandFile } from './google-workspace-arguments.ts'
 import {
   defineSubagent,
   defineTool,
@@ -39,7 +40,8 @@ working for Bee (the coordinator). You use the guarded gog CLI to work with the
 user's connected Google account. Your compact result goes back to Bee, not directly
 to the user.
 
-- Use run_gog with an argv-style list that excludes the gog binary itself. For an
+- Use run_gog with an argv-style list that excludes the gog binary itself. File-reading flags must name files supplied as base64 bytes in this call
+  through files. Sandbox paths and local output flags are unavailable. For an
   unfamiliar command, inspect its targeted contract first, for example
   ["schema", "gmail search"]. Never request the complete root schema.
 - The installed binary has BeeGreat's baked least-privilege profile. It permits
@@ -143,9 +145,23 @@ export async function executeGoogleWorkspaceCommand(
   options: GoogleWorkspaceOptions,
   args: string[],
   signal?: AbortSignal,
+  files: GoogleCommandFile[] = [],
 ): Promise<{ ok: true; output: JsonValue }> {
   validateArguments(args)
   validateSelectedService(options.services, args)
+  const directory = `/tmp/beegreat-gog-input-${crypto.randomUUID()}`
+  const safeArgs = prepareGoogleArguments(args, files, directory)
+  if (files.length) {
+    const created = await options.sandbox.exec(`mkdir -m 700 -- ${shellQuote(directory)}`, { signal, timeout: 10_000 })
+    if (!created.success) throw new Error('Could not stage Google input files.')
+    try {
+      for (const file of files) await options.sandbox.writeFile(`${directory}/${file.name}`, file.contentBase64, { encoding: 'base64' })
+    } catch (cause) {
+      await options.sandbox.exec(`rm -rf -- ${shellQuote(directory)}`, { timeout: 10_000 }).catch(() => { Sentry.captureMessage('Google staged-file cleanup is pending', { level: 'warning' }) })
+      throw cause
+    }
+  }
+  try {
   const accessToken = await brokerAccessToken(options)
   const command = [
     GOG_BINARY,
@@ -154,7 +170,7 @@ export async function executeGoogleWorkspaceCommand(
     '--no-input',
     '--json',
     '--wrap-untrusted',
-    ...args.map(shellQuote),
+    ...safeArgs.map(shellQuote),
   ].join(' ')
   const result = await options.sandbox.exec(command, {
     timeout: 120_000,
@@ -180,6 +196,9 @@ export async function executeGoogleWorkspaceCommand(
   } catch {
     return { ok: true, output: stdout }
   }
+  } finally {
+    if (files.length) await options.sandbox.exec(`rm -rf -- ${shellQuote(directory)}`, { timeout: 10_000 }).catch(() => { Sentry.captureMessage('Google staged-file cleanup is pending', { level: 'warning' }) })
+  }
 }
 
 /** The only model-facing Google tool; gog owns command discovery and policy. */
@@ -195,6 +214,7 @@ export function googleWorkspaceTools(options: GoogleWorkspaceOptions) {
           v.minLength(1),
           v.maxLength(100),
         ),
+        files: v.optional(v.array(v.object({ name: v.string(), contentBase64: v.string() }))),
       }),
       async run({ data, signal }) {
         return {
@@ -202,6 +222,7 @@ export function googleWorkspaceTools(options: GoogleWorkspaceOptions) {
             options,
             data.args,
             signal,
+            data.files,
           ),
         }
       },

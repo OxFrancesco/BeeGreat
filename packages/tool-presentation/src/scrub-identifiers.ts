@@ -16,9 +16,9 @@ const BARE_CONVEX_ID = /(^|[^/\w.@-])[a-z][a-z0-9]{31}(?![\w.-])/g;
 const BARE_DEVIN_ID = /(^|[^/\w.@-])devin-[A-Za-z0-9_-]{6,}(?![\w.-])/g;
 
 /** Removes machine identifiers from user-facing copy and tidies the seams. */
-export function scrubIdentifiers(text: string): string {
+export function scrubIdentifiers(text: string, preserveAddresses = false): string {
   return text
-    .replace(LABELLED_ID, '')
+    .replace(LABELLED_ID, (match) => preserveAddresses && /0x[0-9a-fA-F]{40}/.test(match) ? match : '')
     .replace(BARE_CONVEX_ID, '$1')
     .replace(BARE_DEVIN_ID, '$1')
     .replace(/\s*([·•|])\s*(?=[·•|.,;:!?)]|$)/g, '')

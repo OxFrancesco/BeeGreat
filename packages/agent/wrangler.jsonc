@@ -20,10 +20,12 @@
       {
         "name": "Sandbox",
         "class_name": "Sandbox"
-      }
+      },
+      { "name": "SiteBuildSandbox", "class_name": "SiteBuildSandbox" }
     ]
   },
   "containers": [
+    { "class_name": "SiteBuildSandbox", "image": "./Dockerfile", "instance_type": "lite", "max_instances": 2 },
     {
       "class_name": "Sandbox",
       "image": "./Dockerfile",
@@ -60,6 +62,7 @@
     {
       "tag": "v4",
       "new_sqlite_classes": ["FlueBeeV2Agent"]
-    }
+    },
+    { "tag": "v5-site-builds", "new_sqlite_classes": ["SiteBuildSandbox"] }
   ]
 }

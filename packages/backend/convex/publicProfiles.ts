@@ -195,6 +195,10 @@ function qrUrl(publicId: string) {
   return `${PROFILE_ORIGIN}/p/${publicId}`
 }
 
+const HANDLE_RESERVATION_MS = 30 * 24 * 60 * 60 * 1000
+const HANDLE_CHANGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000
+const MAX_HANDLE_ALIASES = 3
+
 async function handleOwner(ctx: AuthContext, handle: string) {
   const current = await ctx.db
     .query('publicProfiles')
@@ -205,7 +209,7 @@ async function handleOwner(ctx: AuthContext, handle: string) {
     .query('publicProfileAliases')
     .withIndex('by_handle', (q) => q.eq('handle', handle))
     .unique()
-  return alias?.profileId ?? null
+  return alias && alias.createdAt + HANDLE_RESERVATION_MS > Date.now() ? alias.profileId : null
 }
 
 async function availableHandle(
@@ -274,6 +278,8 @@ async function createProfile(
   const publicId = await uniquePublicId(ctx)
   const handle = await availableHandle(ctx, input.suggestedHandle, publicId)
   const now = Date.now()
+  const expiredAlias = await ctx.db.query('publicProfileAliases').withIndex('by_handle', q => q.eq('handle', handle)).unique()
+  if (expiredAlias && expiredAlias.createdAt + HANDLE_RESERVATION_MS <= now) await ctx.db.delete(expiredAlias._id)
   const profileId = await ctx.db.insert('publicProfiles', {
     ownerKey: identity.ownerKey,
     userId: identity.userId,
@@ -366,6 +372,19 @@ export const saveMine = mutation({
 
     const now = Date.now()
     if (profile.handle !== requestedHandle) {
+      const aliases = await ctx.db.query('publicProfileAliases')
+        .withIndex('by_profile_id', q => q.eq('profileId', profile._id)).collect()
+      aliases.sort((a, b) => b.createdAt - a.createdAt)
+      const lastChange = profile.handleChangedAt ?? aliases[0]?.createdAt
+      if (lastChange !== undefined && now - lastChange < HANDLE_CHANGE_COOLDOWN_MS) {
+        throw new ConvexError({ code: 'HANDLE_CHANGE_COOLDOWN', message: 'You can change your handle once every 7 days.' })
+      }
+      for (const [index, alias] of aliases.entries()) {
+        if (index >= MAX_HANDLE_ALIASES - 1 || alias.createdAt + HANDLE_RESERVATION_MS <= now) await ctx.db.delete(alias._id)
+      }
+      const expiredRequested = await ctx.db.query('publicProfileAliases')
+        .withIndex('by_handle', q => q.eq('handle', requestedHandle)).unique()
+      if (expiredRequested && expiredRequested.createdAt + HANDLE_RESERVATION_MS <= now) await ctx.db.delete(expiredRequested._id)
       const existingAlias = await ctx.db
         .query('publicProfileAliases')
         .withIndex('by_handle', (q) => q.eq('handle', profile.handle))
@@ -395,6 +414,7 @@ export const saveMine = mutation({
 
     await ctx.db.patch('publicProfiles', profile._id, {
       handle: requestedHandle,
+      ...(profile.handle !== requestedHandle ? { handleChangedAt: now } : {}),
       displayName,
       bio,
       avatarUrl,
@@ -423,7 +443,7 @@ export const byHandle = query({
         .query('publicProfileAliases')
         .withIndex('by_handle', (q) => q.eq('handle', handle))
         .unique()
-      profile = alias ? await ctx.db.get('publicProfiles', alias.profileId) : null
+      profile = alias && alias.createdAt + HANDLE_RESERVATION_MS > Date.now() ? await ctx.db.get('publicProfiles', alias.profileId) : null
     }
     if (!profile?.published) return null
     return await resultForProfile(ctx, profile)

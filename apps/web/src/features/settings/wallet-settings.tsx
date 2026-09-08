@@ -202,7 +202,7 @@ export function WalletSettings() {
           </p>
         </div>
         {wallets.eoa ? (
-          sessionMatches ? (
+          <>
             <button
               className="button button--quiet"
               type="button"
@@ -211,7 +211,7 @@ export function WalletSettings() {
             >
               Unlink
             </button>
-          ) : (
+          {!sessionMatches ? (
             <button
               className="button button--primary"
               type="button"
@@ -220,7 +220,8 @@ export function WalletSettings() {
             >
               {working ? 'Opening…' : 'Reconnect'}
             </button>
-          )
+          ) : null}
+          </>
         ) : (
           <button
             className="button button--primary"

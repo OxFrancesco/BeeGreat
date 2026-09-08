@@ -351,3 +351,45 @@ describe("Bee OpenTUI", () => {
     expect(prompts).toEqual(["First question", "Second question"]);
   });
 });
+
+test('a queued yes cannot authorize a confirmation that has not been displayed yet', async () => {
+  const setup = await createTestRenderer({ width: 90, height: 28 });
+  renderer = setup.renderer;
+  const prompts: string[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve });
+  const tui = createBeeTui(renderer, {
+    ask: async (prompt) => {
+      prompts.push(prompt);
+      if (prompts.length === 1) {
+        await gate;
+        return { text: 'Send 10 USDC to the displayed recipient?', followUp: { kind: 'confirm', summary: 'Send 10 USDC to the displayed recipient?' } };
+      }
+      return { text: 'Decision recorded.' };
+    },
+    newConversation: async () => {}, friendlyError: String,
+  });
+  const first = tui.submitPrompt('Prepare transfer');
+  await tui.submitPrompt('yes');
+  release();
+  await first;
+  await setup.waitForFrame((frame) => frame.includes('Send 10 USDC'));
+  expect(prompts).toEqual(['Prepare transfer']);
+  await tui.submitPrompt('no');
+  expect(prompts).toEqual(['Prepare transfer', 'no']);
+});
+
+test('new conversation drains ordinary queued prompts after creation completes', async () => {
+  const setup = await createTestRenderer({ width: 80, height: 24 });
+  renderer = setup.renderer;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve });
+  const prompts: string[] = [];
+  const tui = createBeeTui(renderer, { ask: async (prompt) => { prompts.push(prompt); return { text: 'Done' } }, newConversation: async () => gate, friendlyError: String });
+  const creation = tui.submitPrompt('/new');
+  await tui.submitPrompt('First message');
+  release();
+  await creation;
+  await setup.waitFor(() => prompts.length === 1);
+  expect(prompts).toEqual(['First message']);
+});

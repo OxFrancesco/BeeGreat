@@ -1,6 +1,9 @@
+import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, test } from "bun:test";
 
-import { ensureBeeAgent } from "./agent-runtime";
+import { ensureBeeAgent, findBeeProjectRoot } from "./agent-runtime";
 
 const projectRoot = new URL("../../..", import.meta.url).pathname.replace(
   /\/$/,
@@ -141,4 +144,18 @@ describe("Bee local agent runtime", () => {
       ),
     ).rejects.toThrow("something other than BeeGreat");
   });
+});
+
+test("auto-start ignores a forged project in the working directory", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "bee-forged-root-"));
+  try {
+    await mkdir(join(directory, "packages/agent"), { recursive: true });
+    await writeFile(join(directory, "package.json"), JSON.stringify({ name: "beegreat", scripts: { agent: "false" } }));
+    await writeFile(join(directory, "packages/agent/package.json"), "{}");
+    const previousDirectory = process.cwd();
+    try {
+      process.chdir(directory);
+      expect(await findBeeProjectRoot()).toBe(projectRoot);
+    } finally { process.chdir(previousDirectory); }
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });

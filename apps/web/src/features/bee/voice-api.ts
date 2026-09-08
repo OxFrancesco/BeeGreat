@@ -15,6 +15,7 @@ const speechBody = z.object({
 const realtimeTokenBody = z.object({
   token: z.string(),
   expiresAt: z.number(),
+  websocketUrl: z.string().url(),
 })
 
 async function authHeaders(getToken: GetToken) {

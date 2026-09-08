@@ -1,3 +1,4 @@
+import { terminalText } from '../terminal-text';
 import type { TextRenderable } from "@opentui/core";
 
 import type { ToolActivityUpdate } from "../progress";
@@ -17,11 +18,11 @@ export function createActivityLog(
   ) {
     if (update.state === "running") {
       const frame = SPINNER_FRAMES[currentFrame() % SPINNER_FRAMES.length];
-      body.content = `${frame} ${update.label}`;
+      body.content = `${frame} ${terminalText(update.label)}`;
       body.fg = palette.inkSoft;
       return;
     }
-    body.content = `${update.state === "done" ? "✓" : "✗"} ${update.label}`;
+    body.content = `${update.state === "done" ? "✓" : "✗"} ${terminalText(update.label)}`;
     body.fg = update.state === "done" ? palette.inkSoft : palette.danger;
   }
 

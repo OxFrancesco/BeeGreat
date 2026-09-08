@@ -1,3 +1,4 @@
+import { clearJournalEditorDrafts } from '@/lib/journal-editor-storage';
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { useAuth } from '@clerk/clerk-expo';
 import { useConvexAuth, useMutation, useQuery } from 'convex/react';
@@ -10,7 +11,6 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import {
@@ -41,7 +41,7 @@ import { useCurrentLocalDay } from '@/hooks/use-current-local-day';
 import { useTheme } from '@/hooks/use-theme';
 import {
   clearJournalDraft,
-  loadJournalDraft,
+  listJournalDrafts,
 } from '@/lib/bee-healthy-drafts';
 import { dateFromLocalKey, formatJournalDate, shiftLocalDateKey } from '@/lib/bee-healthy';
 
@@ -85,10 +85,6 @@ export function JournalScreen() {
         }
       : 'skip',
   );
-  const todayHealth = useQuery(
-    api.healthJournal.getByDate,
-    isConvexAuthenticated ? { localDate } : 'skip',
-  );
   const selectedHealth = useQuery(
     api.healthJournal.getByDate,
     isConvexAuthenticated && selectedDate && selectedDate !== localDate
@@ -99,74 +95,59 @@ export function JournalScreen() {
   const updateEntry = useMutation(api.journalEntries.update);
   const removeEntry = useMutation(api.journalEntries.remove);
   const importLegacy = useMutation(api.journalEntries.importLegacy);
+  const importOfflineDraft = useMutation(api.journalEntries.importOfflineDraft);
 
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [creating, setCreating] = useState(false);
-  const [importing, setImporting] = useState(true);
+  const [finishedMigrationKey, setFinishedMigrationKey] = useState<string>();
   const deferredSearch = useDeferredValue(searchQuery.trim());
   const searchResults = useQuery(
     api.journalEntries.search,
     isConvexAuthenticated && deferredSearch ? { query: deferredSearch } : 'skip',
   );
-  const migrationStarted = useRef(false);
+  const [migrationAttempt, setMigrationAttempt] = useState(0);
+  const migrationKey = JSON.stringify([userId, timeZone, migrationAttempt]);
+  const importing = !isConvexAuthenticated || finishedMigrationKey !== migrationKey;
 
   useEffect(() => {
     if (
       !isConvexAuthenticated ||
-      !userId ||
-      todayHealth === undefined ||
-      migrationStarted.current
+      !userId
     ) {
       return;
     }
-    migrationStarted.current = true;
     let active = true;
 
     void (async () => {
       try {
-        const { journal: storedDraft } = await loadJournalDraft(userId, localDate);
-        if (
-          storedDraft !== null &&
-          storedDraft.trim() &&
-          storedDraft !== (todayHealth?.journal ?? '')
-        ) {
-          const recovered = await createDraft({
-            localDate,
-            timeZone,
-            occurredAt: Date.now(),
-          });
-          await updateEntry({ entryId: recovered.id, body: storedDraft });
-        }
-        if (storedDraft !== null) await clearJournalDraft(userId, localDate);
         await importLegacy({});
+        const { drafts, storageWarning } = await listJournalDrafts(userId);
+        if (storageWarning && active) Alert.alert('Journal drafts recovered', storageWarning);
+        for (const draft of drafts) {
+          if (!active) return;
+          await importOfflineDraft({ sourceUserId: userId, localDate: draft.localDate, timeZone, body: draft.journal, draftUpdatedAt: draft.updatedAt });
+          await clearJournalDraft(userId, draft.localDate, draft);
+        }
       } catch (error) {
         if (active) {
           Alert.alert(
             'Journal migration paused',
             error instanceof Error
               ? error.message
-              : 'Your existing reflections are still safe. Try opening Journal again.',
+              : 'Your existing reflections are still safe.',
+            [{ text: 'Later', style: 'cancel' }, { text: 'Try again', onPress: () => setMigrationAttempt(value => value + 1) }],
           );
         }
       } finally {
-        if (active) setImporting(false);
+        if (active) setFinishedMigrationKey(migrationKey);
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [
-    createDraft,
-    importLegacy,
-    isConvexAuthenticated,
-    localDate,
-    timeZone,
-    todayHealth,
-    updateEntry,
-    userId,
-  ]);
+  }, [importLegacy, importOfflineDraft, isConvexAuthenticated, migrationKey, timeZone, userId]);
 
   const visibleEntries = deferredSearch
     ? searchResults
@@ -219,7 +200,7 @@ export function JournalScreen() {
       flag: 'isPinned' | 'isFavorite',
     ) => {
       try {
-        await updateEntry({ entryId: entry.id, [flag]: !entry[flag] });
+        await updateEntry({ entryId: entry.id, expectedUpdatedAt: entry.updatedAt, [flag]: !entry[flag] });
         if (process.env.EXPO_OS === 'ios') {
           void Haptics.selectionAsync();
         }
@@ -241,7 +222,7 @@ export function JournalScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            void removeEntry({ entryId: entry.id }).catch((cause: unknown) => {
+            void removeEntry({ entryId: entry.id }).then(() => { if (userId) clearJournalEditorDrafts(userId, entry.id); }).catch((cause: unknown) => {
               Alert.alert(
                 'Could not delete this entry',
                 cause instanceof Error ? cause.message : undefined,
@@ -251,7 +232,7 @@ export function JournalScreen() {
         },
       ]);
     },
-    [removeEntry],
+    [removeEntry, userId],
   );
 
   const loading = !isConvexAuthenticated || visibleEntries === undefined || importing;

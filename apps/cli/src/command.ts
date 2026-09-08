@@ -1,3 +1,4 @@
+import { isValidImessageAddress, normalizeImessageAddress } from '@beegreat/tool-presentation';
 export type BeeCommand =
   | { kind: "ask"; prompt: string }
   | { kind: "chat" }
@@ -61,8 +62,11 @@ export function parseCommand(args: string[]): BeeCommand {
         "`bee imessage disconnect` accepts at most one address."
       );
     }
-    const address = imessageArgs[0]?.trim();
-    if (address) return { kind: "imessage", action, address };
+    const address = imessageArgs[0];
+    if (address !== undefined) {
+      if (!isValidImessageAddress(address)) throw new Error('Enter a valid phone number or email address to disconnect.');
+      return { kind: "imessage", action, address: normalizeImessageAddress(address) };
+    }
     return { kind: "imessage", action };
   }
   if (command === "help" || command === "--help" || command === "-h") {

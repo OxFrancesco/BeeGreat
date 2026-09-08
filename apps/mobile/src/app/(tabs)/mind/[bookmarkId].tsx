@@ -40,6 +40,7 @@ export default function BookmarkDetailScreen() {
   const id = bookmarkId as Id<'bookmarks'>;
   const bookmark = useQuery(api.bookmarks.get, { bookmarkId: id });
   const updateBookmark = useMutation(api.bookmarks.update);
+  const changeLabel = useMutation(api.bookmarks.changeLabel);
   const removeBookmark = useMutation(api.bookmarks.remove);
   const retryBookmark = useMutation(api.bookmarks.retry);
   const theme = useTheme();
@@ -50,6 +51,7 @@ export default function BookmarkDetailScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   const dirty = useRef(false);
+  const draftRevision = useRef(0);
 
   useEffect(() => {
     if (!bookmark || dirty.current) return;
@@ -80,14 +82,17 @@ export default function BookmarkDetailScreen() {
 
   const saveMetadata = async () => {
     if (!hasEdits || isSaving) return;
+    const revision = draftRevision.current;
     setIsSaving(true);
     try {
       const updated = await updateBookmark({ bookmarkId: bookmark._id, title, note });
-      setTitle(updated.title ?? '');
-      setNote(updated.note ?? '');
-      dirty.current = false;
+      if (draftRevision.current === revision) {
+        setTitle(updated.title ?? '');
+        setNote(updated.note ?? '');
+        dirty.current = false;
+      }
       if (process.env.EXPO_OS === 'ios') {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
     } catch (error) {
       Alert.alert('Could not save changes', error instanceof Error ? error.message : undefined);
@@ -96,9 +101,9 @@ export default function BookmarkDetailScreen() {
     }
   };
 
-  const updateLabels = async (labels: string[]) => {
+  const updateLabels = async (label: string, operation: 'add' | 'remove') => {
     try {
-      await updateBookmark({ bookmarkId: bookmark._id, labels });
+      await changeLabel({ bookmarkId: bookmark._id, label, operation });
     } catch (error) {
       Alert.alert('Could not update labels', error instanceof Error ? error.message : undefined);
     }
@@ -111,7 +116,7 @@ export default function BookmarkDetailScreen() {
       return;
     }
     setNewLabel('');
-    void updateLabels([...bookmark.labels, label]);
+    void updateLabels(label, 'add');
   };
 
   const retry = async () => {
@@ -182,6 +187,7 @@ export default function BookmarkDetailScreen() {
             multiline
             onChangeText={(value) => {
               dirty.current = true;
+              draftRevision.current += 1;
               setTitle(value);
             }}
             placeholder={isWorking ? 'Gathering this thought…' : displayHost(bookmark.url)}
@@ -234,7 +240,7 @@ export default function BookmarkDetailScreen() {
                 key={label}
                 accessibilityRole="button"
                 accessibilityLabel={`Remove label ${label}`}
-                onPress={() => void updateLabels(bookmark.labels.filter((item) => item !== label))}
+                onPress={() => void updateLabels(label, 'remove')}
                 style={({ pressed }) => [
                   styles.label,
                   { backgroundColor: theme.secondary },
@@ -276,6 +282,7 @@ export default function BookmarkDetailScreen() {
             multiline
             onChangeText={(value) => {
               dirty.current = true;
+              draftRevision.current += 1;
               setNote(value);
             }}
             placeholder="Add why this matters to you…"

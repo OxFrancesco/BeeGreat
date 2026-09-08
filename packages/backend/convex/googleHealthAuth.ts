@@ -1,7 +1,6 @@
 import { v } from 'convex/values'
 import {
   internalMutation,
-  internalQuery,
   mutation,
   query,
 } from './_generated/server'
@@ -53,6 +52,7 @@ export const status = query({
 export const createSession = internalMutation({
   args: {
     userId: v.string(),
+    client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))),
     stateHash: v.string(),
     encryptedCodeVerifier: encryptedSecretValidator,
     expiresAt: v.number(),
@@ -83,13 +83,14 @@ export const createSession = internalMutation({
   },
 })
 
-export const getSessionByStateHash = internalQuery({
-  args: { stateHash: v.string() },
+export const claimSessionByStateHash = internalMutation({
+  args: { stateHash: v.string(), userId: v.string(), attemptId: v.string() },
   returns: v.union(
     v.null(),
     v.object({
       sessionId: v.id('googleHealthAuthSessions'),
       userId: v.string(),
+      client: v.union(v.literal('mobile'), v.literal('browser')),
       status: v.string(),
       encryptedCodeVerifier: v.optional(encryptedSecretValidator),
       expiresAt: v.number(),
@@ -100,10 +101,13 @@ export const getSessionByStateHash = internalQuery({
       .query('googleHealthAuthSessions')
       .withIndex('by_state_hash', (q) => q.eq('stateHash', args.stateHash))
       .unique()
-    if (!session) return null
+    if (!session || session.userId !== args.userId || session.status !== 'pending' ||
+      session.expiresAt <= Date.now() || session.exchangeAttemptId) return null
+    await ctx.db.patch('googleHealthAuthSessions', session._id, { exchangeAttemptId: args.attemptId })
     return {
       sessionId: session._id,
       userId: session.userId,
+      client: session.client ?? 'mobile',
       status: session.status,
       encryptedCodeVerifier: session.encryptedCodeVerifier,
       expiresAt: session.expiresAt,
@@ -114,6 +118,7 @@ export const getSessionByStateHash = internalQuery({
 export const completeAuthorization = internalMutation({
   args: {
     sessionId: v.id('googleHealthAuthSessions'),
+    attemptId: v.string(),
     encryptedAccess: encryptedSecretValidator,
     encryptedRefresh: encryptedSecretValidator,
     expiresAt: v.number(),
@@ -125,6 +130,7 @@ export const completeAuthorization = internalMutation({
     if (
       !session ||
       session.status !== 'pending' ||
+      session.exchangeAttemptId !== args.attemptId ||
       session.expiresAt <= Date.now()
     )
       return false
@@ -161,14 +167,14 @@ export const completeAuthorization = internalMutation({
 })
 
 export const failSession = internalMutation({
-  args: { stateHash: v.string(), errorCode: v.string() },
+  args: { stateHash: v.string(), errorCode: v.string(), attemptId: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await ctx.db
       .query('googleHealthAuthSessions')
       .withIndex('by_state_hash', (q) => q.eq('stateHash', args.stateHash))
       .unique()
-    if (session?.status === 'pending') {
+    if (session?.status === 'pending' && session.exchangeAttemptId === args.attemptId) {
       await ctx.db.patch('googleHealthAuthSessions', session._id, {
         status: session.expiresAt <= Date.now() ? 'expired' : 'failed',
         encryptedCodeVerifier: undefined,
@@ -242,14 +248,14 @@ export const claimCredential = internalMutation({
         expiresAt: credential.expiresAt,
       }
     }
-    if (
-      credential.refreshLeaseId &&
-      credential.refreshLeaseExpiresAt &&
-      credential.refreshLeaseExpiresAt > args.now
-    ) {
+    if (credential.refreshLeaseId) {
+      if (!credential.refreshLeaseExpiresAt || credential.refreshLeaseExpiresAt <= args.now) {
+        await ctx.db.patch('googleHealthCredentials', credential._id, { status: 'needs_reauth' })
+        return { status: 'reauth' as const }
+      }
       return {
         status: 'busy' as const,
-        retryAfterMs: credential.refreshLeaseExpiresAt - args.now,
+        retryAfterMs: Math.max(250, credential.refreshLeaseExpiresAt - args.now),
       }
     }
     await ctx.db.patch('googleHealthCredentials', credential._id, {
@@ -296,7 +302,7 @@ export const finishRefresh = internalMutation({
 })
 
 export const failRefresh = internalMutation({
-  args: { userId: v.string(), leaseId: v.string(), permanent: v.boolean() },
+  args: { userId: v.string(), leaseId: v.string(), uncertain: v.optional(v.boolean()), permanent: v.boolean() },
   returns: v.null(),
   handler: async (ctx, args) => {
     const credential = await ctx.db
@@ -311,8 +317,8 @@ export const failRefresh = internalMutation({
         ? undefined
         : credential.encryptedRefresh,
       expiresAt: args.permanent ? undefined : credential.expiresAt,
-      refreshLeaseId: undefined,
-      refreshLeaseExpiresAt: undefined,
+      refreshLeaseId: args.uncertain ? credential.refreshLeaseId : undefined,
+      refreshLeaseExpiresAt: args.uncertain ? credential.refreshLeaseExpiresAt : undefined,
       updatedAt: Date.now(),
     })
     return null

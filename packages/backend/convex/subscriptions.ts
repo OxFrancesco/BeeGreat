@@ -55,6 +55,7 @@ async function subscriptionStatus(
   const activeRows = rows.filter(
     (row) =>
       row.active &&
+      !(latestCheck && !latestCheck.active && (latestCheck.observedAt ?? latestCheck.checkedAt) >= row.latestEventTimestampMs) &&
       row.productId === REVENUECAT_MONTHLY_PRODUCT_ID &&
       row.expiresAt > now,
   )
@@ -426,6 +427,11 @@ export const applyRevenueCatEvent = internalMutation({
       return await recordReceipt('ignored', 'missing_expiration')
     }
     const userId = args.appUserId
+    const latestObservation = await ctx.db.query('subscriptionStatusChecks')
+      .withIndex('by_user', q => q.eq('userId', userId)).first()
+    if (latestObservation && args.eventTimestampMs <= (latestObservation.observedAt ?? latestObservation.checkedAt)) {
+      return await recordReceipt('stale', 'superseded_by_rest_observation')
+    }
     const environment = args.environment
     const productId = args.productId
     const periodStartedAt = args.purchasedAtMs

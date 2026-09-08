@@ -30,16 +30,11 @@ Sentry.init({
   environment,
   sendDefaultPii: false,
   beforeSend: sanitizeSentryEvent,
+  beforeSendTransaction: sanitizeSentryEvent,
   beforeBreadcrumb: sanitizeSentryBreadcrumb,
   initialScope: { tags: { service: 'mobile-app' } },
   integrations: [
     sentryNavigationIntegration,
-    Sentry.mobileReplayIntegration({
-      maskAllText: true,
-      maskAllImages: true,
-      maskAllVectors: true,
-      screenshotStrategy: 'canvas',
-    }),
   ],
   attachStacktrace: true,
   attachScreenshot: false,
@@ -56,7 +51,7 @@ Sentry.init({
   tracesSampleRate: __DEV__ ? 1 : 0.2,
   profilesSampleRate: __DEV__ ? 0 : 0.1,
   replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: 1,
+  replaysOnErrorSampleRate: 0,
   tracePropagationTargets,
   maxBreadcrumbs: 75,
 });

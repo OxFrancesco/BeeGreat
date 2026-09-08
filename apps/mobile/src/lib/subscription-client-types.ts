@@ -28,11 +28,13 @@ export interface SubscriptionClient {
   connect(input: {
     appUserId: string;
     apiKey: string;
+    leaseId: symbol;
   }): Promise<SubscriptionSnapshot>;
-  disconnect(appUserId: string): void;
+  disconnect(appUserId: string, leaseId: symbol): void;
   subscribe(
     appUserId: string,
     listener: (snapshot: SubscriptionSnapshot) => void,
+    leaseId: symbol,
   ): () => void;
   refresh(): Promise<SubscriptionSnapshot>;
   purchaseMonthly(): Promise<PurchaseOutcome>;

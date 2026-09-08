@@ -63,15 +63,16 @@ describe('account-deletion resume identity binding', () => {
     ).toBe('wait');
   });
 
-  test('cancels a prepared record only for the same identified user', () => {
+  test('never cancels a prepared or uncertain attempt during resume', () => {
     const prepared = { ...currentRecord, phase: 'prepared' as const };
     expect(pendingDeletionResumeDecision(prepared, 'user_owner')).toBe(
-      'cancel_same_user',
+      'wait',
     );
     expect(pendingDeletionResumeDecision(prepared, 'user_different')).toBe(
       'wait',
     );
     expect(pendingDeletionResumeDecision(prepared, null)).toBe('wait');
+    expect(pendingDeletionResumeDecision({ ...prepared, phase: 'identity_deleting' }, 'user_owner')).toBe('wait');
   });
 
   test('migrates legacy records without ever signing out a loaded user', () => {
@@ -91,7 +92,7 @@ describe('account-deletion resume identity binding', () => {
         { ...legacyDeleted, phase: 'prepared' },
         'user_possible_owner',
       ),
-    ).toBe('cancel_legacy_if_owner');
+    ).toBe('wait');
   });
 
   test('selects only the active session owned by the deleted Clerk user', () => {

@@ -31,6 +31,7 @@ const journalEntries = {
     'mutation',
     {
       entryId: Id<'journalEntries'>
+      expectedUpdatedAt: number
       title?: string
       body?: string
       tags?: string[]
@@ -114,12 +115,12 @@ describe('Journal entries', () => {
     })
 
     const morning = await owner.mutation(journalEntries.update, {
-      entryId: morningDraft.id,
+      entryId: morningDraft.id, expectedUpdatedAt: morningDraft.updatedAt,
       title: 'A quiet start',
       body: 'Coffee on the balcony before the city woke up.',
     })
     const evening = await owner.mutation(journalEntries.update, {
-      entryId: eveningDraft.id,
+      entryId: eveningDraft.id, expectedUpdatedAt: eveningDraft.updatedAt,
       body: 'Dinner with people I want to remember.',
       isFavorite: true,
     })
@@ -146,7 +147,7 @@ describe('Journal entries', () => {
       occurredAt: Date.UTC(2026, 6, 19, 12),
     })
     const saved = await owner.mutation(journalEntries.update, {
-      entryId: draft.id,
+      entryId: draft.id, expectedUpdatedAt: draft.updatedAt,
       body: 'Only I should be able to read this.',
     })
 
@@ -154,7 +155,7 @@ describe('Journal entries', () => {
     expect(await other.query(journalEntries.get, { entryId: saved.id })).toBeNull()
     await expect(
       other.mutation(journalEntries.update, {
-        entryId: saved.id,
+        entryId: saved.id, expectedUpdatedAt: saved.updatedAt,
         isPinned: true,
       }),
     ).rejects.toThrow(/not found/i)
@@ -187,17 +188,17 @@ describe('Journal entries', () => {
     })
     const privateDraft = await other.mutation(journalEntries.createDraft, base)
     const dinner = await owner.mutation(journalEntries.update, {
-      entryId: dinnerDraft.id,
+      entryId: dinnerDraft.id, expectedUpdatedAt: dinnerDraft.updatedAt,
       title: 'Sunday dinner',
       body: 'Fresh pasta with everyone around the table.',
     })
     await owner.mutation(journalEntries.update, {
-      entryId: walkDraft.id,
+      entryId: walkDraft.id, expectedUpdatedAt: walkDraft.updatedAt,
       title: 'Evening walk',
       body: 'The streets were unusually quiet.',
     })
     await other.mutation(journalEntries.update, {
-      entryId: privateDraft.id,
+      entryId: privateDraft.id, expectedUpdatedAt: privateDraft.updatedAt,
       title: 'Private pasta recipe',
     })
 
@@ -216,7 +217,7 @@ describe('Journal entries', () => {
       occurredAt: Date.UTC(2026, 6, 19, 12),
     })
     const moved = await owner.mutation(journalEntries.update, {
-      entryId: draft.id,
+      entryId: draft.id, expectedUpdatedAt: draft.updatedAt,
       body: 'A train crossed the coast at sunset.',
       tags: [' Travel ', 'train ride', 'travel'],
       localDate: '2026-07-18',
@@ -239,7 +240,7 @@ describe('Journal entries', () => {
 
     await expect(
       owner.mutation(journalEntries.update, {
-        entryId: draft.id,
+        entryId: draft.id, expectedUpdatedAt: moved.updatedAt,
         localDate: '2026-07-17',
       }),
     ).rejects.toThrow(/must match occurredAt/i)
@@ -266,10 +267,25 @@ describe('Journal entries', () => {
       throughDate: '2026-07-19',
     })
     expect(timeline).toHaveLength(1)
+    await owner.mutation(journalEntries.update, { entryId: timeline[0].id, expectedUpdatedAt: timeline[0].updatedAt, body: 'Edited after import' })
+    await owner.mutation(journalEntries.remove, { entryId: timeline[0].id })
+    expect(await owner.mutation(journalEntries.importLegacy, {})).toEqual({ imported: 0 })
+    expect(await owner.query(journalEntries.listRecent, { limit: 20, throughDate: '2026-07-19' })).toEqual([])
     expect(timeline[0]).toMatchObject({
       localDate: '2026-07-18',
       title: '',
       body: 'A reflection written before the journal timeline existed.',
     })
   })
+})
+
+test('only one concurrent journal writer can commit the same revision', async () => {
+  const t = convexTest(schema, modules)
+  const owner = t.withIdentity(identity('journal-concurrency'))
+  const draft = await owner.mutation(journalEntries.createDraft, { localDate: '2026-09-08', timeZone: 'UTC', occurredAt: Date.parse('2026-09-08T12:00:00Z') })
+  const results = await Promise.allSettled(['First device', 'Second device'].map(body => owner.mutation(journalEntries.update, { entryId: draft.id, expectedUpdatedAt: draft.updatedAt, body })))
+  expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1)
+  expect(results.filter(result => result.status === 'rejected')).toHaveLength(1)
+  const current = await owner.query(journalEntries.get, { entryId: draft.id })
+  expect(current!.updatedAt).toBeGreaterThan(draft.updatedAt)
 })

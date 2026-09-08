@@ -189,3 +189,18 @@ describe('public profiles', () => {
     ).rejects.toThrow('valid HTTPS URL')
   })
 })
+
+test('handle churn is throttled and expired aliases can be claimed by another owner', async () => {
+  const t = convexTest(schema, modules)
+  const owner = t.withIdentity(identity('rename-owner'))
+  const other = t.withIdentity(identity('rename-other'))
+  await owner.mutation(publicProfiles.ensureMine, { displayName: 'Owner', suggestedHandle: 'original-name' })
+  await owner.mutation(publicProfiles.saveMine, { handle: 'second-name', displayName: 'Owner', published: true, links: [] })
+  await expect(owner.mutation(publicProfiles.saveMine, { handle: 'third-name', displayName: 'Owner', published: true, links: [] })).rejects.toThrow(/7 days/)
+  await t.run(async ctx => {
+    const alias = await ctx.db.query('publicProfileAliases').first()
+    await ctx.db.patch(alias!._id, { createdAt: Date.now() - 31 * 24 * 60 * 60 * 1000 })
+  })
+  expect(await t.query(publicProfiles.byHandle, { handle: 'original-name' })).toBeNull()
+  expect(await other.mutation(publicProfiles.saveMine, { handle: 'original-name', displayName: 'Other', published: true, links: [] })).toMatchObject({ handle: 'original-name' })
+})

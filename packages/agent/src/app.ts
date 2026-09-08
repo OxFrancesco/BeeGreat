@@ -82,6 +82,7 @@ export default Sentry.withSentry<Bindings>((env) => {
     release: binding(env, 'SENTRY_RELEASE'),
     sendDefaultPii: false,
     beforeSend: sanitizeSentryEvent,
+  beforeSendTransaction: sanitizeSentryEvent,
     beforeBreadcrumb: sanitizeSentryBreadcrumb,
     initialScope: { tags: { service: 'agent-worker' } },
     tracesSampleRate: 0.2,

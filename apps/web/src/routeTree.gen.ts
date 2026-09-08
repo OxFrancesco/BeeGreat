@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ReviewRouteImport } from './routes/review'
 import { Route as EvmWalletRouteImport } from './routes/evm-wallet'
+import { Route as ConnectCallbackRouteImport } from './routes/connect-callback'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TapPublicIdRouteImport } from './routes/tap/$publicId'
@@ -32,9 +34,19 @@ import { Route as AppGoalsGoalIdRouteImport } from './routes/_app/goals/$goalId'
 import { Route as AppHealthJournalIndexRouteImport } from './routes/_app/health/journal/index'
 import { Route as AppHealthJournalEntryIdRouteImport } from './routes/_app/health/journal/$entryId'
 
+const ReviewRoute = ReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EvmWalletRoute = EvmWalletRouteImport.update({
   id: '/evm-wallet',
   path: '/evm-wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectCallbackRoute = ConnectCallbackRouteImport.update({
+  id: '/connect-callback',
+  path: '/connect-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -144,7 +156,9 @@ const AppHealthJournalEntryIdRoute = AppHealthJournalEntryIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/connect-callback': typeof ConnectCallbackRoute
   '/evm-wallet': typeof EvmWalletRoute
+  '/review': typeof ReviewRoute
   '/bee': typeof AppBeeRoute
   '/health': typeof AppHealthRouteWithChildren
   '/hive': typeof AppHiveRoute
@@ -167,7 +181,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/connect-callback': typeof ConnectCallbackRoute
   '/evm-wallet': typeof EvmWalletRoute
+  '/review': typeof ReviewRoute
   '/bee': typeof AppBeeRoute
   '/hive': typeof AppHiveRoute
   '/jobs': typeof AppJobsRoute
@@ -191,7 +207,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/connect-callback': typeof ConnectCallbackRoute
   '/evm-wallet': typeof EvmWalletRoute
+  '/review': typeof ReviewRoute
   '/_app/bee': typeof AppBeeRoute
   '/_app/health': typeof AppHealthRouteWithChildren
   '/_app/hive': typeof AppHiveRoute
@@ -216,7 +234,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/connect-callback'
     | '/evm-wallet'
+    | '/review'
     | '/bee'
     | '/health'
     | '/hive'
@@ -239,7 +259,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/connect-callback'
     | '/evm-wallet'
+    | '/review'
     | '/bee'
     | '/hive'
     | '/jobs'
@@ -262,7 +284,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/connect-callback'
     | '/evm-wallet'
+    | '/review'
     | '/_app/bee'
     | '/_app/health'
     | '/_app/hive'
@@ -287,7 +311,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  ConnectCallbackRoute: typeof ConnectCallbackRoute
   EvmWalletRoute: typeof EvmWalletRoute
+  ReviewRoute: typeof ReviewRoute
   ConnectProviderRoute: typeof ConnectProviderRoute
   LinkImessageRoute: typeof LinkImessageRoute
   TapPublicIdRoute: typeof TapPublicIdRoute
@@ -295,11 +321,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/review': {
+      id: '/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof ReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/evm-wallet': {
       id: '/evm-wallet'
       path: '/evm-wallet'
       fullPath: '/evm-wallet'
       preLoaderRoute: typeof EvmWalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect-callback': {
+      id: '/connect-callback'
+      path: '/connect-callback'
+      fullPath: '/connect-callback'
+      preLoaderRoute: typeof ConnectCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app': {
@@ -505,7 +545,9 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  ConnectCallbackRoute: ConnectCallbackRoute,
   EvmWalletRoute: EvmWalletRoute,
+  ReviewRoute: ReviewRoute,
   ConnectProviderRoute: ConnectProviderRoute,
   LinkImessageRoute: LinkImessageRoute,
   TapPublicIdRoute: TapPublicIdRoute,

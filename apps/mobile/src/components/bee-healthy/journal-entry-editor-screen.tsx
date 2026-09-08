@@ -1,20 +1,20 @@
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import {
-  compareDrafts,
+  JournalSession,
   formatSaveState,
-  type JournalDraft,
   type JournalSaveState,
 } from '@beegreat/tool-presentation';
-import { useMutation, useQuery } from 'convex/react';
-import type { FunctionArgs } from 'convex/server';
+import { useConvex, useMutation, useQuery } from 'convex/react';
+import { useAuth } from '@clerk/clerk-expo';
 import * as Haptics from 'expo-haptics';
 import { Image as ExpoImage } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { usePreventRemove } from 'expo-router/react-navigation';
+import { clearJournalEditorDrafts, journalEditorStorage } from '@/lib/journal-editor-storage';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { z } from 'zod';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ComponentProps } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -48,7 +48,6 @@ const BODY_MAX_LENGTH = 50_000;
 const TITLE_MAX_LENGTH = 160;
 const AUTOSAVE_DELAY_MS = 650;
 
-const photoUploadResponseSchema = z.object({ storageId: z.string() });
 
 const PROMPTS = {
   awful: 'What would make today feel one percent gentler?',
@@ -60,11 +59,11 @@ const PROMPTS = {
 } satisfies Record<Mood | 'unselected', string>;
 
 // Draft comparison and save-state copy are shared with the web editor.
-type Draft = JournalDraft;
 type SaveState = JournalSaveState;
 
 export function JournalEntryEditorScreen() {
   const theme = useTheme();
+  const { getToken, userId } = useAuth();
   const { entryId: routeEntryId } = useLocalSearchParams<{ entryId: string }>();
   // SAFETY: This screen is only reached through links built from a Convex
   // journal entry document (`/journal-entry/${entry.id}`), so the route param
@@ -72,9 +71,7 @@ export function JournalEntryEditorScreen() {
   const entryId = routeEntryId as Id<'journalEntries'>;
   const entry = useQuery(api.journalEntries.get, entryId ? { entryId } : 'skip');
   const updateEntry = useMutation(api.journalEntries.update);
-  const removeEntry = useMutation(api.journalEntries.remove);
   const generatePhotoUploadUrl = useMutation(api.journalEntries.generatePhotoUploadUrl);
-  const addPhoto = useMutation(api.journalEntries.addPhoto);
   const removePhoto = useMutation(api.journalEntries.removePhoto);
   const photos = useQuery(
     api.journalEntries.listPhotos,
@@ -85,9 +82,20 @@ export function JournalEntryEditorScreen() {
     entry ? { localDate: entry.localDate } : 'skip',
   );
 
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
+  const convex = useConvex();
+  const navigation = useNavigation();
+  const session = useMemo(() => new JournalSession({
+    persist: (draft, expectedUpdatedAt) => updateEntry({ entryId, expectedUpdatedAt, ...draft }),
+    load: () => convex.query(api.journalEntries.get, { entryId }),
+    storage: journalEditorStorage(userId ?? '', entryId),
+  }), [convex, entryId, updateEntry, userId]);
+  const editor = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
+  const { title, body, tags } = editor.draft;
+  const saveState = editor.status;
+  const setTitle = (title: string) => session.edit({ title });
+  const setBody = (body: string) => session.edit({ body });
+  const setTags = useCallback((value: string[] | ((tags: string[]) => string[])) => session.edit({ tags: typeof value === 'function' ? value(session.getSnapshot().draft.tags) : value }), [session]);
+  const save = useCallback(() => session.save(), [session]);
   const [tagInput, setTagInput] = useState('');
   const [photoUploading, setPhotoUploading] = useState(false);
   const [dateEditing, setDateEditing] = useState(false);
@@ -97,95 +105,30 @@ export function JournalEntryEditorScreen() {
   const monthDays = useQuery(api.journalEntries.listMonth, {
     monthStart: calendarMonth,
   });
-  const [saveState, setSaveState] = useState<SaveState>('loading');
-  const hydratedEntryId = useRef<string | null>(null);
-  const latestDraft = useRef<Draft>({ title: '', body: '', tags: [] });
-  const persistedDraft = useRef<Draft>({ title: '', body: '', tags: [] });
-  const saveGeneration = useRef(0);
+  useEffect(() => {
+    if (entry) session.receive(entry);
+    else if (entry === null && userId) { clearJournalEditorDrafts(userId, entryId); session.discard(); }
+  }, [entry, entryId, session, userId]);
 
   useEffect(() => {
-    latestDraft.current = { title, body, tags };
-  }, [body, tags, title]);
-
-  useEffect(() => {
-    if (!entry) return;
-    persistedDraft.current = { title: entry.title, body: entry.body, tags: entry.tags };
-    if (hydratedEntryId.current === entry.id) return;
-    hydratedEntryId.current = entry.id;
-    latestDraft.current = { title: entry.title, body: entry.body, tags: entry.tags };
-    setTitle(entry.title);
-    setBody(entry.body);
-    setTags(entry.tags);
-    setCalendarMonth(monthStartForDate(entry.localDate));
-    setSaveState('saved');
-  }, [entry]);
-
-  const save = useCallback(
-    async (snapshot = latestDraft.current) => {
-      if (!entryId || hydratedEntryId.current !== entryId) return false;
-      if (compareDrafts(snapshot, persistedDraft.current)) {
-        setSaveState('saved');
-        return true;
-      }
-
-      const generation = ++saveGeneration.current;
-      setSaveState('saving');
-      try {
-        const updated = await updateEntry({
-          entryId,
-          title: snapshot.title,
-          body: snapshot.body,
-          tags: snapshot.tags,
-        });
-        persistedDraft.current = {
-          title: updated.title,
-          body: updated.body,
-          tags: updated.tags,
-        };
-        if (generation === saveGeneration.current) {
-          setSaveState(compareDrafts(latestDraft.current, snapshot) ? 'saved' : 'unsaved');
-        }
-        return true;
-      } catch {
-        if (generation === saveGeneration.current) setSaveState('error');
-        return false;
-      }
-    },
-    [entryId, updateEntry],
-  );
-
-  useEffect(() => {
-    if (!entry || hydratedEntryId.current !== entry.id) return;
-    const snapshot = { title, body, tags };
-    if (compareDrafts(snapshot, persistedDraft.current)) {
-      setSaveState('saved');
-      return;
-    }
-    setSaveState('unsaved');
-    const timer = setTimeout(() => {
-      void save(snapshot);
-    }, AUTOSAVE_DELAY_MS);
+    if (editor.status !== 'unsaved') return;
+    const timer = setTimeout(() => { void session.save(); }, AUTOSAVE_DELAY_MS);
     return () => clearTimeout(timer);
-  }, [body, entry, save, tags, title]);
+  }, [editor.draft, editor.status, session]);
+
+  usePreventRemove(true, ({ data }) => {
+    void session.save().then(saved => {
+      if (saved || !session.getSnapshot().dirty) navigation.dispatch(data.action);
+      else Alert.alert('This entry is not saved yet', 'Keep editing to resolve changes or try saving again.', [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Leave without saving', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+      ]);
+    });
+  });
 
   const closeEditor = useCallback(async () => {
-    const snapshot = latestDraft.current;
-    if (!snapshot.title.trim() && !snapshot.body.trim() && !(photos?.length ?? 0)) {
-      try {
-        await removeEntry({ entryId });
-      } catch {
-        // Blank drafts never appear in the timeline and can be safely retried later.
-      }
-      router.back();
-      return;
-    }
-
-    const saved = await save(snapshot);
-    if (!saved) {
-      Alert.alert(
-        'This entry is not saved yet',
-        'Keep this screen open and try again when your connection returns.',
-      );
+    if (!(await session.save())) {
+      Alert.alert('This entry is not saved yet', 'Resolve changes or try saving again before closing.');
       return;
     }
     if (process.env.EXPO_OS === 'ios') {
@@ -193,7 +136,7 @@ export function JournalEntryEditorScreen() {
       AccessibilityInfo.announceForAccessibility('Journal entry saved.');
     }
     router.back();
-  }, [entryId, photos?.length, removeEntry, save]);
+  }, [session]);
 
   const addTag = useCallback(() => {
     const tag = tagInput.trim().replace(/\s+/g, ' ');
@@ -211,7 +154,7 @@ export function JournalEntryEditorScreen() {
     }
     setTagInput('');
     if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync();
-  }, [tagInput, tags]);
+  }, [tagInput, tags, setTags]);
 
   const choosePhotos = useCallback(async () => {
     if (photoUploading || (photos?.length ?? 0) >= 10) return;
@@ -237,26 +180,19 @@ export function JournalEntryEditorScreen() {
       for (const asset of result.assets) {
         const mimeType = asset.mimeType ?? 'image/jpeg';
         const blob = await (await fetch(asset.uri)).blob();
-        const uploadUrl = await generatePhotoUploadUrl({});
-        const response = await fetch(uploadUrl, {
+        const uploadUrl = new URL(await generatePhotoUploadUrl({}));
+        uploadUrl.searchParams.set('entryId', entryId);
+        if (asset.fileName) uploadUrl.searchParams.set('fileName', asset.fileName);
+        uploadUrl.searchParams.set('width', String(asset.width));
+        uploadUrl.searchParams.set('height', String(asset.height));
+        const token = await getToken({ template: 'convex' });
+        if (!token) throw new Error('Sign in to upload a photo.');
+        const response = await fetch(uploadUrl.toString(), {
           method: 'POST',
-          headers: { 'Content-Type': mimeType },
+          headers: { 'Content-Type': mimeType, Authorization: `Bearer ${token}` },
           body: blob,
         });
-        if (!response.ok) throw new Error('The photo upload did not finish.');
-        const upload = photoUploadResponseSchema.parse(await response.json());
-        // SAFETY: Convex's generated upload URL responds with the id of the
-        // blob it stored, so the string is an Id<'_storage'>.
-        const storageId = upload.storageId as Id<'_storage'>;
-        const photoArgs: FunctionArgs<typeof api.journalEntries.addPhoto> = {
-          entryId,
-          storageId,
-          mimeType,
-          width: asset.width,
-          height: asset.height,
-        };
-        if (asset.fileName) photoArgs.fileName = asset.fileName;
-        await addPhoto(photoArgs);
+        if (!response.ok) throw new Error('The photo upload did not finish. Photos must be at most 10 MB.');
       }
       if (process.env.EXPO_OS === 'ios') {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -269,7 +205,7 @@ export function JournalEntryEditorScreen() {
     } finally {
       setPhotoUploading(false);
     }
-  }, [addPhoto, entryId, generatePhotoUploadUrl, photoUploading, photos?.length]);
+  }, [entryId, generatePhotoUploadUrl, getToken, photoUploading, photos?.length]);
 
   const confirmRemovePhoto = useCallback(
     (attachmentId: Id<'journalAttachments'>) => {
@@ -307,6 +243,7 @@ export function JournalEntryEditorScreen() {
       try {
         await updateEntry({
           entryId,
+          expectedUpdatedAt: entry.updatedAt,
           localDate: localDateKey(nextMoment),
           occurredAt: nextMoment.getTime(),
           timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || entry.timeZone,
@@ -324,8 +261,8 @@ export function JournalEntryEditorScreen() {
   );
 
   const shareEntry = useCallback(async () => {
-    const snapshot = latestDraft.current;
-    const saved = await save(snapshot);
+    const snapshot = session.getSnapshot().draft;
+    const saved = await save();
     if (!saved || !entry) return;
     await Share.share({
       message: journalShareText({
@@ -333,7 +270,7 @@ export function JournalEntryEditorScreen() {
         ...snapshot,
       }),
     });
-  }, [entry, save]);
+  }, [entry, save, session]);
 
   if (entry === undefined) {
     return (
@@ -635,7 +572,7 @@ export function JournalEntryEditorScreen() {
             <EditorAction
               icon={entry.isFavorite ? 'heart.fill' : 'heart'}
               label={entry.isFavorite ? 'Loved' : 'Favorite'}
-              onPress={() => void updateEntry({ entryId, isFavorite: !entry.isFavorite })}
+              onPress={() => void updateEntry({ entryId, expectedUpdatedAt: entry.updatedAt, isFavorite: !entry.isFavorite }).catch(() => Alert.alert('Could not update favorite', 'Try again with the latest entry.'))}
             />
             <EditorAction
               icon="square.and.arrow.up"
@@ -644,6 +581,11 @@ export function JournalEntryEditorScreen() {
             />
           </View>
 
+          {editor.error ? <ThemedText type="small" themeColor="destructive" accessibilityLiveRegion="polite">{editor.error}</ThemedText> : null}
+          {editor.status === 'conflict' ? <View style={styles.footer}>
+            <Pressable accessibilityRole="button" onPress={() => void session.resolve('reload')} style={styles.retryButton}><ThemedText type="smallBold">Reload saved entry</ThemedText></Pressable>
+            <Pressable accessibilityRole="button" onPress={() => void session.resolve('keep')} style={styles.retryButton}><ThemedText type="smallBold">Save my version</ThemedText></Pressable>
+          </View> : null}
           <View style={styles.footer}>
             <ThemedText selectable type="small" themeColor="textSecondary">
               {body.length.toLocaleString()} characters

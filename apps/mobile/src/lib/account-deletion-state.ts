@@ -5,7 +5,7 @@ const CLERK_USER_ID_PATTERN = /^user_[A-Za-z0-9]+$/;
 const pendingAccountDeletionSchema = z.object({
   jobId: z.string().min(1),
   activationToken: z.string().min(1),
-  phase: z.enum(['prepared', 'identity_deleted']),
+  phase: z.enum(['prepared', 'identity_deleting', 'identity_deleted']),
   /** Missing only on records written before deletion intents were user-bound. */
   clerkUserId: z.string().regex(CLERK_USER_ID_PATTERN).optional(),
 });
@@ -17,8 +17,6 @@ export type PendingAccountDeletionRecord = z.infer<
 export type PendingDeletionResumeDecision =
   | 'activate_anonymously'
   | 'activate_same_user'
-  | 'cancel_same_user'
-  | 'cancel_legacy_if_owner'
   | 'wait';
 
 /** Parses both current records and the pre-user-binding legacy shape. */
@@ -37,8 +35,8 @@ export function parsePendingAccountDeletion(
 
 /**
  * A capability is never resumed while a different Clerk user is active.
- * Legacy prepared records may ask the server to cancel: the authenticated
- * mutation itself proves ownership before changing anything.
+ * Prepared and uncertain identity-deletion records wait for the initiating
+ * client or the signed Clerk callback. Resuming never cancels another attempt.
  */
 export function pendingDeletionResumeDecision(
   pending: PendingAccountDeletionRecord,
@@ -55,11 +53,7 @@ export function pendingDeletionResumeDecision(
     return 'wait';
   }
 
-  if (currentClerkUserId === null) return 'wait';
-  if (pending.clerkUserId === undefined) return 'cancel_legacy_if_owner';
-  return pending.clerkUserId === currentClerkUserId
-    ? 'cancel_same_user'
-    : 'wait';
+  return 'wait';
 }
 
 /** Returns only the exact active session belonging to the deleted user. */

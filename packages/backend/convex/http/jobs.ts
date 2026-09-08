@@ -26,6 +26,13 @@ const JobDefinition = Schema.Struct({
   instruction: Schema.String,
   schedule: JobSchedule,
   delivery: JobDelivery,
+  web3GrantRequest: Schema.optional(Schema.Struct({
+    kind: Schema.Literal('aerodrome_pool'),
+    poolAddress: Schema.String,
+    allowedActions: Schema.mutable(Schema.Array(Schema.Literals([
+      'claim_emissions', 'claim_fees', 'deposit',
+    ]))),
+  })),
 })
 
 const JobIdField = Schema.Struct({ jobId: Schema.String })
@@ -86,6 +93,7 @@ export const jobsInternal = httpAction(async (ctx, request) => {
             instruction: definition.instruction,
             schedule: definition.schedule as never,
             delivery: definition.delivery as never,
+            web3GrantRequest: definition.web3GrantRequest,
           }),
           200,
         )

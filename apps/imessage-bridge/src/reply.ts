@@ -1,3 +1,4 @@
+import { recordDisplayedWeb3 } from './displayed-confirmations'
 // Formats Bee replies for iMessage and sends them: markdown body (optionally
 // with a confetti celebration effect) followed by rich links, re-projecting
 // any pending web3 confirmation against its current server-side status.
@@ -14,12 +15,13 @@ import type { AgentTransport } from './agent-transport'
 
 export type BeeReply = BeeResponseProjection
 
-export function replyForWeb3Action(action: Web3ActionProjection): BeeReply {
+export function replyForWeb3Action(action: Web3ActionProjection & { id?: string }): BeeReply {
   const projected = projectTextWeb3Action(action)
   return {
     spoken: '',
     markdown: projected.text,
     links: projected.links,
+    ...(projected.requiresTextConfirmation && action.id ? { web3Confirmation: { actionId: action.id, summary: action.summary } } : {}),
   }
 }
 
@@ -29,6 +31,7 @@ export async function sendReply(
   reply: BeeReply,
   userId: string,
   celebrate = false,
+  threadId?: number,
 ) {
   const currentWeb3 = reply.web3Confirmation
     ? await transport
@@ -52,6 +55,7 @@ export async function sendReply(
         : markdown(projected.markdown),
     )
   }
+  if (threadId !== undefined) recordDisplayedWeb3(userId, threadId, projected.web3Confirmation)
   for (const link of projected.links) {
     await space.send(richlink(link))
   }

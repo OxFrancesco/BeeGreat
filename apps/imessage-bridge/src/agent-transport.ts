@@ -10,6 +10,7 @@ const BEE_AGENT_NAME = 'bee'
 export type AgentTransportOptions = {
   agentUrl: string
   bridgeSecret: string
+  signal?: AbortSignal
 }
 
 /** Identifying fields of a first-focus preview echoed back on confirm/cancel. */
@@ -88,6 +89,7 @@ export function createAgentTransport(options: AgentTransportOptions) {
     body: ChannelActionBody,
   ): Promise<T> {
     const response = await fetch(`${agentUrl}/bridge/channel`, {
+      signal: options.signal,
       method: 'POST',
       headers: {
         ...bridgeHeaders,
@@ -121,6 +123,7 @@ export function createAgentTransport(options: AgentTransportOptions) {
     input: OutboxActionInput,
   ): Promise<T> {
     const response = await fetch(`${agentUrl}/bridge/outbox`, {
+      signal: options.signal,
       method: 'POST',
       headers: { ...bridgeHeaders, 'content-type': 'application/json' },
       body: JSON.stringify({ action, ...input }),
@@ -151,6 +154,7 @@ export function createAgentTransport(options: AgentTransportOptions) {
     mimeType: string,
   ) {
     const response = await fetch(`${agentUrl}/voice/transcribe`, {
+      signal: options.signal,
       method: 'POST',
       headers: {
         ...bridgeHeaders,
@@ -177,6 +181,7 @@ export function createAgentTransport(options: AgentTransportOptions) {
   }
 
   return {
+    signal: options.signal,
     clientFor,
     channelAction,
     outboxAction,

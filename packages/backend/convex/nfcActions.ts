@@ -207,6 +207,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     actionId: v.id('nfcActions'),
+    expectedUpdatedAt: v.number(),
     label: v.optional(v.string()),
     enabled: v.optional(v.boolean()),
     definition: v.optional(nfcActionDefinitionValidator),
@@ -215,9 +216,10 @@ export const update = mutation({
   handler: async (ctx, args) => {
     const { ownerKey } = await requireIdentity(ctx)
     const action = await findOwnedAction(ctx, args.actionId, ownerKey)
+    if (args.expectedUpdatedAt !== action.updatedAt) throw new ConvexError({ code: 'CONFLICT', message: 'This action changed elsewhere. Cancel and reopen Edit to load the saved settings.' })
     if (args.definition) validateDefinition(args.definition)
 
-    const patch: Partial<Doc<'nfcActions'>> = { updatedAt: Date.now() }
+    const patch: Partial<Doc<'nfcActions'>> = { updatedAt: Math.max(Date.now(), action.updatedAt + 1) }
     if (args.label !== undefined) patch.label = normalizeLabel(args.label)
     if (args.enabled !== undefined) patch.enabled = args.enabled
     if (args.definition !== undefined) patch.definition = args.definition

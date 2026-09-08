@@ -1,7 +1,7 @@
 import { questionAnswer } from '@beegreat/tool-presentation';
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -14,27 +14,36 @@ export function QuestionCard({
   questions,
   onReply,
 }: Extract<UIComponent, { type: 'question' }> & {
-  onReply?: (text: string) => void;
+  onReply?: (text: string) => void | Promise<void>;
 }) {
   const theme = useTheme();
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [sent, setSent] = useState(false);
-  const allOptionQuestionsAnswered =
-    questions.length > 1 &&
-    questions.every(
-      (question, index) => question.options?.length && answers[index],
-    );
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string>();
+  const inFlight = useRef(false);
+  const allQuestionsAnswered = questions.length > 0 && questions.every((_, index) => answers[index]?.trim());
 
-  const reply = (text: string) => {
-    if (!onReply || sent) return;
-    setSent(true);
-    onReply(text);
+  const reply = async (text: string) => {
+    if (!onReply || sending || sent || inFlight.current) return;
+    inFlight.current = true;
+    setSending(true);
+    setError(undefined);
+    try {
+      await onReply(text);
+      setSent(true);
+    } catch {
+      setError('Could not send your answer. Try again.');
+    } finally {
+      inFlight.current = false;
+      setSending(false);
+    }
   };
 
   const choose = (questionIndex: number, prompt: string, label: string) => {
-    if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
+    if (process.env.EXPO_OS === 'ios') void Haptics.selectionAsync().catch(() => {});
     if (questions.length === 1) {
-      reply(questionAnswer(prompt, label));
+      void reply(questionAnswer(prompt, label));
       return;
     }
     setAnswers((current) => ({ ...current, [questionIndex]: label }));
@@ -69,14 +78,14 @@ export function QuestionCard({
                     accessibilityRole="button"
                     accessibilityState={{
                       selected,
-                      disabled: !onReply || sent,
+                      disabled: !onReply || sending || sent,
                     }}
                     accessibilityLabel={
                       option.description
                         ? `${option.label}. ${option.description}`
                         : option.label
                     }
-                    disabled={!onReply || sent}
+                    disabled={!onReply || sending || sent}
                     onPress={() =>
                       choose(questionIndex, question.question, option.label)
                     }
@@ -101,19 +110,26 @@ export function QuestionCard({
                 );
               })}
             </View>
-          ) : null}
+          ) : <TextInput
+            accessibilityLabel={question.question}
+            value={answers[questionIndex] ?? ''}
+            onChangeText={(value) => setAnswers((current) => ({ ...current, [questionIndex]: value }))}
+            editable={!!onReply && !sending && !sent}
+            multiline
+            style={[styles.questionOption, { color: theme.text, borderColor: theme.border }]}
+          />}
         </View>
       ))}
-      {allOptionQuestionsAnswered ? (
+      {allQuestionsAnswered ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Submit answers"
-          disabled={!onReply || sent}
+          disabled={!onReply || sending || sent}
           onPress={() =>
-            reply(
+            void reply(
               questions
                 .map((question, index) =>
-                  questionAnswer(question.question, answers[index] ?? ''),
+                  questionAnswer(question.question, answers[index]?.trim() ?? ''),
                 )
                 .join('\n'),
             )
@@ -136,6 +152,7 @@ export function QuestionCard({
           {sent ? 'Answer sent.' : 'Or type your own answer below.'}
         </ThemedText>
       )}
+      {error ? <ThemedText accessibilityRole="alert" themeColor="destructive">{error}</ThemedText> : null}
     </Card>
   );
 }

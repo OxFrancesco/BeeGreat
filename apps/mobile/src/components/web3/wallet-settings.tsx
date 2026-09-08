@@ -253,7 +253,7 @@ export function WalletSettings() {
           </ThemedText>
         </View>
         {wallets.eoa ? (
-          sessionMatches ? (
+          <>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Unlink your wallet"
@@ -268,13 +268,14 @@ export function WalletSettings() {
                 Unlink
               </ThemedText>
             </Pressable>
-          ) : (
+          {!sessionMatches ? (
             <PrimaryAction
               disabled={working}
               label={working ? 'Opening…' : 'Reconnect'}
               onPress={() => void reconnect()}
             />
-          )
+          ) : null}
+          </>
         ) : (
           <PrimaryAction
             disabled={working}

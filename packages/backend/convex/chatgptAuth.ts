@@ -51,13 +51,7 @@ export const status = query({
     if (credential?.status === 'connected') {
       return { state: 'connected' as const, skipped }
     }
-    if (credential?.status === 'needs_reauth') {
-      return {
-        state: 'needs_reauth' as const,
-        skipped,
-        message: 'Your ChatGPT session expired. Connect it again.',
-      }
-    }
+
 
     const session = await ctx.db
       .query('chatgptAuthSessions')
@@ -65,8 +59,8 @@ export const status = query({
       .order('desc')
       .first()
 
-    if (!session) return { state: 'disconnected' as const, skipped }
-    if (session.status === 'starting') {
+
+    if (session?.status === 'starting') {
       return {
         state: 'starting' as const,
         skipped,
@@ -74,7 +68,7 @@ export const status = query({
         expiresAt: session.expiresAt,
       }
     }
-    if (session.status === 'pending') {
+    if (session?.status === 'pending') {
       return {
         state: 'pending' as const,
         skipped,
@@ -84,6 +78,14 @@ export const status = query({
         expiresAt: session.expiresAt,
       }
     }
+    if (credential?.status === 'needs_reauth') {
+      return {
+        state: 'needs_reauth' as const,
+        skipped,
+        message: 'Your ChatGPT session expired. Connect it again.',
+      }
+    }
+    if (!session) return { state: 'disconnected' as const, skipped }
     if (session.status === 'failed' || session.status === 'expired') {
       return {
         state: 'failed' as const,
@@ -411,11 +413,11 @@ export const claimCredential = internalMutation({
         expiresAt: credential.expiresAt,
       }
     }
-    if (
-      credential.refreshLeaseId &&
-      credential.refreshLeaseExpiresAt &&
-      credential.refreshLeaseExpiresAt > args.now
-    ) {
+    if (credential.refreshLeaseId) {
+      if (!credential.refreshLeaseExpiresAt || credential.refreshLeaseExpiresAt <= args.now) {
+        await ctx.db.patch('chatgptCredentials', credential._id, { status: 'needs_reauth' })
+        return { status: 'reauth' as const }
+      }
       return {
         status: 'busy' as const,
         retryAfterMs: Math.max(250, credential.refreshLeaseExpiresAt - args.now),
@@ -470,7 +472,7 @@ export const failRefresh = internalMutation({
   args: {
     userId: v.string(),
     leaseId: v.string(),
-    permanent: v.boolean(),
+    uncertain: v.optional(v.boolean()), permanent: v.boolean(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -485,8 +487,8 @@ export const failRefresh = internalMutation({
       encryptedAccess: args.permanent ? undefined : credential.encryptedAccess,
       encryptedRefresh: args.permanent ? undefined : credential.encryptedRefresh,
       expiresAt: args.permanent ? undefined : credential.expiresAt,
-      refreshLeaseId: undefined,
-      refreshLeaseExpiresAt: undefined,
+      refreshLeaseId: args.uncertain ? credential.refreshLeaseId : undefined,
+      refreshLeaseExpiresAt: args.uncertain ? credential.refreshLeaseExpiresAt : undefined,
       updatedAt: now,
     })
     return null

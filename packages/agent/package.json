@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@beegreat/observability": "workspace:*",
+    "@beegreat/tool-presentation": "workspace:*",
     "@cloudflare/sandbox": "0.12.4",
     "@earendil-works/pi-ai": "^0.83.0",
     "@flue/github": "2.0.3",

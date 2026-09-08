@@ -20,15 +20,15 @@ function requiredWorkerValue(name: string) {
 }
 
 export function channelSecret(name: string) {
-  // Channel packages validate options at module evaluation. A deterministic
-  // non-secret keeps local builds runnable; real deliveries cannot verify
-  // until the deployment supplies the documented secret.
-  return process.env[name]?.trim() || `unconfigured-${name.toLowerCase()}`
+  // Optional channels must remain importable without using a guessable key.
+  // The request gate rejects unconfigured channels before signature handling.
+  return process.env[name]?.trim() || `${crypto.randomUUID()}${crypto.randomUUID()}`
 }
 
 export async function claimBeennectorDelivery(input: {
   provider: BeennectorProvider
   deliveryId: string
+  message: { kind: 'signal'; type: string; body: string; attributes: Record<string, string> }
   actorId?: string
   workspaceId?: string
 }) {

@@ -12,6 +12,9 @@ export type Bindings = {
   ELEVENLABS_VOICE_ID?: string
   XAI_API_KEY?: string
   CLERK_JWT_ISSUER_DOMAIN: string
+  GITHUB_WEBHOOK_SECRET?: string
+  LINEAR_WEBHOOK_SECRET?: string
+  NOTION_VERIFICATION_TOKEN?: string
   BEE_CLERK_CLIENT_ID?: string
   CONVEX_URL?: string
   CONVEX_SITE_URL?: string

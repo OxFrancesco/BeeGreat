@@ -59,6 +59,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   let closed = false;
   const queue: string[] = [];
   let activePrompt: ActivePrompt | undefined;
+  let confirmationBarrier = false;
   let bootActive = false;
   let spinnerFrame = 0;
   let workStartedAt = 0;
@@ -213,8 +214,9 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
   }
 
   function showFollowUp(followUp: BeeFollowUp) {
-    if (closed || queue.length) return;
+    if (closed) return;
     if (followUp.kind === "confirm") {
+      confirmationBarrier = true;
       activePrompt = {
         kind: "confirm",
         steps: confirmPromptSteps(followUp.summary),
@@ -225,6 +227,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       showPromptStep();
       return;
     }
+    if (queue.length) return;
     const steps = questionPromptSteps(followUp.question);
     if (!steps) {
       input.placeholder = "Type your answer…";
@@ -273,6 +276,21 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
     },
   );
 
+  function finishRequest() {
+    busy = false;
+    setReady();
+    if (confirmationBarrier || activePrompt) return;
+    const next = queue.shift();
+    if (next === undefined) return;
+    if (/^(yes|yep|confirm|confirmed|looks good|create it|do it|no|nope|cancel|never mind|nevermind)[.!]?$/i.test(next.trim())) {
+      setInputValue(next);
+      addMessage('activity', 'Review your queued answer and press Enter to send it.');
+      input.focus();
+      return;
+    }
+    void submitPrompt(next);
+  }
+
   async function submitPrompt(rawPrompt: string, display?: string) {
     const prompt = rawPrompt.trim();
     if (!prompt || closed) return;
@@ -283,6 +301,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       refreshFooter();
       return;
     }
+    confirmationBarrier = false;
     setInputValue("");
     completions.hide();
     dismissPrompt(false);
@@ -317,8 +336,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       } catch (error) {
         addMessage("error", options.friendlyError(error));
       } finally {
-        busy = false;
-        setReady();
+        finishRequest();
       }
       return;
     }
@@ -370,10 +388,7 @@ export function createBeeTui(renderer: CliRenderer, options: BeeTuiOptions) {
       if (streamed) transcript.remove(streamed.row);
       addMessage("error", options.friendlyError(error));
     } finally {
-      busy = false;
-      setReady();
-      const next = queue.shift();
-      if (next !== undefined) void submitPrompt(next);
+      finishRequest();
     }
   }
 

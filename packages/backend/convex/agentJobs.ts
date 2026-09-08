@@ -33,6 +33,28 @@ const MAX_ACTIVE_JOBS = 50;
 const MAX_TITLE_LENGTH = 80;
 const MAX_INSTRUCTION_LENGTH = 8_000;
 
+async function assertJobCapacity(ctx: MutationCtx, ownerKey: string) {
+  const [activeJobs, pausedJobs] = await Promise.all([
+    ctx.db
+      .query("agentJobs")
+      .withIndex("by_owner_key_and_status_and_created_at", (q) =>
+        q.eq("ownerKey", ownerKey).eq("status", "active"),
+      )
+      .take(MAX_ACTIVE_JOBS + 1),
+    ctx.db
+      .query("agentJobs")
+      .withIndex("by_owner_key_and_status_and_created_at", (q) =>
+        q.eq("ownerKey", ownerKey).eq("status", "paused"),
+      )
+      .take(MAX_ACTIVE_JOBS + 1),
+  ]);
+  if (activeJobs.length + pausedJobs.length >= MAX_ACTIVE_JOBS) {
+    throw new ConvexError(
+      `You can keep up to ${MAX_ACTIVE_JOBS} active or paused Jobs`,
+    );
+  }
+}
+
 const jobViewValidator = v.object({
   id: v.id("agentJobs"),
   title: v.string(),
@@ -267,25 +289,7 @@ async function createForIdentity(
   );
   const delivery = cleanDelivery(args.delivery);
   await assertTelegramReady(ctx, identity.userId, delivery);
-  const [activeJobs, pausedJobs] = await Promise.all([
-    ctx.db
-      .query("agentJobs")
-      .withIndex("by_owner_key_and_status_and_created_at", (q) =>
-        q.eq("ownerKey", identity.ownerKey).eq("status", "active"),
-      )
-      .take(MAX_ACTIVE_JOBS + 1),
-    ctx.db
-      .query("agentJobs")
-      .withIndex("by_owner_key_and_status_and_created_at", (q) =>
-        q.eq("ownerKey", identity.ownerKey).eq("status", "paused"),
-      )
-      .take(MAX_ACTIVE_JOBS + 1),
-  ]);
-  if (activeJobs.length + pausedJobs.length >= MAX_ACTIVE_JOBS) {
-    throw new ConvexError(
-      `You can keep up to ${MAX_ACTIVE_JOBS} active or paused Jobs`,
-    );
-  }
+  await assertJobCapacity(ctx, identity.ownerKey);
   const now = Date.now();
   const schedule = validateAgentJobSchedule(args.schedule);
   const nextRunAt = nextAgentJobRunAt(schedule, now);
@@ -427,6 +431,7 @@ async function updateOwned(
     : job.schedule;
   const shouldActivate =
     job.status === "completed" && args.schedule !== undefined;
+  if (shouldActivate) await assertJobCapacity(ctx, job.ownerKey);
   const status = shouldActivate ? ("active" as const) : job.status;
   const nextRunAt =
     status === "active" && args.schedule !== undefined

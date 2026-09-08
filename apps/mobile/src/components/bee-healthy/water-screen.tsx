@@ -47,7 +47,8 @@ function WaterDay({ localDate, timeZone }: { localDate: string; timeZone: string
   const adjustHydration = useMutation(api.healthJournal.adjustHydration);
 
   const [optimisticHydration, setOptimisticHydration] = useState<number | null>(null);
-  const [lastAddedMl, setLastAddedMl] = useState<number | null>(null);
+  const [lastAddition, setLastAddition] = useState<{ amount: number } | null>(null)
+  const lastAddedMl = lastAddition?.amount ?? null;
   const hydrationRequestVersion = useRef(0);
 
   const hydrationMl = optimisticHydration ?? entry?.hydrationMl ?? 0;
@@ -58,10 +59,10 @@ function WaterDay({ localDate, timeZone }: { localDate: string; timeZone: string
   }, [hydrationMl]);
 
   useEffect(() => {
-    if (lastAddedMl === null) return;
-    const timeout = setTimeout(() => setLastAddedMl(null), 5000);
+    if (lastAddition === null) return;
+    const timeout = setTimeout(() => setLastAddition(null), 5000);
     return () => clearTimeout(timeout);
-  }, [lastAddedMl]);
+  }, [lastAddition]);
 
   const handleHydrationChange = useCallback(
     async (deltaMl: number, showUndo: boolean) => {
@@ -82,7 +83,7 @@ function WaterDay({ localDate, timeZone }: { localDate: string; timeZone: string
         if (requestVersion === hydrationRequestVersion.current) {
           setOptimisticHydration(null);
           if (showUndo && result.appliedDeltaMl > 0) {
-            setLastAddedMl(result.appliedDeltaMl);
+            setLastAddition({ amount: result.appliedDeltaMl });
             if (process.env.EXPO_OS === 'ios') {
               AccessibilityInfo.announceForAccessibility(
                 `Added ${result.appliedDeltaMl} millilitres. Undo available.`,
@@ -93,7 +94,7 @@ function WaterDay({ localDate, timeZone }: { localDate: string; timeZone: string
       } catch (error) {
         if (requestVersion === hydrationRequestVersion.current) {
           setOptimisticHydration(null);
-          setLastAddedMl(null);
+          setLastAddition(null);
         }
         Alert.alert(
           'Could not update your water',
@@ -170,7 +171,7 @@ function WaterDay({ localDate, timeZone }: { localDate: string; timeZone: string
                     hitSlop={Spacing.two}
                     onPress={() => {
                       const amount = lastAddedMl;
-                      setLastAddedMl(null);
+                      setLastAddition(null);
                       void handleHydrationChange(-amount, false);
                     }}
                   >

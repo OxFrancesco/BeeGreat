@@ -2,7 +2,7 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import { usePaginatedQuery, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -72,22 +72,15 @@ function LiveMindScreen() {
     { kind, label },
     { initialNumItems: 24 },
   );
-  const searchResults = useQuery(
-    api.bookmarks.search,
-    query ? { query, kind } : 'skip',
+  const searchPage = usePaginatedQuery(
+    api.bookmarks.searchPage,
+    query ? { query, kind, label } : 'skip',
+    { initialNumItems: 24 },
   );
+  const activePage = query ? searchPage : paginated;
 
-  const items = useMemo(() => {
-    const source = query ? (searchResults ?? []) : paginated.results;
-    return label
-      ? source.filter((bookmark) => bookmark.labels.includes(label))
-      : source;
-  }, [label, paginated.results, query, searchResults]);
-
-  const firstLoad =
-    query && searchResults === undefined
-      ? true
-      : !query && paginated.status === 'LoadingFirstPage';
+  const items = activePage.results;
+  const firstLoad = activePage.status === 'LoadingFirstPage';
 
   return (
     <MindScreenView
@@ -98,12 +91,12 @@ function LiveMindScreen() {
       label={label}
       search={search}
       firstLoad={firstLoad}
-      loadingMore={paginated.status === 'LoadingMore'}
-      canLoadMore={!query && paginated.status === 'CanLoadMore'}
+      loadingMore={activePage.status === 'LoadingMore'}
+      canLoadMore={activePage.status === 'CanLoadMore'}
       onKind={setKind}
       onLabel={setLabel}
       onSearch={setSearch}
-      onLoadMore={() => paginated.loadMore(24)}
+      onLoadMore={() => activePage.loadMore(24)}
     />
   );
 }

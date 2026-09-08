@@ -1,3 +1,4 @@
+import { isValidImessageAddress, normalizeImessageAddress } from '@beegreat/tool-presentation';
 import {
   isFiniteJsonNumber,
   isJsonObject,
@@ -62,9 +63,9 @@ function parseConnections(payload: JsonValue): ImessageConnection[] {
 }
 
 /** Reads how many iMessage senders the agent unlinked. */
-function parseDisconnectedCount(payload: JsonValue): number {
+function parseDisconnectedCount(payload: JsonValue): number | "all" {
   if (isJsonObject(payload) && isFiniteJsonNumber(payload.disconnected)) {
-    return payload.disconnected;
+    return payload.all === true ? "all" : payload.disconnected;
   }
   throw new Error("Bee returned an invalid iMessage disconnect response.");
 }
@@ -129,7 +130,10 @@ export async function runImessageCommand(
   const disconnectRequest: ImessageDisconnectRequest = {
     action: "disconnect",
   };
-  if (command.address) disconnectRequest.address = command.address;
+  if (command.address !== undefined) {
+    if (!isValidImessageAddress(command.address)) throw new Error('Enter a valid phone number or email address to disconnect.');
+    disconnectRequest.address = normalizeImessageAddress(command.address);
+  }
   const disconnected = await imessageRequest(
     config.agentUrl,
     config.accessToken,
@@ -137,6 +141,7 @@ export async function runImessageCommand(
     fetcher,
     parseDisconnectedCount,
   );
+  if (disconnected === "all") return "All iMessage addresses are disconnected from BeeGreat.";
   if (disconnected === 0) {
     return command.address
       ? `${command.address} was not linked to your account.`

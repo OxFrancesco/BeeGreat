@@ -277,7 +277,7 @@ async function ownerAllowsCrawl(ctx: Pick<QueryCtx, 'db'>, ownerKey: string) {
     .query('accountDeletionJobs')
     .withIndex('by_owner_key', (q) => q.eq('ownerKey', ownerKey))
     .unique()
-  return !deletionJob || deletionJob.status === 'awaiting_identity_deletion'
+  return !deletionJob || deletionJob.status === 'awaiting_identity_deletion' || deletionJob.status === 'identity_deleting'
 }
 
 async function repairWaitingRun(

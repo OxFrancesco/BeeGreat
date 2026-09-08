@@ -52,6 +52,10 @@ async function cacheReady(t: Test, bookmarkId: Id<'bookmarks'>) {
 }
 
 async function finishDeletion(t: Test) {
+  const jobs = await t.run(ctx => ctx.db.query('accountDeletionJobs').collect())
+  for (const job of jobs) {
+    if (job.status === 'external_cleanup') await t.mutation(internal.accountDeletion.finishExternalCleanup, { jobId: job._id, retryableFailure: false, workerCleanupSucceeded: true })
+  }
   // convex-test's published typings omit the `maxIterations` parameter its
   // runtime accepts (defaulting to 100); the deletion cascade schedules more
   // follow-up functions than that. A function that takes fewer parameters is

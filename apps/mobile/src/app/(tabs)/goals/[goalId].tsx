@@ -1,3 +1,4 @@
+import { useInputDialog } from '@/components/input-dialog';
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { useMutation, useQuery } from 'convex/react';
@@ -28,6 +29,7 @@ type GoalDetail = NonNullable<FunctionReturnType<typeof api.goals.get>>;
 type ProjectSummary = GoalDetail['projects'][number];
 
 export default function GoalDetailScreen() {
+  const dialog = useInputDialog();
   const theme = useTheme();
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
   // SAFETY: This screen is only reached through links built from a Convex goal
@@ -54,7 +56,7 @@ export default function GoalDetailScreen() {
       {
         text: 'Rename',
         onPress: () =>
-          Alert.prompt(
+          dialog.prompt(
             'Rename project',
             undefined,
             [
@@ -62,7 +64,7 @@ export default function GoalDetailScreen() {
               {
                 text: 'Save',
                 onPress: (title?: string) => {
-                  if (title?.trim()) updateProject({ projectId: project.id, title });
+                  if (title?.trim()) return updateProject({ projectId: project.id, title });
                 },
               },
             ],
@@ -97,7 +99,7 @@ export default function GoalDetailScreen() {
       {
         text: 'Rename',
         onPress: () =>
-          Alert.prompt(
+          dialog.prompt(
             'Rename goal',
             undefined,
             [
@@ -105,7 +107,7 @@ export default function GoalDetailScreen() {
               {
                 text: 'Save',
                 onPress: (title?: string) => {
-                  if (title?.trim()) updateGoal({ goalId: goal.id, title });
+                  if (title?.trim()) return updateGoal({ goalId: goal.id, title });
                 },
               },
             ],

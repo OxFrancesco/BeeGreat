@@ -29,17 +29,9 @@ export type TextWeb3Projection = {
 };
 
 const WEB_APP_URL = "https://beegreat.app";
-const EVM_ADDRESS = /0x[0-9a-fA-F]{40}/g;
-
-/** Keeps machine addresses out of ordinary channel copy while retaining meaning. */
+/** Preserve the full destination and asset addresses used to authorize an action. */
 export function humanizeWeb3Summary(summary: string): string {
-  return scrubIdentifiers(summary)
-    .replace(/\bpool\s+0x[0-9a-fA-F]{40}\b/gi, "the selected pool")
-    .replace(/\bwallet\s+0x[0-9a-fA-F]{40}\b/gi, "your wallet")
-    .replace(EVM_ADDRESS, "the selected address")
-    .replace(/\s*:\s*(the selected pool|your wallet)\b/g, " · $1")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
+  return scrubIdentifiers(summary, true).replace(/[ \t]{2,}/g, ' ').trim();
 }
 
 function explorerLinks(action: TextWeb3Action) {

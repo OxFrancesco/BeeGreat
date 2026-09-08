@@ -55,7 +55,7 @@ export function useGoogleHealth() {
     async (reservedPopup: Window) => {
       let authorizationUrl: string
       try {
-        ;({ authorizationUrl } = await beginAuthorization({}))
+        ;({ authorizationUrl } = await beginAuthorization({ client: 'browser' }))
       } catch (cause) {
         reservedPopup.close()
         popupRef.current = null

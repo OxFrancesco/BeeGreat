@@ -147,6 +147,8 @@ export function describeSugarExecution(
     'token0',
     'token1',
     'fraction',
+    'lock_duration_seconds',
+    'use_decimals',
   ]
   const details = interesting
     .filter((name) => parameters[name] !== undefined)
@@ -190,6 +192,17 @@ export function describeSugarPlanOutcome(plan: SugarJson): string {
       const trade = planRecord(item)
       return trade ? `; ${trade.amount} ${trade.from} to ${trade.expected} ${trade.to}, minimum ${trade.minimum}` : ''
     }).join('')
+  }
+  const veNft = planRecord(record.ve_nft)
+  if (veNft) {
+    const amount = typeof veNft.amount_formatted === 'string' ? veNft.amount_formatted : String(veNft.amount_decimal)
+    const symbol = veNft.governance_symbol
+    const duration = veNft.lock_duration_seconds
+    if (!amount || typeof symbol !== 'string' || typeof duration !== 'number' || !Number.isSafeInteger(duration) || duration <= 0) {
+      throw new Error('The veNFT plan is missing its lock terms.')
+    }
+    const days = duration / 86_400
+    return `; lock ${amount} ${symbol} for ${duration} seconds, ${days} days. Tokens cannot be withdrawn before the lock expires.`
   }
   const quote = planRecord(record.quote)
   if (quote) {
@@ -464,14 +477,7 @@ export async function reconcileCrossmintActionForId(
     (step) => step.status === 'prepared',
   )
   if (!pending) return null
-  if (Date.now() > (action.confirmedAt ?? action.createdAt) + 15 * 60_000) {
-    await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
-      actionId,
-      transactionId: pending.transactionId,
-      error: 'Crossmint did not settle the transaction within 15 minutes.',
-    })
-    return null
-  }
+  if (!await ctx.runMutation(internal.web3Reconciliation.claim, { actionId })) return null
   const chain =
     action.payload.chainId === SOCKET_CHAINS.arbitrum.chainId
       ? ('arbitrum' as const)
@@ -479,18 +485,14 @@ export async function reconcileCrossmintActionForId(
         ? ('base' as const)
         : null
   if (!chain) {
-    await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
-      actionId,
-      transactionId: pending.transactionId,
-      error: 'The confirmed plan targets an unsupported chain.',
-    })
+    await ctx.runMutation(internal.web3Reconciliation.schedule, { actionId })
     return null
   }
   try {
     const wallet = EVMWallet.from(await walletForUser(action.userId, chain))
-    const status = reconcileCrossmintTransaction(
-      await wallet.transaction(pending.transactionId),
-    )
+    const response = await wallet.transaction(pending.transactionId)
+    if (response.id === pending.transactionId && response.status === 'awaiting-approval') await ctx.runMutation(internal.web3Reconciliation.noteAwaitingApproval, { actionId, transactionId: pending.transactionId })
+    const status = reconcileCrossmintTransaction(response, pending.transactionId)
     if (status.status === 'success') {
       await ctx.runMutation(internal.web3Actions.recordCrossmintSuccess, {
         actionId,
@@ -505,22 +507,10 @@ export async function reconcileCrossmintActionForId(
         error: 'Crossmint reported that the transaction failed.',
       })
     } else {
-      await ctx.scheduler.runAfter(
-        15_000,
-        internal.web3.reconcileCrossmintAction,
-        {
-          actionId,
-        },
-      )
+      await ctx.runMutation(internal.web3Reconciliation.schedule, { actionId })
     }
   } catch {
-    await ctx.scheduler.runAfter(
-      15_000,
-      internal.web3.reconcileCrossmintAction,
-      {
-        actionId,
-      },
-    )
+    await ctx.runMutation(internal.web3Reconciliation.schedule, { actionId })
   }
   return null
 }

@@ -5,7 +5,8 @@ import {
   GOOGLE_WORKSPACE_SERVICES,
   type GoogleWorkspaceService,
 } from '@beegreat/tool-presentation';
-import { useAction, useQuery } from 'convex/react';
+import { useAction, useMutation, useQuery } from 'convex/react';
+import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import type { FunctionArgs } from 'convex/server';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
@@ -62,11 +63,12 @@ export function BeennectorsSettings() {
     message: string;
   } | null>(null);
 
-  const cancelPending = async (provider: BeennectorProvider) => {
+  const cancelAuthorization = useMutation(api.beennectors.cancelAuthorization);
+  const cancelPending = async (sessionId: Id<'beennectorAuthSessions'>) => {
     try {
-      await disconnect({ provider });
+      await cancelAuthorization({ sessionId });
     } catch (cause) {
-      captureMobileFailure(cause, 'beennector.cancel', { provider });
+      captureMobileFailure(cause, 'beennector.cancel');
     }
   };
 
@@ -79,17 +81,17 @@ export function BeennectorsSettings() {
       authorizationArgs.googleDisclosureVersion =
         GOOGLE_WORKSPACE_DISCLOSURE_VERSION;
     }
-    const { authorizationUrl } = await beginAuthorization(authorizationArgs);
+    const { authorizationUrl, sessionId } = await beginAuthorization(authorizationArgs);
     const result = await WebBrowser.openAuthSessionAsync(
       authorizationUrl,
       APP_REDIRECT_URI,
     );
     if (result.type === 'cancel' || result.type === 'dismiss') {
-      await cancelPending(provider);
+      await cancelPending(sessionId);
       return false;
     }
     if (result.type !== 'success') {
-      await cancelPending(provider);
+      await cancelPending(sessionId);
       throw new Error(`${PROVIDER_NAMES[provider]} did not finish connecting.`);
     }
     const callback = new URL(result.url);

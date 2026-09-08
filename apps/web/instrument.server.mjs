@@ -13,6 +13,7 @@ Sentry.init({
   release: process.env.SENTRY_RELEASE,
   sendDefaultPii: false,
   beforeSend: sanitizeSentryEvent,
+  beforeSendTransaction: sanitizeSentryEvent,
   beforeBreadcrumb: sanitizeSentryBreadcrumb,
   initialScope: { tags: { service: 'web-app' } },
   tracesSampleRate:

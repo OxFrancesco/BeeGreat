@@ -5,7 +5,6 @@ import {
   useAgentStart,
   useDelivery,
   useAgentFinish,
-  useMcpConnection,
   useModel,
   useSubagent,
   useTool,
@@ -63,10 +62,9 @@ import { solEscalationSubagent } from '../shared/sol-escalation-subagent.ts'
 import { trustedCast } from '../shared/trusted-cast.ts'
 import { createTtlCache } from '../shared/ttl-cache.ts'
 import {
-  FIRECRAWL_MCP_TIMEOUT_MS,
-  FIRECRAWL_MCP_URL,
   firecrawlSubagent,
   loadFirecrawlTools,
+  meterFirecrawlTools,
 } from '../shared/firecrawl-subagent.ts'
 import instructions from './bee.md'
 
@@ -94,6 +92,7 @@ export interface BeeRuntimeEnv {
   CODEX_ADAPTER_SECRET?: string
   FIRECRAWL_API_KEY?: string
   Sandbox?: unknown
+  SiteBuildSandbox?: unknown
   BEE_SITES_BUCKET?: BeeSitesBucket
 }
 
@@ -129,13 +128,9 @@ export const cloudflare = extend<AgentWithStorage>({
     },
 })
 
-// Latency caches for per-message init lookups. Both are safe to reuse across
-// messages: a user's IANA timezone changes rarely, and the ChatGPT credential
-// carries its own expiry. Entitlement-style lookups (power-ups, Beennectors)
-// refresh on every delivered message so toggles apply to the next reply.
+// Only timezone is cached. Credentials and capabilities refresh on each admission.
 const TIME_ZONE_TTL_MS = 10 * 60 * 1000
 const timeZoneCache = createTtlCache<string>()
-const chatGptCredentialCache = createTtlCache<{ accessToken: string }>()
 
 /**
  * Per-user async init results, warmed by `useAgentStart` before each model
@@ -193,18 +188,8 @@ async function registerCodexProvider(
     return providerId
   }
   if (!env.CODEX_ADAPTER_URL || !env.CODEX_ADAPTER_SECRET) return undefined
-  let credential = chatGptCredentialCache.get(userId)
-  if (!credential) {
-    const resolved = await resolveChatGptCredential(userId, env)
-    if (resolved.status !== 'connected') return undefined
-    credential = { accessToken: resolved.accessToken }
-    // Reuse the token until shortly before its own expiry, capped at 10 min.
-    const ttl = Math.min(
-      Math.max(resolved.expiresAt - Date.now() - 60_000, 0),
-      10 * 60 * 1000,
-    )
-    if (ttl > 0) chatGptCredentialCache.set(userId, credential, ttl)
-  }
+  const credential = await resolveChatGptCredential(userId, env)
+  if (credential.status !== 'connected') return undefined
   const providerId = await codexProviderIdForUser(userId)
   registerFlueCodexProvider(providerId, credential.accessToken, {
     baseUrl: env.CODEX_ADAPTER_URL,
@@ -231,7 +216,7 @@ async function warmSnapshot(userId: string, env: BeeRuntimeEnv): Promise<void> {
   ] = await Promise.all([
     loadTimeZone(userId, env.CONVEX_URL, focusOptions),
     // Opt-in power-ups: one specialist subagent each, loaded per user per message.
-    loadPowerupDefinitionsResult(userId, env.CONVEX_URL),
+    loadPowerupDefinitionsResult(userId, env.CONVEX_URL, { convexSiteUrl: focusOptions.convexSiteUrl, credentialBrokerSecret: focusOptions.brokerSecret }),
     loadBeennectorSubagent(userId, env.CONVEX_URL, focusOptions),
     registerCodexProvider(userId, env).catch((error) => {
       Sentry.captureException(error, {
@@ -245,7 +230,7 @@ async function warmSnapshot(userId: string, env: BeeRuntimeEnv): Promise<void> {
     }),
     // Keep the Cloudflare-only Sandbox module out of Bun's Node test runtime.
     env.Sandbox ? import('@cloudflare/sandbox') : Promise.resolve(null),
-    loadFirecrawlTools(env.FIRECRAWL_API_KEY).catch((error) => {
+    loadFirecrawlTools(env.FIRECRAWL_API_KEY).then(tools => meterFirecrawlTools(tools, userId, { convexUrl: env.CONVEX_URL, ...focusOptions })).catch((error) => {
       Sentry.captureException(error, {
         tags: {
           service: 'agent-worker',
@@ -361,19 +346,7 @@ export function Bee({ id }: AgentProps) {
     const signal = completionAuditSignal(delivery, response.toolCalls)
     if (signal) append(signal)
   })
-  if (env.FIRECRAWL_API_KEY?.trim()) {
-    // This root mount makes Firecrawl available on a cold isolate's first turn.
-    // The warmed snapshot gives the same live catalog to the crawler delegate on
-    // subsequent renders, where Flue does not permit useMcpConnection directly.
-    useMcpConnection({
-      name: 'firecrawl',
-      url: FIRECRAWL_MCP_URL,
-      auth: env.FIRECRAWL_API_KEY.trim(),
-      timeoutMs: FIRECRAWL_MCP_TIMEOUT_MS,
-      resetTimeoutOnProgress: true,
-      optional: true,
-    })
-  }
+  for (const tool of snapshot?.firecrawlTools ?? []) useTool(tool)
 
   const focusOptions = {
     convexSiteUrl: env.CONVEX_SITE_URL,
@@ -434,7 +407,7 @@ export function Bee({ id }: AgentProps) {
   )
 
   const sitesSubagents =
-    snapshot?.sandboxSdk && env.Sandbox && env.BEE_SITES_BUCKET
+    snapshot?.sandboxSdk && env.SiteBuildSandbox && env.BEE_SITES_BUCKET
       ? [
           astroCreatorSubagent({
             userId,
@@ -442,19 +415,10 @@ export function Bee({ id }: AgentProps) {
             convexUrl: env.CONVEX_URL,
             brokerSecret:
               env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
-            // The Worker platform guarantees `env.Sandbox` is the sandbox
-            // Durable Object binding the SDK expects.
-            sandbox: snapshot.sandboxSdk.getSandbox(
-              trustedCast<Parameters<typeof snapshot.sandboxSdk.getSandbox>[0]>(
-                env.Sandbox,
-              ),
-              `bee-sites-${userId}`,
-              {
-                // Site creation is multi-step, so retain the workspace between
-                // tool calls while still guaranteeing automatic scale-to-zero.
-                sleepAfter: '10m',
-                labels: { workload: 'bee-sites' },
-              },
+            createBuildSandbox: () => snapshot.sandboxSdk!.getSandbox(
+              trustedCast<Parameters<NonNullable<typeof snapshot.sandboxSdk>['getSandbox']>[0]>(env.SiteBuildSandbox),
+              `bee-site-build-${crypto.randomUUID()}`,
+              { sleepAfter: '30s', enableDefaultSession: false, labels: { workload: 'bee-site-build' } },
             ),
             bucket: env.BEE_SITES_BUCKET,
           }),
@@ -465,7 +429,7 @@ export function Bee({ id }: AgentProps) {
     : []
   const domainSubagents = [
     goalsSubagent(userId, env.CONVEX_URL, focusOptions),
-    imagineSubagent(env.CONVEX_URL, focusOptions),
+    imagineSubagent(userId, env.CONVEX_URL, focusOptions),
     ...sitesSubagents,
     ...crawlerSubagents,
     ...(snapshot?.googleWorkspace ?? []),

@@ -2,6 +2,7 @@ import {
   createAssistantMessageEventStream,
   createProvider,
   type AssistantMessageEventStream,
+  type AssistantMessage,
   type Api,
   type Context,
   type Model,
@@ -72,8 +73,12 @@ export function withOpenRouterFallback(
   ): AssistantMessageEventStream => {
     const outer = createAssistantMessageEventStream()
     void (async () => {
+      let started = false
+      let partial: AssistantMessage | undefined
+      try {
       for await (const event of primary[method](model, context, options)) {
-        if (event.type !== 'error' || event.reason !== 'error') {
+        if (event.type === 'start') { started = true; partial = event.partial }
+        if (started || event.type !== 'error' || event.reason !== 'error' || options?.signal?.aborted) {
           outer.push(event)
           continue
         }
@@ -105,7 +110,14 @@ export function withOpenRouterFallback(
         for await (const retried of rerouted) outer.push(retried)
         break
       }
-      outer.end()
+      } catch {
+        const failure: AssistantMessage = partial ? { ...partial, stopReason: 'error', errorMessage: 'Provider stream failed' } : {
+          role: 'assistant', content: [], api: model.api, provider: model.provider, model: model.id,
+          usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+          stopReason: 'error', errorMessage: 'Provider stream failed', timestamp: Date.now(),
+        }
+        outer.push({ type: 'error', reason: 'error', error: failure })
+      } finally { outer.end() }
     })()
     return outer
   }

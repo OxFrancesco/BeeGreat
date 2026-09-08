@@ -75,3 +75,8 @@ describe("Bee CLI commands", () => {
     );
   });
 });
+
+test('explicit blank disconnect arguments never become disconnect-all', () => {
+  for (const address of ['', '   ', 'wrong']) expect(() => parseCommand(['imessage', 'disconnect', address])).toThrow('valid phone')
+  expect(parseCommand(['imessage', 'disconnect'])).toEqual({ kind: 'imessage', action: 'disconnect' })
+})

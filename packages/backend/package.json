@@ -22,6 +22,7 @@
   "dependencies": {
     "@beegreat/observability": "workspace:*",
     "@beegreat/sugar": "workspace:*",
+    "@beegreat/tool-presentation": "workspace:*",
     "@clerk/backend": "^2.33.5",
     "@crossmint/wallets-sdk": "1.7.0",
     "@sentry/node": "^10.65.0",

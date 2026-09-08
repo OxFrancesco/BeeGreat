@@ -298,10 +298,23 @@ export function persistJournalDraft(
   });
 }
 
-export function clearJournalDraft(userId: string, localDate: string) {
+export function clearJournalDraft(userId: string, localDate: string, expected?: { journal: string; updatedAt: number }) {
   return enqueueStoreUpdate((store) => {
     const drafts = { ...store.drafts };
+    const current = drafts[draftKey(userId, localDate)];
+    if (expected && (current?.journal !== expected.journal || current.updatedAt !== expected.updatedAt)) return store;
     delete drafts[draftKey(userId, localDate)];
     return { version: STORE_VERSION, drafts };
   });
+}
+
+export async function listJournalDrafts(userId: string) {
+  await operationQueue;
+  const { store, storageWarning } = await readStore();
+  const prefix = `${userId}:`;
+  const drafts = Object.entries(store.drafts)
+    .filter(([key]) => key.startsWith(prefix) && /^\d{4}-\d{2}-\d{2}$/.test(key.slice(prefix.length)))
+    .map(([key, draft]) => ({ ...draft, localDate: key.slice(prefix.length) }))
+    .sort((a, b) => a.localDate.localeCompare(b.localDate));
+  return { drafts, storageWarning };
 }

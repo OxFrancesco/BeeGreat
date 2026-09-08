@@ -1,9 +1,7 @@
 import { createNotionChannel } from '@flue/notion'
 import type { JsonValue } from '@flue/runtime'
 import * as v from 'valibot'
-import { dispatchBee } from '../agents/bee.ts'
 import {
-  beennectorAgentId,
   channelSecret,
   claimBeennectorDelivery,
   signalAttributes,
@@ -33,13 +31,6 @@ export const channel = createNotionChannel({
     const deliveryId = v.is(stringSchema, payload.id)
       ? payload.id
       : `${String(payload.type)}:${String(payload.timestamp)}`
-    const claim = await claimBeennectorDelivery({
-      provider: 'notion',
-      deliveryId,
-      actorId,
-      workspaceId,
-    })
-    if (claim.status !== 'accepted') return undefined
 
     const entity = asRecord(payload.entity)
     const data = asRecord(payload.data)
@@ -49,8 +40,11 @@ export const channel = createNotionChannel({
     const parentId = parent?.id
     const parentType = parent?.type
     const type = String(payload.type ?? 'notion.event')
-    await dispatchBee({
-      id: beennectorAgentId(claim.userId, 'notion'),
+    await claimBeennectorDelivery({
+      provider: 'notion',
+      deliveryId,
+      actorId,
+      workspaceId,
       message: {
         kind: 'signal',
         type,

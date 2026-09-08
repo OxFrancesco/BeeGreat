@@ -7,15 +7,15 @@ import {
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
-import type { FunctionArgs } from 'convex/server'
 import {
   GOOGLE_WORKSPACE_DISCLOSURE,
   GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
   GOOGLE_WORKSPACE_SERVICES,
-  type GoogleWorkspaceService,
 } from '@beegreat/tool-presentation'
-
 import beeUrl from '../../../mobile/assets/images/bee.webp?url'
+import type { GoogleWorkspaceService } from '@beegreat/tool-presentation'
+
+import type { FunctionArgs } from 'convex/server'
 import { ChatGptSettings } from '~/features/auth/chatgpt-auth'
 import { captureWebFailure } from '~/lib/sentry'
 
@@ -255,7 +255,7 @@ function OauthFlow({
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string>()
   const [googleDisclosureOpen, setGoogleDisclosureOpen] = useState(false)
-  const [googleServices, setGoogleServices] = useState<GoogleWorkspaceService[]>([])
+  const [googleServices, setGoogleServices] = useState<Array<GoogleWorkspaceService>>([])
 
   const connected =
     kind === 'beennector'
@@ -283,6 +283,7 @@ function OauthFlow({
           // its BeennectorProvider name, so this branch only ever receives
           // one of those four provider strings.
           provider: provider as BeennectorProvider,
+          client: 'browser',
         }
         if (provider === 'google') {
           request.googleServices = googleServices
@@ -295,7 +296,7 @@ function OauthFlow({
         // Google Health is gated by its power-up; connecting from a link
         // implies turning it on, matching the settings-screen behavior.
         await setPowerup({ powerupId: 'google-health', enabled: true })
-        ;({ authorizationUrl } = await beginGoogleHealth({}))
+        ;({ authorizationUrl } = await beginGoogleHealth({ client: 'browser' }))
       }
       window.location.assign(authorizationUrl)
     } catch (cause) {

@@ -149,3 +149,42 @@ test('disconnect removes credentials and cancels an active device flow', async (
     state: 'disconnected',
   })
 })
+
+test('an uncertain refresh is never replayed after lease expiry and reconnect stays visible', async () => {
+  const t = convexTest(schema, modules)
+  const userId = 'user_uncertain'
+  const owner = authenticated(t, userId)
+  const credentialId = await t.run(ctx => ctx.db.insert('chatgptCredentials', {
+    userId, status: 'connected', encryptedAccess: encryptedFixture,
+    encryptedRefresh: encryptedFixture, expiresAt: 1, updatedAt: 1,
+  }))
+  expect(await t.mutation(internal.chatgptAuth.claimCredential, {
+    userId, now: 1000, leaseId: 'original', minValidityMs: 1000,
+  })).toMatchObject({ status: 'refresh' })
+  await t.mutation(internal.chatgptAuth.failRefresh, {
+    userId, leaseId: 'original', permanent: false, uncertain: true,
+  })
+  expect(await t.mutation(internal.chatgptAuth.claimCredential, {
+    userId, now: 100_000, leaseId: 'replay', minValidityMs: 1000,
+  })).toEqual({ status: 'reauth' })
+  expect(await t.run(ctx => ctx.db.get(credentialId))).toMatchObject({
+    encryptedRefresh: encryptedFixture, refreshLeaseId: 'original',
+  })
+  const sessionId = await owner.mutation(api.chatgptAuth.start, {})
+  expect(await owner.query(api.chatgptAuth.status, {})).toMatchObject({ state: 'starting', sessionId })
+  await t.mutation(internal.chatgptAuth.markPendingAndSchedule, {
+    sessionId, encryptedDeviceAuthId: encryptedFixture, userCode: 'NEW-CODE',
+    verificationUri: 'https://auth.openai.com/codex/device', intervalMs: 5000,
+    expiresAt: Date.now() + 60_000,
+  })
+  expect(await owner.query(api.chatgptAuth.status, {})).toMatchObject({ state: 'pending', userCode: 'NEW-CODE' })
+  await t.mutation(internal.chatgptAuth.completeAuthorization, {
+    sessionId, encryptedAccess: { ...encryptedFixture, iv: 'new' }, encryptedRefresh: { ...encryptedFixture, iv: 'new' },
+    expiresAt: Date.now() + 3600_000, accountIdHash: 'new-account',
+  })
+  expect(await t.mutation(internal.chatgptAuth.finishRefresh, {
+    userId, leaseId: 'original', encryptedAccess: encryptedFixture, encryptedRefresh: encryptedFixture,
+    expiresAt: Date.now() + 3600_000, accountIdHash: 'old-account',
+  })).toBe(false)
+  expect((await t.run(ctx => ctx.db.get(credentialId)))?.encryptedRefresh?.iv).toBe('new')
+})

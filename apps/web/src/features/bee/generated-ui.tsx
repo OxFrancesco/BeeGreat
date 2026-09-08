@@ -10,7 +10,7 @@ import {
   sendFreshEoaTransactions,
 } from '@beegreat/wallet-connect'
 import { useAction, useMutation, useQuery } from 'convex/react'
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { z } from 'zod'
 import { FirstFocusPreviewCard } from './first-focus-preview'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
@@ -130,23 +130,26 @@ function QuestionCard({
 }: Extract<UIComponent, { type: 'question' }> & {
   onReply?: (text: string) => void | Promise<void>
 }) {
-  const [answers, setAnswers] = useState<Record<number, string>>({})
+  const [answers, setAnswers] = useState<Partial<Record<number, string>>>({})
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
   const questionId = useId()
-  const allOptionQuestionsAnswered =
-    questions.length > 1 &&
-    questions.every(
-      (question, index) => question.options?.length && answers[index],
-    )
+  const [replyError, setReplyError] = useState<string>()
+  const replyInFlight = useRef(false)
+  const allQuestionsAnswered = questions.length > 0 && questions.every((_, index) => answers[index]?.trim())
 
   const reply = async (text: string) => {
-    if (!onReply || sending || sent) return
+    if (!onReply || sending || sent || replyInFlight.current) return
+    replyInFlight.current = true
     setSending(true)
+    setReplyError(undefined)
     try {
       await onReply(text)
       setSent(true)
+    } catch {
+      setReplyError('Could not send your answer. Try again.')
     } finally {
+      replyInFlight.current = false
       setSending(false)
     }
   }
@@ -192,10 +195,17 @@ function QuestionCard({
                 )
               })}
             </div>
-          ) : null}
+          ) : <textarea
+            className="input"
+            aria-label={question.question}
+            value={answers[questionIndex] ?? ''}
+            onChange={(event) => setAnswers((current) => ({ ...current, [questionIndex]: event.target.value }))}
+            disabled={!onReply || sending || sent}
+          />}
         </section>
       ))}
-      {allOptionQuestionsAnswered ? (
+      {replyError ? <p role="alert">{replyError}</p> : null}
+      {allQuestionsAnswered ? (
         <button
           className="button button--primary question-card__submit"
           type="button"
@@ -324,7 +334,7 @@ const web3ConfirmPayload = z.object({ web3ActionId: z.string().min(1) })
  * actions, in which case the card shows live progress instead of buttons.
  */
 function Web3ConfirmCard({
-  summary,
+  summary: _summary,
   actionId,
   onReply,
 }: {
@@ -360,7 +370,7 @@ function Web3ConfirmCard({
   )
 
   const confirm = async () => {
-    if (decision !== 'idle') return
+    if (decision !== 'idle' || !live || live.status !== 'pending') return
     if (isEoaAction && !eoaSessionMatches) {
       setError(undefined)
       try {
@@ -382,6 +392,7 @@ function Web3ConfirmCard({
       if (isEoaAction) {
         const plan = await beginEoaExecution({
           actionId,
+          expectedSummary: live.summary,
         })
         eoaClaimed = true
         try {
@@ -419,7 +430,7 @@ function Web3ConfirmCard({
           throw cause
         }
       } else {
-        await confirmAction({ actionId })
+        await confirmAction({ actionId, expectedSummary: live.summary })
       }
       setDecision('confirmed')
       void onReply?.(
@@ -428,27 +439,25 @@ function Web3ConfirmCard({
           : 'I confirmed the action in the app. Check its status.',
       )
     } catch (cause) {
-      setDecision(
-        isEoaAction && eoaClaimed
-          ? eoaFailureReason(cause) === 'user_rejected'
-            ? 'declined'
-            : 'confirmed'
-          : 'idle',
-      )
+      setDecision(isEoaAction && eoaClaimed ? 'confirmed' : 'idle');
       setError(
         cause instanceof Error ? cause.message : 'Couldn’t confirm the action.',
       )
     }
   }
 
-  const decline = () => {
-    if (decision !== 'idle') return
-    setDecision('declined')
-    cancelAction({ actionId }).catch(() => {
-      // Cancelling a stale or unknown action is a no-op.
-    })
-    void onReply?.('No, I declined the action.')
-  }
+  const decline = async () => {
+    if (decision !== 'idle' || !live || live.status !== 'pending') return;
+    setDecision('working');
+    try {
+      const cancelled = await cancelAction({ actionId });
+      setDecision('idle');
+      if (cancelled) void onReply?.('No, I declined the action.');
+    } catch (cause) {
+      setDecision('idle');
+      setError(cause instanceof Error ? cause.message : 'Could not decline the action.');
+    }
+  };
 
   const status = live?.status
   const explorerLink =
@@ -460,7 +469,7 @@ function Web3ConfirmCard({
   const resolved =
     decision === 'confirmed' ||
     autoConfirmed ||
-    (isEoaAction && status !== undefined && status !== 'pending')
+    (status !== undefined && status !== 'pending')
   const loading = live === undefined
 
   return (
@@ -472,19 +481,17 @@ function Web3ConfirmCard({
             ? 'Needs your wallet signature'
             : 'Needs your confirmation'}
       </p>
-      <p>{summary}</p>
+      <p>{live?.summary ?? 'Checking saved action…'}</p>
       {error ? <p className="confirm-card__error">{error}</p> : null}
-      {decision === 'declined' || status === 'cancelled' ? (
-        <p>Declined — nothing was sent.</p>
+      {status === 'cancelled' ? (
+        <p>Declined before execution.</p>
+      ) : live === null ? (
+        <p>This confirmation is unavailable.</p>
       ) : resolved ? (
         status === 'executed' ? (
           <p aria-live="polite">
             Done ✓{' '}
-            {explorerLink ? (
-              <a href={explorerLink} target="_blank" rel="noreferrer">
-                View transaction ↗
-              </a>
-            ) : null}
+
           </p>
         ) : status === 'failed' ? (
           <p className="confirm-card__error" aria-live="polite">
@@ -500,7 +507,7 @@ function Web3ConfirmCard({
           <p aria-live="polite">
             {isEoaAction
               ? `${live.result?.length ?? 0} of ${live.eoaRequest?.stepCount ?? 1} transactions submitted…`
-              : (live?.socketProgress?.detail ?? 'Moving funds…')}
+              : (live?.recoveryDetail ?? live?.socketProgress?.detail ?? 'Checking transaction settlement…')}
           </p>
         ) : (
           <p aria-live="polite">
@@ -533,12 +540,13 @@ function Web3ConfirmCard({
             className="button button--quiet"
             type="button"
             disabled={decision === 'working'}
-            onClick={decline}
+            onClick={() => void decline()}
           >
             No
           </button>
         </div>
       )}
+      {explorerLink ? <a href={explorerLink} target="_blank" rel="noreferrer">View submitted transaction</a> : null}
     </Card>
   )
 }

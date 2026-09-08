@@ -1,5 +1,7 @@
 'use node'
 
+import type { Id } from './_generated/dataModel'
+
 import Innertube, { ClientType } from 'youtubei.js'
 import { v } from 'convex/values'
 import * as Effect from 'effect/Effect'
@@ -923,6 +925,14 @@ export const process = internalAction({
     })
     if (prepared.state === 'noop' || prepared.state === 'deferred') return null
 
+    let reservation: { leaseId: Id<'paidUsageLeases'> }
+    try {
+      reservation = await ctx.runMutation(internal.paidUsage.reserve, { userId: prepared.bookmark.userId, operation: 'bookmark', units: 1 })
+    } catch {
+      await ctx.runMutation(internal.bookmarkCrawl.finish, { runId: prepared.runId, outcome: { state: 'failed', errorCode: 'usage-limit', errorMessage: 'The daily processing or concurrency limit was reached. Retry later.' } })
+      return null
+    }
+
     const processing = Effect.gen(function* () {
       const remotePreparation = Effect.gen(function* () {
         const isCurrent = yield* convexOperation({
@@ -1030,7 +1040,8 @@ export const process = internalAction({
       }),
     )
 
-    await Effect.runPromise(program)
+    try { await Effect.runPromise(program) }
+    finally { await ctx.runMutation(internal.paidUsage.release, { userId: prepared.bookmark.userId, leaseId: reservation.leaseId }).catch(() => console.warn('Paid usage lease cleanup will expire automatically')) }
     return null
   },
 })

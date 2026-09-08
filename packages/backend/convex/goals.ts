@@ -1,3 +1,4 @@
+import { deleteRecurrencesForGoal } from './recurrence'
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import type { Doc } from './_generated/dataModel'
@@ -230,6 +231,7 @@ export const remove = mutation({
     for (const project of projects) {
       await ctx.db.delete(project._id)
     }
+    await deleteRecurrencesForGoal(ctx, goalId)
     await deleteGoalFocusState(ctx, identity.tokenIdentifier, goalId)
     await ctx.db.delete(goalId)
   },

@@ -99,7 +99,7 @@ function addCalendarInterval(
 /** Advances a calendar recurrence while preserving its wall-clock timezone. */
 export function nextOccurrenceAt(
   occurrenceAt: number,
-  recurrence: Pick<RecurrenceInput, 'frequency' | 'interval'>,
+  recurrence: Pick<RecurrenceInput, 'frequency' | 'interval'> & Partial<Pick<RecurrenceInput, 'firstOccurrenceAt'>>,
   timeZone: string,
 ) {
   const interval = Math.floor(recurrence.interval)
@@ -107,6 +107,9 @@ export function nextOccurrenceAt(
     throw new Error('Recurrence interval must be between 1 and 365')
   }
   const current = zonedParts(occurrenceAt, timeZone)
+  if (recurrence.firstOccurrenceAt !== undefined && (recurrence.frequency === 'monthly' || recurrence.frequency === 'yearly')) {
+    current.day = zonedParts(recurrence.firstOccurrenceAt, timeZone).day
+  }
   const next = timestampForZonedParts(
     addCalendarInterval(current, recurrence.frequency, interval),
     timeZone,
@@ -134,7 +137,9 @@ export async function createRecurrenceSchedule(
     args.timeZone,
   )
   const now = Date.now()
+  let advances = 0
   while (nextRunAt <= now) {
+    if (advances++ >= 500) throw new Error('Choose a more recent first calendar occurrence')
     nextRunAt = nextOccurrenceAt(nextRunAt, args.recurrence, args.timeZone)
   }
   const scheduleId = await ctx.db.insert('recurrenceSchedules', {
@@ -253,6 +258,24 @@ export const materialize = internalMutation({
       scheduleId: schedule._id,
       occurrenceAt: nextRunAt,
     })
+    return null
+  },
+})
+
+export async function deleteRecurrencesForGoal(ctx: MutationCtx, goalId: Id<'goals'>) {
+  const schedules = await ctx.db.query('recurrenceSchedules')
+    .withIndex('by_goal_id', q => q.eq('goalId', goalId)).take(100)
+  for (const schedule of schedules) await ctx.db.delete(schedule._id)
+  if (schedules.length === 100) {
+    await ctx.scheduler.runAfter(0, internal.recurrence.deleteForGoal, { goalId })
+  }
+}
+
+export const deleteForGoal = internalMutation({
+  args: { goalId: v.id('goals') },
+  returns: v.null(),
+  handler: async (ctx, { goalId }) => {
+    await deleteRecurrencesForGoal(ctx, goalId)
     return null
   },
 })

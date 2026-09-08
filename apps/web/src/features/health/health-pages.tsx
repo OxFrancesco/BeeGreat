@@ -1,7 +1,7 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { Link, Outlet } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import beeDoctor from '../../../../mobile/assets/images/bee-doctor.png?url'
 import beeAwful from '../../../../mobile/assets/images/moods/bee-awful.png?url'
@@ -9,6 +9,7 @@ import beeBad from '../../../../mobile/assets/images/moods/bee-bad.png?url'
 import beeOkay from '../../../../mobile/assets/images/moods/bee-okay.png?url'
 import beeGood from '../../../../mobile/assets/images/moods/bee-good.png?url'
 import beeGreat from '../../../../mobile/assets/images/moods/bee-great.png?url'
+import { useCurrentLocalDay } from './use-current-local-day'
 import {
   HYDRATION_GOAL_ML,
   MAX_HYDRATION_ML,
@@ -61,7 +62,7 @@ export function HealthLayout() {
 }
 
 export function HealthSummaryCard() {
-  const { localDate } = currentLocalDay()
+  const { localDate } = useCurrentLocalDay()
   const entry = useQuery(api.healthJournal.getByDate, { localDate })
   const mood = entry?.mood
     ? MOODS.find((item) => item.value === entry.mood)
@@ -90,7 +91,11 @@ export function HealthSummaryCard() {
 }
 
 export function MoodPage() {
-  const { localDate, timeZone } = useMemo(currentLocalDay, [])
+  const day = useCurrentLocalDay()
+  return <MoodDay key={`${day.localDate}:${day.timeZone}`} {...day} />
+}
+
+function MoodDay({ localDate }: ReturnType<typeof currentLocalDay>) {
   const entry = useQuery(api.healthJournal.getByDate, { localDate })
   const history = useQuery(api.healthJournal.listRecent, {
     limit: 7,
@@ -102,10 +107,11 @@ export function MoodPage() {
   const selected = optimisticMood ?? entry?.mood
 
   async function chooseMood(mood: Mood) {
+    if (currentLocalDay().localDate !== localDate) return
     setOptimisticMood(mood)
     setError(undefined)
     try {
-      await setMood({ localDate, timeZone, mood })
+      await setMood({ ...currentLocalDay(), mood })
       setOptimisticMood(undefined)
     } catch (cause) {
       setOptimisticMood(undefined)
@@ -213,22 +219,28 @@ function WeekPulse({
 }
 
 export function WaterPage() {
-  const { localDate, timeZone } = useMemo(currentLocalDay, [])
+  const day = useCurrentLocalDay()
+  return <WaterDay key={`${day.localDate}:${day.timeZone}`} {...day} />
+}
+
+function WaterDay({ localDate }: ReturnType<typeof currentLocalDay>) {
   const entry = useQuery(api.healthJournal.getByDate, { localDate })
   const adjustHydration = useMutation(api.healthJournal.adjustHydration)
   const [optimistic, setOptimistic] = useState<number>()
-  const [lastAdded, setLastAdded] = useState<number>()
+  const [lastAddition, setLastAddition] = useState<{ amount: number }>()
+  const lastAdded = lastAddition?.amount
   const [error, setError] = useState<string>()
   const request = useRef(0)
   const hydration = optimistic ?? entry?.hydrationMl ?? 0
 
   useEffect(() => {
     if (!lastAdded) return
-    const timeout = window.setTimeout(() => setLastAdded(undefined), 5_000)
+    const timeout = window.setTimeout(() => setLastAddition(undefined), 5_000)
     return () => window.clearTimeout(timeout)
-  }, [lastAdded])
+  }, [lastAddition])
 
   async function change(deltaMl: number, showUndo = false) {
+    if (currentLocalDay().localDate !== localDate) return
     const next = Math.min(MAX_HYDRATION_ML, Math.max(0, hydration + deltaMl))
     const applied = next - hydration
     if (!applied) return
@@ -237,14 +249,13 @@ export function WaterPage() {
     setError(undefined)
     try {
       const result = await adjustHydration({
-        localDate,
-        timeZone,
+        ...currentLocalDay(),
         deltaMl: applied,
       })
       if (version === request.current) {
         setOptimistic(undefined)
         if (showUndo && result.appliedDeltaMl > 0)
-          setLastAdded(result.appliedDeltaMl)
+          setLastAddition({ amount: result.appliedDeltaMl })
       }
     } catch (cause) {
       if (version === request.current) setOptimistic(undefined)
@@ -320,7 +331,7 @@ export function WaterPage() {
             type="button"
             onClick={() => {
               const amount = lastAdded
-              setLastAdded(undefined)
+              setLastAddition(undefined)
               void change(-amount)
             }}
           >

@@ -1,6 +1,7 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
-import { useAction, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import { useCallback, useEffect, useRef } from 'react'
+import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { FunctionArgs } from 'convex/server'
 import type { GoogleWorkspaceService } from '@beegreat/tool-presentation'
 
@@ -14,8 +15,9 @@ export function useBeennectors() {
     api.beennectorAuthActions.beginAuthorization,
   )
   const disconnectAction = useAction(api.beennectorAuthActions.disconnect)
+  const cancelAuthorization = useMutation(api.beennectors.cancelAuthorization)
   const popupRef = useRef<Window | null>(null)
-  const pendingProviderRef = useRef<BeennectorProvider | undefined>(undefined)
+  const pendingSessionRef = useRef<Id<'beennectorAuthSessions'> | undefined>(undefined)
   const timerRef = useRef<number | undefined>(undefined)
   const connectionsRef = useRef(connections)
   connectionsRef.current = connections
@@ -24,19 +26,19 @@ export function useBeennectors() {
     () => () => {
       popupRef.current?.close()
       if (timerRef.current) window.clearInterval(timerRef.current)
-      if (pendingProviderRef.current) {
-        void disconnectAction({ provider: pendingProviderRef.current })
-        pendingProviderRef.current = undefined
+      if (pendingSessionRef.current) {
+        void cancelAuthorization({ sessionId: pendingSessionRef.current }).catch(() => undefined)
+        pendingSessionRef.current = undefined
       }
     },
-    [disconnectAction],
+    [cancelAuthorization],
   )
 
   const connect = useCallback(
     async (
       provider: BeennectorProvider,
       google?: {
-        services: GoogleWorkspaceService[]
+        services: Array<GoogleWorkspaceService>
         disclosureVersion: string
       },
     ) => {
@@ -49,23 +51,27 @@ export function useBeennectors() {
       popup.opener = null
       popupRef.current = popup
       let authorizationUrl: string
+      let sessionId: Id<'beennectorAuthSessions'>
       try {
         const request: FunctionArgs<
           typeof api.beennectorAuthActions.beginAuthorization
-        > = { provider }
+        > = { provider, client: 'browser' }
         if (provider === 'google' && google) {
           request.googleServices = google.services
           request.googleDisclosureVersion = google.disclosureVersion
         }
-        ;({ authorizationUrl } = await beginAuthorization(request))
+        ;({ authorizationUrl, sessionId } = await beginAuthorization(request))
       } catch (error) {
         popup.close()
         popupRef.current = null
         throw error
       }
-      if (popup.closed) return false
+      if (popup.closed) {
+        await cancelAuthorization({ sessionId })
+        return false
+      }
       popup.location.assign(authorizationUrl)
-      pendingProviderRef.current = provider
+      pendingSessionRef.current = sessionId
 
       if (timerRef.current) window.clearInterval(timerRef.current)
       return await new Promise<boolean>((resolve, reject) => {
@@ -74,15 +80,15 @@ export function useBeennectors() {
           if (timerRef.current) window.clearInterval(timerRef.current)
           timerRef.current = undefined
           popupRef.current = null
-          pendingProviderRef.current = undefined
+          pendingSessionRef.current = undefined
           resolve(connected)
         }
         const cancel = () => {
           if (timerRef.current) window.clearInterval(timerRef.current)
           timerRef.current = undefined
           popupRef.current = null
-          pendingProviderRef.current = undefined
-          void disconnectAction({ provider })
+          pendingSessionRef.current = undefined
+          void cancelAuthorization({ sessionId })
             .catch(() => undefined)
             .finally(() => resolve(false))
         }
@@ -113,7 +119,7 @@ export function useBeennectors() {
         }, 500)
       })
     },
-    [beginAuthorization, disconnectAction],
+    [beginAuthorization, cancelAuthorization],
   )
 
   return {

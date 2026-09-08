@@ -57,6 +57,7 @@ const nfcActions = {
     'mutation',
     {
       actionId: Id<'nfcActions'>
+      expectedUpdatedAt: number
       label?: string
       enabled?: boolean
       definition?: Definition
@@ -106,6 +107,7 @@ describe('NFC actions', () => {
     })
     const updated = await owner.mutation(nfcActions.update, {
       actionId: created._id,
+      expectedUpdatedAt: created.updatedAt,
       label: 'Large desk bottle',
       definition: { type: 'hydration', amountMl: 500 },
     })
@@ -287,6 +289,7 @@ describe('NFC actions', () => {
     })
     await owner.mutation(nfcActions.update, {
       actionId: action._id,
+      expectedUpdatedAt: action.updatedAt,
       enabled: false,
     })
 
@@ -312,3 +315,13 @@ describe('NFC actions', () => {
     ).rejects.toThrow('not available')
   })
 })
+
+ test('stale NFC editors cannot revert a newer amount', async () => {
+  const t = convexTest(schema, modules)
+  const owner = t.withIdentity(identity('nfc-conflict'))
+  const action = await owner.mutation(nfcActions.create, { label: 'Water', definition: { type: 'hydration', amountMl: 250 } })
+  const latest = await owner.mutation(nfcActions.update, { actionId: action._id, expectedUpdatedAt: action.updatedAt, definition: { type: 'hydration', amountMl: 500 } })
+  await expect(owner.mutation(nfcActions.update, { actionId: action._id, expectedUpdatedAt: action.updatedAt, label: 'Renamed', definition: action.definition })).rejects.toThrow(/changed elsewhere/)
+  const renamed = await owner.mutation(nfcActions.update, { actionId: action._id, expectedUpdatedAt: latest.updatedAt, label: 'Renamed' })
+  expect(renamed.definition).toEqual({ type: 'hydration', amountMl: 500 })
+ })

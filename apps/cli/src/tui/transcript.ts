@@ -1,3 +1,4 @@
+import { terminalText } from '../terminal-text';
 import {
   BoxRenderable,
   type BoxOptions,
@@ -28,6 +29,7 @@ export function createTranscript(
   let messageId = 0;
 
   function addMessage(kind: MessageKind, content: string): TranscriptMessage {
+    content = terminalText(content);
     messageId += 1;
     const rowOptions: BoxOptions = {
       id: `message-${messageId}`,
@@ -81,9 +83,10 @@ export function createTranscript(
       transcript.add(row);
       queueMicrotask(() => transcript.scrollTo(Number.MAX_SAFE_INTEGER));
       const setText = (text: string) => {
+        text = terminalText(text);
         if (text === current) return;
         current = text;
-        body.content = text;
+        body.content = terminalText(text);
       };
       return {
         row,
@@ -116,10 +119,10 @@ export function createTranscript(
     return {
       row,
       setText(text: string) {
-        body.content = text;
+        body.content = terminalText(text);
       },
       finalize(text: string) {
-        body.content = text;
+        body.content = terminalText(text);
       },
       body,
     };

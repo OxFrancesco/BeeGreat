@@ -83,6 +83,7 @@ function NfcActionCard({
   writing: boolean;
   onWrite: () => void;
   onUpdate: (patch: {
+    expectedUpdatedAt: number;
     label?: string;
     enabled?: boolean;
     definition?: NfcActionDefinition;
@@ -93,6 +94,7 @@ function NfcActionCard({
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(action.label);
   const [definition, setDefinition] = useState(action.definition);
+  const [baseline, setBaseline] = useState(action);
   const [saving, setSaving] = useState(false);
   const iconColors = config.icon.colors(theme);
   const canSave = label.trim().length > 0;
@@ -100,7 +102,11 @@ function NfcActionCard({
   const save = async () => {
     setSaving(true);
     try {
-      await onUpdate({ label, definition });
+      await onUpdate({
+        expectedUpdatedAt: baseline.updatedAt,
+        ...(label !== baseline.label ? { label } : {}),
+        ...(JSON.stringify(definition) !== JSON.stringify(baseline.definition) ? { definition } : {}),
+      });
       setEditing(false);
     } catch {
       // The screen-level live region owns the error message.
@@ -135,7 +141,7 @@ function NfcActionCard({
         <Switch
           accessibilityLabel={`${action.label} NFC ${config.noun}`}
           value={action.enabled}
-          onValueChange={(enabled) => void onUpdate({ enabled }).catch(() => undefined)}
+          onValueChange={(enabled) => void onUpdate({ enabled, expectedUpdatedAt: action.updatedAt }).catch(() => undefined)}
           trackColor={{ true: theme.primary }}
         />
       </View>
@@ -224,7 +230,7 @@ function NfcActionCard({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setEditing(true)}
+            onPress={() => { setLabel(action.label); setDefinition(action.definition); setBaseline(action); setEditing(true); }}
             style={({ pressed }) => [
               styles.quietButton,
               { borderColor: theme.border },
@@ -345,7 +351,7 @@ export function NfcActionTypeScreen({ config }: { config: NfcActionTypeConfig })
                 key={action._id}
                 config={config}
                 action={action}
-                writing={writingId === action._id}
+                writing={writingId !== null}
                 onWrite={() => void writeTag(action)}
                 onUpdate={async (patch) => {
                   setError(null);

@@ -1,3 +1,6 @@
+import { cp, mkdir, realpath } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import { defineConfig, loadEnv } from 'vite'
 import tsConfigPaths from 'vite-tsconfig-paths'
@@ -5,9 +8,6 @@ import tailwindcss from '@tailwindcss/vite'
 import viteReact from '@vitejs/plugin-react'
 import { sentryTanstackStart } from '@sentry/tanstackstart-react/vite'
 import { nitro } from 'nitro/vite'
-import { cp, mkdir, realpath } from 'node:fs/promises'
-import { createRequire } from 'node:module'
-import { dirname, resolve } from 'node:path'
 
 const require = createRequire(import.meta.url)
 const browserBuffer = resolve(dirname(require.resolve('buffer/package.json')), 'index.js')
@@ -45,8 +45,8 @@ export default defineConfig(({ mode }) => {
         modules: [
           {
             name: 'beegreat-react-runtime',
-            setup(nitro) {
-              nitro.hooks.hook('compiled', ({ options }) =>
+            setup(builder) {
+              builder.hooks.hook('compiled', ({ options }) =>
                 includeReactRuntime(options.output.serverDir),
               )
             },

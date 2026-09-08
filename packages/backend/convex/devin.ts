@@ -1,3 +1,4 @@
+import { requireDevinOrganizationAccess } from './devinAccess'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { env, internalAction } from './_generated/server'
@@ -10,7 +11,6 @@ import {
 } from './devinClient'
 
 const sessionIdPattern = /^devin-[A-Za-z0-9_-]+$/
-const POLL_INTERVAL_MS = 30_000
 const MAX_POLL_ATTEMPTS = 240
 
 function configuredClient() {
@@ -25,6 +25,7 @@ function configuredClient() {
 }
 
 async function requireDevin(ctx: ActionCtx, userId: string) {
+  requireDevinOrganizationAccess(userId)
   const enabled = await ctx.runQuery(internal.powerups.checkEnabled, {
     userId,
     powerupId: 'devin',
@@ -70,18 +71,8 @@ function needsPolling(session: DevinSession) {
   )
 }
 
-async function schedulePoll(
-  ctx: ActionCtx,
-  userId: string,
-  session: DevinSession,
-  attempt = 0,
-) {
-  if (!needsPolling(session) || attempt >= MAX_POLL_ATTEMPTS) return
-  await ctx.scheduler.runAfter(POLL_INTERVAL_MS, internal.devin.poll, {
-    userId,
-    sessionId: session.sessionId,
-    attempt: attempt + 1,
-  })
+async function schedulePoll(ctx: ActionCtx, userId: string, session: DevinSession, completedGeneration?: number) {
+  await ctx.runMutation(internal.devinData.schedulePoll, { userId, sessionId: session.sessionId, active: needsPolling(session), completedGeneration })
 }
 
 function validateStart(input: {
@@ -106,15 +97,16 @@ function validateStart(input: {
     input.maxAcuLimit !== undefined &&
     (!Number.isInteger(input.maxAcuLimit) ||
       input.maxAcuLimit < 1 ||
-      input.maxAcuLimit > 1000)
+      input.maxAcuLimit > 5)
   ) {
-    throw new Error('Devin ACU limit must be an integer from 1 to 1000.')
+    throw new Error('Devin ACU limit must be an integer from 1 to 5.')
   }
   const start: DevinCreateSessionInput = { prompt }
   if (title) start.title = title
   if (input.repos) start.repos = input.repos.map((repo) => repo.trim())
   if (input.mode) start.mode = input.mode
-  if (input.maxAcuLimit !== undefined) start.maxAcuLimit = input.maxAcuLimit
+  start.maxAcuLimit = input.maxAcuLimit ?? 5
+  if (input.mode === 'fast') throw new Error('Shared Devin access supports normal mode only.')
   return start
 }
 
@@ -141,8 +133,11 @@ export const execute = internalAction({
     const client = configuredClient()
 
     if (input.operation === 'start') {
-      const session = await client.createSession(validateStart(input))
+      const request = validateStart(input)
+      const reservation = await ctx.runMutation(internal.paidUsage.reserve, { userId: input.userId, operation: 'devin', units: request.maxAcuLimit! })
+      const session = await client.createSession(request)
       await cacheSession(ctx, input.userId, session)
+      await ctx.runMutation(internal.devinData.attachUsage, { userId: input.userId, sessionId: session.sessionId, leaseId: reservation.leaseId, safetyAcuLimit: request.maxAcuLimit! })
       await schedulePoll(ctx, input.userId, session)
       return JSON.stringify({ session })
     }
@@ -179,7 +174,7 @@ export const execute = internalAction({
     }
 
     if (!input.sessionId) throw new Error('A Devin session id is required.')
-    await requireOwnedSession(ctx, input.userId, input.sessionId)
+    const owned = await requireOwnedSession(ctx, input.userId, input.sessionId)
 
     if (input.operation === 'inspect') {
       const [session, messages] = await Promise.all([
@@ -195,6 +190,8 @@ export const execute = internalAction({
     if (!message || message.length > 10_000) {
       throw new Error('A valid Devin follow-up message is required.')
     }
+    if (!owned.safetyAcuLimit || owned.safetyAcuLimit > 5) throw new Error('This legacy session has no verified spending cap. Start a new capped task to continue.')
+    await ctx.runMutation(internal.devinData.admitFollowUp, { userId: input.userId, sessionId: input.sessionId })
     const session = await client.sendMessage(input.sessionId, message)
     await cacheSession(ctx, input.userId, session)
     await schedulePoll(ctx, input.userId, session)
@@ -209,14 +206,16 @@ export const poll = internalAction({
     userId: v.string(),
     sessionId: v.string(),
     attempt: v.number(),
+    generation: v.optional(v.number()),
   },
-  handler: async (ctx, { userId, sessionId, attempt }) => {
-    if (attempt > MAX_POLL_ATTEMPTS || !sessionIdPattern.test(sessionId)) return null
+  handler: async (ctx, { userId, sessionId, attempt, generation }) => {
+    if (generation === undefined || attempt > MAX_POLL_ATTEMPTS || !sessionIdPattern.test(sessionId)) return null
+    if (!(await ctx.runMutation(internal.devinData.claimPoll, { userId, sessionId, generation }))) return null
     const enabled = await ctx.runQuery(internal.powerups.checkEnabled, {
       userId,
       powerupId: 'devin',
     })
-    if (!enabled) return null
+    if (!enabled) { await ctx.runMutation(internal.devinData.schedulePoll, { userId, sessionId, active: false, completedGeneration: generation }); return null }
     const owned: Doc<'devinSessions'> | null = await ctx.runQuery(
       internal.devinData.getOwned,
       { userId, sessionId },
@@ -226,17 +225,11 @@ export const poll = internalAction({
     try {
       const session = await configuredClient().getSession(sessionId)
       await cacheSession(ctx, userId, session)
-      await schedulePoll(ctx, userId, session, attempt)
+      await schedulePoll(ctx, userId, session, generation)
     } catch {
       // A transient Devin/network failure should not erase the last good card.
       // Retry at the normal bounded cadence; the user can always refresh later.
-      if (attempt < MAX_POLL_ATTEMPTS) {
-        await ctx.scheduler.runAfter(POLL_INTERVAL_MS, internal.devin.poll, {
-          userId,
-          sessionId,
-          attempt: attempt + 1,
-        })
-      }
+      await ctx.runMutation(internal.devinData.schedulePoll, { userId, sessionId, active: true, completedGeneration: generation })
     }
     return null
   },

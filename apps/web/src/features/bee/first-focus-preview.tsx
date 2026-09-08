@@ -1,6 +1,6 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { Link } from '@tanstack/react-router'
-import { useMutation } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
 import { useCallback, useEffect, useState } from 'react'
 
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
@@ -30,6 +30,7 @@ export function FirstFocusPreviewCard({
   preview: FirstFocusPreview
 }) {
   const confirmPlan = useMutation(api.firstFocus.confirmPlan)
+  const confirmation = useQuery(api.firstFocus.getConfirmation, { requestId: preview.requestId })
   const [goalTitle, setGoalTitle] = useState(preview.goalTitle)
   const [projectTitle, setProjectTitle] = useState(preview.projectTitle)
   const [taskTitle, setTaskTitle] = useState(preview.taskTitle)
@@ -38,7 +39,7 @@ export function FirstFocusPreviewCard({
   )
   const [status, setStatus] = useState<PreviewStatus>('editing')
   const [error, setError] = useState<string>()
-  const busy = status === 'saving' || status === 'cancelling'
+  const busy = confirmation === undefined || !!confirmation || status === 'saved' || status === 'saving' || status === 'cancelling'
   const valid = Boolean(
     goalTitle.trim() && projectTitle.trim() && taskTitle.trim(),
   )
@@ -48,7 +49,7 @@ export function FirstFocusPreviewCard({
     setStatus('saving')
     setError(undefined)
     try {
-      await confirmPlan({
+      const result = await confirmPlan({
         requestId: preview.requestId,
         confirmed: true,
         goalTitle: goalTitle.trim(),
@@ -56,6 +57,7 @@ export function FirstFocusPreviewCard({
         taskTitle: taskTitle.trim(),
         highlightExpiresAt,
       })
+      if (result.status === 'cancelled') return false
       clearPendingFirstFocus(preview.requestId)
       setStatus('saved')
       return true
@@ -79,16 +81,16 @@ export function FirstFocusPreviewCard({
   ])
 
   useEffect(() => {
-    if (status !== 'editing') return
+    if (status !== 'editing' || confirmation !== null) return
     return registerPendingFirstFocus(preview.requestId, save)
-  }, [preview.requestId, save, status])
+  }, [preview.requestId, save, status, confirmation])
 
   async function cancel() {
     if (busy) return
     setStatus('cancelling')
     setError(undefined)
     try {
-      await confirmPlan({
+      const result = await confirmPlan({
         requestId: preview.requestId,
         confirmed: false,
         goalTitle: goalTitle.trim() || preview.goalTitle,
@@ -97,7 +99,7 @@ export function FirstFocusPreviewCard({
         highlightExpiresAt,
       })
       clearPendingFirstFocus(preview.requestId)
-      setStatus('cancelled')
+      setStatus(result.status === 'cancelled' ? 'cancelled' : 'saved')
     } catch (cause) {
       captureWebFailure(cause, 'first_focus.cancel_plan')
       setStatus('editing')
@@ -109,15 +111,15 @@ export function FirstFocusPreviewCard({
     }
   }
 
-  if (status === 'saved') {
+  if (confirmation || status === 'saved') {
     return (
       <section className="first-focus first-focus--saved" aria-live="polite">
         <div className="first-focus__result-mark" aria-hidden="true">
           ✓
         </div>
         <div>
-          <h3>Your first focus is live</h3>
-          <p>The Goal, Project, Task, and Highlight were created together.</p>
+          <h3>Focus saved</h3>
+          <p>{confirmation ? [confirmation.goalTitle, confirmation.projectTitle, confirmation.taskTitle].filter(Boolean).join(' · ') : 'Your saved focus is available in the Hive.'}</p>
         </div>
         <Link className="button button--primary" to="/hive">
           Meet your GolieBee
@@ -147,7 +149,7 @@ export function FirstFocusPreviewCard({
         </div>
       </header>
 
-      <div className="first-focus__fields">
+      <fieldset className="first-focus__fields" disabled={busy}>
         <PreviewField label="Goal" value={goalTitle} onChange={setGoalTitle} />
         <PreviewField
           label="Project"
@@ -159,7 +161,7 @@ export function FirstFocusPreviewCard({
           value={taskTitle}
           onChange={setTaskTitle}
         />
-      </div>
+      </fieldset>
 
       <fieldset className="expiry-picker" disabled={busy}>
         <legend>

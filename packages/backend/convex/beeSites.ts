@@ -1,3 +1,4 @@
+import { reviewLink } from './reviewLinks'
 import type { WithoutSystemFields } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
@@ -159,7 +160,7 @@ function normalizeSlug(value: string) {
 }
 
 function publicUrl(slug: string) {
-  return `${SITES_ORIGIN}/${slug}`
+  return `${SITES_ORIGIN}/${slug}/`
 }
 
 function resultForSite(
@@ -224,7 +225,7 @@ async function availableSlug(ctx: MutationCtx, suggestion: string) {
 }
 
 async function requireOwnedSite(
-  ctx: MutationCtx,
+  ctx: AuthContext,
   userId: string,
   siteId: Doc<'beeSites'>['_id'],
 ) {
@@ -393,7 +394,7 @@ export const publicPreviewByVersion = query({
       .unique()
     if (
       !deployment ||
-      deployment.kind !== 'preview' ||
+      (deployment.kind !== 'preview' && !deployment.approvedAt) ||
       deployment.status !== 'ready' ||
       !deployment.expiresAt ||
       deployment.expiresAt <= Date.now() ||
@@ -401,6 +402,9 @@ export const publicPreviewByVersion = query({
     ) {
       return null
     }
+    const site = await ctx.db.get(deployment.siteId)
+    if (!site || site.status === 'suspended') return null
+    if (deployment.approvedAt && (site.status !== 'published' || site.activeDeploymentId !== deployment._id)) return null
     return { assetPrefix: deployment.manifestKey }
   },
 })
@@ -446,12 +450,12 @@ export const unpublish = mutation({
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx)
     const site = await requireOwnedSite(ctx, userId, args.siteId)
-    if (site.status !== 'suspended') {
-      await ctx.db.patch(site._id, {
-        status: 'unpublished',
-        updatedAt: Date.now(),
-      })
-    }
+    await ctx.db.patch(site._id, {
+      status: site.status === 'suspended' ? 'suspended' : 'unpublished',
+      pendingProductionDeploymentId: undefined,
+      publicationRevision: (site.publicationRevision ?? 0) + 1,
+      updatedAt: Date.now(),
+    })
     const limits = await limitsForUser(ctx, userId)
     return resultForSite((await ctx.db.get('beeSites', site._id))!, limits)
   },
@@ -571,6 +575,10 @@ export const beginDeployment = internalMutation({
   }),
   handler: async (ctx, args) => {
     const site = await requireOwnedSite(ctx, args.userId, args.siteId)
+    if (site.status === 'suspended') {
+      invalidArgument('This Bee Site is suspended')
+    }
+    if (args.kind !== 'preview') invalidArgument('Review and approve the exact preview from your signed-in account before publishing')
     const limits = await limitsForUser(ctx, args.userId)
     if (!VERSION_PATTERN.test(args.version)) {
       invalidArgument('Invalid Bee Site deployment version')
@@ -613,32 +621,6 @@ export const beginDeployment = internalMutation({
       })
     }
 
-    if (args.kind === 'production') {
-      const { monthKey, usage } = await usageForUser(ctx, args.userId)
-      const publishCount = usage?.publishCount ?? 0
-      if (publishCount >= limits.publishesPerMonth) {
-        throw new ConvexError({
-          code: 'PUBLISH_LIMIT_REACHED',
-          message: 'Monthly Bee Site publish limit reached',
-        })
-      }
-      const now = Date.now()
-      if (usage) {
-        await ctx.db.patch(usage._id, {
-          publishCount: publishCount + 1,
-          updatedAt: now,
-        })
-      } else {
-        await ctx.db.insert('beeSiteUsage', {
-          userId: args.userId,
-          monthKey,
-          generationCount: 0,
-          publishCount: 1,
-          updatedAt: now,
-        })
-      }
-    }
-
     const deploymentDocument: WithoutSystemFields<Doc<'beeSiteDeployments'>> = {
       userId: args.userId,
       siteId: site._id,
@@ -671,8 +653,9 @@ export const completeDeployment = internalMutation({
     userId: v.string(),
     deploymentId: v.id('beeSiteDeployments'),
     manifestKey: v.string(),
+    contentDigest: v.string(),
   },
-  returns: siteResultValidator,
+  returns: v.object({ ...siteResultValidator.fields, reviewUrl: v.string() }),
   handler: async (ctx, args) => {
     const deployment = await ctx.db.get('beeSiteDeployments', args.deploymentId)
     if (!deployment || deployment.userId !== args.userId) {
@@ -681,6 +664,8 @@ export const completeDeployment = internalMutation({
         message: "You can't manage another user's Bee Site",
       })
     }
+    if (deployment.kind !== 'preview') invalidArgument('Production uploads require a new preview and signed-in approval')
+    if (!/^[a-f0-9]{64}$/.test(args.contentDigest)) invalidArgument('Invalid Bee Site content digest')
     if (deployment.status !== 'uploading') {
       throw new ConvexError({
         code: 'INVALID_DEPLOYMENT_STATE',
@@ -692,23 +677,18 @@ export const completeDeployment = internalMutation({
       invalidArgument('Invalid Bee Site asset location')
     }
     const site = await requireOwnedSite(ctx, args.userId, deployment.siteId)
+    if (site.status === 'suspended') {
+      invalidArgument('This Bee Site is suspended')
+    }
     const now = Date.now()
     await ctx.db.patch(deployment._id, {
       status: 'ready',
       manifestKey: args.manifestKey,
+      contentDigest: args.contentDigest,
       completedAt: now,
     })
-    if (deployment.kind === 'production') {
-      await ctx.db.patch(site._id, {
-        status: 'published',
-        pageCount: deployment.pageCount,
-        activeDeploymentId: deployment._id,
-        publishedAt: now,
-        updatedAt: now,
-      })
-    }
     const limits = await limitsForUser(ctx, args.userId)
-    return resultForSite((await ctx.db.get('beeSites', site._id))!, limits)
+    return { ...resultForSite((await ctx.db.get('beeSites', site._id))!, limits), reviewUrl: reviewLink('site', deployment.version) }
   },
 })
 
@@ -735,5 +715,60 @@ export const failDeployment = internalMutation({
       })
     }
     return null
+  },
+})
+
+
+export const reviewPreview = query({
+  args: { version: v.string() },
+  handler: async (ctx, { version }) => {
+    const userId = await requireUserId(ctx)
+    const deployment = await ctx.db.query('beeSiteDeployments').withIndex('by_version', q => q.eq('version', version)).unique()
+    if (!deployment || deployment.userId !== userId) return null
+    const site = await requireOwnedSite(ctx, userId, deployment.siteId)
+    const state = deployment.approvedAt ? 'approved'
+      : deployment.publicationCancelledAt ? 'cancelled'
+      : site.status === 'suspended' || deployment.status !== 'ready' || !deployment.contentDigest || !deployment.manifestKey ? 'unavailable'
+      : !deployment.expiresAt || deployment.expiresAt <= Date.now() ? 'expired' : 'pending'
+    return { version, title: site.title, slug: site.slug, publicUrl: publicUrl(site.slug), previewUrl: `${SITES_ORIGIN}/preview/${version}/`, contentDigest: deployment.contentDigest ?? null, publicationRevision: site.publicationRevision ?? 0, state }
+  },
+})
+
+export const cancelPublication = mutation({
+  args: { version: v.string() },
+  handler: async (ctx, { version }) => {
+    const userId = await requireUserId(ctx)
+    const deployment = await ctx.db.query('beeSiteDeployments').withIndex('by_version', q => q.eq('version', version)).unique()
+    if (!deployment || deployment.userId !== userId) invalidArgument('This preview is unavailable')
+    if (!deployment.approvedAt) await ctx.db.patch(deployment._id, { publicationCancelledAt: Date.now() })
+    return null
+  },
+})
+
+export const publishPreview = mutation({
+  args: { version: v.string(), expectedContentDigest: v.string(), expectedSlug: v.string(), expectedPublicationRevision: v.number() },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx)
+    const deployment = await ctx.db.query('beeSiteDeployments').withIndex('by_version', q => q.eq('version', args.version)).unique()
+    if (!deployment || deployment.userId !== userId) invalidArgument('This preview is unavailable')
+    const site = await requireOwnedSite(ctx, userId, deployment.siteId)
+    if (site.status === 'suspended') invalidArgument('This Bee Site is suspended')
+    if (!deployment.contentDigest || deployment.contentDigest !== args.expectedContentDigest || site.slug !== args.expectedSlug) invalidArgument('The preview or destination changed. Review it again')
+    if (deployment.approvedAt) {
+      if (site.activeDeploymentId === deployment._id && site.status === 'published') return { publicUrl: publicUrl(site.slug) }
+      invalidArgument('This publication was already approved. Create a new preview to publish again')
+    }
+    if ((site.publicationRevision ?? 0) !== args.expectedPublicationRevision) invalidArgument('The published site changed. Review it again')
+    if (deployment.publicationCancelledAt || deployment.kind !== 'preview' || deployment.status !== 'ready' || !deployment.manifestKey || !deployment.expiresAt || deployment.expiresAt <= Date.now()) invalidArgument('This preview is no longer awaiting publication')
+    const limits = await limitsForUser(ctx, userId)
+    const { monthKey, usage } = await usageForUser(ctx, userId)
+    const publishCount = usage?.publishCount ?? 0
+    if (publishCount >= limits.publishesPerMonth) throw new ConvexError({ code: 'PUBLISH_LIMIT_REACHED', message: 'Monthly Bee Site publish limit reached' })
+    const now = Date.now()
+    if (usage) await ctx.db.patch(usage._id, { publishCount: publishCount + 1, updatedAt: now })
+    else await ctx.db.insert('beeSiteUsage', { userId, monthKey, generationCount: 0, publishCount: 1, updatedAt: now })
+    await ctx.db.patch(deployment._id, { kind: 'production', approvedAt: now })
+    await ctx.db.patch(site._id, { status: 'published', pageCount: deployment.pageCount, activeDeploymentId: deployment._id, pendingProductionDeploymentId: undefined, publicationRevision: (site.publicationRevision ?? 0) + 1, publishedAt: now, updatedAt: now })
+    return { publicUrl: publicUrl(site.slug) }
   },
 })

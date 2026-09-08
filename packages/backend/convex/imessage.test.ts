@@ -262,3 +262,32 @@ describe('iMessage reverse states', () => {
     ).resolves.toEqual([])
   })
 })
+
+test('disconnect all includes legacy accounts above the new address limit', async () => {
+  const t = convexTest(schema, modules)
+  await t.run(async ctx => {
+    for (let i = 0; i < 25; i++) await ctx.db.insert('imessageConnections', {
+      userId: owner.userId, address: `legacy${i}@example.test`, addressKind: 'email', connectedAt: Date.now(), updatedAt: Date.now(),
+    })
+  })
+  expect(await t.query(internal.imessage.connectionsForAgent, { userId: owner.userId })).toHaveLength(25)
+  expect(await t.mutation(internal.imessage.disconnectForAgent, { userId: owner.userId })).toEqual({ disconnected: 25 })
+  expect(await t.query(internal.imessage.connectionsForAgent, { userId: owner.userId })).toEqual([])
+})
+
+test('large disconnect revokes every address immediately and cleanup preserves new links', async () => {
+  const t = convexTest(schema, modules)
+  await t.run(async ctx => {
+    for (let i = 0; i < 205; i++) await ctx.db.insert('imessageConnections', {
+      userId: owner.userId, address: `batch${i}@example.test`, addressKind: 'email', connectedAt: Date.now(), updatedAt: Date.now(),
+    })
+  })
+  expect(await t.mutation(internal.imessage.disconnectForAgent, { userId: owner.userId })).toEqual({ disconnected: 100, all: true })
+  expect(await t.query(internal.imessage.resolveAddressForBridge, { address: 'batch204@example.test' })).toBeNull()
+  expect(await t.query(internal.imessage.connectionsForAgent, { userId: owner.userId })).toEqual([])
+  await t.mutation(internal.imessage.createLinkSession, { address: 'batch204@example.test', tokenHash: 'new-link', expiresAt: Date.now() + 60_000 })
+  await t.mutation(internal.imessage.completeLinkSession, { tokenHash: 'new-link', userId: owner.userId })
+  await t.finishAllScheduledFunctions(vi.runAllTimers)
+  expect(await t.query(internal.imessage.connectionsForAgent, { userId: owner.userId })).toMatchObject([{ address: 'batch204@example.test' }])
+  expect(await t.run(ctx => ctx.db.query('imessageConnections').collect())).toHaveLength(1)
+})

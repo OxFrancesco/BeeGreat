@@ -2,6 +2,7 @@
 // confirm, cancel, expiry, and generic executor settlement. Plain TypeScript
 // helpers only — the Convex function definitions live in web3Actions.ts.
 
+import { scheduleWeb3Reconciliation } from '../web3Reconciliation'
 import type { WithoutSystemFields } from 'convex/server'
 import { internal } from '../_generated/api'
 import type { MutationCtx } from '../_generated/server'
@@ -46,6 +47,7 @@ export function publicView(action: Doc<'web3Actions'>) {
     result: action.result ?? null,
     socketProgress: action.socketProgress ?? null,
     error: action.error ?? null,
+    recoveryDetail: action.recoveryDetail ?? null,
   }
 }
 
@@ -213,13 +215,13 @@ export async function confirmWeb3Action(
   ctx: MutationCtx,
   userId: string,
   actionId: Id<'web3Actions'>,
-  expectedSummary?: string,
+  expectedSummary: string,
 ) {
   const action = await ctx.db.get(actionId)
   if (!action || action.userId !== userId) {
     throw new Error('This confirmation is no longer available.')
   }
-  if (expectedSummary !== undefined && action.summary !== expectedSummary) {
+  if (action.summary !== expectedSummary) {
     throw new Error(
       'This Web3 confirmation does not match the prepared action. Ask Bee to prepare it again.',
     )
@@ -260,7 +262,7 @@ export async function cancelWeb3Action(
   expectedSummary?: string,
 ) {
   const action = await ctx.db.get(actionId)
-  if (!action || action.userId !== userId) return null
+  if (!action || action.userId !== userId) return false
   if (expectedSummary !== undefined && action.summary !== expectedSummary) {
     throw new Error(
       'This Web3 confirmation does not match the prepared action. Ask Bee to prepare it again.',
@@ -268,8 +270,9 @@ export async function cancelWeb3Action(
   }
   if (action.status === 'pending') {
     await ctx.db.patch(actionId, { status: 'cancelled' })
+    return true
   }
-  return null
+  return false
 }
 
 /** Executor bookkeeping: record the outcome of a confirmed action. */
@@ -291,6 +294,10 @@ export async function recordWeb3ActionResult(
     (action.status !== 'confirmed' && action.status !== 'in_progress')
   )
     return null
+  if (error !== undefined && (action.crossmintExecution?.length || action.socketProgress?.originTxHash)) {
+    await scheduleWeb3Reconciliation(ctx, actionId)
+    return null
+  }
   await ctx.db.patch(actionId, {
     status: error === undefined ? 'executed' : 'failed',
     result,

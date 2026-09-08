@@ -1,4 +1,4 @@
-import type { FunctionArgs } from 'convex/server'
+import { oauthCompletionRedirect } from './oauthCompletion'
 import * as Schema from 'effect/Schema'
 import { internal } from '../_generated/api'
 import { httpAction } from '../_generated/server'
@@ -12,33 +12,7 @@ import {
   type JsonValue,
 } from './middleware'
 
-export const beennectorsOauthCallback = httpAction(async (ctx, request) => {
-  const url = new URL(request.url)
-  const state = url.searchParams.get('state')
-  const code = url.searchParams.get('code')
-  const oauthError = url.searchParams.get('error')
-  let connected = false
-  let provider: 'github' | 'linear' | 'notion' | 'google' | undefined
-  if (state) {
-    const args: FunctionArgs<
-      typeof internal.beennectorAuthActions.completeAuthorization
-    > = { state }
-    if (code) args.code = code
-    if (oauthError) args.errorCode = oauthError
-    const result = await ctx.runAction(
-      internal.beennectorAuthActions.completeAuthorization,
-      args,
-    )
-    connected = result.ok
-    provider = result.provider
-  }
-  const appUrl = new URL(
-    process.env.BEENNECTOR_APP_REDIRECT_URI?.trim() || 'beegreat://profile',
-  )
-  appUrl.searchParams.set('beennector', provider ?? 'unknown')
-  appUrl.searchParams.set('status', connected ? 'connected' : 'failed')
-  return Response.redirect(appUrl.toString(), 302)
-})
+export const beennectorsOauthCallback = httpAction(async (_ctx, request) => oauthCompletionRedirect(request, 'beennector'))
 
 const BeennectorRequest = Schema.Struct({ operation: Schema.String })
 
@@ -50,6 +24,7 @@ const BeennectorProviderField = Schema.Struct({
 
 const BeennectorDelivery = Schema.Struct({
   deliveryId: Schema.String,
+  message: Schema.Struct({ kind: Schema.Literal('signal'), type: Schema.String, body: Schema.String, attributes: Schema.Record(Schema.String, Schema.String) }),
   actorId: Schema.optional(Schema.String),
   workspaceId: Schema.optional(Schema.String),
 })
@@ -89,24 +64,11 @@ export const beennectorsInternal = httpAction(async (ctx, request) => {
         {
           provider,
           deliveryId: delivery.deliveryId,
+          message: delivery.message,
           actorId: delivery.actorId,
           workspaceId: delivery.workspaceId,
         },
       )
-      if (result.status === 'accepted') {
-        const verification = await ctx.runAction(
-          internal.subscriptionReconciliation.statusForAgent,
-          { userId: result.userId },
-        )
-        if (
-          verification.status === 'unavailable' ||
-          !verification.subscription.active
-        ) {
-          // The signed provider delivery is intentionally consumed, but it
-          // must not dispatch paid AI work without a current paid grant.
-          return jsonResponse({ status: 'subscription_required' }, 200)
-        }
-      }
       return jsonResponse(result, 200)
     }
     const userField = decodeRequestBody(BeennectorUserField, raw)

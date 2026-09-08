@@ -1,4 +1,7 @@
 #!/usr/bin/env bun
+import { terminalText } from './terminal-text';
+function printOutput(text: string) { console.log(terminalText(text)); }
+function printError(text: string) { console.error(terminalText(text)); }
 
 import { ensureBeeAgent } from "./agent-runtime";
 import { createClerkCliAuth } from "./clerk-auth";
@@ -74,7 +77,7 @@ async function main() {
     if (prompt) command = { kind: "ask", prompt };
   }
   if (command.kind === "help") {
-    console.log(HELP);
+    printOutput(HELP);
     return;
   }
   if (command.kind === "buddytg") {
@@ -86,7 +89,7 @@ async function main() {
   const credentialStore = createCredentialStore({
     account: `${config.clerkIssuer}|${config.clerkClientId}`,
     fallbackPath: config.credentialPath,
-    warn: (message) => console.error(`Bee CLI: ${message}`),
+    warn: (message) => printError(`Bee CLI: ${message}`),
   });
   const auth = createClerkCliAuth(
     { issuer: config.clerkIssuer, clientId: config.clerkClientId },
@@ -94,12 +97,12 @@ async function main() {
   );
   if (command.kind === "logout") {
     await auth.logout();
-    console.log("Signed out of BeeGreat CLI.");
+    printOutput("Signed out of BeeGreat CLI.");
     return;
   }
   const clerk = await auth.session({ forceLogin: command.kind === "login" });
   if (command.kind === "login") {
-    console.log("Signed in to BeeGreat CLI.");
+    printOutput("Signed in to BeeGreat CLI.");
     return;
   }
   const ensureAgent = (onStatus?: (message: string) => void) =>
@@ -110,14 +113,14 @@ async function main() {
       logPath: config.agentLogPath,
       onStatus,
     });
-  const printStatus = (message: string) => console.error(`  ${message}`);
+  const printStatus = (message: string) => printError(`  ${message}`);
   if (command.kind === "telegram" || command.kind === "imessage") {
     await ensureAgent(printStatus);
     const credentials = {
       agentUrl: config.agentUrl,
       accessToken: clerk.accessToken,
     };
-    console.log(
+    printOutput(
       command.kind === "telegram"
         ? await runTelegramCommand(command, credentials)
         : await runImessageCommand(command, credentials),
@@ -141,10 +144,10 @@ async function main() {
   async function ask(
     prompt: string,
     writeProgress: (line: string) => void = (line) =>
-      console.error(`  ${line}`),
+      printError(`  ${line}`),
   ) {
     const progress = createTerminalProgress(writeProgress);
-    console.error("  Bee is thinking…");
+    printError("  Bee is thinking…");
     const result = await session.ask(prompt, progress);
     return (
       projectBeeReply(result.text) || "Bee finished without a text reply."
@@ -152,12 +155,12 @@ async function main() {
   }
 
   if (command.kind === "ask") {
-    console.log(await ask(command.prompt));
+    printOutput(await ask(command.prompt));
     return;
   }
   if (command.kind === "new") {
     await session.newConversation();
-    console.log("New CLI conversation started.");
+    printOutput("New CLI conversation started.");
     return;
   }
 
@@ -234,6 +237,6 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  console.error(`Bee CLI: ${friendlyError(error)}`);
+  printError(`Bee CLI: ${friendlyError(error)}`);
   process.exitCode = 1;
 }

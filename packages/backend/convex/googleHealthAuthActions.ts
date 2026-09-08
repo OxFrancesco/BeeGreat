@@ -1,8 +1,10 @@
 'use node'
 
+import { isRevokedRefreshCode, isUnconsumedRefreshCode } from './credentialRefreshPolicy'
+
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
-import { action, internalAction } from './_generated/server'
+import { action } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import {
@@ -30,9 +32,9 @@ function credentialAad(userId: string, kind: 'access' | 'refresh') {
 }
 
 export const beginAuthorization = action({
-  args: {},
+  args: { client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))) },
   returns: v.object({ authorizationUrl: v.string() }),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) throw new Error('Not signed in')
     const userId = identity.subject
@@ -49,6 +51,7 @@ export const beginAuthorization = action({
     const stateHash = hashHealthValue(authorization.state)
     await ctx.runMutation(internal.googleHealthAuth.createSession, {
       userId,
+      client: args.client ?? 'mobile',
       stateHash,
       encryptedCodeVerifier: encryptHealthSecret(
         authorization.codeVerifier,
@@ -60,26 +63,22 @@ export const beginAuthorization = action({
   },
 })
 
-export const completeAuthorization = internalAction({
+export const completeAuthorization = action({
   args: {
     code: v.optional(v.string()),
     state: v.string(),
     errorCode: v.optional(v.string()),
   },
-  returns: v.object({ ok: v.boolean(), errorCode: v.optional(v.string()) }),
-  handler: async (ctx, args): Promise<{ ok: boolean; errorCode?: string }> => {
+  returns: v.object({ ok: v.boolean(), client: v.optional(v.union(v.literal('mobile'), v.literal('browser'))), errorCode: v.optional(v.string()) }),
+  handler: async (ctx, args): Promise<{ ok: boolean; client?: 'mobile' | 'browser'; errorCode?: string }> => {
+    const completingIdentity = await ctx.auth.getUserIdentity()
+    if (!completingIdentity) throw new Error('Sign in to complete this connection')
+    const attemptId = crypto.randomUUID()
     const stateHash = hashHealthValue(args.state)
-    if (!args.code || args.errorCode) {
-      const errorCode = args.errorCode ?? 'missing_authorization_code'
-      await ctx.runMutation(internal.googleHealthAuth.failSession, {
-        stateHash,
-        errorCode,
-      })
-      return { ok: false, errorCode }
-    }
     const session: {
       sessionId: Id<'googleHealthAuthSessions'>
       userId: string
+      client: 'mobile' | 'browser'
       status: string
       encryptedCodeVerifier?: {
         version: 1
@@ -88,9 +87,9 @@ export const completeAuthorization = internalAction({
         tag: string
       }
       expiresAt: number
-    } | null = await ctx.runQuery(
-      internal.googleHealthAuth.getSessionByStateHash,
-      { stateHash },
+    } | null = await ctx.runMutation(
+      internal.googleHealthAuth.claimSessionByStateHash,
+      { stateHash, userId: completingIdentity.subject, attemptId },
     )
     if (
       !session ||
@@ -99,10 +98,18 @@ export const completeAuthorization = internalAction({
       !session.encryptedCodeVerifier
     ) {
       await ctx.runMutation(internal.googleHealthAuth.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode: 'invalid_or_expired_state',
       })
       return { ok: false, errorCode: 'invalid_or_expired_state' }
+    }
+    if (!args.code || args.errorCode) {
+      const errorCode = args.errorCode ?? 'missing_authorization_code'
+      await ctx.runMutation(internal.googleHealthAuth.failSession, {
+        stateHash, attemptId,
+        errorCode,
+      })
+      return { ok: false, errorCode }
     }
     try {
       const verifier = decryptHealthSecret(
@@ -118,7 +125,7 @@ export const completeAuthorization = internalAction({
       const stored: boolean = await ctx.runMutation(
         internal.googleHealthAuth.completeAuthorization,
         {
-          sessionId: session.sessionId,
+          sessionId: session.sessionId, attemptId,
           encryptedAccess: encryptHealthSecret(
             tokens.accessToken,
             credentialAad(session.userId, 'access'),
@@ -131,7 +138,7 @@ export const completeAuthorization = internalAction({
           scopes: tokens.scopes,
         },
       )
-      return stored ? { ok: true } : { ok: false, errorCode: 'stale_session' }
+      return stored ? { ok: true, client: session.client } : { ok: false, errorCode: 'stale_session' }
     } catch (error) {
       const errorCode =
         error instanceof GoogleHealthOAuthError
@@ -150,7 +157,7 @@ export const completeAuthorization = internalAction({
         )
       }
       await ctx.runMutation(internal.googleHealthAuth.failSession, {
-        stateHash,
+        stateHash, attemptId,
         errorCode,
       })
       return { ok: false, errorCode }
@@ -215,11 +222,13 @@ export async function resolveGoogleHealthAccessToken(
       credentialAad(userId, 'access'),
     )
   }
+  let refreshAttempted = false
   try {
     const refreshToken = decryptHealthSecret(
       claim.encryptedRefresh,
       credentialAad(userId, 'refresh'),
     )
+    refreshAttempted = true
     const tokens = await refreshGoogleHealthToken(refreshToken)
     const nextRefresh = tokens.refreshToken ?? refreshToken
     const stored = await ctx.runMutation(
@@ -246,11 +255,12 @@ export async function resolveGoogleHealthAccessToken(
     return tokens.accessToken
   } catch (error) {
     const permanent =
-      error instanceof GoogleHealthOAuthError ? !error.retryable : true
+      error instanceof GoogleHealthOAuthError && isRevokedRefreshCode(error.code)
     await ctx.runMutation(internal.googleHealthAuth.failRefresh, {
       userId,
       leaseId: claim.leaseId,
       permanent,
+      uncertain: refreshAttempted && !permanent && !(error instanceof GoogleHealthOAuthError && isUnconsumedRefreshCode(error.code)),
     })
     throw permanent
       ? new Error(

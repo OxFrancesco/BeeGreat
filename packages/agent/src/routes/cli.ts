@@ -1,3 +1,4 @@
+import { isValidImessageAddress, normalizeImessageAddress } from '@beegreat/tool-presentation'
 import type { Hono } from 'hono'
 import type { JsonValue } from '@flue/runtime'
 import * as v from 'valibot'
@@ -24,13 +25,8 @@ const telegramTextSchema = v.pipe(
 
 const imessageRequestSchema = v.object({
   action: v.picklist(['status', 'disconnect']),
-  address: v.optional(jsonValueSchema),
+  address: v.optional(v.pipe(v.string(), v.check(isValidImessageAddress))),
 })
-
-const nonBlankStringSchema = v.pipe(
-  v.string(),
-  v.check((value) => value.trim().length > 0),
-)
 
 export function registerCliRoutes(app: Hono<AppEnvironment>) {
   app.post('/cli/telegram', async (c) => {
@@ -93,8 +89,8 @@ export function registerCliRoutes(app: Hono<AppEnvironment>) {
     }
     const input: Record<string, JsonValue | undefined> = {}
     input.userId = c.get('userId')
-    if (v.is(nonBlankStringSchema, rawBody.address)) {
-      input.address = rawBody.address
+    if (rawBody.address !== undefined) {
+      input.address = normalizeImessageAddress(rawBody.address)
     }
     try {
       const result = await callImessageService(

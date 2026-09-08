@@ -51,12 +51,13 @@ export function PromptInput({
     : [];
 
   const runCommand = async (command: string) => {
+    if (disabled || submitting) return;
     setText('');
     setSubmitting(true);
     try {
       await onSubmit(command);
     } catch {
-      setText(command);
+      setText((current) => current || command);
     } finally {
       setSubmitting(false);
     }
