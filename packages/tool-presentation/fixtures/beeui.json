@@ -1,0 +1,440 @@
+{
+  "extract": [
+    {
+      "input": "Here is your day.\n```beeui\n{\"components\":[{\"type\":\"metric\",\"label\":\"Open tasks\",\"value\":\"3\"}]}\n```",
+      "spoken": "Here is your day.",
+      "components": [
+        {
+          "type": "metric",
+          "label": "Open tasks",
+          "value": "3"
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "Two cards.\n```beeui\n{\"components\":[{\"type\":\"text\",\"body\":\"Note (id j970k2m4n6p8q0r2t4v6x8z0b2d4f6h8)\"},{\"type\":\"highlight\",\"title\":\"Focus\",\"body\":\"Ship it\"}]}\n```\n\n\nTrailing.",
+      "spoken": "Two cards.\n\nTrailing.",
+      "components": [
+        {
+          "type": "text",
+          "body": "Note"
+        },
+        {
+          "type": "highlight",
+          "title": "Focus",
+          "body": "Ship it"
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "Chart.\n```beeui\n{\"components\":[{\"type\":\"chart\",\"kind\":\"bar\",\"title\":\"Water\",\"unit\":\"ml\",\"data\":[{\"label\":\"Mon\",\"value\":500},{\"label\":\"Tue\",\"value\":750.5}]}]}\n```",
+      "spoken": "Chart.",
+      "components": [
+        {
+          "type": "chart",
+          "kind": "bar",
+          "title": "Water",
+          "unit": "ml",
+          "data": [
+            {
+              "label": "Mon",
+              "value": 500
+            },
+            {
+              "label": "Tue",
+              "value": 750.5
+            }
+          ]
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "Tasks.\n```beeui\n{\"components\":[{\"type\":\"tasks\",\"title\":\"Today\",\"items\":[{\"id\":\"t1\",\"title\":\"Run\",\"done\":false,\"due\":\"5pm\"},{\"id\":\"t2\",\"title\":\"Read\",\"done\":true}]}]}\n```",
+      "spoken": "Tasks.",
+      "components": [
+        {
+          "type": "tasks",
+          "title": "Today",
+          "items": [
+            {
+              "id": "t1",
+              "title": "Run",
+              "done": false,
+              "due": "5pm"
+            },
+            {
+              "id": "t2",
+              "title": "Read",
+              "done": true
+            }
+          ]
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "Unknown type degrades.\n```beeui\n{\"components\":[{\"type\":\"hologram\",\"x\":1},{\"type\":\"text\",\"body\":\"ok\"}]}\n```",
+      "spoken": "Unknown type degrades.",
+      "components": [
+        {
+          "type": "unsupported"
+        },
+        {
+          "type": "text",
+          "body": "ok"
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "Invalid known component drops the block.\n```beeui\n{\"components\":[{\"type\":\"metric\",\"label\":\"missing value\"}]}\n```",
+      "spoken": "Invalid known component drops the block.",
+      "components": [],
+      "followUps": {}
+    },
+    {
+      "input": "Malformed JSON.\n```beeui\n{\"components\":[\n```",
+      "spoken": "Malformed JSON.",
+      "components": [],
+      "followUps": {}
+    },
+    {
+      "input": "Look: ![A bee](https://example.com/bee.png \"title\") and again ![](https://example.com/bee.png)",
+      "spoken": "Look: and again",
+      "components": [
+        {
+          "type": "image",
+          "url": "https://example.com/bee.png",
+          "alt": "A bee"
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"image\",\"url\":\"http://insecure.example/x.png\",\"alt\":\"nope\"}]}\n```",
+      "spoken": "",
+      "components": [],
+      "followUps": {}
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"bookmark\",\"title\":\"Site\",\"url\":\"https://www.example.com/a\",\"kind\":\"website\",\"labels\":[\"one\",\"two\"],\"note\":\"Read later\"}]}\n```",
+      "spoken": "",
+      "components": [
+        {
+          "type": "bookmark",
+          "title": "Site",
+          "url": "https://www.example.com/a",
+          "kind": "website",
+          "labels": [
+            "one",
+            "two"
+          ],
+          "note": "Read later"
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"bookmark\",\"title\":\"Site\",\"url\":\"https://example.com\",\"kind\":\"podcast\"}]}\n```",
+      "spoken": "",
+      "components": [],
+      "followUps": {}
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"devin\",\"title\":\"Fix CI\",\"status\":\"running\",\"sessionId\":\"devin-abc123\",\"sessionUrl\":\"https://app.devin.ai/s/abc\",\"pullRequests\":[{\"url\":\"https://github.com/o/r/pull/1\",\"state\":\"open\"}]}]}\n```",
+      "spoken": "",
+      "components": [
+        {
+          "type": "devin",
+          "title": "Fix CI",
+          "status": "running",
+          "sessionId": "devin-abc123",
+          "sessionUrl": "https://app.devin.ai/s/abc",
+          "pullRequests": [
+            {
+              "url": "https://github.com/o/r/pull/1",
+              "state": "open"
+            }
+          ]
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"devin\",\"title\":\"Bad\",\"status\":\"x\",\"sessionId\":\"nope\",\"sessionUrl\":\"https://a.b\",\"pullRequests\":[]}]}\n```",
+      "spoken": "",
+      "components": [],
+      "followUps": {}
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"first_focus\",\"requestId\":\"req1\",\"goalTitle\":\"G\",\"projectTitle\":\"P\",\"taskTitle\":\"T\",\"highlightExpiresAt\":1730000000000}]}\n```",
+      "spoken": "",
+      "components": [
+        {
+          "type": "first_focus",
+          "requestId": "req1",
+          "goalTitle": "G",
+          "projectTitle": "P",
+          "taskTitle": "T",
+          "highlightExpiresAt": 1730000000000
+        }
+      ],
+      "followUps": {
+        "firstFocus": {
+          "type": "first_focus",
+          "requestId": "req1",
+          "goalTitle": "G",
+          "projectTitle": "P",
+          "taskTitle": "T",
+          "highlightExpiresAt": 1730000000000
+        }
+      }
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"first_focus\",\"requestId\":\"\",\"goalTitle\":\"G\",\"projectTitle\":\"P\",\"taskTitle\":\"T\"}]}\n```",
+      "spoken": "",
+      "components": [],
+      "followUps": {}
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"confirm\",\"summary\":\"Send 1 ETH\",\"action\":\"swap\",\"payload\":{\"web3ActionId\":\"act_1\"}}]}\n```",
+      "spoken": "",
+      "components": [
+        {
+          "type": "confirm",
+          "summary": "Send 1 ETH",
+          "action": "swap",
+          "payload": {
+            "web3ActionId": "act_1"
+          }
+        }
+      ],
+      "followUps": {
+        "web3Confirmation": {
+          "actionId": "act_1",
+          "summary": "Send 1 ETH"
+        }
+      }
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"confirm\",\"summary\":\"Delete goal?\",\"action\":\"delete_goal\"}]}\n```",
+      "spoken": "",
+      "components": [
+        {
+          "type": "confirm",
+          "summary": "Delete goal?",
+          "action": "delete_goal"
+        }
+      ],
+      "followUps": {
+        "confirmation": {
+          "summary": "Delete goal?"
+        }
+      }
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"question\",\"questions\":[{\"header\":\"Time\",\"question\":\"When?\",\"options\":[{\"label\":\"Morning\",\"description\":\"Before 9\"},{\"label\":\"Evening\"}]}]}]}\n```",
+      "spoken": "",
+      "components": [
+        {
+          "type": "question",
+          "questions": [
+            {
+              "header": "Time",
+              "question": "When?",
+              "options": [
+                {
+                  "label": "Morning",
+                  "description": "Before 9"
+                },
+                {
+                  "label": "Evening"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "followUps": {
+        "question": {
+          "questions": [
+            {
+              "header": "Time",
+              "question": "When?",
+              "options": [
+                {
+                  "label": "Morning",
+                  "description": "Before 9"
+                },
+                {
+                  "label": "Evening"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "input": "```beeui\n{\"components\":[{\"type\":\"question\",\"questions\":[{\"header\":\"Time\",\"question\":\"When?\",\"options\":[{\"label\":\"Only one\"}]}]}]}\n```",
+      "spoken": "",
+      "components": [],
+      "followUps": {}
+    },
+    {
+      "input": "Two blocks.\n```BEEUI\n{\"components\":[{\"type\":\"text\",\"body\":\"one\"}]}\n```\nmiddle\n```beeui\n{\"components\":[{\"type\":\"text\",\"body\":\"two\"}]}\n```",
+      "spoken": "Two blocks.\n\nmiddle",
+      "components": [
+        {
+          "type": "text",
+          "body": "one"
+        },
+        {
+          "type": "text",
+          "body": "two"
+        }
+      ],
+      "followUps": {}
+    },
+    {
+      "input": "Plain reply with session devin-abc123def and ID: j970k2m4n6p8q0r2t4v6x8z0b2d4f6h8 removed.",
+      "spoken": "Plain reply with session andremoved.",
+      "components": [],
+      "followUps": {}
+    }
+  ],
+  "scrub": [
+    {
+      "input": "Task (id j970k2m4n6p8q0r2t4v6x8z0b2d4f6h8) is due",
+      "output": "Task is due",
+      "preserved": "Task is due"
+    },
+    {
+      "input": "Open https://x.test/j970k2m4n6p8q0r2t4v6x8z0b2d4f6h8/view now",
+      "output": "Open https://x.test/j970k2m4n6p8q0r2t4v6x8z0b2d4f6h8/view now",
+      "preserved": "Open https://x.test/j970k2m4n6p8q0r2t4v6x8z0b2d4f6h8/view now"
+    },
+    {
+      "input": "Session: devin-abc123def · Status: running",
+      "output": "Session: · Status: running",
+      "preserved": "Session: · Status: running"
+    },
+    {
+      "input": "Wallet 0x1234567890abcdef1234567890abcdef12345678 id: 0x1234567890abcdef1234567890abcdef12345678",
+      "output": "Wallet 0x1234567890abcdef1234567890abcdef12345678",
+      "preserved": "Wallet 0x1234567890abcdef1234567890abcdef12345678 id: 0x1234567890abcdef1234567890abcdef12345678"
+    },
+    {
+      "input": "Done ( ) and [ ] and  double  spaces , punct .",
+      "output": "Done and and double spaces, punct.",
+      "preserved": "Done and and double spaces, punct."
+    }
+  ],
+  "toolCopy": [
+    {
+      "name": "search_mind",
+      "state": "running",
+      "output": {
+        "label": "Searching your Mind…",
+        "powerup": null,
+        "specialist": null
+      }
+    },
+    {
+      "name": "create_wallet",
+      "state": "done",
+      "output": {
+        "label": "Created your wallet",
+        "powerup": "Web3",
+        "specialist": null
+      }
+    },
+    {
+      "name": "start_devin_task",
+      "state": "error",
+      "output": {
+        "label": "Couldn’t start the Devin task",
+        "powerup": "Devin",
+        "specialist": null
+      }
+    },
+    {
+      "name": "generate_image",
+      "state": "running",
+      "output": {
+        "label": "Creating your image…",
+        "powerup": null,
+        "specialist": "Imagine"
+      }
+    },
+    {
+      "name": "task",
+      "state": "running",
+      "input": {
+        "agent": "web3"
+      },
+      "output": {
+        "label": "At work…",
+        "powerup": "Web3",
+        "specialist": null
+      }
+    },
+    {
+      "name": "task",
+      "state": "done",
+      "input": {
+        "agent": "imagine"
+      },
+      "output": {
+        "label": "Finished",
+        "powerup": null,
+        "specialist": "Imagine"
+      }
+    },
+    {
+      "name": "task",
+      "state": "error",
+      "input": {
+        "agent": "goals"
+      },
+      "output": {
+        "label": "Couldn’t finish the goals work",
+        "powerup": null,
+        "specialist": null
+      }
+    },
+    {
+      "name": "task",
+      "state": "running",
+      "input": {
+        "agent": 42
+      },
+      "output": {
+        "label": "Working on it…",
+        "powerup": null,
+        "specialist": null
+      }
+    },
+    {
+      "name": "task",
+      "state": "running",
+      "output": {
+        "label": "Working on it…",
+        "powerup": null,
+        "specialist": null
+      }
+    },
+    {
+      "name": "some_new_tool",
+      "state": "done",
+      "output": {
+        "label": "Finished some new tool",
+        "powerup": null,
+        "specialist": null
+      }
+    }
+  ]
+}

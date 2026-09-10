@@ -27,3 +27,5 @@ rootProject.name = "BeeGreat"
 include(":app")
 include(":core:design")
 include(":core:convex")
+include(":core:flue")
+include(":core:contract")
