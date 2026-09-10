@@ -60,6 +60,10 @@ import com.beegreat.app.voice.VoiceMode
 import com.beegreat.app.profile.ConnectionsScreen
 import com.beegreat.app.profile.JobsScreen
 import com.beegreat.app.profile.ProfileScreen
+import com.beegreat.app.profile.PublicProfileScreen
+import com.beegreat.app.web3.WalletsScreen
+import com.beegreat.app.nfc.NfcActionsScreen
+import com.beegreat.app.nfc.TapScreen
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -99,6 +103,10 @@ import com.beegreat.design.Spacing
 @Serializable object WalletsRoute
 
 @Serializable object PublicProfileRoute
+
+@Serializable data class RemindersRoute(val kind: String = "reminder")
+
+@Serializable data class TapRoute(val publicId: String)
 
 private data class AddBookmarkRequest(val url: String?)
 
@@ -151,6 +159,8 @@ private class ShellNavigator(
   override fun openJournalEntry(entryId: String) = nav.navigate(JournalEntryRoute(entryId))
 
   override fun openNfcActions() = nav.navigate(NfcActionsRoute)
+
+  override fun openReminders() = nav.navigate(RemindersRoute())
 
   override fun openThreads() = showThreads()
 
@@ -209,6 +219,21 @@ fun BeeShell() {
     container.pendingSharedUrl.value = null
     addBookmark = AddBookmarkRequest(url)
   }
+  val pendingTap by container.pendingTapPublicId.collectAsStateWithLifecycle()
+  LaunchedEffect(pendingTap) {
+    val id = pendingTap ?: return@LaunchedEffect
+    container.pendingTapPublicId.value = null
+    navController.navigate(TapRoute(id))
+  }
+  val pendingLink by container.pendingDeepLink.collectAsStateWithLifecycle()
+  LaunchedEffect(pendingLink) {
+    val link = pendingLink ?: return@LaunchedEffect
+    container.pendingDeepLink.value = null
+    when (link) {
+      "profile" -> navController.navigate(ProfileRoute)
+      "wallet" -> navController.navigate(WalletsRoute)
+    }
+  }
 
   CompositionLocalProvider(LocalNavigator provides navigator) {
     Scaffold(
@@ -266,13 +291,15 @@ fun BeeShell() {
         composable<BookmarkRoute> { entry -> BookmarkDetailScreen(entry.toRoute<BookmarkRoute>().bookmarkId) }
         composable<BeeHealthyRoute> { BeeHealthyScreen() }
         composable<JournalEntryRoute> { entry -> JournalEntryScreen(entry.toRoute<JournalEntryRoute>().entryId) }
-        composable<NfcActionsRoute> { PlaceholderScreen("NFC actions", "Tap actions land in Phase 7.") }
+        composable<NfcActionsRoute> { NfcActionsScreen() }
+        composable<RemindersRoute> { NfcActionsScreen(kind = "reminder") }
+        composable<TapRoute> { entry -> TapScreen(entry.toRoute<TapRoute>().publicId) }
         composable<VoiceConversationRoute> { VoiceConversationScreen() }
         composable<ProfileRoute> { ProfileScreen() }
         composable<ConnectionsRoute> { ConnectionsScreen() }
         composable<JobsRoute> { JobsScreen() }
-        composable<WalletsRoute> { PlaceholderScreen("Wallets", "Wallets land in Phase 7.") }
-        composable<PublicProfileRoute> { PlaceholderScreen("Public profile", "Public profile lands in Phase 7.") }
+        composable<WalletsRoute> { WalletsScreen() }
+        composable<PublicProfileRoute> { PublicProfileScreen() }
         composable<GoalRoute> { entry -> GoalDetailScreen(entry.toRoute<GoalRoute>().goalId) }
         composable<ProjectRoute> { entry -> ProjectScreen(entry.toRoute<ProjectRoute>().projectId) }
         }

@@ -27,6 +27,8 @@ interface Navigator {
 
   fun openNfcActions()
 
+  fun openReminders()
+
   fun openThreads()
 
   fun openProfile()

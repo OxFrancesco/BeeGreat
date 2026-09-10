@@ -21,6 +21,8 @@ browser = "1.9.0"
 okhttp = "5.5.0"
 coil = "3.6.1"
 markdown = "0.45.0"
+reown = "1.6.16"
+zxing = "3.5.4"
 materialIcons = "1.7.8"
 
 junit = "4.13.2"
@@ -58,6 +60,10 @@ coil-network = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = 
 coil-gif = { module = "io.coil-kt.coil3:coil-gif", version.ref = "coil" }
 markdown-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdown" }
 markdown-coil = { module = "com.mikepenz:multiplatform-markdown-renderer-coil3", version.ref = "markdown" }
+reown-bom = { module = "com.reown:android-bom", version.ref = "reown" }
+reown-core = { module = "com.reown:android-core" }
+reown-appkit = { module = "com.reown:appkit" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
 

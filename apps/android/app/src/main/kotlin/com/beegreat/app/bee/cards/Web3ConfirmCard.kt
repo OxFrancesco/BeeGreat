@@ -19,6 +19,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.beegreat.app.LocalAppContainer
+import com.beegreat.app.shell.LocalNavigator
+import com.beegreat.app.web3.eoaFailureReason
+import com.beegreat.app.web3.sameEvmAddress
+import com.beegreat.app.web3.sendFreshEoaTransactions
+import com.beegreat.app.web3.shortenAddress
 import com.beegreat.contract.Web3Confirmation
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.Radius
@@ -31,14 +36,16 @@ private val WEB3_BORDER = Color(0x668066E8)
 private val WEB3_ACCENT = Color(0xFF6248C6)
 
 /**
- * Action-bound Web3 confirmation. Confirm and cancel go through Convex with
- * the exact summary the user read; the card then follows the action's live
- * status. Linked-wallet (EOA) signing arrives with the Web3 phase.
+ * Action-bound Web3 confirmation. Smart-wallet actions confirm through Convex
+ * with the exact summary the user read; linked-wallet actions claim the plan,
+ * then the connected wallet signs each fresh step. The card follows the
+ * action's live status afterwards.
  */
 @Composable
 fun Web3ConfirmCard(confirmation: Web3Confirmation, onReply: (String) -> Unit) {
   val colors = BeeTheme.colors
   val container = LocalAppContainer.current
+  val navigator = LocalNavigator.current
   val scope = rememberCoroutineScope()
   val liveFlow = remember(confirmation.actionId) { container.web3Actions.status(confirmation.actionId).map { it.getOrNull() } }
   val live by liveFlow.collectAsStateWithLifecycle(initialValue = null)
@@ -49,18 +56,46 @@ fun Web3ConfirmCard(confirmation: Web3Confirmation, onReply: (String) -> Unit) {
   val isEoa = live?.kind == "execute_eoa_plan"
   val settled = decision != "idle" || (status != null && status != "pending")
 
+  val connected by container.walletConnect.account.collectAsStateWithLifecycle()
+  val expectedEoa = live?.eoaRequest?.walletAddress
+  val eoaSessionMatches = isEoa && connected != null && sameEvmAddress(connected?.address, expectedEoa)
+
   fun confirm() {
     val action = live ?: return
     if (settled) return
+    if (isEoa && !eoaSessionMatches) {
+      error = "Connect the wallet ${expectedEoa?.let(::shortenAddress) ?: ""} in Wallets first, then authorize."
+      return
+    }
     decision = "confirming"
     error = null
     scope.launch {
+      var eoaClaimed = false
       try {
-        container.web3Actions.confirm(action.id, action.summary)
+        if (isEoa) {
+          val plan = container.web3Actions.beginEoaExecution(action.id, action.summary)
+          eoaClaimed = true
+          try {
+            container.walletConnect.sendFreshEoaTransactions(
+              http = container.http,
+              address = plan.walletAddress,
+              chainId = plan.chainId.toLong(),
+              buildPlan = { container.web3Actions.refreshEoaExecution(action.id).transactionSteps },
+              onSubmitted = { container.web3Actions.recordEoaSubmission(action.id, it.index, it.hash, it.role) },
+              onConfirmed = { container.web3Actions.recordEoaReceipt(action.id, it.index, it.hash) },
+            )
+          } catch (cause: Exception) {
+            container.web3Actions.reportEoaFailure(action.id, eoaFailureReason(cause))
+            throw cause
+          }
+          onReply("I signed the linked-wallet action in the app. Check its status.")
+        } else {
+          container.web3Actions.confirm(action.id, action.summary)
+          onReply("I confirmed the action in the app. Check its status.")
+        }
         decision = "confirmed"
-        onReply("I confirmed the action in the app. Check its status.")
       } catch (e: Exception) {
-        decision = "idle"
+        decision = if (eoaClaimed) "confirmed" else "idle"
         error = e.message ?: "Could not confirm the action."
       }
     }
@@ -100,12 +135,11 @@ fun Web3ConfirmCard(confirmation: Web3Confirmation, onReply: (String) -> Unit) {
     Text(summary, style = BeeTheme.typography.body, color = colors.text)
     when {
       live == null -> Text("Loading the action…", style = BeeTheme.typography.small, color = colors.textSecondary)
-      isEoa && status == "pending" ->
-        Text(
-          "This action needs your connected wallet. Open it where the wallet is linked, or wait for the Web3 wallet update on Android.",
-          style = BeeTheme.typography.small,
-          color = colors.textSecondary,
-        )
+      isEoa && status == "pending" && !eoaSessionMatches && !settled -> {
+        Text("Sign with your linked wallet ${expectedEoa?.let(::shortenAddress) ?: ""}. Connect it in Wallets, then come back.", style = BeeTheme.typography.small, color = colors.textSecondary)
+        ConfirmRow(onYes = { navigator.openWallets() }, onNo = ::decline, yesLabel = "Open Wallets", noLabel = "Decline")
+      }
+      isEoa && status == "pending" && !settled -> ConfirmRow(onYes = ::confirm, onNo = ::decline, yesLabel = "Sign in wallet", noLabel = "Decline")
       status == "pending" && !settled -> ConfirmRow(onYes = ::confirm, onNo = ::decline, yesLabel = "Authorize", noLabel = "Decline")
       status == "pending" -> Text(if (decision == "declining") "Declining…" else "Authorizing…", style = BeeTheme.typography.small, color = colors.textSecondary)
       status == "cancelled" -> Text("You declined this action.", style = BeeTheme.typography.small, color = colors.textSecondary)

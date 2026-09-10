@@ -27,6 +27,10 @@ import com.beegreat.convex.projects.ProjectsRepository
 import com.beegreat.convex.tasks.TasksRepository
 import com.beegreat.convex.user.UserRepository
 import com.beegreat.convex.web3.Web3ActionsRepository
+import com.beegreat.convex.web3.WalletsRepository
+import com.beegreat.convex.profile.PublicProfileRepository
+import com.beegreat.convex.nfc.NfcActionsRepository
+import com.beegreat.app.web3.WalletConnect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +53,10 @@ class AppContainer(context: Context) {
   val user = UserRepository(convex)
   val devin = DevinRepository(convex)
   val web3Actions = Web3ActionsRepository(convex)
+  val wallets = WalletsRepository(convex)
+  val publicProfile = PublicProfileRepository(convex)
+  val nfcActions = NfcActionsRepository(convex)
+  val walletConnect = WalletConnect(context.applicationContext as android.app.Application).also { it.initialize() }
   val bookmarks = BookmarksRepository(convex)
   val health = HealthRepository(convex)
   val connections = ConnectionsRepository(convex)
@@ -57,6 +65,12 @@ class AppContainer(context: Context) {
 
   /** A link handed to the app by the share sheet or a deep link, consumed once by the shell. */
   val pendingSharedUrl = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+  /** `/tap/<publicId>` from an NFC tag or App Link, consumed once by the shell. */
+  val pendingTapPublicId = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+
+  /** `beegreat://profile` or `beegreat://wallet` after an OAuth or wallet hop. */
+  val pendingDeepLink = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
   val beeAgent = BeeAgentController(chat, firstFocus, user, http, scope).also { it.start() }
   val preferences = Preferences(context)
   val voiceApi = VoiceApi(http, beeAgent::authHeaders)

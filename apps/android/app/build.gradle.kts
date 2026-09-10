@@ -92,6 +92,10 @@ dependencies {
   implementation(libs.coil.gif)
   implementation(libs.markdown.m3)
   implementation(libs.markdown.coil)
+  implementation(platform(libs.reown.bom))
+  implementation(libs.reown.core)
+  implementation(libs.reown.appkit)
+  implementation(libs.zxing.core)
 
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)

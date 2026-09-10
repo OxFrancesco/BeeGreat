@@ -170,7 +170,7 @@ private fun BeeHealthyCard(summary: String) {
 private fun ReminderOverviewCard() {
   val navigator = LocalNavigator.current
   val colors = BeeTheme.colors
-  BeeRowCard(onClick = navigator::openNfcActions) {
+  BeeRowCard(onClick = navigator::openReminders) {
     Box(
       modifier = Modifier.size(44.dp).background(colors.secondary, RoundedCornerShape(Radius.tile)),
       contentAlignment = Alignment.Center,
