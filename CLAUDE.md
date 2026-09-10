@@ -26,6 +26,11 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/velodrome-contracts` — Official Velodrome protocol contracts — Optimism VotingEscrow, Voter, voting rewards, gauges, and deployment interfaces
 - `resources/buddytg` — Francesco's local-first Telegram CLI — MTProto login, messaging, files, bookmarks, bot notifications, approvals, and secure session handling
 - `resources/zodiac-roles` — Zodiac Roles Modifier v2 — on-chain role-scoped permissions for Safes: execTransactionWithRole, condition trees, roles SDK, and deployment addresses
+- `resources/mcp-kotlin-sdk` — Official MCP Kotlin Multiplatform SDK — client/server APIs, stdio/SSE/Streamable HTTP/WebSocket transports, tools/prompts/resources, and samples
+- `resources/convex-mobile` — Official Convex mobile clients (Android Kotlin + Swift) — ConvexClient, ConvexClientWithAuth, AuthProvider, subscriptions as Flow, kotlinx.serialization decoding
+- `resources/clerk-android` — Official Clerk Android SDK v1 — Clerk.initialize, Clerk.auth sign-in/sign-up/OAuth, session and user state, Compose UI components
+- `resources/clerk-convex-kotlin` — Official Clerk to Convex Android bridge — createClerkConvexClient syncing Clerk session tokens into ConvexClientWithAuth
+- `resources/reown-kotlin` — Official Reown Kotlin SDK — AppKit modal, CoreClient, WalletConnect sessions, EIP-155 requests and signing on Android
 
 
 - `resources/viem` — Official viem Ethereum TypeScript library
@@ -49,12 +54,15 @@ tested and is missing everywhere else. The CLI, iMessage integration, web app,
 and mobile app must ALWAYS be at feature parity. Before calling a change done,
 walk this list and say which entries applied:
 
-- **Clients.** Mobile (`apps/mobile`, Expo), web (`apps/web`, TanStack — the
-  "web twin"), CLI (`apps/cli`), and iMessage (`apps/imessage-bridge`). A Bee
-  behavior reachable from one client is usually reachable from all of them;
-  fixing one is not fixing the feature. Shared chat logic lives in
-  `packages/chat-sync` and shared tool rendering in
+- **Clients.** Mobile (`apps/mobile`, Expo), Android (`apps/android`, Kotlin
+  + Compose, in progress per `docs/26-android-kotlin-port.md`), web
+  (`apps/web`, TanStack — the "web twin"), CLI (`apps/cli`), and iMessage
+  (`apps/imessage-bridge`). A Bee behavior reachable from one client is
+  usually reachable from all of them; fixing one is not fixing the feature.
+  Shared chat logic lives in `packages/chat-sync` and shared tool rendering in
   `packages/tool-presentation` — prefer fixing there over patching one client.
+  Android cannot import those packages; it mirrors them in Kotlin under
+  `apps/android/core` and must stay in step through the shared fixtures.
 - **Entry points.** A behavior reachable from the chat view is usually also
   reachable from voice (ElevenLabs), settings, deep links, and the Hive/goal
   screens. Fixing one entry point is not fixing the feature.
