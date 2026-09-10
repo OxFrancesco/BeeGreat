@@ -13,18 +13,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.beegreat.app.R
+import com.beegreat.app.bee.BeeScreen
+import com.beegreat.app.bee.ThreadsSheet
 import com.beegreat.app.goals.GoalsScreen
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.Hive
@@ -37,6 +44,10 @@ import kotlinx.serialization.Serializable
 @Serializable object HiveTab
 
 @Serializable object MindTab
+
+@Serializable data class GoalRoute(val goalId: String)
+
+@Serializable data class ProjectRoute(val projectId: String)
 
 private data class TabSpec(val route: Any, val label: String, val icon: @Composable (selected: Boolean) -> Unit)
 
@@ -54,6 +65,41 @@ private val tabs =
     },
   )
 
+private class ShellNavigator(
+  private val nav: NavHostController,
+  private val showThreads: () -> Unit,
+  private val showProfile: () -> Unit,
+  private val showVoice: () -> Unit,
+) : Navigator {
+  private fun tab(route: Any) {
+    nav.navigate(route) {
+      popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+      launchSingleTop = true
+      restoreState = true
+    }
+  }
+
+  override fun openBee() = tab(BeeTab)
+
+  override fun openHive() = tab(HiveTab)
+
+  override fun openGoals() = tab(GoalsTab)
+
+  override fun openGoal(goalId: String) = nav.navigate(GoalRoute(goalId))
+
+  override fun openProject(projectId: String) = nav.navigate(ProjectRoute(projectId))
+
+  override fun openThreads() = showThreads()
+
+  override fun openProfile() = showProfile()
+
+  override fun openVoiceConversation() = showVoice()
+
+  override fun back() {
+    nav.popBackStack()
+  }
+}
+
 /**
  * Main shell: Bee, Goals, Hive, Mind, plus a Talk action that never
  * navigates. Same structure as `(tabs)/_layout.tsx`.
@@ -65,63 +111,67 @@ fun BeeShell() {
   val destination = backStack?.destination
   val colors = BeeTheme.colors
   val tint = if (colors.isDark) Hive.honey else Hive.cacao
+  var threadsOpen by remember { mutableStateOf(false) }
+  var profileOpen by remember { mutableStateOf(false) }
+  val navigator = remember(navController) { ShellNavigator(navController, { threadsOpen = true }, { profileOpen = true }, { /* Phase 5 */ }) }
 
-  Scaffold(
-    containerColor = colors.background,
-    bottomBar = {
-      NavigationBar(containerColor = colors.card) {
-        tabs.forEach { tab ->
-          val selected = destination?.hasRoute(tab.route::class) == true
+  CompositionLocalProvider(LocalNavigator provides navigator) {
+    Scaffold(
+      containerColor = colors.background,
+      bottomBar = {
+        NavigationBar(containerColor = colors.card) {
+          tabs.forEach { tab ->
+            val selected = destination?.hasRoute(tab.route::class) == true
+            NavigationBarItem(
+              selected = selected,
+              onClick = {
+                navController.navigate(tab.route) {
+                  popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                  launchSingleTop = true
+                  restoreState = true
+                }
+              },
+              icon = { tab.icon(selected) },
+              label = { Text(tab.label) },
+              colors =
+                NavigationBarItemDefaults.colors(
+                  selectedIconColor = tint,
+                  selectedTextColor = tint,
+                  indicatorColor = colors.secondary,
+                  unselectedIconColor = colors.textSecondary,
+                  unselectedTextColor = colors.textSecondary,
+                ),
+            )
+          }
+          // Original rendering keeps the honey microphone so Talk stands apart
+          // from the navigation tabs.
           NavigationBarItem(
-            selected = selected,
-            onClick = {
-              navController.navigate(tab.route) {
-                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                launchSingleTop = true
-                restoreState = true
-              }
+            selected = false,
+            onClick = { /* Phase 5 wires the mic bus. */ },
+            icon = {
+              Icon(
+                painterResource(R.drawable.tab_mic_honey),
+                contentDescription = "Talk to Bee",
+                modifier = Modifier.size(25.dp),
+                tint = Color.Unspecified,
+              )
             },
-            icon = { tab.icon(selected) },
-            label = { Text(tab.label) },
-            colors =
-              NavigationBarItemDefaults.colors(
-                selectedIconColor = tint,
-                selectedTextColor = tint,
-                indicatorColor = colors.secondary,
-                unselectedIconColor = colors.textSecondary,
-                unselectedTextColor = colors.textSecondary,
-              ),
+            label = { Text("Talk") },
+            colors = NavigationBarItemDefaults.colors(unselectedTextColor = colors.textSecondary),
           )
         }
-        // Original rendering keeps the honey microphone so Talk stands apart
-        // from the navigation tabs.
-        NavigationBarItem(
-          selected = false,
-          onClick = { /* Phase 5 wires the mic bus. */ },
-          icon = {
-            Icon(
-              painterResource(R.drawable.tab_mic_honey),
-              contentDescription = "Talk to Bee",
-              modifier = Modifier.size(25.dp),
-              tint = Color.Unspecified,
-            )
-          },
-          label = { Text("Talk") },
-          colors = NavigationBarItemDefaults.colors(unselectedTextColor = colors.textSecondary),
-        )
+      },
+    ) { padding ->
+      NavHost(navController = navController, startDestination = BeeTab, modifier = Modifier.padding(padding)) {
+        composable<BeeTab> { BeeScreen() }
+        composable<GoalsTab> { GoalsScreen() }
+        composable<HiveTab> { PlaceholderScreen("Hive", "Economy and achievements land in Phase 3.") }
+        composable<MindTab> { PlaceholderScreen("Mind", "Bookmarks land in Phase 4.") }
+        composable<GoalRoute> { PlaceholderScreen("Goal", "Goal detail lands in Phase 3.") }
+        composable<ProjectRoute> { PlaceholderScreen("Project", "Project detail lands in Phase 3.") }
       }
-    },
-  ) { padding ->
-    // Bee is the real start tab. Goals opens first until the chat lands in Phase 2.
-    NavHost(
-      navController = navController,
-      startDestination = GoalsTab,
-      modifier = Modifier.padding(padding),
-    ) {
-      composable<BeeTab> { PlaceholderScreen("Bee", "Chat lands in Phase 2.") }
-      composable<GoalsTab> { GoalsScreen() }
-      composable<HiveTab> { PlaceholderScreen("Hive", "Economy and achievements land in Phase 3.") }
-      composable<MindTab> { PlaceholderScreen("Mind", "Bookmarks land in Phase 4.") }
     }
+    if (threadsOpen) ThreadsSheet(onDismiss = { threadsOpen = false })
+    if (profileOpen) ProfilePlaceholderSheet(onDismiss = { profileOpen = false })
   }
 }

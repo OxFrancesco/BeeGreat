@@ -6,25 +6,41 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import com.beegreat.app.bee.BeeAgentController
 import com.beegreat.convex.BeeConvexClient
+import com.beegreat.convex.chat.ChatRepository
 import com.beegreat.convex.createBeeConvexClient
+import com.beegreat.convex.devin.DevinRepository
+import com.beegreat.convex.focus.FirstFocusRepository
 import com.beegreat.convex.goals.GoalsRepository
+import com.beegreat.convex.tasks.TasksRepository
+import com.beegreat.convex.user.UserRepository
+import com.beegreat.convex.web3.Web3ActionsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
 
 /**
  * Process-wide dependencies. One instance per app, built in
- * [BeeGreatApplication]. Plain constructor wiring; no DI framework yet.
+ * [BeeGreatApplication]. Plain constructor wiring; no DI framework.
  */
 class AppContainer(context: Context) {
+  val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+  val http: OkHttpClient = OkHttpClient()
   val convex: BeeConvexClient = createBeeConvexClient(context, BuildConfig.CONVEX_URL)
-  val goals: GoalsRepository by lazy { GoalsRepository(convex) }
+  val goals = GoalsRepository(convex)
+  val chat = ChatRepository(convex)
+  val firstFocus = FirstFocusRepository(convex)
+  val tasks = TasksRepository(convex)
+  val user = UserRepository(convex)
+  val devin = DevinRepository(convex)
+  val web3Actions = Web3ActionsRepository(convex)
+  val beeAgent = BeeAgentController(chat, firstFocus, user, http, scope).also { it.start() }
 
   init {
     if (BuildConfig.DEBUG) {
-      val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
       scope.launch { convex.webSocketStateFlow.collect { Log.d(TAG, "convex socket: $it") } }
       scope.launch { convex.authState.collect { Log.d(TAG, "convex auth: ${it::class.simpleName}") } }
     }

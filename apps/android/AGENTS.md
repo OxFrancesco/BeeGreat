@@ -61,6 +61,10 @@ a CONNECTED/CONNECTING loop there means the token is being rejected.
 - Convex function names are strings (`"goals:list"`). Every argument and
   result shape is a `@Serializable` data class next to its repository. Numbers
   from Convex use `ConvexInt` or `ConvexDouble`, never plain `Int`.
+- Numbers going *to* Convex must be `Double` (`threadId.n`). The client
+  encodes Kotlin `Int`/`Long` as `$integer` (int64) and every backend
+  validator is `v.number()` (float64), so a bare `Int` argument fails
+  validation.
 - Screens are split into a stateful entry (`GoalsScreen`) that owns the
   ViewModel and a stateless view (`GoalsScreenView`) with a `@Preview`.
 - ViewModels are created with `viewModel { }` from `LocalAppContainer`.

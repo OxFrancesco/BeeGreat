@@ -59,7 +59,12 @@ android {
     targetCompatibility = JavaVersion.VERSION_17
   }
 
-  kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
+  kotlin {
+    compilerOptions {
+      jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+      freeCompilerArgs.addAll("-opt-in=androidx.compose.material3.ExperimentalMaterial3Api")
+    }
+  }
 
   buildFeatures {
     compose = true
@@ -70,6 +75,8 @@ android {
 dependencies {
   implementation(projects.core.design)
   implementation(projects.core.convex)
+  implementation(projects.core.flue)
+  implementation(projects.core.contract)
 
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.lifecycle.runtime)
@@ -79,6 +86,12 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.browser)
   implementation(libs.kotlinx.serialization.json)
+  implementation(libs.okhttp)
+  implementation(libs.coil.compose)
+  implementation(libs.coil.network)
+  implementation(libs.coil.gif)
+  implementation(libs.markdown.m3)
+  implementation(libs.markdown.coil)
 
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)

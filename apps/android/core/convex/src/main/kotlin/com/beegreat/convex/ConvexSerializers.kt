@@ -44,6 +44,14 @@ object ConvexDoubleSerializer : KSerializer<Double> {
   override fun serialize(encoder: Encoder, value: Double) = encoder.encodeDouble(value)
 }
 
+/**
+ * Argument numbers must be sent as float64. The Android client encodes Kotlin
+ * `Int`/`Long` as Convex `$integer` (int64), which every `v.number()` validator
+ * in the backend rejects. Always pass `value.n`, never a bare `Int`.
+ */
+val Number.n: Double
+  get() = toDouble()
+
 typealias ConvexInt = @kotlinx.serialization.Serializable(ConvexIntSerializer::class) Int
 
 typealias ConvexLong = @kotlinx.serialization.Serializable(ConvexLongSerializer::class) Long
