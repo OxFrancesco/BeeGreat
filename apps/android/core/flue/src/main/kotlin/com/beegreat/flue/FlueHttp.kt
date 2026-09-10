@@ -153,7 +153,7 @@ class FlueHttp(
   }
 }
 
-internal suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
+suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
   enqueue(
     object : Callback {
       override fun onResponse(call: Call, response: Response) {

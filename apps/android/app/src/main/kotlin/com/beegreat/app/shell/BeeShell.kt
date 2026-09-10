@@ -48,6 +48,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.Hive
 import kotlinx.serialization.Serializable
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import com.beegreat.app.voice.VoiceConversationScreen
+import com.beegreat.app.voice.VoiceMode
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import com.beegreat.app.voice.ListeningIsland
+import com.beegreat.app.voice.OrbState
+import com.beegreat.design.Spacing
 
 @Serializable object BeeTab
 
@@ -68,6 +84,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class JournalEntryRoute(val entryId: String)
 
 @Serializable object NfcActionsRoute
+
+@Serializable object VoiceConversationRoute
 
 private data class AddBookmarkRequest(val url: String?)
 
@@ -149,9 +167,23 @@ fun BeeShell() {
   var addBookmark by remember { mutableStateOf<AddBookmarkRequest?>(null) }
   val navigator =
     remember(navController) {
-      ShellNavigator(navController, { threadsOpen = true }, { profileOpen = true }, { /* Phase 5 */ }, { addBookmark = AddBookmarkRequest(it) })
+      ShellNavigator(navController, { threadsOpen = true }, { profileOpen = true }, { navController.navigate(VoiceConversationRoute) }, { addBookmark = AddBookmarkRequest(it) })
     }
   val container = LocalAppContainer.current
+  val scope = rememberCoroutineScope()
+  val voiceMode by container.preferences.voiceMode.collectAsStateWithLifecycle()
+  val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    if (granted) scope.launch { container.voiceNotes.toggleRecording() } else container.beeAgent.voiceError.value = "Microphone access is off. Enable it in Settings to talk to Bee."
+  }
+  val context = LocalContext.current
+  fun onTalk() {
+    if (voiceMode == VoiceMode.Conversation) {
+      navController.navigate(VoiceConversationRoute)
+      return
+    }
+    if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) scope.launch { container.voiceNotes.toggleRecording() }
+    else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+  }
   val sharedUrl by container.pendingSharedUrl.collectAsStateWithLifecycle()
   LaunchedEffect(sharedUrl) {
     val url = sharedUrl ?: return@LaunchedEffect
@@ -191,7 +223,7 @@ fun BeeShell() {
           // from the navigation tabs.
           NavigationBarItem(
             selected = false,
-            onClick = { /* Phase 5 wires the mic bus. */ },
+            onClick = ::onTalk,
             icon = {
               Icon(
                 painterResource(R.drawable.tab_mic_honey),
@@ -206,7 +238,8 @@ fun BeeShell() {
         }
       },
     ) { padding ->
-      NavHost(navController = navController, startDestination = BeeTab, modifier = Modifier.padding(padding)) {
+      Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+        NavHost(navController = navController, startDestination = BeeTab) {
         composable<BeeTab> { BeeScreen() }
         composable<GoalsTab> { GoalsScreen() }
         composable<HiveTab> { HiveScreen() }
@@ -215,8 +248,19 @@ fun BeeShell() {
         composable<BeeHealthyRoute> { BeeHealthyScreen() }
         composable<JournalEntryRoute> { entry -> JournalEntryScreen(entry.toRoute<JournalEntryRoute>().entryId) }
         composable<NfcActionsRoute> { PlaceholderScreen("NFC actions", "Tap actions land in Phase 7.") }
+        composable<VoiceConversationRoute> { VoiceConversationScreen() }
         composable<GoalRoute> { entry -> GoalDetailScreen(entry.toRoute<GoalRoute>().goalId) }
         composable<ProjectRoute> { entry -> ProjectScreen(entry.toRoute<ProjectRoute>().projectId) }
+        }
+        val voice by container.voiceNotes.state.collectAsStateWithLifecycle()
+        val onVoiceRoute = destination?.hasRoute(VoiceConversationRoute::class) == true
+        ListeningIsland(
+          state = voice.orbState,
+          detail = voice.activityDetail,
+          visible = voice.orbState != OrbState.Idle && !onVoiceRoute,
+          onClick = navigator::openBee,
+          modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = Spacing.two),
+        )
       }
     }
     if (threadsOpen) ThreadsSheet(onDismiss = { threadsOpen = false })

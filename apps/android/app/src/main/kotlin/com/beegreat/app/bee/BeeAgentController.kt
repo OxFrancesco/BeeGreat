@@ -329,7 +329,7 @@ class BeeAgentController(
   }
 
   /** Clerk's session can be briefly unavailable after launch; wait instead of sending a 401-bound request. */
-  private suspend fun authHeaders(): Map<String, String> {
+  suspend fun authHeaders(): Map<String, String> {
     repeat(10) {
       val result = runCatching { Clerk.auth.getToken() }.getOrNull()
       if (result is ClerkResult.Success) return mapOf("authorization" to "Bearer ${result.value}")

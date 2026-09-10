@@ -7,6 +7,10 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import com.beegreat.app.bee.BeeAgentController
+import com.beegreat.app.voice.Preferences
+import com.beegreat.app.voice.RealtimeConversation
+import com.beegreat.app.voice.VoiceApi
+import com.beegreat.app.voice.VoiceNoteController
 import com.beegreat.convex.BeeConvexClient
 import com.beegreat.convex.bookmarks.BookmarksRepository
 import com.beegreat.convex.chat.ChatRepository
@@ -47,6 +51,10 @@ class AppContainer(context: Context) {
   /** A link handed to the app by the share sheet or a deep link, consumed once by the shell. */
   val pendingSharedUrl = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
   val beeAgent = BeeAgentController(chat, firstFocus, user, http, scope).also { it.start() }
+  val preferences = Preferences(context)
+  val voiceApi = VoiceApi(http, beeAgent::authHeaders)
+  val voiceNotes = VoiceNoteController(context, beeAgent, voiceApi, preferences, scope).also { it.start() }
+  val realtimeConversation = RealtimeConversation(voiceApi, http, scope)
 
   init {
     if (BuildConfig.DEBUG) {
