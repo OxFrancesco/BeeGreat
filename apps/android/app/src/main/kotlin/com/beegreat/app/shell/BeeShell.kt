@@ -57,6 +57,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import com.beegreat.app.voice.VoiceConversationScreen
 import com.beegreat.app.voice.VoiceMode
+import com.beegreat.app.profile.ConnectionsScreen
+import com.beegreat.app.profile.JobsScreen
+import com.beegreat.app.profile.ProfileScreen
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -87,6 +90,16 @@ import com.beegreat.design.Spacing
 
 @Serializable object VoiceConversationRoute
 
+@Serializable object ProfileRoute
+
+@Serializable object ConnectionsRoute
+
+@Serializable object JobsRoute
+
+@Serializable object WalletsRoute
+
+@Serializable object PublicProfileRoute
+
 private data class AddBookmarkRequest(val url: String?)
 
 private data class TabSpec(val route: Any, val label: String, val icon: @Composable (selected: Boolean) -> Unit)
@@ -108,7 +121,6 @@ private val tabs =
 private class ShellNavigator(
   private val nav: NavHostController,
   private val showThreads: () -> Unit,
-  private val showProfile: () -> Unit,
   private val showVoice: () -> Unit,
   private val showAddBookmark: (String?) -> Unit,
 ) : Navigator {
@@ -142,7 +154,15 @@ private class ShellNavigator(
 
   override fun openThreads() = showThreads()
 
-  override fun openProfile() = showProfile()
+  override fun openProfile() = nav.navigate(ProfileRoute)
+
+  override fun openConnections() = nav.navigate(ConnectionsRoute)
+
+  override fun openJobs() = nav.navigate(JobsRoute)
+
+  override fun openWallets() = nav.navigate(WalletsRoute)
+
+  override fun openPublicProfile() = nav.navigate(PublicProfileRoute)
 
   override fun openVoiceConversation() = showVoice()
 
@@ -163,11 +183,10 @@ fun BeeShell() {
   val colors = BeeTheme.colors
   val tint = if (colors.isDark) Hive.honey else Hive.cacao
   var threadsOpen by remember { mutableStateOf(false) }
-  var profileOpen by remember { mutableStateOf(false) }
   var addBookmark by remember { mutableStateOf<AddBookmarkRequest?>(null) }
   val navigator =
     remember(navController) {
-      ShellNavigator(navController, { threadsOpen = true }, { profileOpen = true }, { navController.navigate(VoiceConversationRoute) }, { addBookmark = AddBookmarkRequest(it) })
+      ShellNavigator(navController, { threadsOpen = true }, { navController.navigate(VoiceConversationRoute) }, { addBookmark = AddBookmarkRequest(it) })
     }
   val container = LocalAppContainer.current
   val scope = rememberCoroutineScope()
@@ -249,6 +268,11 @@ fun BeeShell() {
         composable<JournalEntryRoute> { entry -> JournalEntryScreen(entry.toRoute<JournalEntryRoute>().entryId) }
         composable<NfcActionsRoute> { PlaceholderScreen("NFC actions", "Tap actions land in Phase 7.") }
         composable<VoiceConversationRoute> { VoiceConversationScreen() }
+        composable<ProfileRoute> { ProfileScreen() }
+        composable<ConnectionsRoute> { ConnectionsScreen() }
+        composable<JobsRoute> { JobsScreen() }
+        composable<WalletsRoute> { PlaceholderScreen("Wallets", "Wallets land in Phase 7.") }
+        composable<PublicProfileRoute> { PlaceholderScreen("Public profile", "Public profile lands in Phase 7.") }
         composable<GoalRoute> { entry -> GoalDetailScreen(entry.toRoute<GoalRoute>().goalId) }
         composable<ProjectRoute> { entry -> ProjectScreen(entry.toRoute<ProjectRoute>().projectId) }
         }
@@ -274,6 +298,5 @@ fun BeeShell() {
         },
       )
     }
-    if (profileOpen) ProfilePlaceholderSheet(onDismiss = { profileOpen = false })
   }
 }

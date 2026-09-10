@@ -14,6 +14,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beegreat.app.auth.AppAuthState
 import com.beegreat.app.auth.AuthViewModel
 import com.beegreat.app.auth.SignInScreen
+import com.beegreat.app.profile.ChatGptGate
 import com.beegreat.app.shell.BeeShell
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.Hive
@@ -38,7 +39,7 @@ fun BeeGreatRoot() {
           CircularProgressIndicator(color = BeeTheme.colors.primary)
         }
       AppAuthState.SignedOut -> SignInScreen(onSignInWithGoogle = authViewModel::signInWithGoogle)
-      AppAuthState.SignedIn -> BeeShell()
+      AppAuthState.SignedIn -> ChatGptGate { BeeShell() }
     }
   }
 }

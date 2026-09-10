@@ -31,6 +31,14 @@ interface Navigator {
 
   fun openProfile()
 
+  fun openConnections()
+
+  fun openJobs()
+
+  fun openWallets()
+
+  fun openPublicProfile()
+
   fun openVoiceConversation()
 
   fun back()

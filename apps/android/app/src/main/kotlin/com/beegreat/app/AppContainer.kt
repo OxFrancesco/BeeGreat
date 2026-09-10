@@ -12,6 +12,10 @@ import com.beegreat.app.voice.RealtimeConversation
 import com.beegreat.app.voice.VoiceApi
 import com.beegreat.app.voice.VoiceNoteController
 import com.beegreat.convex.BeeConvexClient
+import com.beegreat.convex.account.AccountDeletionRepository
+import com.beegreat.convex.connections.ConnectionsRepository
+import com.beegreat.convex.jobs.JobsRepository
+import com.beegreat.app.profile.AccountDeletion
 import com.beegreat.convex.bookmarks.BookmarksRepository
 import com.beegreat.convex.chat.ChatRepository
 import com.beegreat.convex.createBeeConvexClient
@@ -47,6 +51,9 @@ class AppContainer(context: Context) {
   val web3Actions = Web3ActionsRepository(convex)
   val bookmarks = BookmarksRepository(convex)
   val health = HealthRepository(convex)
+  val connections = ConnectionsRepository(convex)
+  val jobs = JobsRepository(convex)
+  val accountDeletion = AccountDeletion(context, AccountDeletionRepository(convex))
 
   /** A link handed to the app by the share sheet or a deep link, consumed once by the shell. */
   val pendingSharedUrl = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
@@ -57,6 +64,7 @@ class AppContainer(context: Context) {
   val realtimeConversation = RealtimeConversation(voiceApi, http, scope)
 
   init {
+    scope.launch { accountDeletion.resume() }
     if (BuildConfig.DEBUG) {
       scope.launch { convex.webSocketStateFlow.collect { Log.d(TAG, "convex socket: $it") } }
       scope.launch { convex.authState.collect { Log.d(TAG, "convex auth: ${it::class.simpleName}") } }
