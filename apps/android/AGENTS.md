@@ -43,8 +43,18 @@ ANDROID_SDK_ROOT=/opt/homebrew/share/android-commandlinetools \
 - `core/design`: tokens (`BeeColors`, `Spacing`, `Motion`, `BeeTypography`),
   `BeeTheme`, hex geometry, shared components (`BeeCard`, `HexButton`,
   `AddRow`, `CombCell`, `ScreenHeader`).
-- `core/convex`: `createBeeConvexClient` (Clerk to Convex bridge),
+- `core/convex`: `createBeeConvexClient` and `ClerkConvexAuthProvider`,
   `ConvexInt`/`ConvexDouble` serializers, repositories and models per feature.
+
+## Auth gotcha
+
+Do not switch back to `clerk-convex-kotlin`. It requests Clerk's default
+session token; the backend validates the `convex` JWT template
+(`auth.config.ts`, `applicationID: 'convex'`), so Convex rejects the default
+token and the socket reconnects every second while queries never emit.
+`ClerkConvexAuthProvider` asks for `GetTokenOptions(template = "convex")`.
+Debug builds log `convex socket:` and `convex auth:` under the `BeeGreat` tag;
+a CONNECTED/CONNECTING loop there means the token is being rejected.
 
 ## Conventions
 

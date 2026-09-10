@@ -24,7 +24,6 @@ android {
 
 dependencies {
   api(libs.convex.mobile)
-  api(libs.clerk.convex)
   api(libs.clerk.api)
   api(libs.kotlinx.coroutines)
   api(libs.kotlinx.serialization.json)

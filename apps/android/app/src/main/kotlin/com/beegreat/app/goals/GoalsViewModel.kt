@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -24,6 +25,7 @@ class GoalsViewModel(private val repository: GoalsRepository) : ViewModel() {
   val state: StateFlow<GoalsUiState> =
     repository
       .goals()
+      .catch { emit(Result.failure(it)) }
       .map { result ->
         result.fold(
           onSuccess = { GoalsUiState.Loaded(it) },

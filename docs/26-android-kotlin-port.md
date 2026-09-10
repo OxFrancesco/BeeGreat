@@ -1,6 +1,6 @@
 # 26 – Android port in Kotlin
 
-- **Status**: Phase 1 in progress (project builds, sign-in reaches Google, Goals tab wired to `goals:list`)
+- **Status**: Phase 1 done on device (sign-in, live `goals:list`, add/rename/delete). Phase 0 Flue spike next.
 - **Branch**: `Kotlin-Porting`
 - **Decisions taken (2026-09-10)**: Android-native only (Kotlin + Jetpack
   Compose). The Expo app keeps iOS. Both live in the monorepo. Target is full
@@ -239,8 +239,12 @@ parity, screenshot tests), Sentry release tagging. Update `AGENTS.md`,
 ## Decisions taken during Phase 1 (2026-09-10)
 
 - Toolchain: AGP 9.3.1, Kotlin 2.4.10, Gradle 9.6.1, Compose BOM 2026.08.00,
-  Clerk Android 1.1.5, clerk-convex-kotlin 0.15.0, Convex mobile 0.8.0.
-  compileSdk 37.1 (the BOM requires 37), minSdk 26, JDK 21 to run Gradle.
+  Clerk Android 1.1.5, Convex mobile 0.8.0. compileSdk 37.1 (the BOM requires
+  37), minSdk 26, JDK 21 to run Gradle.
+- Clerk to Convex: our own `ClerkConvexAuthProvider`, not
+  `clerk-convex-kotlin`. The library fetches the default session token; the
+  backend validates the `convex` JWT template, so Convex closed the socket on
+  every connect. Verified on device: after the fix `goals:list` emits.
 - DI: none. `AppContainer` in `BeeGreatApplication` holds the Convex client
   and repositories; screens get it through `LocalAppContainer`. Revisit if a
   third scope shows up.
