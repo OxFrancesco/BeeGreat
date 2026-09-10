@@ -8,6 +8,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import com.beegreat.app.bee.BeeAgentController
 import com.beegreat.convex.BeeConvexClient
+import com.beegreat.convex.bookmarks.BookmarksRepository
 import com.beegreat.convex.chat.ChatRepository
 import com.beegreat.convex.createBeeConvexClient
 import com.beegreat.convex.devin.DevinRepository
@@ -39,6 +40,10 @@ class AppContainer(context: Context) {
   val user = UserRepository(convex)
   val devin = DevinRepository(convex)
   val web3Actions = Web3ActionsRepository(convex)
+  val bookmarks = BookmarksRepository(convex)
+
+  /** A link handed to the app by the share sheet or a deep link, consumed once by the shell. */
+  val pendingSharedUrl = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
   val beeAgent = BeeAgentController(chat, firstFocus, user, http, scope).also { it.start() }
 
   init {

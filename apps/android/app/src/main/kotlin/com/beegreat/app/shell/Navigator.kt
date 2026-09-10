@@ -17,6 +17,10 @@ interface Navigator {
 
   fun openProject(projectId: String)
 
+  fun openBookmark(bookmarkId: String)
+
+  fun openAddBookmark(url: String?)
+
   fun openThreads()
 
   fun openProfile()

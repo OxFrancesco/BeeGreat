@@ -37,6 +37,12 @@ import com.beegreat.app.goals.GoalDetailScreen
 import com.beegreat.app.goals.GoalsScreen
 import com.beegreat.app.goals.ProjectScreen
 import com.beegreat.app.hive.HiveScreen
+import com.beegreat.app.LocalAppContainer
+import com.beegreat.app.mind.AddBookmarkSheet
+import com.beegreat.app.mind.BookmarkDetailScreen
+import com.beegreat.app.mind.MindScreen
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.Hive
 import kotlinx.serialization.Serializable
@@ -52,6 +58,10 @@ import kotlinx.serialization.Serializable
 @Serializable data class GoalRoute(val goalId: String)
 
 @Serializable data class ProjectRoute(val projectId: String)
+
+@Serializable data class BookmarkRoute(val bookmarkId: String)
+
+private data class AddBookmarkRequest(val url: String?)
 
 private data class TabSpec(val route: Any, val label: String, val icon: @Composable (selected: Boolean) -> Unit)
 
@@ -74,6 +84,7 @@ private class ShellNavigator(
   private val showThreads: () -> Unit,
   private val showProfile: () -> Unit,
   private val showVoice: () -> Unit,
+  private val showAddBookmark: (String?) -> Unit,
 ) : Navigator {
   private fun tab(route: Any) {
     nav.navigate(route) {
@@ -92,6 +103,10 @@ private class ShellNavigator(
   override fun openGoal(goalId: String) = nav.navigate(GoalRoute(goalId))
 
   override fun openProject(projectId: String) = nav.navigate(ProjectRoute(projectId))
+
+  override fun openBookmark(bookmarkId: String) = nav.navigate(BookmarkRoute(bookmarkId))
+
+  override fun openAddBookmark(url: String?) = showAddBookmark(url)
 
   override fun openThreads() = showThreads()
 
@@ -117,7 +132,18 @@ fun BeeShell() {
   val tint = if (colors.isDark) Hive.honey else Hive.cacao
   var threadsOpen by remember { mutableStateOf(false) }
   var profileOpen by remember { mutableStateOf(false) }
-  val navigator = remember(navController) { ShellNavigator(navController, { threadsOpen = true }, { profileOpen = true }, { /* Phase 5 */ }) }
+  var addBookmark by remember { mutableStateOf<AddBookmarkRequest?>(null) }
+  val navigator =
+    remember(navController) {
+      ShellNavigator(navController, { threadsOpen = true }, { profileOpen = true }, { /* Phase 5 */ }, { addBookmark = AddBookmarkRequest(it) })
+    }
+  val container = LocalAppContainer.current
+  val sharedUrl by container.pendingSharedUrl.collectAsStateWithLifecycle()
+  LaunchedEffect(sharedUrl) {
+    val url = sharedUrl ?: return@LaunchedEffect
+    container.pendingSharedUrl.value = null
+    addBookmark = AddBookmarkRequest(url)
+  }
 
   CompositionLocalProvider(LocalNavigator provides navigator) {
     Scaffold(
@@ -170,12 +196,23 @@ fun BeeShell() {
         composable<BeeTab> { BeeScreen() }
         composable<GoalsTab> { GoalsScreen() }
         composable<HiveTab> { HiveScreen() }
-        composable<MindTab> { PlaceholderScreen("Mind", "Bookmarks land in Phase 4.") }
+        composable<MindTab> { MindScreen() }
+        composable<BookmarkRoute> { entry -> BookmarkDetailScreen(entry.toRoute<BookmarkRoute>().bookmarkId) }
         composable<GoalRoute> { entry -> GoalDetailScreen(entry.toRoute<GoalRoute>().goalId) }
         composable<ProjectRoute> { entry -> ProjectScreen(entry.toRoute<ProjectRoute>().projectId) }
       }
     }
     if (threadsOpen) ThreadsSheet(onDismiss = { threadsOpen = false })
+    addBookmark?.let { request ->
+      AddBookmarkSheet(
+        initialUrl = request.url,
+        onDismiss = { addBookmark = null },
+        onSaved = { id ->
+          addBookmark = null
+          navigator.openBookmark(id)
+        },
+      )
+    }
     if (profileOpen) ProfilePlaceholderSheet(onDismiss = { profileOpen = false })
   }
 }
