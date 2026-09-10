@@ -23,6 +23,7 @@ coil = "3.6.1"
 markdown = "0.45.0"
 reown = "1.6.16"
 zxing = "3.5.4"
+sentry = "8.54.0"
 materialIcons = "1.7.8"
 
 junit = "4.13.2"
@@ -64,6 +65,7 @@ reown-bom = { module = "com.reown:android-bom", version.ref = "reown" }
 reown-core = { module = "com.reown:android-core" }
 reown-appkit = { module = "com.reown:appkit" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+sentry-android = { module = "io.sentry:sentry-android", version.ref = "sentry" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
 

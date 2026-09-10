@@ -46,11 +46,28 @@ android {
     buildConfigField("String", "REOWN_PROJECT_ID", "\"${config("REOWN_PROJECT_ID")}\"")
   }
 
+  // Release signing reads RELEASE_STORE_FILE / RELEASE_STORE_PASSWORD /
+  // RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD from local.properties or the
+  // environment. Without them the release build signs with the debug key so
+  // it still assembles locally; CI must provide the real keystore.
+  val releaseStore = config("RELEASE_STORE_FILE", System.getenv("RELEASE_STORE_FILE") ?: "")
+  signingConfigs {
+    if (releaseStore.isNotBlank()) {
+      create("release") {
+        storeFile = rootProject.file(releaseStore)
+        storePassword = config("RELEASE_STORE_PASSWORD", System.getenv("RELEASE_STORE_PASSWORD") ?: "")
+        keyAlias = config("RELEASE_KEY_ALIAS", System.getenv("RELEASE_KEY_ALIAS") ?: "")
+        keyPassword = config("RELEASE_KEY_PASSWORD", System.getenv("RELEASE_KEY_PASSWORD") ?: "")
+      }
+    }
+  }
+
   buildTypes {
     release {
       isMinifyEnabled = true
       isShrinkResources = true
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      signingConfig = if (releaseStore.isNotBlank()) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
     }
   }
 
@@ -96,6 +113,7 @@ dependencies {
   implementation(libs.reown.core)
   implementation(libs.reown.appkit)
   implementation(libs.zxing.core)
+  implementation(libs.sentry.android)
 
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
