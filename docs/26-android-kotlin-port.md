@@ -256,22 +256,78 @@ parity, screenshot tests), Sentry release tagging. Update `AGENTS.md`,
 - The animated `bee.webp` cannot be decoded by `painterResource`; the sign-in
   hero uses the static PNG until Coil lands in Phase 2.
 
+## What shipped in Phases 2 to 8 (2026-09-10)
+
+Branch `Kotlin-Porting`, one commit per phase. Every screen in
+`apps/mobile/src/app` has a Compose counterpart except the iOS-only ones
+listed under "drop".
+
+- **Chat.** `core/flue` reimplements `@flue/sdk`: Durable Streams over
+  OkHttp (JSON catch-up, SSE tail with buffered `data` frames sealed by
+  `control` frames, long-poll fallback), the chunk reducer, position dedup,
+  incarnation resync, a 90 s stale watchdog, and the optimistic
+  `AgentSession`. `BeeAgentController` mirrors the transcript into Convex
+  through the ported sync queue, titles threads, handles `/clear` and
+  `/new`, and routes typed first-focus confirmations and highlight
+  completions through the authenticated mutations. All eleven beeui cards
+  render natively, including the editable first-focus preview and the
+  action-bound Web3 confirmation.
+- **Parity guard.** `packages/tool-presentation/fixtures/beeui.json` is
+  generated from the TypeScript implementation and asserted by `bun test`
+  and JUnit. 21 extraction cases, 5 scrub cases, 10 tool-copy cases.
+- **Goals, Hive, Mind, Bee Healthy.** Goal detail, project tasks with
+  subtasks and due dates, quarter or year targets, honey vessel, highlight
+  completion, badge case, bookmarks in list, cards, and honeycomb views with
+  search and cursor pagination, share-intent save, mood and water trackers,
+  journal timeline, calendar, and editor with debounced autosave and
+  CONFLICT handling, photos through the system picker.
+- **Voice.** MediaRecorder m4a to `/voice/transcribe`, spoken replies
+  through `/voice/speak` and MediaPlayer, the live Grok conversation over
+  a WebSocket with AudioRecord/AudioTrack PCM16 at 24 kHz, a foreground
+  service notification in place of the Live Activity, and the listening
+  island pill.
+- **Profile and connections.** Power-ups (Google Health runs its OAuth hop
+  first), voice preferences, work connectors with the Google Workspace
+  service picker and disclosure, ChatGPT device code plus the post-sign-in
+  gate, Telegram, iMessage, Agent Jobs with wallet grants, and the
+  three-step account deletion with a persisted job that resumes.
+- **Web3 and NFC.** Reown AppKit 1.6.16 behind `REOWN_PROJECT_ID`; the same
+  chain list as `wallet-connect.ts`; link, unlink, YOLO, QR; the
+  linked-wallet path of the confirm card (claim, sign fresh steps, record
+  submissions and receipts, report failures). NFC tags written in reader
+  mode, `beegreat.app/tap/<id>` handled from tags and App Links with undo.
+- **Release.** R8 keep rules for Clerk's Retrofit proxies, Convex's JNA
+  bridge, and our serializers (each found by installing the minified APK,
+  not by reading docs); signing from `local.properties` or the environment;
+  Sentry from BuildConfig with the manifest provider off.
+
+Convex arguments must be `Double` (`value.n`). The Android client encodes
+`Int` as `$integer`, which every `v.number()` validator rejects. This bit
+once and is now in `apps/android/AGENTS.md`.
+
 ## Open decisions
 
 1. **DI**: settled, see above.
 2. **Navigation**: settled, see above.
-3. **Markdown renderer**: Markwon (mature, View-based, needs interop) or a
-   Compose-native renderer. Decide in Phase 2 with real Bee output.
+3. **Markdown renderer**: settled, `multiplatform-markdown-renderer-m3`
+   0.45.0 with the design-system typography and Coil images.
 4. **Subscriptions on Android**: the Expo app gates only iOS, so Android is
    free today. "Parity" with today's Android behavior means no gate. Ship
    free in v1 and add Play Billing through RevenueCat when monetization is
    decided (matches `docs/03-architecture.md`, "Deferred").
-5. **Live Activity replacement**: ongoing notification in v1. Android 16
-   Live Updates as a follow-up.
+5. **Live Activity replacement**: settled, foreground-service notification.
+   Android 16 Live Updates as a follow-up.
 6. **Expo Android build**: confirm it has never shipped and can be retired,
    so `com.beegreat.app` on Play belongs to the Kotlin app.
-7. **Screenshot testing**: Compose Preview Screenshot Testing (Google,
-   experimental) or Paparazzi. Decide in Phase 1.
+7. **Screenshot testing**: not started. Compose Preview Screenshot Testing
+   or Paparazzi; pick when the first visual regression bites.
+8. **CI**: no GitHub Actions workflow yet. The commands are in
+   `apps/android/AGENTS.md`; the fixture parity test is the one that must
+   run on every PR touching `packages/tool-presentation`.
+9. **Device verification of Phases 2 to 7**: the emulator has no Google
+   session, so only the Phase 1 flows were verified on the Fold before it
+   dropped off USB. The release APK launches clean; the signed-in paths
+   need a pass on hardware.
 
 ## What the MCP Kotlin SDK is and is not
 
