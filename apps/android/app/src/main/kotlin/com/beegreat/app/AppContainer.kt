@@ -13,6 +13,7 @@ import com.beegreat.convex.createBeeConvexClient
 import com.beegreat.convex.devin.DevinRepository
 import com.beegreat.convex.focus.FirstFocusRepository
 import com.beegreat.convex.goals.GoalsRepository
+import com.beegreat.convex.projects.ProjectsRepository
 import com.beegreat.convex.tasks.TasksRepository
 import com.beegreat.convex.user.UserRepository
 import com.beegreat.convex.web3.Web3ActionsRepository
@@ -31,6 +32,7 @@ class AppContainer(context: Context) {
   val http: OkHttpClient = OkHttpClient()
   val convex: BeeConvexClient = createBeeConvexClient(context, BuildConfig.CONVEX_URL)
   val goals = GoalsRepository(convex)
+  val projects = ProjectsRepository(convex)
   val chat = ChatRepository(convex)
   val firstFocus = FirstFocusRepository(convex)
   val tasks = TasksRepository(convex)

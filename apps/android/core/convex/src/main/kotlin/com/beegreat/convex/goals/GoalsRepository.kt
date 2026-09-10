@@ -9,6 +9,8 @@ import kotlinx.coroutines.withContext
 class GoalsRepository(private val convex: BeeConvexClient) {
   fun goals(): Flow<Result<List<GoalSummary>>> = convex.subscribe("goals:list")
 
+  fun goal(goalId: String): Flow<Result<GoalDetail?>> = convex.subscribe("goals:get", mapOf("goalId" to goalId))
+
   suspend fun create(title: String, finalGoal: String? = null): String =
     withContext(Dispatchers.IO) {
       convex.mutation<String>(

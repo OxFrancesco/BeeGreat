@@ -19,3 +19,19 @@ data class GoalSummary(
   val progress: Float
     get() = if (totalTasks == 0) 0f else doneTasks.toFloat() / totalTasks
 }
+
+@Serializable
+data class ProjectSummary(val id: String, val title: String, val doneTasks: ConvexInt, val totalTasks: ConvexInt) {
+  val progress: Float
+    get() = if (totalTasks == 0) 0f else doneTasks.toFloat() / totalTasks
+}
+
+/** `goals:get`: one goal with its active projects and their progress. */
+@Serializable
+data class GoalDetail(
+  val id: String,
+  val title: String,
+  val finalGoal: String? = null,
+  val status: String,
+  val projects: List<ProjectSummary>,
+)

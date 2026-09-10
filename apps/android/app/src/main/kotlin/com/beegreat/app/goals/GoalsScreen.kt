@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beegreat.app.LocalAppContainer
+import com.beegreat.app.shell.LocalNavigator
 import com.beegreat.convex.goals.GoalSummary
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.MaxContentWidth
@@ -196,7 +197,8 @@ private fun GoalCard(goal: GoalSummary, onRename: (String) -> Unit, onRemove: ()
       else -> "${goal.openTasks} tasks left"
     }
 
-  BeeRowCard(onClick = { /* Phase 3 opens the goal. */ }, onLongClick = { menuOpen = true }) {
+  val navigator = LocalNavigator.current
+  BeeRowCard(onClick = { navigator.openGoal(goal.id) }, onLongClick = { menuOpen = true }) {
     CombCell(size = 52.dp, progress = goal.progress)
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.half)) {
       Text(goal.title, style = BeeTheme.typography.body, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)

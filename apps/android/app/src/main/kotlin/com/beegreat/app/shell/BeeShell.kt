@@ -29,10 +29,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.beegreat.app.R
 import com.beegreat.app.bee.BeeScreen
 import com.beegreat.app.bee.ThreadsSheet
+import com.beegreat.app.goals.GoalDetailScreen
 import com.beegreat.app.goals.GoalsScreen
+import com.beegreat.app.goals.ProjectScreen
+import com.beegreat.app.hive.HiveScreen
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.Hive
 import kotlinx.serialization.Serializable
@@ -165,10 +169,10 @@ fun BeeShell() {
       NavHost(navController = navController, startDestination = BeeTab, modifier = Modifier.padding(padding)) {
         composable<BeeTab> { BeeScreen() }
         composable<GoalsTab> { GoalsScreen() }
-        composable<HiveTab> { PlaceholderScreen("Hive", "Economy and achievements land in Phase 3.") }
+        composable<HiveTab> { HiveScreen() }
         composable<MindTab> { PlaceholderScreen("Mind", "Bookmarks land in Phase 4.") }
-        composable<GoalRoute> { PlaceholderScreen("Goal", "Goal detail lands in Phase 3.") }
-        composable<ProjectRoute> { PlaceholderScreen("Project", "Project detail lands in Phase 3.") }
+        composable<GoalRoute> { entry -> GoalDetailScreen(entry.toRoute<GoalRoute>().goalId) }
+        composable<ProjectRoute> { entry -> ProjectScreen(entry.toRoute<ProjectRoute>().projectId) }
       }
     }
     if (threadsOpen) ThreadsSheet(onDismiss = { threadsOpen = false })

@@ -36,13 +36,37 @@ data class VerifiedProgress(
   val scoreDelta: ConvexDouble,
 )
 
-/** `firstFocus:getCurrent`. The economy block is large and lands with the Hive screen. */
+@Serializable
+data class BrainFatigue(val isActive: Boolean, val dailyHoneyDrain: ConvexDouble, val rank: ConvexDouble, val affectedGoalCount: ConvexDouble)
+
+@Serializable data class GeniusState(val isActive: Boolean, val verifiedGoalCount: ConvexDouble, val requiredGoalCount: ConvexDouble)
+
+@Serializable data class FocusShield(val goalId: String, val goalTitle: String, val expiresAt: ConvexLong)
+
+@Serializable
+data class WeeklyProgress(val startedAt: ConvexLong, val endsAt: ConvexLong, val completedGoals: ConvexDouble, val requiredGoals: ConvexDouble, val completed: Boolean)
+
+/** One unlocked achievement; `kind` is `goliebee` or `hive`. */
+@Serializable data class Achievement(val id: String, val title: String, val rank: ConvexDouble? = null, val kind: String)
+
+@Serializable
+data class Economy(
+  val royalJellyBalance: ConvexDouble,
+  val brainFatigue: BrainFatigue,
+  val geniusState: GeniusState,
+  val activeFocusShield: FocusShield? = null,
+  val weeklyProgress: WeeklyProgress? = null,
+  val achievements: List<Achievement> = emptyList(),
+)
+
+/** `firstFocus:getCurrent`: the Hive dashboard in one read. */
 @Serializable
 data class CurrentHive(
   val hive: HiveBalances,
   val activeGoals: List<ActiveGoal>,
   val activeHighlight: ActiveHighlight? = null,
   val latestVerifiedProgress: VerifiedProgress? = null,
+  val economy: Economy,
 )
 
 @Serializable
