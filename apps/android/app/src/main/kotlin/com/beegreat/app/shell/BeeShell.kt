@@ -37,6 +37,8 @@ import com.beegreat.app.goals.GoalDetailScreen
 import com.beegreat.app.goals.GoalsScreen
 import com.beegreat.app.goals.ProjectScreen
 import com.beegreat.app.hive.HiveScreen
+import com.beegreat.app.healthy.BeeHealthyScreen
+import com.beegreat.app.healthy.JournalEntryScreen
 import com.beegreat.app.LocalAppContainer
 import com.beegreat.app.mind.AddBookmarkSheet
 import com.beegreat.app.mind.BookmarkDetailScreen
@@ -60,6 +62,12 @@ import kotlinx.serialization.Serializable
 @Serializable data class ProjectRoute(val projectId: String)
 
 @Serializable data class BookmarkRoute(val bookmarkId: String)
+
+@Serializable object BeeHealthyRoute
+
+@Serializable data class JournalEntryRoute(val entryId: String)
+
+@Serializable object NfcActionsRoute
 
 private data class AddBookmarkRequest(val url: String?)
 
@@ -107,6 +115,12 @@ private class ShellNavigator(
   override fun openBookmark(bookmarkId: String) = nav.navigate(BookmarkRoute(bookmarkId))
 
   override fun openAddBookmark(url: String?) = showAddBookmark(url)
+
+  override fun openBeeHealthy() = nav.navigate(BeeHealthyRoute)
+
+  override fun openJournalEntry(entryId: String) = nav.navigate(JournalEntryRoute(entryId))
+
+  override fun openNfcActions() = nav.navigate(NfcActionsRoute)
 
   override fun openThreads() = showThreads()
 
@@ -198,6 +212,9 @@ fun BeeShell() {
         composable<HiveTab> { HiveScreen() }
         composable<MindTab> { MindScreen() }
         composable<BookmarkRoute> { entry -> BookmarkDetailScreen(entry.toRoute<BookmarkRoute>().bookmarkId) }
+        composable<BeeHealthyRoute> { BeeHealthyScreen() }
+        composable<JournalEntryRoute> { entry -> JournalEntryScreen(entry.toRoute<JournalEntryRoute>().entryId) }
+        composable<NfcActionsRoute> { PlaceholderScreen("NFC actions", "Tap actions land in Phase 7.") }
         composable<GoalRoute> { entry -> GoalDetailScreen(entry.toRoute<GoalRoute>().goalId) }
         composable<ProjectRoute> { entry -> ProjectScreen(entry.toRoute<ProjectRoute>().projectId) }
       }

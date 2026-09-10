@@ -21,6 +21,12 @@ interface Navigator {
 
   fun openAddBookmark(url: String?)
 
+  fun openBeeHealthy()
+
+  fun openJournalEntry(entryId: String)
+
+  fun openNfcActions()
+
   fun openThreads()
 
   fun openProfile()

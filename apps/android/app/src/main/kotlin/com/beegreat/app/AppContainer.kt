@@ -14,6 +14,7 @@ import com.beegreat.convex.createBeeConvexClient
 import com.beegreat.convex.devin.DevinRepository
 import com.beegreat.convex.focus.FirstFocusRepository
 import com.beegreat.convex.goals.GoalsRepository
+import com.beegreat.convex.health.HealthRepository
 import com.beegreat.convex.projects.ProjectsRepository
 import com.beegreat.convex.tasks.TasksRepository
 import com.beegreat.convex.user.UserRepository
@@ -41,6 +42,7 @@ class AppContainer(context: Context) {
   val devin = DevinRepository(convex)
   val web3Actions = Web3ActionsRepository(convex)
   val bookmarks = BookmarksRepository(convex)
+  val health = HealthRepository(convex)
 
   /** A link handed to the app by the share sheet or a deep link, consumed once by the shell. */
   val pendingSharedUrl = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)

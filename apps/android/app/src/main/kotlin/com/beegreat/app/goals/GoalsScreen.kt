@@ -41,6 +41,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.beegreat.app.LocalAppContainer
 import com.beegreat.app.shell.LocalNavigator
+import com.beegreat.contract.healthSummary
+import com.beegreat.contract.localDateKey
+import kotlinx.coroutines.flow.map
 import com.beegreat.convex.goals.GoalSummary
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.MaxContentWidth
@@ -63,6 +66,8 @@ fun GoalsScreen() {
   val state by viewModel.state.collectAsStateWithLifecycle()
   val notice by viewModel.notice.collectAsStateWithLifecycle()
   val snackbar = remember { SnackbarHostState() }
+  val todayFlow = remember(container) { container.health.day(localDateKey()).map { result -> result.getOrNull().let { day -> healthSummary(day?.mood, day?.hydrationMl ?: 0) } } }
+  val todaySummary by todayFlow.collectAsStateWithLifecycle(initialValue = "Loading today’s ritual…")
 
   LaunchedEffect(notice) {
     val message = notice ?: return@LaunchedEffect
@@ -76,6 +81,7 @@ fun GoalsScreen() {
       onAddGoal = viewModel::addGoal,
       onRenameGoal = viewModel::renameGoal,
       onRemoveGoal = viewModel::removeGoal,
+      healthSummary = todaySummary,
     )
     SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter)) {
       Snackbar(
@@ -149,8 +155,9 @@ fun GoalsScreenView(
 
 @Composable
 private fun BeeHealthyCard(summary: String) {
+  val navigator = LocalNavigator.current
   val colors = BeeTheme.colors
-  BeeRowCard(onClick = { /* Phase 4 opens Bee Healthy. */ }) {
+  BeeRowCard(onClick = navigator::openBeeHealthy) {
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.half)) {
       Text("Bee Healthy", style = BeeTheme.typography.body, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
       Text(summary, style = BeeTheme.typography.small, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -161,8 +168,9 @@ private fun BeeHealthyCard(summary: String) {
 
 @Composable
 private fun ReminderOverviewCard() {
+  val navigator = LocalNavigator.current
   val colors = BeeTheme.colors
-  BeeRowCard(onClick = { /* Phase 7 opens NFC reminders. */ }) {
+  BeeRowCard(onClick = navigator::openNfcActions) {
     Box(
       modifier = Modifier.size(44.dp).background(colors.secondary, RoundedCornerShape(Radius.tile)),
       contentAlignment = Alignment.Center,
