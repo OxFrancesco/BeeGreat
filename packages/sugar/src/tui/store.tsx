@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { SugarAction, SugarParameters } from '../contracts'
-import { getActiveWallet, type ActiveWallet } from '../wallet'
+import { getActiveWallet, onWalletChange, type ActiveWallet } from '../wallet'
 import { DEFAULT_CHAIN } from '../cli/flags'
 
 export type Route =
@@ -85,6 +85,8 @@ export function AppProvider(props: { onQuit: () => void; children: ReactNode }) 
       setWallet(undefined)
     }
   }, [])
+
+  useEffect(() => onWalletChange(refreshWallet), [refreshWallet])
 
   const value = useMemo<AppState>(() => ({
     routes,

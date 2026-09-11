@@ -11,7 +11,7 @@ import { useApp } from './store'
 import { ActionScreen } from './screens/action'
 import { AnalyticsScreen } from './screens/analytics'
 import { EpochsScreen, PoolsScreen, PositionsScreen } from './screens/browse'
-import { HomeScreen } from './screens/home'
+import { HOME_MENU, HomeScreen } from './screens/home'
 import { WalletScreen } from './screens/wallet'
 import { chainLabel, Toasts } from './widgets'
 
@@ -38,19 +38,16 @@ export function App() {
 
   const openPalette = () => {
     const items: SelectItem[] = [
-      ...SUGAR_ACTIONS.filter((action) => action !== 'stocks').map((action) => ({
+      ...HOME_MENU.flatMap((item) => {
+        const route = item.route
+        return route ? [{ title: item.title, description: item.description, onSelect: () => app.push(route) }] : []
+      }),
+      ...SUGAR_ACTIONS.filter((action) => !['stocks', 'swap', 'quote', 'deposit', 'positions', 'pools', 'epochs_latest', 'create_venft'].includes(action)).map((action) => ({
         title: ACTION_TITLES[action],
         description: ACTION_DESCRIPTIONS[action],
         hint: isSugarTxAction(action) ? 'tx' : 'read',
         onSelect: () => app.push({ name: 'action', action }),
       })),
-      { title: 'Stocks', onSelect: () => app.push({ name: 'stocks' }) },
-      { title: 'Indices', onSelect: () => app.push({ name: 'indices' }) },
-      { title: 'Pools', description: 'browse pools with TVL and gauges', onSelect: () => app.push({ name: 'pools' }) },
-      { title: 'Positions', description: 'your liquidity with one-key actions', onSelect: () => app.push({ name: 'positions' }) },
-      { title: 'Epochs', description: 'latest voting round per pool', onSelect: () => app.push({ name: 'epochs' }) },
-      { title: 'Analytics', description: 'Dune Analytics: E/R, RPV, and Base share', onSelect: () => app.push({ name: 'analytics' }) },
-      { title: 'Wallet', description: 'connect, create, restore, or remove', onSelect: () => app.push({ name: 'wallet' }) },
       { title: 'Switch chain', description: `now ${chainLabel(app.chain)} (${app.chain})`, onSelect: openChainDialog },
       { title: 'Home', description: 'back to the start screen', onSelect: () => app.push({ name: 'home' }) },
       { title: 'Quit', description: 'leave the TUI', onSelect: app.quit },

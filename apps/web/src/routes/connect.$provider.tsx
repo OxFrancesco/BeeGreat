@@ -12,10 +12,10 @@ import {
   GOOGLE_WORKSPACE_DISCLOSURE_VERSION,
   GOOGLE_WORKSPACE_SERVICES,
 } from '@beegreat/tool-presentation'
-import beeUrl from '../../../mobile/assets/images/bee.webp?url'
 import type { GoogleWorkspaceService } from '@beegreat/tool-presentation'
 
 import type { FunctionArgs } from 'convex/server'
+import { BeeMascot } from '~/components/bee-mascot'
 import { ChatGptSettings } from '~/features/auth/chatgpt-auth'
 import { captureWebFailure } from '~/lib/sentry'
 
@@ -115,7 +115,7 @@ function ConnectPage() {
   return (
     <main className="gate-page">
       <section className="gate-card" aria-labelledby="gate-title">
-        <img src={beeUrl} alt="" className="gate-bee" />
+        <BeeMascot alt="" className="gate-bee" />
         {!connector ? (
           <>
             <h1 id="gate-title">Unknown connection</h1>

@@ -1,0 +1,44 @@
+{
+  "idle": {
+    "duration_seconds": 4,
+    "root_moves": true,
+    "wings_move": true,
+    "single_expression": true
+  },
+  "fly": {
+    "duration_seconds": 4,
+    "root_moves": true,
+    "wings_move": true,
+    "single_expression": true
+  },
+  "happy": {
+    "duration_seconds": 4,
+    "root_moves": true,
+    "wings_move": true,
+    "single_expression": true
+  },
+  "sad": {
+    "duration_seconds": 4,
+    "root_moves": true,
+    "wings_move": true,
+    "single_expression": true
+  },
+  "thinking": {
+    "duration_seconds": 4,
+    "root_moves": true,
+    "wings_move": true,
+    "single_expression": true
+  },
+  "fail": {
+    "duration_seconds": 4,
+    "root_moves": true,
+    "wings_move": true,
+    "single_expression": true
+  },
+  "succeed": {
+    "duration_seconds": 4,
+    "root_moves": true,
+    "wings_move": true,
+    "single_expression": true
+  }
+}

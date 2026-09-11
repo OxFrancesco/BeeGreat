@@ -1,35 +1,62 @@
+import type { BeeAnimation } from '@beegreat/tool-presentation';
 import { Image } from 'expo-image';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { View } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 
-// Animated bee (transparent animated WebP), rendered from the 3D asset's
-// idle clip via tools/bee-3d/render_app_assets.py.
-const BEE_SOURCE = require('../../assets/images/bee.webp');
-/** Intrinsic size of the animation frames, used to keep the aspect ratio. */
-const BEE = { width: 512, height: 512 } as const;
+const sources = {
+  idle: {
+    animated: require('../../assets/images/bee/idle.webp'),
+    still: require('../../assets/images/bee/idle-still.png'),
+  },
+  fly: {
+    animated: require('../../assets/images/bee/fly.webp'),
+    still: require('../../assets/images/bee/fly-still.png'),
+  },
+  happy: {
+    animated: require('../../assets/images/bee/happy.webp'),
+    still: require('../../assets/images/bee/happy-still.png'),
+  },
+  sad: {
+    animated: require('../../assets/images/bee/sad.webp'),
+    still: require('../../assets/images/bee/sad-still.png'),
+  },
+  thinking: {
+    animated: require('../../assets/images/bee/thinking.webp'),
+    still: require('../../assets/images/bee/thinking-still.png'),
+  },
+  fail: {
+    animated: require('../../assets/images/bee/fail.webp'),
+    still: require('../../assets/images/bee/fail-still.png'),
+  },
+  succeed: {
+    animated: require('../../assets/images/bee/succeed.webp'),
+    still: require('../../assets/images/bee/succeed-still.png'),
+  },
+} satisfies Record<BeeAnimation, { animated: number; still: number }>;
 
-/**
- * The little animated bee, with a transparent background.
- * Pauses on the first frame when reduced motion is enabled.
- */
 export function FloatingBee({
   height = 88,
   style,
+  animation = 'idle',
+  animate = true,
 }: {
   height?: number;
   style?: StyleProp<ViewStyle>;
+  animation?: BeeAnimation;
+  animate?: boolean;
 }) {
   const reducedMotion = useReducedMotion();
-  const width = (BEE.width / BEE.height) * height;
-
+  const playing = animate && !reducedMotion;
+  const source = sources[animation];
   return (
     <View style={style}>
       <Image
-        source={BEE_SOURCE}
-        style={{ width, height, backgroundColor: 'transparent' }}
+        key={`${animation}-${playing}`}
+        source={playing ? source.animated : source.still}
+        style={{ width: height, height, backgroundColor: 'transparent' }}
         contentFit="contain"
-        autoplay={!reducedMotion}
+        autoplay={playing}
       />
     </View>
   );

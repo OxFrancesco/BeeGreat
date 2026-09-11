@@ -1,15 +1,32 @@
+import { useContext } from 'react';
+import { TextScaleContext } from '@/components/text-scale';
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
 import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?:
+    | 'default'
+    | 'title'
+    | 'small'
+    | 'smallBold'
+    | 'subtitle'
+    | 'link'
+    | 'linkPrimary'
+    | 'code';
   themeColor?: ThemeColor;
 };
 
-export function ThemedText({ style, type = 'default', themeColor, ...rest }: ThemedTextProps) {
+export function ThemedText({
+  style,
+  type = 'default',
+  themeColor,
+  ...rest
+}: ThemedTextProps) {
   const theme = useTheme();
+  const textScale = useContext(TextScaleContext);
+  const baseStyle = styles[type];
 
   return (
     <Text
@@ -23,6 +40,11 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
+        textScale !== 1 && {
+          fontSize: (baseStyle.fontSize ?? 16) * textScale,
+          lineHeight:
+            ('lineHeight' in baseStyle ? baseStyle.lineHeight : 18) * textScale,
+        },
         style,
       ]}
       {...rest}

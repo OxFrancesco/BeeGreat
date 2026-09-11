@@ -8,3 +8,5 @@ export type {
   StoredChatMessage,
 } from './chat-history';
 export { TranscriptSyncQueue } from './transcript-sync-queue';
+export { TaskUpdates } from './task-updates';
+export type { TaskUpdateState } from './task-updates';

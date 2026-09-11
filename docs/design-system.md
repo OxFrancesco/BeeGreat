@@ -1,5 +1,18 @@
 # BeeGreat Design System
 
+Aero's terminal home and command palette put Swap, Quote, Pools, pool creation,
+and Positions before Stocks and Indices. Use a compact header and a scrolling
+menu in short terminals. Below 110 columns, put keyboard hints and wallet state
+on separate lines. Stock tables show search, sorting, holdings, and estimated
+values. Index controls edit percentages directly, show the allocation total,
+preserve zero-percent exits, and open a separate transaction review before signing.
+
+Aero's local browser-wallet page uses the neutral canvas, body typography,
+44px-or-larger button targets, and brown primary action defined below. Show the
+wallet picker, the connected account, approval status, errors, and Disconnect.
+Wallet names are plain text. Do not render extension-supplied SVG markup or add
+network or connection badges. Connection tokens stay out of visible page content.
+
 The single reference for how BeeGreat looks, moves, and speaks — across the
 mobile app (Expo / React Native), the web twin, and Bee's generative UI
 (`beeui`). When code and this document disagree, fix one of them; the tokens
@@ -348,3 +361,7 @@ rendering in `packages/tool-presentation/src/beeui.ts` → rich renderer in both
 apps (+ web CSS) → document in `bee.md` → row in §10 → test in
 `bee-ui.test.ts`. Clients that don't know a new type degrade to an
 "unsupported" card automatically — never fork the schema per client.
+
+### Mascot rendering
+
+Use the yellow voxel Bee from `assets/bee-3d/minecraft-yellow`. Mobile uses `FloatingBee`; web uses `BeeMascot`. Both accept `BeeAnimation` from `@beegreat/tool-presentation`. Use thinking for active replies and succeed for goal celebrations. Settled chat avatars are static. Reduced motion selects the matching PNG. Health moods and the doctor variant come from this same model. See `docs/25-bee-mascot.md` for asset generation.

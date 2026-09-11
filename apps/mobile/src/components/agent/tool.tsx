@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -5,6 +6,7 @@ import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { z } from 'zod';
 
+import { FloatingBee } from '@/components/floating-bee';
 import { Shimmer } from '@/components/agent/shimmer';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -70,8 +72,7 @@ export function ToolActivity({
   // SAFETY: Flue delivers tool outputs over its JSON wire protocol, so the payload is a JSON value.
   const outputPayload = output as ToolCallPayload | undefined;
   const { label, symbol, powerup, specialist } = getToolCopy(name, state, inputPayload);
-  // SAFETY: The tool symbol table only stores valid SF Symbol names, and SymbolView
-  // renders the provided fallback glyph for any name the platform does not know.
+  // SAFETY: The tool symbol table stores valid SF Symbol names.
   const symbolName = symbol as SymbolViewProps['name'];
   const identity = specialist ?? powerup;
   const running = state === 'running';
@@ -141,7 +142,7 @@ export function ToolActivity({
           ]}
         >
           <SymbolView
-            name={symbolName}
+            name={platformSymbol(symbolName)}
             size={11}
             tintColor={
               error
@@ -149,11 +150,6 @@ export function ToolActivity({
                 : specialistPalette
                   ? '#FFFFFF'
                   : theme.secondaryForeground
-            }
-            fallback={
-              <ThemedText type="small" themeColor="secondaryForeground">
-                •
-              </ThemedText>
             }
           />
         </View>
@@ -187,7 +183,7 @@ export function ToolActivity({
           </View>
         )}
         <SymbolView
-          name={expanded ? 'chevron.up' : 'chevron.down'}
+          name={platformSymbol(expanded ? 'chevron.up' : 'chevron.down')}
           size={12}
           tintColor={theme.textSecondary}
         />
@@ -216,14 +212,9 @@ export function ToolActivity({
             ]}
           >
             <SymbolView
-              name={copied ? 'checkmark' : 'doc.on.doc'}
+              name={platformSymbol(copied ? 'checkmark' : 'doc.on.doc')}
               size={11}
               tintColor={theme.textSecondary}
-              fallback={
-                <ThemedText type="small" themeColor="textSecondary">
-                  ⧉
-                </ThemedText>
-              }
             />
             <ThemedText type="smallBold" themeColor="textSecondary">
               {copied ? 'Copied ✓' : 'Copy'}
@@ -271,22 +262,9 @@ function formatToolValue(value: ToolCallPayload | undefined) {
  * a reply before any visible output arrives.
  */
 export function ThinkingActivity() {
-  const theme = useTheme();
-
   return (
     <View style={styles.row}>
-      <View style={[styles.iconBadge, { backgroundColor: theme.secondary }]}>
-        <SymbolView
-          name="brain"
-          size={11}
-          tintColor={theme.secondaryForeground}
-          fallback={
-            <ThemedText type="small" themeColor="secondaryForeground">
-              •
-            </ThemedText>
-          }
-        />
-      </View>
+      <FloatingBee height={24} animation="thinking" />
       <Shimmer type="small" themeColor="textSecondary">
         Thinking…
       </Shimmer>

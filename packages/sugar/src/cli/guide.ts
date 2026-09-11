@@ -38,9 +38,9 @@ A five-minute tour:
        Look around. No wallet needed for reads.
   2. aero quote --from-token ETH --to-token USDC --amount 0.05 --use-decimals
        Price a swap, including route and price impact.
-  3. aero wallet connect
-       Pair your mobile/extension wallet via WalletConnect (or
-       'aero wallet create' for a local encrypted wallet).
+  3. aero wallet connect --browser
+       Select Rabby or another browser extension. For QR pairing with a
+       compatible wallet, use 'aero wallet connect' without --browser.
   4. aero swap --from-token ETH --to-token USDC --amount 0.05 --use-decimals
        Review the plan summary, confirm, approve in your wallet.
 
@@ -57,11 +57,18 @@ Next: aero guide wallet | swap | liquidity | staking | rewards | venft | analyti
   wallet: `Wallets
 =======
 
-Two ways to sign:
+Choose how to sign:
 
-  WalletConnect (recommended)   aero wallet connect
-    Scan the QR (or paste the wc: URI) with Rabby, Rainbow, MetaMask, or a
-    Safe. Every transaction is approved inside your wallet app; aero never
+  Browser wallet                aero wallet connect --browser
+    Opens a local page. Choose Rabby or another detected extension and
+    approve the connection. CLI transactions reopen the browser for the
+    selected account. In aero tui, choose Wallet → Connect browser wallet
+    and keep the tab open to reuse the connection across actions.
+    Escape cancels pairing. Disconnect is available in the page and TUI.
+
+  WalletConnect                 aero wallet connect
+    Scan the QR or paste the wc: URI into a compatible wallet.
+    Every transaction is approved inside your wallet app; aero never
     sees a private key.
 
   Local encrypted wallet        aero wallet create | aero wallet restore
@@ -73,10 +80,11 @@ Two ways to sign:
 Housekeeping:
 
   aero wallet status       who is connected, and on which chains
-  aero wallet disconnect   drop the WalletConnect session
+  aero wallet disconnect   disconnect the external wallet
   aero wallet remove       delete the local encrypted wallet
 
-When both exist, WalletConnect wins (pairing is an explicit recent action).
+An explicitly selected external wallet takes precedence over a local wallet.
+Browser and WalletConnect approvals are required even when using --yes.
 Transaction commands use the connected wallet automatically when --wallet is
 omitted; passing a different --wallet prints an unsigned plan instead.`,
 

@@ -216,6 +216,11 @@ function RootNavigator() {
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="sign-in" />
       </Stack.Protected>
+      {/* Dev-only component gallery; the route itself redirects when !__DEV__. */}
+      <Stack.Screen
+        name="playground"
+        options={{ headerShown: true, title: 'Components' }}
+      />
     </Stack>
   );
 

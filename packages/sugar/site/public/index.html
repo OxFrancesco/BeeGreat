@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="darkreader-lock" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="base:app_id" content="6aa053a8b5e856b645920b69" />
+  <title>Aero CLI | Unofficial CLI &amp; TUI for Aerodrome and Velodrome</title>
+  <meta name="description" content="Explore pools, swap tokens, manage liquidity, trade tokenized stocks, and build wallet indices from your terminal. Highly experimental and unofficial." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://aerocli.buddytools.org/" />
+  <meta property="og:title" content="Aero CLI | Unofficial CLI &amp; TUI for Aerodrome and Velodrome" />
+  <meta property="og:description" content="Swap, manage liquidity, and build stock indices from your terminal. Highly experimental and unofficial." />
+  <meta property="og:image" content="https://aerocli.buddytools.org/page-preview.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="860" />
+  <meta property="og:image:alt" content="Aero CLI homepage with a clay terminal, coins, chart and experimental software notice." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Aero CLI | Unofficial CLI &amp; TUI" />
+  <meta name="twitter:description" content="Aerodrome and Velodrome from your terminal. Highly experimental and unofficial." />
+  <meta name="twitter:image" content="https://aerocli.buddytools.org/page-preview.png" />
+  <meta name="twitter:image:alt" content="Aero CLI homepage with a clay terminal, coins, chart and experimental software notice." />
+  <meta name="color-scheme" content="light" />
+  <link rel="canonical" href="https://aerocli.buddytools.org/" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+  <script defer src="/bento.js"></script>
+  <script type="module" src="/scene.js"></script>
+</head>
+<body>
+<main>
+  <div class="topbar">
+    <a class="wordmark" href="/" aria-label="Aero CLI home">aero</a>
+    <nav aria-label="Page navigation">
+      <a href="#capabilities">Capabilities</a>
+      <a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK#readme">Docs ↗</a>
+    </nav>
+  </div>
+  <header class="hero">
+    <div>
+      <h1>Aero CLI</h1>
+      <p class="intro">Aerodrome and Velodrome from your terminal. Swap, manage liquidity, and build stock indices with commands or an interactive TUI.</p>
+      <div class="actions">
+        <a class="button primary" href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK">View on GitHub ↗</a>
+        <a class="button" href="#demo">Watch the demo ↓</a>
+      </div>
+    </div>
+    <figure class="scene-figure">
+      <div class="scene-view"><img src="/aero-blender.png" width="1200" height="1200" alt="Blender clay terminal, two coins, and three chart columns in Aero colors." fetchpriority="high" /></div>
+      <figcaption class="scene-controls" hidden>
+        <span>Drag to rotate. Tap an object.</span>
+        <div><button type="button" data-scene="coins">Flip coins</button><button type="button" data-scene="chart">Raise / lower chart</button><button type="button" data-scene="aero">Play Aero</button><button type="button" data-scene="reset">Reset</button></div>
+      </figcaption>
+      <p id="scene-status" class="sr-only" role="status" aria-live="polite"></p>
+    </figure>
+  </header>
+  <aside class="warning" aria-label="Experimental software notice">
+    <p><strong>Highly experimental. Entirely unofficial.</strong>Built with AI coding agents. Bugs and signing mistakes can permanently lose funds. <a href="#experimental">Read the risks before using it.</a></p>
+  </aside>
+  <section class="features" aria-labelledby="capabilities">
+    <h2 id="capabilities">What you can do</h2>
+    <div class="grid">
+      <article class="clay bento swap">
+<div class="tile-visual" aria-hidden="true"><div class="swap-diagram"><span class="token token-a">AERO</span><svg viewBox="0 0 160 70"><path class="route" d="M8 24 H146 l-13 -12 M152 46 H14 l13 12"/></svg><span class="token token-b">USDC</span></div></div>
+<div class="tile-copy"><h3>Quote &amp; swap</h3><p>Preview routes and price impact before reviewing your swap.</p><button type="button" class="capability-trigger" popovertarget="capability-1" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-1" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-1" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Preview swap routes and price impact without sending a transaction.</li><li>Swap tokens with configurable slippage, approvals, and a transaction review.</li><li>Use command flags or guided TUI forms and token pickers.</li></ul></div></div>
+</article>
+      <article class="clay bento pools">
+<div class="tile-visual" aria-hidden="true"><svg class="pool-diagram" viewBox="0 0 240 90"><path d="M15 75 C60 75 65 15 120 15 S180 75 225 75"/><rect x="80" y="8" width="80" height="73" rx="12"/><path class="range" d="M80 8 V81 M160 8 V81"/></svg></div>
+<div class="tile-copy"><h3>Pools &amp; liquidity</h3><p>Choose your pool and put liquidity to work.</p><button type="button" class="capability-trigger" popovertarget="capability-2" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-2" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-2" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Browse and filter pools, inspect reserves, liquidity, and emissions.</li><li>Create pools or add liquidity to existing basic and concentrated pools.</li><li>Choose concentrated liquidity ranges, view positions, and withdraw all or part of a position.</li></ul></div></div>
+</article>
+      <article class="clay bento rewards">
+<div class="tile-visual" aria-hidden="true"><div class="reward-diagram"><i></i><i></i><i></i><span>↗</span></div></div>
+<div class="tile-copy"><h3>Staking &amp; rewards</h3><p>Stake, unstake, and collect what your positions earn.</p><button type="button" class="capability-trigger" popovertarget="capability-3" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-3" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-3" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Stake positions in gauges and unstake them.</li><li>Claim gauge emissions and trading fees.</li><li>Inspect the latest voting epoch or a pool's historical votes, fees, emissions, and incentives.</li></ul></div></div>
+</article>
+      <article class="clay bento indices">
+<div class="tile-visual" aria-hidden="true"><div class="allocation" aria-hidden="true"><div><span>Holdings</span><i></i><i></i><i></i></div><b>↓</b><div><span>Target weights</span><i></i><i></i><i></i></div></div></div>
+<div class="tile-copy"><h3>Tokenized stocks &amp; indices</h3><p>Build a stock basket with your own target weights.</p><button type="button" class="capability-trigger" popovertarget="capability-4" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-4" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-4" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Browse supported tokenized stocks on Base, buy with USDC, sell, and inspect holdings.</li><li>Create, list, inspect, edit, or delete saved allocation recipes.</li><li>Set target percentages and preview current versus target holdings before rebalancing the basket.</li></ul>
+        <p class="note">Indices are local wallet allocation recipes, not separate funds.</p></div></div>
+</article>
+      <article class="clay bento locks">
+<div class="tile-visual" aria-hidden="true"><svg class="lock-diagram" viewBox="0 0 160 90"><path class="shackle" d="M55 43 V29 a25 25 0 0 1 50 0 V43"/><rect x="40" y="39" width="80" height="48" rx="15"/><path d="M80 57 v13"/></svg></div>
+<div class="tile-copy"><h3>veNFT locks</h3><p>Turn AERO or VELO into locked voting power.</p><button type="button" class="capability-trigger" popovertarget="capability-5" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-5" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-5" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Lock AERO on Base or VELO on Optimism for voting power.</li><li>Choose the amount and lock duration, then review the unsigned plan before signing.</li></ul>
+        <p class="note">Voting, lock extensions, merges, splits, delegation, and voting-reward claims are SDK APIs. They are not dedicated CLI or TUI actions.</p></div></div>
+</article>
+      <article class="clay bento analytics">
+<div class="tile-visual" aria-hidden="true"><svg class="chart-diagram" viewBox="0 0 240 90"><path class="baseline" d="M12 76 H228"/><path class="chart-line" d="M12 64 L45 50 L76 58 L110 30 L143 40 L177 17 L211 28 L228 10"/></svg></div>
+<div class="tile-copy"><h3>Terminal analytics</h3><p>Explore protocol economics without leaving the TUI.</p><button type="button" class="capability-trigger" popovertarget="capability-6" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-6" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-6" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Explore the TUI's Health, Flywheel, Trade, Token, and Arena views.</li><li>Read charts for volume, fees, liquidity, token supply, voting economics, and protocol comparisons.</li><li>Browse cached snapshots while fresh data loads. Dune-backed charts need a Dune API key.</li></ul></div></div>
+</article>
+      <article class="clay bento wallets">
+<div class="tile-visual" aria-hidden="true"><div class="wallet-diagram"><span>Unsigned plan</span><span>Review → Sign</span></div></div>
+<div class="tile-copy"><h3>Wallets &amp; transaction review</h3><p>Connect your wallet. Inspect every transaction.</p><button type="button" class="capability-trigger" popovertarget="capability-7" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-7" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-7" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Connect a browser wallet or WalletConnect wallet, inspect its status, and disconnect.</li><li>Create or restore an encrypted local wallet and remove it when no longer needed.</li><li>Inspect unsigned plans with <code>--dry-run</code>. Use the CLI execution journal to inspect saved plans, resume eligible steps, or cancel unsent steps.</li></ul></div></div>
+</article>
+      <article class="clay bento automation">
+<div class="tile-visual" aria-hidden="true"><div class="command-diagram"><code><span>$</span> aero <b>--help</b></code><span class="command-cursor" aria-hidden="true"></span></div></div>
+<div class="tile-copy"><h3>CLI workflows &amp; automation</h3><p>Run commands, watch liquidity ranges, and recover interrupted workflows.</p><button type="button" class="capability-trigger" popovertarget="capability-8" aria-expanded="false" aria-label="View capabilities"></button><div id="capability-8" class="capability-popup" popover="auto"><button type="button" class="popup-close" popovertarget="capability-8" popovertargetaction="hide" aria-label="Close capabilities">×</button><ul><li>Get JSON reads, command help, interactive <code>--wizard</code> prompts, guides, and shell completions.</li><li>Configure the self-hosted liquidity manager, inspect position ranges, and run a dry-run pass or watcher with <code>aero serve</code>.</li><li>Inspect interrupted liquidity-management cycles and reconcile receipts before manual recovery.</li></ul>
+        <p class="note">ALM execution requires an explicit opt-in and a local wallet. It remains experimental. Safe execution is disabled in 0.1.</p></div></div>
+</article>
+    </div>
+    <p class="note">Availability depends on the chain, wallet, and version you run. The CLI and TUI share transaction actions; analytics are visual TUI screens, while the watcher and execution-recovery commands run in the CLI.</p>
+  </section>
+  <section class="demo" aria-labelledby="demo">
+    <div class="demo-copy">
+      <h2 id="demo">See it in the terminal</h2>
+      <p>Francesco's walkthrough of the CLI and TUI.</p>
+    </div>
+    <div class="video-player"><video class="demo-video" controls playsinline preload="none" poster="/aero-demo-poster.jpg" aria-label="Aero CLI and TUI walkthrough" src="/aero-demo.mp4">Your browser cannot play this video. <a href="/aero-demo.mp4">Open the video</a>.</video>
+      <p class="video-error" hidden role="status">The video could not load. <button type="button" class="video-retry">Retry</button> or <a href="/aero-demo.mp4">open the video</a>.</p>
+    </div>
+  </section>
+  <div class="notices clay">
+      <section aria-labelledby="experimental">
+        <h2 id="experimental">Highly experimental. Use at your own risk.</h2>
+        <p>Aero is early beta software built with AI coding agents. Expect bugs, incomplete features, incorrect or stale data, and breaking changes. Commands, transaction plans, and wallet flows may behave unexpectedly. Do not treat it as production-ready or assume it has passed an independent security audit.</p>
+        <p>Wallet-connected actions can sign and broadcast real transactions. A mistake in an amount, token address, approval, network, or transaction can permanently lose funds. A preview or successful simulation is not a guarantee that execution is safe or will succeed.</p>
+        <p>Start with read-only commands. Review unsigned plans with <code>--dry-run</code>, then independently check the network, contract addresses, amounts, slippage, and spending approvals before signing. Use a separate wallet with only small amounts you can afford to lose. Never share your seed phrase or private key.</p>
+      </section>
+
+      <section aria-labelledby="unofficial">
+        <h2 id="unofficial">Independent and unofficial.</h2>
+        <p>Aero is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. It is not an official product or support channel for any of those teams.</p>
+        <p>Protocol names describe compatibility or source attribution only. All trademarks belong to their respective owners. Original contributions and third-party material have different license terms. Read the repository's <a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK#licensing-review-2026-09-06">licensing review</a> and <a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK/blob/main/NOTICE">NOTICE</a> before reuse or redistribution.</p>
+      </section>
+
+  </div>
+  <footer>
+    <a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK/issues">Report a bug ↗</a>
+    <a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK#readme">Documentation ↗</a>
+  </footer>
+</main>
+</body>
+</html>

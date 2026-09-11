@@ -26,6 +26,9 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/velodrome-contracts` — Official Velodrome protocol contracts — Optimism VotingEscrow, Voter, voting rewards, gauges, and deployment interfaces
 - `resources/buddytg` — Francesco's local-first Telegram CLI — MTProto login, messaging, files, bookmarks, bot notifications, approvals, and secure session handling
 - `resources/zodiac-roles` — Zodiac Roles Modifier v2 — on-chain role-scoped permissions for Safes: execTransactionWithRole, condition trees, roles SDK, and deployment addresses
+- `resources/rabby` — Rabby browser wallet provider, EIP-6963 discovery, account events, and transaction approval
+- `resources/three` — Official Three.js source for the 3D game renderer, lighting and GLTF loading
+- `resources/cannon-es` — Official Cannon ES rigid-body physics source for colliders, contacts, and draggable bodies
 
 
 - `resources/viem` — Official viem Ethereum TypeScript library
@@ -131,3 +134,25 @@ each repository's commit. A BeeGreat-only push does not complete an SDK update.
 Use `scripts/export-evm.mjs` to prepare a new EVM snapshot, review its diff, and
 keep `SOURCE.json` accurate. If a standalone push is blocked, state the exact
 unpublished changes and blocker instead of claiming the release is complete.
+
+## TUI testing
+
+Use OpenTUI's test renderer for TUI testing. Drive the real app with
+`testRender` from `@opentui/react/test-utils` and its `mockInput` keyboard
+controls. Wrap rendering and input in React `act`, and use
+`kittyKeyboard: true` for unambiguous Escape and modifier keys. Verify complete
+navigation and action flows at 80×24, including cancellation and layout.
+
+Use `captureCharFrame()` and `captureSpans()` to inspect and save terminal
+frames. Label images rendered from these captures as simulator captures.
+Keep wallet and RPC fixtures explicit; simulator tests do not prove live
+quotes, signing, or transaction execution.
+
+Follow `packages/sugar/src/tui/navigation.test.tsx`. Run it with captures:
+
+```sh
+AERO_TUI_CAPTURE_DIR=/tmp/aero-tui-captures bun test --cwd packages/sugar src/tui/navigation.test.tsx
+```
+
+Do not launch terminal windows as the default TUI test method. When a
+terminal-specific check is needed, use Ghostty.

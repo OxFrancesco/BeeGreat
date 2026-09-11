@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
 import type { ReactNode } from 'react';
@@ -42,10 +43,9 @@ export function ScreenHeader({
         style={({ pressed }) => pressed && styles.pressed}
       >
         <SymbolView
-          name="chevron.left"
+          name={platformSymbol("chevron.left")}
           size={20}
           tintColor={theme.text}
-          fallback={<ThemedText type="smallBold">Back</ThemedText>}
         />
       </Pressable>
       <ThemedText style={styles.barTitle} numberOfLines={1}>

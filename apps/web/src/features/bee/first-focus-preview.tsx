@@ -3,13 +3,13 @@ import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useCallback, useEffect, useState } from 'react'
 
-import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { endOfLocalDay, formatHighlightExpiry } from './bee-ui'
 import {
   clearPendingFirstFocus,
   registerPendingFirstFocus,
 } from './first-focus-confirmation'
 import type { FirstFocusPreview } from './bee-ui'
+import { BeeMascot } from '~/components/bee-mascot'
 import { captureWebFailure } from '~/lib/sentry'
 
 type PreviewStatus = 'editing' | 'saving' | 'saved' | 'cancelling' | 'cancelled'
@@ -141,7 +141,7 @@ export function FirstFocusPreviewCard({
     <section className="first-focus">
       <header className="first-focus__header">
         <div className="first-focus__bee-wrap">
-          <img src={beeUrl} alt="" className="first-focus__bee" />
+          <BeeMascot alt="" className="first-focus__bee" />
         </div>
         <div>
           <p className="utility-label">Your first focus</p>

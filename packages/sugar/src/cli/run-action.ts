@@ -7,9 +7,10 @@ import { executeSugarActionEffect } from '../actions'
 import { SugarClient } from '../client'
 import { DEFAULT_CHAIN } from './flags'
 import { isSugarTxAction, type SugarAction, type SugarParameters, type SugarTxAction } from '../contracts'
-import { createExecutionPlan, extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type PlanSigner } from '../send'
+import { createExecutionPlan, extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan } from '../send'
 import type { SugarJson } from '../types'
-import { getActiveWallet, loadLocalWallet, loadWalletConnectRecord, openSecret } from '../wallet'
+import { getActiveWallet, loadLocalWallet, openSecret } from '../wallet'
+import { externalWalletSigner } from '../external-wallet-signer'
 import { resolveTokenParameters } from './tokens'
 
 export type BroadcastOptions = { yes: boolean; dryRun: boolean }
@@ -43,16 +44,8 @@ export const runReadAction = Effect.fn('AeroCli.runReadAction')(function* (
 })
 
 export const resolveSigner = Effect.fn('AeroCli.resolveSigner')(function* () {
-  const wc = loadWalletConnectRecord()
-  if (wc) {
-    const { walletConnectSendTransaction } = yield* Effect.promise(() => import('../walletconnect'))
-    const signer: PlanSigner = {
-      address: wc.address,
-      describe: `WalletConnect (${wc.peer ?? 'wallet'})`,
-      send: (transaction, chainId) => walletConnectSendTransaction(transaction, chainId, console.log),
-    }
-    return signer
-  }
+  const external = externalWalletSigner(console.log)
+  if (external) return external
   const local = loadLocalWallet()
   if (!local) throw new Error('no wallet configured; run: aero wallet connect or aero wallet create')
   const passphrase = process.env.SUGAR_WALLET_PASSPHRASE

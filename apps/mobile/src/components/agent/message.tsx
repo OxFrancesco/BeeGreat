@@ -10,6 +10,7 @@ import {
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Markdown } from '@/components/agent/markdown';
+import type { BeeAnimation } from '@beegreat/tool-presentation';
 import { FloatingBee } from '@/components/floating-bee';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -57,11 +58,15 @@ export function MessageContent({
   from,
   showSpeaker = true,
   copyText,
+  beeAnimation = 'idle',
+  animateBee = false,
   children,
 }: PropsWithChildren<{
   from: MessageRole;
   showSpeaker?: boolean;
   copyText?: string;
+  beeAnimation?: BeeAnimation;
+  animateBee?: boolean;
 }>) {
   const theme = useTheme();
   const { copied, copy } = useCopyToClipboard(copyText);
@@ -97,7 +102,7 @@ export function MessageContent({
           accessibilityLabel="Bee"
           style={styles.assistantAvatar}
         >
-          <FloatingBee height={36} />
+          <FloatingBee height={36} animation={beeAnimation} animate={animateBee} />
         </View>
       ) : (
         <View style={styles.assistantAvatarSpacer} />

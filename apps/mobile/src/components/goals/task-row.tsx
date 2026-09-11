@@ -1,3 +1,5 @@
+import { platformSymbol } from '@/components/platform-symbol';
+import { useTaskUpdates } from '@/hooks/use-task-updates';
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
@@ -26,7 +28,10 @@ export type TaskItem = {
 const Honey = '#FAB52A';
 
 function formatDueDate(dueDate: number) {
-  return new Date(dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return new Date(dueDate).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 /** One row of the project to-do list; subtasks render indented and smaller. */
@@ -41,11 +46,14 @@ export function TaskRow({
   task: TaskItem;
   isSubtask?: boolean;
   highlighted?: boolean;
-  onToggle: () => void;
+  onToggle: () => unknown | Promise<unknown>;
   onLongPress: () => void;
   onAddSubtask?: () => void;
 }) {
   const theme = useTheme();
+  const updates = useTaskUpdates();
+  const state = updates.states[task.id];
+  const pending = state === 'pending';
   // Snapshot mount time; overdue state only needs day-level accuracy.
   const [now] = useState(() => Date.now());
   const done = task.status === 'done';
@@ -64,13 +72,21 @@ export function TaskRow({
   const todoIconStyle = useAnimatedStyle(() => ({
     opacity: 1 - iconProgress.value,
     transform: [
-      { scale: reducedMotion ? 1 : MotionScale.pressed + 0.03 * (1 - iconProgress.value) },
+      {
+        scale: reducedMotion
+          ? 1
+          : MotionScale.pressed + 0.03 * (1 - iconProgress.value),
+      },
     ],
   }));
   const doneIconStyle = useAnimatedStyle(() => ({
     opacity: iconProgress.value,
     transform: [
-      { scale: reducedMotion ? 1 : MotionScale.pressed + 0.03 * iconProgress.value },
+      {
+        scale: reducedMotion
+          ? 1
+          : MotionScale.pressed + 0.03 * iconProgress.value,
+      },
     ],
   }));
 
@@ -78,16 +94,22 @@ export function TaskRow({
     if (Platform.OS === 'ios') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    onToggle();
+    void updates.run(task.id, onToggle);
   };
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${done ? 'Reopen' : 'Complete'} task ${task.title}${highlighted ? ', current Highlight' : ''}`}
+      accessibilityLabel={`${done ? 'Reopen' : 'Complete'} task ${task.title}${highlighted ? ', current Highlight' : ''}${state === 'failed' ? ', update failed. Tap to retry' : pending ? ', saving' : ''}`}
+      accessibilityState={{ disabled: pending, busy: pending }}
+      disabled={pending}
       onPress={toggle}
       onLongPress={onLongPress}
-      style={({ pressed }) => [styles.row, isSubtask && styles.subtaskRow, pressed && styles.pressed]}
+      style={({ pressed }) => [
+        styles.row,
+        isSubtask && styles.subtaskRow,
+        pressed && styles.pressed,
+      ]}
     >
       <View
         accessibilityElementsHidden
@@ -96,22 +118,16 @@ export function TaskRow({
       >
         <Animated.View style={[styles.iconLayer, todoIconStyle]}>
           <SymbolView
-            name="circle"
+            name={platformSymbol('circle')}
             size={isSubtask ? 18 : 22}
             tintColor={theme.textSecondary}
-            fallback={
-              <ThemedText type="smallBold" themeColor="textSecondary">
-                ☐
-              </ThemedText>
-            }
           />
         </Animated.View>
         <Animated.View style={[styles.iconLayer, doneIconStyle]}>
           <SymbolView
-            name="checkmark.circle.fill"
+            name={platformSymbol('checkmark.circle.fill')}
             size={isSubtask ? 18 : 22}
             tintColor={Honey}
-            fallback={<ThemedText type="smallBold">☑</ThemedText>}
           />
         </Animated.View>
       </View>
@@ -120,17 +136,24 @@ export function TaskRow({
           type={isSubtask ? 'small' : 'default'}
           themeColor={done ? 'textSecondary' : 'text'}
           style={done && styles.done}
-          numberOfLines={2}
         >
           {task.title}
         </ThemedText>
+        {state ? (
+          <ThemedText
+            accessibilityLiveRegion="polite"
+            type="small"
+            themeColor={state === 'failed' ? 'destructive' : 'textSecondary'}
+          >
+            {pending ? 'Saving…' : 'Could not save. Tap to retry.'}
+          </ThemedText>
+        ) : null}
         {highlighted && !done ? (
           <View style={styles.highlightBadge}>
             <SymbolView
-              name="scope"
+              name={platformSymbol('scope')}
               size={12}
               tintColor="#A86400"
-              fallback={null}
             />
             <ThemedText type="smallBold" style={styles.highlightLabel}>
               HIGHLIGHT
@@ -138,7 +161,10 @@ export function TaskRow({
           </View>
         ) : null}
         {task.dueDate !== null && !done ? (
-          <ThemedText type="small" themeColor={overdue ? 'destructive' : 'textSecondary'}>
+          <ThemedText
+            type="small"
+            themeColor={overdue ? 'destructive' : 'textSecondary'}
+          >
             {overdue ? 'Overdue · ' : 'Due '}
             {formatDueDate(task.dueDate)}
           </ThemedText>
@@ -148,15 +174,19 @@ export function TaskRow({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Add subtask to ${task.title}`}
-          hitSlop={Spacing.two}
-          onPress={onAddSubtask}
-          style={({ pressed }) => pressed && styles.pressed}
+          onPress={(event) => {
+            event.stopPropagation();
+            onAddSubtask();
+          }}
+          style={({ pressed }) => [
+            styles.addSubtask,
+            pressed && styles.pressed,
+          ]}
         >
           <SymbolView
-            name="plus.circle"
+            name={platformSymbol('plus.circle')}
             size={18}
             tintColor={theme.textSecondary}
-            fallback={<ThemedText type="smallBold" themeColor="textSecondary">+</ThemedText>}
           />
         </Pressable>
       ) : null}
@@ -165,7 +195,14 @@ export function TaskRow({
 }
 
 const styles = StyleSheet.create({
+  addSubtask: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   row: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.three,

@@ -228,11 +228,12 @@ staking, rewards, venft, alm, chains, completions).
 The CLI can connect a wallet and broadcast the plans it builds:
 
 ```sh
-aero wallet connect      # WalletConnect: QR pairing with an extension/mobile wallet
+aero wallet connect --browser # Rabby or another browser extension
+aero wallet connect      # WalletConnect: QR pairing with a compatible wallet
 aero wallet create       # new local wallet; mnemonic sealed with scrypt + AES-256-GCM
 aero wallet restore      # import an existing mnemonic into the encrypted store
 aero wallet status       # active wallet and source
-aero wallet disconnect   # drop the WalletConnect session
+aero wallet disconnect   # disconnect the browser wallet and WalletConnect session
 aero wallet remove       # delete the local encrypted wallet (confirmed)
 
 aero swap --from-token ETH --to-token USDC --amount 0.1 --use-decimals
@@ -246,7 +247,28 @@ human summary, and ask for confirmation before broadcasting each step
 always prints the unsigned plan. Without a wallet the CLI prints unsigned
 JSON.
 
-Wallet security: WalletConnect wallets sign in-app, so no key material ever
+For Rabby, open `aero tui`, choose **Wallet → Connect browser wallet**, then
+select **Connect Rabby Wallet** on the page Aero opens. Approve the connection
+and keep that tab open while using the TUI. If the default browser does not
+have your wallet, copy the displayed link into the browser that does. Escape
+cancels a pending connection. The browser page and the TUI both have Disconnect.
+
+`aero wallet connect --browser` saves the selected public address and wallet
+name, then exits. Later transaction commands open a new browser connection and
+require the same account. The TUI reuses its connection across actions. Closing
+the tab ends that connection; signing again opens a new one. `--chain` selects
+the network, with Base as the default. Browser wallets still require approval
+when the CLI uses `--yes`, and cannot sign unattended ALM operations.
+
+The browser connection uses EIP-6963 wallet discovery and a local WebSocket.
+Aero binds only to `127.0.0.1` on an available port, checks the exact browser
+origin and a random session token, and accepts one browser tab. Account changes
+or wallet disconnects end the authorization. Every transaction checks the sender
+and network and includes the reviewed chain ID. Lost connections and timeouts
+never automatically replay requests. If an approval was pending, check wallet
+activity before retrying because it may already have been submitted.
+
+Wallet security: browser and WalletConnect wallets sign in-app, so no key material ever
 reaches the CLI. Local wallets keep the mnemonic sealed with scrypt +
 AES-256-GCM; the ciphertext lives in the macOS Keychain (generic password,
 iCloud Keychain syncable) with a `0600` file fallback elsewhere, and the

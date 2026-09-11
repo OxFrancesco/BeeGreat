@@ -2,72 +2,20 @@
 
 > This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
 
-This builder reconstructs BeeGreat's canonical animated pixel Bee as an
-editable 3D asset made entirely from geometry and palette materials.
-
-## Build
-
-From the repository root:
+The current mascot is the bright yellow voxel Bee. Its editable source lives in `assets/bee-3d/minecraft-yellow`.
 
 ```sh
-blender --background --factory-startup --python tools/bee-3d/build_bee.py
+blender --background --factory-startup --python tools/bee-3d/build_minecraft_bee.py
+blender --background --factory-startup --python tools/bee-3d/animate_minecraft_bee.py
+blender --background --factory-startup --python tools/bee-3d/render_app_assets.py
 ```
 
-The build produces:
+The animation source contains idle, fly, happy, sad, thinking, fail, and succeed. Each clip lasts four seconds. The renderer installs transparent 512px animated WebPs and matching stills in `apps/mobile/assets/images/bee`, updates health moods and doctor artwork, copies docs assets, and promotes the source to `assets/bee-3d/bee.blend` and `bee.glb`. Fail and succeed play once in the app. Other clips loop.
 
-- `assets/bee-3d/bee.blend` — editable Blender source
-- `assets/bee-3d/bee.glb` — runtime asset for web and native renderers
-- `assets/bee-3d/previews/` — canonical, transparent, orthographic, and
-  turntable renders
+Face plates reset in every clip. Root motion preserves the cube proportions. Wings, antennae, and legs have separate tracks. The GLB contains the mascot and animations without the preview studio.
 
-The GLB contains seven named animation clips, each exactly 8 seconds
-(193 frames at 24 fps) and authored to loop seamlessly:
+`build_bee.py` remains the original pixel-map geometry library used by the current builder. Its old direct-build output is historical. `build_cute_bee.py` is the rejected rounded study and is not the app mascot.
 
-- `idle` — gentle hover with two blinks
-- `listening` — leans in, antennae perked, curious face
-- `working` — fast wing buzz with a determined focus face and sweat pixel
-- `waiting` — slow sway, glancing left and right
-- `success` — spinning jump and happy wiggle with arc eyes and open smile
-- `failure` — drooped hover with sad brows, frown, and a tear pixel
-- `sleeping` — settled low, closed eyes, slow breathing, floating pixel "Zz"
+See `docs/25-bee-mascot.md` for client integration and reduced-motion behavior.
 
-Expressions are thin voxel face plates (`Face_*` objects plus `Sleep_Zzz`)
-parented to `Bee_Root`. They rest at scale 0 and every clip keys every plate
-with constant-interpolated 0/1 scale tracks, so switching clips always resets
-the face — no runtime-specific code needed. Per-expression stills are written
-to `assets/bee-3d/previews/bee-face-*.png`.
-
-Render matching MP4 previews from the editable source with:
-
-```sh
-blender assets/bee-3d/bee.blend --background \
-  --python tools/bee-3d/render_animation_previews.py
-```
-
-The isolated frame sequences are written beneath
-`assets/bee-3d/previews/animations/` and can be encoded at 24 fps.
-
-## Source of truth
-
-The visible three-quarter proportions and palette are matched against
-`apps/mobile/assets/images/bee.webp`. The rear, opposite side, and underside
-are new canonical definitions because those surfaces are not visible in the
-existing animation.
-
-The model is intentionally built from primitives rather than generated
-textures. This keeps the pixel silhouette crisp, makes recoloring deterministic,
-and allows future GolieBee variants to reuse the same hierarchy and clips.
-
-## Fidelity notes
-
-Version 2.x rebuilds Bee as a true voxel grid driven by ASCII pixel maps
-(1 voxel = 1 pixel of the canonical art): the face, wrap-around stripes, top
-plates, stepped wings with real openings, antenna knobs, and legs are all
-authored as editable maps in `build_bee.py`. Box-edge voxels are ink, which
-reproduces the 1px outline of the pixel art in 3D.
-
-## Three.js
-
-Load `bee.glb` with `GLTFLoader`, add `gltf.scene` to the scene, then create an
-`AnimationMixer` for the root. The seven clip names above are stable runtime
-states and require no Blender-specific code.
+The palette lives in `tools/bee-3d/bee_appearance.py`. Saturated yellow materials include a small emission contribution to keep shadowed faces yellow. Low specular reflections preserve the dark pixel outlines. Change the Blender palette and regenerate assets together.

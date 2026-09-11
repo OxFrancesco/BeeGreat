@@ -3,11 +3,11 @@ import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 
-import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import vesselUrl from '../../../../mobile/assets/images/hive-vessel.png?url'
 import { Achievements } from './achievements'
 import { formatHighlightExpiry, getGolieBeeName } from './hive-utils'
 import type { FunctionReturnType } from 'convex/server'
+import { BeeMascot } from '~/components/bee-mascot'
 import { captureWebFailure } from '~/lib/sentry'
 
 const HONEY_CAPACITY = 100
@@ -226,7 +226,7 @@ function GolieBee({
       aria-label={`${name}, your GolieBee`}
     >
       <div>
-        <img src={beeUrl} alt="" />
+        <BeeMascot animation={celebrating ? 'succeed' : 'idle'} />
         {celebrating ? <span>✦</span> : null}
       </div>
       <p>

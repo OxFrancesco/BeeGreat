@@ -26,6 +26,9 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/velodrome-contracts` — Official Velodrome protocol contracts — Optimism VotingEscrow, Voter, voting rewards, gauges, and deployment interfaces
 - `resources/buddytg` — Francesco's local-first Telegram CLI — MTProto login, messaging, files, bookmarks, bot notifications, approvals, and secure session handling
 - `resources/zodiac-roles` — Zodiac Roles Modifier v2 — on-chain role-scoped permissions for Safes: execTransactionWithRole, condition trees, roles SDK, and deployment addresses
+- `resources/rabby` — Rabby browser wallet provider, EIP-6963 discovery, account events, and transaction approval
+- `resources/three` — Official Three.js source for the 3D game renderer, lighting and GLTF loading
+- `resources/cannon-es` — Official Cannon ES rigid-body physics source for colliders, contacts, and draggable bodies
 
 
 - `resources/viem` — Official viem Ethereum TypeScript library

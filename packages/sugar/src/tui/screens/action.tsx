@@ -6,7 +6,8 @@ import { isSugarTxAction, type SugarAction, type SugarParameters } from '../../c
 import { toTokenChoice } from '../../token-catalog'
 import { createExecutionPlan, extractPlanSteps, localMnemonicSigner, renderPlanSummary, sendPlan, type ExecutionPlan, type PlanSigner, type PlanStep } from '../../send'
 import type { SugarJson, Token } from '../../types'
-import { loadLocalWallet, loadWalletConnectRecord, openSecret } from '../../wallet'
+import { loadLocalWallet, openSecret } from '../../wallet'
+import { externalWalletSigner } from '../../external-wallet-signer'
 import { SelectDialog, PromptDialog } from '../dialogs'
 import { ACTION_FORMS, ACTION_TITLES, buildParameters, initialValues, type FieldSpec, type FormValues } from '../fields'
 import { humanizeResult } from '../humanize'
@@ -236,18 +237,8 @@ export function ActionScreen(props: { action: SugarAction; preset?: SugarParamet
   }
 
   const sign = (plan: Plan) => {
-    const wc = loadWalletConnectRecord()
-    if (wc) {
-      const signer: PlanSigner = {
-        address: wc.address,
-        describe: `WalletConnect (${wc.peer ?? 'wallet'})`,
-        send: async (transaction, chainId) => {
-          const { walletConnectSendTransaction } = await import('../../walletconnect')
-          return walletConnectSendTransaction(transaction, chainId, (line) => setLog((lines) => [...lines, line]))
-        },
-      }
-      return void broadcast(signer, plan)
-    }
+    const external = externalWalletSigner((line) => setLog((lines) => [...lines, line]))
+    if (external) return void broadcast(external, plan)
     const local = loadLocalWallet()
     if (!local) return app.toast('error', 'No wallet', 'Connect or create a wallet first (Wallet screen)')
     app.openDialog((close) => (

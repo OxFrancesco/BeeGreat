@@ -6,11 +6,11 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
-import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { extractBeeUI } from './bee-ui'
 import { GeneratedUI } from './generated-ui'
 import { getToolCopy } from './tool-labels'
 import type { FlueConversationMessage, FlueConversationPart } from '@flue/react'
+import { BeeMascot } from '~/components/bee-mascot'
 import {
   Message,
   MessageContent,
@@ -108,7 +108,10 @@ export function AgentMessage({
       className="max-w-full flex-row items-start gap-[11px]"
     >
       <div className="assistant-mark" aria-hidden="true">
-        <img src={beeUrl} alt="" />
+        <BeeMascot
+          animation={isLast && busy ? 'thinking' : 'idle'}
+          animate={isLast && busy}
+        />
       </div>
       <div className="assistant-turn">
         {hasActivity ? (
@@ -290,7 +293,7 @@ export function ThinkingActivity() {
   return (
     <div className="thinking-row" aria-label="Bee is thinking">
       <div className="assistant-mark" aria-hidden="true">
-        <img src={beeUrl} alt="" />
+        <BeeMascot animation="thinking" />
       </div>
       <div className="thinking-dots" aria-hidden="true">
         <span />

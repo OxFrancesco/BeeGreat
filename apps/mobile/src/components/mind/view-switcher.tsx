@@ -11,7 +11,13 @@ const OPTIONS: { value: MindView; label: string }[] = [
   { value: 'list', label: 'List' },
 ];
 
-export function ViewSwitcher({ value }: { value: MindView }) {
+export function ViewSwitcher({
+  value,
+  onChange = setMindView,
+}: {
+  value: MindView;
+  onChange?: (value: MindView) => void;
+}) {
   const theme = useTheme();
   const dark = useColorScheme() === 'dark';
   // theme.card is darker than the track in dark mode, so the selected segment
@@ -29,7 +35,7 @@ export function ViewSwitcher({ value }: { value: MindView }) {
             key={option.value}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            onPress={() => setMindView(option.value)}
+            onPress={() => onChange(option.value)}
             style={[
               styles.option,
               selected && {

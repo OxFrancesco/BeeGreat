@@ -23,3 +23,6 @@ assets/bee-3d/previews/turntable-frames/
 assets/bee-3d/previews/animations/*/
 assets/bee-3d/*.blend1
 assets/bee-3d/bee-3d-final.zip
+
+# deepsec scan workspace (local only)
+.deepsec/

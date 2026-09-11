@@ -23,6 +23,7 @@ import { MissingFocus } from './goal-page'
 import { FocusLoading } from './goals-page'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { FunctionReturnType } from 'convex/server'
+import { useTaskUpdates } from '~/lib/use-task-updates'
 import { captureWebFailure } from '~/lib/sentry'
 
 type Task = FunctionReturnType<typeof api.tasks.listByProject>[number]
@@ -277,6 +278,9 @@ function TaskRow({
   onDelete: () => void
   onAddSubtask?: () => void
 }) {
+  const updates = useTaskUpdates()
+  const state = updates.states[task.id]
+  const pending = state === 'pending'
   const done = task.status === 'done'
   const due = formatTaskDue(task.dueDate)
   return (
@@ -289,13 +293,28 @@ function TaskRow({
         role="checkbox"
         aria-checked={done}
         aria-label={`${done ? 'Reopen' : 'Complete'} ${task.title}`}
-        onClick={() => void onToggle()}
+        disabled={pending}
+        aria-busy={pending}
+        onClick={() => void updates.run(task.id, onToggle)}
       >
         {done ? '✓' : ''}
       </button>
       <div className="task-row__copy">
         <strong>{task.title}</strong>
         {due ? <small>Due {due}</small> : null}
+        {state ? (
+          <small role={pending ? 'status' : 'alert'}>
+            {pending ? 'Saving…' : 'Could not save.'}
+          </small>
+        ) : null}
+        {state === 'failed' ? (
+          <button
+            type="button"
+            onClick={() => void updates.run(task.id, onToggle)}
+          >
+            Retry
+          </button>
+        ) : null}
       </div>
       {onAddSubtask && !done ? (
         <button className="subtask-button" type="button" onClick={onAddSubtask}>

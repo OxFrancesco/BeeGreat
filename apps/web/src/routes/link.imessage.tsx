@@ -9,7 +9,7 @@ import { useAction } from 'convex/react'
 import { useEffect, useState } from 'react'
 import { z } from 'zod'
 
-import beeUrl from '../../../mobile/assets/images/bee.webp?url'
+import { BeeMascot } from '~/components/bee-mascot'
 import { captureWebFailure } from '~/lib/sentry'
 
 type LinkPreview = {
@@ -81,7 +81,7 @@ function LinkImessagePage() {
   return (
     <main className="gate-page">
       <section className="gate-card" aria-labelledby="gate-title">
-        <img src={beeUrl} alt="" className="gate-bee" />
+        <BeeMascot alt="" className="gate-bee" />
         <h1 id="gate-title">Connect iMessage</h1>
 
         {preview === undefined ? (

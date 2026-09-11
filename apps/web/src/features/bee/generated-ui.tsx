@@ -17,6 +17,7 @@ import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { ReactNode } from 'react'
 
 import type { UIComponent } from './bee-ui'
+import { useTaskUpdates } from '~/lib/use-task-updates'
 import { useEoaWallet } from '~/features/web3/use-eoa-wallet'
 
 export function GeneratedUI({
@@ -705,6 +706,7 @@ function TaskListCard({
     taskIds: items.map((item) => item.id),
   })
   const toggle = useMutation(api.tasks.toggle)
+  const updates = useTaskUpdates()
   const liveById = new Map(
     live?.map((task): [string, typeof task] => [task.id, task]),
   )
@@ -718,6 +720,8 @@ function TaskListCard({
           const liveStatus = liveTask?.status
           const done = liveStatus ? liveStatus === 'done' : item.done
           const interactive = liveTask !== undefined
+          const state = updates.states[item.id]
+          const pending = state === 'pending'
           return (
             <button
               type="button"
@@ -725,9 +729,16 @@ function TaskListCard({
               key={item.id}
               role="checkbox"
               aria-checked={done}
-              disabled={!interactive}
+              disabled={!interactive || pending}
+              aria-busy={pending}
+              aria-label={
+                state === 'failed' ? `Retry updating ${item.title}` : item.title
+              }
               onClick={() => {
-                if (liveTask) void toggle({ taskId: liveTask.id })
+                if (liveTask)
+                  void updates.run(item.id, () =>
+                    toggle({ taskId: liveTask.id }),
+                  )
               }}
             >
               <span className={`task-check${done ? ' is-done' : ''}`}>
@@ -736,6 +747,11 @@ function TaskListCard({
               <span className="task-card-row__copy">
                 <span className={done ? 'is-complete' : ''}>{item.title}</span>
                 {item.due ? <small>{item.due}</small> : null}
+                {state ? (
+                  <small role={pending ? 'status' : 'alert'}>
+                    {pending ? 'Saving…' : 'Could not save. Click to retry.'}
+                  </small>
+                ) : null}
               </span>
             </button>
           )

@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { generatedImageFileName } from '@beegreat/tool-presentation';
 import * as Clipboard from 'expo-clipboard';
 import { File, Paths } from 'expo-file-system';
@@ -109,10 +110,9 @@ export function GeneratedImageCard({
             <ActivityIndicator size="small" color={theme.text} />
           ) : (
             <SymbolView
-              name="doc.on.doc"
+              name={platformSymbol("doc.on.doc")}
               size={16}
               tintColor={theme.text}
-              fallback={<ThemedText type="smallBold">Copy</ThemedText>}
             />
           )}
           <ThemedText type="smallBold">Copy</ThemedText>
@@ -132,17 +132,9 @@ export function GeneratedImageCard({
             <ActivityIndicator size="small" color={theme.primaryForeground} />
           ) : (
             <SymbolView
-              name="square.and.arrow.down"
+              name={platformSymbol("square.and.arrow.down")}
               size={16}
               tintColor={theme.primaryForeground}
-              fallback={
-                <ThemedText
-                  type="smallBold"
-                  style={{ color: theme.primaryForeground }}
-                >
-                  Save
-                </ThemedText>
-              }
             />
           )}
           <ThemedText

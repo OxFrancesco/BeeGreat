@@ -512,3 +512,5 @@ export function getToolCopy<Input>(
 export { normalizeImessageAddress, imessageAddressKind, isValidImessageAddress, maskImessageAddress, type ImessageAddressKind } from './imessage-address';
 
 export { JournalSession, type JournalRevision, type JournalDraftStorage } from "./journal-session";
+
+export type { BeeAnimation } from './bee-mascot';

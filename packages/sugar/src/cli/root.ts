@@ -13,6 +13,7 @@ import { fromPromise } from './run-action'
 import { walletCommand } from './wallet-commands'
 import { executionCommand } from './execution-commands'
 import { stopWalletConnect } from '../walletconnect'
+import { stopBrowserWallet } from '../browser-wallet'
 
 const tuiCommand = Command.make('tui', {}, Effect.fn(function* () {
   const { runAeroTui } = yield* Effect.promise(() => import('../tui/run'))
@@ -62,6 +63,7 @@ export function runAeroCliMain(): void {
       }),
     ),
     Effect.ensuring(Effect.promise(stopWalletConnect)),
+    Effect.ensuring(Effect.sync(stopBrowserWallet)),
     Effect.tap(() => Effect.sync(() => process.exit(process.exitCode ?? 0))),
   )
   BunRuntime.runMain(program, { disableErrorReporting: true })
