@@ -50,7 +50,7 @@ const val BEE_AGENT_NAME = "bee"
 private const val CHAT_HISTORY_PAGE_SIZE = 100
 
 data class BeeAgentState(
-  val thread: Int = 0,
+  val thread: Long = 0,
   val messages: List<FlueMessage> = emptyList(),
   val status: AgentStatus = AgentStatus.Idle,
   val historyReady: Boolean = false,
@@ -88,12 +88,12 @@ class BeeAgentController(
   val voiceError: MutableStateFlow<String?> = _voiceError
 
   private var userId: String? = null
-  private var thread = 0
+  private var thread = 0L
   private var session: AgentSession? = null
   private var sessionScope: CoroutineScope? = null
   private var syncQueue: TranscriptSyncQueue? = null
   private var activeHighlight: ActiveHighlight? = null
-  private var titledThread: Int? = null
+  private var titledThread: Long? = null
   private var reconnectAttempts = 0
   private var reconnectJob: Job? = null
   private val pageCursors = MutableStateFlow<List<String?>>(listOf(null))
@@ -106,7 +106,7 @@ class BeeAgentController(
   fun start() {
     if (started) return
     started = true
-    combine(Clerk.userFlow.map { it?.id }.distinctUntilChanged(), chat.activeThread().map { it.getOrNull() ?: 0 }.distinctUntilChanged()) { id, active -> id to active }
+    combine(Clerk.userFlow.map { it?.id }.distinctUntilChanged(), chat.activeThread().map { it.getOrNull() ?: 0L }.distinctUntilChanged()) { id, active -> id to active }
       .distinctUntilChanged()
       .onEach { (id, active) -> openConversation(id, active) }
       .launchIn(scope)
@@ -122,7 +122,7 @@ class BeeAgentController(
     return { if (pendingFirstFocus === confirm) pendingFirstFocus = null }
   }
 
-  private fun openConversation(id: String?, active: Int) {
+  private fun openConversation(id: String?, active: Long) {
     closeSession()
     userId = id
     thread = active
@@ -132,7 +132,7 @@ class BeeAgentController(
     if (id == null) return
     // Thread 0 keeps the original `userId` conversation; later threads append
     // `~N` and the agent strips it to recover the user id.
-    val conversationId = if (active > 0) "$id~$active" else id
+    val conversationId = if (active > 0L) "$id~$active" else id
     val newScope = CoroutineScope(SupervisorJob() + scope.coroutineContext.minusKey(Job))
     sessionScope = newScope
     val flue = FlueHttp("$agentUrl/agents/$BEE_AGENT_NAME/$conversationId", ::authHeaders, http)
@@ -148,9 +148,10 @@ class BeeAgentController(
         val rows = pages.filterNotNull().flatMap { it.page }.asReversed().map { StoredChatMessage(it.id, it.contentJson, it.createdAt, it.hidden ?: false) }
         val lastPage = pages.lastOrNull()
         latestContinueCursor = lastPage?.continueCursor
+        val merged = mergeConvexMessages(rows, agent.messages)
         BeeAgentState(
           thread = active,
-          messages = mergeConvexMessages(rows, agent.messages),
+          messages = merged,
           status = agent.status,
           historyReady = agent.historyReady,
           errorMessage = friendlyErrorMessage(agent.error),
@@ -169,7 +170,7 @@ class BeeAgentController(
 
   /** One subscription per loaded page, combined newest page first like `usePaginatedQuery`. */
   @OptIn(ExperimentalCoroutinesApi::class)
-  private fun storedRows(threadId: Int) =
+  private fun storedRows(threadId: Long) =
     pageCursors.flatMapLatest { cursors ->
       val flows = cursors.map { cursor -> chat.messagesPage(threadId, CHAT_HISTORY_PAGE_SIZE, cursor).map { it.getOrNull() } }
       if (flows.isEmpty()) flowOf(emptyList()) else combine(flows) { it.toList() }
@@ -196,7 +197,7 @@ class BeeAgentController(
     sessionScope = null
   }
 
-  private suspend fun persist(threadId: Int, batch: List<ChatMessageSyncEnvelope>) {
+  private suspend fun persist(threadId: Long, batch: List<ChatMessageSyncEnvelope>) {
     try {
       chat.syncMessages(threadId, batch.map { SyncEnvelope(it.id, it.role, it.contentJson, it.createdAt) })
     } catch (e: ConvexError) {
@@ -205,7 +206,7 @@ class BeeAgentController(
     }
   }
 
-  private fun titleThreadIfNeeded(threadId: Int, messages: List<FlueMessage>) {
+  private fun titleThreadIfNeeded(threadId: Long, messages: List<FlueMessage>) {
     if (titledThread == threadId) return
     val first = messages.firstOrNull { it.isUser } ?: return
     val text = first.parts.filterIsInstance<com.beegreat.flue.FluePart.Text>().joinToString(" ") { it.text }

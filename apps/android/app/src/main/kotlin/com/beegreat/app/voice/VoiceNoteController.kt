@@ -65,7 +65,7 @@ class VoiceNoteController(
   private var speechJob: Job? = null
   private var speechGeneration = 0
   private var spokenIds = HashSet<String>()
-  private var seededThread: Int? = null
+  private var seededThread: Long? = null
 
   fun start() {
     combine(agent.state, preferences.speakReplies) { agentState, speak -> agentState to speak }
@@ -173,7 +173,7 @@ class VoiceNoteController(
     }
   }
 
-  private fun considerSpeaking(thread: Int, status: AgentStatus, messages: List<FlueMessage>, speak: Boolean) {
+  private fun considerSpeaking(thread: Long, status: AgentStatus, messages: List<FlueMessage>, speak: Boolean) {
     if (seededThread != thread) {
       // Everything already in the transcript was said before; only new replies get read.
       seededThread = thread

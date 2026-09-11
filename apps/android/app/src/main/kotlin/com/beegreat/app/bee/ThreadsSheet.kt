@@ -52,7 +52,7 @@ fun ThreadsSheet(onDismiss: () -> Unit) {
   val colors = BeeTheme.colors
   val threadsFlow = remember { container.chat.threads().map { it.getOrNull() ?: emptyList() } }
   val threads by threadsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
-  val activeFlow = remember { container.chat.activeThread().map { it.getOrNull() ?: 0 } }
+  val activeFlow = remember { container.chat.activeThread().map { it.getOrNull() ?: 0L } }
   val active by activeFlow.collectAsStateWithLifecycle(initialValue = 0)
   var showArchived by remember { mutableStateOf(false) }
   var renaming by remember { mutableStateOf<ChatThread?>(null) }
@@ -71,7 +71,7 @@ fun ThreadsSheet(onDismiss: () -> Unit) {
           ThreadRow(
             thread = thread,
             selected = thread.id == active,
-            onClick = { scope.launch { runCatching { container.chat.setActiveThread(thread.id) }; onDismiss() } },
+            onClick = { scope.launch { runCatching { container.chat.setActiveThread(thread.id) }.onFailure { android.util.Log.w("BeeGreat", "chat.setActiveThread", it) }; onDismiss() } },
             onRename = { renaming = thread },
             onArchive = { scope.launch { runCatching { container.chat.setThreadArchived(thread.id, true) } } },
           )
@@ -90,7 +90,7 @@ fun ThreadsSheet(onDismiss: () -> Unit) {
               ThreadRow(
                 thread = thread,
                 selected = thread.id == active,
-                onClick = { scope.launch { runCatching { container.chat.setActiveThread(thread.id) }; onDismiss() } },
+                onClick = { scope.launch { runCatching { container.chat.setActiveThread(thread.id) }.onFailure { android.util.Log.w("BeeGreat", "chat.setActiveThread", it) }; onDismiss() } },
                 onRename = { renaming = thread },
                 onArchive = { scope.launch { runCatching { container.chat.setThreadArchived(thread.id, false) } } },
                 archived = true,
@@ -126,7 +126,7 @@ fun ThreadsSheet(onDismiss: () -> Unit) {
 @Composable
 private fun ThreadRow(thread: ChatThread, selected: Boolean, onClick: () -> Unit, onRename: () -> Unit, onArchive: () -> Unit, archived: Boolean = false) {
   val colors = BeeTheme.colors
-  val label = thread.title?.takeIf { it.isNotBlank() } ?: if (thread.id == 0) "First conversation" else "Conversation ${thread.id}"
+  val label = thread.title?.takeIf { it.isNotBlank() } ?: if (thread.id == 0L) "First conversation" else "Conversation ${thread.id}"
   val meta = buildList {
     if (thread.source == "imessage") add("iMessage")
     if (thread.createdAt > 0) add(DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(thread.createdAt)))

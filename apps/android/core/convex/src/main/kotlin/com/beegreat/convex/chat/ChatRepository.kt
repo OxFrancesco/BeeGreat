@@ -1,17 +1,18 @@
 package com.beegreat.convex.chat
 
 import com.beegreat.convex.BeeConvexClient
-import com.beegreat.convex.ConvexInt
 import com.beegreat.convex.ConvexLong
 import com.beegreat.convex.n
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class ChatThread(
-  val id: ConvexInt,
+  /** `Date.now()` at creation, so it does not fit an Int. Thread 0 is the original conversation. */
+  val id: ConvexLong,
   val createdAt: ConvexLong,
   val source: String? = null,
   val title: String? = null,
@@ -36,29 +37,30 @@ data class ChatMessageRow(
 class ChatRepository(private val convex: BeeConvexClient) {
   fun threads(): Flow<Result<List<ChatThread>>> = convex.subscribe("chat:listThreads")
 
-  fun activeThread(): Flow<Result<Int>> = convex.subscribe("chat:getActiveThread")
+  /** Top-level numbers come back as float64; a reified `Long` would reject `1.7e12`. */
+  fun activeThread(): Flow<Result<Long>> = convex.subscribe<Double>("chat:getActiveThread").map { result -> result.map { it.toLong() } }
 
   /** One page of the newest messages first. `cursor` continues from a previous page. */
-  fun messagesPage(threadId: Int, numItems: Int, cursor: String?): Flow<Result<ChatMessagesPage>> =
+  fun messagesPage(threadId: Long, numItems: Int, cursor: String?): Flow<Result<ChatMessagesPage>> =
     convex.subscribe(
       "chat:listMessagesPage",
       mapOf("threadId" to threadId.n, "paginationOpts" to mapOf("numItems" to numItems.n, "cursor" to cursor)),
     )
 
-  suspend fun createThread(): Int = io { convex.mutation<Int>("chat:createThread") }
+  suspend fun createThread(): Long = io { convex.mutation<Double>("chat:createThread").toLong() }
 
-  suspend fun setActiveThread(threadId: Int) = io { convex.mutation("chat:setActiveThread", mapOf("threadId" to threadId.n)) }
+  suspend fun setActiveThread(threadId: Long) = io { convex.mutation("chat:setActiveThread", mapOf("threadId" to threadId.n)) }
 
-  suspend fun setThreadTitle(threadId: Int, title: String) =
+  suspend fun setThreadTitle(threadId: Long, title: String) =
     io { convex.mutation("chat:setThreadTitle", mapOf("threadId" to threadId.n, "title" to title)) }
 
-  suspend fun setThreadArchived(threadId: Int, archived: Boolean) =
+  suspend fun setThreadArchived(threadId: Long, archived: Boolean) =
     io { convex.mutation("chat:setThreadArchived", mapOf("threadId" to threadId.n, "archived" to archived)) }
 
-  suspend fun hideMessages(threadId: Int, messageIds: List<String>) =
+  suspend fun hideMessages(threadId: Long, messageIds: List<String>) =
     io { convex.mutation("chat:hideMessages", mapOf("threadId" to threadId.n, "messageIds" to messageIds)) }
 
-  suspend fun syncMessages(threadId: Int, messages: List<SyncEnvelope>) =
+  suspend fun syncMessages(threadId: Long, messages: List<SyncEnvelope>) =
     io {
       convex.mutation(
         "chat:syncMessages",

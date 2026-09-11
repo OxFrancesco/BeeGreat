@@ -25,8 +25,18 @@ class VoiceSessionService : Service() {
     val label = intent?.getStringExtra(EXTRA_LABEL) ?: "Bee is listening"
     val detail = intent?.getStringExtra(EXTRA_DETAIL)
     val notification = buildNotification(this, label, detail)
-    val type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(NOTIFICATION_ID, notification, type) else startForeground(NOTIFICATION_ID, notification)
+    // Android 14+ rejects the microphone type unless RECORD_AUDIO is granted and
+    // the app is recording; thinking and speaking only need media playback.
+    val recording = intent?.getBooleanExtra(EXTRA_RECORDING, false) == true
+    val hasMic = checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    val type = if (recording && hasMic) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(NOTIFICATION_ID, notification, type) else startForeground(NOTIFICATION_ID, notification)
+    } catch (e: Exception) {
+      // A denied foreground start must never take the app down; the island still shows the state.
+      android.util.Log.w("BeeGreat", "voice.service", e)
+      stopSelf()
+    }
     return START_NOT_STICKY
   }
 
@@ -35,6 +45,7 @@ class VoiceSessionService : Service() {
     private const val NOTIFICATION_ID = 41
     private const val EXTRA_LABEL = "label"
     private const val EXTRA_DETAIL = "detail"
+    private const val EXTRA_RECORDING = "recording"
 
     fun update(context: Context, state: OrbState, detail: String?) {
       if (state == OrbState.Idle) {
@@ -48,7 +59,7 @@ class VoiceSessionService : Service() {
         OrbState.Speaking -> "Bee is speaking"
         OrbState.Idle -> ""
       }
-      val intent = Intent(context, VoiceSessionService::class.java).putExtra(EXTRA_LABEL, label).putExtra(EXTRA_DETAIL, detail)
+      val intent = Intent(context, VoiceSessionService::class.java).putExtra(EXTRA_LABEL, label).putExtra(EXTRA_DETAIL, detail).putExtra(EXTRA_RECORDING, state == OrbState.Listening)
       runCatching { context.startForegroundService(intent) }
     }
 
