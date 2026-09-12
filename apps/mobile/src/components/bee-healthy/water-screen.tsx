@@ -146,7 +146,7 @@ function WaterDay({ localDate, timeZone }: { localDate: string; timeZone: string
                 <View style={styles.nfcCopy}>
                   <ThemedText type="smallBold">Tap to log water</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    Set up a reusable NFC action for your bottle or glass
+                    Bottle and glass NFC actions
                   </ThemedText>
                 </View>
                 <SymbolView
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,
-    gap: Spacing.four,
+    gap: Spacing.three,
   },
   loading: {
     paddingVertical: Spacing.six,

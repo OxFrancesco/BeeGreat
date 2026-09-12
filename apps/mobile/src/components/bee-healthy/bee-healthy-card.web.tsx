@@ -12,7 +12,7 @@ import { useCurrentLocalDay } from '@/hooks/use-current-local-day';
 import { useTheme } from '@/hooks/use-theme';
 import { HYDRATION_GOAL_ML, MOODS } from '@/lib/bee-healthy';
 
-const GLYPH_SIZE = 58;
+const GLYPH_SIZE = 76;
 
 export function BeeHealthyCard() {
   const theme = useTheme();
@@ -27,10 +27,10 @@ export function BeeHealthyCard() {
 
   const summary =
     entry === undefined
-      ? 'Loading today\'s ritual…'
+      ? 'Loading today…'
       : mood || hydrationMl > 0
         ? `${mood?.label ?? 'Mood not checked'} · ${hydrationPercent}% hydrated`
-        : 'Mood, water, and one honest thought';
+        : 'Track mood, water and journal';
 
   return (
     <Pressable

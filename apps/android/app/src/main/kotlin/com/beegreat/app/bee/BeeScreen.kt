@@ -3,8 +3,11 @@ package com.beegreat.app.bee
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -80,22 +83,29 @@ fun BeeScreen() {
 
       val messages = state.messages
       if (messages.isEmpty()) {
-        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-          Box(modifier = Modifier.clickable { navigator.openVoiceConversation() }) { FloatingBee(height = 120.dp) }
-          Spacer(Modifier.heightIn(min = Spacing.five))
-          Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
-            for (suggestion in HERO_SUGGESTIONS) {
-              Box(
-                modifier =
-                  Modifier.heightIn(min = 44.dp)
-                    .clip(CircleShape)
-                    .background(colors.card)
-                    .border(Hairline, colors.border, CircleShape)
-                    .clickable { scope.launch { runCatching { agent.sendText(suggestion) } } }
-                    .padding(horizontal = Spacing.three),
-                contentAlignment = Alignment.Center,
-              ) {
-                Text(suggestion, style = BeeTheme.typography.body, color = colors.text)
+        BoxWithConstraints(modifier = Modifier.weight(1f).fillMaxWidth()) {
+          val compact = maxHeight < 360.dp
+          Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(vertical = if (compact) Spacing.two else Spacing.three),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+          ) {
+            Box(modifier = Modifier.clickable { navigator.openVoiceConversation() }) { FloatingBee(height = if (compact) 80.dp else 120.dp) }
+            Spacer(Modifier.heightIn(min = if (compact) Spacing.three else Spacing.five))
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
+              for (suggestion in HERO_SUGGESTIONS) {
+                Box(
+                  modifier =
+                    Modifier.heightIn(min = 44.dp)
+                      .clip(CircleShape)
+                      .background(colors.card)
+                      .border(Hairline, colors.border, CircleShape)
+                      .clickable { scope.launch { runCatching { agent.sendText(suggestion) } } }
+                      .padding(horizontal = Spacing.three, vertical = Spacing.two),
+                  contentAlignment = Alignment.Center,
+                ) {
+                  Text(suggestion, style = BeeTheme.typography.body, color = colors.text, textAlign = TextAlign.Center)
+                }
               }
             }
           }

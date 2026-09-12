@@ -30,6 +30,7 @@ import { Route as AppGoalsIndexRouteImport } from './routes/_app/goals/index'
 import { Route as AppProjectsProjectIdRouteImport } from './routes/_app/projects/$projectId'
 import { Route as AppHealthWaterRouteImport } from './routes/_app/health/water'
 import { Route as AppHealthTapActionsRouteImport } from './routes/_app/health/tap-actions'
+import { Route as AppHealthStreaksRouteImport } from './routes/_app/health/streaks'
 import { Route as AppGoalsGoalIdRouteImport } from './routes/_app/goals/$goalId'
 import { Route as AppHealthJournalIndexRouteImport } from './routes/_app/health/journal/index'
 import { Route as AppHealthJournalEntryIdRouteImport } from './routes/_app/health/journal/$entryId'
@@ -138,6 +139,11 @@ const AppHealthTapActionsRoute = AppHealthTapActionsRouteImport.update({
   path: '/tap-actions',
   getParentRoute: () => AppHealthRoute,
 } as any)
+const AppHealthStreaksRoute = AppHealthStreaksRouteImport.update({
+  id: '/streaks',
+  path: '/streaks',
+  getParentRoute: () => AppHealthRoute,
+} as any)
 const AppGoalsGoalIdRoute = AppGoalsGoalIdRouteImport.update({
   id: '/goals/$goalId',
   path: '/goals/$goalId',
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/link/imessage': typeof LinkImessageRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/health/streaks': typeof AppHealthStreaksRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
   '/health/water': typeof AppHealthWaterRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByTo {
   '/link/imessage': typeof LinkImessageRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/health/streaks': typeof AppHealthStreaksRoute
   '/health/tap-actions': typeof AppHealthTapActionsRoute
   '/health/water': typeof AppHealthWaterRoute
   '/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/link/imessage': typeof LinkImessageRoute
   '/tap/$publicId': typeof TapPublicIdRoute
   '/_app/goals/$goalId': typeof AppGoalsGoalIdRoute
+  '/_app/health/streaks': typeof AppHealthStreaksRoute
   '/_app/health/tap-actions': typeof AppHealthTapActionsRoute
   '/_app/health/water': typeof AppHealthWaterRoute
   '/_app/projects/$projectId': typeof AppProjectsProjectIdRoute
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/link/imessage'
     | '/tap/$publicId'
     | '/goals/$goalId'
+    | '/health/streaks'
     | '/health/tap-actions'
     | '/health/water'
     | '/projects/$projectId'
@@ -273,6 +283,7 @@ export interface FileRouteTypes {
     | '/link/imessage'
     | '/tap/$publicId'
     | '/goals/$goalId'
+    | '/health/streaks'
     | '/health/tap-actions'
     | '/health/water'
     | '/projects/$projectId'
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/link/imessage'
     | '/tap/$publicId'
     | '/_app/goals/$goalId'
+    | '/_app/health/streaks'
     | '/_app/health/tap-actions'
     | '/_app/health/water'
     | '/_app/projects/$projectId'
@@ -468,6 +480,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHealthTapActionsRouteImport
       parentRoute: typeof AppHealthRoute
     }
+    '/_app/health/streaks': {
+      id: '/_app/health/streaks'
+      path: '/streaks'
+      fullPath: '/health/streaks'
+      preLoaderRoute: typeof AppHealthStreaksRouteImport
+      parentRoute: typeof AppHealthRoute
+    }
     '/_app/goals/$goalId': {
       id: '/_app/goals/$goalId'
       path: '/goals/$goalId'
@@ -493,6 +512,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppHealthRouteChildren {
+  AppHealthStreaksRoute: typeof AppHealthStreaksRoute
   AppHealthTapActionsRoute: typeof AppHealthTapActionsRoute
   AppHealthWaterRoute: typeof AppHealthWaterRoute
   AppHealthIndexRoute: typeof AppHealthIndexRoute
@@ -501,6 +521,7 @@ interface AppHealthRouteChildren {
 }
 
 const AppHealthRouteChildren: AppHealthRouteChildren = {
+  AppHealthStreaksRoute: AppHealthStreaksRoute,
   AppHealthTapActionsRoute: AppHealthTapActionsRoute,
   AppHealthWaterRoute: AppHealthWaterRoute,
   AppHealthIndexRoute: AppHealthIndexRoute,

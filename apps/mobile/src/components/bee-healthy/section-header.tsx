@@ -14,7 +14,7 @@ export function SectionHeader({
   actions,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   actions?: ReactNode;
 }) {
   const theme = useTheme();
@@ -45,9 +45,9 @@ export function SectionHeader({
         <ThemedText style={styles.title} numberOfLines={1}>
           {title}
         </ThemedText>
-        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        {subtitle ? <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
           {subtitle}
-        </ThemedText>
+        </ThemedText> : null}
       </View>
       {actions ? <View style={styles.actions}>{actions}</View> : null}
     </View>

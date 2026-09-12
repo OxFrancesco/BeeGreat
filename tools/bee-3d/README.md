@@ -71,3 +71,19 @@ reproduces the 1px outline of the pixel art in 3D.
 Load `bee.glb` with `GLTFLoader`, add `gltf.scene` to the scene, then create an
 `AnimationMixer` for the root. The seven clip names above are stable runtime
 states and require no Blender-specific code.
+
+## Hive vessel
+
+`build_hive.py` creates the matching voxel vessel in `assets/hive-3d/`, including
+editable Blender source, GLB, and empty, partial, full, and rear previews.
+Run `bun run --cwd packages/hive-3d build` afterward to update the shared offline
+viewer. Runtime integration and controls are documented in
+[`docs/27-interactive-hive.md`](../../docs/27-interactive-hive.md).
+
+## Water bottle
+
+`blender --background --factory-startup --python tools/bee-3d/build_water_bottle.py`
+creates the editable source, GLB and previews in `assets/water-3d`. Run
+`bun run --cwd packages/hive-3d build --bottle` to refresh the offline viewer.
+The hexagonal cap and Bee mark are geometry. The water fill follows the saved
+hydration total. See `docs/28-bee-healthy.md`.

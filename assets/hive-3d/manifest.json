@@ -1,0 +1,21 @@
+{
+  "palette": {
+    "Ink": "#24100E",
+    "Edge": "#3F1E19",
+    "Brown": "#67342B",
+    "Wood": "#B95416",
+    "Amber": "#E8892B",
+    "Orange": "#FB9E3E",
+    "Light": "#FFB24D",
+    "Wax": "#FFD277",
+    "Honey": "#EAA014",
+    "HoneyTop": "#FFC33D",
+    "HoneyGlint": "#FFE28C"
+  },
+  "voxelSize": 0.14,
+  "capacity": 100,
+  "fillBase": 0.7000000000000001,
+  "fillHeight": 2.1,
+  "meshObjects": 3,
+  "vertices": 2048
+}

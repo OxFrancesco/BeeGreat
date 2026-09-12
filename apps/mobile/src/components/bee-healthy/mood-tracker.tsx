@@ -35,7 +35,7 @@ export type MoodTrackerProps = {
   disabled?: boolean;
 };
 
-const ORB_SIZE = 178;
+const ORB_SIZE = 88;
 const ORB_CENTER = ORB_SIZE / 2;
 
 function triggerSelectionHaptic() {

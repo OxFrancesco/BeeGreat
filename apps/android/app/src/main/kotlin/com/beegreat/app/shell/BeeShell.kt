@@ -2,6 +2,7 @@ package com.beegreat.app.shell
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -239,7 +240,7 @@ fun BeeShell() {
     Scaffold(
       containerColor = colors.background,
       bottomBar = {
-        NavigationBar(containerColor = colors.card) {
+        if (destination?.hasRoute<BeeHealthyRoute>() != true && destination?.hasRoute<JournalEntryRoute>() != true) NavigationBar(containerColor = colors.card) {
           tabs.forEach { tab ->
             val selected = destination?.hasRoute(tab.route::class) == true
             NavigationBarItem(
@@ -282,7 +283,7 @@ fun BeeShell() {
         }
       },
     ) { padding ->
-      Box(modifier = Modifier.padding(padding).fillMaxSize()) {
+      Box(modifier = Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize()) {
         NavHost(navController = navController, startDestination = BeeTab) {
         composable<BeeTab> { BeeScreen() }
         composable<GoalsTab> { GoalsScreen() }

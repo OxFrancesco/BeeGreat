@@ -73,50 +73,6 @@
   width: min(100%, 390px);
   aspect-ratio: 1;
 }
-.honey-vessel > img {
-  position: absolute;
-  z-index: 2;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.honey-vessel__cavity {
-  position: absolute;
-  z-index: 1;
-  top: 31.5%;
-  left: 23.5%;
-  width: 53%;
-  height: 52%;
-  overflow: hidden;
-  border-radius: 25% 25% 28% 28%;
-}
-.honey-vessel__fill {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  min-height: 2px;
-  overflow: hidden;
-  background: #d88608;
-  transition: height 900ms cubic-bezier(0.2, 0.75, 0.2, 1);
-}
-.honey-vessel__fill::before {
-  display: block;
-  height: 8px;
-  border-radius: 999px;
-  background: #ffc33d;
-  content: '';
-}
-.honey-vessel__fill span {
-  position: absolute;
-  top: 12px;
-  bottom: 8%;
-  left: 16%;
-  width: 22%;
-  border-radius: 999px;
-  background: rgb(255 222 121 / 28%);
-}
 .honey-vessel__legend {
   display: grid;
   justify-items: center;
@@ -416,9 +372,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .honey-vessel__fill {
-    transition: none;
-  }
   .goliebee img {
     animation: none;
   }

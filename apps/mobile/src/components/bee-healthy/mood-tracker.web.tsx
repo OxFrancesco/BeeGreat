@@ -16,7 +16,7 @@ export type MoodTrackerProps = {
   disabled?: boolean;
 };
 
-const ORB_SIZE = 178;
+const ORB_SIZE = 88;
 
 export function MoodTracker({ value, onChange, disabled = false }: MoodTrackerProps) {
   const theme = useTheme();

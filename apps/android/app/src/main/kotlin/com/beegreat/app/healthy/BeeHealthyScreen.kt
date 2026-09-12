@@ -7,6 +7,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Mood
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.runtime.Composable
@@ -73,6 +80,7 @@ enum class HealthySection {
   Mood,
   Water,
   Journal,
+  Streaks,
 }
 
 private val WATER = Color(0xFF55BEE2)
@@ -90,9 +98,10 @@ fun BeeHealthyScreen(initial: HealthySection = HealthySection.Mood) {
   val tint = if (colors.isDark) Hive.honey else Hive.cacao
   Scaffold(
     containerColor = colors.background,
+    contentWindowInsets = WindowInsets(0, 0, 0, 0),
     bottomBar = {
       NavigationBar(containerColor = colors.card) {
-        for ((value, label, icon) in listOf(Triple(HealthySection.Mood, "Mood", Icons.Filled.Mood), Triple(HealthySection.Water, "Water", Icons.Filled.WaterDrop), Triple(HealthySection.Journal, "Journal", Icons.Filled.EditNote))) {
+        for ((value, label, icon) in listOf(Triple(HealthySection.Mood, "Mood", Icons.Filled.Mood), Triple(HealthySection.Water, "Water", Icons.Filled.WaterDrop), Triple(HealthySection.Journal, "Journal", Icons.Filled.EditNote), Triple(HealthySection.Streaks, "Streaks", Icons.Filled.LocalFireDepartment))) {
           NavigationBarItem(
             selected = section == value,
             onClick = { section = value },
@@ -104,11 +113,15 @@ fun BeeHealthyScreen(initial: HealthySection = HealthySection.Mood) {
       }
     },
   ) { padding ->
-    Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
+    Box(modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding), contentAlignment = Alignment.TopCenter) {
       when (section) {
         HealthySection.Mood -> MoodScreen(localDate, onDateChange = { localDate = it })
         HealthySection.Water -> WaterScreen(localDate, onDateChange = { localDate = it })
         HealthySection.Journal -> JournalScreen(localDate)
+        HealthySection.Streaks -> Column(Modifier.widthIn(max = MaxContentWidth).fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.three), verticalArrangement = Arrangement.spacedBy(Spacing.three)) {
+          SectionHeader("Streaks", localDate, onDateChange = null, showDate = false)
+          HealthStreaks(localDate)
+        }
       }
     }
   }
@@ -116,19 +129,15 @@ fun BeeHealthyScreen(initial: HealthySection = HealthySection.Mood) {
 
 /** Back chevron, title, and the day with previous/next controls. */
 @Composable
-fun SectionHeader(title: String, localDate: String, onDateChange: ((String) -> Unit)?) {
+fun SectionHeader(title: String, localDate: String, onDateChange: ((String) -> Unit)?, showDate: Boolean = true) {
   val navigator = LocalNavigator.current
   val colors = BeeTheme.colors
-  Column(verticalArrangement = Arrangement.spacedBy(Spacing.one)) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.two)) {
-      Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", tint = colors.text, modifier = Modifier.size(28.dp).clip(CircleShape).clickable(onClick = navigator::back))
-      Text(title, style = BeeTheme.typography.barTitle, color = colors.text, modifier = Modifier.weight(1f))
-    }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.two)) {
-      if (onDateChange != null) Text("‹", style = BeeTheme.typography.sectionTitle, color = colors.textSecondary, modifier = Modifier.clickable { onDateChange(shiftLocalDateKey(localDate, -1)) }.padding(horizontal = Spacing.two))
-      Text(if (isTodayLocalKey(localDate)) "Today · ${formatJournalDate(localDate)}" else formatJournalDate(localDate), style = BeeTheme.typography.small, color = colors.textSecondary, modifier = Modifier.weight(1f), textAlign = if (onDateChange != null) TextAlign.Center else TextAlign.Start)
-      if (onDateChange != null) Text("›", style = BeeTheme.typography.sectionTitle, color = if (isTodayLocalKey(localDate)) colors.border else colors.textSecondary, modifier = Modifier.clickable(enabled = !isTodayLocalKey(localDate)) { onDateChange(shiftLocalDateKey(localDate, 1)) }.padding(horizontal = Spacing.two))
-    }
+  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", tint = colors.text) }
+    Text(title, style = BeeTheme.typography.barTitle, color = colors.text, modifier = Modifier.weight(1f))
+    if (onDateChange != null) IconButton(onClick = { onDateChange(shiftLocalDateKey(localDate, -1)) }) { Text("‹", color = colors.text) }
+    if (showDate) Text(java.time.LocalDate.parse(localDate).format(java.time.format.DateTimeFormatter.ofPattern("MMM d")), style = BeeTheme.typography.small, color = colors.textSecondary)
+    if (onDateChange != null) IconButton(enabled = !isTodayLocalKey(localDate), onClick = { onDateChange(shiftLocalDateKey(localDate, 1)) }) { Text("›", color = if (isTodayLocalKey(localDate)) colors.border else colors.text) }
   }
 }
 
@@ -155,12 +164,13 @@ fun MoodScreen(localDate: String, onDateChange: (String) -> Unit) {
 
   Column(
     modifier = Modifier.widthIn(max = MaxContentWidth).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.three, vertical = Spacing.two),
-    verticalArrangement = Arrangement.spacedBy(Spacing.four),
+    verticalArrangement = Arrangement.spacedBy(Spacing.three),
   ) {
     SectionHeader("Mood", localDate, onDateChange)
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.three), modifier = Modifier.fillMaxWidth()) {
-      Box(modifier = Modifier.size(150.dp).clip(CircleShape).background(selected?.let { Color(it.softColor) } ?: colors.backgroundElement).border(3.dp, selected?.let { Color(it.color) } ?: colors.border, CircleShape), contentAlignment = Alignment.Center) {
-        if (selected != null) Image(painterResource(moodDrawable(selected.value)), contentDescription = selected.label, modifier = Modifier.size(120.dp))
+      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.three)) {
+      Box(modifier = Modifier.size(82.dp).clip(CircleShape).background(selected?.let { Color(it.softColor) } ?: colors.backgroundElement).border(3.dp, selected?.let { Color(it.color) } ?: colors.border, CircleShape), contentAlignment = Alignment.Center) {
+        if (selected != null) Image(painterResource(moodDrawable(selected.value)), contentDescription = selected.label, modifier = Modifier.size(72.dp))
         else Icon(Icons.Filled.Mood, contentDescription = null, tint = colors.textSecondary, modifier = Modifier.size(56.dp))
       }
       Text(
@@ -172,10 +182,11 @@ fun MoodScreen(localDate: String, onDateChange: (String) -> Unit) {
         style = BeeTheme.typography.sectionTitle,
         color = colors.text,
       )
+      }
       Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.one)) {
         for (option in MOODS) {
           MoodChoice(option, selected?.value == option.value, modifier = Modifier.weight(1f)) {
-            scope.launch { runCatching { container.health.setMood(localDate, TimeZone.getDefault().id, option.value) }.onFailure { error = it.message } }
+            scope.launch { error = null; runCatching { container.health.setMood(localDate, TimeZone.getDefault().id, option.value) }.onFailure { error = "Could not save your mood. Try again." } }
           }
         }
       }
@@ -189,12 +200,12 @@ fun MoodScreen(localDate: String, onDateChange: (String) -> Unit) {
 private fun MoodChoice(option: MoodOption, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
   val colors = BeeTheme.colors
   Column(
-    modifier = modifier.clip(RoundedCornerShape(Radius.card)).background(if (selected) Color(option.softColor) else colors.card).border(if (selected) 2.dp else Hairline, if (selected) Color(option.color) else colors.border, RoundedCornerShape(Radius.card)).clickable(onClick = onClick).padding(vertical = Spacing.two),
+    modifier = modifier.clip(RoundedCornerShape(Radius.card)).background(if (selected) Color(option.softColor) else colors.card).border(if (selected) 2.dp else Hairline, if (selected) Color(option.color) else colors.border, RoundedCornerShape(Radius.card)).selectable(selected = selected, role = Role.RadioButton, onClick = onClick).padding(vertical = Spacing.two),
     horizontalAlignment = Alignment.CenterHorizontally,
     verticalArrangement = Arrangement.spacedBy(Spacing.one),
   ) {
     Image(painterResource(moodDrawable(option.value)), contentDescription = null, modifier = Modifier.size(36.dp))
-    Text(option.label, style = BeeTheme.typography.small, color = colors.text, maxLines = 1)
+    Text(option.label, style = BeeTheme.typography.small, color = if (selected) Color(0xFF202020) else colors.text, maxLines = 1)
   }
 }
 
@@ -205,7 +216,7 @@ fun WeekPulse(throughDate: String, days: List<HealthDay>) {
   val byDate = days.associateBy { it.localDate }
   val keys = (6 downTo 0).map { shiftLocalDateKey(throughDate, -it.toLong()) }
   Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(Radius.card)).background(colors.card).border(Hairline, colors.border, RoundedCornerShape(Radius.card)).padding(Spacing.three), verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
-    Text("This week", style = BeeTheme.typography.smallBold, color = colors.textSecondary)
+    Text("Mood & water · last 7 days", style = BeeTheme.typography.smallBold, color = colors.textSecondary)
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
       for (key in keys) {
         val day = byDate[key]
@@ -213,7 +224,7 @@ fun WeekPulse(throughDate: String, days: List<HealthDay>) {
         val water = ((day?.hydrationMl ?: 0).toFloat() / HYDRATION_GOAL_ML).coerceIn(0f, 1f)
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.one)) {
           Text(com.beegreat.contract.dateFromLocalKey(key).dayOfWeek.name.take(1), style = BeeTheme.typography.small, color = colors.textSecondary)
-          Box(modifier = Modifier.size(30.dp).clip(CircleShape).background(mood?.let { Color(it.softColor) } ?: colors.backgroundElement).border(2.dp, if (isTodayLocalKey(key)) Color(0xFFE4A72C) else mood?.let { Color(it.color) } ?: colors.border, CircleShape))
+          Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(mood?.let { Color(it.softColor) } ?: colors.backgroundElement).border(2.dp, if (isTodayLocalKey(key)) Color(0xFFE4A72C) else mood?.let { Color(it.color) } ?: colors.border, CircleShape))
           Box(modifier = Modifier.height(24.dp).size(6.dp, 24.dp).clip(CircleShape).background(colors.backgroundElement), contentAlignment = Alignment.BottomCenter) {
             Box(modifier = Modifier.fillMaxWidth().height(24.dp * water).background(WATER))
           }
@@ -232,55 +243,59 @@ fun WaterScreen(localDate: String, onDateChange: (String) -> Unit) {
   val dayFlow = remember(localDate) { container.health.day(localDate).map { it.getOrNull() } }
   val day by dayFlow.collectAsStateWithLifecycle(initialValue = null)
   val current = day?.hydrationMl ?: 0
-  var lastAddition by remember { mutableStateOf<Int?>(null) }
+  var lastAddition by remember(localDate) { mutableStateOf<Int?>(null) }
+  var saving by remember(localDate) { mutableStateOf(false) }
+  var undoVersion by remember(localDate) { mutableStateOf(0) }
   var error by remember { mutableStateOf<String?>(null) }
   val ratio = (current.toFloat() / HYDRATION_GOAL_ML).coerceIn(0f, 1f)
 
   fun add(delta: Int, showUndo: Boolean) {
+    if (saving) return
     val next = (current + delta).coerceIn(0, MAX_HYDRATION_ML)
     val applied = next - current
     if (applied == 0) return
+    saving = true
+    error = null
     scope.launch {
       runCatching { container.health.adjustHydration(localDate, TimeZone.getDefault().id, applied) }
-        .onSuccess {
-          if (showUndo && applied > 0) {
-            lastAddition = applied
+        .onSuccess { result ->
+          saving = false
+          if (showUndo && result.appliedDeltaMl > 0) {
+            lastAddition = result.appliedDeltaMl
+            val version = ++undoVersion
             delay(5000)
-            if (lastAddition == applied) lastAddition = null
+            if (undoVersion == version) lastAddition = null
           }
         }
-        .onFailure { error = it.message }
+        .onFailure { saving = false; error = "Could not save water. Try again." }
     }
   }
 
   Column(
     modifier = Modifier.widthIn(max = MaxContentWidth).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Spacing.three, vertical = Spacing.two),
-    verticalArrangement = Arrangement.spacedBy(Spacing.four),
+    verticalArrangement = Arrangement.spacedBy(Spacing.three),
   ) {
     SectionHeader("Water", localDate, onDateChange)
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.three), modifier = Modifier.fillMaxWidth()) {
-      Box(modifier = Modifier.size(width = 120.dp, height = 220.dp).clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 40.dp, bottomEnd = 40.dp)).background(colors.backgroundElement).border(2.dp, if (colors.isDark) Color(0xFFF1D0B0) else Color(0xFF705044), RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 40.dp, bottomEnd = 40.dp)), contentAlignment = Alignment.BottomCenter) {
-        Box(modifier = Modifier.fillMaxWidth().height(220.dp * ratio).background(if (colors.isDark) Color(0xFF4BA5B2) else Color(0xFF75CBD4)))
+      Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.three)) {
+        WaterBottle(current.toDouble(), Modifier.weight(.85f))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
+          Text("$current ml", style = BeeTheme.typography.sectionTitle.copy(fontFeatureSettings = "tnum"), color = colors.text)
+          Text("of $HYDRATION_GOAL_ML ml", style = BeeTheme.typography.small, color = colors.textSecondary)
+          LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth().height(6.dp), color = WATER, trackColor = colors.backgroundElement)
+          Text(if (current >= HYDRATION_GOAL_ML) "Goal reached" else "${HYDRATION_GOAL_ML - current} ml to go", style = BeeTheme.typography.smallBold, color = colors.text)
+          if (current > HYDRATION_GOAL_ML) Text("${current - HYDRATION_GOAL_ML} ml extra", style = BeeTheme.typography.small, color = colors.textSecondary)
+        }
       }
-      Text("${current} / $HYDRATION_GOAL_ML ml", style = BeeTheme.typography.sectionTitle.copy(fontFeatureSettings = "tnum"), color = colors.text)
-      Text(
-        when {
-          current >= HYDRATION_GOAL_ML -> "Daily goal reached · ${current - HYDRATION_GOAL_ML} ml extra"
-          current == 0 -> "Log your first glass"
-          else -> "${HYDRATION_GOAL_ML - current} ml to go"
-        },
-        style = BeeTheme.typography.small,
-        color = colors.textSecondary,
-      )
-      Row(horizontalArrangement = Arrangement.spacedBy(Spacing.two)) {
-        WaterButton("−250", secondary = true) { add(-250, false) }
-        WaterButton("+250") { add(250, true) }
-        WaterButton("+500") { add(500, true) }
+      Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.two)) {
+        WaterButton("−250", secondary = true, enabled = !saving && current > 0, modifier = Modifier.weight(1f)) { add(-250, false) }
+        WaterButton("+250", enabled = !saving && current < MAX_HYDRATION_ML, modifier = Modifier.weight(1f)) { add(250, true) }
+        WaterButton("+500", secondary = true, enabled = !saving && current < MAX_HYDRATION_ML, modifier = Modifier.weight(1f)) { add(500, true) }
       }
       lastAddition?.let { added ->
         Row(modifier = Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(RoundedCornerShape(14.dp)).background(colors.backgroundElement).padding(horizontal = Spacing.three), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
           Text("Added $added ml", style = BeeTheme.typography.small, color = colors.text)
-          Text("Undo", style = BeeTheme.typography.smallBold, color = colors.primary, modifier = Modifier.clickable { lastAddition = null; add(-added, false) })
+          Text("Undo", style = BeeTheme.typography.smallBold, color = colors.primary, modifier = Modifier.heightIn(min = 44.dp).clickable(enabled = !saving) { lastAddition = null; undoVersion++; add(-added, false) }.padding(vertical = 12.dp))
         }
       }
       error?.let { Text(it, style = BeeTheme.typography.small, color = colors.destructive) }
@@ -293,7 +308,7 @@ fun WaterScreen(localDate: String, onDateChange: (String) -> Unit) {
       Icon(Icons.Filled.WaterDrop, contentDescription = null, tint = WATER, modifier = Modifier.size(22.dp))
       Column(modifier = Modifier.weight(1f)) {
         Text("Tap to log water", style = BeeTheme.typography.smallBold, color = colors.text)
-        Text("Set up a reusable NFC action for your bottle or glass", style = BeeTheme.typography.small, color = colors.textSecondary)
+        Text("Bottle and glass NFC actions", style = BeeTheme.typography.small, color = colors.textSecondary)
       }
       Text("›", style = BeeTheme.typography.body, color = colors.textSecondary)
     }
@@ -301,12 +316,12 @@ fun WaterScreen(localDate: String, onDateChange: (String) -> Unit) {
 }
 
 @Composable
-private fun WaterButton(label: String, secondary: Boolean = false, onClick: () -> Unit) {
+private fun WaterButton(label: String, secondary: Boolean = false, enabled: Boolean = true, modifier: Modifier = Modifier, onClick: () -> Unit) {
   val colors = BeeTheme.colors
   Box(
-    modifier = Modifier.heightIn(min = 48.dp).widthIn(min = 88.dp).clip(CircleShape).background(if (secondary) colors.card else WATER).border(Hairline, if (secondary) colors.border else Color.Transparent, CircleShape).clickable(onClick = onClick).padding(horizontal = Spacing.three),
+    modifier = modifier.heightIn(min = 48.dp).clip(CircleShape).background(if (secondary) colors.card else WATER).border(Hairline, if (secondary) colors.border else Color.Transparent, CircleShape).clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = Spacing.two),
     contentAlignment = Alignment.Center,
   ) {
-    Text(label, style = BeeTheme.typography.smallBold.copy(fontFeatureSettings = "tnum"), color = if (secondary) colors.text else Color.White)
+    Text(label, style = BeeTheme.typography.smallBold.copy(fontFeatureSettings = "tnum"), color = if (!enabled) colors.textSecondary else if (secondary) colors.text else Color(0xFF082A35))
   }
 }

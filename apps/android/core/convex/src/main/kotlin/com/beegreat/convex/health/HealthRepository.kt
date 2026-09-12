@@ -53,7 +53,16 @@ data class JournalEntry(
 
 @Serializable data class JournalMonthDay(val localDate: String, val entryCount: ConvexInt, val hasPhoto: Boolean)
 
+@Serializable data class StreakDay(val localDate: String, val done: Boolean?)
+@Serializable data class TrackerStreak(val current: ConvexInt, val currentCapped: Boolean, val best: ConvexInt, val windowDays: ConvexInt, val completedDays: ConvexInt, val days: List<StreakDay>)
+@Serializable data class HealthWeekDay(val localDate: String, val mood: String?, val hydrationMl: ConvexInt)
+@Serializable data class HealthCalendarDay(val localDate: String, val mood: Boolean, val water: Double, val journal: Boolean?)
+@Serializable data class HealthOverview(val mood: TrackerStreak, val water: TrackerStreak, val journal: TrackerStreak, val week: List<HealthWeekDay>, val calendar: List<HealthCalendarDay>)
+@Serializable data class HydrationAdjustment(val appliedDeltaMl: ConvexInt)
+
 class HealthRepository(private val convex: BeeConvexClient) {
+  fun overview(throughDate: String): Flow<Result<HealthOverview>> = convex.subscribe("healthJournal:overview", mapOf("throughDate" to throughDate))
+
   fun day(localDate: String): Flow<Result<HealthDay?>> = convex.subscribe("healthJournal:getByDate", mapOf("localDate" to localDate))
 
   fun recentDays(throughDate: String, limit: Int): Flow<Result<List<HealthDay>>> =
@@ -63,7 +72,11 @@ class HealthRepository(private val convex: BeeConvexClient) {
     io { convex.mutation<HealthDay>("healthJournal:setMood", mapOf("localDate" to localDate, "timeZone" to timeZone, "mood" to mood)) }
 
   suspend fun adjustHydration(localDate: String, timeZone: String, deltaMl: Int) =
-    io { convex.mutation("healthJournal:adjustHydration", mapOf("localDate" to localDate, "timeZone" to timeZone, "deltaMl" to deltaMl.n)) }
+    io { convex.mutation<HydrationAdjustment>("healthJournal:adjustHydration", mapOf("localDate" to localDate, "timeZone" to timeZone, "deltaMl" to deltaMl.n)) }
+
+  suspend fun importLegacy() = io { convex.mutation("journalEntries:importLegacy") }
+
+  fun searchEntries(query: String): Flow<Result<List<JournalEntry>>> = convex.subscribe("journalEntries:search", mapOf("query" to query))
 
   fun recentEntries(throughDate: String, limit: Int): Flow<Result<List<JournalEntry>>> =
     convex.subscribe("journalEntries:listRecent", mapOf("limit" to limit.n, "throughDate" to throughDate))

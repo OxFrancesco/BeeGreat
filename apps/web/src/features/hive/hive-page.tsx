@@ -1,16 +1,15 @@
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { HIVE_HTML, honeyState, HONEY_CAPACITY } from '@beegreat/hive-3d'
 
 import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
-import vesselUrl from '../../../../mobile/assets/images/hive-vessel.png?url'
 import { Achievements } from './achievements'
 import { formatHighlightExpiry, getGolieBeeName } from './hive-utils'
 import type { FunctionReturnType } from 'convex/server'
 import { captureWebFailure } from '~/lib/sentry'
 
-const HONEY_CAPACITY = 100
 type CurrentHive = FunctionReturnType<typeof api.firstFocus.getCurrent>
 type Completion = FunctionReturnType<typeof api.firstFocus.completeHighlight>
 
@@ -175,38 +174,27 @@ function HiveBalances({ hive }: { hive: CurrentHive['hive'] }) {
 }
 
 function HoneyVessel({ balance }: { balance: number }) {
-  const clamped = Math.min(Math.max(balance, 0), HONEY_CAPACITY)
-  const ratio = clamped / HONEY_CAPACITY
-  const overflow = Math.max(balance - HONEY_CAPACITY, 0)
+  const frame = useRef<HTMLIFrameElement>(null)
+  const state = honeyState(balance)
+  const update = () => frame.current?.contentWindow?.postMessage({ type: 'hive-state', balance }, '*')
+  useEffect(() => {
+    frame.current?.contentWindow?.postMessage({ type: 'hive-state', balance }, '*')
+  }, [balance])
   return (
     <section className="honey-vessel-card">
-      <div
+      <iframe
+        ref={frame}
         className="honey-vessel"
-        role="progressbar"
-        aria-label="Hive Honey vessel"
-        aria-valuemin={0}
-        aria-valuemax={HONEY_CAPACITY}
-        aria-valuenow={clamped}
-        aria-valuetext={
-          overflow > 0
-            ? `${balance} Honey, vessel full with ${overflow} in overflow`
-            : `${balance} of ${HONEY_CAPACITY} Honey`
-        }
-      >
-        <div className="honey-vessel__cavity">
-          <div
-            className="honey-vessel__fill"
-            style={{ height: `${ratio * 100}%` }}
-          >
-            <span />
-          </div>
-        </div>
-        <img src={vesselUrl} alt="" />
-      </div>
+        title={`${state.label}. Drag left or right to rotate the Hive.`}
+        srcDoc={HIVE_HTML}
+        sandbox="allow-scripts"
+        onLoad={update}
+        style={{ border: 0, display: 'block' }}
+      />
       <div className="honey-vessel__legend">
         <p className="utility-label">Honey reserve</p>
         <strong>{balance}</strong>
-        <span>{Math.round(ratio * 100)}% of the first vessel</span>
+        <span>{Math.round(state.ratio * HONEY_CAPACITY)}% of the first vessel</span>
       </div>
     </section>
   )

@@ -37,6 +37,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/opentui` — Official OpenTUI terminal framework
 - `resources/socket-contracts` — Official Socket bridge contracts
 - `resources/crossmint-sdk` — Official Crossmint SDK, wallet authentication, passkey and recovery examples
+- `resources/three` — Official Three.js source for lighting and GLTF loading
+- `resources/react-native-webview` — Native WebView integration for the shared offline 3D Hive viewer
 
 <!-- codeview:end -->
 

@@ -348,3 +348,26 @@ rendering in `packages/tool-presentation/src/beeui.ts` → rich renderer in both
 apps (+ web CSS) → document in `bee.md` → row in §10 → test in
 `bee-ui.test.ts`. Clients that don't know a new type degrade to an
 "unsupported" card automatically — never fork the schema per client.
+
+### Interactive Hive vessel
+
+The Hive's Honey vessel uses the original voxel model in `assets/hive-3d`, with
+Bee's honey-orange faces, brown edges, and pixel details. Keep the chamber visible
+at the initial angle. Horizontal drag rotates; vertical gestures scroll the page.
+Do not auto-spin it. The real balance fills the chamber up to 100 Honey and stays
+available to accessibility services, including overflow. Android, Expo, and web
+share the offline viewer in `packages/hive-3d`. See `27-interactive-hive.md`.
+
+### Bee Healthy trackers
+
+The section takes over the main navigation and uses Mood, Water, Journal, then
+Streaks. Streak summaries live only in Streaks. Use a compact header, readable
+selected mood labels and 44dp minimum actions. The Water screen pairs its
+interactive faceted bottle with the amount and goal, followed by logging actions.
+The cap is a real hexagonal mesh. See `28-bee-healthy.md` for streak definitions,
+history limits and the shared Blender asset workflow.
+
+
+### Healthy streak calendar
+
+Use the existing rounded pointy-top hexagon for each date. Place three concentric hexagonal rings inside it: mood green `#75A469` outside, water blue `#55BEE2` in the middle, and journal honey `#E4A72C` inside. Keep empty tracks faint, fill water proportionally, and close mood or journal rings when logged. Calendar cells use card backgrounds and hairline borders. Reserve the primary outline for today. Keep one month control and one set of streak counts. Do not add a selected-day date or detail row below the calendar.

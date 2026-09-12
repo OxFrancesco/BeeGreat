@@ -11,12 +11,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -29,7 +30,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.ImeAction
@@ -114,16 +114,18 @@ fun PromptInput(onSubmit: suspend (String) -> Unit, enabled: Boolean, modifier: 
           }
         },
       )
-      Box(
-        modifier =
-          Modifier.size(40.dp)
-            .clip(CircleShape)
-            .background(colors.primary)
-            .alpha(if (canSend) 1f else 0.4f)
-            .clickable(enabled = canSend) { send(text.trim()) },
-        contentAlignment = Alignment.Center,
+      FilledIconButton(
+        onClick = { send(text.trim()) },
+        enabled = canSend,
+        modifier = Modifier.size(44.dp),
+        colors = IconButtonDefaults.filledIconButtonColors(
+          containerColor = colors.primary,
+          contentColor = colors.primaryForeground,
+          disabledContainerColor = colors.backgroundElement,
+          disabledContentColor = colors.textSecondary,
+        ),
       ) {
-        Icon(Icons.Filled.ArrowUpward, contentDescription = "Send message", tint = colors.primaryForeground, modifier = Modifier.size(18.dp))
+        Icon(Icons.Filled.ArrowUpward, contentDescription = "Send message", modifier = Modifier.size(18.dp))
       }
     }
   }

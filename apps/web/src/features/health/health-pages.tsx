@@ -1,3 +1,4 @@
+import { WaterBottle } from './water-bottle'
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { Link, Outlet } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
@@ -37,7 +38,6 @@ export function HealthLayout() {
         </Link>
         <div>
           <h1>Bee Healthy</h1>
-          <p>A quiet daily check-in for your mood, water, and memories.</p>
         </div>
         <img src={beeDoctor} alt="Bee wearing a doctor coat" />
       </header>
@@ -55,6 +55,7 @@ export function HealthLayout() {
         <Link to="/health/journal" activeProps={{ className: 'is-active' }}>
           <span aria-hidden="true">✎</span> Journal
         </Link>
+        <Link to="/health/streaks" activeProps={{ className: 'is-active' }}>Streaks</Link>
       </nav>
       <Outlet />
     </main>
@@ -73,10 +74,10 @@ export function HealthSummaryCard() {
   )
   const summary =
     entry === undefined
-      ? "Loading today's ritual…"
+      ? "Loading today…"
       : mood || (entry?.hydrationMl ?? 0) > 0
         ? `${mood?.label ?? 'Mood not checked'} · ${hydration}% hydrated`
-        : 'Mood, water, and one honest thought'
+        : 'Track mood, water and journal'
 
   return (
     <Link className="health-summary-card" to="/health">
@@ -287,22 +288,16 @@ function WaterDay({ localDate }: ReturnType<typeof currentLocalDay>) {
         <HealthLoading label="Filling your bottle…" />
       ) : (
         <div className="hydration-card">
-          <div
-            className="water-vessel"
-            aria-label={`${hydration} of ${HYDRATION_GOAL_ML} millilitres`}
-          >
-            <span style={{ height: `${percent}%` }} />
-            <strong>{percent}%</strong>
-          </div>
+          <WaterBottle valueMl={hydration} />
           <div className="hydration-copy">
             <p>
               <strong>{hydration.toLocaleString()}</strong> /{' '}
               {HYDRATION_GOAL_ML.toLocaleString()} ml
             </p>
             <span>
-              {Math.max(0, HYDRATION_GOAL_ML - hydration).toLocaleString()} ml
-              to today's goal
+              {hydration >= HYDRATION_GOAL_ML ? 'Goal reached' : `${(HYDRATION_GOAL_ML - hydration).toLocaleString()} ml to go`}
             </span>
+            <progress className="water-progress" value={percent} max={100} aria-label="Daily water goal" />
             <div className="water-actions">
               {[250, 330, 500, 750].map((amount) => (
                 <button

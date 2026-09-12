@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   content: {
     width: '100%',
     maxWidth: MaxContentWidth,
-    gap: Spacing.four,
+    gap: Spacing.three,
   },
   loading: {
     paddingVertical: Spacing.six,

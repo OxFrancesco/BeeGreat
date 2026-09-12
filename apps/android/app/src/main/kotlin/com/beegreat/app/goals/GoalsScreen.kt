@@ -122,7 +122,6 @@ fun GoalsScreenView(
         ScreenHeader(title = "Goals")
       }
       Column(verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
-        SectionLabel("Bee Healthy")
         BeeHealthyCard(summary = healthSummary ?: "Mood, water, and one honest thought")
       }
       Column(verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
@@ -158,6 +157,11 @@ private fun BeeHealthyCard(summary: String) {
   val navigator = LocalNavigator.current
   val colors = BeeTheme.colors
   BeeRowCard(onClick = navigator::openBeeHealthy) {
+    androidx.compose.foundation.Image(
+      painter = androidx.compose.ui.res.painterResource(com.beegreat.app.R.drawable.bee_doctor),
+      contentDescription = null,
+      modifier = Modifier.size(76.dp),
+    )
     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.half)) {
       Text("Bee Healthy", style = BeeTheme.typography.body, color = colors.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
       Text(summary, style = BeeTheme.typography.small, color = colors.textSecondary, maxLines = 2, overflow = TextOverflow.Ellipsis)

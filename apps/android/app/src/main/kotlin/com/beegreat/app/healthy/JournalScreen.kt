@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,12 +81,20 @@ fun JournalScreen(localDate: String) {
   var month by remember { mutableStateOf(monthStartKey(localDate)) }
   var selectedDay by remember { mutableStateOf<String?>(null) }
   var creating by remember { mutableStateOf(false) }
+  var createError by remember { mutableStateOf<String?>(null) }
 
-  val entriesFlow =
-    remember(localDate) {
-      container.health.recentEntries(localDateKey(LocalDate.now().plusDays(1)), 60).map { it.getOrNull() ?: emptyList() }
+  LaunchedEffect(container.health) {
+    runCatching { container.health.importLegacy() }.onFailure { createError = "Could not load older journal entries. Reopen to retry." }
+  }
+  val entriesFlow = remember(localDate, selectedDay, search) {
+    when {
+      search.trim().isNotEmpty() -> container.health.searchEntries(search.trim())
+      selectedDay != null -> container.health.dayEntries(selectedDay!!)
+      else -> container.health.recentEntries(localDateKey(), 100)
     }
-  val entries by entriesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+  }
+  val entriesResult by entriesFlow.collectAsStateWithLifecycle(initialValue = null)
+  val entries = entriesResult?.getOrNull().orEmpty()
   val monthFlow = remember(month) { container.health.month(month).map { it.getOrNull() ?: emptyList() } }
   val monthDays by monthFlow.collectAsStateWithLifecycle(initialValue = emptyList())
   val query = search.trim()
@@ -99,9 +108,11 @@ fun JournalScreen(localDate: String) {
   fun newEntry() {
     if (creating) return
     creating = true
+    createError = null
     scope.launch {
       runCatching { container.health.createDraft(localDateKey(), TimeZone.getDefault().id, System.currentTimeMillis()) }
         .onSuccess { navigator.openJournalEntry(it.id) }
+        .onFailure { createError = "Could not create an entry. Try again." }
       creating = false
     }
   }
@@ -114,7 +125,7 @@ fun JournalScreen(localDate: String) {
     item(key = "header") {
       Column(verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-          Box(modifier = Modifier.weight(1f)) { SectionHeader("Journal", localDate, null) }
+          Box(modifier = Modifier.weight(1f)) { SectionHeader("Journal", localDate, null, showDate = false) }
           Row(horizontalArrangement = Arrangement.spacedBy(Spacing.one)) {
             RoundIcon(if (calendarVisible) Icons.Filled.Close else Icons.Filled.CalendarMonth, "Calendar") { calendarVisible = !calendarVisible; if (!calendarVisible) selectedDay = null }
             RoundIcon(if (searchVisible) Icons.Filled.Close else Icons.Filled.Search, "Search") { searchVisible = !searchVisible; if (!searchVisible) search = "" }
@@ -140,11 +151,12 @@ fun JournalScreen(localDate: String) {
         }
       }
     }
+    createError?.let { message -> item(key = "create-error") { Text(message, color = colors.destructive) } }
     if (shown.isEmpty()) {
       item(key = "empty") {
         Column(modifier = Modifier.fillMaxWidth().padding(top = Spacing.five), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.two)) {
-          Text(if (query.isNotEmpty() || selectedDay != null) "Nothing here" else "One honest thought a day", style = BeeTheme.typography.smallBold, color = colors.text)
-          Text(if (query.isNotEmpty() || selectedDay != null) "Try another day or search." else "Tap + to write your first entry.", style = BeeTheme.typography.small, color = colors.textSecondary, textAlign = TextAlign.Center)
+          Text(if (entriesResult == null) "Loading journal…" else if (entriesResult?.isFailure == true) "Journal unavailable" else if (query.isNotEmpty() || selectedDay != null) "Nothing here" else "No journal entries yet", style = BeeTheme.typography.smallBold, color = colors.text)
+          Text(if (entriesResult?.isFailure == true) "Reopen to retry." else if (entriesResult == null) "" else if (query.isNotEmpty() || selectedDay != null) "Try another day or search." else "Tap + to write your first entry.", style = BeeTheme.typography.small, color = colors.textSecondary, textAlign = TextAlign.Center)
         }
       }
     }
@@ -155,7 +167,7 @@ fun JournalScreen(localDate: String) {
 @Composable
 private fun RoundIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, filled: Boolean = false, onClick: () -> Unit) {
   val colors = BeeTheme.colors
-  Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(if (filled) colors.primary else colors.backgroundElement).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+  Box(modifier = Modifier.size(44.dp).clip(CircleShape).background(if (filled) colors.primary else colors.backgroundElement).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
     Icon(icon, contentDescription = label, tint = if (filled) colors.primaryForeground else colors.text, modifier = Modifier.size(18.dp))
   }
 }

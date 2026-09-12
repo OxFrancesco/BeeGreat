@@ -28,6 +28,10 @@ export default function BeeHealthyLayout() {
           md="edit_note"
         />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="streaks">
+        <NativeTabs.Trigger.Label>Streaks</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: 'flame', selected: 'flame.fill' }} md="local_fire_department" />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }

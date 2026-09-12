@@ -1,3 +1,4 @@
+import { shiftDay, trackerStreak } from './lib/healthStreaks'
 import type { WithoutSystemFields } from 'convex/server'
 import { ConvexError, v } from 'convex/values'
 import type { Doc } from './_generated/dataModel'
@@ -294,5 +295,54 @@ export const saveJournal = mutation({
       journal: args.journal,
     })
     return normalizeEntry(entry)
+  },
+})
+
+const streakValidator = v.object({
+  current: v.number(), currentCapped: v.boolean(), best: v.number(), windowDays: v.number(), completedDays: v.number(),
+  days: v.array(v.object({ localDate: v.string(), done: v.union(v.boolean(), v.null()) })),
+})
+
+/** Read-only overview. Byte-bounded journal history never masquerades as an all-time record. */
+export const overview = query({
+  args: { throughDate: v.string() },
+  returns: v.object({ mood: streakValidator, water: streakValidator, journal: streakValidator,
+    calendar: v.array(v.object({ localDate: v.string(), mood: v.boolean(), water: v.number(), journal: v.union(v.boolean(), v.null()) })),
+    week: v.array(v.object({ localDate: v.string(), mood: v.union(moodValidator, v.null()), hydrationMl: v.number() })),
+  }),
+  handler: async (ctx, { throughDate }) => {
+    validateLocalDate(throughDate)
+    const { ownerKey } = await requireIdentity(ctx)
+    const start = shiftDay(throughDate, -364)
+    const days = await ctx.db.query('healthJournalEntries')
+      .withIndex('by_owner_key_and_local_date', q => q.eq('ownerKey', ownerKey).gte('localDate', start).lte('localDate', throughDate)).take(365)
+    const journals = await ctx.db.query('journalEntries')
+      .withIndex('by_owner_key_and_local_date_and_occurred_at', q => q.eq('ownerKey', ownerKey).gte('localDate', start).lte('localDate', throughDate))
+      .order('desc').paginate({ cursor: null, numItems: 500, maximumBytesRead: 2_000_000 })
+    const journalStart = journals.isDone ? start : shiftDay(journals.page.at(-1)?.localDate ?? throughDate, 1)
+    const journalDays = new Set(days.filter(day => !day.journalMigratedAt && day.journal?.trim()).map(day => day.localDate))
+    for (const entry of journals.page) {
+      if (entry.body.trim() || entry.title.trim()) journalDays.add(entry.localDate)
+      else {
+        const photo = await ctx.db.query('journalAttachments').withIndex('by_entry_id_and_created_at', q => q.eq('entryId', entry._id)).first()
+        if (photo?.ownerKey === ownerKey) journalDays.add(entry.localDate)
+      }
+    }
+    return {
+      mood: trackerStreak(new Set(days.filter(day => day.mood).map(day => day.localDate)), throughDate, start),
+      water: trackerStreak(new Set(days.filter(day => day.hydrationMl >= 2000).map(day => day.localDate)), throughDate, start),
+      journal: trackerStreak(journalDays, throughDate, journalStart),
+      calendar: Array.from({ length: Number(throughDate.slice(8)) }, (_, index) => {
+        const localDate = `${throughDate.slice(0, 8)}${String(index + 1).padStart(2, '0')}`
+        const day = days.find(day => day.localDate === localDate)
+        return { localDate, mood: Boolean(day?.mood), water: Math.min(1, (day?.hydrationMl ?? 0) / 2000),
+          journal: journalDays.has(localDate) ? true : localDate < journalStart ? null : false }
+      }),
+      week: Array.from({ length: 7 }, (_, index) => {
+        const localDate = shiftDay(throughDate, index - 6)
+        const day = days.find(day => day.localDate === localDate)
+        return { localDate, mood: day?.mood ?? null, hydrationMl: day?.hydrationMl ?? 0 }
+      }),
+    }
   },
 })

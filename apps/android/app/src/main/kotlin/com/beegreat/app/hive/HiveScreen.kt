@@ -1,17 +1,14 @@
 package com.beegreat.app.hive
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -52,14 +49,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.beegreat.app.LocalAppContainer
-import com.beegreat.app.R
 import com.beegreat.app.bee.cards.formatHighlightExpiry
 import com.beegreat.app.common.FloatingBee
 import com.beegreat.app.shell.LocalNavigator
@@ -222,30 +215,6 @@ private fun EconomyStrip(current: CurrentHive) {
     verticalArrangement = Arrangement.spacedBy(Spacing.one),
   ) {
     for (note in notes) Text(note, style = BeeTheme.typography.small, color = colors.textSecondary)
-  }
-}
-
-/** The hive vessel fills with honey from the bottom as the balance grows toward the MVP capacity. */
-@Composable
-fun HoneyVessel(balance: Double, modifier: Modifier = Modifier) {
-  val clamped = balance.coerceIn(0.0, MVP_HONEY_CAPACITY)
-  val overflow = maxOf(balance - MVP_HONEY_CAPACITY, 0.0)
-  val ratio by animateFloatAsState((clamped / MVP_HONEY_CAPACITY).toFloat(), Motion.progressSpec(), label = "honeyFill")
-  val label = if (overflow > 0) "${formatCount(balance)} Honey, vessel full with ${formatCount(overflow)} Honey in overflow" else "${formatCount(balance)} of ${MVP_HONEY_CAPACITY.toInt()} Honey, ${(ratio * 100).toInt()}% full"
-  BoxWithConstraints(modifier = modifier.fillMaxWidth().semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
-    val size = minOf(maxWidth, 340.dp)
-    Box(modifier = Modifier.size(size)) {
-      Box(
-        modifier =
-          Modifier.padding(start = size * 0.235f, top = size * 0.315f)
-            .width(size * 0.53f)
-            .height(size * 0.52f)
-            .clip(RoundedCornerShape(size * 0.16f))
-      ) {
-        Box(modifier = Modifier.fillMaxSize().padding(top = size * 0.52f * (1 - ratio)).background(Hive.honey))
-      }
-      Image(painter = painterResource(R.drawable.hive_vessel), contentDescription = null, modifier = Modifier.fillMaxSize())
-    }
   }
 }
 

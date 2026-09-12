@@ -319,8 +319,8 @@ once and is now in `apps/android/AGENTS.md`.
    Android 16 Live Updates as a follow-up.
 6. **Expo Android build**: confirm it has never shipped and can be retired,
    so `com.beegreat.app` on Play belongs to the Kotlin app.
-7. **Screenshot testing**: not started. Compose Preview Screenshot Testing
-   or Paparazzi; pick when the first visual regression bites.
+7. **Screenshot testing**: the device layout check below covers the empty
+   chat and keyboard geometry. Compose screenshot baselines remain open.
 8. **CI**: no GitHub Actions workflow yet. The commands are in
    `apps/android/AGENTS.md`; the fixture parity test is the one that must
    run on every PR touching `packages/tool-presentation`.
@@ -337,3 +337,40 @@ uses it. Reference clones that would help are `convex-mobile` (Android
 client), `clerk-android`, `clerk-convex-kotlin`, and Reown's
 `WalletConnectKotlinV2`, plus an indexed copy of the Compose and Android
 platform docs. Add them with `codeview add` before Phase 0.
+
+## Chat layout verification, 2026-09-11
+
+The welcome column fills the available width and centers Bee and the three
+suggestions. Below 360dp of available height, Bee shrinks to 80dp and the
+spacing tightens. Content scrolls when it still cannot fit. Suggestion text
+wraps inside padded buttons instead of being squeezed by the keyboard.
+
+`BeeShell` consumes its Scaffold padding before child screens handle IME
+insets. This prevents the tab bar height from becoming a second gap above
+the keyboard. The composer uses a Material filled icon button with explicit
+enabled and disabled colors and a 44dp target.
+
+Run the device check on an empty conversation, with the keyboard closed and
+then open. It reads view bounds and IME geometry without sending a message:
+
+```sh
+bun scripts/check-android-chat-layout.ts <adb-serial> --all-suggestions
+```
+
+Omit `--all-suggestions` in a small window or with a multiline draft, where
+scrolling may be needed. Scroll to the last suggestion and repeat the check.
+The original Fold 8 build failed with one-pixel suggestion text, off-center
+content, and a 275px gap between the composer text field and keyboard.
+The corrected build passed closed-keyboard, open-keyboard, multiline-draft,
+and scrolled-content checks on the physical Fold 8 at 1248 x 1972.
+
+Validation also covered the Goals, Hive, and Mind root screens, the debug
+build, Android lint, and 22 existing contract, transport, and Convex tests.
+The debug APK was installed as an update, preserving the signed-in app data.
+Test text was removed without sending it.
+
+This change applies to Android layout only. Expo and web already center their
+welcome content and own keyboard handling separately. CLI and iMessage have
+no corresponding geometry. Voice, settings, deep links, provider behavior,
+wire contracts, and reverse actions are unchanged. No backend, agent worker,
+or bridge deployment is needed.

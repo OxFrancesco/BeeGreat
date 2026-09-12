@@ -98,6 +98,7 @@ import type * as imessageValidators from "../imessageValidators.js";
 import type * as journalEntries from "../journalEntries.js";
 import type * as journalStorage from "../journalStorage.js";
 import type * as jsonValue from "../jsonValue.js";
+import type * as lib_healthStreaks from "../lib/healthStreaks.js";
 import type * as memories from "../memories.js";
 import type * as memoryRelevance from "../memoryRelevance.js";
 import type * as memoryValidators from "../memoryValidators.js";
@@ -245,6 +246,7 @@ declare const fullApi: ApiFromModules<{
   journalEntries: typeof journalEntries;
   journalStorage: typeof journalStorage;
   jsonValue: typeof jsonValue;
+  "lib/healthStreaks": typeof lib_healthStreaks;
   memories: typeof memories;
   memoryRelevance: typeof memoryRelevance;
   memoryValidators: typeof memoryValidators;
