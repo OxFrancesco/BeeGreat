@@ -32,7 +32,7 @@ const manifest = JSON.parse(await readFile(join(output, 'package.json'), 'utf8')
 const tooling = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).devDependencies
 manifest.workspaces = ['packages/sugar']
 manifest.overrides = { '@effect/platform-node-shared': '4.0.0-beta.107' }
-manifest.packageManager = `bun@${Bun.version}`
+manifest.packageManager ??= `bun@${Bun.version}`
 manifest.license = 'SEE LICENSE IN LICENSE'
 manifest.repository = { type: 'git', url: 'https://github.com/OxFrancesco/evmSDK.git' }
 manifest.devDependencies = { ...manifest.devDependencies, oxlint: tooling.oxlint, '@oxlint/plugins': tooling['@oxlint/plugins'] }
@@ -84,7 +84,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: ${Bun.version}
+          bun-version: ${manifest.packageManager.split('@').at(-1)}
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
