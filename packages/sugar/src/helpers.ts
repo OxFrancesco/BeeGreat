@@ -163,8 +163,7 @@ export function packPath(
   const types: Array<'address' | 'bool' | 'int24'> = []
   const values: Array<Address | number | boolean> = []
   const isV2Swap = options.forSwap === true && path.some(({ pool }) => pool.isBasic)
-  for (let index = 0; index < path.length; index++) {
-    const { pool, reversed } = path[index]
+  for (const [index, { pool, reversed }] of path.entries()) {
     const from = reversed ? pool.token1Address : pool.token0Address
     const to = reversed ? pool.token0Address : pool.token1Address
     let filler = pool.type === 0 ? QUOTER_STABLE_POOL_FILLER : pool.type === -1 ? QUOTER_VOLATILE_POOL_FILLER : pool.type

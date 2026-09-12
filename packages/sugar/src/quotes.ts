@@ -124,6 +124,7 @@ export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
   const fallbackInputs: typeof inputs = []
   multicallBatches.forEach((batchResult, batchIndex) => {
     const batch = batches[batchIndex]
+    if (!batch) throw new Error('Quote batch result does not match a request')
     if (!batchResult.ok) {
       fallbackInputs.push(...batch)
       return
@@ -156,8 +157,10 @@ export const getQuote = Effect.fn('Sugar.Quotes.getQuote')(function* (
     )
     directResults.forEach((result, index) => {
       if (!result.ok) return
+      const input = fallbackInputs[index]
+      if (!input) throw new Error('Quote result does not match a request')
       try {
-        quotes.push(quoteFromResult(fallbackInputs[index], result.value))
+        quotes.push(quoteFromResult(input, result.value))
       } catch {
         // A malformed per-path quote is unusable; other paths remain valid.
       }

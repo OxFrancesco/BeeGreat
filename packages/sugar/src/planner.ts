@@ -81,8 +81,9 @@ export class RoutePlanner {
   }
 }
 
-function groupPath(path: PathHop[]): PathHop[][] {
-  const groups: PathHop[][] = []
+type HopGroup = [PathHop, ...PathHop[]]
+function groupPath(path: PathHop[]): HopGroup[] {
+  const groups: HopGroup[] = []
   for (const hop of path) {
     const last = groups.at(-1)
     if (!last || last[0].pool.isCl !== hop.pool.isCl) groups.push([hop])
@@ -115,6 +116,7 @@ export function setupPlanner(
 
   if (groups.length === 1) {
     const hops = groups[0]
+    if (!hops) throw new Error('quote path cannot be empty')
     planner.addCommand(hops[0].pool.isBasic ? CommandType.V2_SWAP_EXACT_IN : CommandType.V3_SWAP_EXACT_IN, [
       quote.input.toToken.wrappedTokenAddress ? routerAddress : account,
       quote.input.amountIn,
@@ -125,7 +127,8 @@ export function setupPlanner(
     ])
   } else {
     const first = groups[0]
-    const last = groups.at(-1)!
+    const last = groups.at(-1)
+    if (!first || !last) throw new Error('quote path cannot be empty')
     const middle = groups.slice(1, -1)
     const next = middle[0] ?? last
     planner.addCommand(first[0].pool.isBasic ? CommandType.V2_SWAP_EXACT_IN : CommandType.V3_SWAP_EXACT_IN, [

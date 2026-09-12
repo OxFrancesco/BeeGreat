@@ -10,6 +10,7 @@ import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 
 const require = createRequire(import.meta.url)
+const browserBuffer = resolve(dirname(require.resolve('buffer/package.json')), 'index.js')
 
 async function includeReactRuntime(serverDir: string) {
   const source = await realpath(dirname(require.resolve('react/package.json')))
@@ -23,6 +24,9 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
   return {
+    resolve: {
+      alias: [{ find: /^(?:node:)?buffer(?:\/index\.js)?$/, replacement: browserBuffer }],
+    },
     server: {
       port: 3000,
     },
@@ -33,6 +37,11 @@ export default defineConfig(({ mode }) => {
       }),
       tanstackStart(),
       nitro({
+        alias: {
+          'buffer/': browserBuffer,
+          'buffer/index': browserBuffer,
+          'buffer/index.js': browserBuffer,
+        },
         modules: [
           {
             name: 'beegreat-react-runtime',

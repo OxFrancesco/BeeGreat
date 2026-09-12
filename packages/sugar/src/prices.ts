@@ -59,7 +59,8 @@ export const getPrices = Effect.fn('Sugar.Prices.getPrices')(function* (
     )
     const expiresAt = Date.now() + ctx.settings.pricingCacheTimeoutSeconds * 1_000
     batches.forEach((batch, index) => batch.forEach((token, tokenIndex) => {
-      const rate = results[index][tokenIndex]
+      const rate = results[index]?.[tokenIndex]
+      if (rate === undefined) throw new Error('Price oracle returned fewer rates than requested')
       rateMap.set(token.tokenAddress, rate)
       ctx.caches.priceRateCache.set(addressKey(token.tokenAddress), { expiresAt, rate })
     }))

@@ -1,0 +1,5 @@
+fixtures/out/
+fixtures/cache/
+artifacts/
+*.sqlite
+*.sqlite-*

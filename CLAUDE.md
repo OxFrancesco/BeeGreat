@@ -27,6 +27,12 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/buddytg` — Francesco's local-first Telegram CLI — MTProto login, messaging, files, bookmarks, bot notifications, approvals, and secure session handling
 - `resources/zodiac-roles` — Zodiac Roles Modifier v2 — on-chain role-scoped permissions for Safes: execTransactionWithRole, condition trees, roles SDK, and deployment addresses
 
+
+- `resources/viem` — Official viem Ethereum TypeScript library
+- `resources/opentui` — Official OpenTUI terminal framework
+- `resources/socket-contracts` — Official Socket bridge contracts
+- `resources/crossmint-sdk` — Official Crossmint SDK, wallet authentication, passkey and recovery examples
+
 <!-- codeview:end -->
 
 ## Design system

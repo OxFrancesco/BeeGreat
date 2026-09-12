@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as EvmWalletRouteImport } from './routes/evm-wallet'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TapPublicIdRouteImport } from './routes/tap/$publicId'
@@ -31,6 +32,11 @@ import { Route as AppGoalsGoalIdRouteImport } from './routes/_app/goals/$goalId'
 import { Route as AppHealthJournalIndexRouteImport } from './routes/_app/health/journal/index'
 import { Route as AppHealthJournalEntryIdRouteImport } from './routes/_app/health/journal/$entryId'
 
+const EvmWalletRoute = EvmWalletRouteImport.update({
+  id: '/evm-wallet',
+  path: '/evm-wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
@@ -138,6 +144,7 @@ const AppHealthJournalEntryIdRoute = AppHealthJournalEntryIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/evm-wallet': typeof EvmWalletRoute
   '/bee': typeof AppBeeRoute
   '/health': typeof AppHealthRouteWithChildren
   '/hive': typeof AppHiveRoute
@@ -160,6 +167,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/evm-wallet': typeof EvmWalletRoute
   '/bee': typeof AppBeeRoute
   '/hive': typeof AppHiveRoute
   '/jobs': typeof AppJobsRoute
@@ -183,6 +191,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/evm-wallet': typeof EvmWalletRoute
   '/_app/bee': typeof AppBeeRoute
   '/_app/health': typeof AppHealthRouteWithChildren
   '/_app/hive': typeof AppHiveRoute
@@ -207,6 +216,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/evm-wallet'
     | '/bee'
     | '/health'
     | '/hive'
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/evm-wallet'
     | '/bee'
     | '/hive'
     | '/jobs'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/evm-wallet'
     | '/_app/bee'
     | '/_app/health'
     | '/_app/hive'
@@ -275,6 +287,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  EvmWalletRoute: typeof EvmWalletRoute
   ConnectProviderRoute: typeof ConnectProviderRoute
   LinkImessageRoute: typeof LinkImessageRoute
   TapPublicIdRoute: typeof TapPublicIdRoute
@@ -282,6 +295,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/evm-wallet': {
+      id: '/evm-wallet'
+      path: '/evm-wallet'
+      fullPath: '/evm-wallet'
+      preLoaderRoute: typeof EvmWalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
@@ -485,6 +505,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  EvmWalletRoute: EvmWalletRoute,
   ConnectProviderRoute: ConnectProviderRoute,
   LinkImessageRoute: LinkImessageRoute,
   TapPublicIdRoute: TapPublicIdRoute,
