@@ -113,3 +113,21 @@ Run Sugar tests with `bun run --cwd packages/sugar test`. Running
 `resources/velodrome-sdk-js/packages/sugar-sdk`, whose dependencies are separate.
 Use `bun run --cwd packages/sugar typecheck` and
 `bun run --cwd packages/sugar lint` for the package checks.
+
+## Standalone SDK publishing
+
+When changing `packages/evm` or `packages/sugar`, publish the matching changes to
+their standalone repositories as part of the same task:
+
+- EVM SDK: `https://github.com/OxFrancesco/evmSDK`.
+- Aero SDK: `https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK`.
+
+BeeGreat is the source repository. Inspect each standalone branch and preserve
+standalone-only changes. Include required dependencies, lockfile updates, docs,
+licenses and notices. Aero changes must also reach the copy bundled in evmSDK.
+Run the applicable build, type checks, lint and tests in each affected standalone
+checkout before pushing. Verify the local commit matches remote `main` and report
+each repository's commit. A BeeGreat-only push does not complete an SDK update.
+Use `scripts/export-evm.mjs` to prepare a new EVM snapshot, review its diff, and
+keep `SOURCE.json` accurate. If a standalone push is blocked, state the exact
+unpublished changes and blocker instead of claiming the release is complete.
