@@ -19,29 +19,16 @@ const tuiCommand = Command.make('tui', {}, Effect.fn(function* () {
   const { runAeroTui } = yield* Effect.promise(() => import('../tui/run'))
   yield* fromPromise(() => runAeroTui())
 })).pipe(
-  Command.withDescription('Full-screen terminal UI: Dune-style analytics, browse pools, positions, and epochs, run every action with guided forms, and sign from the connected wallet'),
+  Command.withDescription('Full-screen terminal UI: browse, analytics, guided forms, and signing'),
 )
 
 const CLI_VERSION = '0.1.0'
 
+// The help formatter indents only the first description line, so keep it to
+// one sentence; the tour lives in `aero guide getting-started`.
 export const rootCommand = Command.make('aero').pipe(
-  Command.withDescription([
-    'Aerodrome/Velodrome from your terminal: quotes, swaps, liquidity,',
-    'staking, rewards, and veNFTs across the Superchain.',
-    '',
-    '⚠️  Vibecoded & early beta — use at your own risk. Review plans with',
-    '--dry-run before signing and never risk funds you cannot afford to lose.',
-    '',
-    'Reads print JSON. Transaction commands print an unsigned plan unless a',
-    'wallet is connected, in which case they show a summary, ask to confirm,',
-    'then sign and broadcast (WalletConnect wallets approve in-app).',
-    '',
-    "New here? Run 'aero guide getting-started' or open the full-screen",
-    "terminal UI with 'aero tui'. Any command can be filled in interactively",
-    "with '--wizard', and '--completions <shell>' prints shell completion",
-    'scripts.',
-  ].join('\n')),
-  Command.withSubcommands([tuiCommand, stocksCommand, indexCommand, ...actionCommands, serveCommand, almCommand, walletCommand, executionCommand, guideCommand]),
+  Command.withDescription('Aerodrome/Velodrome from your terminal (early beta). Reads print JSON; transactions show a plan and ask before signing. Start with: aero guide getting-started, or aero tui.'),
+  Command.withSubcommands([tuiCommand, ...actionCommands, stocksCommand, indexCommand, walletCommand, serveCommand, almCommand, executionCommand, guideCommand]),
 )
 
 /**

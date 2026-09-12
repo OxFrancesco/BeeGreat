@@ -1,13 +1,13 @@
 import { StocksScreen, IndicesScreen, IndexEditorScreen } from './screens/stocks'
 import { useKeyboard } from '@opentui/react'
-import { Fragment, useEffect } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import { SUPPORTED_CHAIN_IDS } from '../config'
 import { SUGAR_ACTIONS, isSugarTxAction } from '../contracts'
 import { warmChain } from './sugar'
 import { SelectDialog, type SelectItem } from './dialogs'
-import { ACTION_DESCRIPTIONS, ACTION_TITLES } from './fields'
+import { actionDescription, actionTitle } from './fields'
 import { theme } from './theme'
-import { useApp } from './store'
+import { useApp, type Route } from './store'
 import { ActionScreen } from './screens/action'
 import { AnalyticsScreen } from './screens/analytics'
 import { EpochsScreen, PoolsScreen, PositionsScreen } from './screens/browse'
@@ -15,8 +15,20 @@ import { HOME_MENU, HomeScreen } from './screens/home'
 import { WalletScreen } from './screens/wallet'
 import { chainLabel, Toasts } from './widgets'
 
+/** Second ctrl+c within this window quits even while a broadcast is running. */
+const FORCE_QUIT_WINDOW_MS = 3000
+
+/** Actions the home menu already routes to, so the palette lists only the rest. */
+function routedActions(): Set<string> {
+  return new Set(HOME_MENU.flatMap((item) => (item.route.name === 'action' ? [item.route.action] : [])))
+}
+
+/** `stocks` is a screen of its own; its action form has no fields. */
+const PALETTE_HIDDEN = new Set<string>(['stocks'])
+
 export function App() {
   const app = useApp()
+  const quitArmedAt = useRef(0)
 
   const walletAddress = app.wallet?.address
   useEffect(() => {
@@ -37,14 +49,12 @@ export function App() {
   }
 
   const openPalette = () => {
+    const routed = routedActions()
     const items: SelectItem[] = [
-      ...HOME_MENU.flatMap((item) => {
-        const route = item.route
-        return route ? [{ title: item.title, description: item.description, onSelect: () => app.push(route) }] : []
-      }),
-      ...SUGAR_ACTIONS.filter((action) => !['stocks', 'swap', 'quote', 'deposit', 'positions', 'pools', 'epochs_latest', 'create_venft'].includes(action)).map((action) => ({
-        title: ACTION_TITLES[action],
-        description: ACTION_DESCRIPTIONS[action],
+      ...HOME_MENU.map((item) => ({ title: item.title, description: item.description, onSelect: () => app.push(item.route) })),
+      ...SUGAR_ACTIONS.filter((action) => !routed.has(action) && !PALETTE_HIDDEN.has(action)).map((action) => ({
+        title: actionTitle(action),
+        description: actionDescription(action),
         hint: isSugarTxAction(action) ? 'tx' : 'read',
         onSelect: () => app.push({ name: 'action', action }),
       })),
@@ -55,14 +65,24 @@ export function App() {
     app.openDialog((close) => <SelectDialog title="Commands" items={items} placeholder="What do you want to do?" close={close} />)
   }
 
+  const quit = () => {
+    const now = Date.now()
+    if (app.busy && now - quitArmedAt.current > FORCE_QUIT_WINDOW_MS) {
+      quitArmedAt.current = now
+      return app.toast('warning', 'Broadcast in progress', 'Press ctrl+c again within 3s to quit anyway')
+    }
+    app.quit()
+  }
+
   useKeyboard((key) => {
+    if (key.ctrl && key.name === 'c') return quit()
     if (app.dialogOpen) return
     if (key.ctrl && (key.name === 'k' || key.name === 'p')) return openPalette()
     if (key.name === 'c' && app.route.name === 'home') return openChainDialog()
   })
 
-  const route = app.route
-  const screen = route.name === 'home' ? <HomeScreen openPalette={openPalette} />
+  const route: Route = app.route
+  const screen = route.name === 'home' ? <HomeScreen />
     : route.name === 'stocks' ? <StocksScreen />
     : route.name === 'indices' ? <IndicesScreen />
     : route.name === 'index_editor' ? <IndexEditorScreen index={route.index} />

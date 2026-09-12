@@ -225,13 +225,25 @@ generated with `aero --completions zsh|bash|fish`, and `aero guide <topic>`
 prints in-terminal walkthroughs (getting-started, wallet, swap, liquidity,
 staking, rewards, venft, alm, chains, completions).
 
+Every action's parameters are described once, in `src/action-schema.ts`.
+The CLI flags and help, the TUI forms, the headless `sugar-ts` flag
+coercion, and `validateSugarRequest` all derive from that table, so a new
+parameter is one edit. In the TUI, rows tagged `advanced` sit behind a
+"More options" toggle and CL range rows appear only for CL pools.
+
+TUI keys are the same on every screen: `esc` back, `ctrl+r` refresh or
+rerun, `ctrl+k` command palette, `j` toggles JSON on results, `o` opens a
+sort picker where a list can be sorted, and `enter` on a pool, position, or
+token row opens a picker instead of asking for an address. `ctrl+c` quits;
+during a broadcast it asks for a second press.
+
 The CLI can connect a wallet and broadcast the plans it builds:
 
 ```sh
 aero wallet connect --browser # Rabby or another browser extension
 aero wallet connect      # WalletConnect: QR pairing with a compatible wallet
-aero wallet create       # new local wallet; mnemonic sealed with scrypt + AES-256-GCM
-aero wallet restore      # import an existing mnemonic into the encrypted store
+aero wallet create       # new local wallet; recovery phrase encrypted with your passphrase
+aero wallet restore      # import an existing recovery phrase
 aero wallet status       # active wallet and source
 aero wallet disconnect   # disconnect the browser wallet and WalletConnect session
 aero wallet remove       # delete the local encrypted wallet (confirmed)

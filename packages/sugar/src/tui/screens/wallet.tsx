@@ -19,7 +19,7 @@ function MnemonicDialog(props: { mnemonic: string; close: () => void; onConfirm:
     }
   })
   return (
-    <Dialog title="Write down your mnemonic" width={58} hints={[{ key: 'enter', label: 'I wrote it down' }, { key: 'esc', label: 'abort' }]}>
+    <Dialog title="Write down your recovery phrase" width={58} hints={[{ key: 'enter', label: 'I wrote it down' }, { key: 'esc', label: 'abort' }]}>
       <box paddingLeft={1} paddingTop={1}>
         <text fg={theme.warning}>Shown ONCE and never stored in plaintext.</text>
       </box>
@@ -97,7 +97,7 @@ export function WalletScreen() {
         app.openDialog((close) => (
           <PromptDialog
             title="Restore wallet"
-            label="Mnemonic (input hidden)"
+            label="Recovery phrase (input hidden)"
             mask
             close={close}
             onSubmit={(raw) => {
@@ -108,7 +108,7 @@ export function WalletScreen() {
                   <ConfirmDialog title="Confirm restored address" message={`${address}. Default Ethereum account, no BIP-39 passphrase. Is this the wallet you expect?`} close={closeConfirm} onConfirm={() => finishSave(address, mnemonic, true)} />
                 ))
               } catch {
-                app.toast('error', 'Invalid mnemonic', 'That is not a valid BIP-39 mnemonic')
+                app.toast('error', 'Invalid recovery phrase', 'That is not a valid 12 or 24 word phrase')
               }
             }}
           />
@@ -188,7 +188,7 @@ export function WalletScreen() {
     app.openDialog((close) => (
       <ConfirmDialog
         title="Delete local wallet?"
-        message={`Delete the encrypted wallet for ${shortAddress(wallet.address)}? Without the mnemonic backup the funds are unrecoverable.`}
+        message={`Delete the encrypted wallet for ${shortAddress(wallet.address)}? Without the recovery phrase the funds are unrecoverable.`}
         confirmLabel="Delete"
         danger
         close={close}
@@ -204,8 +204,8 @@ export function WalletScreen() {
   const items = [
     { title: 'Connect browser wallet', description: 'Rabby or another browser extension', run: () => void connect(true) },
     { title: 'Connect WalletConnect', description: 'pair a compatible wallet by QR', run: () => void connect() },
-    { title: 'Create local wallet', description: 'new mnemonic, sealed with scrypt + AES-256-GCM', run: () => void createWallet(false) },
-    { title: 'Restore local wallet', description: 'import an existing mnemonic', run: () => void createWallet(true) },
+    { title: 'Create local wallet', description: 'new recovery phrase, encrypted with a passphrase', run: () => void createWallet(false) },
+    { title: 'Restore local wallet', description: 'import an existing recovery phrase', run: () => void createWallet(true) },
     ...(browser || wc ? [{ title: 'Disconnect wallet', description: browser?.peer ?? wc?.peer ?? wc?.address, run: disconnect }] : []),
     ...(local ? [{ title: 'Remove local wallet', description: shortAddress(local.address), run: remove }] : []),
   ]

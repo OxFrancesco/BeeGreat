@@ -11,6 +11,10 @@ import { ScreenFrame, Spinner } from '../widgets'
 import type { SugarParameters } from '../../contracts'
 import type { SugarJson } from '../../types'
 
+type Sort = 'catalog' | 'name' | 'value'
+
+const EMPTY = '—'
+
 export function StocksScreen() {
   const app = useApp()
   const [selected, setSelected] = useState(0)
@@ -21,13 +25,14 @@ export function StocksScreen() {
   const [revision, refresh] = useState(0)
   const [filter, setFilter] = useState('')
   const [heldOnly, setHeldOnly] = useState(false)
-  const [sort, setSort] = useState<'catalog' | 'name' | 'value'>('catalog')
+  const [sort, setSort] = useState<Sort>('catalog')
   const rows = STOCKS.map((stock) => {
     const row = data.map(jsonRecord).find((entry) => entry?.symbol === stock.symbol)
     const price = jsonString(row?.price_usdc)
     const balance = jsonString(row?.balance)
-    return { stock, price, balance, value: price !== undefined && balance !== undefined ? Number(price) * Number(balance) : undefined, error: jsonString(row?.error) }
-  }).filter(({ stock, balance }) => `${stock.symbol} ${stock.name}`.toLowerCase().includes(filter.toLowerCase()) && (!heldOnly || Number(balance ?? 0) > 0))
+    const held = balance !== undefined && Number(balance) > 0
+    return { stock, price, balance, held, value: price !== undefined && held ? Number(price) * Number(balance) : undefined, error: jsonString(row?.error) }
+  }).filter(({ stock, held }) => `${stock.symbol} ${stock.name}`.toLowerCase().includes(filter.toLowerCase()) && (!heldOnly || held))
     .sort((left, right) => sort === 'name' ? left.stock.name.localeCompare(right.stock.name) : sort === 'value' ? (right.value ?? -1) - (left.value ?? -1) : 0)
   const select = (index: number) => { selectedRef.current = index; setSelected(index) }
   useEffect(() => {
@@ -46,8 +51,7 @@ export function StocksScreen() {
   useKeyboard((key) => {
     if (app.dialogOpen) return
     if (key.name === 'escape') return app.pop()
-    if (key.name === 'i') return app.push({ name: 'indices' })
-    if (key.name === 'r') return refresh((value) => value + 1)
+    if (key.ctrl && key.name === 'r') return refresh((value) => value + 1)
     if (key.name === '/') return app.openDialog((close) => <PromptDialog title="Search stocks" placeholder="Symbol or company, empty clears" close={close} onSubmit={(value) => { setFilter(value.trim()); select(0) }} />)
     if (key.name === 'h') {
       if (!app.wallet) return app.toast('info', 'Connect a wallet', 'Open Wallet to see your stock holdings')
@@ -72,16 +76,33 @@ export function StocksScreen() {
   })
   const active = Math.min(selected, rows.length - 1)
   const current = rows[active]
-  return <ScreenFrame title="Stocks" hints={[{ key: '↑↓', label: 'stock' }, { key: 'b/s', label: 'buy/sell' }, { key: 'i', label: 'indices' }, { key: '/', label: 'search' }, { key: 'r', label: 'refresh' }, { key: 'esc', label: 'back' }]}>
+  const hints = [
+    { key: '↑↓', label: 'move' },
+    { key: 'b/s', label: 'buy/sell' },
+    { key: 'h', label: heldOnly ? 'all stocks' : 'holdings' },
+    { key: 'o', label: 'sort' },
+    { key: '/', label: 'find' },
+    { key: 'ctrl+r', label: 'refresh' },
+    { key: 'esc', label: 'back' },
+  ]
+  return <ScreenFrame title="Stocks" hints={hints}>
     {app.chain !== STOCK_CHAIN ? <text fg={theme.warning}>Stocks trade on Base. Press Enter to switch.</text> : <>
-      <text fg={theme.textMuted}>h {heldOnly ? 'show all stocks' : 'holdings only'} · o sort{filter ? ` · Search: ${filter}` : ''}</text>
-      <text fg={theme.textMuted}>{'Stock'.padEnd(9)}{'Company'.padEnd(12)}{'USDC / token'.padStart(14)}{'Held'.padStart(14)}{'Est. USDC'.padStart(13)}</text>
+      {filter ? <box height={1}><text fg={theme.textMuted}>Search: {filter}</text></box> : null}
+      <box height={1}>
+        <text fg={theme.textMuted}>{'Stock'.padEnd(9)}{'Company'.padEnd(12)}{'USDC / token'.padStart(14)}{'Held'.padStart(14)}{'Est. USDC'.padStart(13)}</text>
+      </box>
       <scrollbox flexGrow={1} minHeight={0}>
-        {rows.map(({ stock, price, balance, value }, index) => {
-          return <box key={stock.symbol} height={1} backgroundColor={active === index ? theme.backgroundElement : undefined}>
-            <text fg={active === index ? theme.primary : theme.text}>{stock.symbol.padEnd(9)}{stock.name.padEnd(12)}{(price ? Number(price).toFixed(2) : '—').padStart(14)}{(balance ? Number(balance).toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—').padStart(14)}{(value === undefined ? '—' : formatUsd(value)).padStart(13)}</text>
+        {rows.map(({ stock, price, balance, held, value }, index) => (
+          <box key={stock.symbol} height={1} backgroundColor={active === index ? theme.backgroundElement : undefined}>
+            <text fg={active === index ? theme.primary : theme.text}>
+              {stock.symbol.padEnd(9)}
+              {stock.name.padEnd(12)}
+              {(price ? Number(price).toFixed(2) : EMPTY).padStart(14)}
+              {(held && balance ? Number(balance).toLocaleString('en-US', { maximumFractionDigits: 6 }) : EMPTY).padStart(14)}
+              {(value === undefined ? EMPTY : formatUsd(value)).padStart(13)}
+            </text>
           </box>
-        })}
+        ))}
         {rows.length === 0 && !loading ? <text fg={theme.textMuted}>{heldOnly ? 'No matching holdings. Press h to show all stocks.' : 'No matching stocks. Press / to change the search.'}</text> : null}
       </scrollbox>
       {loading ? <Spinner label="Loading stock quotes and balances" activity /> : null}

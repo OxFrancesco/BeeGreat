@@ -72,11 +72,11 @@ const connect = Command.make('connect', {
 
 const create = Command.make('create', {}, Effect.fn(function* () {
   yield* createOrRestoreWallet(false)
-})).pipe(Command.withDescription('Generate a wallet; the mnemonic is encrypted (scrypt + AES-256-GCM) and stored in the macOS Keychain (file fallback elsewhere)'))
+})).pipe(Command.withDescription('Generate a local wallet; the recovery phrase is encrypted with your passphrase (see: aero guide wallet)'))
 
 const restore = Command.make('restore', {}, Effect.fn(function* () {
   yield* createOrRestoreWallet(true)
-})).pipe(Command.withDescription('Import an existing mnemonic into the encrypted store'))
+})).pipe(Command.withDescription('Import an existing recovery phrase into the encrypted local wallet'))
 
 const status = Command.make('status', {}, Effect.fn(function* () {
   const active = getActiveWallet()

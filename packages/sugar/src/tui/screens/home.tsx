@@ -8,22 +8,25 @@ import { theme } from '../theme'
 import { useApp, type Route } from '../store'
 import { StatusBar } from '../widgets'
 
-type MenuItem = { title: string; description: string; route?: Route; act?: 'palette' | 'quit' }
+type MenuItem = { title: string; description: string; route: Route }
 
+/**
+ * The start screen, and the first half of the command palette. Everything
+ * else (claims, staking, epoch history) is reached from Positions/Pools rows
+ * or the palette; quit and palette live in the status bar as keys.
+ */
 export const HOME_MENU: MenuItem[] = [
   { title: 'Swap', description: 'trade through the best route', route: { name: 'action', action: 'swap' } },
   { title: 'Quote', description: 'price a swap without sending', route: { name: 'action', action: 'quote' } },
   { title: 'Pools', description: 'browse liquidity pools', route: { name: 'pools' } },
-  { title: 'Create pool / add liquidity', description: 'choose tokens and amounts', route: { name: 'action', action: 'deposit' } },
+  { title: 'Add liquidity', description: 'deposit into a pool or create one', route: { name: 'action', action: 'deposit' } },
   { title: 'Positions', description: 'your liquidity, staking, and claims', route: { name: 'positions' } },
   { title: 'Stocks', description: 'buy, sell, and browse holdings', route: { name: 'stocks' } },
   { title: 'Indices', description: 'custom percentages and rebalancing', route: { name: 'indices' } },
   { title: 'Epochs', description: 'votes, emissions, and bribes', route: { name: 'epochs' } },
-  { title: 'Analytics', description: 'Dune Analytics: E/R, RPV, and Base share', route: { name: 'analytics' } },
+  { title: 'Analytics', description: 'E/R, RPV, and Base share', route: { name: 'analytics' } },
   { title: 'Lock veNFT', description: 'lock AERO/VELO for voting power', route: { name: 'action', action: 'create_venft' } },
   { title: 'Wallet', description: 'connect, create, or remove wallets', route: { name: 'wallet' } },
-  { title: 'All commands', description: 'every action in one palette', act: 'palette' },
-  { title: 'Quit', description: 'leave the TUI', act: 'quit' },
 ]
 
 const MENU = HOME_MENU
@@ -52,7 +55,7 @@ function LiveStats() {
   )
 }
 
-export function HomeScreen(props: { openPalette: () => void }) {
+export function HomeScreen() {
   const app = useApp()
   const dimensions = useTerminalDimensions()
   const compact = dimensions.height < 30 || dimensions.width < 100
@@ -72,17 +75,11 @@ export function HomeScreen(props: { openPalette: () => void }) {
     setSelected(next)
   }
 
-  const activate = (item: MenuItem) => {
-    if (item.route) return app.push(item.route)
-    if (item.act === 'palette') return props.openPalette()
-    if (item.act === 'quit') return app.quit()
-  }
-
   useKeyboard((key) => {
     if (app.dialogOpen) return
     if (key.name === 'up' || key.name === 'k') return select((selectedRef.current + MENU.length - 1) % MENU.length)
     if (key.name === 'down' || key.name === 'j') return select((selectedRef.current + 1) % MENU.length)
-    if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') return activate(MENU[selectedRef.current])
+    if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') return app.push(MENU[selectedRef.current].route)
     if (key.name === 'q') return app.quit()
   })
 

@@ -48,7 +48,7 @@ test('create and edit an index through keyboard controls, then delete it', async
     expect(readIndex('tech').allocations).toBe('NVDAc=50,AAPLc=50')
     expect(ui.captureCharFrame()).toContain('tech')
     if (process.env.AERO_TUI_CAPTURE_DIR) await Bun.write(join(process.env.AERO_TUI_CAPTURE_DIR, 'saved-index.txt'), ui.captureCharFrame())
-    await key('e')
+    await enter()
     await down()
     await enter()
     await key('0')
@@ -60,8 +60,8 @@ test('create and edit an index through keyboard controls, then delete it', async
     await key('s')
     expect(readIndex('tech').allocations).toBe('NVDAc=0,AAPLc=100')
     await key('d')
-    await down()
-    await enter()
+    expect(ui.captureCharFrame()).toContain('Delete tech?')
+    await key('y')
     expect(listIndices()).toEqual([])
   } finally {
     await act(async () => { ui.renderer.destroy() })
@@ -104,7 +104,8 @@ test('index shortcuts save exact percentages and pass them to rebalancing', asyn
   const key = async (value: string) => { await act(async () => { await ui.mockInput.typeText(value) }); await ui.renderOnce() }
   try {
     await act(async () => { await ui.renderOnce() })
-    await key('e')
+    await act(async () => { ui.mockInput.pressEnter() })
+    await ui.renderOnce()
     await act(async () => { ui.mockInput.pressArrow('down'); ui.mockInput.pressArrow('down'); ui.mockInput.pressArrow('right') })
     await ui.renderOnce()
     expect(ui.captureCharFrame()).toContain('1% over')

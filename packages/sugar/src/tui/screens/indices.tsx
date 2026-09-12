@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatCliError } from '../../cli'
 import { STOCKS, STOCK_CHAIN, parseAllocations } from '../../stocks/catalog'
 import { deleteIndex, listIndices, saveIndex, type StockIndex } from '../../stocks/indices'
-import { PromptDialog, SelectDialog } from '../dialogs'
+import { ConfirmDialog, PromptDialog } from '../dialogs'
 import { equalWeights, indexAllocations } from '../index-weights'
 import { useApp } from '../store'
 import { theme } from '../theme'
@@ -30,21 +30,35 @@ export function IndicesScreen() {
       selectedRef.current = (selectedRef.current + (key.name === 'down' ? 1 : indices.length - 1)) % indices.length
       return setSelected(selectedRef.current)
     }
-    if (key.name === 'e') return app.push({ name: 'index_editor', index: item })
-    if (key.name === 'return' || key.name === 'r') {
+    if (key.name === 'return') return app.push({ name: 'index_editor', index: item })
+    if (key.name === 'r') {
       app.setChain(STOCK_CHAIN)
       return app.push({ name: 'action', action: 'index_rebalance', preset: { allocations: item.allocations } })
     }
-    if (key.name === 'd') app.openDialog((close) => <SelectDialog title={`Delete ${item.name}?`} close={close} items={[
-      { title: 'Cancel', onSelect: () => {} },
-      { title: 'Delete saved weights', description: 'Wallet holdings stay unchanged', onSelect: () => { try { deleteIndex(item.name); reload() } catch (cause) { app.toast('error', 'Delete failed', formatCliError(cause)) } } },
-    ]} />)
+    if (key.name === 'd') app.openDialog((close) => (
+      <ConfirmDialog
+        title={`Delete ${item.name}?`}
+        message="Only the saved weights are deleted. Wallet holdings stay unchanged."
+        confirmLabel="Delete"
+        danger
+        close={close}
+        onConfirm={() => { try { deleteIndex(item.name); reload() } catch (cause) { app.toast('error', 'Delete failed', formatCliError(cause)) } }}
+      />
+    ))
   })
-  return <ScreenFrame title="Indices" hints={[{ key: 'n', label: 'create' }, { key: 'e', label: 'edit' }, { key: 'r', label: 'rebalance' }, { key: 'd', label: 'delete' }, { key: 'esc', label: 'back' }]}>
+  return <ScreenFrame title="Indices" hints={[{ key: '↑↓', label: 'index' }, { key: 'enter', label: 'edit' }, { key: 'r', label: 'rebalance' }, { key: 'n', label: 'new' }, { key: 'd', label: 'delete' }, { key: 'esc', label: 'back' }]}>
     {indices.length === 0 ? <text fg={theme.textMuted}>No saved indices. Press n to choose stocks and weights.</text> : null}
-    {indices.map((item, index) => <text key={item.name} fg={selected === index ? theme.primary : theme.text}>{selected === index ? '› ' : '  '}{item.name}</text>)}
+    {indices.map((item, index) => (
+      <box key={item.name} height={1}>
+        <text fg={selected === index ? theme.primary : theme.text}>{selected === index ? '› ' : '  '}{item.name}</text>
+      </box>
+    ))}
     <box height={1} />
-    {current ? parseAllocations(current.allocations).map(({ stock, weightBps }) => <text key={stock.symbol} fg={theme.text}>{stock.symbol.padEnd(10)}<span fg={theme.primary}>{'━'.repeat(Math.round(weightBps / 400)).padEnd(25)}</span>{String(weightBps / 100).padStart(6)}%</text>) : null}
+    {current ? parseAllocations(current.allocations).map(({ stock, weightBps }) => (
+      <box key={stock.symbol} height={1}>
+        <text fg={theme.text}>{stock.symbol.padEnd(10)}<span fg={theme.primary}>{'━'.repeat(Math.round(weightBps / 400)).padEnd(25)}</span>{String(weightBps / 100).padStart(6)}%</text>
+      </box>
+    )) : null}
   </ScreenFrame>
 }
 
@@ -114,7 +128,7 @@ export function IndexEditorScreen(props: { index?: StockIndex }) {
         <text fg={selected === index + 1 ? theme.primary : theme.text}>{stock.symbol.padEnd(9)}{stock.name.padEnd(12)}<span fg={theme.primary}>{'━'.repeat(Math.round((weights.get(stock.symbol) ?? 0) / 500)).padEnd(20)}</span>{String((weights.get(stock.symbol) ?? 0) / 100).padStart(6)}%{(weights.get(stock.symbol) ?? 0) === 0 && (weights.has(stock.symbol) || originalSymbols.has(stock.symbol)) ? ' exit' : ''}</text>
       </box>)}
     </scrollbox>
-    <text fg={theme.textMuted}>Space choose · ←→ 1% · e equal weights · f fill remaining</text>
-    <text fg={total === 10000 ? theme.success : theme.warning}>Allocated {total / 100}% / 100%{total < 10000 ? ` · ${(10000 - total) / 100}% remaining` : total > 10000 ? ` · ${(total - 10000) / 100}% over` : ''}</text>
+    <box height={1}><text fg={theme.textMuted}>space include · ←→ 1% · e equal weights · f fill remaining</text></box>
+    <box height={1}><text fg={total === 10000 ? theme.success : theme.warning}>Allocated {total / 100}% / 100%{total < 10000 ? ` · ${(10000 - total) / 100}% remaining` : total > 10000 ? ` · ${(total - 10000) / 100}% over` : ''}</text></box>
   </ScreenFrame>
 }

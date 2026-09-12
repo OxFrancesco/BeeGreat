@@ -24,9 +24,8 @@ const GUIDES = {
   'getting-started': `Getting started with aero
 =========================
 
-⚠️  aero is vibecoded and in EARLY BETA — use it at your own risk. Review
-every plan with --dry-run before signing, start with small amounts, and
-never risk funds you cannot afford to lose.
+aero is in early beta. Review every plan with --dry-run before signing,
+start with small amounts, and never risk funds you cannot afford to lose.
 
 aero talks to Aerodrome (Base) and Velodrome (OP Superchain) straight from
 your terminal. Reads print JSON; transaction commands build an unsigned plan
@@ -290,12 +289,12 @@ Sugar and DefiLlama work without a key.
                TVL-mix donut, 16-week activity heatmap
   2 flywheel   RPV ($ / 10k ve voted), bribe ROI, epoch waterfall
                (fees + bribes - emissions), three-doors on the same $10k
-  3 trade      ranked pools (v volume / f fees / e efficiency / p RPV),
+  3 trade      ranked pools (o picks the sort: TVL, volume, fees, efficiency, RPV),
                liquidity map (turnover x TVL scatter), weekly volume
   4 token      locked-vs-liquid supply donut, real yield, P/S and P/F
   5 arena      Aerodrome vs Uniswap vs Pancake from Dune dex.trades
 
-Keys: ← → or 1-5 to change tab, ctrl+r to refresh, enter on a ranked
+Keys: ← → or 1-5 to change tab, o to sort, ctrl+r to refresh, enter on a ranked
 row for that pool's epoch history. Dune coverage is Base (Aerodrome);
 other Superchain leaves show the on-chain snapshot only.
 
