@@ -13,6 +13,7 @@ export default function MindLayout() {
           line, like Goals); UIKit cannot place bar buttons on the large-title
           row. */}
       <Stack.Screen name="index" options={{ title: 'Mind', headerShown: false }} />
+      <Stack.Screen name="crm" options={{ title: 'Mind', headerShown: false }} />
       <Stack.Screen
         name="[bookmarkId]"
         options={{ title: 'Bookmark', headerLargeTitle: false }}

@@ -263,6 +263,7 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
 | `text` | `{body}` | A short written note that doesn't fit speech |
 | `metric` | `{label, value, delta?}` | One key number |
 | `chart` | `{kind:"bar", title, unit?, data:[{label, value}]}` | Comparisons over categories/days |
+| `crm` | `{contacts:[{id, name, context?, note?, followUpOn?, lastContactedOn?}]}` | Personal contacts; rich clients load live records and open the CRM editor; text channels show the snapshot |
 | `tasks` | `{title, items:[{id, title, done, due?}]}` | Task lists; rows overlay **live Convex state** and toggle on tap |
 | `highlight` | `{title, body}` | The dense summary card — honey fill, no border |
 | `image` | `{url, alt, title?}` | Generated media — full preview with Copy and Download/Save actions |
@@ -278,7 +279,7 @@ lives in `packages/agent/src/agents/bee.md` — keep all three in sync.
   honey fill; power-up cards (`devin`) may use their brand accent border.
 - Interactive cards reply **through the conversation** (`onReply`) or deep-link
   (`Linking.openURL`) — they never mutate silently, except live task toggles
-  which write through the same Convex mutation the Goals screens use.
+  and explicit CRM form saves, which use the same mutations as Goals and My Mind.
 - `question` card: one quiet card containing short prompts separated by hairlines;
   option rows are 44px targets on muted surfaces, the selected choice gets the
   region's single honey accent, and the footer always makes the custom typed

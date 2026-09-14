@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { MindSections } from '@/components/mind/mind-sections';
 import { ScreenHeader } from '@/components/goals/screen-header';
 import {
   BookmarkCell,
@@ -259,6 +260,7 @@ function MindControls({
           <SymbolView name="plus" size={19} tintColor={theme.primary} />
         </Pressable>
       </View>
+      <MindSections selected="bookmarks" />
       <View style={[styles.search, { backgroundColor: theme.backgroundElement }]}>
         <SymbolView name="magnifyingglass" size={17} tintColor={theme.textSecondary} />
         <TextInput

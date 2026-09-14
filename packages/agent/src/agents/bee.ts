@@ -31,6 +31,7 @@ import {
 import { resolveChatGptCredential } from '../providers/chatgpt-credentials.ts'
 import { goalsSubagent } from '../shared/goals-subagent.ts'
 import { callFocusService } from '../shared/focus-client.ts'
+import { createCrmTools } from '../shared/crm-tools.ts'
 import { createMindTools } from '../shared/mind-tools.ts'
 import { createQuestionTool } from '../shared/question-tool.ts'
 import { createTelegramTools } from '../shared/telegram-tools.ts'
@@ -352,7 +353,7 @@ export function Bee({ id }: AgentProps) {
     convexSiteUrl: env.CONVEX_SITE_URL,
     brokerSecret: env.AGENT_CREDENTIAL_BROKER_SECRET ?? env.BRIDGE_SECRET,
   }
-  const mindTools = createMindTools(userId, env.CONVEX_URL, focusOptions)
+  const mindTools = [...createMindTools(userId, env.CONVEX_URL, focusOptions), ...createCrmTools(userId, env.CONVEX_URL, focusOptions)]
   for (const tool of mindTools) useTool(tool)
   const telegramTools = createTelegramTools(
     userId,

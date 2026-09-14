@@ -29,6 +29,17 @@ export const firstFocusPreviewSchema = z.object({
 export type FirstFocusPreview = z.infer<typeof firstFocusPreviewSchema>;
 
 export const uiComponentSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("crm"),
+    contacts: z.array(z.object({
+      id: z.string().min(1),
+      name: z.string().min(1).max(160),
+      context: z.string().max(240).optional(),
+      note: z.string().max(4000).optional(),
+      followUpOn: z.iso.date().nullable().optional(),
+      lastContactedOn: z.iso.date().nullable().optional(),
+    })).max(30),
+  }),
   z.object({ type: z.literal("text"), body: z.string() }),
   z.object({
     type: z.literal("metric"),
@@ -107,6 +118,7 @@ export type ParsedBeeUiComponent = UIComponent | UnsupportedComponent;
 // lockstep with uiComponentSchema: adding, removing, or renaming a component
 // type there fails compilation here until this table matches.
 const KNOWN_COMPONENT_FLAGS = {
+  crm: true,
   text: true,
   metric: true,
   chart: true,
@@ -134,6 +146,8 @@ const markdownImage = () =>
 /** Machine ids belong in structured fields, never in copy the user reads. */
 function scrubComponent(component: UIComponent): UIComponent {
   switch (component.type) {
+    case "crm":
+      return { ...component, contacts: component.contacts.map(contact => ({ ...contact, name: scrubIdentifiers(contact.name), context: contact.context ? scrubIdentifiers(contact.context) : contact.context, note: contact.note ? scrubIdentifiers(contact.note) : contact.note })) };
     case "text":
       return { ...component, body: scrubIdentifiers(component.body) };
     case "metric":
@@ -347,6 +361,8 @@ export function renderBeeUiMarkdown(
   component: ParsedBeeUiComponent,
 ): BeeUiMarkdown {
   switch (component.type) {
+    case "crm":
+      return { markdown: component.contacts.length ? component.contacts.map(contact => [contact.name, contact.context, contact.note, contact.followUpOn ? `Follow up: ${contact.followUpOn}` : undefined, contact.lastContactedOn ? `Last contacted: ${contact.lastContactedOn}` : undefined].filter(Boolean).join('\n')).join('\n\n') : 'No contacts found.', links: [] };
     case "text":
       return { markdown: component.body, links: [] };
     case "metric":

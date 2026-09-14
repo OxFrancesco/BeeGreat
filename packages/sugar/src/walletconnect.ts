@@ -23,7 +23,7 @@ import {
 const METADATA = {
   name: 'BeeGreat aero CLI (unofficial)',
   description: 'Independent CLI. Not affiliated with or endorsed by Aerodrome Finance, Velodrome Finance, or Dromos Labs.',
-  url: 'https://github.com/OxFrancesco/aerodrome-sdk-ts',
+  url: 'https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK',
   icons: [],
 }
 
