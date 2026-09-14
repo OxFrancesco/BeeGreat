@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.beegreat.app.LocalAppContainer
+import com.beegreat.contract.TaskUpdates
+import com.beegreat.contract.TaskUpdateState
 import com.beegreat.contract.BeeUiComponent
 import com.beegreat.contract.questionAnswer
 import com.beegreat.design.BeeTheme
@@ -58,6 +60,8 @@ fun TaskListCard(component: BeeUiComponent.Tasks) {
   val colors = BeeTheme.colors
   val container = LocalAppContainer.current
   val scope = rememberCoroutineScope()
+  val updates = remember { TaskUpdates() }
+  val updateStates by updates.states.collectAsStateWithLifecycle()
   val ids = remember(component) { component.items.map { it.id } }
   val liveFlow = remember(ids) { container.tasks.statuses(ids).map { result -> result.getOrNull()?.associate { it.id to (it.status == "done") } } }
   val live by liveFlow.collectAsStateWithLifecycle(initialValue = null)
@@ -66,11 +70,12 @@ fun TaskListCard(component: BeeUiComponent.Tasks) {
     Column {
       for (item in component.items) {
         val done = live?.get(item.id) ?: item.done
+        val updateState = updateStates[item.id]
         Row(
           modifier =
             Modifier.fillMaxWidth()
               .heightIn(min = 44.dp)
-              .clickable { scope.launch { runCatching { container.tasks.toggle(item.id) } } }
+              .clickable(enabled = updateState != TaskUpdateState.Pending) { scope.launch { updates.run(item.id) { container.tasks.toggle(item.id) } } }
               .padding(vertical = Spacing.one),
           horizontalArrangement = Arrangement.spacedBy(Spacing.two),
           verticalAlignment = Alignment.CenterVertically,
@@ -88,6 +93,7 @@ fun TaskListCard(component: BeeUiComponent.Tasks) {
               color = if (done) colors.textSecondary else colors.text,
             )
             item.due?.let { Text(it, style = BeeTheme.typography.small, color = colors.textSecondary) }
+            if (updateState != null) Text(if (updateState == TaskUpdateState.Pending) "Saving…" else "Could not save. Tap to retry.", style = BeeTheme.typography.small, color = if (updateState == TaskUpdateState.Failed) colors.destructive else colors.textSecondary)
           }
         }
       }

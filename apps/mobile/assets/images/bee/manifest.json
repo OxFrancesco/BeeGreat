@@ -1,0 +1,58 @@
+{
+  "idle": {
+    "width": 512,
+    "height": 512,
+    "durationMs": 4000,
+    "frames": 96,
+    "loop": true,
+    "bytes": 1300474
+  },
+  "fly": {
+    "width": 512,
+    "height": 512,
+    "durationMs": 4000,
+    "frames": 96,
+    "loop": true,
+    "bytes": 1483956
+  },
+  "happy": {
+    "width": 512,
+    "height": 512,
+    "durationMs": 4000,
+    "frames": 96,
+    "loop": true,
+    "bytes": 1347770
+  },
+  "sad": {
+    "width": 512,
+    "height": 512,
+    "durationMs": 4000,
+    "frames": 96,
+    "loop": true,
+    "bytes": 1606968
+  },
+  "thinking": {
+    "width": 512,
+    "height": 512,
+    "durationMs": 4000,
+    "frames": 96,
+    "loop": true,
+    "bytes": 1566932
+  },
+  "fail": {
+    "width": 512,
+    "height": 512,
+    "durationMs": 4000,
+    "frames": 96,
+    "loop": false,
+    "bytes": 1467766
+  },
+  "succeed": {
+    "width": 512,
+    "height": 512,
+    "durationMs": 4000,
+    "frames": 96,
+    "loop": false,
+    "bytes": 1277058
+  }
+}

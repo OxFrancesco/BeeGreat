@@ -1,0 +1,78 @@
+import type { SymbolViewProps } from 'expo-symbols';
+
+type PlatformNames = Exclude<SymbolViewProps['name'], string>;
+type AndroidSymbol = NonNullable<PlatformNames['android']>;
+
+const androidSymbols: Record<string, AndroidSymbol> = {
+  magnifyingglass: 'search',
+  paperplane: 'send',
+  'paperplane.fill': 'send',
+  'clock.badge.checkmark': 'alarm_on',
+  clock: 'schedule',
+  pencil: 'edit',
+  'pause.circle': 'pause_circle',
+  'play.circle': 'play_circle',
+  'xmark.circle': 'cancel',
+  'bolt.circle': 'bolt',
+  'bolt.fill': 'bolt',
+  'checkmark.circle': 'check_circle',
+  'clock.arrow.circlepath': 'history',
+  bookmark: 'bookmark',
+  'bookmark.fill': 'bookmark',
+  trash: 'delete',
+  checklist: 'checklist',
+  'wallet.pass': 'account_balance_wallet',
+  'arrow.left.arrow.right': 'swap_horiz',
+  'arrow.left.arrow.right.circle': 'swap_horizontal_circle',
+  'arrow.triangle.2.circlepath.circle': 'sync',
+  'checkmark.shield': 'verified_user',
+  'drop.triangle': 'water_drop',
+  'chart.pie': 'pie_chart',
+  calendar: 'calendar_month',
+  'minus.circle': 'remove_circle',
+  lock: 'lock',
+  'lock.open': 'lock_open',
+  gift: 'redeem',
+  'heart.text.square': 'health_and_safety',
+  'wand.and.stars': 'auto_fix_high',
+  'tray.full': 'inbox',
+  'exclamationmark.triangle': 'warning',
+  circle: 'radio_button_unchecked',
+  'checkmark.circle.fill': 'check_circle',
+  checkmark: 'check',
+  'plus.circle': 'add_circle',
+  plus: 'add',
+  scope: 'my_location',
+  waveform: 'graphic_eq',
+  'mic.fill': 'mic',
+  'cloud.fill': 'cloud',
+  'arrow.triangle.pull': 'fork_right',
+  'arrow.up.right': 'north_east',
+  'arrow.up': 'arrow_upward',
+  'chevron.left': 'chevron_left',
+  'chevron.right': 'chevron_right',
+  'chevron.up': 'expand_less',
+  'chevron.down': 'expand_more',
+  'doc.on.doc': 'content_copy',
+  'square.and.arrow.down': 'download',
+  brain: 'neurology',
+  photo: 'image',
+  film: 'movie',
+  doc: 'description',
+  xmark: 'close',
+  'pin.fill': 'keep',
+  'heart.fill': 'favorite',
+  'drop.fill': 'water_drop',
+  'safari.fill': 'explore',
+  'bubble.left.and.bubble.right.fill': 'forum',
+  'play.fill': 'play_arrow',
+  sparkles: 'auto_awesome',
+};
+
+export function platformSymbol(
+  name: SymbolViewProps['name'],
+): SymbolViewProps['name'] {
+  if (typeof name !== 'string') return name;
+  const android = androidSymbols[name] ?? 'build';
+  return { ios: name, android, web: android };
+}

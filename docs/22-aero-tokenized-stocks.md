@@ -20,11 +20,12 @@ Connect a wallet or pass `--wallet` to build a transaction plan. Remove `--dry-r
 
 ## TUI
 
-Run `aero tui`, then select Stocks or Indices.
+Run `aero tui`, then select Stocks or Indices. Swap, Quote, Pools, Create pool / add liquidity, and Positions come first on Home and in the command palette. Pools also opens pool creation with `ctrl+n`. The home menu scrolls in short terminals; keyboard hints and wallet information use separate lines in narrow terminals.
 
-- Stocks shows an indicative one-token sale quote in USDC and wallet balances. Arrow keys select a stock. `b` buys; `s` sells; `r` refreshes; `i` opens indices.
+- Stocks shows an indicative one-token sale quote in USDC, wallet balances, and estimated holding values. Arrow keys select a stock. `b` buys; `s` sells; `r` refreshes; `i` opens indices. `/` searches by symbol or company, `h` toggles holdings only, and `o` sorts by catalog, company, or holding value. Submit an empty search to clear it. Filters and sorting apply to the current visit.
 - Indices lists saved portfolios and target-weight bars. `n` creates, `e` edits, `r` previews rebalancing, and `d` deletes saved weights after confirmation.
-- The editor accepts a name and percentages with two decimal places. Weights must total 100%. `s` saves and Escape cancels.
+- The editor accepts a name and percentages with two decimal places. Space adds a stock at 1% or removes it. Left and right adjust by 1%; Enter accepts an exact percentage. `e` splits 100% equally among positive-weight stocks, including any rounding remainder. `f` assigns the remaining percentage to the selected stock. Zero-weight exit targets stay at zero when splitting equally.
+- Weights must total 100%. The editor shows any remainder or excess. `s` saves, `r` saves and opens the rebalance form, and Escape cancels. The rebalance form accepts an optional USDC contribution and slippage before building a fresh plan. Saving weights never sends a transaction.
 - Rebalance preview shows current and target weights, each trade, and minimum outputs. Signing uses the existing wallet flow and execution journal.
 
 ## Portfolio accounting
@@ -55,5 +56,8 @@ bun run --cwd packages/sugar typecheck
 bun run --cwd packages/sugar lint
 bun run --cwd packages/sugar build
 bun run --cwd packages/sugar test:performance
+AERO_TUI_CAPTURE_DIR=/tmp/aero-tui-captures bun test --cwd packages/sugar src/tui/navigation.test.tsx
 AERO_BASE_ANVIL=/path/to/base-anvil bun packages/sugar/scripts/stocks-fork.ts
 ```
+
+The OpenTUI test renderer drives the real app with simulated keyboard events and captures terminal text and styled spans at 80×24. The navigation test covers swaps, pool creation, filtering, sorting, and the saved-index-to-rebalance-preview path. Wallet identity and RPC responses are fixtures; this test does not prove live quotes or transaction execution.

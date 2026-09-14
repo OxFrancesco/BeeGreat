@@ -3,9 +3,9 @@ import { useClerk } from '@clerk/tanstack-react-start'
 import { useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 
-import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import type { FunctionReturnType } from 'convex/server'
 import type { PropsWithChildren } from 'react'
+import { BeeMascot } from '~/components/bee-mascot'
 import { captureWebFailure } from '~/lib/sentry'
 
 type ChatGptStatus = FunctionReturnType<typeof api.chatgptAuth.status>
@@ -121,7 +121,7 @@ export function ChatGptAuthGate({ children }: PropsWithChildren) {
     <main className="auth-gate">
       <div className="auth-gate__comb-field" aria-hidden="true" />
       <section className="auth-gate__card">
-        <img className="auth-gate__bee" src={beeUrl} alt="" />
+        <BeeMascot className="auth-gate__bee" alt="" />
         <p className="utility-label">Optional connection</p>
         <h1>Bee, meet ChatGPT.</h1>
         <p>

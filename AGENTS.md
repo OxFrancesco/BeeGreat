@@ -40,6 +40,9 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/three` — Official Three.js source for lighting and GLTF loading
 - `resources/react-native-webview` — Native WebView integration for the shared offline 3D Hive viewer
 
+- `resources/rabby` — Rabby browser wallet provider, EIP-6963 discovery, account events, and transaction approval
+- `resources/cannon-es` — Official Cannon ES rigid-body physics source for colliders, contacts, and draggable bodies
+
 <!-- codeview:end -->
 
 ## Design system

@@ -50,6 +50,8 @@ import com.beegreat.app.common.TextPromptDialog
 import com.beegreat.app.shell.LocalNavigator
 import com.beegreat.convex.projects.ProjectDetail
 import com.beegreat.convex.projects.ProjectDue
+import com.beegreat.contract.TaskUpdates
+import com.beegreat.contract.TaskUpdateState
 import com.beegreat.convex.tasks.Task
 import com.beegreat.design.BeeTheme
 import com.beegreat.design.Hive
@@ -132,6 +134,8 @@ fun ProjectScreen(projectId: String) {
       }
     }
   val loadedState by stateFlow.collectAsStateWithLifecycle(initialValue = null)
+  val updates = remember(projectId) { TaskUpdates() }
+  val updateStates by updates.states.collectAsStateWithLifecycle()
   var dialog by remember { mutableStateOf<ProjectDialog?>(null) }
   var subtaskTarget by remember { mutableStateOf<String?>(null) }
 
@@ -170,9 +174,9 @@ fun ProjectScreen(projectId: String) {
             )
           }
           for ((task, subtasks) in tree.open) {
-            TaskRow(task, highlighted = task.id == highlightTaskId, onToggle = { run { container.tasks.toggle(task.id) } }, onLongClick = { dialog = ProjectDialog.TaskActions(task) }, onAddSubtask = { subtaskTarget = if (subtaskTarget == task.id) null else task.id })
+            TaskRow(task, highlighted = task.id == highlightTaskId, updateState = updateStates[task.id], onToggle = { scope.launch { updates.run(task.id) { container.tasks.toggle(task.id) } } }, onLongClick = { dialog = ProjectDialog.TaskActions(task) }, onAddSubtask = { subtaskTarget = if (subtaskTarget == task.id) null else task.id })
             for (subtask in subtasks) {
-              TaskRow(subtask, highlighted = subtask.id == highlightTaskId, isSubtask = true, onToggle = { run { container.tasks.toggle(subtask.id) } }, onLongClick = { dialog = ProjectDialog.TaskActions(subtask) })
+              TaskRow(subtask, highlighted = subtask.id == highlightTaskId, isSubtask = true, updateState = updateStates[subtask.id], onToggle = { scope.launch { updates.run(subtask.id) { container.tasks.toggle(subtask.id) } } }, onLongClick = { dialog = ProjectDialog.TaskActions(subtask) })
             }
             if (subtaskTarget == task.id) {
               Box(modifier = Modifier.padding(start = 30.dp)) {
@@ -199,9 +203,9 @@ fun ProjectScreen(projectId: String) {
             HorizontalDivider(color = colors.border, thickness = Hairline, modifier = Modifier.padding(vertical = Spacing.two))
             SectionLabel("DONE")
             for ((task, subtasks) in tree.done) {
-              TaskRow(task, highlighted = task.id == highlightTaskId, onToggle = { run { container.tasks.toggle(task.id) } }, onLongClick = { dialog = ProjectDialog.TaskActions(task) })
+              TaskRow(task, highlighted = task.id == highlightTaskId, updateState = updateStates[task.id], onToggle = { scope.launch { updates.run(task.id) { container.tasks.toggle(task.id) } } }, onLongClick = { dialog = ProjectDialog.TaskActions(task) })
               for (subtask in subtasks) {
-                TaskRow(subtask, highlighted = subtask.id == highlightTaskId, isSubtask = true, onToggle = { run { container.tasks.toggle(subtask.id) } }, onLongClick = { dialog = ProjectDialog.TaskActions(subtask) })
+                TaskRow(subtask, highlighted = subtask.id == highlightTaskId, isSubtask = true, updateState = updateStates[subtask.id], onToggle = { scope.launch { updates.run(subtask.id) { container.tasks.toggle(subtask.id) } } }, onLongClick = { dialog = ProjectDialog.TaskActions(subtask) })
               }
             }
           }
@@ -282,7 +286,7 @@ fun ProjectScreen(projectId: String) {
 
 /** One row of the project to-do list; subtasks render indented and smaller. */
 @Composable
-fun TaskRow(task: Task, highlighted: Boolean, onToggle: () -> Unit, onLongClick: () -> Unit, isSubtask: Boolean = false, onAddSubtask: (() -> Unit)? = null) {
+fun TaskRow(task: Task, highlighted: Boolean, onToggle: () -> Unit, onLongClick: () -> Unit, isSubtask: Boolean = false, onAddSubtask: (() -> Unit)? = null, updateState: TaskUpdateState? = null) {
   val colors = BeeTheme.colors
   val now = remember { System.currentTimeMillis() }
   val dueDate = task.dueDate
@@ -293,7 +297,7 @@ fun TaskRow(task: Task, highlighted: Boolean, onToggle: () -> Unit, onLongClick:
     modifier =
       Modifier.fillMaxWidth()
         .heightIn(min = if (isSubtask) 40.dp else 48.dp)
-        .combinedClickable(onClick = onToggle, onLongClick = onLongClick)
+        .combinedClickable(enabled = updateState != TaskUpdateState.Pending, onClick = onToggle, onLongClick = onLongClick)
         .padding(start = if (isSubtask) 30.dp else 0.dp, top = Spacing.one, bottom = Spacing.one),
     horizontalArrangement = Arrangement.spacedBy(Spacing.two),
     verticalAlignment = Alignment.CenterVertically,
@@ -315,6 +319,7 @@ fun TaskRow(task: Task, highlighted: Boolean, onToggle: () -> Unit, onLongClick:
         if (highlighted) add("Current Highlight")
         addAll(task.labels)
       }
+      if (updateState != null) Text(if (updateState == TaskUpdateState.Pending) "Saving…" else "Could not save. Tap to retry.", style = BeeTheme.typography.small, color = if (updateState == TaskUpdateState.Failed) colors.destructive else colors.textSecondary)
       if (meta.isNotEmpty()) Text(meta.joinToString(" · "), style = BeeTheme.typography.small, color = if (overdue) colors.destructive else if (highlighted) Hive.amber else colors.textSecondary)
     }
     if (onAddSubtask != null && !task.done) {

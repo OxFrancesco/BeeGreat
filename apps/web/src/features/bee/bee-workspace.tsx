@@ -9,12 +9,12 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useStickToBottomContext } from 'use-stick-to-bottom'
 
-import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { useBeeAgentContext } from './bee-agent-context'
 import { AgentMessage, ThinkingActivity } from './message'
 import { PromptComposer } from './prompt-composer'
 import { useChatThreadActions, useChatThreads } from './use-convex-chat'
 import type { ChatThread } from './use-convex-chat'
+import { BeeMascot } from '~/components/bee-mascot'
 import { Suggestion, Suggestions } from '~/components/ai-elements/suggestion'
 import {
   ConversationContent,
@@ -415,7 +415,7 @@ function EmptyConversation({
     <div className="conversation-hero">
       <div className="hero-bee-stage" aria-hidden="true">
         <div className="hero-bee-shadow" />
-        <img src={beeUrl} alt="" className="hero-bee" />
+        <BeeMascot animation="fly" alt="" className="hero-bee" />
       </div>
       <div className="conversation-hero__copy">
         <h1>

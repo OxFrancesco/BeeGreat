@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { api } from '@beegreat/backend/convex/_generated/api';
 import type { FunctionReturnType } from 'convex/server';
 import { Image as ExpoImage } from 'expo-image';
@@ -23,7 +24,9 @@ export function JournalEntryCard({
   onDelete,
   onToggleFavorite,
   onTogglePinned,
+  onPress,
 }: {
+  onPress?: () => void;
   entry: JournalTimelineEntry;
   health?: HealthEntry;
   onDelete: () => void;
@@ -44,7 +47,11 @@ export function JournalEntryCard({
   const excerpt = hasWrittenTitle ? body : bodyAfterFirstLine(body);
 
   return (
-    <Link href={href} asChild>
+    <Link
+      href={href}
+      asChild
+      onPress={onPress ? (event) => { event.preventDefault(); onPress(); } : undefined}
+    >
       <Link.Trigger>
         <Pressable
           accessibilityHint="Opens this journal entry"
@@ -62,18 +69,16 @@ export function JournalEntryCard({
             <View style={styles.flags}>
               {entry.isPinned ? (
                 <SymbolView
-                  name="pin.fill"
+                  name={platformSymbol("pin.fill")}
                   size={13}
                   tintColor={theme.primary}
-                  fallback={<ThemedText type="small">Pinned</ThemedText>}
                 />
               ) : null}
               {entry.isFavorite ? (
                 <SymbolView
-                  name="heart.fill"
+                  name={platformSymbol("heart.fill")}
                   size={13}
                   tintColor={theme.primary}
-                  fallback={<ThemedText type="small">Favorite</ThemedText>}
                 />
               ) : null}
             </View>
@@ -137,10 +142,9 @@ export function JournalEntryCard({
               {(health?.hydrationMl ?? 0) > 0 ? (
                 <View style={[styles.chip, { backgroundColor: theme.backgroundElement }]}>
                   <SymbolView
-                    name="drop.fill"
+                    name={platformSymbol("drop.fill")}
                     size={12}
                     tintColor="#2F8795"
-                    fallback={<ThemedText type="small">Water</ThemedText>}
                   />
                   <ThemedText style={styles.chipText} themeColor="textSecondary">
                     {health!.hydrationMl.toLocaleString()} ml

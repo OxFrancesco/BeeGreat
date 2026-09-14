@@ -1769,6 +1769,7 @@ h3 {
 }
 
 .task-card-row {
+  min-height: 48px;
   display: flex;
   width: 100%;
   align-items: flex-start;

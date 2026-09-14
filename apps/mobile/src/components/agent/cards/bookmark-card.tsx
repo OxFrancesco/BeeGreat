@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { bookmarkHost } from '@beegreat/tool-presentation';
 import * as Haptics from 'expo-haptics';
 import { Image as ExpoImage } from 'expo-image';
@@ -56,14 +57,9 @@ export function BookmarkCard({
           {title}
         </ThemedText>
         <SymbolView
-          name="arrow.up.right"
+          name={platformSymbol("arrow.up.right")}
           size={13}
           tintColor={theme.textSecondary}
-          fallback={
-            <ThemedText type="small" themeColor="textSecondary">
-              ↗
-            </ThemedText>
-          }
         />
       </View>
       <ThemedText type="small" themeColor="textSecondary" numberOfLines={3}>

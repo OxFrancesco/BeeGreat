@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import type { api } from '@beegreat/backend/convex/_generated/api';
 import { bookmarkSourceLabel } from '@beegreat/tool-presentation';
 import type { FunctionReturnType } from 'convex/server';
@@ -53,15 +54,17 @@ export const BookmarkCell = memo(function BookmarkCell({
   bookmark,
   view,
   width,
+  onPress,
 }: {
   bookmark: BookmarkItem;
   view: MindView;
   width: number;
+  onPress?: () => void;
 }) {
   const href = { pathname: '/mind/[bookmarkId]' as const, params: { bookmarkId: bookmark._id } };
-  return (
-    <Link href={href} asChild>
+  const content = (
       <Pressable
+        onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`Open ${bookmark.title ?? sourceLabel(bookmark)}`}
         style={({ pressed }) => pressed && styles.pressed}
@@ -74,8 +77,8 @@ export const BookmarkCell = memo(function BookmarkCell({
           <ListBookmark bookmark={bookmark} />
         )}
       </Pressable>
-    </Link>
   );
+  return onPress ? content : <Link href={href} asChild>{content}</Link>;
 });
 
 /** Wax-cell palette for the honeycomb view. */
@@ -209,7 +212,7 @@ function FaviconBadge({ bookmark, size }: { bookmark: BookmarkItem; size: number
       </Canvas>
       {!favicon ? (
         <View style={styles.badgeGlyph} pointerEvents="none">
-          <SymbolView name={KIND_SYMBOL[bookmark.kind]} size={size * 0.4} tintColor={Comb.text} />
+          <SymbolView name={platformSymbol(KIND_SYMBOL[bookmark.kind])} size={size * 0.4} tintColor={Comb.text} />
         </View>
       ) : null}
     </View>
@@ -229,7 +232,7 @@ function CardBookmark({ bookmark, width }: { bookmark: BookmarkItem; width: numb
         />
       ) : (
         <View style={[styles.cardImage, styles.cardFallback]}>
-          <SymbolView name={KIND_SYMBOL[bookmark.kind]} size={28} tintColor="#A86A16" />
+          <SymbolView name={platformSymbol(KIND_SYMBOL[bookmark.kind])} size={28} tintColor="#A86A16" />
         </View>
       )}
       <View style={styles.cardCopy}>
@@ -252,7 +255,7 @@ function ListBookmark({ bookmark }: { bookmark: BookmarkItem }) {
   return (
     <View style={[styles.row, { borderBottomColor: theme.border }]}>
       <View style={styles.listIcon}>
-        <SymbolView name={KIND_SYMBOL[bookmark.kind]} size={18} tintColor="#A86A16" />
+        <SymbolView name={platformSymbol(KIND_SYMBOL[bookmark.kind])} size={18} tintColor="#A86A16" />
       </View>
       <View style={styles.rowCopy}>
         <ThemedText numberOfLines={1}>{bookmark.title ?? sourceLabel(bookmark)}</ThemedText>
@@ -260,7 +263,7 @@ function ListBookmark({ bookmark }: { bookmark: BookmarkItem }) {
           {sourceLabel(bookmark)} · {new Date(bookmark.createdAt).toLocaleDateString()}
         </ThemedText>
       </View>
-      <SymbolView name="chevron.right" size={13} tintColor={theme.textSecondary} />
+      <SymbolView name={platformSymbol("chevron.right")} size={13} tintColor={theme.textSecondary} />
     </View>
   );
 }

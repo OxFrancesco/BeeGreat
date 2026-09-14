@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { api } from '@beegreat/backend/convex/_generated/api';
 import { useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
@@ -12,7 +13,23 @@ import type { UIComponent } from '@/lib/ui-spec';
 
 import { sharedStyles } from './shared';
 
-export function DevinCard({
+type DevinCardProps = Extract<UIComponent, { type: 'devin' }> & {
+  onReply?: (text: string) => void;
+};
+
+export function DevinCard(props: DevinCardProps) {
+  const live = useQuery(api.devinData.get, { sessionId: props.sessionId });
+  return (
+    <DevinCardView
+      {...props}
+      status={live?.status ?? props.status}
+      statusDetail={live?.statusDetail ?? props.statusDetail}
+      pullRequests={live?.pullRequests ?? props.pullRequests}
+    />
+  );
+}
+
+export function DevinCardView({
   title,
   status,
   statusDetail,
@@ -21,14 +38,11 @@ export function DevinCard({
   summary,
   pullRequests,
   onReply,
-}: Extract<UIComponent, { type: 'devin' }> & {
-  onReply?: (text: string) => void;
-}) {
+}: DevinCardProps) {
   const theme = useTheme();
-  const live = useQuery(api.devinData.get, { sessionId });
-  const currentStatus = live?.status ?? status;
-  const currentDetail = live?.statusDetail ?? statusDetail;
-  const currentPullRequests = live?.pullRequests ?? pullRequests;
+  const currentStatus = status;
+  const currentDetail = statusDetail;
+  const currentPullRequests = pullRequests;
   const detail =
     currentDetail?.replace(/_/g, ' ') ?? currentStatus.replace(/_/g, ' ');
   const open = (url: string) => {
@@ -47,10 +61,9 @@ export function DevinCard({
       <View style={styles.devinHeading}>
         <View style={styles.devinMark}>
           <SymbolView
-            name="cloud.fill"
+            name={platformSymbol("cloud.fill")}
             size={16}
             tintColor="#FFFFFF"
-            fallback={<ThemedText style={styles.devinMarkText}>D</ThemedText>}
           />
         </View>
         <View style={styles.devinTitle}>
@@ -82,10 +95,9 @@ export function DevinCard({
               ]}
             >
               <SymbolView
-                name="arrow.triangle.pull"
+                name={platformSymbol("arrow.triangle.pull")}
                 size={14}
                 tintColor={theme.text}
-                fallback={<ThemedText type="small">PR</ThemedText>}
               />
               <ThemedText type="smallBold" style={styles.devinLinkLabel}>
                 Pull request {index + 1}
@@ -113,12 +125,9 @@ export function DevinCard({
             Open in Devin
           </ThemedText>
           <SymbolView
-            name="arrow.up.right"
+            name={platformSymbol("arrow.up.right")}
             size={12}
             tintColor="#FFFFFF"
-            fallback={
-              <ThemedText style={styles.devinPrimaryText}>↗</ThemedText>
-            }
           />
         </Pressable>
         {onReply ? (

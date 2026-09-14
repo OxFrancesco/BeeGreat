@@ -589,6 +589,51 @@ export default function ProfileScreen() {
           </View>
         </Section>
 
+        {__DEV__ ? (
+          <Section label="Developer">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open components"
+              onPress={() => {
+                if (process.env.EXPO_OS === 'ios') Haptics.selectionAsync();
+                router.push('/playground');
+              }}
+              style={({ pressed }) => [
+                styles.settingRow,
+                { backgroundColor: theme.card, borderColor: theme.border },
+                pressed && styles.pressed,
+              ]}
+            >
+              <View
+                style={[styles.powerupIcon, { backgroundColor: theme.secondary }]}
+              >
+                <SymbolView
+                  name="square.grid.2x2"
+                  size={18}
+                  tintColor={theme.secondaryForeground}
+                  fallback={
+                    <ThemedText style={{ color: theme.secondaryForeground }}>
+                      ▦
+                    </ThemedText>
+                  }
+                />
+              </View>
+              <View style={styles.settingCopy}>
+                <ThemedText type="default">Components</ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  Search components and try their states.
+                </ThemedText>
+              </View>
+              <SymbolView
+                name="chevron.right"
+                size={14}
+                tintColor={theme.textSecondary}
+                fallback={<ThemedText themeColor="textSecondary">›</ThemedText>}
+              />
+            </Pressable>
+          </Section>
+        ) : null}
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign out"

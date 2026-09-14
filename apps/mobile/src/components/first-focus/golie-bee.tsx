@@ -73,7 +73,7 @@ export function GolieBee({
       style={[styles.container, compact && styles.compact]}
     >
       <Animated.View style={[styles.beeFrame, celebrationStyle]}>
-        <FloatingBee height={compact ? 70 : 102} />
+        <FloatingBee height={compact ? 70 : 102} animation={celebrating ? 'succeed' : 'idle'} />
         {celebrating ? (
           <ThemedText style={styles.sparkles} accessibilityElementsHidden>
             ✦

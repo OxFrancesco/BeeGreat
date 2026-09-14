@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -54,10 +55,9 @@ export function AddRow({
         ]}
       >
         <SymbolView
-          name="plus"
+          name={platformSymbol("plus")}
           size={compact ? 15 : 18}
           tintColor={theme.textSecondary}
-          fallback={<ThemedText themeColor="textSecondary">+</ThemedText>}
         />
         <TextInput
           value={text}
@@ -93,10 +93,9 @@ export function AddRow({
       ]}
     >
       <SymbolView
-        name="plus"
+        name={platformSymbol("plus")}
         size={compact ? 15 : 18}
         tintColor={theme.textSecondary}
-        fallback={<ThemedText themeColor="textSecondary">+</ThemedText>}
       />
       <ThemedText type={compact ? 'small' : 'default'} themeColor="textSecondary">
         {label}

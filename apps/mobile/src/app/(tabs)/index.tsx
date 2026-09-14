@@ -449,6 +449,8 @@ function AgentMessage({
         <Message from="assistant">
           <MessageContent
             from="assistant"
+            beeAnimation={isLast && isBusy ? 'thinking' : 'idle'}
+            animateBee={isLast && isBusy}
             showSpeaker
             // Only the spoken reply is copyable; beeui component specs are
             // machine content and never reach the clipboard.

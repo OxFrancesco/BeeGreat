@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import {
   BlurMask,
   Canvas,
@@ -22,7 +23,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ThemedText } from '@/components/themed-text';
 import { MotionDuration, MotionEasing, MotionScale } from '@/constants/motion';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useTheme } from '@/hooks/use-theme';
@@ -270,15 +270,10 @@ export function VoiceOrb({
         </Canvas>
 
         <SymbolView
-          name={listening ? 'waveform' : 'mic.fill'}
+          name={platformSymbol(listening ? 'waveform' : 'mic.fill')}
           size={40}
           tintColor={scheme === 'dark' ? '#2A1C0E' : theme.secondaryForeground}
           style={styles.icon}
-          fallback={
-            <ThemedText type="subtitle" themeColor="secondaryForeground" style={styles.icon}>
-              {listening ? '||' : 'rec'}
-            </ThemedText>
-          }
         />
       </Pressable>
     </Animated.View>

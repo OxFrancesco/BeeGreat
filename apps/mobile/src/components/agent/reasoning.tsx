@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { createContext, type PropsWithChildren, useContext, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
@@ -89,10 +90,9 @@ export function ReasoningTrigger() {
     >
       <View style={[styles.iconBadge, { backgroundColor: theme.secondary }]}>
         <SymbolView
-          name="brain"
+          name={platformSymbol("brain")}
           size={11}
           tintColor={theme.secondaryForeground}
-          fallback={<ThemedText type="small" themeColor="secondaryForeground">~</ThemedText>}
         />
       </View>
       {isStreaming ? (
@@ -105,10 +105,9 @@ export function ReasoningTrigger() {
         </ThemedText>
       )}
       <SymbolView
-        name={isOpen ? 'chevron.up' : 'chevron.down'}
+        name={platformSymbol(isOpen ? 'chevron.up' : 'chevron.down')}
         size={10}
         tintColor={theme.textSecondary}
-        fallback={<ThemedText type="small" themeColor="textSecondary">{isOpen ? '^' : 'v'}</ThemedText>}
       />
     </Pressable>
   );

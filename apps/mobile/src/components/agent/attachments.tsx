@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { Image } from 'expo-image';
 import { SymbolView } from 'expo-symbols';
 import { createContext, type PropsWithChildren, useContext } from 'react';
@@ -101,10 +102,9 @@ export function AttachmentPreview() {
   return (
     <View style={[styles.iconBox, { width: size, height: size }]}>
       <SymbolView
-        name={KIND_SYMBOLS[kind]}
+        name={platformSymbol(KIND_SYMBOLS[kind])}
         size={variant === 'grid' ? 28 : 16}
         tintColor={theme.textSecondary}
-        fallback={<ThemedText type="small" themeColor="textSecondary">file</ThemedText>}
       />
     </View>
   );
@@ -139,10 +139,9 @@ export function AttachmentRemove() {
       style={[styles.remove, { backgroundColor: theme.backgroundSelected }]}
     >
       <SymbolView
-        name="xmark"
+        name={platformSymbol("xmark")}
         size={10}
         tintColor={theme.textSecondary}
-        fallback={<ThemedText type="small" themeColor="textSecondary">x</ThemedText>}
       />
     </Pressable>
   );

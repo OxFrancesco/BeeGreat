@@ -1,3 +1,4 @@
+import { platformSymbol } from '@/components/platform-symbol';
 import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
@@ -113,14 +114,9 @@ export function PromptInput({
           ]}
         >
           <SymbolView
-            name="arrow.up"
+            name={platformSymbol("arrow.up")}
             size={16}
             tintColor={theme.primaryForeground}
-            fallback={
-              <ThemedText type="smallBold" style={{ color: theme.primaryForeground }}>
-                Send
-              </ThemedText>
-            }
           />
         </Pressable>
       </View>

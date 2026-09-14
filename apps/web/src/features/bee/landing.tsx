@@ -1,7 +1,7 @@
 import { SignInButton } from '@clerk/tanstack-react-start'
 
-import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import honeypotUrl from '../../../../mobile/assets/images/honeypot.svg?url'
+import { BeeMascot } from '~/components/bee-mascot'
 
 export function Landing() {
   return (
@@ -12,7 +12,7 @@ export function Landing() {
         </div>
 
         <div className="landing-copy">
-          <img src={beeUrl} alt="" className="landing-bee" />
+          <BeeMascot animation="fly" alt="" className="landing-bee" />
           <h1 id="landing-title">BeeGreat</h1>
           <p>
             One hive for your goals.

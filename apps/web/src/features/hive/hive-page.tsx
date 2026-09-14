@@ -4,10 +4,10 @@ import { useMutation, useQuery } from 'convex/react'
 import { useEffect, useRef, useState } from 'react'
 import { HIVE_HTML, honeyState, HONEY_CAPACITY } from '@beegreat/hive-3d'
 
-import beeUrl from '../../../../mobile/assets/images/bee.webp?url'
 import { Achievements } from './achievements'
 import { formatHighlightExpiry, getGolieBeeName } from './hive-utils'
 import type { FunctionReturnType } from 'convex/server'
+import { BeeMascot } from '~/components/bee-mascot'
 import { captureWebFailure } from '~/lib/sentry'
 
 type CurrentHive = FunctionReturnType<typeof api.firstFocus.getCurrent>
@@ -214,7 +214,7 @@ function GolieBee({
       aria-label={`${name}, your GolieBee`}
     >
       <div>
-        <img src={beeUrl} alt="" />
+        <BeeMascot animation={celebrating ? 'succeed' : 'idle'} />
         {celebrating ? <span>✦</span> : null}
       </div>
       <p>
