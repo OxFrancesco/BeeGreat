@@ -41,6 +41,10 @@ class MainActivity : FragmentActivity() {
         val uri = intent.data ?: return
         val segments = uri.pathSegments
         when {
+          uri.scheme == "beegreat" && uri.host == "raindrop" -> {
+            if (uri.getQueryParameter("code") != null || uri.getQueryParameter("error") != null) appContainer.pendingRaindropCallback.value = uri
+            appContainer.pendingDeepLink.value = "raindrop"
+          }
           segments.firstOrNull() == "tap" && segments.size >= 2 -> appContainer.pendingTapPublicId.value = segments[1]
           uri.scheme == "beegreat" && uri.host == "tap" && segments.isNotEmpty() -> appContainer.pendingTapPublicId.value = segments[0]
           uri.scheme == "beegreat" && (uri.host == "profile" || uri.host == "wallet") -> appContainer.pendingDeepLink.value = uri.host

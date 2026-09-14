@@ -92,6 +92,7 @@ fun ConnectionsScreen() {
     ) {
       ScreenHeader(title = "Work connectors", onBack = navigator::back)
       Text("Give Bee read access to the tools you already use. Each connector is scoped and can be disconnected here.", style = BeeTheme.typography.small, color = colors.textSecondary)
+      OutlineButton("Raindrop bookmarks", modifier = Modifier.fillMaxWidth()) { navigator.openRaindrop() }
       for (connection in connections) {
         val connected = connection.state == "connected"
         val pending = connection.state == "pending"

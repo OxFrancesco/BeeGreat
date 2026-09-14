@@ -2,6 +2,7 @@ import { cronJobs } from 'convex/server'
 import { internal } from './_generated/api'
 
 const crons = cronJobs()
+crons.interval('sync Raindrop into Mind', { hours: 1 }, internal.raindrop.scheduleSyncs, { paginationOpts: { numItems: 100, cursor: null } })
 crons.interval('resolve interrupted comment submissions', { minutes: 5 }, internal.beennectorComments.watchdog, {})
 
 crons.cron(

@@ -371,3 +371,12 @@ history limits and the shared Blender asset workflow.
 ### Healthy streak calendar
 
 Use the existing rounded pointy-top hexagon for each date. Place three concentric hexagonal rings inside it: mood green `#75A469` outside, water blue `#55BEE2` in the middle, and journal honey `#E4A72C` inside. Keep empty tracks faint, fill water proportionally, and close mood or journal rings when logged. Calendar cells use card backgrounds and hairline borders. Reserve the primary outline for today. Keep one month control and one set of streak counts. Do not add a selected-day date or detail row below the calendar.
+
+
+### Raindrop in Mind
+
+Raindrop opens from Mind, Work connectors, and the share sheet. Use the existing
+compact header, search field, collection picker, bookmark rows, and editor sheet.
+Show sync progress only while a real sync is active. Credentials belong in a
+masked temporary form. Disconnect and recoverable Trash actions explain whether
+the Mind copy stays. See `29-raindrop.md`.

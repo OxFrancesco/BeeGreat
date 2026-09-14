@@ -57,6 +57,8 @@ class AppContainer(context: Context) {
   val publicProfile = PublicProfileRepository(convex)
   val nfcActions = NfcActionsRepository(convex)
   val walletConnect = WalletConnect(context.applicationContext as android.app.Application).also { it.initialize() }
+  val raindrop = com.beegreat.convex.raindrop.RaindropRepository(convex)
+  val pendingRaindropCallback = kotlinx.coroutines.flow.MutableStateFlow<android.net.Uri?>(null)
   val bookmarks = BookmarksRepository(convex)
   val health = HealthRepository(convex)
   val connections = ConnectionsRepository(convex)

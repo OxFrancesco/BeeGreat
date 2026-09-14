@@ -119,6 +119,7 @@ fun MindScreen() {
           Column(verticalArrangement = Arrangement.spacedBy(Spacing.two), modifier = Modifier.padding(bottom = Spacing.two)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
               ScreenHeader(title = "Mind")
+              androidx.compose.material3.TextButton(onClick = { navigator.openRaindrop() }) { Text("Raindrop", color = colors.primary) }
               Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(colors.backgroundElement).clickable { navigator.openAddBookmark(null) }, contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.Add, contentDescription = "Save a bookmark", tint = colors.primary, modifier = Modifier.size(19.dp))
               }

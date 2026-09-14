@@ -33,6 +33,8 @@ interface Navigator {
 
   fun openProfile()
 
+  fun openRaindrop(url: String? = null, note: String? = null)
+
   fun openConnections()
 
   fun openJobs()

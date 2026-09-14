@@ -46,6 +46,8 @@ type Env = {
   readonly FAL_VIDEO_GENERATION_MODEL: string | undefined;
   readonly FIRECRAWL_API_KEY: string | undefined;
   readonly OPENROUTER_API_KEY: string | undefined;
+  readonly RAINDROP_CLIENT_ID: string | undefined;
+  readonly RAINDROP_CLIENT_SECRET: string | undefined;
   readonly REVENUECAT_APP_ID: string | undefined;
   readonly REVENUECAT_SECRET_API_KEY: string | undefined;
   readonly REVENUECAT_WEBHOOK_SECRET: string | undefined;

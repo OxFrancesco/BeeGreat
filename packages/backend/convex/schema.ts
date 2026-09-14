@@ -57,6 +57,20 @@ import {
 } from './agentJobGrantValidators'
 
 export default defineSchema({
+  raindropConnections: defineTable({
+    ownerKey: v.string(), userId: v.string(), accountName: v.string(),
+    state: v.union(v.literal('connected'), v.literal('needs_reauth')),
+    encryptedAccess: encryptedSecretValidator, encryptedRefresh: v.optional(encryptedSecretValidator),
+    expiresAt: v.optional(v.number()), refreshClaim: v.optional(v.string()), refreshStartedAt: v.optional(v.number()),
+    syncRun: v.optional(v.string()), syncAgain: v.optional(v.boolean()), syncTouchedAt: v.optional(v.number()),
+    lastSyncedAt: v.optional(v.number()), message: v.optional(v.string()),
+  }).index('by_ownerKey', ['ownerKey']),
+  raindropSessions: defineTable({
+    ownerKey: v.string(), userId: v.string(), stateHash: v.string(), expiresAt: v.number(), claimed: v.boolean(),
+  }).index('by_ownerKey', ['ownerKey']),
+  raindropImports: defineTable({
+    ownerKey: v.string(), raindropId: v.number(), bookmarkId: v.id('bookmarks'), updatedAt: v.string(), managed: v.boolean(),
+  }).index('by_ownerKey_and_raindropId', ['ownerKey', 'raindropId']),
   posts: defineTable({
     id: v.string(),
     title: v.string(),

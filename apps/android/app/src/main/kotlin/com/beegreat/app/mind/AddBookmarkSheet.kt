@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun AddBookmarkSheet(initialUrl: String?, onDismiss: () -> Unit, onSaved: (String) -> Unit) {
+  val navigator = com.beegreat.app.shell.LocalNavigator.current
   val container = LocalAppContainer.current
   val context = LocalContext.current
   val scope = rememberCoroutineScope()
@@ -97,6 +98,10 @@ fun AddBookmarkSheet(initialUrl: String?, onDismiss: () -> Unit, onSaved: (Strin
         Field(note, { note = it }, "Why are you saving this? (optional)", KeyboardType.Text, minLines = 2)
       }
       error?.let { Text(it, style = BeeTheme.typography.small, color = colors.destructive) }
+      com.beegreat.app.profile.OutlineButton("Save to Raindrop", enabled = normalized != null && !saving) {
+        onDismiss()
+        navigator.openRaindrop(normalized, note)
+      }
       PillButton(if (saving) "Saving…" else "Save bookmark", enabled = normalized != null && !saving) { save() }
     }
   }

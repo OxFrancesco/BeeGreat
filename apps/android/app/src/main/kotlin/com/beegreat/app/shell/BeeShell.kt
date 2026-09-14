@@ -97,6 +97,8 @@ import com.beegreat.design.Spacing
 
 @Serializable object ProfileRoute
 
+@Serializable data class RaindropRoute(val url: String? = null, val note: String? = null)
+
 @Serializable object ConnectionsRoute
 
 @Serializable object JobsRoute
@@ -167,6 +169,8 @@ private class ShellNavigator(
 
   override fun openProfile() = nav.navigate(ProfileRoute)
 
+  override fun openRaindrop(url: String?, note: String?) = nav.navigate(RaindropRoute(url, note))
+
   override fun openConnections() = nav.navigate(ConnectionsRoute)
 
   override fun openJobs() = nav.navigate(JobsRoute)
@@ -231,6 +235,7 @@ fun BeeShell() {
     val link = pendingLink ?: return@LaunchedEffect
     container.pendingDeepLink.value = null
     when (link) {
+      "raindrop" -> navController.navigate(RaindropRoute()) { launchSingleTop = true }
       "profile" -> navController.navigate(ProfileRoute)
       "wallet" -> navController.navigate(WalletsRoute)
     }
@@ -297,6 +302,7 @@ fun BeeShell() {
         composable<TapRoute> { entry -> TapScreen(entry.toRoute<TapRoute>().publicId) }
         composable<VoiceConversationRoute> { VoiceConversationScreen() }
         composable<ProfileRoute> { ProfileScreen() }
+        composable<RaindropRoute> { com.beegreat.app.mind.RaindropScreen(it.toRoute<RaindropRoute>().url, it.toRoute<RaindropRoute>().note) }
         composable<ConnectionsRoute> { ConnectionsScreen() }
         composable<JobsRoute> { JobsScreen() }
         composable<WalletsRoute> { WalletsScreen() }

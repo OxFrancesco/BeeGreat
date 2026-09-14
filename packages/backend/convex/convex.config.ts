@@ -3,6 +3,8 @@ import { v } from 'convex/values'
 
 const app = defineApp({
   env: {
+    RAINDROP_CLIENT_ID: v.optional(v.string()),
+    RAINDROP_CLIENT_SECRET: v.optional(v.string()),
     AGENT_URL: v.optional(v.string()),
     AGENT_CREDENTIAL_BROKER_SECRET: v.optional(v.string()),
     APPLE_SIGN_IN_CLIENT_ID: v.optional(v.string()),
