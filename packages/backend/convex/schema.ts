@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
+import { contactFields } from './crmValidators'
 import {
   memoryProvenanceValidator,
   memoryRetentionValidator,
@@ -57,6 +58,20 @@ import {
 } from './agentJobGrantValidators'
 
 export default defineSchema({
+  crmContacts: defineTable({
+    ownerKey: v.string(),
+    ...contactFields,
+    archived: v.boolean(),
+    hasFollowUp: v.boolean(),
+    searchText: v.string(),
+    updatedAt: v.number(),
+  })
+    .index('by_owner_archived_name', ['ownerKey', 'archived', 'name'])
+    .index('by_owner_archived_followup', ['ownerKey', 'archived', 'followUpOn'])
+    .searchIndex('search_contacts', {
+      searchField: 'searchText',
+      filterFields: ['ownerKey', 'archived', 'hasFollowUp'],
+    }),
   posts: defineTable({
     id: v.string(),
     title: v.string(),

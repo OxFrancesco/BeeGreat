@@ -1,0 +1,127 @@
+.crm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.crm-toolbar,
+.crm-filters,
+.crm-editor-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.crm-toolbar input {
+  flex: 1;
+  min-width: 160px;
+}
+.crm-panel button,
+.crm-editor button,
+.crm-editor input {
+  min-height: 44px;
+}
+.crm-list {
+  display: flex;
+  flex-direction: column;
+}
+.crm-contact {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+  text-align: left;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+}
+.crm-contact:hover {
+  background: var(--surface-muted);
+}
+.crm-contact:focus-visible {
+  outline: 2px solid var(--brown);
+  outline-offset: 3px;
+}
+.crm-avatar {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: var(--brown);
+  background: var(--surface-muted);
+}
+.crm-contact-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+.crm-contact-copy > span,
+.crm-contact-copy p {
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+.crm-contact-copy p {
+  margin: 4px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+.crm-date {
+  font-variant-numeric: tabular-nums;
+}
+.crm-chat {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 0 16px;
+  background: var(--surface);
+}
+.crm-chat .crm-contact:last-child {
+  border-bottom: 0;
+}
+.crm-editor {
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+.crm-editor fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border: 0;
+  min-width: 0;
+}
+.crm-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.crm-editor-actions {
+  justify-content: flex-end;
+}
+.crm-editor [role='alert'] {
+  color: var(--danger);
+}
+
+.crm-primary {
+  background: var(--brown);
+  color: var(--brown-ink);
+  border-radius: 999px;
+}
+.crm-primary:hover {
+  background: var(--brown);
+  opacity: 0.9;
+}
+.crm-filters [aria-pressed='true'] {
+  background: var(--surface-selected);
+  color: var(--ink);
+  border-radius: 999px;
+}

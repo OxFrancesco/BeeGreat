@@ -70,6 +70,7 @@ const DATA_STAGES = [
   'bookmarkCrawlRuns',
   'bookmarkCrawlCache',
   'bookmarks',
+  'crmContacts',
   'chatgptAuthSessions',
   'chatgptCredentials',
   'chatgptGatePreferences',
@@ -195,6 +196,7 @@ const STAGE_REMOVERS = {
     removeOwnerCrawlRunsBatch(ctx, ownerKey, BATCH_SIZE),
   bookmarkCrawlCache: (ctx, ownerKey) =>
     removeOwnerWebsiteCacheBatch(ctx, ownerKey, BATCH_SIZE),
+  crmContacts: removesBatch((ctx, ownerKey) => ctx.db.query('crmContacts').withIndex('by_owner_archived_name', q => q.eq('ownerKey', ownerKey))),
   bookmarks: removesBatch((ctx, ownerKey) => ctx.db.query('bookmarks').withIndex('by_owner_key_and_created_at', (q) => q.eq('ownerKey', ownerKey))),
   chatgptAuthSessions: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('chatgptAuthSessions').withIndex('by_user', (q) => q.eq('userId', userId))),
   chatgptCredentials: removesBatch((ctx, _ownerKey, userId) => ctx.db.query('chatgptCredentials').withIndex('by_user', (q) => q.eq('userId', userId))),

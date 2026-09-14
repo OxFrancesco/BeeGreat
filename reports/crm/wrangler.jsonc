@@ -1,0 +1,9 @@
+{
+  "name": "beegreat-crm-report-20260914",
+  "account_id": "157a8b025a13404b16f11ad7078e53f1",
+  "compatibility_date": "2026-09-14",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "reports.buddytools.org/beegreat-crm-20260914/*", "zone_id": "68f510acd198c98385d82fa528198af5" }],
+  "assets": { "directory": "./public", "html_handling": "auto-trailing-slash" }
+}

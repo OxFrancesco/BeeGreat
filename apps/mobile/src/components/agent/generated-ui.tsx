@@ -13,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import type { UIComponent } from '@/lib/ui-spec';
 
 import { BarChartCard } from './cards/bar-chart-card';
+import { CrmChatCard } from '@/components/mind/crm-panel';
 import { BookmarkCard } from './cards/bookmark-card';
 import { ConfirmCard } from './cards/confirm-card';
 import { DevinCard } from './cards/devin-card';
@@ -65,6 +66,8 @@ function UIComponentView({
   onReply?: (text: string) => void;
 }) {
   switch (component.type) {
+    case 'crm':
+      return <CrmChatCard {...component} />;
     case 'text':
       return <ThemedText>{component.body}</ThemedText>;
     case 'metric':

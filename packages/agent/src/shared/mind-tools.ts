@@ -25,8 +25,9 @@ export async function callMindService<T extends JsonValue = JsonValue>(
   userId: string,
   convexUrl: string,
   options: MindServiceOptions,
-  operation: 'search' | 'list' | 'get' | 'save' | 'update' | 'delete',
+  operation: 'search' | 'list' | 'get' | 'save' | 'update' | 'delete' | 'archive',
   input: Record<string, JsonValue | undefined> = {},
+  service: 'mind' | 'crm' = 'mind',
 ): Promise<T> {
   const secret = options.brokerSecret?.trim()
   if (!secret) {
@@ -36,7 +37,7 @@ export async function callMindService<T extends JsonValue = JsonValue>(
   const timeout = setTimeout(() => controller.abort(), 30_000)
   try {
     const response = await fetch(
-      `${siteUrl(convexUrl, options.convexSiteUrl)}/internal/mind`,
+      `${siteUrl(convexUrl, options.convexSiteUrl)}/internal/${service}`,
       {
         method: 'POST',
         headers: {

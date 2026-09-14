@@ -12,6 +12,7 @@ import {
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useId, useRef, useState } from 'react'
 import { z } from 'zod'
+import { CrmChatCard } from '../mind/crm-panel'
 import { FirstFocusPreviewCard } from './first-focus-preview'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 import type { ReactNode } from 'react'
@@ -48,6 +49,8 @@ function UIComponentView({
   onReply?: (text: string) => void | Promise<void>
 }) {
   switch (component.type) {
+    case 'crm':
+      return <CrmChatCard {...component} />
     case 'text':
       return <p>{component.body}</p>
     case 'metric':

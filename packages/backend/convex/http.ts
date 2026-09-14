@@ -15,6 +15,7 @@ import {
 import { imessageInternal } from './http/imessage'
 import { jobsInternal } from './http/jobs'
 import { mind } from './http/mind'
+import { crm } from './http/crm'
 import { subscriptionStatus } from './http/subscription'
 import { telegramInternal, telegramOauthCallback } from './http/telegram'
 import { web3Sugar, web3Wallet } from './http/web3'
@@ -57,6 +58,11 @@ http.route({
   handler: beeSites,
 })
 
+http.route({
+  path: '/internal/crm',
+  method: 'POST',
+  handler: crm,
+})
 http.route({
   path: '/internal/mind',
   method: 'POST',

@@ -91,6 +91,9 @@ function tableEntry<Value>(
 }
 
 const TOOL_COPY = {
+  list_contacts: { running: "Finding contacts…", done: "Found contacts", failed: "Could not find contacts" },
+  save_contact: { running: "Saving contact…", done: "Saved contact", failed: "Could not save contact" },
+  archive_contact: { running: "Updating contact…", done: "Updated contact", failed: "Could not update contact" },
   search_mind: {
     running: "Searching your Mind…",
     done: "Searched your Mind",

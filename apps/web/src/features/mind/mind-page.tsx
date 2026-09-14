@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { FunctionReturnType } from 'convex/server'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 
+import { CrmPanel } from './crm-panel'
 import { captureWebFailure } from '~/lib/sentry'
 
 type Bookmark = FunctionReturnType<typeof api.bookmarks.search>[number]
@@ -33,6 +34,31 @@ const VIEW_OPTIONS: ReadonlyArray<{ value: ViewMode; label: string }> = [
 ]
 
 export function MindPage() {
+  const [section, setSection] = useState<'bookmarks' | 'crm'>('bookmarks')
+  return (
+    <main className="mind-page">
+      <header className="mind-header">
+        <h1>Mind</h1>
+      </header>
+      <div className="crm-filters" aria-label="Mind sections">
+        {(['bookmarks', 'crm'] as const).map((value) => (
+          <button
+            className="button button--quiet"
+            type="button"
+            key={value}
+            aria-pressed={section === value}
+            onClick={() => setSection(value)}
+          >
+            {value === 'crm' ? 'CRM' : 'Bookmarks'}
+          </button>
+        ))}
+      </div>
+      {section === 'crm' ? <CrmPanel /> : <BookmarkLibrary />}
+    </main>
+  )
+}
+
+function BookmarkLibrary() {
   const [view, setView] = useState<ViewMode>(() => readViewPreference())
   const [kind, setKind] = useState<BookmarkKind>()
   const [label, setLabel] = useState<string>()
@@ -66,21 +92,12 @@ export function MindPage() {
   }, [view])
 
   const activePage = debouncedSearch ? searched : listed
-  const bookmarks = activePage.status === 'LoadingFirstPage' ? undefined : activePage.results
+  const bookmarks =
+    activePage.status === 'LoadingFirstPage' ? undefined : activePage.results
 
   return (
-    <main className="mind-page">
+    <section>
       <header className="mind-header">
-        <div className="mind-title">
-          <span className="mind-title__mark" aria-hidden="true">
-            ⬡
-          </span>
-          <div>
-            <p className="utility-label">Saved knowledge</p>
-            <h1>Mind</h1>
-          </div>
-        </div>
-
         <div className="mind-header__actions">
           <ViewSwitcher value={view} onChange={setView} />
           <button
@@ -201,7 +218,7 @@ export function MindPage() {
           onClose={() => setSelectedId(undefined)}
         />
       ) : null}
-    </main>
+    </section>
   )
 }
 
