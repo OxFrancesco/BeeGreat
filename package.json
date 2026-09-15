@@ -4,7 +4,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
-    "apps/basedbot/apps/*"
+    "apps/pecu/apps/*"
   ],
   "scripts": {
     "mobile": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run agent\" \"bun run --cwd apps/mobile ios\"",
@@ -27,13 +27,13 @@
     "bee:dev": "bun run bee:configure && concurrently -k --success first -n convex,agent,cli -c cyan,magenta,yellow --handle-input --default-input-target cli \"bun run backend\" \"bun run agent\" \"until curl -sS --connect-timeout 1 http://localhost:3583/ >/dev/null 2>&1; do sleep 1; done; BEE_CLI_INTERACTIVE=1 bun run bee\"",
     "imessage": "bun run --cwd apps/imessage-bridge dev",
     "dev": "bun run --filter '*' dev",
-    "basedbot": "bun run --cwd apps/basedbot dev",
-    "basedbot:check": "bun run --cwd apps/basedbot check",
-    "basedbot:stocks:build": "bun run --cwd apps/basedbot/apps/stocks build",
-    "basedbot:stocks:check": "bun run --cwd apps/basedbot/apps/stocks typecheck",
-    "basedbot:pecu:build": "bun apps/basedbot/apps/pecu/scripts/build-docs.ts",
-    "basedbot:deploy": "bun run --cwd apps/basedbot cloudflare:deploy",
-    "basedbot:pecu:check": "bun run --cwd apps/basedbot/apps/pecu typecheck && bun run --cwd apps/basedbot/apps/pecu build:check"
+    "pecu": "bun run --cwd apps/pecu dev",
+    "pecu:check": "bun run --cwd apps/pecu check",
+    "pecu:stocks:build": "bun run --cwd apps/pecu/apps/stocks build",
+    "pecu:stocks:check": "bun run --cwd apps/pecu/apps/stocks typecheck",
+    "pecu:site:build": "bun apps/pecu/apps/site/scripts/build-docs.ts",
+    "pecu:deploy": "bun run --cwd apps/pecu cloudflare:deploy",
+    "pecu:site:check": "bun run --cwd apps/pecu/apps/site typecheck && bun run --cwd apps/pecu/apps/site build:check"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.82.0",
@@ -58,11 +58,11 @@
     }
   },
   "patchedDependencies": {
-    "@xdevplatform/chat-xdk@0.5.0": "apps/basedbot/patches/@xdevplatform%2Fchat-xdk@0.5.0.patch",
-    "@opencode-ai/server@0.0.0-beta-18684": "apps/basedbot/patches/@opencode-ai%2Fserver@0.0.0-beta-18684.patch",
-    "@beegreat/sugar@github:OxFrancesco/aerodrome-sdk-ts#af14646": "apps/basedbot/patches/aero-cli.patch",
-    "@opencode-ai/ai@0.0.0-beta-18684": "apps/basedbot/patches/opencode-ai-effect-v4.patch",
-    "@opencode-ai/core@0.0.0-beta-18684": "apps/basedbot/patches/opencode-core-effect-v4.patch"
+    "@xdevplatform/chat-xdk@0.5.0": "apps/pecu/patches/@xdevplatform%2Fchat-xdk@0.5.0.patch",
+    "@opencode-ai/server@0.0.0-beta-18684": "apps/pecu/patches/@opencode-ai%2Fserver@0.0.0-beta-18684.patch",
+    "@beegreat/sugar@github:OxFrancesco/aerodrome-sdk-ts#af14646": "apps/pecu/patches/aero-cli.patch",
+    "@opencode-ai/ai@0.0.0-beta-18684": "apps/pecu/patches/opencode-ai-effect-v4.patch",
+    "@opencode-ai/core@0.0.0-beta-18684": "apps/pecu/patches/opencode-core-effect-v4.patch"
   },
   "engines": {
     "bun": ">=1.4.2"
