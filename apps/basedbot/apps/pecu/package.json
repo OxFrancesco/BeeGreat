@@ -1,0 +1,14 @@
+{
+  "name": "@beegreat/pecu",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/build-docs.ts",
+    "build:check": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "wrangler": "4.127.1"
+  }
+}

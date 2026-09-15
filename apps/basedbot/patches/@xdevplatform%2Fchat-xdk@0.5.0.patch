@@ -1,0 +1,40 @@
+diff --git a/index.js b/index.js
+index 3e7e808b1966e8531bac137f6d5e63b8f17759cb..adb6e60a1222f0eca9ddc43a39c8bfd644017e48 100644
+--- a/index.js
++++ b/index.js
+@@ -18,5 +18,7 @@
+ function isNodeRuntime() {
+   return (
++    !(typeof navigator !== "undefined" &&
++      navigator.userAgent === "Cloudflare-Workers") &&
+     typeof process !== "undefined" &&
+     Boolean(process.versions && process.versions.node)
+   );
+@@ -153,7 +155,8 @@ async function initWasmModule() {
+     if (typeof init !== "function") {
+       throw new Error("WASM init function not found in chat_xdk_wasm module.");
+     }
+-    await init();
++    const bundledWasm = await import("./pkg/chat_xdk_wasm_bg.wasm");
++    await init({ module_or_path: bundledWasm.default });
+   }
+   return wasmModule;
+ }
+@@ -192,5 +195,17 @@ async function loadJuiceboxSdkOnce() {
+     juiceboxBg.__wbg_set_wasm(instance.exports);
+     return juiceboxBg;
+   }
++  if (
++    typeof navigator !== "undefined" &&
++    navigator.userAgent === "Cloudflare-Workers"
++  ) {
++    const juiceboxBg = await import("juicebox-sdk/juicebox-sdk_bg.js");
++    const bundledWasm = await import("juicebox-sdk/juicebox-sdk_bg.wasm");
++    const instance = await WebAssembly.instantiate(bundledWasm.default, {
++      "./juicebox-sdk_bg.js": juiceboxBg,
++    });
++    juiceboxBg.__wbg_set_wasm(instance.exports);
++    return juiceboxBg;
++  }
+   return await import("juicebox-sdk");
+ }

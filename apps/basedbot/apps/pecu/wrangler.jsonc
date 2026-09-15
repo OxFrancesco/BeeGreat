@@ -1,0 +1,15 @@
+{
+  "name": "pecu-app",
+  "account_id": "157a8b025a13404b16f11ad7078e53f1",
+  "main": "worker.ts",
+  "compatibility_date": "2026-09-14",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "pecu.app", "custom_domain": true }],
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true, "html_handling": "none" },
+  "services": [
+    { "binding": "CLI", "service": "aero-cli-site" },
+    { "binding": "STOCKS", "service": "aero-stocks" }
+  ],
+  "build": { "command": "bun scripts/build-docs.ts" }
+}

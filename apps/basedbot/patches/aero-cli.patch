@@ -1,0 +1,650 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -12,6 +12,7 @@
+   "exports": {
+     ".": "./src/index.ts",
+     "./cli": "./src/cli.ts",
++    "./cli-args": "./src/cli-args.ts",
+     "./contracts": "./src/contracts.ts"
+   },
+   "scripts": {
+diff --git a/src/index.ts b/src/index.ts
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -29,7 +29,7 @@
+   position: 'integer_string',
+ } as const
+ 
+-const ACTION_SPECS = {
++export const ACTION_SPECS: Record<SugarAction, ActionSpec> = {
+   stocks: { required: ['chain'], allowed: { chain: 'number', wallet: 'address' } },
+   stock_buy: { required: ['chain', 'wallet', 'stock', 'amount'], allowed: { chain: 'number', wallet: 'address', stock: 'string', amount: 'string', slippage: 'number' } },
+   stock_sell: { required: ['chain', 'wallet', 'stock', 'amount'], allowed: { chain: 'number', wallet: 'address', stock: 'string', amount: 'string', slippage: 'number' } },
+diff --git a/src/client.ts b/src/client.ts
+--- a/src/client.ts
++++ b/src/client.ts
+@@ -225,8 +225,8 @@
+     return runSugar(poolsApi.getPools(this.ctx, forSwaps))
+   }
+ 
+-  getPoolsForSwaps(): Promise<LiquidityPoolForSwap[]> {
+-    return runSugar(poolsApi.getPoolsForSwaps(this.ctx))
++  getPoolsForSwaps(limit?: number): Promise<LiquidityPoolForSwap[]> {
++    return runSugar(poolsApi.getPoolsForSwaps(this.ctx, limit))
+   }
+ 
+   getPoolByAddress(address: Address | string): Promise<LiquidityPool | undefined> {
+diff --git a/src/pools.ts b/src/pools.ts
+--- a/src/pools.ts
++++ b/src/pools.ts
+@@ -57,7 +57,15 @@
+ 
+ export const getPoolsForSwaps = Effect.fn('Sugar.Pools.getPoolsForSwaps')(function* (
+   ctx: SugarContext,
+-) {
++  limit?: number,
++) {
++  if (limit !== undefined) {
++    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
++      throw new RangeError('Pool page limit must be an integer between 1 and 100')
++    }
++    const raw = yield* ctx.read<unknown[]>(ctx.settings.sugarContractAddress, abis.sugar, 'forSwaps', [limit, 0])
++    return raw.map((pool) => poolForSwapFromTuple(pool, ctx.settings))
++  }
+   return yield* clientCall(() => ctx.client.getPools(true))
+ })
+ 
+diff --git a/src/actions.ts b/src/actions.ts
+--- a/src/actions.ts
++++ b/src/actions.ts
+@@ -265,7 +265,8 @@
+     const filtered = pools.filter((pool) => matches(pool.type, [pool.token0.tokenAddress, pool.token1.tokenAddress]))
+     return filtered.slice(0, limit).map(fullPoolJson)
+   }
+-  const pools = yield* clientCall(() => client.getPoolsForSwaps())
++  const readLimit = wanted.length === 0 && !stringValue(p, 'pool_type') ? limit : undefined
++  const pools = yield* clientCall(() => client.getPoolsForSwaps(readLimit))
+   const filtered = pools.filter((pool) => matches(pool.type, [pool.token0Address, pool.token1Address]))
+   return filtered.slice(0, limit).map(swapPoolJson)
+ })
+diff --git a/src/cli.ts b/src/cli.ts
+--- a/src/cli.ts
++++ b/src/cli.ts
+@@ -5,7 +5,6 @@
+ 
+ import * as Predicate from 'effect/Predicate'
+ import { executeSugarAction, type SugarExecutionOptions } from './actions'
+-import { isSugarAction, SUGAR_ACTIONS, type SugarAction, type SugarParameter, type SugarParameters } from './contracts'
+ 
+ /**
+  * Programmatic CLI surface. The interactive `aero` binary lives in
+@@ -14,76 +13,8 @@
+  * that feed argv-style requests straight into executeSugarAction.
+  */
+ 
+-const BOOLEAN_FLAGS = new Set(['burn', 'collect', 'full', 'unwrap_native', 'use_decimals'])
+-const NUMBER_FLAGS = new Set([
+-  'chain', 'deadline_minutes', 'initial_price', 'limit', 'lock_duration_seconds', 'offset',
+-  'price_lower', 'price_upper', 'slippage', 'tick_lower', 'tick_spacing', 'tick_upper',
+-])
+-
+-export const SUGAR_CLI_HELP = `Usage: sugar-ts <action> [--flag=value]
+-
+-⚠️  Vibecoded & early beta — use at your own risk. Review every unsigned
+-plan before signing and never risk funds you cannot afford to lose.
+-
+-Actions: ${SUGAR_ACTIONS.map((action) => action.replaceAll('_', '-')).join(', ')}
+-
+-This headless entrypoint always prints JSON (transaction actions print an
+-unsigned plan). For the interactive wallet-connected experience use the
+-\`aero\` binary: subcommand help (aero <action> --help), guided input
+-(aero <action> --wizard), guides (aero guide), and shell completions
+-(aero --completions zsh|bash|fish).
+-
+-Environment: SUGAR_RPC_URI_<chain> (RPC override).`
+-
+-function parseBoolean(name: string, value: string): boolean {
+-  if (value === 'true' || value === '1') return true
+-  if (value === 'false' || value === '0') return false
+-  throw new Error(`--${name.replaceAll('_', '-')} must be true or false`)
+-}
+-
+-function coerceFlag(name: string, value: string): SugarParameter {
+-  if (BOOLEAN_FLAGS.has(name)) return parseBoolean(name, value)
+-  if (NUMBER_FLAGS.has(name)) {
+-    const number = Number(value)
+-    if (!Number.isFinite(number)) throw new Error(`--${name.replaceAll('_', '-')} must be a number`)
+-    return number
+-  }
+-  return value
+-}
+-
+-export type ParsedSugarCliArgs = { action: SugarAction; parameters: SugarParameters }
+-
+-export function parseSugarCliArgs(argv: string[]): ParsedSugarCliArgs {
+-  const [rawAction, ...flags] = argv
+-  if (!rawAction || rawAction === '--help' || rawAction === '-h') throw new Error(SUGAR_CLI_HELP)
+-  const action = rawAction.replaceAll('-', '_')
+-  if (!isSugarAction(action)) throw new Error(`Unknown Sugar action: ${rawAction}\n\n${SUGAR_CLI_HELP}`)
+-  const parameters: SugarParameters = {}
+-  for (let index = 0; index < flags.length; index++) {
+-    const flag = flags[index]
+-    if (!flag.startsWith('--')) throw new Error(`Unexpected positional argument: ${flag}`)
+-    const equals = flag.indexOf('=')
+-    const rawName = flag.slice(2, equals === -1 ? undefined : equals)
+-    const negated = rawName.startsWith('no-')
+-    const name = (negated ? rawName.slice(3) : rawName).replaceAll('-', '_')
+-    let value = equals === -1 ? undefined : flag.slice(equals + 1)
+-    if (negated) {
+-      if (!BOOLEAN_FLAGS.has(name) || value !== undefined) throw new Error(`Invalid negated flag: ${flag}`)
+-      parameters[name] = false
+-      continue
+-    }
+-    if (value === undefined && BOOLEAN_FLAGS.has(name)) {
+-      const following = flags[index + 1]
+-      if (following === 'true' || following === 'false') value = flags[++index]
+-      else value = 'true'
+-    } else if (value === undefined) {
+-      value = flags[++index]
+-      if (value === undefined || value.startsWith('--')) throw new Error(`Missing value for --${rawName}`)
+-    }
+-    parameters[name] = coerceFlag(name, value)
+-  }
+-  return { action, parameters }
+-}
++export { parseSugarCliArgs, SUGAR_CLI_HELP, type ParsedSugarCliArgs } from './cli-args'
++import { parseSugarCliArgs, SUGAR_CLI_HELP } from './cli-args'
+ 
+ export async function runSugarCli(
+   argv = Bun.argv.slice(2),
+diff --git a/src/cli-args.ts b/src/cli-args.ts
+new file mode 100644
+--- /dev/null
++++ b/src/cli-args.ts
+@@ -0,0 +1,77 @@
++// Portions derived from the Python Sugar SDK, Copyright 2025 Velodrome Finance.
++// Modified by Francesco Oddo and BeeGreat contributors: TypeScript port and subsequent changes.
++// Upstream portions are licensed under Apache-2.0. See ../LICENSE.Apache-2.0 and ../NOTICE.
++
++import { isSugarAction, SUGAR_ACTIONS, type SugarAction, type SugarParameter, type SugarParameters } from './contracts'
++
++const BOOLEAN_FLAGS = new Set(['burn', 'collect', 'full', 'unwrap_native', 'use_decimals'])
++const NUMBER_FLAGS = new Set([
++  'chain', 'deadline_minutes', 'initial_price', 'limit', 'lock_duration_seconds', 'offset',
++  'price_lower', 'price_upper', 'slippage', 'tick_lower', 'tick_spacing', 'tick_upper',
++])
++
++export const SUGAR_CLI_HELP = `Usage: sugar-ts <action> [--flag=value]
++
++⚠️  Vibecoded & early beta — use at your own risk. Review every unsigned
++plan before signing and never risk funds you cannot afford to lose.
++
++Actions: ${SUGAR_ACTIONS.map((action) => action.replaceAll('_', '-')).join(', ')}
++
++This headless entrypoint always prints JSON (transaction actions print an
++unsigned plan). For the interactive wallet-connected experience use the
++\`aero\` binary: subcommand help (aero <action> --help), guided input
++(aero <action> --wizard), guides (aero guide), and shell completions
++(aero --completions zsh|bash|fish).
++
++Environment: SUGAR_RPC_URI_<chain> (RPC override).`
++
++function parseBoolean(name: string, value: string): boolean {
++  if (value === 'true' || value === '1') return true
++  if (value === 'false' || value === '0') return false
++  throw new Error(`--${name.replaceAll('_', '-')} must be true or false`)
++}
++
++function coerceFlag(name: string, value: string): SugarParameter {
++  if (BOOLEAN_FLAGS.has(name)) return parseBoolean(name, value)
++  if (NUMBER_FLAGS.has(name)) {
++    const number = Number(value)
++    if (!Number.isFinite(number)) throw new Error(`--${name.replaceAll('_', '-')} must be a number`)
++    return number
++  }
++  return value
++}
++
++export type ParsedSugarCliArgs = { action: SugarAction; parameters: SugarParameters }
++
++export function parseSugarCliArgs(argv: string[]): ParsedSugarCliArgs {
++  const [rawAction, ...flags] = argv
++  if (!rawAction || rawAction === '--help' || rawAction === '-h') throw new Error(SUGAR_CLI_HELP)
++  const action = rawAction.replaceAll('-', '_')
++  if (!isSugarAction(action)) throw new Error(`Unknown Sugar action: ${rawAction}\n\n${SUGAR_CLI_HELP}`)
++  const parameters: SugarParameters = {}
++  for (let index = 0; index < flags.length; index++) {
++    const flag = flags[index]
++    if (!flag.startsWith('--')) throw new Error(`Unexpected positional argument: ${flag}`)
++    const equals = flag.indexOf('=')
++    const rawName = flag.slice(2, equals === -1 ? undefined : equals)
++    const negated = rawName.startsWith('no-')
++    const name = (negated ? rawName.slice(3) : rawName).replaceAll('-', '_')
++    let value = equals === -1 ? undefined : flag.slice(equals + 1)
++    if (negated) {
++      if (!BOOLEAN_FLAGS.has(name) || value !== undefined) throw new Error(`Invalid negated flag: ${flag}`)
++      parameters[name] = false
++      continue
++    }
++    if (value === undefined && BOOLEAN_FLAGS.has(name)) {
++      const following = flags[index + 1]
++      if (following === 'true' || following === 'false') value = flags[++index]
++      else value = 'true'
++    } else if (value === undefined) {
++      value = flags[++index]
++      if (value === undefined || value.startsWith('--')) throw new Error(`Missing value for --${rawName}`)
++    }
++    parameters[name] = coerceFlag(name, value)
++  }
++  return { action, parameters }
++}
++
+diff --git a/src/cli/action-commands.ts b/src/cli/action-commands.ts
+--- a/src/cli/action-commands.ts
++++ b/src/cli/action-commands.ts
+@@ -8,7 +8,7 @@
+ const positions = Command.make('positions', {
+   chain: flags.chain,
+   wallet: flags.wallet,
+-  owner: Flag.string('owner').pipe(
++  owner: Flag.String('owner').pipe(
+     Flag.optional,
+     Flag.withMetavar('<0x address>'),
+     Flag.withDescription('List positions for another address'),
+@@ -31,8 +31,8 @@
+   token0: flags.token0,
+   token1: flags.token1,
+   poolType: flags.poolType,
+-  full: Flag.boolean('full').pipe(Flag.withDescription('Hydrate pools with tokens, reserves, TVL, and emissions')),
+-  limit: Flag.integer('limit').pipe(Flag.optional, Flag.withDescription('Return at most this many pools (1-100)')),
++  full: Flag.Boolean('full').pipe(Flag.withDefault(false), Flag.withDescription('Hydrate pools with tokens, reserves, TVL, and emissions')),
++  limit: Flag.Int('limit').pipe(Flag.optional, Flag.withDescription('Return at most this many pools (1-100)')),
+ }, Effect.fn(function* (config) {
+   yield* runReadAction('pools', definedParameters({
+     chain: config.chain,
+@@ -61,10 +61,10 @@
+ 
+ const epochs = Command.make('epochs', {
+   chain: flags.chain,
+-  lp: Flag.string('lp').pipe(Flag.withMetavar('<0x address>'), Flag.withDescription('Pool address to inspect')),
++  lp: Flag.String('lp').pipe(Flag.withMetavar('<0x address>'), Flag.withDescription('Pool address to inspect')),
+   poolType: flags.poolType,
+-  limit: Flag.integer('limit').pipe(Flag.optional, Flag.withDescription('Epochs to return (default 10)')),
+-  offset: Flag.integer('offset').pipe(Flag.optional, Flag.withDescription('Skip this many epochs')),
++  limit: Flag.Int('limit').pipe(Flag.optional, Flag.withDescription('Epochs to return (default 10)')),
++  offset: Flag.Int('offset').pipe(Flag.optional, Flag.withDescription('Skip this many epochs')),
+ }, Effect.fn(function* (config) {
+   yield* runReadAction('epochs', definedParameters({
+     chain: config.chain,
+@@ -131,14 +131,14 @@
+   token0: flags.token0,
+   token1: flags.token1,
+   poolType: flags.poolType,
+-  tickSpacing: Flag.integer('tick-spacing').pipe(Flag.optional, Flag.withDescription('CL pool tick spacing (required for new CL pools)')),
+-  amount0: Flag.string('amount0').pipe(Flag.optional, Flag.withMetavar('<amount>'), Flag.withDescription('Amount of token0 to deposit')),
+-  amount1: Flag.string('amount1').pipe(Flag.optional, Flag.withMetavar('<amount>'), Flag.withDescription('Amount of token1 to deposit')),
+-  priceLower: Flag.float('price-lower').pipe(Flag.optional, Flag.withDescription('CL range lower bound as a price')),
+-  priceUpper: Flag.float('price-upper').pipe(Flag.optional, Flag.withDescription('CL range upper bound as a price')),
+-  tickLower: Flag.integer('tick-lower').pipe(Flag.optional, Flag.withDescription('CL range lower bound as a tick')),
+-  tickUpper: Flag.integer('tick-upper').pipe(Flag.optional, Flag.withDescription('CL range upper bound as a tick')),
+-  initialPrice: Flag.float('initial-price').pipe(Flag.optional, Flag.withDescription('Starting price for an uninitialized CL pool')),
++  tickSpacing: Flag.Int('tick-spacing').pipe(Flag.optional, Flag.withDescription('CL pool tick spacing (required for new CL pools)')),
++  amount0: Flag.String('amount0').pipe(Flag.optional, Flag.withMetavar('<amount>'), Flag.withDescription('Amount of token0 to deposit')),
++  amount1: Flag.String('amount1').pipe(Flag.optional, Flag.withMetavar('<amount>'), Flag.withDescription('Amount of token1 to deposit')),
++  priceLower: Flag.Finite('price-lower').pipe(Flag.optional, Flag.withDescription('CL range lower bound as a price')),
++  priceUpper: Flag.Finite('price-upper').pipe(Flag.optional, Flag.withDescription('CL range upper bound as a price')),
++  tickLower: Flag.Int('tick-lower').pipe(Flag.optional, Flag.withDescription('CL range lower bound as a tick')),
++  tickUpper: Flag.Int('tick-upper').pipe(Flag.optional, Flag.withDescription('CL range upper bound as a tick')),
++  initialPrice: Flag.Finite('initial-price').pipe(Flag.optional, Flag.withDescription('Starting price for an uninitialized CL pool')),
+   slippage: flags.slippage,
+   deadlineMinutes: flags.deadlineMinutes,
+   useDecimals: flags.useDecimals,
+@@ -176,7 +176,7 @@
+   wallet: flags.wallet,
+   pool: flags.pool,
+   position: flags.position,
+-  fraction: Flag.string('fraction').pipe(Flag.optional, Flag.withMetavar('<0-1>'), Flag.withDescription('Withdraw only this fraction of the position (e.g. 0.5)')),
++  fraction: Flag.String('fraction').pipe(Flag.optional, Flag.withMetavar('<0-1>'), Flag.withDescription('Withdraw only this fraction of the position (e.g. 0.5)')),
+   burn: flags.burn,
+   noCollect: flags.noCollect,
+   unwrapNative: flags.unwrapNative,
+@@ -220,7 +220,7 @@
+   wallet: flags.wallet,
+   pool: flags.pool,
+   position: flags.position,
+-  amount: Flag.string('amount').pipe(Flag.optional, Flag.withMetavar('<amount>'), Flag.withDescription('LP amount to unstake (basic pools; defaults to everything)')),
++  amount: Flag.String('amount').pipe(Flag.optional, Flag.withMetavar('<amount>'), Flag.withDescription('LP amount to unstake (basic pools; defaults to everything)')),
+   yes: flags.yes,
+   dryRun: flags.dryRun,
+ }, Effect.fn(function* (config) {
+@@ -273,7 +273,7 @@
+   chain: flags.chain,
+   wallet: flags.wallet,
+   amount: flags.amount,
+-  lockDurationSeconds: Flag.integer('lock-duration-seconds').pipe(
++  lockDurationSeconds: Flag.Int('lock-duration-seconds').pipe(
+     Flag.withDescription('Lock duration in seconds (rounded down to whole weeks, max 4 years)'),
+   ),
+   useDecimals: flags.useDecimals,
+diff --git a/src/cli/alm-commands.ts b/src/cli/alm-commands.ts
+--- a/src/cli/alm-commands.ts
++++ b/src/cli/alm-commands.ts
+@@ -42,7 +42,7 @@
+  * `--execute` (with the local encrypted wallet unlocked at startup) signs.
+  */
+ 
+-const configFlag = Flag.string('config').pipe(
++const configFlag = Flag.String('config').pipe(
+   Flag.optional,
+   Flag.withMetavar('<path>'),
+   Flag.withDescription(`ALM config file (default ${almConfigPath()})`),
+@@ -61,10 +61,10 @@
+ 
+ const serve = Command.make('serve', {
+   config: configFlag,
+-  execute: Flag.boolean('execute').pipe(Flag.withDescription('Sign and broadcast rebalances (default: dry-run, print/notify only)')),
+-  once: Flag.boolean('once').pipe(Flag.withDescription('Run a single pass and exit (useful for cron and testing)')),
+-  interval: Flag.integer('interval').pipe(Flag.optional, Flag.withDescription('Override the poll interval in seconds')),
+-  allowUnsimulated: Flag.boolean('allow-unsimulated').pipe(Flag.withDescription('Broadcast even when the RPC cannot pre-simulate via eth_simulateV1')),
++  execute: Flag.Boolean('execute').pipe(Flag.withDefault(false), Flag.withDescription('Sign and broadcast rebalances (default: dry-run, print/notify only)')),
++  once: Flag.Boolean('once').pipe(Flag.withDefault(false), Flag.withDescription('Run a single pass and exit (useful for cron and testing)')),
++  interval: Flag.Int('interval').pipe(Flag.optional, Flag.withDescription('Override the poll interval in seconds')),
++  allowUnsimulated: Flag.Boolean('allow-unsimulated').pipe(Flag.withDefault(false), Flag.withDescription('Broadcast even when the RPC cannot pre-simulate via eth_simulateV1')),
+   wallet: flags.wallet,
+ }, Effect.fn(function* (config) {
+   const almConfig = loadAlmConfig(optionalValue(config.config))
+@@ -123,9 +123,9 @@
+ const init = Command.make('init', {
+   chain: flags.chain,
+   wallet: flags.wallet,
+-  positionId: Flag.string('position-id').pipe(Flag.optional, Flag.withDescription('Only configure this NFT, required when a pool has multiple positions')),
+-  strategy: Flag.choice('strategy', ALM_STRATEGIES).pipe(Flag.optional, Flag.withDescription('Strategy for every scaffolded position (default original)')),
+-  force: Flag.boolean('force').pipe(Flag.withDescription('Overwrite an existing config file')),
++  positionId: Flag.String('position-id').pipe(Flag.optional, Flag.withDescription('Only configure this NFT, required when a pool has multiple positions')),
++  strategy: Flag.Literals('strategy', ALM_STRATEGIES).pipe(Flag.optional, Flag.withDescription('Strategy for every scaffolded position (default original)')),
++  force: Flag.Boolean('force').pipe(Flag.withDefault(false), Flag.withDescription('Overwrite an existing config file')),
+   config: configFlag,
+ }, Effect.fn(function* (config) {
+   const path = optionalValue(config.config) ?? almConfigPath()
+@@ -170,11 +170,11 @@
+  * with a single signature at app.safe.global.
+  */
+ const safeSetup = Command.make('safe-setup', {
+-  safe: Flag.string('safe').pipe(Flag.withMetavar('<0x address>'), Flag.withDescription('The Safe that owns (or will own) the CL positions')),
+-  keeper: Flag.string('keeper').pipe(Flag.optional, Flag.withMetavar('<0x address>'), Flag.withDescription('Keeper address (defaults to the local encrypted wallet)')),
+-  role: Flag.string('role').pipe(Flag.withDefault(DEFAULT_ROLE_KEY), Flag.withDescription('Role name (bytes32-encoded on-chain)')),
+-  saltNonce: Flag.string('salt-nonce').pipe(Flag.withDefault('0'), Flag.withDescription('ModuleProxyFactory salt nonce (change to deploy a fresh modifier)')),
+-  out: Flag.string('out').pipe(Flag.optional, Flag.withMetavar('<path>'), Flag.withDescription('Output path for the Transaction Builder JSON (default ./aero-alm-safe-setup.json)')),
++  safe: Flag.String('safe').pipe(Flag.withMetavar('<0x address>'), Flag.withDescription('The Safe that owns (or will own) the CL positions')),
++  keeper: Flag.String('keeper').pipe(Flag.optional, Flag.withMetavar('<0x address>'), Flag.withDescription('Keeper address (defaults to the local encrypted wallet)')),
++  role: Flag.String('role').pipe(Flag.withDefault(DEFAULT_ROLE_KEY), Flag.withDescription('Role name (bytes32-encoded on-chain)')),
++  saltNonce: Flag.String('salt-nonce').pipe(Flag.withDefault('0'), Flag.withDescription('ModuleProxyFactory salt nonce (change to deploy a fresh modifier)')),
++  out: Flag.String('out').pipe(Flag.optional, Flag.withMetavar('<path>'), Flag.withDescription('Output path for the Transaction Builder JSON (default ./aero-alm-safe-setup.json)')),
+   config: configFlag,
+ }, Effect.fn(function* (config) {
+   assertSafeAlmSupported()
+diff --git a/src/cli/alm-recovery-commands.ts b/src/cli/alm-recovery-commands.ts
+--- a/src/cli/alm-recovery-commands.ts
++++ b/src/cli/alm-recovery-commands.ts
+@@ -24,7 +24,7 @@
+   return { state, key, entry, cycle, store, client }
+ }
+ 
+-export const almRecoverCommand = Command.make('recover', { id: Flag.string('id') }, Effect.fn(function* ({ id }) {
++export const almRecoverCommand = Command.make('recover', { id: Flag.String('id') }, Effect.fn(function* ({ id }) {
+   const release = acquireAlmStateLock()
+   try {
+     const { cycle, store, client } = recoveryContext(id)
+@@ -37,9 +37,9 @@
+ })).pipe(Command.withDescription('Reconcile ALM receipts without submitting or restarting any phase'))
+ 
+ export const almResolveCommand = Command.make('resolve', {
+-  id: Flag.string('id'),
+-  note: Flag.string('note'),
+-  positionId: Flag.string('position-id').pipe(Flag.optional, Flag.withDescription('NFT to track after manual repair, defaults to the recorded replacement or original NFT')),
++  id: Flag.String('id'),
++  note: Flag.String('note'),
++  positionId: Flag.String('position-id').pipe(Flag.optional, Flag.withDescription('NFT to track after manual repair, defaults to the recorded replacement or original NFT')),
+ }, Effect.fn(function* ({ id, note, positionId }) {
+   const release = acquireAlmStateLock()
+   try {
+@@ -54,7 +54,7 @@
+       throw new Error('Recovery needs an owned, funded CL NFT; rebuild the position and pass --position-id')
+     }
+     yield* Console.log(`Future ALM cycles will track NFT ${selectedId} in pool ${cycle.pool}`)
+-    if (!(yield* Prompt.confirm({ message: 'Have you verified the receipts, balances, NFT ownership and staking, and manually repaired this cycle? Resolving permits future ALM cycles.' }))) return
++    if (!(yield* Prompt.Confirm({ message: 'Have you verified the receipts, balances, NFT ownership and staking, and manually repaired this cycle? Resolving permits future ALM cycles.' }))) return
+     const resolved = resolveAlmCycle(cycle, journals, store, note)
+     saveAlmState({ ...state, [key]: recoveredPositionState(entry, resolved, position.id) })
+     yield* Console.log('Cycle resolved. Unsubmitted steps were cancelled. Attempt cooldowns and caps remain in effect; run aero serve --once in dry-run mode before restarting execution.')
+diff --git a/src/cli/execution-commands.ts b/src/cli/execution-commands.ts
+--- a/src/cli/execution-commands.ts
++++ b/src/cli/execution-commands.ts
+@@ -15,7 +15,7 @@
+   yield* Console.log(JSON.stringify(entries, null, 2))
+ })).pipe(Command.withDescription('List persisted executions and known transaction hashes'))
+ 
+-const resume = Command.make('resume', { id: Flag.string('id') }, Effect.fn(function* ({ id }) {
++const resume = Command.make('resume', { id: Flag.String('id') }, Effect.fn(function* ({ id }) {
+   const store = createFileJournalStore()
+   const entry = store.load(id)
+   if (!entry) throw new Error('Execution not found')
+@@ -23,13 +23,13 @@
+     throw new Error('ALM phases cannot be resumed independently; use aero alm recover and manually repair the cycle')
+   }
+   yield* Console.log(`Chain ${entry.plan.chainId}, sender ${entry.plan.sender}\n${JSON.stringify(entry.steps, null, 2)}`)
+-  if (!(yield* Prompt.confirm({ message: 'Reconcile receipts and continue unsubmitted steps of this reviewed plan?' }))) return
++  if (!(yield* Prompt.Confirm({ message: 'Reconcile receipts and continue unsubmitted steps of this reviewed plan?' }))) return
+   const signer = yield* resolveSigner()
+   const hashes = yield* fromPromise(() => sendPlan({ plan: entry.plan, signer, store }))
+   yield* Console.log(JSON.stringify({ status: 'complete', hashes }))
+ })).pipe(Command.withDescription('Resume a saved plan without resending submitted transactions'))
+ 
+-const cancel = Command.make('cancel', { id: Flag.string('id') }, Effect.fn(function* ({ id }) {
++const cancel = Command.make('cancel', { id: Flag.String('id') }, Effect.fn(function* ({ id }) {
+   const store = createFileJournalStore()
+   const entry = store.load(id)
+   if (!entry) throw new Error('Execution not found')
+@@ -38,7 +38,7 @@
+     const current = store.load(id)
+     if (!current || current.status !== 'active') throw new Error('Execution is not active')
+     if (current.steps.some((step) => step.kind === 'submitted' || step.kind === 'submitting')) throw new Error('Cannot cancel an unknown or pending submission; reconcile it first')
+-    if (!(yield* Prompt.confirm({ message: 'Cancel the remaining unsubmitted steps? Confirmed transactions cannot be undone.' }))) return
++    if (!(yield* Prompt.Confirm({ message: 'Cancel the remaining unsubmitted steps? Confirmed transactions cannot be undone.' }))) return
+     store.save({ ...current, status: 'cancelled' })
+     yield* Console.log('Unsubmitted steps cancelled.')
+   } finally {
+diff --git a/src/cli/flags.ts b/src/cli/flags.ts
+--- a/src/cli/flags.ts
++++ b/src/cli/flags.ts
+@@ -5,96 +5,96 @@
+ /** Default chain for every command: Base, home of Aerodrome. */
+ export const DEFAULT_CHAIN = 8453
+ 
+-export const chain = Flag.integer('chain').pipe(
++export const chain = Flag.Int('chain').pipe(
+   Flag.withDefault(DEFAULT_CHAIN),
+   Flag.withDescription('Chain id (defaults to 8453 — Base, home of Aerodrome)'),
+ )
+ 
+-export const wallet = Flag.string('wallet').pipe(
++export const wallet = Flag.String('wallet').pipe(
+   Flag.optional,
+   Flag.withMetavar('<0x address>'),
+   Flag.withDescription('Wallet address (defaults to the connected wallet)'),
+ )
+ 
+-export const pool = Flag.string('pool').pipe(
++export const pool = Flag.String('pool').pipe(
+   Flag.optional,
+   Flag.withMetavar('<0x address>'),
+   Flag.withDescription('Pool (liquidity pair) address'),
+ )
+ 
+-export const position = Flag.string('position').pipe(
++export const position = Flag.String('position').pipe(
+   Flag.optional,
+   Flag.withMetavar('<id>'),
+   Flag.withDescription('Position id (list yours with: aero positions)'),
+ )
+ 
+-export const poolType = Flag.choice('pool-type', ['cl', 'stable', 'volatile']).pipe(
++export const poolType = Flag.Literals('pool-type', ['cl', 'stable', 'volatile']).pipe(
+   Flag.optional,
+   Flag.withDescription('Filter or select the pool flavor'),
+ )
+ 
+-export const fromToken = Flag.string('from-token').pipe(
++export const fromToken = Flag.String('from-token').pipe(
+   Flag.optional,
+   Flag.withMetavar('<symbol|0x address>'),
+   Flag.withDescription('Token you pay with (symbol like ETH/USDC, or address; omitted interactively opens a fuzzy token finder)'),
+ )
+ 
+-export const toToken = Flag.string('to-token').pipe(
++export const toToken = Flag.String('to-token').pipe(
+   Flag.optional,
+   Flag.withMetavar('<symbol|0x address>'),
+   Flag.withDescription('Token you receive (symbol like ETH/USDC, or address; omitted interactively opens a fuzzy token finder)'),
+ )
+ 
+-export const amount = Flag.string('amount').pipe(
++export const amount = Flag.String('amount').pipe(
+   Flag.withMetavar('<amount>'),
+   Flag.withDescription('Amount to use (raw units, or decimals with --use-decimals)'),
+ )
+ 
+-export const useDecimals = Flag.boolean('use-decimals').pipe(
++export const useDecimals = Flag.Boolean('use-decimals').pipe(Flag.withDefault(false), 
+   Flag.withDescription('Read amounts as human units (0.1 ETH) instead of raw wei'),
+ )
+ 
+-export const slippage = Flag.float('slippage').pipe(
++export const slippage = Flag.Finite('slippage').pipe(
+   Flag.optional,
+   Flag.withDescription('Slippage tolerance between 0 and 1 (0.01 = 1%)'),
+ )
+ 
+-export const deadlineMinutes = Flag.integer('deadline-minutes').pipe(
++export const deadlineMinutes = Flag.Int('deadline-minutes').pipe(
+   Flag.optional,
+   Flag.withDescription('Transaction deadline in minutes (default 30)'),
+ )
+ 
+-export const yes = Flag.boolean('yes').pipe(
++export const yes = Flag.Boolean('yes').pipe(Flag.withDefault(false), 
+   Flag.withAlias('y'),
+   Flag.withDescription('Skip the sign-and-broadcast confirmation prompt'),
+ )
+ 
+-export const dryRun = Flag.boolean('dry-run').pipe(
++export const dryRun = Flag.Boolean('dry-run').pipe(Flag.withDefault(false), 
+   Flag.withDescription('Always print the unsigned plan, never broadcast'),
+ )
+ 
+-export const token0 = Flag.string('token0').pipe(
++export const token0 = Flag.String('token0').pipe(
+   Flag.optional,
+   Flag.withMetavar('<symbol|0x address>'),
+   Flag.withDescription('First pool token (symbol or address)'),
+ )
+ 
+-export const token1 = Flag.string('token1').pipe(
++export const token1 = Flag.String('token1').pipe(
+   Flag.optional,
+   Flag.withMetavar('<symbol|0x address>'),
+   Flag.withDescription('Second pool token (symbol or address)'),
+ )
+ 
+-export const burn = Flag.boolean('burn').pipe(
++export const burn = Flag.Boolean('burn').pipe(Flag.withDefault(false), 
+   Flag.withDescription('Burn the emptied CL position NFT'),
+ )
+ 
+-export const unwrapNative = Flag.boolean('unwrap-native').pipe(
++export const unwrapNative = Flag.Boolean('unwrap-native').pipe(Flag.withDefault(false), 
+   Flag.withDescription('Unwrap the wrapped native leg back to the native token'),
+ )
+ 
+ /** `collect` defaults to true server-side, so only an explicit opt-out is sent. */
+-export const noCollect = Flag.boolean('no-collect').pipe(
++export const noCollect = Flag.Boolean('no-collect').pipe(Flag.withDefault(false), 
+   Flag.withDescription('Skip collecting owed fees while withdrawing (CL only)'),
+ )
+ 
+diff --git a/src/cli/guide.ts b/src/cli/guide.ts
+--- a/src/cli/guide.ts
++++ b/src/cli/guide.ts
+@@ -327,7 +327,7 @@
+ } satisfies Record<GuideTopic, string>
+ 
+ export const guideCommand = Command.make('guide', {
+-  topic: Argument.choice('topic', GUIDE_TOPICS).pipe(
++  topic: Argument.Literals('topic', GUIDE_TOPICS).pipe(
+     Argument.optional,
+     Argument.withDescription('Guide to read (omit to list all topics)'),
+   ),
+diff --git a/src/cli/run-action.ts b/src/cli/run-action.ts
+--- a/src/cli/run-action.ts
++++ b/src/cli/run-action.ts
+@@ -56,7 +56,7 @@
+   const local = loadLocalWallet()
+   if (!local) throw new Error('no wallet configured; run: aero wallet connect or aero wallet create')
+   const passphrase = process.env.SUGAR_WALLET_PASSPHRASE
+-    ?? Redacted.value(yield* Prompt.password({ message: 'Wallet passphrase' }))
++    ?? Redacted.value(yield* Prompt.Password({ message: 'Wallet passphrase' }))
+   return localMnemonicSigner(openSecret(local.sealed, passphrase))
+ })
+ 
+@@ -99,7 +99,7 @@
+   yield* Console.log(`Chain ${plan.chainId}, sender ${plan.sender}\n${renderPlanSummary(action, result, steps)}`)
+   if (!options.yes) {
+     if (!process.stdin.isTTY) throw new Error('no TTY for the confirmation prompt; pass --yes or --dry-run')
+-    const confirmed = yield* Prompt.confirm({ message: 'Sign and broadcast?' })
++    const confirmed = yield* Prompt.Confirm({ message: 'Sign and broadcast?' })
+     if (!confirmed) {
+       yield* Console.log('Aborted; nothing was sent.')
+       return
+diff --git a/src/cli/stock-commands.ts b/src/cli/stock-commands.ts
+--- a/src/cli/stock-commands.ts
++++ b/src/cli/stock-commands.ts
+@@ -7,13 +7,13 @@
+ import { runReadAction, runTxAction } from './run-action'
+ import { deleteIndex, listIndices, readIndex, saveIndex } from '../stocks/indices'
+ 
+-const name = Flag.string('name').pipe(Flag.withDescription('Saved index name'))
+-const allocations = Flag.string('allocations').pipe(Flag.withDescription('Target percentages, e.g. NVDAc=50,AAPLc=50. Use 0% to exit a stock.'))
++const name = Flag.String('name').pipe(Flag.withDescription('Saved index name'))
++const allocations = Flag.String('allocations').pipe(Flag.withDescription('Target percentages, e.g. NVDAc=50,AAPLc=50. Use 0% to exit a stock.'))
+ const trading = { chain: flags.chain, wallet: flags.wallet, slippage: flags.slippage, yes: flags.yes, dryRun: flags.dryRun }
+ const tradeCommands = (['buy', 'sell'] as const).map((side) => Command.make(side, {
+   ...trading,
+-  stock: Flag.string('stock'),
+-  amount: Flag.string('amount').pipe(Flag.withDescription(side === 'buy' ? 'USDC to spend' : 'Stock token units to sell')),
++  stock: Flag.String('stock'),
++  amount: Flag.String('amount').pipe(Flag.withDescription(side === 'buy' ? 'USDC to spend' : 'Stock token units to sell')),
+ }, Effect.fn(function* (config) {
+   yield* runTxAction(side === 'buy' ? 'stock_buy' : 'stock_sell', definedParameters({
+     chain: config.chain, wallet: optionalValue(config.wallet), stock: config.stock,
+@@ -38,7 +38,7 @@
+   Command.make('list', {}, Effect.fn(function* () { yield* Console.log(JSON.stringify(listIndices(), null, 2)) })),
+   Command.make('show', { name }, Effect.fn(function* (config) { yield* Console.log(JSON.stringify(readIndex(config.name), null, 2)) })),
+   Command.make('delete', { name }, Effect.fn(function* (config) { deleteIndex(config.name); yield* Console.log(`Deleted ${config.name}. Wallet holdings unchanged.`) })),
+-  Command.make('rebalance', { ...trading, name, cash: Flag.string('cash').pipe(Flag.withDefault('0'), Flag.withDescription('USDC contribution, default 0. Existing holdings of index stocks are included.')) }, Effect.fn(function* (config) {
++  Command.make('rebalance', { ...trading, name, cash: Flag.String('cash').pipe(Flag.withDefault('0'), Flag.withDescription('USDC contribution, default 0. Existing holdings of index stocks are included.')) }, Effect.fn(function* (config) {
+     yield* runTxAction('index_rebalance', definedParameters({
+       chain: config.chain, wallet: optionalValue(config.wallet), allocations: readIndex(config.name).allocations,
+       cash: config.cash, slippage: optionalValue(config.slippage),
+diff --git a/src/cli/token-prompt.ts b/src/cli/token-prompt.ts
+--- a/src/cli/token-prompt.ts
++++ b/src/cli/token-prompt.ts
+@@ -90,7 +90,7 @@
+ }
+ export function tokenPickPrompt(options: PickerOptions): Prompt.Prompt<TokenPick> {
+   const initialState: PickerState = { query: options.initialQuery ?? '', index: 0 }
+-  return Prompt.custom(initialState, {
++  return Prompt.Custom(initialState, {
+     render: (state, action) =>
+       Effect.gen(function* () {
+         const terminal = yield* Terminal.Terminal

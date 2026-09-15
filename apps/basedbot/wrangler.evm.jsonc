@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "basedbot-evm",
+  "account_id": "157a8b025a13404b16f11ad7078e53f1",
+  "main": "src/cloudflare/evm-worker.ts",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": { "BASE_RPC_URL": "https://base-mainnet.g.alchemy.com/public" },
+  "limits": { "cpu_ms": 120000 },
+  "observability": { "enabled": true },
+  "containers": [{ "class_name": "EvmSandbox", "image": "containers/evm/Dockerfile", "image_build_context": ".", "instance_type": "lite", "max_instances": 1 }],
+  "durable_objects": { "bindings": [{ "name": "EVM_SANDBOX", "class_name": "EvmSandbox" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["EvmSandbox"] }]
+}

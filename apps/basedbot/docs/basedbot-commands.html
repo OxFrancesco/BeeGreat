@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Every BasedBot chat command, with explanations, usage examples, and Aerodrome options."><title>BasedBot commands</title>
+<style>
+:root{color-scheme:light;--ink:#192738;--muted:#536477;--line:#dfe5ed;--blue:#1555cf;--paper:#fff;--code:#f3f6fa}*{box-sizing:border-box}html{scroll-padding-top:100px}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}a{color:var(--blue);text-underline-offset:4px}.page{max-width:1220px;margin:auto;padding:48px 32px 80px}header{margin-left:190px;margin-bottom:32px}h1{font-size:36px;letter-spacing:-1.4px;line-height:1.15;margin:0 0 20px;font-weight:650}header p{color:var(--muted);max-width:760px;margin:12px 0}.layout{display:grid;grid-template-columns:160px minmax(0,1fr);gap:30px}aside{position:sticky;top:28px;align-self:start}aside a{display:block;padding:7px 0;color:var(--muted);text-decoration:none}aside a:hover{color:var(--blue)}.search{position:relative;margin:24px 0 16px}input{width:100%;padding:12px 14px;border:1px solid #aebccb;border-radius:7px;background:white;color:var(--ink)}input:focus{outline:3px solid #d7e5ff;border-color:var(--blue)}h2{font-size:24px;letter-spacing:-.45px;line-height:1.25;margin:44px 0 20px}h2:first-child{margin-top:0}p{margin:12px 0}code{font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;background:var(--code);padding:2px 4px;border-radius:3px}table{width:100%;border-collapse:collapse;table-layout:fixed;margin:18px 0 24px}th{text-align:left;font-size:14px;color:var(--muted);font-weight:500;padding:0 12px 12px}th:first-child,td:first-child{width:27%;padding-left:0}th:nth-child(2){width:34%}td{padding:22px 12px;vertical-align:top;border-top:1px solid var(--line)}td:last-child{padding-right:0}td:first-child code{background:none;padding:0;font-weight:600;color:var(--blue);font-size:14px}td:nth-child(2){font-size:15px}td:nth-child(3){font-size:14px;color:var(--muted)}.example{display:block;position:relative;margin:8px 0;padding:9px 42px 9px 10px;background:var(--code);border-radius:5px}.example code{background:none;padding:0;color:var(--ink)}.copy{position:absolute;right:5px;top:6px;border:0;background:transparent;color:#47617b;width:30px;height:30px;cursor:pointer;border-radius:4px;display:grid;place-items:center}.copy:hover{background:#dce6f4;color:var(--blue)}.copy:focus-visible,summary:focus-visible,a:focus-visible{outline:3px solid #b4cdff;outline-offset:3px}.copy svg{width:17px;height:17px}.options{border-block:1px solid var(--line);padding:15px 0;margin:28px 0;color:var(--muted)}summary{color:var(--ink);cursor:pointer;font-weight:550;list-style-position:outside;margin-left:18px}li{margin:10px 0;padding-left:3px}ul{padding-left:21px}.notice{border-left:3px solid #ccd7e8;padding-left:14px;font-size:14px}#empty{padding:20px 0;color:var(--muted)}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}[hidden]{display:none!important}@media(max-width:850px){.page{padding:28px 20px 50px}header{margin-left:0}h1{font-size:30px}.layout{display:block}aside{position:static;display:flex;gap:20px;overflow:auto;white-space:nowrap;border-bottom:1px solid var(--line);margin-bottom:28px;padding-bottom:10px}h2{font-size:22px}th{display:none}table,tbody,tr,td{display:block;width:100%!important}tr{border-top:1px solid var(--line);padding:20px 0}td{border:0;padding:4px 0!important}td:first-child code{font-size:16px}td:nth-child(2){font-size:16px}td:nth-child(3){margin-top:8px}.example{padding:12px 44px 12px 12px}.copy{top:8px;width:34px;height:34px}table{margin-top:12px}}@media(prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style></head><body><div class="page"><header><h1>BasedBot commands</h1><p>Send a command in your chat with BasedBot, or ask in your own words. Reply to a preview with confirm to proceed. YOLO skips confirmation prompts when you explicitly turn it on.</p><div class="search"><label class="sr-only" for="search">Search commands and examples</label><input id="search" type="search" placeholder="Search commands or what you want to do" autocomplete="off"></div><details class="options"><summary>Before using an example</summary><p>All commands use Base mainnet. Replace address placeholders with complete public addresses and position 123 with your own position ID. Amounts are examples. Use the confirmation code the bot gives you; ABC123 is a placeholder.</p><p>Short-command amounts use human token units. For advanced quote, swap, deposit, and AERO-lock commands, include <code>--use-decimals</code> for human amounts. Your wallet is selected automatically.</p></details></header><div class="layout"><aside aria-label="Command sections"><a href="#main">Main commands</a><a href="#reads">Aerodrome reads</a><a href="#transactions">Transaction previews</a><a href="#natural">Ask naturally</a></aside><main><h2 id="main">Main commands</h2>
+<table>
+<thead>
+<tr><th>Command</th><th>What it does</th><th>How to use it</th></tr>
+</thead>
+<tbody>
+<tr><td><code>/help</code></td><td>Shows the short command list.</td><td><code>/help</code></td></tr>
+<tr><td><code>/start</code></td><td>Alias for <code>/help</code>.</td><td><code>/start</code></td></tr>
+<tr><td><code>/wallet</code></td><td>Creates or retrieves your Base smart wallet and shows its address.</td><td><code>/wallet</code></td></tr>
+<tr><td><code>/balance</code></td><td>Shows ETH, USDC, and AERO balances.</td><td><code>/balance</code></td></tr>
+<tr><td><code>/quote AMOUNT TOKEN to TOKEN</code></td><td>Gets a swap price without creating a transaction plan.</td><td><code>/quote 0.001 ETH to USDC</code></td></tr>
+<tr><td><code>/swap AMOUNT TOKEN to TOKEN</code></td><td>Creates a swap preview with a confirmation code.</td><td><code>/swap 0.000001 ETH to USDC</code></td></tr>
+<tr><td><code>/token TOKEN</code></td><td>Reads the balance of ETH, USDC, AERO, or a token contract.</td><td><code>/token USDC</code> or <code>/token 0xTOKEN</code></td></tr>
+<tr><td><code>/send AMOUNT TOKEN to ADDRESS</code></td><td>Creates a transfer preview. Rejects a transfer to your own wallet.</td><td><code>/send 1 USDC to 0xRECIPIENT</code> or <code>/send 0.000001 ETH to 0xRECIPIENT</code></td></tr>
+<tr><td><code>/allowance TOKEN for ADDRESS</code></td><td>Reads how much an address is permitted to spend from your ERC-20 balance.</td><td><code>/allowance USDC for 0xSPENDER</code></td></tr>
+<tr><td><code>/approve AMOUNT TOKEN for ADDRESS</code></td><td>Previews setting an exact ERC-20 spending allowance. It does not transfer tokens.</td><td><code>/approve 1 USDC for 0xSPENDER</code></td></tr>
+<tr><td><code>/revoke TOKEN for ADDRESS</code></td><td>Previews setting an ERC-20 spending allowance to zero. ETH does not have allowances.</td><td><code>/revoke USDC for 0xSPENDER</code></td></tr>
+<tr><td><code>/aave help</code></td><td>Shows Aave lending, borrowing, and position examples. The five official workflows load for natural-language Aave requests.</td><td><code>/aave help</code></td></tr>
+<tr><td><code>/polymarket QUESTION</code></td><td>Researches public Polymarket odds, history, liquidity, and trader positions through Exa. Read-only.</td><td><code>/polymarket What are the odds of a Fed rate cut?</code></td></tr>
+<tr><td><code>/polymarket status</code></td><td>Retrieves the latest research without starting another paid run.</td><td><code>/polymarket status</code></td></tr>
+<tr><td><code>/yolo</code></td><td>Shows whether YOLO is enabled for you in this chat. Defaults to off.</td><td><code>/yolo</code></td></tr>
+<tr><td><code>/yolo on</code></td><td>Executes new transaction requests without a confirmation prompt. Does not execute existing previews.</td><td><code>/yolo on</code></td></tr>
+<tr><td><code>/yolo off</code></td><td>Restores confirmation prompts for new requests. Does not undo submitted transactions.</td><td><code>/yolo off</code></td></tr>
+<tr><td><code>/confirm CODE</code></td><td>Executes the exact unexpired stored plan, or rechecks an already submitted plan.</td><td><code>/confirm ABC123</code></td></tr>
+<tr><td><code>/cancel CODE</code></td><td>Cancels a pending plan so it cannot later execute. It cannot undo a submitted transaction.</td><td><code>/cancel ABC123</code></td></tr>
+<tr><td><code>b/verbose</code></td><td>Shows the latest stored technical result as JSON for this sender and conversation. Does not rerun a tool or turn JSON on for future replies.</td><td>Send <code>b/verbose</code> after a wallet lookup, balance check, quote, or preview. <code>/verbose</code> is an alias.</td></tr>
+<tr><td><code>b/verbose PAGE</code></td><td>Reads another page of a long technical result.</td><td><code>b/verbose 2</code>; <code>/verbose 2</code> also works. Page numbers start at 1.</td></tr>
+<tr><td><code>/aero help</code></td><td>Shows the advanced Aerodrome command reference.</td><td><code>/aero</code>, <code>/aero help</code>, <code>/aero --help</code>, and <code>/aero -h</code> all show the same help.</td></tr>
+</tbody>
+</table>
+<h2 id="reads">Advanced Aerodrome reads</h2>
+<table>
+<thead>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td><code>/aero stocks</code></td><td>Lists supported tokenized stocks with market and sender-holding information when available.</td><td><code>/aero stocks</code></td></tr>
+<tr><td><code>/aero positions</code></td><td>Lists your liquidity positions. <code>--owner</code> can inspect a specified public address.</td><td><code>/aero positions</code> or <code>/aero positions --owner 0xOWNER</code></td></tr>
+<tr><td><code>/aero pools</code></td><td>Finds pools, optionally filtered by token pair and pool type.</td><td><code>/aero pools --token0 USDC --token1 AERO --pool-type volatile --limit 5 --full</code></td></tr>
+<tr><td><code>/aero epochs-latest</code></td><td>Reads the latest reward-period data, optionally filtered by pool type.</td><td><code>/aero epochs-latest --pool-type cl</code></td></tr>
+<tr><td><code>/aero epochs</code></td><td>Reads historical reward-period data for a pool.</td><td><code>/aero epochs --lp 0xPOOL --limit 5 --offset 0</code></td></tr>
+<tr><td><code>/aero quote</code></td><td>Gets a swap quote using explicit flags.</td><td><code>/aero quote --from-token ETH --to-token USDC --amount 0.001 --use-decimals</code></td></tr>
+</tbody>
+</table>
+<details class="options"><summary>Read options</summary>
+<ul>
+<li><code>pools</code>: <code>--token0</code>, <code>--token1</code>, <code>--pool-type</code>, <code>--limit</code>, and <code>--full</code>.</li>
+<li><code>epochs-latest</code>: <code>--pool-type</code>.</li>
+<li><code>epochs</code>: required <code>--lp</code>; optional <code>--pool-type</code>, <code>--limit</code>, and <code>--offset</code>.</li>
+<li><code>positions</code>: optional <code>--owner</code>; the bot uses your wallet when it is omitted.</li>
+<li><code>quote</code>: required <code>--from-token</code>, <code>--to-token</code>, and <code>--amount</code>; optional <code>--use-decimals</code>.</li>
+<li>Pool types are <code>stable</code>, <code>volatile</code>, and <code>cl</code>. Limits must be 1 through 100. Offsets must be nonnegative integers.</li>
+</ul>
+</details><h2 id="transactions">Advanced Aerodrome transaction previews</h2>
+<p>With YOLO off, every command in this table needs confirmation by replying <code>confirm</code> to the preview or sending <code>/confirm CODE</code>. With YOLO on, new transaction requests execute immediately. The amounts are syntax examples, not test spending instructions.</p>
+<table>
+<thead>
+<tr><th>Command</th><th>What it does</th><th>Example</th></tr>
+</thead>
+<tbody>
+<tr><td><code>/aero swap</code></td><td>Previews a swap with an optional slippage limit.</td><td><code>/aero swap --from-token ETH --to-token USDC --amount 0.000001 --use-decimals --slippage 0.005</code></td></tr>
+<tr><td><code>/aero deposit</code></td><td>Previews adding liquidity to a pool. Amounts correspond to that pool's token0 and token1.</td><td><code>/aero deposit --pool 0xPOOL --amount0 1 --amount1 1 --use-decimals</code></td></tr>
+<tr><td><code>/aero withdraw</code></td><td>Previews removing a fraction of a liquidity position.</td><td><code>/aero withdraw --position 123 --fraction 0.5 --collect</code></td></tr>
+<tr><td><code>/aero stake</code></td><td>Previews staking a liquidity position.</td><td><code>/aero stake --position 123</code></td></tr>
+<tr><td><code>/aero unstake</code></td><td>Previews unstaking a position.</td><td><code>/aero unstake --position 123</code></td></tr>
+<tr><td><code>/aero claim-emissions</code></td><td>Previews claiming a position's emissions rewards.</td><td><code>/aero claim-emissions --position 123</code></td></tr>
+<tr><td><code>/aero claim-fees</code></td><td>Previews claiming a position's accumulated trading fees.</td><td><code>/aero claim-fees --position 123</code></td></tr>
+<tr><td><code>/aero create-venft</code></td><td>Previews locking AERO into a voting position for a specified duration.</td><td><code>/aero create-venft --amount 1 --lock-duration-seconds 31536000 --use-decimals</code></td></tr>
+<tr><td><code>/aero stock-buy</code></td><td>Previews buying a supported tokenized stock. The amount is USDC to spend.</td><td><code>/aero stock-buy --stock NVDAc --amount 1</code></td></tr>
+<tr><td><code>/aero stock-sell</code></td><td>Previews selling a supported tokenized stock. The amount is stock tokens to sell.</td><td><code>/aero stock-sell --stock NVDAc --amount 0.001</code></td></tr>
+<tr><td><code>/aero index-rebalance</code></td><td>Previews trades to reach target stock percentages, optionally adding USDC. An already balanced index creates no plan.</td><td><code>/aero index-rebalance --allocations NVDAc=50,AAPLc=50 --cash 1</code></td></tr>
+</tbody>
+</table>
+<details class="options"><summary>Transaction options and amount rules</summary>
+<ul>
+<li><code>swap</code>: <code>--from-token</code>, <code>--to-token</code>, <code>--amount</code>, <code>--use-decimals</code>, and <code>--slippage</code>.</li>
+<li><code>deposit</code>: choose an existing <code>--pool</code>, or specify <code>--token0</code>, <code>--token1</code>, and <code>--pool-type</code>. Do not combine those two pool-selection forms. Creating or selecting a CL pool by token pair also requires <code>--tick-spacing</code>. An example is <code>/aero deposit --token0 USDC --token1 AERO --pool-type volatile --amount0 1 --amount1 1 --use-decimals</code>.</li>
+<li>Deposit amount options are <code>--amount0</code>, <code>--amount1</code>, and <code>--use-decimals</code>. A new basic pool needs both amounts. Existing basic pools can quote the other side from one amount. CL deposits use appropriate price or tick bounds for the chosen range.</li>
+<li>CL deposit options are <code>--price-lower</code>, <code>--price-upper</code>, <code>--tick-lower</code>, <code>--tick-upper</code>, and <code>--initial-price</code>. Their values depend on the actual pool. Do not invent bounds for the user. Basic pools reject CL-only price and tick flags.</li>
+<li><code>deposit</code> and <code>withdraw</code> also accept <code>--slippage</code> and <code>--deadline-minutes</code>.</li>
+<li><code>withdraw</code>, <code>stake</code>, <code>unstake</code>, <code>claim-emissions</code>, and <code>claim-fees</code> require <code>--position</code> or <code>--pool</code>. For a basic pool position, use the pool address. <code>--position 0</code> alone is ambiguous and requires <code>--pool</code> too.</li>
+<li><code>withdraw --fraction 0.5</code> removes half the position. Fractions must be greater than 0 and at most 1. Optional flags are <code>--burn</code>, <code>--collect</code>, and <code>--unwrap-native</code>. Fee collection defaults to enabled; <code>--no-collect</code> disables it.</li>
+<li><code>unstake --amount</code> accepts the SDK's integer amount, not a human token decimal. Omit it for the SDK's default full unstake. This action does not accept <code>--use-decimals</code>.</li>
+<li><code>claim-fees</code> also accepts <code>--burn</code> and <code>--unwrap-native</code>. Do not enable either without understanding the selected position and the user's request.</li>
+<li><code>create-venft</code> requires <code>--amount</code> and a positive integer <code>--lock-duration-seconds</code>. The example duration <code>31536000</code> is 365 days. Actual permissible locks depend on the contract.</li>
+<li><code>quote</code>, <code>swap</code>, <code>deposit</code>, and <code>create-venft</code> need <code>--use-decimals</code> when amounts are human token units. Without it, their amounts are integer base units. The short <code>/quote</code> and <code>/swap</code> commands add it automatically.</li>
+<li><code>stock-buy</code>, <code>stock-sell</code>, and <code>index-rebalance --cash</code> already use human units and do not accept <code>--use-decimals</code>. Stock symbols come from <code>/aero stocks</code>. Allocations use comma-separated <code>SYMBOL=percent</code> entries totaling 100. Omitted cash defaults to zero.</li>
+<li><code>stock-buy</code>, <code>stock-sell</code>, and <code>index-rebalance</code> also accept <code>--slippage</code>.</li>
+<li>Slippage is a fraction: <code>--slippage 0.005</code> means 0.5%. The bot currently defaults to 1% and rejects values above its configured maximum. A lower custom value is allowed.</li>
+<li>Flags accept <code>--name value</code> or <code>--name=value</code>. Use hyphenated flag names in documentation. Boolean flags accept <code>--flag</code>, <code>--flag true</code>, <code>--flag=false</code>, or <code>--no-flag</code>. Do not assume a flag supported by one action is supported by another.</li>
+</ul>
+</details><h2 id="natural">Natural-language requests</h2>
+<p>Users do not need to memorize the command list. Examples:</p>
+<ul>
+<li>&quot;What's my wallet address?&quot;</li>
+<li>&quot;Check my balance.&quot;</li>
+<li>&quot;Quote 0.001 ETH to USDC.&quot;</li>
+<li>&quot;Preview a swap of 0.000001 ETH to USDC.&quot;</li>
+<li>&quot;Show my liquidity positions.&quot;</li>
+<li>&quot;Show my USDC allowance for 0xSPENDER.&quot;</li>
+</ul>
+<p>You can also ask for contract reads, verified ABI inspection, data decoding, and simulated contract-call previews. These are natural-language requests, not <code>/read</code>, <code>/inspect</code>, <code>/decode</code>, <code>/contract-call</code>, or <code>/evm</code> slash commands. Supply the contract address, function signature and arguments when needed. Transactions need confirmation unless you explicitly enable YOLO.</p>
+<p id="empty" hidden>No matching commands. Try “balance”, “swap”, or “liquidity”.</p></main></div></div><span class="sr-only" id="copy-status" role="status" aria-live="polite"></span><script>
+const copyIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>';
+for(const code of document.querySelectorAll('td:nth-child(3) code')){if(!/^(?:b)?\//.test(code.textContent))continue;const box=document.createElement('span');box.className='example';code.replaceWith(box);box.append(code);const button=document.createElement('button');button.className='copy';button.type='button';button.setAttribute('aria-label','Copy '+code.textContent);button.title='Copy command';button.innerHTML=copyIcon;button.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(code.textContent);document.querySelector('#copy-status').textContent='Command copied';button.textContent='✓';setTimeout(()=>{button.innerHTML=copyIcon},1200)}catch{const range=document.createRange();range.selectNodeContents(code);const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);document.querySelector('#copy-status').textContent='Select and copy this command manually';}});box.append(button);}
+const search=document.querySelector('#search');const tables=[...document.querySelectorAll('main table')];search.addEventListener('input',()=>{const query=search.value.trim().toLowerCase();let found=false;for(const table of tables){let matches=0;for(const row of table.tBodies[0].rows){row.hidden=!row.textContent.toLowerCase().includes(query);if(!row.hidden)matches++;}table.hidden=matches===0;let heading=table.previousElementSibling;while(heading&&heading.tagName!=='H2'){heading.hidden=Boolean(query)||matches===0;heading=heading.previousElementSibling;}if(heading)heading.hidden=matches===0;found ||= matches>0;}for(const extra of document.querySelectorAll('main details, #natural, #natural ~ p, #natural ~ ul'))extra.hidden=Boolean(query);document.querySelector('#empty').hidden=found;});
+</script></body></html>

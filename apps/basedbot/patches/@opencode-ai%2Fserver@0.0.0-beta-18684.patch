@@ -1,0 +1,35 @@
+diff --git a/dist/workerd.d.ts b/dist/workerd.d.ts
+index 749b189b9be711bdbcf813b229ff8f46909acee1..fb0f460a9525cd982fdb09167f07cf07cfacacf0 100644
+--- a/dist/workerd.d.ts
++++ b/dist/workerd.d.ts
+@@ -23,6 +23,8 @@ import type { ServerOptions } from "./options";
+  * (see `script/workerd-probe.ts`).
+  */
+ export interface Options {
++    /** Host-owned outbound HTTP transport. The embedded client keeps its in-process transport. */
++    readonly fetch?: typeof globalThis.fetch;
+     /** Durable Object storage whose SQLite database backs the opencode database. */
+     readonly storage: DurableObjectStorage;
+     readonly app?: ServerOptions["app"];
+diff --git a/dist/workerd.js b/dist/workerd.js
+index 663424b6c042e965f2d91b04e751b2ce673d08df..855a1c7db56a370c873bbda68cde3f91270c1887 100644
+--- a/dist/workerd.js
++++ b/dist/workerd.js
+@@ -1,5 +1,7 @@
+ export * as ServerWorkerd from "./workerd";
+ import { Effect, Layer } from "effect";
++import { FetchHttpClient, HttpClient } from "effect/unstable/http";
++import { httpClient } from "@opencode-ai/util/effect/app-node-platform";
+ import { ConfigPluginSource } from "@opencode-ai/core/config/plugin/source";
+ import { Database } from "@opencode-ai/core/database/database";
+ import { sqliteLayer } from "@opencode-ai/core/database/sqlite.workerd";
+@@ -26,6 +28,9 @@ export function serverOptions(options) {
+ }
+ export function replacements(options) {
+   return [
++    ...options.fetch ? [[httpClient, Layer.effect(HttpClient.HttpClient,
++      Effect.map(Effect.provide(HttpClient.HttpClient, FetchHttpClient.layer), (client) =>
++        HttpClient.transformResponse(client, Effect.provideService(FetchHttpClient.Fetch, options.fetch))))]] : [],
+     [Database.node, Database.configuredClient(sqliteLayer({ storage: options.storage }))],
+     [CrossSpawnSpawner.node, EnvironmentUnavailable.layer],
+     [Snapshot.node, Snapshot.noopLayer],

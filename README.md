@@ -146,6 +146,7 @@ apps/beedocs          Astro documentation site
 apps/codex-adapter    ChatGPT authentication adapter
 apps/imessage-bridge  Optional messaging bridge
 apps/cli              Personal Bun CLI for Bee
+apps/basedbot         X Chat bot, Aero Stocks web app, and Pecu gateway
 packages/backend      Shared Convex schema and functions
 packages/agent        Shared Flue Bee agent
 packages/observability
@@ -170,3 +171,5 @@ Both clients call `packages/backend` directly and stream from the same authentic
 - Read `packages/backend/convex/_generated/ai/guidelines.md` before changing Convex code.
 - Treat generated Convex files as generated output.
 - Use Conventional Commits.
+
+BasedBot is maintained in [`apps/basedbot`](apps/basedbot). See [workspace commands and migration boundaries](docs/31-basedbot-monorepo.md).

@@ -1,0 +1,38 @@
+{
+  "name": "aero-stocks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run catalog && vite --host 127.0.0.1 --port 5198",
+    "build": "bun run catalog && vite build",
+    "typecheck": "tsc --noEmit",
+    "deploy": "bun run build && wrangler deploy",
+    "catalog": "bun scripts/sync-catalog.ts"
+  },
+  "dependencies": {
+    "@clerk/tanstack-react-start": "^0.29.10",
+    "@tanstack/react-router": "^1.168.22",
+    "@tanstack/react-start": "^1.167.41",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.25.0",
+    "motion": "^12.42.2",
+    "radix-ui": "^1.6.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "latest",
+    "@tailwindcss/vite": "^4.2.2",
+    "tailwindcss": "^4.2.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/node": "^24.12.2",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "7.0.2",
+    "vite": "^8.0.9",
+    "wrangler": "^4.127.1"
+  }
+}

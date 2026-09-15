@@ -1,0 +1,4 @@
+**
+!containers/
+!containers/evm/
+!containers/evm/Dockerfile

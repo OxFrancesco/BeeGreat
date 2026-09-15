@@ -1,0 +1,12 @@
+diff --git a/dist/chunks/state-a9rzcc94.js b/dist/chunks/state-a9rzcc94.js
+--- a/dist/chunks/state-a9rzcc94.js
++++ b/dist/chunks/state-a9rzcc94.js
+@@ -230,7 +230,7 @@
+       providerOptions: Object.keys(context.providerOptions).length === 0 ? undefined : context.providerOptions
+     }));
+     const hasHttpHooks = (yield* hooks.has("session", "http.request", resolved.ref.providerID)) || (yield* hooks.has("session", "http.response", resolved.ref.providerID));
+-    const webSocket = resolved.capabilities.responsesWebsockets === true ? yield* Config.boolean(responsesWebSocketFlag(resolved.ref.providerID)).pipe(Config.withDefault(false), Effect.orDie) : false;
++    const webSocket = resolved.capabilities.responsesWebsockets === true ? yield* Config.Boolean(responsesWebSocketFlag(resolved.ref.providerID)).pipe(Config.withDefault(false), Effect.orDie) : false;
+     const http = hasHttpHooks ? httpMiddleware(hooks, {
+       sessionID: session.id,
+       agent: input.scope.agentID,

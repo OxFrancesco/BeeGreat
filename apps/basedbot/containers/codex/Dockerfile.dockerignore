@@ -1,0 +1,9 @@
+**
+!src/
+!src/container/
+!src/container/codex-server.ts
+!src/cloudflare/
+!src/cloudflare/codex-protocol.ts
+!containers/
+!containers/codex/
+!containers/codex/Dockerfile

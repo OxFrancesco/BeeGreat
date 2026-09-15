@@ -28,7 +28,7 @@
     "@opentui/react": "0.5.1",
     "@walletconnect/sign-client": "^2.24.0",
     "abitype": "1.0.8",
-    "effect": "4.0.0-beta.107",
+    "effect": "4.0.0-rc.115",
     "react": "19.2.3",
     "uqr": "^0.1.3",
     "viem": "2.33.1",

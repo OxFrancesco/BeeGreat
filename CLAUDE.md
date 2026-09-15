@@ -43,6 +43,9 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/rabby` — Rabby browser wallet provider, EIP-6963 discovery, account events, and transaction approval
 - `resources/cannon-es` — Official Cannon ES rigid-body physics source for colliders, contacts, and draggable bodies
 
+- `resources/opencode-v2` — OpenCode v2 provider and Workerd integration reference for BasedBot
+- `resources/cloudflare-containers` — Official Cloudflare Containers SDK and runtime examples
+
 <!-- codeview:end -->
 
 ## Design system

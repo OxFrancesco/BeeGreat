@@ -31,7 +31,7 @@ const json = (path, value) => write(path, `${JSON.stringify(value, null, 2)}\n`)
 const manifest = JSON.parse(await readFile(join(output, 'package.json'), 'utf8'))
 const tooling = JSON.parse(await readFile(join(root, 'package.json'), 'utf8')).devDependencies
 manifest.workspaces = ['packages/sugar']
-manifest.overrides = { '@effect/platform-node-shared': '4.0.0-beta.107' }
+manifest.overrides = { effect: manifest.dependencies.effect, '@effect/platform-node-shared': manifest.dependencies.effect }
 manifest.packageManager ??= `bun@${Bun.version}`
 manifest.license = 'SEE LICENSE IN LICENSE'
 manifest.repository = { type: 'git', url: 'https://github.com/OxFrancesco/evmSDK.git' }

@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/OxFrancesco/BasedBot",
+  "revision": "024dcdaf85e72c559b3371d1d5f82b7912acd43e",
+  "includesWorkingTreeChanges": false,
+  "historyImported": false,
+  "excluded": [
+    "private Git history",
+    "reports/",
+    "docs/testing/",
+    "local environment and runtime files",
+    "standalone lockfiles"
+  ],
+  "reviewedAt": "2026-09-15"
+}

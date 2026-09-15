@@ -1,0 +1,23 @@
+
+# codeview reference codebases
+resources/
+
+# Local runtime state and secrets
+.env
+.data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Bun / TypeScript
+node_modules/
+bun.lockb
+dist/
+coverage/
+.wrangler/
+.env.local
+.dev.vars
+.clerk/
+.convex/
+.output/
+.tanstack/
