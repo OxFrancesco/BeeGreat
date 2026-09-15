@@ -31,6 +31,8 @@ function fixture() {
       enableMainnetExecution: false,
       maxSlippageBps: 100,
       quoteTtlSeconds: 120,
+      depositRelayMaxUsd: 500,
+      depositRelayDailyMaxUsd: 2000,
     },
     store,
     {
@@ -38,6 +40,7 @@ function fixture() {
         throw new Error("Must reuse existing wallet");
       },
       balances: async () => "",
+      usdcBalanceUnits: async () => 0n,
       prepare: async () => {
         throw new Error("No signing");
       },

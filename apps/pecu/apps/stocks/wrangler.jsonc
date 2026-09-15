@@ -25,12 +25,12 @@
   "services": [
     {
       "binding": "AERO",
-      "service": "pecu-aero",
+      "service": "basedbot-aero",
       "remote": true
     },
     {
       "binding": "PECU",
-      "service": "pecu",
+      "service": "basedbot",
       "entrypoint": "StocksGateway",
       "remote": true
     }

@@ -28,6 +28,10 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 ## User-facing chat behavior
 
+Production identity is persistent: keep the `basedbot` Worker names, `BasedBotDurableObject` export, `basedbot-main` object name, existing storage keys and table names, and `userId:basedbot-x-<sender>` Crossmint owners. Pecu is the product name. Renaming persistent identifiers requires a separate verified state migration.
+
+The first verified message provisions the sender's Base smart wallet before command or model handling, even for greetings and `/help`. Stored wallets skip onboarding across conversations. Creation failures return an error and retry on the next new message; replayed events return their stored reply.
+
 Write for ordinary users. Show human token amounts, recipients when relevant, minimum received amounts, network fees when available, and confirmation controls. Do not put JSON, calldata, raw wei amounts, internal plan IDs, or framework names in normal replies. Do not invent fee estimates. Keep technical output behind `b/verbose`.
 
 Prefer natural-language requests and the short commands below. Keep the advanced Aerodrome commands in `/aero help` rather than putting their full syntax into every reply.
@@ -60,6 +64,9 @@ Source of truth: `src/domain.ts`, `src/agent.ts`, `src/evm.ts`, and the pinned `
 | `/start` | Alias for `/help`. | Send `/start`. |
 | `/wallet` | Creates or retrieves the sender's Base smart wallet and shows its address. | Send `/wallet`, then use the returned address when funding the wallet on Base. |
 | `/balance` | Shows ETH, USDC, and AERO balances. | Send `/balance`. Use `/token` for another token. |
+| `/deposit` | Shows the Whop funding page and bank or crypto deposit details for adding money. Asks for an email on first use. | `/deposit` or `/deposit 50` |
+| `/deposit setup EMAIL` | Creates the sender's Whop funding account with the given email. Whop uses it for deposit receipts. | `/deposit setup you@example.com` |
+| `/deposit status` | Lists the sender's recent deposits and whether the USDC was sent. | `/deposit status` |
 | `/quote AMOUNT TOKEN to TOKEN` | Gets a swap price without creating a transaction plan. | `/quote 0.001 ETH to USDC` |
 | `/swap AMOUNT TOKEN to TOKEN` | Creates a swap preview with a confirmation code. | `/swap 0.000001 ETH to USDC` |
 | `/token TOKEN` | Reads the balance of ETH, USDC, AERO, or a token contract. | `/token USDC` or `/token 0xTOKEN` |
@@ -78,6 +85,12 @@ Source of truth: `src/domain.ts`, `src/agent.ts`, `src/evm.ts`, and the pinned `
 | `b/verbose` | Shows the latest stored technical result as JSON for this sender and conversation. Does not rerun a tool or turn JSON on for future replies. | Send `b/verbose` after a wallet lookup, balance check, quote, or preview. `/verbose` is an alias. |
 | `b/verbose PAGE` | Reads another page of a long technical result. | `b/verbose 2`; `/verbose 2` also works. Page numbers start at 1. |
 | `/aero help` | Shows the advanced Aerodrome command reference. | `/aero`, `/aero help`, `/aero --help`, and `/aero -h` all show the same help. |
+| `/nansen` or `/nansen help` | Shows the Nansen analytics commands. | `/nansen` |
+| `/nansen token TOKEN [chain] [timeframe]` | Shows a token snapshot: price, market cap, liquidity, volume, holders. | `/nansen token 0xTOKEN base 7d` |
+| `/nansen flows TOKEN [chain]` | Shows net token inflows and outflows per holder cohort. | `/nansen flows 0xTOKEN` |
+| `/nansen wallet [ADDRESS] [chain]` | Shows token balances for an address, defaulting to the sender's wallet on Base. | `/nansen wallet` or `/nansen wallet 0xADDRESS ethereum` |
+| `/nansen pnl [ADDRESS] [chain]` | Shows realized PnL, win rate, and top tokens for an address. | `/nansen pnl` |
+| `/nansen markets [words]` | Lists Polymarket markets ranked by 24h volume, optionally filtered by search words. | `/nansen markets fed rate cut` |
 
 ### Advanced Aerodrome reads
 
@@ -156,3 +169,7 @@ The five official Aave skills are vendored under `skills/aave/` and bundled into
 Aave reads cover the chains the service reports. Pecu signs only Base v3 supply, borrow, withdraw, and repay plans through `prepare_action`. Discovery, account and reserve inspection, and simulation run before every plan. Error warnings stop the build; other warnings reach the user. Token approval is a separate action and must be identified as such. Once confirmed, the user can ask to continue. Signed orders, liquidations, and other prepared actions are not enabled. Deleveraging, yield analysis, history, and post-transaction position checks use the official workflows.
 
 Polymarket uses Exa Agent API with only the `polymarket` data source and minimal effort. Store `EXA_API_KEY` as a Cloudflare secret, never in code or skills. Persist the run ID per incoming event and the latest run per sender/conversation. Status checks must reuse the saved run. Report sources and observation time, and describe probabilities as market-implied odds. No betting or trading tools are exposed.
+
+Whop deposits give users a fiat on-ramp. `WHOP_API_KEY` and `WHOP_WEBHOOK_SECRET` are Cloudflare secrets, never in code. Each sender gets one connected account keyed by their verified ID; `/deposit` reuses it. Confirmed `deposit.succeeded` webhooks relay the same dollar amount in Base USDC from the treasury wallet automatically, with no confirmation step. Repeat bank and crypto details exactly as the tool returns them; never invent payment details, fees, or timing. Deposits over the automatic caps wait for manual review.
+
+Nansen analytics is read-only. `NANSEN_API_KEY` is a Cloudflare secret, never in code. Every user-visible Nansen reply must end with `Data: Nansen (nansen.ai)`. Nansen's redistribution terms forbid labels endpoints, all `smart-money/*` endpoints, the PnL leaderboards, and `tgm/holders`, and `tgm/dex-trades` must always send `only_smart_money: false`. The allowed path list is pinned by `tests/integrations-nansen.test.ts`; keep it in sync with any catalog change. Analytics answers report what the data shows and are not financial advice.

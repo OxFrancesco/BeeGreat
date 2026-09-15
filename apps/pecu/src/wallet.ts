@@ -25,6 +25,8 @@ export type WalletTransaction = Readonly<{
   sender: string;
 }>;
 
+export const treasurySenderId = "treasury";
+
 export class WalletService {
   private readonly wallets: CrossmintWallets;
 
@@ -38,7 +40,7 @@ export class WalletService {
     if (cached) {
       wallet = await this.wallets.getWallet(cached.locator, { chain: "base" });
     } else {
-      const owner = `userId:pecu-x-${senderId}`;
+      const owner = senderId === treasurySenderId ? "userId:pecu-treasury" : `userId:basedbot-x-${senderId}`;
       try {
         wallet = await this.wallets.getWallet(`${owner}:evm:smart`, { chain: "base" });
       } catch (error) {
@@ -56,6 +58,13 @@ export class WalletService {
     const wallet = await this.getOrCreate(senderId);
     const balances = await wallet.balances(["base:0x940181a94A35A4569E4529A3CDfB74e38FD98631"]);
     return [`Address: ${wallet.address}`, `ETH: ${balances.nativeToken.amount}`, `USDC: ${balances.usdc.amount}`, `AERO: ${balances.tokens[0]?.amount ?? "0"}`].join("\n");
+  }
+
+  async usdcBalanceUnits(senderId: string): Promise<bigint> {
+    const wallet = await this.getOrCreate(senderId);
+    const balances = await wallet.balances();
+    const [whole = "0", fraction = ""] = balances.usdc.amount.split(".");
+    return BigInt(whole || "0") * 1_000_000n + BigInt((fraction + "000000").slice(0, 6));
   }
 
   async prepare(senderId: string, call: PlannedCall): Promise<{ transactionId: string }> {

@@ -26,3 +26,6 @@ assets/bee-3d/bee-3d-final.zip
 
 # deepsec scan workspace (local only)
 .deepsec/
+
+# Generated artwork, renders, and delivery artifacts
+/output/

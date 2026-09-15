@@ -18,6 +18,11 @@ const publicConfigSchema = z.object({
   MAX_SLIPPAGE_BPS: z.coerce.number().int().min(1).max(300).default(100),
   CHAT_PEER_USER_IDS: z.string().default(""),
   X_WEBHOOK_URL: z.string().url().optional(),
+  WHOP_API_URL: z.string().url().default("https://api.whop.com/api/v1"),
+  WHOP_API_VERSION_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default("2026-09-13"),
+  DEPOSIT_RELAY_MAX_USD: z.coerce.number().int().min(1).max(1_000_000).default(500),
+  DEPOSIT_RELAY_DAILY_MAX_USD: z.coerce.number().int().min(1).default(2000),
+  NANSEN_API_URL: z.string().url().default("https://api.nansen.ai/api/v1"),
 });
 
 export type WorkerConfig = Readonly<{
@@ -41,6 +46,14 @@ export type WorkerConfig = Readonly<{
   chatBotUserId?: string;
   adminToken?: string;
   exaApiKey?: string;
+  whopApiKey?: string;
+  whopWebhookSecret?: string;
+  whopApiUrl: string;
+  whopApiVersionDate: string;
+  depositRelayMaxUsd: number;
+  depositRelayDailyMaxUsd: number;
+  nansenApiKey?: string;
+  nansenApiUrl: string;
 }>;
 
 export function loadWorkerConfig(env: object): WorkerConfig {
@@ -53,6 +66,11 @@ export function loadWorkerConfig(env: object): WorkerConfig {
     MAX_SLIPPAGE_BPS: envString(env, "MAX_SLIPPAGE_BPS"),
     CHAT_PEER_USER_IDS: envString(env, "CHAT_PEER_USER_IDS"),
     X_WEBHOOK_URL: envString(env, "X_WEBHOOK_URL"),
+    WHOP_API_URL: envString(env, "WHOP_API_URL"),
+    WHOP_API_VERSION_DATE: envString(env, "WHOP_API_VERSION_DATE"),
+    DEPOSIT_RELAY_MAX_USD: envString(env, "DEPOSIT_RELAY_MAX_USD"),
+    DEPOSIT_RELAY_DAILY_MAX_USD: envString(env, "DEPOSIT_RELAY_DAILY_MAX_USD"),
+    NANSEN_API_URL: envString(env, "NANSEN_API_URL"),
   });
   const crossmintApiKey = envString(env, "CROSSMINT_API_KEY");
   const crossmintWalletSecret = envString(env, "CROSSMINT_WALLET_SECRET");
@@ -86,6 +104,14 @@ export function loadWorkerConfig(env: object): WorkerConfig {
     ...optionalConfig("chatBotUserId", chatBotUserId),
     ...optionalConfig("adminToken", adminToken),
     ...optionalConfig("exaApiKey", envString(env, "EXA_API_KEY")),
+    ...optionalConfig("whopApiKey", envString(env, "WHOP_API_KEY")),
+    ...optionalConfig("whopWebhookSecret", envString(env, "WHOP_WEBHOOK_SECRET")),
+    ...optionalConfig("nansenApiKey", envString(env, "NANSEN_API_KEY")),
+    whopApiUrl: value.WHOP_API_URL,
+    whopApiVersionDate: value.WHOP_API_VERSION_DATE,
+    depositRelayMaxUsd: value.DEPOSIT_RELAY_MAX_USD,
+    depositRelayDailyMaxUsd: value.DEPOSIT_RELAY_DAILY_MAX_USD,
+    nansenApiUrl: value.NANSEN_API_URL,
   };
 }
 

@@ -25,6 +25,8 @@ export function evmStub(overrides: Partial<{ propose: EvmPlanResult; read: EvmRe
 
 export const confirmedOutcome = (hash = "0xabc"): UserOperationOutcome => ({ status: "confirmed", hash, block: "1", gasUsed: "1" });
 
+export const pendingOutcome: UserOperationOutcome = { status: "pending" };
+
 export function services(overrides: Partial<AgentServices> & { aero?: AeroResult }): AgentServices {
   return {
     aerodrome: overrides.aerodrome ?? { run: async () => { if (!overrides.aero) throw new Error("unexpected aero call"); return overrides.aero; } },

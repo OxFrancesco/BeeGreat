@@ -2,6 +2,7 @@ import { z } from "zod";
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import type { AeroPlanResult } from "./aerodrome";
 import { formatUnits, type EvmPlanResult, type EvmReadResult } from "./evm";
+import type { WhopDeposit } from "./integrations/whop";
 
 const units = z.string().regex(/^\d+$/);
 const token = z.object({ symbol: z.string(), decimals: z.number().int().min(0).max(255) });
@@ -118,6 +119,29 @@ export function evmPlanText(plan: EvmPlanResult): string {
   }
   // Smart-wallet relay fees are not included in the sandbox's EOA gas estimate.
   return `${plan.summary}\nNetwork fee: not estimated yet.`;
+}
+
+export function depositInstructionsText(deposit: WhopDeposit, walletAddress: string, maxUsd: number): string {
+  const lines = ["Add funds to your Pecu wallet"];
+  if (deposit.hosted_url) lines.push(`Funding page: ${deposit.hosted_url}`);
+  for (const currency of (deposit.methods.bank?.currencies ?? []).slice(0, 2)) {
+    const details = [
+      currency.deposit_bank_name,
+      currency.account_number ? `account ${currency.account_number}` : undefined,
+      currency.routing_number ? `routing ${currency.routing_number}` : undefined,
+      currency.swift_bic ? `SWIFT ${currency.swift_bic}` : undefined,
+      currency.deposit_beneficiary_name ? `beneficiary ${currency.deposit_beneficiary_name}` : undefined,
+      currency.deposit_reference ? `reference ${currency.deposit_reference}` : undefined,
+    ].filter((part): part is string => part !== undefined);
+    lines.push(`Bank transfer (${[currency.currency.toUpperCase(), ...currency.rails].join(", ")}): ${details.join(", ")}`);
+  }
+  for (const network of (deposit.methods.crypto ?? []).filter((entry) => entry.deposit_address !== null && entry.name !== "Base").slice(0, 4)) {
+    lines.push(`${network.name}: ${network.deposit_address} (${network.supported_currencies.map((token) => token.name).join(", ")})`);
+  }
+  lines.push(`Skip Whop for Base: send USDC or ETH on Base straight to your Pecu wallet ${walletAddress}.`);
+  lines.push(`When Whop confirms a deposit, Pecu sends the same dollar amount in USDC to your Base wallet (automatic up to $${maxUsd} per deposit; larger deposits are reviewed manually). Crypto deposits need at least $10.`);
+  lines.push("Send /deposit status to check progress.");
+  return lines.join("\n");
 }
 
 export function verbosePage(json: string | undefined, page: number): string {

@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "pecu-aero",
+  "name": "basedbot-aero",
   "account_id": "157a8b025a13404b16f11ad7078e53f1",
   "main": "src/cloudflare/aero-worker.ts",
   "compatibility_date": "2026-08-29",

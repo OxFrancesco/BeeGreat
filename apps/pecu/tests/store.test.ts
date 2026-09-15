@@ -68,6 +68,36 @@ describe("durable state", () => {
     expect(store.claimEvent("interrupted-event", "1:2", "2", false, 1_000 + eventProcessingLeaseMs * 2)).toBe("completed");
   });
 
+  test("stores funding accounts and deposits idempotently", () => {
+    store = new Store(":memory:");
+    const account = { senderId: "2", whopAccountId: "biz_1", email: "a@b.co", conversationId: "1:2", encodedEvent: "raw" };
+    store.saveFundingAccount(account);
+    store.saveFundingAccount({ ...account, email: "c@d.co" });
+    expect(store.fundingAccount("2")?.email).toBe("c@d.co");
+    expect(store.fundingAccountByWhopId("biz_1")?.senderId).toBe("2");
+    store.touchFundingAccount("2", "1:2", "new-raw");
+    expect(store.fundingAccount("2")?.encodedEvent).toBe("new-raw");
+    store.touchFundingAccount("2", "1:2", "");
+    expect(store.fundingAccount("2")?.encodedEvent).toBe("new-raw");
+
+    const deposit = {
+      id: "la_1", webhookId: "wh_1", whopAccountId: "biz_1", senderId: "2",
+      amount: "5000", currency: "usd", precision: "2", usdAmount: "50.00",
+      state: "received" as const, postedAt: 1_000,
+    };
+    expect(store.recordDeposit(deposit)).toBe(true);
+    expect(store.recordDeposit(deposit)).toBe(false);
+    expect(store.deposit("la_1")?.usdAmount).toBe("50.00");
+    expect(store.depositsForSender("2", 5).map((row) => row.id)).toEqual(["la_1"]);
+    expect(store.pendingDeposits().map((row) => row.id)).toEqual(["la_1"]);
+    expect(store.transitionDeposit("la_1", "received", "relaying", { intentId: "intent-9", relayUsdcUnits: "50000000" })).toBe(true);
+    expect(store.transitionDeposit("la_1", "received", "relaying")).toBe(false);
+    expect(store.depositForIntent("intent-9")?.id).toBe("la_1");
+    expect(store.transitionDeposit("la_1", "relaying", "relayed", { result: "done" })).toBe(true);
+    expect(store.relayedUsdcUnitsSince(Date.now() - 60_000)).toBe(50_000_000n);
+    expect(store.relayedUsdcUnitsSince(Date.now() + 60_000)).toBe(0n);
+  });
+
   test("keeps one agent session and verified turn per sender and conversation", () => {
     store = new Store(":memory:");
     store.saveAgentSession("2", "1:2", "session-1");

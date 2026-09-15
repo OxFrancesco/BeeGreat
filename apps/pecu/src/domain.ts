@@ -2,8 +2,10 @@ import { parseSugarCliArgs } from "@beegreat/sugar/cli-args";
 import { SUGAR_TX_ACTIONS, type SugarAction, type SugarParameters } from "@beegreat/sugar/contracts";
 import { z } from "zod";
 import type { EvmTxParameters } from "./evm";
+import { nansenChains, type NansenEndpointName } from "./integrations/nansen";
 
 export const BASE_CHAIN_ID = 8453 as const;
+export const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
 
 export type VerifiedMessage = Readonly<{
   eventId: string;
@@ -30,7 +32,12 @@ export type Command =
   | Readonly<{ type: "token"; token: string }>
   | Readonly<{ type: "allowance"; token: string; spender: `0x${string}` }>
   | Readonly<{ type: "confirm"; code: string }>
-  | Readonly<{ type: "cancel"; code: string }>;
+  | Readonly<{ type: "cancel"; code: string }>
+  | Readonly<{ type: "deposit"; amount?: string }>
+  | Readonly<{ type: "deposit-setup"; email: string }>
+  | Readonly<{ type: "deposit-status" }>
+  | Readonly<{ type: "nansen-help" }>
+  | Readonly<{ type: "nansen"; endpoint: NansenEndpointName; input: Record<string, unknown> }>;
 
 export type EvmCommand = Extract<Command, { type: "evm" }>;
 
@@ -108,6 +115,80 @@ function parseConvenienceAction(verb: "quote" | "swap", parts: string[]): Comman
   };
 }
 
+export const depositAmountPattern = /^(?:[1-9]\d*)(?:\.\d{1,2})?$/;
+const depositEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function parseDepositCommand(parts: string[]): Command {
+  if (parts.length === 1) return { type: "deposit" };
+  const sub = parts[1]?.toLowerCase();
+  if (sub === "setup") {
+    const usage = "Usage: /deposit setup you@example.com";
+    const email = parts.length === 3 ? parts[2]?.trim().toLowerCase() : undefined;
+    if (!email || email.length > 254 || !depositEmail.test(email)) throw new Error(usage);
+    return { type: "deposit-setup", email };
+  }
+  if (sub === "status" && parts.length === 2) return { type: "deposit-status" };
+  const usage = "Usage: /deposit or /deposit 50 (USD, minimum 10)";
+  const amount = parts.length === 2 ? parts[1] : undefined;
+  if (!amount || !depositAmountPattern.test(amount) || Number(amount) < 10 || Number(amount) > 100_000) throw new Error(usage);
+  return { type: "deposit", amount };
+}
+
+const nansenChainSet = new Set<string>(nansenChains);
+const nansenTimeframes = new Set(["5m", "1h", "6h", "12h", "1d", "7d"]);
+const nansenAddress = /^[A-Za-z0-9._:-]{1,128}$/;
+
+function nansenPositional(args: string[], usage: string): { chain?: string; timeframe?: string } {
+  const parsed: { chain?: string; timeframe?: string } = {};
+  for (const arg of args) {
+    const value = arg.toLowerCase();
+    if (nansenChainSet.has(value) && parsed.chain === undefined) parsed.chain = value;
+    else if (nansenTimeframes.has(value) && parsed.timeframe === undefined) parsed.timeframe = value;
+    else throw new Error(usage);
+  }
+  return parsed;
+}
+
+function parseNansenCommand(parts: string[]): Command {
+  if (parts.length === 1 || parts[1]?.toLowerCase() === "help") return { type: "nansen-help" };
+  const sub = parts[1]?.toLowerCase();
+  switch (sub) {
+    case "token": {
+      const usage = "Usage: /nansen token 0xTOKEN [chain] [timeframe]";
+      const token = parts[2];
+      if (!token || !nansenAddress.test(token)) throw new Error(usage);
+      const rest = nansenPositional(parts.slice(3), usage);
+      return { type: "nansen", endpoint: "token_info", input: { token, ...rest } };
+    }
+    case "flows": {
+      const usage = "Usage: /nansen flows 0xTOKEN [chain]";
+      const token = parts[2];
+      if (!token || !nansenAddress.test(token)) throw new Error(usage);
+      const rest = nansenPositional(parts.slice(3), usage);
+      if (rest.timeframe !== undefined) throw new Error(usage);
+      return { type: "nansen", endpoint: "token_flow_intelligence", input: { token, ...(rest.chain ? { chain: rest.chain } : {}) } };
+    }
+    case "wallet":
+    case "pnl": {
+      const usage = `Usage: /nansen ${sub} [0xADDRESS] [chain]`;
+      const input: Record<string, unknown> = {};
+      for (const arg of parts.slice(2)) {
+        const value = arg.toLowerCase();
+        if (nansenChainSet.has(value) && input.chain === undefined) input.chain = value;
+        else if (nansenAddress.test(arg) && input.address === undefined) input.address = arg;
+        else throw new Error(usage);
+      }
+      return { type: "nansen", endpoint: sub === "wallet" ? "wallet_balances" : "wallet_pnl", input };
+    }
+    case "markets": {
+      const query = parts.slice(2).join(" ").trim();
+      return { type: "nansen", endpoint: "prediction_markets", input: query ? { query } : {} };
+    }
+    default:
+      throw new Error("Usage: /nansen token|flows|wallet|pnl|markets or /nansen help");
+  }
+}
+
 export function parseCommand(input: string): Command {
   const parts = input.trim().replace(/^(?:b)?\//i, "").split(/\s+/);
   const verb = parts[0]?.toLowerCase();
@@ -138,6 +219,8 @@ export function parseCommand(input: string): Command {
     const parsed = parseSugarCliArgs(parts.slice(1));
     return { type: "aero", ...parsed };
   }
+  if (verb === "deposit") return parseDepositCommand(parts);
+  if (verb === "nansen") return parseNansenCommand(parts);
   if ((verb === "confirm" || verb === "cancel") && parts.length === 2) {
     const code = parts[1]?.toUpperCase();
     if (!code || !/^[A-Z0-9]{6}$/.test(code)) throw new Error("Confirmation codes contain six letters or numbers.");
@@ -146,7 +229,7 @@ export function parseCommand(input: string): Command {
   throw new Error("Unknown command. Send /help to see the available commands.");
 }
 
-export function parseNaturalWalletCommand(input: string): Extract<Command, { type: "wallet" | "balance" }> | undefined {
+export function parseNaturalWalletCommand(input: string): Extract<Command, { type: "wallet" | "balance" | "deposit" }> | undefined {
   const text = input
     .trim()
     .toLowerCase()
@@ -169,6 +252,15 @@ export function parseNaturalWalletCommand(input: string): Extract<Command, { typ
     || /^how much (?:eth|usdc|aero|money|crypto) do i have$/.test(text)
   ) {
     return { type: "balance" };
+  }
+
+  if (
+    /^add (?:funds|money)(?: to (?:my )?(?:base |smart )?wallet)?$/.test(text)
+    || /^deposit (?:money|funds)(?: into (?:my )?(?:base |smart )?wallet)?$/.test(text)
+    || /^(?:top up|fund|load) (?:my )?(?:base |smart )?wallet$/.test(text)
+    || /^how (?:can|do) i (?:add|deposit|put) (?:money|funds)(?: (?:in|on|to|into) (?:my )?(?:base |smart )?wallet)?$/.test(text)
+  ) {
+    return { type: "deposit" };
   }
 
   return undefined;
@@ -206,6 +298,20 @@ export const aeroHelpText = [
   "Stock buys and cash use human USDC units; stock sells use human stock units. Other token amounts need --use-decimals for human units.",
 ].join("\n");
 
+export const nansenHelpText = [
+  "Nansen on-chain analytics",
+  "",
+  "/nansen token 0xTOKEN [chain] [timeframe]",
+  "/nansen flows 0xTOKEN [chain]",
+  "/nansen wallet [0xADDRESS] [chain]",
+  "/nansen pnl [0xADDRESS] [chain]",
+  "/nansen markets [search words]",
+  "",
+  "Chains: base (default), ethereum, arbitrum, optimism, polygon, bnb, solana, and other Nansen chains. Timeframes: 5m, 1h, 6h, 12h, 1d, 7d.",
+  'Ask in your own words too, like "Who is buying AERO on Base today?" or "Show my wallet PnL for the last 30 days".',
+  "Analytics come from Nansen (nansen.ai).",
+].join("\n");
+
 export const helpText = [
   "Pecu helps you manage tokens and trade on Base, right here in chat.",
   "",
@@ -213,6 +319,8 @@ export const helpText = [
   "",
   "/wallet  Create or show your wallet",
   "/balance  Check your balances",
+  "/deposit  Add money by bank transfer or crypto",
+  "/deposit status  Check your deposits",
   "/quote 0.001 ETH to USDC  See how much you would receive",
   "/swap 0.001 ETH to USDC  Preview a swap",
   "/send 1 USDC to 0x…  Preview a transfer",
@@ -231,6 +339,7 @@ export const helpText = [
   "/aave help  Explore lending, borrowing, and Aave positions",
   "/polymarket QUESTION  Research market odds and trends",
   "/polymarket status  Read your latest research result",
+  "/nansen help  On-chain analytics for tokens, wallets, and prediction markets",
   "",
   "Replace 0x… with the full address you want to use.",
   "",

@@ -3,13 +3,14 @@ import type { OpenCodeWorkerd } from "@opencode-ai/sdk/workerd";
 import { isSugarTxAction, type SugarParameters } from "@beegreat/sugar/contracts";
 import { aeroTools } from "./aero-tools";
 import { evmTools } from "./evm-tools";
+import { nansenEndpointNames, nansenEndpoints } from "../integrations/nansen";
 import { z } from "zod";
 import type { VerifiedMessage } from "../domain";
 import type { AgentCapabilities, AgentHarness } from "../harness";
 import type { HarnessStateStore } from "../state";
 import { log } from "../logger";
 
-const systemPrompt = `You are Pecu, an X Chat assistant for Base wallets, Aerodrome, Aave, and Polymarket research.
+const systemPrompt = `You are Pecu, an X Chat assistant for Base wallets, deposits, Aerodrome, Aave, Nansen analytics, and Polymarket research.
 Reply in concise plain text for an everyday user. Never paste JSON, raw tool output, calldata, wei amounts, internal plan IDs, or framework names into chat. Explain amounts in token units. Preserve exact recipients, minimum received amounts, unavailable fee estimates, and confirmation/cancellation commands from transaction previews. Technical output is available only through the deterministic b/verbose command. You have the complete Aero SDK and CLI surface through typed tools, plus generic EVM tools for any Base mainnet token or contract.
 Use wallet tools for wallet facts and balances. Use the action-specific Aero tools for live reads and transaction proposals.
 Use evm_token_balance for any token balance, evm_read and evm_inspect for contract reads, and evm_transfer, evm_approve, evm_revoke, or evm_contract_call to propose generic transactions. Always read balances or allowances before proposing a transfer or approval.
@@ -18,6 +19,8 @@ Create at most one proposal per user message. If an ambiguity would change a tra
 The chain is always Base mainnet (8453), and the smart wallet is bound to the verified X sender. Never request or accept private keys, seed phrases, auth tokens, wallet overrides, or another chain.
 For Aave requests, first load the matching official workflow with aave_skill: safe-transactions, yield-analysis, deleverage, account-activity, or tx-confirmation. Inspect aave_schema for exact arguments, then use aave_call. Its prepare_action tool runs fresh discovery, inspection and simulation before creating a Base transaction preview. If the result is an approval-only preview, explain that it does not supply or repay yet. Other prepare_* actions and signed orders are not available. Reads may compare chains but all wallet transactions stay on Base.
 Use polymarket_research for market odds, price history, order books, or trader positions. It uses read-only public Polymarket data through Exa. Probabilities are market-implied odds, not certainties. Keep the sources and timestamps. Call with no query to retrieve an unfinished result, never launch duplicate research to check status.
+When the user wants to add money, fund, deposit, or top up their wallet, call deposit_instructions. If it says a funding account is needed, ask for their email and then call deposit_setup. Repeat bank and crypto details exactly as the tool returns them; never invent payment details, fees, or timing.
+For on-chain analytics such as token flows, who is buying or selling, wallet holdings, PnL, counterparties, related wallets, and Polymarket market data, use the nansen_* tools. The default chain is Base; pass another chain only when the user names it. Wallet tools default to the user's own Pecu wallet when no address is given. Keep the closing 'Data: Nansen' line in your reply. Report what the data shows; it is not financial advice and not a prediction.
 You have no shell, filesystem, browser, code-editing, subagent, or arbitrary network tools.`;
 
 const location = { directory: "/" } as const;
@@ -32,7 +35,7 @@ export type OAuthStart = Readonly<{
 
 type CapabilityResolver = (message: VerifiedMessage) => AgentCapabilities;
 type ProviderResponse = Readonly<{ status: number; errorKind?: string; at: number }>;
-const providerResponseKey = "pecu-last-provider-response";
+const providerResponseKey = "basedbot-last-provider-response";
 
 export class OpenCodeHarness implements AgentHarness {
   private constructor(
@@ -54,7 +57,7 @@ export class OpenCodeHarness implements AgentHarness {
       import("@opencode-ai/plugin"),
     ]);
     const plugin = Plugin.define({
-      id: "pecu-tools",
+      id: "basedbot-tools",
       setup: async (context) => {
         await context.session.hook("http.response", async (event) => {
           const url = new URL(event.request.url);
@@ -103,6 +106,45 @@ export class OpenCodeHarness implements AgentHarness {
               content: await capabilities(toolContext.sessionID).walletBalances(),
             }),
           });
+          draft.add({
+            name: "deposit_instructions",
+            options: { codemode: false },
+            description: "Get the user's Whop funding page, bank transfer details, and crypto deposit addresses for adding money to their Pecu wallet. Omit amount unless the user named one in USD.",
+            input: z.object({ amount: z.string().regex(/^(?:[1-9]\d*)(?:\.\d{1,2})?$/).optional() }),
+            execute: async ({ amount }, toolContext) => ({
+              content: await capabilities(toolContext.sessionID).depositInstructions(amount),
+            }),
+          });
+          draft.add({
+            name: "deposit_setup",
+            options: { codemode: false },
+            description: "Create the user's Whop funding account with the email they provided. Only call after the user gave an email.",
+            input: z.object({ email: z.string().email().max(254) }),
+            execute: async ({ email }, toolContext) => ({
+              content: await capabilities(toolContext.sessionID).depositSetup(email),
+            }),
+          });
+          draft.add({
+            name: "deposit_status",
+            options: { codemode: false },
+            description: "List the user's recent deposits and whether the USDC was sent.",
+            input: z.object({}),
+            execute: async (_input, toolContext) => ({
+              content: await capabilities(toolContext.sessionID).depositStatus(),
+            }),
+          });
+          for (const name of nansenEndpointNames) {
+            const entry = nansenEndpoints[name];
+            draft.add({
+              name: `nansen_${name}`,
+              options: { codemode: false },
+              description: entry.description,
+              input: entry.input,
+              execute: async (input, toolContext) => ({
+                content: await capabilities(toolContext.sessionID).nansenCall(name, input),
+              }),
+            });
+          }
           for (const tool of aeroTools) {
             draft.add({
               name: tool.name,
@@ -131,9 +173,9 @@ export class OpenCodeHarness implements AgentHarness {
           }
         });
         await context.agent.transform((draft) => {
-          draft.default("pecu");
+          draft.default("basedbot");
           for (const agent of draft.list()) {
-            if (String(agent.id) !== "pecu") draft.remove(String(agent.id));
+            if (String(agent.id) !== "basedbot") draft.remove(String(agent.id));
           }
         });
       },
@@ -148,7 +190,7 @@ export class OpenCodeHarness implements AgentHarness {
         emit: (entry) => console.warn(JSON.stringify({ source: "opencode", level: entry.level, message: entry.message })),
       },
       config: {
-        default_agent: "pecu",
+        default_agent: "basedbot",
         model: "openai/gpt-5.6-sol",
         share: "disabled",
         snapshots: false,
@@ -161,11 +203,15 @@ export class OpenCodeHarness implements AgentHarness {
           ...["aave_skill", "aave_schema", "aave_call", "polymarket_research"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
           { action: "wallet_address", resource: "*", effect: "allow" },
           { action: "wallet_balances", resource: "*", effect: "allow" },
+          { action: "deposit_instructions", resource: "*", effect: "allow" },
+          { action: "deposit_setup", resource: "*", effect: "allow" },
+          { action: "deposit_status", resource: "*", effect: "allow" },
+          ...nansenEndpointNames.map((name) => ({ action: `nansen_${name}`, resource: "*", effect: "allow" as const })),
           ...aeroTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
           ...evmTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
         ],
         agents: {
-          pecu: {
+          basedbot: {
             model: "openai/gpt-5.6-sol",
             system: systemPrompt,
             description: "Verified X Chat smart-wallet agent with the complete Aerodrome SDK and generic Base EVM tools",
@@ -190,7 +236,7 @@ export class OpenCodeHarness implements AgentHarness {
     }
     if (!sessionId) {
       const session = await this.client.sessions.create({
-        agent: "pecu",
+        agent: "basedbot",
         model,
         location,
         title: `X Chat ${message.conversationId}`,
@@ -247,7 +293,7 @@ export class OpenCodeHarness implements AgentHarness {
   }
 
   async recentTools() {
-    const row = this.storage.sql.exec<{ session_id: string; event_id: string }>("SELECT session_id,event_id FROM pecu_agent_sessions ORDER BY updated_at DESC LIMIT 1").toArray()[0];
+    const row = this.storage.sql.exec<{ session_id: string; event_id: string }>("SELECT session_id,event_id FROM basedbot_agent_sessions ORDER BY updated_at DESC LIMIT 1").toArray()[0];
     if (!row) return [];
     const context = await this.client.sessions.context({ sessionID: row.session_id });
     const user = context.findLast((entry) => entry.type === "user");
@@ -255,8 +301,8 @@ export class OpenCodeHarness implements AgentHarness {
       SELECT inbox.event_id, inbox.status, inbox.created_at AS received_at,
         inbox.updated_at AS completed_at,
         CASE WHEN outbox.state='sent' THEN outbox.updated_at ELSE NULL END AS sent_at
-      FROM pecu_inbox_events inbox
-      LEFT JOIN pecu_outbox outbox ON outbox.correlation_key='reply:' || inbox.event_id
+      FROM basedbot_inbox_events inbox
+      LEFT JOIN basedbot_outbox outbox ON outbox.correlation_key='reply:' || inbox.event_id
       ORDER BY inbox.created_at DESC LIMIT 10
     `).toArray();
     const tools = context.filter((entry) => entry.type === "assistant" && entry.time.created >= (user?.time.created ?? 0)).flatMap((entry) => entry.type === "assistant" ? entry.content.filter((part) => part.type === "tool").map((part) => ({ name: part.name, state: part.state, time: part.time })) : []);

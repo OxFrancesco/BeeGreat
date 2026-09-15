@@ -12,6 +12,9 @@
 <tr><td><code>/start</code></td><td>Alias for <code>/help</code>.</td><td><code>/start</code></td></tr>
 <tr><td><code>/wallet</code></td><td>Creates or retrieves your Base smart wallet and shows its address.</td><td><code>/wallet</code></td></tr>
 <tr><td><code>/balance</code></td><td>Shows ETH, USDC, and AERO balances.</td><td><code>/balance</code></td></tr>
+<tr><td><code>/deposit</code></td><td>Shows the Whop funding page and bank or crypto deposit details for adding money. Asks for an email on first use.</td><td><code>/deposit</code> or <code>/deposit 50</code></td></tr>
+<tr><td><code>/deposit setup EMAIL</code></td><td>Creates your Whop funding account with the given email. Whop uses it for deposit receipts.</td><td><code>/deposit setup you@example.com</code></td></tr>
+<tr><td><code>/deposit status</code></td><td>Lists your recent deposits and whether the USDC was sent.</td><td><code>/deposit status</code></td></tr>
 <tr><td><code>/quote AMOUNT TOKEN to TOKEN</code></td><td>Gets a swap price without creating a transaction plan.</td><td><code>/quote 0.001 ETH to USDC</code></td></tr>
 <tr><td><code>/swap AMOUNT TOKEN to TOKEN</code></td><td>Creates a swap preview with a confirmation code.</td><td><code>/swap 0.000001 ETH to USDC</code></td></tr>
 <tr><td><code>/token TOKEN</code></td><td>Reads the balance of ETH, USDC, AERO, or a token contract.</td><td><code>/token USDC</code> or <code>/token 0xTOKEN</code></td></tr>
@@ -30,6 +33,12 @@
 <tr><td><code>b/verbose</code></td><td>Shows the latest stored technical result as JSON for this sender and conversation. Does not rerun a tool or turn JSON on for future replies.</td><td>Send <code>b/verbose</code> after a wallet lookup, balance check, quote, or preview. <code>/verbose</code> is an alias.</td></tr>
 <tr><td><code>b/verbose PAGE</code></td><td>Reads another page of a long technical result.</td><td><code>b/verbose 2</code>; <code>/verbose 2</code> also works. Page numbers start at 1.</td></tr>
 <tr><td><code>/aero help</code></td><td>Shows the advanced Aerodrome command reference.</td><td><code>/aero</code>, <code>/aero help</code>, <code>/aero --help</code>, and <code>/aero -h</code> all show the same help.</td></tr>
+<tr><td><code>/nansen</code> or <code>/nansen help</code></td><td>Shows the Nansen analytics commands.</td><td><code>/nansen</code></td></tr>
+<tr><td><code>/nansen token TOKEN [chain] [timeframe]</code></td><td>Shows a token snapshot: price, market cap, liquidity, volume, holders.</td><td><code>/nansen token 0xTOKEN base 7d</code></td></tr>
+<tr><td><code>/nansen flows TOKEN [chain]</code></td><td>Shows net token inflows and outflows per holder cohort.</td><td><code>/nansen flows 0xTOKEN</code></td></tr>
+<tr><td><code>/nansen wallet [ADDRESS] [chain]</code></td><td>Shows token balances for an address, defaulting to your wallet on Base.</td><td><code>/nansen wallet</code> or <code>/nansen wallet 0xADDRESS ethereum</code></td></tr>
+<tr><td><code>/nansen pnl [ADDRESS] [chain]</code></td><td>Shows realized PnL, win rate, and top tokens for an address.</td><td><code>/nansen pnl</code></td></tr>
+<tr><td><code>/nansen markets [words]</code></td><td>Lists Polymarket markets ranked by 24h volume, optionally filtered by search words.</td><td><code>/nansen markets fed rate cut</code></td></tr>
 </tbody>
 </table>
 <h2 id="reads">Advanced Aerodrome reads</h2>

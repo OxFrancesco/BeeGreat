@@ -1,5 +1,9 @@
 # Pecu
 
+Pecu creates the verified sender's Base smart wallet when processing their first message, including a greeting or `/help`. Later messages reuse the stored wallet across conversations. If creation fails, Pecu returns an error and retries on the sender's next new message.
+
+Production runs at `https://basedbot.oddofrancesco000.workers.dev`. The Cloudflare workers, Durable Object identity, stored table names, model sessions, and Crossmint `userId:basedbot-x-<sender>` owners retain their original identifiers so the Pecu rename preserves existing wallets, authentication, chat history, and transaction recovery. Deploy from this directory with `bun run cloudflare:deploy`; the product remains named Pecu.
+
 Pecu is a minimal encrypted XChat agent hosted in one Cloudflare Durable Object. OpenCode V2 Workerd is the agent harness, ChatGPT OAuth supplies Codex (`openai/gpt-5.6-sol`), Crossmint creates one Base smart wallet per verified X sender, and the complete Aero Sugar SDK/CLI surface is available through typed tools. Generic Base EVM actions (any token balance, contract reads, transfers, allowances, arbitrary contract calls) run through the `evm` CLI from [evmSDK](https://github.com/OxFrancesco/evmSDK) inside a Cloudflare Sandbox.
 
 Model requests use a private Cloudflare Container with Bun's native HTTP client. The Durable Object retains the OAuth credential, refresh flow, sessions, and tools. The container streams requests to the fixed Codex endpoint, stores no credentials or conversation state, and sleeps after five idle minutes. This avoids the rejected Worker network path without requiring a Mac service or a separately billed OpenAI API key.
@@ -12,9 +16,11 @@ Chat replies show token amounts, minimum received amounts, recipients, and confi
 
 ## What the agent can do
 
-OpenCode receives two wallet tools, one typed tool per Aero SDK action, nine generic EVM tools, and no shell, filesystem, browser, coding, MCP, subagent, or arbitrary-network tools:
+OpenCode receives two wallet tools, three deposit tools, twenty `nansen_*` analytics tools, one typed tool per Aero SDK action, nine generic EVM tools, and no shell, filesystem, browser, coding, MCP, subagent, or arbitrary-network tools:
 
 - `wallet_address` and `wallet_balances` operate on the sender's Crossmint smart wallet.
+- `deposit_instructions`, `deposit_setup`, and `deposit_status` cover adding money through Whop.
+- The `nansen_*` tools answer read-only analytics questions: token info, flows, who bought or sold, transfers, DEX trades, wallet balances, transactions, PnL, counterparties, related wallets, and Polymarket market data. Wallet tools default to the sender's Pecu wallet; the default chain is Base.
 - Each `aero_ACTION` tool derives its argument names and required fields from the SDK validator. Token amounts default to human units.
 - `evm_token_balance`, `evm_allowance`, `evm_read`, `evm_inspect`, and `evm_decode` read any Base token or contract. `evm_transfer`, `evm_approve`, `evm_revoke`, and `evm_contract_call` build simulated plans.
 - Transaction tools can only persist a confirmation-gated plan.
@@ -26,6 +32,10 @@ The slash-command interface remains deterministic. It uses the SDK's CLI grammar
 ```text
 /wallet
 /balance
+/deposit
+/deposit 50
+/deposit setup you@example.com
+/deposit status
 /aero positions
 /aero stocks
 /aero stock-buy --stock NVDAc --amount 10
@@ -51,6 +61,7 @@ The slash-command interface remains deterministic. It uses the SDK's CLI grammar
 /revoke USDC for 0xSPENDER
 /confirm ABC123
 /cancel ABC123
+/nansen help
 ```
 
 `/send`, `/approve`, and `/revoke` accept ETH, USDC, AERO, or a public token address. Amounts are human units; the bot reads the token's decimals and the sender's balance before it asks the sandbox to build the plan. Arbitrary contract calls are available to the agent through `evm_contract_call` and are simulated before a plan is stored.
@@ -145,6 +156,35 @@ curl https://YOUR-WORKER.workers.dev/health
 
 Keep `ENABLE_MAINNET_EXECUTION=false` while testing wallets, reads, and transaction previews. Enabling it requires a deliberate configuration change and redeploy. See [docs/architecture.md](docs/architecture.md) for the boundaries and remaining live proof.
 
+
+## Add funds with Whop
+
+`/deposit` (or asking to add funds, top up, or fund the wallet) returns the user's Whop funding page plus any enabled bank-transfer and crypto deposit methods. The first request asks for an email and creates a per-user Whop connected account with `/deposit setup EMAIL`; later requests reuse it. Bank rails may require Whop identity verification, and the hosted page shows whatever rails Whop enables for the account. Crypto deposits need at least $10. Base is skipped in the Whop method list because users can send USDC or ETH on Base straight to their Pecu wallet address.
+
+When Whop confirms a deposit it posts a `deposit.succeeded` webhook; the Worker verifies the Standard Webhooks HMAC signature and the Durable Object records the ledger activity. Each eligible deposit becomes a `deposit` intent: an exact ERC-20 `transfer` of the same dollar amount in Base USDC, sent automatically from the treasury wallet to the depositor's wallet. Deposits above `DEPOSIT_RELAY_MAX_USD` (default $500), above the 24-hour `DEPOSIT_RELAY_DAILY_MAX_USD` (default $2000), awaiting Whop settlement, or exceeding the treasury balance are held and retried by the boot and alarm sweeps. Deposit relays never use a confirmation code and `/confirm` refuses them. `GET /admin/deposits` shows the treasury address, its USDC balance, and recent deposits; `POST /admin/deposits/{id}/relay` force-retries a held deposit while still enforcing everything except the per-deposit and daily caps. `/deposit status` lists the user's five most recent deposits.
+
+To enable it:
+
+```sh
+bunx wrangler secret put WHOP_API_KEY
+bunx wrangler secret put WHOP_WEBHOOK_SECRET
+```
+
+Then create the webhook in the Whop dashboard or through `POST /webhooks` with `url: https://<worker>/whop/webhook`, `events: ["deposit.succeeded"]`, `child_resource_events: true` (deposits post on the connected accounts, not the platform), and `api_version_date: 2026-09-13`. Fund the treasury wallet shown by `GET /admin/deposits` with USDC on Base. Funds deposited to the connected accounts are swept back to Pecu's platform account manually in the Whop dashboard; the treasury wallet only sends USDC out. `WHOP_API_URL` accepts `https://sandbox-api.whop.com/api/v1` for sandbox testing.
+
+Live Whop deposits were not exercised in this change; the webhook verification, recording, hold reasons, and relay path are covered by tests against fakes.
+
+## Nansen analytics
+
+`/nansen help` (or asking in plain words, like "Who is buying AERO on Base today?") answers read-only on-chain questions through Nansen: token snapshots and flow intelligence, who bought or sold a token, transfers and DEX trades, a token screener and price candles, wallet balances, transactions, PnL, counterparties, and related wallets, plus Polymarket screeners, order books, trades, holders, and per-market PnL. The short commands `/nansen token 0xTOKEN`, `/nansen flows 0xTOKEN`, `/nansen wallet [0xADDRESS]`, `/nansen pnl [0xADDRESS]`, and `/nansen markets [words]` call the same endpoints without the model. Wallet queries default to the sender's Pecu wallet and the default chain is Base.
+
+Every Nansen reply ends with `Data: Nansen (nansen.ai)`. Most calls cost 1 to 5 credits on Nansen's plan; `GET /health` reports whether the key is configured. To enable it:
+
+```sh
+bunx wrangler secret put NANSEN_API_KEY
+```
+
+Nansen's redistribution terms shape the catalog. Address labels, all smart-money endpoints, the PnL leaderboards, and `tgm/holders` are not wired at all, and `nansen_token_dex_trades` always sends `only_smart_money: false`. A test pins the allowed endpoint list.
 
 ## Aave and Polymarket
 

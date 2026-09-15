@@ -81,3 +81,27 @@ describe("generic EVM plan policy", () => {
     expect(() => validateIntentPlan({ family: "evm", action: "revoke", parameters: { token: "USDC", spender: recipient } }, wallet, [erc20Approve])).toThrow("allowance to zero");
   });
 });
+
+describe("deposit relay policy", () => {
+  const treasury = "0x2222222222222222222222222222222222222222";
+  const recipient = "0x3333333333333333333333333333333333333333";
+  const usdc = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+  const word = (value: bigint) => value.toString(16).padStart(64, "0");
+  const parameters = { depositId: "la_1", recipient, usdcUnits: "50000000", whopAccountId: "biz_1" } as const;
+  const relay: PlannedCall = { role: "action", from: treasury, to: usdc, data: `0xa9059cbb${word(BigInt(recipient))}${word(50_000_000n)}`, value: "0" };
+
+  test("accepts the exact Base USDC transfer to the depositor", () => {
+    expect(() => validateIntentPlan({ family: "deposit", action: "deposit_relay", parameters }, treasury, [relay])).not.toThrow();
+  });
+
+  test("rejects the wrong token, recipient, amount, native value, and extra calls", () => {
+    const intent = { family: "deposit", action: "deposit_relay", parameters } as const;
+    expect(() => validateIntentPlan(intent, treasury, [{ ...relay, to: wallet }])).toThrow("Base USDC");
+    expect(() => validateIntentPlan(intent, treasury, [{ ...relay, data: `0xa9059cbb${word(BigInt(wallet))}${word(50_000_000n)}` }])).toThrow("different wallet");
+    expect(() => validateIntentPlan(intent, treasury, [{ ...relay, data: `0xa9059cbb${word(BigInt(recipient))}${word(49_000_000n)}` }])).toThrow("different amount");
+    expect(() => validateIntentPlan(intent, treasury, [{ ...relay, value: "1" }])).toThrow("native value");
+    expect(() => validateIntentPlan(intent, treasury, [relay, relay])).toThrow("exactly one");
+    expect(() => validateIntentPlan(intent, wallet, [relay])).toThrow("wrong sender");
+    expect(() => validateIntentPlan(intent, treasury, [{ ...relay, role: "approval" }])).toThrow("single action");
+  });
+});

@@ -7,7 +7,7 @@ Cloudflare routes every request to one named Durable Object, `pecu-main`. The si
 The Durable Object owns:
 
 - OpenCode V2 Workerd and its ChatGPT OAuth credential, model catalog, sessions, and durable events.
-- Prefixed Pecu SQLite tables for processed X events, verified agent turns, sender-to-wallet mappings, Aero intents and execution steps, encrypted outbox payloads, and X pagination state.
+- Prefixed Pecu SQLite tables for processed X events, verified agent turns, sender-to-wallet mappings, funding accounts and deposit records, Aero intents and execution steps, encrypted outbox payloads, and X pagination state.
 - A recurring alarm that polls XChat and reschedules itself even after a failed poll.
 
 OpenCode initializes its own schema before Pecu adds prefixed tables. This order is required because a fresh OpenCode database refuses unrelated tables before its session migration has run.
@@ -26,6 +26,7 @@ OpenCode's only active agent is `pecu`. Its plugin removes the built-in tool sur
 - all state-changing actions from `SUGAR_TX_ACTIONS`
 - `evm_token_balance`, `evm_allowance`, `evm_read`, `evm_inspect`, `evm_decode` (reads)
 - `evm_transfer`, `evm_approve`, `evm_revoke`, `evm_contract_call` (plans)
+- `deposit_instructions`, `deposit_setup`, `deposit_status` (Whop funding)
 
 Each Aero tool derives its allowed arguments and required fields from the SDK validator through a tracked export patch. The bot adds model-facing descriptions and defaults token amounts to human units. The SDK still validates conditional fields and the wallet policy still binds the sender and chain. EVM tools carry explicit zod schemas in `src/cloudflare/evm-tools.ts` and re-validate their input before dispatch. Coding, shell, filesystem, browser, MCP, skill, subagent, and arbitrary network tools are denied.
 
@@ -53,9 +54,29 @@ The Worker runs `printf '%s' "$EVM_INPUT" | bun dist/cli.js COMMAND --stdin` wit
 
 Aero stays in-process in `pecu-aero`. Its cache store and tuned concurrency would be lost behind a per-call process spawn, and its role-tagged `transaction_steps` are richer than the evm CLI's `aero` wrapper.
 
+## Deposits and treasury relay
+
+Whop provides the fiat on-ramp. `/deposit setup EMAIL` creates a per-user Whop connected account (`POST /accounts` with `send_customer_emails: false`) under Pecu's platform account and stores it in `funding_accounts` keyed by the verified sender ID; the row also keeps the sender's latest conversation and encoded event so deposit notifications can be sent back through the XChat outbox. `/deposit` and `/deposit AMOUNT` then call `POST /deposits` for that account and return the hosted funding page plus its bank and crypto methods. Account and deposit creation both carry deterministic idempotency keys derived from the sender ID or the incoming event ID.
+
+`POST /whop/webhook` accepts Whop Standard Webhooks. `verifyWhopWebhook` recomputes HMAC-SHA256 over `webhook-id.webhook-timestamp.rawBody` with the literal UTF-8 bytes of the `ws_...` secret, accepts any valid `v1,<base64>` entry in the signature header, and rejects bodies older than 300 seconds. Only verified bytes are parsed; non-`deposit.succeeded` events are acknowledged and ignored. The Durable Object records each ledger activity with `INSERT OR IGNORE`, so a redelivered webhook is a no-op.
+
+Deposits move through `received`, `relaying`, `relayed`, `held`, and `failed`. Held deposits carry a reason: `over_limit` (above `DEPOSIT_RELAY_MAX_USD`), `daily_limit` (above `DEPOSIT_RELAY_DAILY_MAX_USD` across the last 24 hours), `insufficient_treasury`, `execution_locked` (`ENABLE_MAINNET_EXECUTION` off), `pending_settlement` (Whop `available_at` still in the future), `risk_review`, `unsupported_currency`, or `unknown_account`. The boot sweep after `resumeExecuting` and every alarm re-evaluate pending deposits and skip the three terminal reasons.
+
+An eligible deposit creates a `deposit`-family intent with `sourceEventId` `deposit:<ledger id>` and a single planned call: `transfer(recipient, amount)` on Base USDC, from the treasury wallet, with zero native value. `validateDepositPlan` pins the token, recipient, amount, calldata length, and selector before the plan is persisted, and execution reuses the same checkpointed prepare/approve/receipt-verify path as user intents, but signs as `treasury` (Crossmint owner `userId:pecu-treasury`) and needs no confirmation code. `/confirm` and `/cancel` refuse deposit intents. Success, holds, and failures reach the user through the outbox with `deposit:` correlation keys; web-origin accounts without a stored X event rely on `/deposit status` instead.
+
+`GET /admin/deposits` returns the treasury address, its USDC balance, and the 50 most recent deposits. `POST /admin/deposits/{id}/relay` retries a held deposit with only the two caps bypassed; every other check still applies.
+
+## Nansen analytics
+
+`src/integrations/nansen.ts` holds a curated catalog of twenty read-only Nansen endpoints covering token god mode (information, flow intelligence, flows, who-bought-sold, transfers, DEX trades, OHLCV, screener), wallet profiler (balances, transactions, PnL, counterparties, related wallets), and prediction markets (market and event screeners, order book, trades, top holders, PnL, address summary). Each catalog entry owns its path, description, zod input, request-body builder, and summarizer. `per_page` is capped at 25 so chat replies stay short. Every reply ends with `Data: Nansen (nansen.ai)` and the raw response goes to `b/verbose` through `saveDetails`.
+
+The catalog is the whole attack surface for Nansen's redistribution terms: address labels, every `smart-money/*` endpoint, the PnL leaderboards, and `tgm/holders` are not wired, and `tgm/dex-trades` always sends `only_smart_money: false`. `tests/integrations-nansen.test.ts` pins the allowed path list so a future catalog edit fails the suite before it ships.
+
+`/nansen` short commands in `src/domain.ts` map to catalog entries without model mediation; everything else reaches the `nansen_*` tools through OpenCode. Wallet tools resolve `address` to the sender's verified Pecu wallet when omitted. Error envelopes map to user-safe text (rate limits carry the retry delay, credit and access failures name the operator action), and no Nansen call retries automatically.
+
 ## Hosting and authentication
 
-The public surface contains only `GET /health`. Protected `/admin/*` routes are hidden as `404` unless the bearer token matches `ADMIN_TOKEN`.
+The public surface contains `GET /health`, `POST /x/webhook` (signature-checked against the X webhook secret), and `POST /whop/webhook` (signature-checked against `WHOP_WEBHOOK_SECRET`, and it returns 404 until that secret is configured). Protected `/admin/*` routes are hidden as `404` unless the bearer token matches `ADMIN_TOKEN`.
 
 The ChatGPT device flow is initiated through `/admin/opencode/login`. OpenCode's `chatgpt-headless` integration returns the Codex device URL and code, polls completion, and persists the renewable OAuth connection in Durable Object storage. No OpenAI API key is required.
 

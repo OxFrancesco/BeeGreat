@@ -27,13 +27,13 @@ export class WebAgent {
     private readonly sql: WebSql,
   ) {
     sql.exec(
-      `CREATE TABLE IF NOT EXISTS pecu_web_turns (id TEXT PRIMARY KEY, owner TEXT NOT NULL, text TEXT NOT NULL, created_at INTEGER NOT NULL, reply TEXT)`,
+      `CREATE TABLE IF NOT EXISTS basedbot_web_turns (id TEXT PRIMARY KEY, owner TEXT NOT NULL, text TEXT NOT NULL, created_at INTEGER NOT NULL, reply TEXT)`,
     );
     sql.exec(
-      `CREATE INDEX IF NOT EXISTS pecu_web_turns_owner ON pecu_web_turns(owner,created_at)`,
+      `CREATE INDEX IF NOT EXISTS basedbot_web_turns_owner ON basedbot_web_turns(owner,created_at)`,
     );
     sql.exec(
-      `CREATE TABLE IF NOT EXISTS pecu_web_profiles (owner TEXT PRIMARY KEY, stocks TEXT, stocks_at INTEGER, basket TEXT)`,
+      `CREATE TABLE IF NOT EXISTS basedbot_web_profiles (owner TEXT PRIMARY KEY, stocks TEXT, stocks_at INTEGER, basket TEXT)`,
     );
   }
   private owner({ userId, senderId }: Identity) {
@@ -46,7 +46,7 @@ export class WebAgent {
         stocks: string | null;
         stocks_at: number | null;
         basket: string | null;
-      }>("SELECT * FROM pecu_web_profiles WHERE owner=?", owner)
+      }>("SELECT * FROM basedbot_web_profiles WHERE owner=?", owner)
       .toArray()[0];
     const messages = this.sql
       .exec<{
@@ -55,7 +55,7 @@ export class WebAgent {
         created_at: number;
         reply: string | null;
       }>(
-        "SELECT * FROM pecu_web_turns WHERE owner=? ORDER BY created_at DESC LIMIT 100",
+        "SELECT * FROM basedbot_web_turns WHERE owner=? ORDER BY created_at DESC LIMIT 100",
         owner,
       )
       .toArray()
@@ -86,7 +86,7 @@ export class WebAgent {
   saveBasket(identity: Identity, basket: z.infer<typeof basketSchema>) {
     parseAllocations(basket.allocations);
     this.sql.exec(
-      "INSERT INTO pecu_web_profiles(owner,basket) VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET basket=excluded.basket",
+      "INSERT INTO basedbot_web_profiles(owner,basket) VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET basket=excluded.basket",
       this.owner(identity),
       JSON.stringify(basket),
     );
@@ -104,7 +104,7 @@ export class WebAgent {
     try {
       const existing = this.sql
         .exec<{ text: string; reply: string | null }>(
-          "SELECT text,reply FROM pecu_web_turns WHERE id=?",
+          "SELECT text,reply FROM basedbot_web_turns WHERE id=?",
           eventId,
         )
         .toArray()[0];
@@ -112,7 +112,7 @@ export class WebAgent {
         throw new Error("This request already belongs to another message.");
       if (existing?.reply) return { status: "complete" as const };
       this.sql.exec(
-        "INSERT OR IGNORE INTO pecu_web_turns(id,owner,text,created_at) VALUES(?,?,?,?)",
+        "INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at) VALUES(?,?,?,?)",
         eventId,
         conversationId,
         text,
@@ -151,7 +151,7 @@ export class WebAgent {
             : null,
       };
       this.sql.exec(
-        "UPDATE pecu_web_turns SET reply=? WHERE id=?",
+        "UPDATE basedbot_web_turns SET reply=? WHERE id=?",
         JSON.stringify(response),
         eventId,
       );
@@ -159,7 +159,7 @@ export class WebAgent {
         const stocks = this.store.chatDetails(senderId, conversationId);
         if (stocks && Array.isArray(JSON.parse(stocks)))
           this.sql.exec(
-            "INSERT INTO pecu_web_profiles(owner,stocks,stocks_at) VALUES(?,?,?) ON CONFLICT(owner) DO UPDATE SET stocks=excluded.stocks,stocks_at=excluded.stocks_at",
+            "INSERT INTO basedbot_web_profiles(owner,stocks,stocks_at) VALUES(?,?,?) ON CONFLICT(owner) DO UPDATE SET stocks=excluded.stocks,stocks_at=excluded.stocks_at",
             conversationId,
             stocks,
             Date.now(),

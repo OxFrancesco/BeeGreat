@@ -1,6 +1,7 @@
 import type { SugarAction, SugarParameters, SugarTxAction } from "@beegreat/sugar/contracts";
 import type { VerifiedMessage } from "./domain";
 import type { EvmService, EvmTxAction } from "./evm";
+import type { NansenEndpointName } from "./integrations/nansen";
 
 type EvmReadInput<K extends "read" | "inspect" | "decode"> = Parameters<EvmService[K]>[0];
 
@@ -18,6 +19,10 @@ export type AgentCapabilities = Readonly<{
   evmInspect(input: EvmReadInput<"inspect">): Promise<string>;
   evmDecode(input: EvmReadInput<"decode">): Promise<string>;
   evmPropose(action: EvmTxAction, parameters: unknown): Promise<string>;
+  depositInstructions(amount?: string): Promise<string>;
+  depositSetup(email: string): Promise<string>;
+  depositStatus(): Promise<string>;
+  nansenCall(endpoint: NansenEndpointName, input: unknown): Promise<string>;
 }>;
 
 export interface AgentHarness {

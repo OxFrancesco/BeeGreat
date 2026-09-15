@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "pecu",
+  "name": "basedbot",
   "account_id": "157a8b025a13404b16f11ad7078e53f1",
   "main": "src/cloudflare/worker.ts",
   "compatibility_date": "2026-08-29",
@@ -10,9 +10,9 @@
   "upload_source_maps": true,
   "limits": { "cpu_ms": 120000 },
   "services": [
-    { "binding": "AERO", "service": "pecu-aero" },
-    { "binding": "CODEX", "service": "pecu-codex" },
-    { "binding": "EVM", "service": "pecu-evm" }
+    { "binding": "AERO", "service": "basedbot-aero" },
+    { "binding": "CODEX", "service": "basedbot-codex" },
+    { "binding": "EVM", "service": "basedbot-evm" }
   ],
   "observability": {
     "enabled": true,
@@ -29,25 +29,29 @@
     "bindings": [
       {
         "name": "PECU",
-        "class_name": "PecuDurableObject"
+        "class_name": "BasedBotDurableObject"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["PecuDurableObject"]
+      "new_sqlite_classes": ["BasedBotDurableObject"]
     }
   ],
   "vars": {
     "BASE_RPC_URL": "https://base-mainnet.g.alchemy.com/public",
     "ENABLE_MAINNET_EXECUTION": "true",
     "XCHAT_POLLING_ENABLED": "true",
-    "X_WEBHOOK_URL": "https://pecu.oddofrancesco000.workers.dev/x/webhook",
+    "X_WEBHOOK_URL": "https://basedbot.oddofrancesco000.workers.dev/x/webhook",
     "POLL_INTERVAL_MS": "60000",
     "QUOTE_TTL_SECONDS": "600",
     "MAX_SLIPPAGE_BPS": "100",
     "CHAT_PEER_USER_IDS": "1319617668186542087",
-    "CHAT_BOT_USER_ID": "2086819052069007360"
+    "CHAT_BOT_USER_ID": "2086819052069007360",
+    "WHOP_API_URL": "https://api.whop.com/api/v1",
+    "WHOP_API_VERSION_DATE": "2026-09-13",
+    "DEPOSIT_RELAY_MAX_USD": "500",
+    "DEPOSIT_RELAY_DAILY_MAX_USD": "2000"
   }
 }

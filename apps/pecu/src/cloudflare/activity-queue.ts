@@ -1,4 +1,4 @@
-const prefix = "pecu-activity:";
+const prefix = "basedbot-activity:";
 export type ActivityQueueStore = Pick<DurableObjectStorage, "put" | "list" | "delete" | "getAlarm" | "setAlarm">;
 
 export class ActivityQueue {

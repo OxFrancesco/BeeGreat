@@ -68,6 +68,52 @@ describe("natural wallet commands", () => {
   });
 });
 
+describe("deposit command grammar", () => {
+  test("parses /deposit variants", () => {
+    expect(parseCommand("/deposit")).toEqual({ type: "deposit" });
+    expect(parseCommand("/deposit 50")).toEqual({ type: "deposit", amount: "50" });
+    expect(parseCommand("/deposit 50.5")).toEqual({ type: "deposit", amount: "50.5" });
+    expect(parseCommand("/deposit status")).toEqual({ type: "deposit-status" });
+    expect(parseCommand("/deposit setup User@Example.COM")).toEqual({ type: "deposit-setup", email: "user@example.com" });
+  });
+
+  test.each(["/deposit 5", "/deposit 0", "/deposit abc", "/deposit setup not-an-email", "/deposit 50 60", "/deposit setup"])(
+    "rejects unsafe or unsupported input: %s",
+    (input) => expect(() => parseCommand(input)).toThrow("Usage: /deposit"),
+  );
+
+  test.each([
+    "add funds",
+    "add money to my wallet",
+    "deposit money",
+    "top up my wallet",
+    "fund my wallet",
+    "how do i add money",
+  ])("routes funding requests without relying on model tool choice: %s", (input) => {
+    expect(parseNaturalWalletCommand(input)).toEqual({ type: "deposit" });
+  });
+});
+
+describe("nansen command grammar", () => {
+  test("parses /nansen variants", () => {
+    expect(parseCommand("/nansen")).toEqual({ type: "nansen-help" });
+    expect(parseCommand("/nansen help")).toEqual({ type: "nansen-help" });
+    expect(parseCommand("/nansen token 0xabc ethereum 7d")).toEqual({ type: "nansen", endpoint: "token_info", input: { token: "0xabc", chain: "ethereum", timeframe: "7d" } });
+    expect(parseCommand("/nansen flows 0xabc arbitrum")).toEqual({ type: "nansen", endpoint: "token_flow_intelligence", input: { token: "0xabc", chain: "arbitrum" } });
+    expect(parseCommand("/nansen wallet")).toEqual({ type: "nansen", endpoint: "wallet_balances", input: {} });
+    expect(parseCommand("/nansen wallet base")).toEqual({ type: "nansen", endpoint: "wallet_balances", input: { chain: "base" } });
+    expect(parseCommand("/nansen wallet 0xabc ethereum")).toEqual({ type: "nansen", endpoint: "wallet_balances", input: { chain: "ethereum", address: "0xabc" } });
+    expect(parseCommand("/nansen pnl solana")).toEqual({ type: "nansen", endpoint: "wallet_pnl", input: { chain: "solana" } });
+    expect(parseCommand("/nansen markets fed rate cut")).toEqual({ type: "nansen", endpoint: "prediction_markets", input: { query: "fed rate cut" } });
+    expect(parseCommand("/nansen markets")).toEqual({ type: "nansen", endpoint: "prediction_markets", input: {} });
+  });
+
+  test.each(["/nansen token", "/nansen token 0xabc mars", "/nansen wallet nope!", "/nansen flows 0xabc 7d", "/nansen bogus"])(
+    "rejects unsafe or unsupported input: %s",
+    (input) => expect(() => parseCommand(input)).toThrow("Usage: /nansen"),
+  );
+});
+
 describe("generic EVM command grammar", () => {
   const spender = "0x3333333333333333333333333333333333333333";
 

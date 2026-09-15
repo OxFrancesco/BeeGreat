@@ -16,17 +16,18 @@ import { loadWorkerConfig, runtimeConfigurationError, type WorkerConfig } from "
 import { DurableStore } from "./durable-store";
 import { OpenCodeHarness } from "./opencode";
 import { shouldRunScheduledPoll } from "./polling";
+import { verifyWhopWebhook, whopWebhookEnvelopeSchema } from "../whop-webhook";
 import { aeroWorkerExecutor } from "./aero-client";
 import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
 import { webIdentitySchema, webTurnSchema, basketSchema } from "../web-contract";
 
-const objectName = "pecu-main";
-const xOAuthStateKey = "pecu-x-oauth";
-const pollNotBeforeKey = "pecu-poll-not-before";
-const lastSuccessfulPollKey = "pecu-last-successful-poll";
-const lastActivityAtKey = "pecu-last-activity-at";
-const realtimeSetupKey = "pecu-realtime-setup";
+const objectName = "basedbot-main";
+const xOAuthStateKey = "basedbot-x-oauth";
+const pollNotBeforeKey = "basedbot-poll-not-before";
+const lastSuccessfulPollKey = "basedbot-last-successful-poll";
+const lastActivityAtKey = "basedbot-last-activity-at";
+const realtimeSetupKey = "basedbot-realtime-setup";
 const realtimeFallbackPollMs = 60_000;
 const realtimeSetupRecheckMs = 24 * 60 * 60 * 1_000;
 
@@ -99,12 +100,14 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       await this.restoreXOAuthState();
       const configurationError = runtimeConfigurationError(this.config);
       if (!configurationError) {
-        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }] = await Promise.all([
+        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }] = await Promise.all([
           import("../aerodrome"),
           import("../agent"),
           import("../evm"),
           import("../receipt"),
           import("../wallet"),
+          import("../integrations/whop"),
+          import("../integrations/nansen"),
         ]);
         const wallets = new WalletService({
           crossmintApiKey: this.config.crossmintApiKey!,
@@ -118,6 +121,10 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           {
             aave: new AaveService(),
             polymarket: new PolymarketService(this.config.exaApiKey, ctx.storage),
+            whop: this.config.whopApiKey
+              ? new WhopService({ apiKey: this.config.whopApiKey, apiUrl: this.config.whopApiUrl, apiVersionDate: this.config.whopApiVersionDate })
+              : undefined,
+            nansen: new NansenService(this.config.nansenApiKey, this.config.nansenApiUrl),
             aerodrome: new AerodromeService(this.config, aeroWorkerExecutor(env.AERO)),
             evm: new EvmService(evmWorkerExecutor(env.EVM)),
             verifyUserOperation: (reference) => awaitUserOperation(rpc, reference),
@@ -125,6 +132,11 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           this.harness,
         );
         await this.agent.resumeExecuting();
+        try {
+          await this.agent.relayPendingDeposits();
+        } catch (error) {
+          log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) });
+        }
         this.webAgent = new WebAgent(this.agent, this.store, ctx.storage.sql);
         if (this.config.xchatPollingEnabled) {
           try {
@@ -202,6 +214,22 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         await new ActivityQueue(this.ctx.storage).enqueue(await request.json());
         return json({ ok: true, queued: true });
       }
+      if (url.pathname === "/internal/whop/deposit" && request.method === "POST") {
+        if (!this.agent) return json({ error: "Agent unavailable" }, 503);
+        const result = this.agent.recordWhopDeposit(await request.json());
+        if (result.depositId) this.ctx.waitUntil(this.agent.relayDeposit(result.depositId));
+        return json({ status: result.status });
+      }
+      if (url.pathname === "/internal/deposits" && request.method === "GET") {
+        if (!this.agent) return json({ error: "Agent unavailable" }, 503);
+        return json(await this.agent.depositAdminSummary());
+      }
+      if (url.pathname.startsWith("/internal/deposits/") && url.pathname.endsWith("/relay") && request.method === "POST") {
+        if (!this.agent) return json({ error: "Agent unavailable" }, 503);
+        const depositId = decodeURIComponent(url.pathname.slice("/internal/deposits/".length, -"/relay".length));
+        const record = await this.agent.forceRelay(depositId);
+        return record ? json(record) : json({ error: "not found" }, 404);
+      }
       if (
         (url.pathname === "/internal/realtime/status" && request.method === "GET") ||
         (url.pathname === "/internal/realtime/revalidate" && request.method === "POST") ||
@@ -260,6 +288,11 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       }
       await activities.drain((body) => this.ingestActivity(body));
       await this.poll();
+      try {
+        await this.agent?.relayPendingDeposits();
+      } catch (error) {
+        log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) });
+      }
       this.nextAlarmDelayMs = realtimeReady ? realtimeFallbackPollMs : this.config.pollIntervalMs;
     } catch (error) {
       failed = true;
@@ -308,6 +341,8 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         lastActivityAt: lastActivityAt ? new Date(lastActivityAt).toISOString() : null,
         pollNotBefore: pollNotBefore ? new Date(pollNotBefore).toISOString() : null,
       },
+      deposits: { configured: Boolean(this.config.whopApiKey && this.config.whopWebhookSecret), pending: this.store.pendingDeposits().length },
+      nansen: { configured: Boolean(this.config.nansenApiKey) },
       configurationError,
     }, !configurationError && auth.connected && providerHealthy ? 200 : 503);
   }
@@ -395,8 +430,8 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     const chat = await unlockChat(api, botUserId, { chatPin: this.config.chatPin! });
     log("info", "xchat_transport_unlocked");
     this.transport = new XChatTransport(api, chat, botUserId, this.config, this.store, this.agent, {
-      get: () => this.ctx.storage.get<ConversationDiscovery>("pecu-conversation-discovery"),
-      put: (value) => this.ctx.storage.put("pecu-conversation-discovery", value),
+      get: () => this.ctx.storage.get<ConversationDiscovery>("basedbot-conversation-discovery"),
+      put: (value) => this.ctx.storage.put("basedbot-conversation-discovery", value),
     });
     return this.transport;
   }
@@ -546,6 +581,26 @@ export default {
       }
       return json({ error: "method not allowed" }, 405);
     }
+    if (url.pathname === "/whop/webhook") {
+      if (!config.whopWebhookSecret) return json({ error: "not found" }, 404);
+      if (request.method !== "POST") return json({ error: "method not allowed" }, 405);
+      const rawBody = await request.text();
+      const valid = await verifyWhopWebhook(rawBody, request.headers, config.whopWebhookSecret);
+      if (!valid) return json({ error: "invalid webhook signature" }, 401);
+      let body: unknown;
+      try { body = JSON.parse(rawBody); }
+      catch { return json({ error: "invalid JSON" }, 400); }
+      const envelope = whopWebhookEnvelopeSchema.safeParse(body);
+      if (!envelope.success) return json({ error: "invalid webhook body" }, 400);
+      if (envelope.data.type !== "deposit.succeeded") return json({ ignored: true });
+      const recorded = await durableObject(env).fetch(new Request("https://pecu.internal/internal/whop/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ webhookId: envelope.data.id, accountId: envelope.data.account_id, data: envelope.data.data }),
+      }));
+      if (!recorded.ok) return json({ error: "Could not record deposit" }, 503);
+      return json({ ok: true });
+    }
     if (url.pathname === "/health" && request.method === "GET") {
       return durableObject(env).fetch(new Request(new URL("/internal/health", request.url), request));
     }
@@ -559,6 +614,8 @@ export default {
       .replace(/^\/admin\/opencode\/tools$/, "/internal/auth/tools")
       .replace(/^\/admin\/opencode\/probe$/, "/internal/auth/probe")
       .replace(/^\/admin\/poll$/, "/internal/poll")
+      .replace(/^\/admin\/deposits\/([^/]+)\/relay$/, "/internal/deposits/$1/relay")
+      .replace(/^\/admin\/deposits$/, "/internal/deposits")
       .replace(/^\/admin\/xchat\/identity$/, "/internal/xchat/identity")
       .replace(/^\/admin\/xchat\/realtime\/setup$/, "/internal/realtime/setup")
       .replace(/^\/admin\/xchat\/realtime\/status$/, "/internal/realtime/status")
@@ -579,3 +636,5 @@ export default {
     })());
   },
 } satisfies ExportedHandler<Cloudflare.Env>;
+
+export { PecuDurableObject as BasedBotDurableObject };

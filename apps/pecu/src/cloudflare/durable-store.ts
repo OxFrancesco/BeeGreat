@@ -1,8 +1,36 @@
 import { plannedCallSchema, type PlannedCall, type VerifiedMessage } from "../domain";
-import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type ExecutionStep, type Intent, type IntentState } from "../state";
+import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "../state";
 
 type SqlValue = ArrayBuffer | string | number | null;
 type Row = Record<string, SqlValue>;
+
+type FundingAccountRow = Row & {
+  sender_id: string;
+  whop_account_id: string;
+  email: string;
+  conversation_id: string;
+  encoded_event: string;
+};
+
+type DepositRow = Row & {
+  id: string;
+  webhook_id: string;
+  whop_account_id: string;
+  sender_id: string | null;
+  amount: string;
+  currency: string;
+  precision: string;
+  usd_amount: string | null;
+  available_at: number | null;
+  relay_usdc_units: string | null;
+  state: DepositState;
+  hold_reason: string | null;
+  intent_id: string | null;
+  result: string | null;
+  posted_at: number;
+  created_at: number;
+  updated_at: number;
+};
 
 type IntentRow = Row & {
   id: string;
@@ -28,17 +56,17 @@ export class DurableStore implements PecuStore {
 
   initialize(): void {
     this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS pecu_chat_preferences (
+      CREATE TABLE IF NOT EXISTS basedbot_chat_preferences (
         sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL, yolo INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY(sender_id, conversation_id)
       );
-      CREATE TABLE IF NOT EXISTS pecu_chat_details (
+      CREATE TABLE IF NOT EXISTS basedbot_chat_details (
         sender_id TEXT NOT NULL,
         conversation_id TEXT NOT NULL,
         json TEXT NOT NULL,
         PRIMARY KEY(sender_id, conversation_id)
       );
-      CREATE TABLE IF NOT EXISTS pecu_inbox_events (
+      CREATE TABLE IF NOT EXISTS basedbot_inbox_events (
         event_id TEXT PRIMARY KEY,
         conversation_id TEXT NOT NULL,
         sender_id TEXT NOT NULL,
@@ -47,13 +75,13 @@ export class DurableStore implements PecuStore {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS pecu_wallets (
+      CREATE TABLE IF NOT EXISTS basedbot_wallets (
         sender_id TEXT PRIMARY KEY,
         locator TEXT NOT NULL UNIQUE,
         address TEXT NOT NULL,
         created_at INTEGER NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS pecu_aero_intents (
+      CREATE TABLE IF NOT EXISTS basedbot_aero_intents (
         id TEXT PRIMARY KEY,
         code_hash TEXT NOT NULL UNIQUE,
         sender_id TEXT NOT NULL,
@@ -69,8 +97,8 @@ export class DurableStore implements PecuStore {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS pecu_aero_execution_steps (
-        intent_id TEXT NOT NULL REFERENCES pecu_aero_intents(id),
+      CREATE TABLE IF NOT EXISTS basedbot_aero_execution_steps (
+        intent_id TEXT NOT NULL REFERENCES basedbot_aero_intents(id),
         position INTEGER NOT NULL,
         role TEXT NOT NULL CHECK(role IN ('approval','action')),
         from_address TEXT NOT NULL,
@@ -83,7 +111,7 @@ export class DurableStore implements PecuStore {
         error TEXT,
         PRIMARY KEY(intent_id, position)
       );
-      CREATE TABLE IF NOT EXISTS pecu_outbox (
+      CREATE TABLE IF NOT EXISTS basedbot_outbox (
         id TEXT PRIMARY KEY,
         correlation_key TEXT NOT NULL UNIQUE,
         conversation_id TEXT NOT NULL,
@@ -96,12 +124,12 @@ export class DurableStore implements PecuStore {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS pecu_transport_state (
+      CREATE TABLE IF NOT EXISTS basedbot_transport_state (
         conversation_id TEXT PRIMARY KEY,
         pagination_token TEXT,
         updated_at INTEGER NOT NULL
       );
-      CREATE TABLE IF NOT EXISTS pecu_agent_sessions (
+      CREATE TABLE IF NOT EXISTS basedbot_agent_sessions (
         sender_id TEXT NOT NULL,
         conversation_id TEXT NOT NULL,
         session_id TEXT NOT NULL UNIQUE,
@@ -112,43 +140,71 @@ export class DurableStore implements PecuStore {
         encoded_event TEXT,
         PRIMARY KEY(sender_id, conversation_id)
       );
+      CREATE TABLE IF NOT EXISTS basedbot_funding_accounts (
+        sender_id TEXT PRIMARY KEY,
+        whop_account_id TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL,
+        conversation_id TEXT NOT NULL,
+        encoded_event TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS basedbot_deposits (
+        id TEXT PRIMARY KEY,
+        webhook_id TEXT NOT NULL,
+        whop_account_id TEXT NOT NULL,
+        sender_id TEXT,
+        amount TEXT NOT NULL,
+        currency TEXT NOT NULL,
+        precision TEXT NOT NULL,
+        usd_amount TEXT,
+        available_at INTEGER,
+        relay_usdc_units TEXT,
+        state TEXT NOT NULL CHECK(state IN ('received','relaying','relayed','held','failed')),
+        hold_reason TEXT,
+        intent_id TEXT UNIQUE,
+        result TEXT,
+        posted_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
     `);
   }
 
   yoloEnabled(senderId: string, conversationId: string): boolean {
-    return this.first<{ yolo: number }>("SELECT yolo FROM pecu_chat_preferences WHERE sender_id=? AND conversation_id=?", senderId, conversationId)?.yolo === 1;
+    return this.first<{ yolo: number }>("SELECT yolo FROM basedbot_chat_preferences WHERE sender_id=? AND conversation_id=?", senderId, conversationId)?.yolo === 1;
   }
   setYolo(senderId: string, conversationId: string, enabled: boolean): void {
-    this.sql.exec("INSERT INTO pecu_chat_preferences VALUES (?, ?, ?) ON CONFLICT(sender_id, conversation_id) DO UPDATE SET yolo=excluded.yolo", senderId, conversationId, Number(enabled));
+    this.sql.exec("INSERT INTO basedbot_chat_preferences VALUES (?, ?, ?) ON CONFLICT(sender_id, conversation_id) DO UPDATE SET yolo=excluded.yolo", senderId, conversationId, Number(enabled));
   }
   outgoingReplyText(messageId: string, conversationId: string): string | undefined {
-    return this.first<{ text: string }>("SELECT text FROM pecu_outbox WHERE conversation_id=? AND json_extract(payload_json, '$.messageId')=?", conversationId, messageId)?.text;
+    return this.first<{ text: string }>("SELECT text FROM basedbot_outbox WHERE conversation_id=? AND json_extract(payload_json, '$.messageId')=?", conversationId, messageId)?.text;
   }
 
   chatDetails(senderId: string, conversationId: string): string | undefined {
-    return this.first<{ json: string }>("SELECT json FROM pecu_chat_details WHERE sender_id=? AND conversation_id=?", senderId, conversationId)?.json;
+    return this.first<{ json: string }>("SELECT json FROM basedbot_chat_details WHERE sender_id=? AND conversation_id=?", senderId, conversationId)?.json;
   }
 
   saveChatDetails(senderId: string, conversationId: string, json: string): void {
-    this.sql.exec("INSERT INTO pecu_chat_details VALUES (?, ?, ?) ON CONFLICT(sender_id, conversation_id) DO UPDATE SET json=excluded.json", senderId, conversationId, json);
+    this.sql.exec("INSERT INTO basedbot_chat_details VALUES (?, ?, ?) ON CONFLICT(sender_id, conversation_id) DO UPDATE SET json=excluded.json", senderId, conversationId, json);
   }
 
   claimEvent(eventId: string, conversationId: string, senderId: string, retryUnanswered = false, now = Date.now()): "claimed" | "completed" | "busy" {
     const reclaimed = retryUnanswered
       ? this.sql.exec(
-        "UPDATE pecu_inbox_events SET status='processing',updated_at=? WHERE event_id=? AND reply_text IS NULL RETURNING event_id",
+        "UPDATE basedbot_inbox_events SET status='processing',updated_at=? WHERE event_id=? AND reply_text IS NULL RETURNING event_id",
         now,
         eventId,
       )
       : this.sql.exec(
-        "UPDATE pecu_inbox_events SET status='processing',updated_at=? WHERE event_id=? AND status='processing' AND reply_text IS NULL AND updated_at<=? RETURNING event_id",
+        "UPDATE basedbot_inbox_events SET status='processing',updated_at=? WHERE event_id=? AND status='processing' AND reply_text IS NULL AND updated_at<=? RETURNING event_id",
         now,
         eventId,
         now - eventProcessingLeaseMs,
       );
     if (reclaimed.toArray().length === 1) return "claimed";
     const inserted = this.sql.exec(
-      "INSERT OR IGNORE INTO pecu_inbox_events VALUES (?, ?, ?, 'processing', NULL, ?, ?) RETURNING event_id",
+      "INSERT OR IGNORE INTO basedbot_inbox_events VALUES (?, ?, ?, 'processing', NULL, ?, ?) RETURNING event_id",
       eventId,
       conversationId,
       senderId,
@@ -156,13 +212,13 @@ export class DurableStore implements PecuStore {
       now,
     );
     if (inserted.toArray().length === 1) return "claimed";
-    const row = this.first<{ status: string }>("SELECT status FROM pecu_inbox_events WHERE event_id = ?", eventId);
+    const row = this.first<{ status: string }>("SELECT status FROM basedbot_inbox_events WHERE event_id = ?", eventId);
     return row?.status === "completed" ? "completed" : "busy";
   }
 
   completeEvent(eventId: string, replyText: string): void {
     this.sql.exec(
-      "UPDATE pecu_inbox_events SET status='completed',reply_text=?,updated_at=? WHERE event_id=?",
+      "UPDATE basedbot_inbox_events SET status='completed',reply_text=?,updated_at=? WHERE event_id=?",
       replyText,
       Date.now(),
       eventId,
@@ -172,7 +228,7 @@ export class DurableStore implements PecuStore {
   ignoreEvent(eventId: string, conversationId: string, senderId: string): void {
     const now = Date.now();
     this.sql.exec(
-      "INSERT OR IGNORE INTO pecu_inbox_events VALUES (?, ?, ?, 'completed', NULL, ?, ?)",
+      "INSERT OR IGNORE INTO basedbot_inbox_events VALUES (?, ?, ?, 'completed', NULL, ?, ?)",
       eventId,
       conversationId,
       senderId,
@@ -183,21 +239,21 @@ export class DurableStore implements PecuStore {
 
   eventReply(eventId: string): string | undefined {
     return this.first<{ reply_text: string | null }>(
-      "SELECT reply_text FROM pecu_inbox_events WHERE event_id=?",
+      "SELECT reply_text FROM basedbot_inbox_events WHERE event_id=?",
       eventId,
     )?.reply_text ?? undefined;
   }
 
   wallet(senderId: string): { locator: string; address: string } | undefined {
     return this.first<{ locator: string; address: string }>(
-      "SELECT locator,address FROM pecu_wallets WHERE sender_id=?",
+      "SELECT locator,address FROM basedbot_wallets WHERE sender_id=?",
       senderId,
     );
   }
 
   saveWallet(senderId: string, locator: string, address: string): void {
     this.sql.exec(
-      `INSERT INTO pecu_wallets VALUES (?,?,?,?) ON CONFLICT(sender_id) DO UPDATE SET
+      `INSERT INTO basedbot_wallets VALUES (?,?,?,?) ON CONFLICT(sender_id) DO UPDATE SET
        locator=excluded.locator,address=excluded.address`,
       senderId,
       locator,
@@ -210,7 +266,7 @@ export class DurableStore implements PecuStore {
     const now = Date.now();
     this.storage.transactionSync(() => {
       this.sql.exec(
-        `INSERT INTO pecu_aero_intents
+        `INSERT INTO basedbot_aero_intents
         (id,code_hash,sender_id,conversation_id,source_event_id,state,action,parameters_json,preview,plan_digest,expires_at,result,created_at,updated_at)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
         intent.id,
@@ -230,7 +286,7 @@ export class DurableStore implements PecuStore {
       );
       calls.forEach((call, position) => {
         this.sql.exec(
-          `INSERT INTO pecu_aero_execution_steps
+          `INSERT INTO basedbot_aero_execution_steps
           (intent_id,position,role,from_address,to_address,data,value,state) VALUES (?,?,?,?,?,?,?,'planned')`,
           intent.id,
           position,
@@ -245,24 +301,24 @@ export class DurableStore implements PecuStore {
   }
 
   intentForSource(eventId: string): Intent | undefined {
-    const row = this.first<IntentRow>("SELECT * FROM pecu_aero_intents WHERE source_event_id=?", eventId);
+    const row = this.first<IntentRow>("SELECT * FROM basedbot_aero_intents WHERE source_event_id=?", eventId);
     return row ? this.toIntent(row) : undefined;
   }
 
   intentForCode(codeHash: string): Intent | undefined {
-    const row = this.first<IntentRow>("SELECT * FROM pecu_aero_intents WHERE code_hash=?", codeHash);
+    const row = this.first<IntentRow>("SELECT * FROM basedbot_aero_intents WHERE code_hash=?", codeHash);
     return row ? this.toIntent(row) : undefined;
   }
 
   executingIntents(): Intent[] {
     return this.sql.exec<IntentRow>(
-      "SELECT * FROM pecu_aero_intents WHERE state='executing' ORDER BY created_at",
+      "SELECT * FROM basedbot_aero_intents WHERE state='executing' ORDER BY created_at",
     ).toArray().map((row) => this.toIntent(row));
   }
 
   transitionIntent(id: string, from: IntentState, to: IntentState, result?: string): boolean {
     return this.sql.exec(
-      "UPDATE pecu_aero_intents SET state=?,result=?,updated_at=? WHERE id=? AND state=? RETURNING id",
+      "UPDATE basedbot_aero_intents SET state=?,result=?,updated_at=? WHERE id=? AND state=? RETURNING id",
       to,
       result ?? null,
       Date.now(),
@@ -273,7 +329,7 @@ export class DurableStore implements PecuStore {
 
   steps(intentId: string): ExecutionStep[] {
     return this.sql.exec<Row>(
-      "SELECT * FROM pecu_aero_execution_steps WHERE intent_id=? ORDER BY position",
+      "SELECT * FROM basedbot_aero_execution_steps WHERE intent_id=? ORDER BY position",
       intentId,
     ).toArray().map((row) => ({
       intentId: String(row.intent_id),
@@ -293,7 +349,7 @@ export class DurableStore implements PecuStore {
 
   markStepPrepared(intentId: string, position: number, transactionId: string): void {
     this.sql.exec(
-      "UPDATE pecu_aero_execution_steps SET state='prepared',transaction_id=? WHERE intent_id=? AND position=? AND state='planned'",
+      "UPDATE basedbot_aero_execution_steps SET state='prepared',transaction_id=? WHERE intent_id=? AND position=? AND state='planned'",
       transactionId,
       intentId,
       position,
@@ -302,7 +358,7 @@ export class DurableStore implements PecuStore {
 
   markStepSubmitted(intentId: string, position: number, hash: string): void {
     this.sql.exec(
-      "UPDATE pecu_aero_execution_steps SET state='submitted',hash=? WHERE intent_id=? AND position=? AND state IN ('prepared','submitted')",
+      "UPDATE basedbot_aero_execution_steps SET state='submitted',hash=? WHERE intent_id=? AND position=? AND state IN ('prepared','submitted')",
       hash,
       intentId,
       position,
@@ -311,7 +367,7 @@ export class DurableStore implements PecuStore {
 
   markStepSucceeded(intentId: string, position: number, hash?: string): void {
     this.sql.exec(
-      "UPDATE pecu_aero_execution_steps SET state='succeeded',hash=? WHERE intent_id=? AND position=?",
+      "UPDATE basedbot_aero_execution_steps SET state='succeeded',hash=? WHERE intent_id=? AND position=?",
       hash ?? null,
       intentId,
       position,
@@ -320,7 +376,7 @@ export class DurableStore implements PecuStore {
 
   markStepFailed(intentId: string, position: number, error: string): void {
     this.sql.exec(
-      "UPDATE pecu_aero_execution_steps SET state='failed',error=? WHERE intent_id=? AND position=?",
+      "UPDATE basedbot_aero_execution_steps SET state='failed',error=? WHERE intent_id=? AND position=?",
       error,
       intentId,
       position,
@@ -330,7 +386,7 @@ export class DurableStore implements PecuStore {
   enqueueReply(correlationKey: string, conversationId: string, replyToEvent: string, text: string): void {
     const now = Date.now();
     this.sql.exec(
-      `INSERT OR IGNORE INTO pecu_outbox
+      `INSERT OR IGNORE INTO basedbot_outbox
        (id,correlation_key,conversation_id,reply_to_event,text,state,created_at,updated_at)
        VALUES (?,?,?,?,?,'pending',?,?)`,
       crypto.randomUUID(),
@@ -345,7 +401,7 @@ export class DurableStore implements PecuStore {
 
   pendingReplies(): Array<{ id: string; conversationId: string; replyToEvent: string; text: string; payloadJson?: string }> {
     return this.sql.exec<Row>(
-      `SELECT id,conversation_id,reply_to_event,text,payload_json FROM pecu_outbox
+      `SELECT id,conversation_id,reply_to_event,text,payload_json FROM basedbot_outbox
        WHERE state IN ('pending','prepared','failed') ORDER BY created_at LIMIT 50`,
     ).toArray().map((row) => ({
       id: String(row.id),
@@ -357,16 +413,16 @@ export class DurableStore implements PecuStore {
   }
 
   prepareReply(id: string, payloadJson: string): void {
-    this.sql.exec("UPDATE pecu_outbox SET state='prepared',payload_json=?,updated_at=? WHERE id=?", payloadJson, Date.now(), id);
+    this.sql.exec("UPDATE basedbot_outbox SET state='prepared',payload_json=?,updated_at=? WHERE id=?", payloadJson, Date.now(), id);
   }
 
   sentReply(id: string): void {
-    this.sql.exec("UPDATE pecu_outbox SET state='sent',updated_at=? WHERE id=?", Date.now(), id);
+    this.sql.exec("UPDATE basedbot_outbox SET state='sent',updated_at=? WHERE id=?", Date.now(), id);
   }
 
   failReply(id: string, error: string): void {
     this.sql.exec(
-      "UPDATE pecu_outbox SET state='failed',attempts=attempts+1,last_error=?,updated_at=? WHERE id=?",
+      "UPDATE basedbot_outbox SET state='failed',attempts=attempts+1,last_error=?,updated_at=? WHERE id=?",
       error,
       Date.now(),
       id,
@@ -375,7 +431,7 @@ export class DurableStore implements PecuStore {
 
   transportInitialized(conversationId: string, bootstrapVersion?: string): boolean {
     const row = this.first<{ pagination_token: string | null }>(
-      "SELECT pagination_token FROM pecu_transport_state WHERE conversation_id=?",
+      "SELECT pagination_token FROM basedbot_transport_state WHERE conversation_id=?",
       conversationId,
     );
     return row !== undefined && (bootstrapVersion === undefined || row.pagination_token === bootstrapVersion);
@@ -383,7 +439,7 @@ export class DurableStore implements PecuStore {
 
   savePaginationToken(conversationId: string, token?: string): void {
     this.sql.exec(
-      `INSERT INTO pecu_transport_state VALUES (?,?,?) ON CONFLICT(conversation_id) DO UPDATE SET
+      `INSERT INTO basedbot_transport_state VALUES (?,?,?) ON CONFLICT(conversation_id) DO UPDATE SET
        pagination_token=excluded.pagination_token,updated_at=excluded.updated_at`,
       conversationId,
       token ?? null,
@@ -393,7 +449,7 @@ export class DurableStore implements PecuStore {
 
   agentSession(senderId: string, conversationId: string): string | undefined {
     return this.first<{ session_id: string }>(
-      "SELECT session_id FROM pecu_agent_sessions WHERE sender_id=? AND conversation_id=?",
+      "SELECT session_id FROM basedbot_agent_sessions WHERE sender_id=? AND conversation_id=?",
       senderId,
       conversationId,
     )?.session_id;
@@ -402,7 +458,7 @@ export class DurableStore implements PecuStore {
   saveAgentSession(senderId: string, conversationId: string, sessionId: string): void {
     const now = Date.now();
     this.sql.exec(
-      `INSERT INTO pecu_agent_sessions (sender_id,conversation_id,session_id,created_at,updated_at)
+      `INSERT INTO basedbot_agent_sessions (sender_id,conversation_id,session_id,created_at,updated_at)
        VALUES (?,?,?,?,?) ON CONFLICT(sender_id,conversation_id) DO UPDATE SET
        session_id=excluded.session_id,updated_at=excluded.updated_at`,
       senderId,
@@ -415,7 +471,7 @@ export class DurableStore implements PecuStore {
 
   saveAgentTurn(sessionId: string, message: VerifiedMessage): void {
     this.sql.exec(
-      `UPDATE pecu_agent_sessions SET event_id=?,message_text=?,encoded_event=?,updated_at=?
+      `UPDATE basedbot_agent_sessions SET event_id=?,message_text=?,encoded_event=?,updated_at=?
        WHERE session_id=? AND sender_id=? AND conversation_id=?`,
       message.eventId,
       message.text,
@@ -436,7 +492,7 @@ export class DurableStore implements PecuStore {
       encoded_event: string | null;
     }>(
       `SELECT sender_id,conversation_id,event_id,message_text,encoded_event
-       FROM pecu_agent_sessions WHERE session_id=?`,
+       FROM basedbot_agent_sessions WHERE session_id=?`,
       sessionId,
     );
     if (!row?.event_id || row.message_text === null || row.encoded_event === null) return undefined;
@@ -446,6 +502,152 @@ export class DurableStore implements PecuStore {
       eventId: row.event_id,
       text: row.message_text,
       encodedEvent: row.encoded_event,
+    };
+  }
+
+  fundingAccount(senderId: string): FundingAccount | undefined {
+    const row = this.first<FundingAccountRow>("SELECT * FROM basedbot_funding_accounts WHERE sender_id=?", senderId);
+    return row ? this.toFundingAccount(row) : undefined;
+  }
+
+  fundingAccountByWhopId(whopAccountId: string): FundingAccount | undefined {
+    const row = this.first<FundingAccountRow>("SELECT * FROM basedbot_funding_accounts WHERE whop_account_id=?", whopAccountId);
+    return row ? this.toFundingAccount(row) : undefined;
+  }
+
+  saveFundingAccount(account: FundingAccount): void {
+    const now = Date.now();
+    this.sql.exec(
+      `INSERT INTO basedbot_funding_accounts (sender_id,whop_account_id,email,conversation_id,encoded_event,created_at,updated_at)
+       VALUES (?,?,?,?,?,?,?)
+       ON CONFLICT(sender_id) DO UPDATE SET whop_account_id=excluded.whop_account_id,email=excluded.email,
+       conversation_id=excluded.conversation_id,encoded_event=excluded.encoded_event,updated_at=excluded.updated_at`,
+      account.senderId,
+      account.whopAccountId,
+      account.email,
+      account.conversationId,
+      account.encodedEvent,
+      now,
+      now,
+    );
+  }
+
+  touchFundingAccount(senderId: string, conversationId: string, encodedEvent: string): void {
+    if (encodedEvent === "") return;
+    this.sql.exec(
+      "UPDATE basedbot_funding_accounts SET conversation_id=?,encoded_event=?,updated_at=? WHERE sender_id=?",
+      conversationId,
+      encodedEvent,
+      Date.now(),
+      senderId,
+    );
+  }
+
+  recordDeposit(deposit: Omit<DepositRecord, "createdAt" | "updatedAt">): boolean {
+    const now = Date.now();
+    return this.sql.exec(
+      `INSERT OR IGNORE INTO basedbot_deposits
+       (id,webhook_id,whop_account_id,sender_id,amount,currency,precision,usd_amount,available_at,relay_usdc_units,state,hold_reason,intent_id,result,posted_at,created_at,updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+      deposit.id,
+      deposit.webhookId,
+      deposit.whopAccountId,
+      deposit.senderId ?? null,
+      deposit.amount,
+      deposit.currency,
+      deposit.precision,
+      deposit.usdAmount ?? null,
+      deposit.availableAt ?? null,
+      deposit.relayUsdcUnits ?? null,
+      deposit.state,
+      deposit.holdReason ?? null,
+      deposit.intentId ?? null,
+      deposit.result ?? null,
+      deposit.postedAt,
+      now,
+      now,
+    ).toArray().length === 1;
+  }
+
+  deposit(id: string): DepositRecord | undefined {
+    const row = this.first<DepositRow>("SELECT * FROM basedbot_deposits WHERE id=?", id);
+    return row ? this.toDeposit(row) : undefined;
+  }
+
+  depositForIntent(intentId: string): DepositRecord | undefined {
+    const row = this.first<DepositRow>("SELECT * FROM basedbot_deposits WHERE intent_id=?", intentId);
+    return row ? this.toDeposit(row) : undefined;
+  }
+
+  depositsForSender(senderId: string, limit: number): DepositRecord[] {
+    return this.sql.exec<DepositRow>(
+      "SELECT * FROM basedbot_deposits WHERE sender_id=? ORDER BY created_at DESC LIMIT ?",
+      senderId,
+      limit,
+    ).toArray().map((row) => this.toDeposit(row));
+  }
+
+  recentDeposits(limit: number): DepositRecord[] {
+    return this.sql.exec<DepositRow>(
+      "SELECT * FROM basedbot_deposits ORDER BY created_at DESC LIMIT ?",
+      limit,
+    ).toArray().map((row) => this.toDeposit(row));
+  }
+
+  pendingDeposits(): DepositRecord[] {
+    return this.sql.exec<DepositRow>(
+      "SELECT * FROM basedbot_deposits WHERE state IN ('received','held') ORDER BY created_at",
+    ).toArray().map((row) => this.toDeposit(row));
+  }
+
+  transitionDeposit(id: string, from: DepositState, to: DepositState, patch: Partial<Pick<DepositRecord, "holdReason" | "intentId" | "relayUsdcUnits" | "result" | "senderId">> = {}): boolean {
+    const sets = ["state=?", "updated_at=?"];
+    const values: Array<string | number | null> = [to, Date.now()];
+    if (patch.holdReason !== undefined) { sets.push("hold_reason=?"); values.push(patch.holdReason); }
+    if (patch.intentId !== undefined) { sets.push("intent_id=?"); values.push(patch.intentId); }
+    if (patch.relayUsdcUnits !== undefined) { sets.push("relay_usdc_units=?"); values.push(patch.relayUsdcUnits); }
+    if (patch.result !== undefined) { sets.push("result=?"); values.push(patch.result); }
+    if (patch.senderId !== undefined) { sets.push("sender_id=?"); values.push(patch.senderId); }
+    values.push(id, from);
+    return this.sql.exec(`UPDATE basedbot_deposits SET ${sets.join(",")} WHERE id=? AND state=? RETURNING id`, ...values).toArray().length === 1;
+  }
+
+  relayedUsdcUnitsSince(sinceMs: number): bigint {
+    return this.sql.exec<{ relay_usdc_units: string } & Row>(
+      "SELECT relay_usdc_units FROM basedbot_deposits WHERE state IN ('relaying','relayed') AND relay_usdc_units IS NOT NULL AND updated_at >= ?",
+      sinceMs,
+    ).toArray().reduce((sum, row) => sum + BigInt(row.relay_usdc_units), 0n);
+  }
+
+  private toFundingAccount(row: FundingAccountRow): FundingAccount {
+    return {
+      senderId: row.sender_id,
+      whopAccountId: row.whop_account_id,
+      email: row.email,
+      conversationId: row.conversation_id,
+      encodedEvent: row.encoded_event,
+    };
+  }
+
+  private toDeposit(row: DepositRow): DepositRecord {
+    return {
+      id: row.id,
+      webhookId: row.webhook_id,
+      whopAccountId: row.whop_account_id,
+      ...(row.sender_id === null ? {} : { senderId: row.sender_id }),
+      amount: row.amount,
+      currency: row.currency,
+      precision: row.precision,
+      ...(row.usd_amount === null ? {} : { usdAmount: row.usd_amount }),
+      ...(row.available_at === null ? {} : { availableAt: row.available_at }),
+      ...(row.relay_usdc_units === null ? {} : { relayUsdcUnits: row.relay_usdc_units }),
+      state: row.state,
+      ...(row.hold_reason === null ? {} : { holdReason: row.hold_reason }),
+      ...(row.intent_id === null ? {} : { intentId: row.intent_id }),
+      ...(row.result === null ? {} : { result: row.result }),
+      postedAt: row.posted_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 

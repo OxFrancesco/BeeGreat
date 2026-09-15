@@ -1,7 +1,7 @@
 import type { SugarTxAction } from "@beegreat/sugar/contracts";
-import type { PlannedCall } from "./domain";
+import { BASE_USDC_ADDRESS, type PlannedCall } from "./domain";
 import type { EvmTxAction } from "./evm";
-import type { IntentAction } from "./state";
+import type { DepositRelayParameters, IntentAction } from "./state";
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const APPROVAL_SELECTORS = new Set(["095ea7b3", "87517c45"]);
@@ -58,6 +58,29 @@ export function validateEvmPlan(
   }
 }
 
+/**
+ * Validate the treasury's USDC relay for a confirmed Whop deposit: exactly one
+ * ERC-20 transfer of Base USDC to the deposit owner's wallet, nothing else.
+ */
+export function validateDepositPlan(
+  parameters: DepositRelayParameters,
+  wallet: `0x${string}`,
+  calls: readonly PlannedCall[],
+): void {
+  const [call] = calls;
+  if (!call || calls.length !== 1) throw new Error("Deposit relay plan must contain exactly one transaction");
+  if (call.role !== "action") throw new Error("Deposit relay plan must be a single action");
+  if (call.from.toLowerCase() !== wallet.toLowerCase()) throw new Error("Deposit relay has the wrong sender");
+  if (call.to.toLowerCase() !== BASE_USDC_ADDRESS.toLowerCase()) throw new Error("Deposit relay must send Base USDC");
+  if (call.value !== "0") throw new Error("Deposit relay must not send native value");
+  if (selector(call) !== ERC20_TRANSFER_SELECTOR || call.data.length !== 138) {
+    throw new Error("Deposit relay calldata is not an ERC-20 transfer");
+  }
+  const recipient = `0x${call.data.slice(34, 74)}`;
+  if (recipient.toLowerCase() !== parameters.recipient.toLowerCase()) throw new Error("Deposit relay sends to a different wallet");
+  if (BigInt(`0x${call.data.slice(74)}`) !== BigInt(parameters.usdcUnits)) throw new Error("Deposit relay sends a different amount");
+}
+
 export function validateIntentPlan(
   intent: IntentAction,
   wallet: `0x${string}`,
@@ -67,7 +90,8 @@ export function validateIntentPlan(
   else if (intent.family === "aave") {
     if (intent.parameters.chainId !== 8453 || intent.parameters.sender.toLowerCase() !== wallet.toLowerCase()) throw new Error("Aave plan has the wrong wallet or chain");
     validatePlan("swap", wallet, calls);
-  } else validateEvmPlan(intent.action, wallet, calls);
+  } else if (intent.family === "deposit") validateDepositPlan(intent.parameters, wallet, calls);
+  else validateEvmPlan(intent.action, wallet, calls);
 }
 
 /**

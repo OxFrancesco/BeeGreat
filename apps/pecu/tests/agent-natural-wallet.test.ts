@@ -19,7 +19,7 @@ function agentFor(wallets: Pick<WalletService, "getOrCreate" | "balances">) {
     },
   } satisfies AgentHarness;
   return new PecuAgent(
-    { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120 },
+    { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
     store,
     wallets as WalletService,
     services({}),

@@ -1,16 +1,26 @@
 import { aaveIntentParameters, type AaveParameters } from "./integrations/aave";
 import { validateSugarRequest } from "@beegreat/sugar";
 import { isSugarTxAction, type SugarParameters, type SugarTxAction } from "@beegreat/sugar/contracts";
+import { z } from "zod";
 import type { PlannedCall } from "./domain";
 import type { VerifiedMessage } from "./domain";
 import { isEvmTxAction, validateEvmRequest, type EvmTxAction, type EvmTxParameters } from "./evm";
 
 export type IntentState = "pending" | "executing" | "succeeded" | "failed" | "cancelled" | "expired";
 
+export const depositRelayParameters = z.strictObject({
+  depositId: z.string().min(1),
+  recipient: z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as `0x${string}`),
+  usdcUnits: z.string().regex(/^[1-9]\d*$/),
+  whopAccountId: z.string().min(1),
+});
+export type DepositRelayParameters = z.output<typeof depositRelayParameters>;
+
 export type IntentAction =
   | Readonly<{ family: "aero"; action: SugarTxAction; parameters: SugarParameters }>
   | Readonly<{ family: "aave"; action: "aave_action"; parameters: AaveParameters }>
-  | Readonly<{ family: "evm"; action: EvmTxAction; parameters: EvmTxParameters }>;
+  | Readonly<{ family: "evm"; action: EvmTxAction; parameters: EvmTxParameters }>
+  | Readonly<{ family: "deposit"; action: "deposit_relay"; parameters: DepositRelayParameters }>;
 
 export type Intent = Readonly<{
   id: string;
@@ -29,6 +39,7 @@ export type Intent = Readonly<{
 export function parseIntentAction(action: string, parametersJson: string): IntentAction {
   const raw: unknown = JSON.parse(parametersJson);
   if (action === "aave_action") return { family: "aave", action, parameters: aaveIntentParameters.parse(raw) };
+  if (action === "deposit_relay") return { family: "deposit", action, parameters: depositRelayParameters.parse(raw) };
   if (isSugarTxAction(action)) return { family: "aero", action, parameters: validateSugarRequest(action, raw) };
   if (isEvmTxAction(action)) return { family: "evm", action, parameters: validateEvmRequest(action, raw) };
   throw new Error(`Stored intent has invalid action: ${action}`);
@@ -95,4 +106,49 @@ export interface HarnessStateStore {
   agentTurn(sessionId: string): VerifiedMessage | undefined;
 }
 
-export type PecuStore = AgentStateStore & WalletStateStore & TransportStateStore & HarnessStateStore;
+export type FundingAccount = Readonly<{
+  senderId: string;
+  whopAccountId: string;
+  email: string;
+  conversationId: string;
+  encodedEvent: string;
+}>;
+
+export type DepositState = "received" | "relaying" | "relayed" | "held" | "failed";
+
+export type DepositRecord = Readonly<{
+  id: string;
+  webhookId: string;
+  whopAccountId: string;
+  senderId?: string;
+  amount: string;
+  currency: string;
+  precision: string;
+  usdAmount?: string;
+  availableAt?: number;
+  relayUsdcUnits?: string;
+  state: DepositState;
+  holdReason?: string;
+  intentId?: string;
+  result?: string;
+  postedAt: number;
+  createdAt: number;
+  updatedAt: number;
+}>;
+
+export interface DepositStateStore {
+  fundingAccount(senderId: string): FundingAccount | undefined;
+  fundingAccountByWhopId(whopAccountId: string): FundingAccount | undefined;
+  saveFundingAccount(account: FundingAccount): void;
+  touchFundingAccount(senderId: string, conversationId: string, encodedEvent: string): void;
+  recordDeposit(deposit: Omit<DepositRecord, "createdAt" | "updatedAt">): boolean;
+  deposit(id: string): DepositRecord | undefined;
+  depositForIntent(intentId: string): DepositRecord | undefined;
+  depositsForSender(senderId: string, limit: number): DepositRecord[];
+  recentDeposits(limit: number): DepositRecord[];
+  pendingDeposits(): DepositRecord[];
+  transitionDeposit(id: string, from: DepositState, to: DepositState, patch?: Partial<Pick<DepositRecord, "holdReason" | "intentId" | "relayUsdcUnits" | "result" | "senderId">>): boolean;
+  relayedUsdcUnitsSince(sinceMs: number): bigint;
+}
+
+export type PecuStore = AgentStateStore & WalletStateStore & TransportStateStore & HarnessStateStore & DepositStateStore;

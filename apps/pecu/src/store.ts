@@ -2,9 +2,37 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { plannedCallSchema, type PlannedCall, type VerifiedMessage } from "./domain";
-import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type ExecutionStep, type Intent, type IntentState } from "./state";
+import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "./state";
 
 export type { ExecutionStep, Intent, IntentState } from "./state";
+
+type FundingAccountRow = {
+  sender_id: string;
+  whop_account_id: string;
+  email: string;
+  conversation_id: string;
+  encoded_event: string;
+};
+
+type DepositRow = {
+  id: string;
+  webhook_id: string;
+  whop_account_id: string;
+  sender_id: string | null;
+  amount: string;
+  currency: string;
+  precision: string;
+  usd_amount: string | null;
+  available_at: number | null;
+  relay_usdc_units: string | null;
+  state: DepositState;
+  hold_reason: string | null;
+  intent_id: string | null;
+  result: string | null;
+  posted_at: number;
+  created_at: number;
+  updated_at: number;
+};
 
 type IntentRow = {
   id: string;
@@ -149,6 +177,34 @@ export class Store implements PecuStore {
         message_text TEXT,
         encoded_event TEXT,
         PRIMARY KEY(sender_id, conversation_id)
+      );
+      CREATE TABLE IF NOT EXISTS funding_accounts (
+        sender_id TEXT PRIMARY KEY,
+        whop_account_id TEXT NOT NULL UNIQUE,
+        email TEXT NOT NULL,
+        conversation_id TEXT NOT NULL,
+        encoded_event TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS deposits (
+        id TEXT PRIMARY KEY,
+        webhook_id TEXT NOT NULL,
+        whop_account_id TEXT NOT NULL,
+        sender_id TEXT,
+        amount TEXT NOT NULL,
+        currency TEXT NOT NULL,
+        precision TEXT NOT NULL,
+        usd_amount TEXT,
+        available_at INTEGER,
+        relay_usdc_units TEXT,
+        state TEXT NOT NULL CHECK(state IN ('received','relaying','relayed','held','failed')),
+        hold_reason TEXT,
+        intent_id TEXT UNIQUE,
+        result TEXT,
+        posted_at INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
       );
     `);
   }
@@ -338,6 +394,116 @@ export class Store implements PecuStore {
       eventId: row.event_id,
       text: row.message_text,
       encodedEvent: row.encoded_event,
+    };
+  }
+
+  fundingAccount(senderId: string): FundingAccount | undefined {
+    const row = this.db.query("SELECT * FROM funding_accounts WHERE sender_id=?").get(senderId) as FundingAccountRow | null;
+    return row ? this.toFundingAccount(row) : undefined;
+  }
+
+  fundingAccountByWhopId(whopAccountId: string): FundingAccount | undefined {
+    const row = this.db.query("SELECT * FROM funding_accounts WHERE whop_account_id=?").get(whopAccountId) as FundingAccountRow | null;
+    return row ? this.toFundingAccount(row) : undefined;
+  }
+
+  saveFundingAccount(account: FundingAccount): void {
+    const now = Date.now();
+    this.db.query(`INSERT INTO funding_accounts (sender_id,whop_account_id,email,conversation_id,encoded_event,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?)
+      ON CONFLICT(sender_id) DO UPDATE SET whop_account_id=excluded.whop_account_id,email=excluded.email,
+      conversation_id=excluded.conversation_id,encoded_event=excluded.encoded_event,updated_at=excluded.updated_at`).run(
+      account.senderId, account.whopAccountId, account.email, account.conversationId, account.encodedEvent, now, now,
+    );
+  }
+
+  touchFundingAccount(senderId: string, conversationId: string, encodedEvent: string): void {
+    if (encodedEvent === "") return;
+    this.db.query("UPDATE funding_accounts SET conversation_id=?,encoded_event=?,updated_at=? WHERE sender_id=?").run(conversationId, encodedEvent, Date.now(), senderId);
+  }
+
+  recordDeposit(deposit: Omit<DepositRecord, "createdAt" | "updatedAt">): boolean {
+    const now = Date.now();
+    const result = this.db.query(`INSERT OR IGNORE INTO deposits
+      (id,webhook_id,whop_account_id,sender_id,amount,currency,precision,usd_amount,available_at,relay_usdc_units,state,hold_reason,intent_id,result,posted_at,created_at,updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+      deposit.id, deposit.webhookId, deposit.whopAccountId, deposit.senderId ?? null,
+      deposit.amount, deposit.currency, deposit.precision, deposit.usdAmount ?? null,
+      deposit.availableAt ?? null, deposit.relayUsdcUnits ?? null, deposit.state,
+      deposit.holdReason ?? null, deposit.intentId ?? null, deposit.result ?? null,
+      deposit.postedAt, now, now,
+    );
+    return result.changes === 1;
+  }
+
+  deposit(id: string): DepositRecord | undefined {
+    const row = this.db.query("SELECT * FROM deposits WHERE id=?").get(id) as DepositRow | null;
+    return row ? this.toDeposit(row) : undefined;
+  }
+
+  depositForIntent(intentId: string): DepositRecord | undefined {
+    const row = this.db.query("SELECT * FROM deposits WHERE intent_id=?").get(intentId) as DepositRow | null;
+    return row ? this.toDeposit(row) : undefined;
+  }
+
+  depositsForSender(senderId: string, limit: number): DepositRecord[] {
+    return (this.db.query("SELECT * FROM deposits WHERE sender_id=? ORDER BY created_at DESC LIMIT ?").all(senderId, limit) as DepositRow[]).map((row) => this.toDeposit(row));
+  }
+
+  recentDeposits(limit: number): DepositRecord[] {
+    return (this.db.query("SELECT * FROM deposits ORDER BY created_at DESC LIMIT ?").all(limit) as DepositRow[]).map((row) => this.toDeposit(row));
+  }
+
+  pendingDeposits(): DepositRecord[] {
+    return (this.db.query("SELECT * FROM deposits WHERE state IN ('received','held') ORDER BY created_at").all() as DepositRow[]).map((row) => this.toDeposit(row));
+  }
+
+  transitionDeposit(id: string, from: DepositState, to: DepositState, patch: Partial<Pick<DepositRecord, "holdReason" | "intentId" | "relayUsdcUnits" | "result" | "senderId">> = {}): boolean {
+    const sets = ["state=?", "updated_at=?"];
+    const values: Array<string | number | null> = [to, Date.now()];
+    if (patch.holdReason !== undefined) { sets.push("hold_reason=?"); values.push(patch.holdReason); }
+    if (patch.intentId !== undefined) { sets.push("intent_id=?"); values.push(patch.intentId); }
+    if (patch.relayUsdcUnits !== undefined) { sets.push("relay_usdc_units=?"); values.push(patch.relayUsdcUnits); }
+    if (patch.result !== undefined) { sets.push("result=?"); values.push(patch.result); }
+    if (patch.senderId !== undefined) { sets.push("sender_id=?"); values.push(patch.senderId); }
+    values.push(id, from);
+    return this.db.query(`UPDATE deposits SET ${sets.join(",")} WHERE id=? AND state=?`).run(...values).changes === 1;
+  }
+
+  relayedUsdcUnitsSince(sinceMs: number): bigint {
+    const rows = this.db.query("SELECT relay_usdc_units FROM deposits WHERE state IN ('relaying','relayed') AND relay_usdc_units IS NOT NULL AND updated_at >= ?").all(sinceMs) as Array<{ relay_usdc_units: string }>;
+    return rows.reduce((sum, row) => sum + BigInt(row.relay_usdc_units), 0n);
+  }
+
+  private toFundingAccount(row: FundingAccountRow): FundingAccount {
+    return {
+      senderId: row.sender_id,
+      whopAccountId: row.whop_account_id,
+      email: row.email,
+      conversationId: row.conversation_id,
+      encodedEvent: row.encoded_event,
+    };
+  }
+
+  private toDeposit(row: DepositRow): DepositRecord {
+    return {
+      id: row.id,
+      webhookId: row.webhook_id,
+      whopAccountId: row.whop_account_id,
+      ...(row.sender_id === null ? {} : { senderId: row.sender_id }),
+      amount: row.amount,
+      currency: row.currency,
+      precision: row.precision,
+      ...(row.usd_amount === null ? {} : { usdAmount: row.usd_amount }),
+      ...(row.available_at === null ? {} : { availableAt: row.available_at }),
+      ...(row.relay_usdc_units === null ? {} : { relayUsdcUnits: row.relay_usdc_units }),
+      state: row.state,
+      ...(row.hold_reason === null ? {} : { holdReason: row.hold_reason }),
+      ...(row.intent_id === null ? {} : { intentId: row.intent_id }),
+      ...(row.result === null ? {} : { result: row.result }),
+      postedAt: row.posted_at,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
     };
   }
 

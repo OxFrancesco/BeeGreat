@@ -19,6 +19,10 @@ const envSchema = z.object({
   POLL_INTERVAL_MS: z.coerce.number().int().min(60_000).default(60_000),
   QUOTE_TTL_SECONDS: z.coerce.number().int().min(30).max(900).default(120),
   MAX_SLIPPAGE_BPS: z.coerce.number().int().min(1).max(300).default(100),
+  WHOP_API_URL: z.string().url().default("https://api.whop.com/api/v1"),
+  WHOP_API_VERSION_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default("2026-09-13"),
+  DEPOSIT_RELAY_MAX_USD: z.coerce.number().int().min(1).max(1_000_000).default(500),
+  DEPOSIT_RELAY_DAILY_MAX_USD: z.coerce.number().int().min(1).default(2000),
   DATABASE_PATH: z.string().min(1).default(".data/pecu.sqlite"),
 });
 
@@ -36,6 +40,10 @@ export type Config = Readonly<{
   pollIntervalMs: number;
   quoteTtlSeconds: number;
   maxSlippageBps: number;
+  whopApiUrl: string;
+  whopApiVersionDate: string;
+  depositRelayMaxUsd: number;
+  depositRelayDailyMaxUsd: number;
   databasePath: string;
 }>;
 
@@ -55,6 +63,10 @@ export function loadConfig(env: Record<string, string | undefined> = Bun.env): C
     pollIntervalMs: value.POLL_INTERVAL_MS,
     quoteTtlSeconds: value.QUOTE_TTL_SECONDS,
     maxSlippageBps: value.MAX_SLIPPAGE_BPS,
+    whopApiUrl: value.WHOP_API_URL,
+    whopApiVersionDate: value.WHOP_API_VERSION_DATE,
+    depositRelayMaxUsd: value.DEPOSIT_RELAY_MAX_USD,
+    depositRelayDailyMaxUsd: value.DEPOSIT_RELAY_DAILY_MAX_USD,
     databasePath: value.DATABASE_PATH,
   };
 }

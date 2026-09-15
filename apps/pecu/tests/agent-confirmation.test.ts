@@ -33,9 +33,10 @@ function fixture(options: FixtureOptions = {}) {
   const records = new Map<string, WalletTransaction>();
   const outcomes = [...(options.outcomes ?? [])];
   const agent = new PecuAgent(
-    { enableMainnetExecution: options.enableMainnetExecution ?? true, maxSlippageBps: 100, quoteTtlSeconds: options.quoteTtlSeconds ?? 120 }, store,
+    { enableMainnetExecution: options.enableMainnetExecution ?? true, maxSlippageBps: 100, quoteTtlSeconds: options.quoteTtlSeconds ?? 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 }, store,
     {
       getOrCreate: async () => ({ address: wallet }),
+      usdcBalanceUnits: async () => 0n,
       balances: async () => "unused",
       prepare: async (_senderId, call) => {
         prepared.push(call);

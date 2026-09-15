@@ -27,12 +27,13 @@ function fixture(enabled: boolean, expiresAt = Date.now() + 60_000) {
     prepare: async () => { throw new Error("unexpected preparation"); },
     approve: async () => { throw new Error("unexpected approval"); },
     transaction: async () => { throw new Error("unexpected transaction lookup"); },
-  } satisfies Pick<WalletService, "getOrCreate" | "balances" | "prepare" | "approve" | "transaction">;
+    usdcBalanceUnits: async () => 0n,
+  } satisfies Pick<WalletService, "getOrCreate" | "balances" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits">;
   const prepare = spyOn(wallets, "prepare").mockImplementation(async () => { throw new Error("must not prepare"); });
   const approve = spyOn(wallets, "approve").mockImplementation(async () => { throw new Error("must not approve"); });
   const lookup = spyOn(wallets, "getOrCreate").mockImplementation(async () => { throw new Error("must not look up wallet"); });
   const agent = new PecuAgent(
-    { enableMainnetExecution: enabled, maxSlippageBps: 100, quoteTtlSeconds: 120 }, store, wallets,
+    { enableMainnetExecution: enabled, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 }, store, wallets,
     services({ aerodrome: new AerodromeService({ baseRpcUrl: "https://mainnet.base.org", maxSlippageBps: 100 }) }),
     { respond: async () => "unused" },
   );

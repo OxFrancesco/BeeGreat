@@ -56,6 +56,28 @@ describe("Cloudflare configuration boundary", () => {
     expect(loadWorkerConfig({ XCHAT_POLLING_ENABLED: "false" }).xchatPollingEnabled).toBe(false);
   });
 
+  test("loads Whop settings with safe defaults and optional secrets", () => {
+    const config = loadWorkerConfig({});
+    expect(config.whopApiUrl).toBe("https://api.whop.com/api/v1");
+    expect(config.whopApiVersionDate).toBe("2026-09-13");
+    expect(config.depositRelayMaxUsd).toBe(500);
+    expect(config.depositRelayDailyMaxUsd).toBe(2000);
+    expect(config.whopApiKey).toBeUndefined();
+    expect(config.whopWebhookSecret).toBeUndefined();
+    const sandbox = loadWorkerConfig({
+      WHOP_API_KEY: "key",
+      WHOP_WEBHOOK_SECRET: "ws_secret",
+      WHOP_API_URL: "https://sandbox-api.whop.com/api/v1",
+      DEPOSIT_RELAY_MAX_USD: "250",
+      DEPOSIT_RELAY_DAILY_MAX_USD: "900",
+    });
+    expect(sandbox.whopApiKey).toBe("key");
+    expect(sandbox.whopWebhookSecret).toBe("ws_secret");
+    expect(sandbox.whopApiUrl).toBe("https://sandbox-api.whop.com/api/v1");
+    expect(sandbox.depositRelayMaxUsd).toBe(250);
+    expect(sandbox.depositRelayDailyMaxUsd).toBe(900);
+  });
+
   test("requires refresh credentials when persistent XChat polling is enabled", () => {
     const base = {
       CROSSMINT_API_KEY: "sk_production_example",
