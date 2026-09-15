@@ -13,6 +13,29 @@ function fakeFetch(status: number, body: unknown) {
 }
 
 describe("WhopService", () => {
+  test("pins only the matching webhook and never returns its secret", async () => {
+    const url = "https://pecu.test/whop/webhook";
+    const hook = { id: "hook_test", url, api_version_date: null, enabled: true, child_resource_events: true, events: ["deposit.succeeded"], secret: "private-signing-value" };
+    const calls: RequestInit[] = [];
+    const request = (async (_url: unknown, init: RequestInit) => {
+      calls.push(init);
+      return Response.json(calls.length === 1 ? { data: [hook], page_info: { has_next_page: false } } : { ...hook, api_version_date: config.apiVersionDate });
+    }) as typeof fetch;
+    const result = await new WhopService(config, request).configureWebhook("biz_test", url);
+    expect(calls.map((call) => call.method)).toEqual(["GET", "PATCH"]);
+    expect(JSON.parse(String(calls[1]?.body))).toEqual({ api_version_date: config.apiVersionDate, child_resource_events: true, enabled: true, events: ["deposit.succeeded"] });
+    expect(result).not.toHaveProperty("secret");
+  });
+
+  test("refuses ambiguous or incomplete webhook listings before any update", async () => {
+    const hook = { id: "hook_test", url: "https://pecu.test/whop/webhook", api_version_date: null, enabled: true, child_resource_events: true, events: [] };
+    for (const [data, more] of [[[], false], [[hook, hook], false], [[hook], true]] as const) {
+      const { calls, request } = fakeFetch(200, { data, page_info: { has_next_page: more } });
+      await expect(new WhopService(config, request).configureWebhook("biz_test", hook.url)).rejects.toThrow("exactly one");
+      expect(calls).toHaveLength(1);
+    }
+  });
+
   test("createAccount posts headers, idempotency key, and the exact account body", async () => {
     const { calls, request } = fakeFetch(201, { id: "biz_abc123", extra: "ignored" });
     const service = new WhopService(config, request);

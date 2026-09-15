@@ -17,6 +17,7 @@ import { DurableStore } from "./durable-store";
 import { OpenCodeHarness } from "./opencode";
 import { shouldRunScheduledPoll } from "./polling";
 import { verifyWhopWebhook, whopWebhookEnvelopeSchema } from "../whop-webhook";
+import { WhopService, whopWebhookSetupSchema } from "../integrations/whop";
 import { aeroWorkerExecutor } from "./aero-client";
 import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
@@ -606,6 +607,17 @@ export default {
     }
     if (!url.pathname.startsWith("/admin/") || !authorized(request, config)) {
       return json({ error: "not found" }, 404);
+    }
+    if (url.pathname === "/admin/whop/webhook/configure" && request.method === "POST") {
+      const input = whopWebhookSetupSchema.safeParse(await request.json().catch(() => null));
+      if (!input.success) return json({ error: "accountId is required" }, 400);
+      if (!config.whopApiKey) return json({ error: "Whop is not configured" }, 503);
+      try {
+        const service = new WhopService({ apiKey: config.whopApiKey, apiUrl: config.whopApiUrl, apiVersionDate: config.whopApiVersionDate });
+        return json(await service.configureWebhook(input.data.accountId, new URL("/whop/webhook", request.url).toString()));
+      } catch {
+        return json({ error: "Could not verify Whop webhook configuration" }, 502);
+      }
     }
     const internalPath = url.pathname
       .replace(/^\/admin\/opencode\/login\/status\//, "/internal/auth/status/")

@@ -170,7 +170,9 @@ bunx wrangler secret put WHOP_API_KEY
 bunx wrangler secret put WHOP_WEBHOOK_SECRET
 ```
 
-Then create the webhook in the Whop dashboard or through `POST /webhooks` with `url: https://<worker>/whop/webhook`, `events: ["deposit.succeeded"]`, `child_resource_events: true` (deposits post on the connected accounts, not the platform), and `api_version_date: 2026-09-13`. Fund the treasury wallet shown by `GET /admin/deposits` with USDC on Base. Funds deposited to the connected accounts are swept back to Pecu's platform account manually in the Whop dashboard; the treasury wallet only sends USDC out. `WHOP_API_URL` accepts `https://sandbox-api.whop.com/api/v1` for sandbox testing.
+Then create the webhook in the Whop dashboard or through `POST /webhooks` with `url: https://<worker>/whop/webhook`, `events: ["deposit.succeeded"]`, `child_resource_events: true` (deposits post on the connected accounts, not the platform), and `api_version_date: 2026-09-13`. If the dashboard does not expose the date, call authenticated `POST /admin/whop/webhook/configure` with JSON `{ "accountId": "biz_..." }`. It pins the single existing webhook matching this Worker's URL, verifies the returned settings, and omits secrets from its response. It refuses missing, ambiguous, or paginated matches.
+
+Fund the treasury wallet shown by `GET /admin/deposits` with USDC on Base. Funds deposited to the connected accounts are swept back to Pecu's platform account manually in the Whop dashboard; the treasury wallet only sends USDC out. `WHOP_API_URL` accepts `https://sandbox-api.whop.com/api/v1` for sandbox testing.
 
 Live Whop deposits were not exercised in this change; the webhook verification, recording, hold reasons, and relay path are covered by tests against fakes.
 

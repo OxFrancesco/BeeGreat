@@ -33,6 +33,15 @@ const whopDepositSchema = z.object({
 export type WhopDeposit = z.output<typeof whopDepositSchema>;
 
 const whopAccountSchema = z.object({ id: z.string().regex(/^biz_[A-Za-z0-9]+$/) }).passthrough();
+export const whopWebhookSetupSchema = z.object({ accountId: z.string().regex(/^biz_[A-Za-z0-9]+$/) });
+const webhookSchema = z.object({
+  id: z.string().regex(/^hook_[A-Za-z0-9]+$/),
+  url: z.string().url(),
+  api_version_date: z.string().nullable(),
+  child_resource_events: z.boolean(),
+  enabled: z.boolean(),
+  events: z.array(z.string()),
+});
 
 export class WhopService {
   constructor(
@@ -58,14 +67,34 @@ export class WhopService {
     return whopDepositSchema.parse(body);
   }
 
-  private async call(path: string, payload: unknown, idempotencyKey: string): Promise<unknown> {
+  async configureWebhook(accountId: string, url: string) {
+    whopWebhookSetupSchema.parse({ accountId });
+    const listed = z.object({ data: z.array(webhookSchema), page_info: z.object({ has_next_page: z.boolean() }) }).parse(
+      await this.call(`/webhooks?account_id=${encodeURIComponent(accountId)}&first=100`, undefined, undefined, "GET"),
+    );
+    const matching = listed.data.filter((hook) => hook.url === url);
+    if (listed.page_info.has_next_page || matching.length !== 1) throw new Error("Expected exactly one existing Pecu webhook.");
+    const hook = matching[0]!;
+    const result = webhookSchema.parse(await this.call(`/webhooks/${hook.id}`, {
+      api_version_date: this.config.apiVersionDate,
+      child_resource_events: true,
+      enabled: true,
+      events: ["deposit.succeeded"],
+    }, undefined, "PATCH"));
+    if (result.url !== url || result.api_version_date !== this.config.apiVersionDate || !result.child_resource_events || !result.enabled || result.events.length !== 1 || result.events[0] !== "deposit.succeeded") {
+      throw new Error("Whop did not retain the requested webhook configuration.");
+    }
+    return result;
+  }
+
+  private async call(path: string, payload: unknown, idempotencyKey?: string, method = "POST"): Promise<unknown> {
     const response = await this.request.call(globalThis, `${this.config.apiUrl}${path}`, {
-      method: "POST",
+      method,
       headers: {
         Authorization: `Bearer ${this.config.apiKey}`,
         "Api-Version-Date": this.config.apiVersionDate,
         "Content-Type": "application/json",
-        "Idempotency-Key": idempotencyKey,
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
       },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(20_000),
