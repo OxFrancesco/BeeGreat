@@ -107,6 +107,14 @@ production worker because a device build cannot reach the developer's
 localhost. Keep new configuration aligned with this table — do not invent a
 fifth name.
 
+## Verifying the Aero SDK and CLI
+
+`.devin/skills/verify-aero/SKILL.md` defines the end-to-end verification harness
+for `packages/sugar`. It drives the real `aero` CLI and `SugarClient` through
+real Base transactions from a dedicated micro-funded wallet in an isolated
+environment, writes per-step evidence, and compares against a saved baseline.
+Use it before calling any Aero change done.
+
 ## Standalone SDK publishing
 
 When changing `packages/evm` or `packages/sugar`, publish the matching changes to

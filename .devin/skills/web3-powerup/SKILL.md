@@ -118,3 +118,6 @@ bun run --cwd packages/sugar typecheck
 bun run --cwd packages/backend typecheck
 bun run --cwd packages/agent build
 ```
+
+For end-to-end Aero SDK/CLI verification with real Base transactions from a
+dedicated micro-funded wallet, use `.devin/skills/verify-aero/SKILL.md`.
