@@ -37,6 +37,8 @@ not reuse them; the theme's amber ramp stands in for the coin.
 
 ## Surfaces
 
+Hide horizontal and vertical scrollbars throughout Pecu, including pages, thread lists, dialogs, textareas, tables, and code blocks. Preserve native scrolling and keyboard access. Do not add custom scrollbar tracks or disable overflow to hide a scrollbar.
+
 Cards are the theme's recipe: `--card` background, 1px `--border`,
 `--shadow-xs`. Hover lifts 3px and moves to `--shadow-md`. Tints are flat
 (`--accent`, `--muted`); no gradients. The dark tile uses `--dark` with

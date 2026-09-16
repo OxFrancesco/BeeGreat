@@ -51,6 +51,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 ## Design system
 
+Never add visible scrollbars or custom scrollbar tracks to product UI unless the user explicitly asks. Hide both horizontal and vertical scrollbars globally, including nested lists, dialogs, textareas, and code blocks. Preserve wheel, touch, trackpad, and keyboard scrolling; do not use `overflow: hidden` to conceal a scrollbar when its content needs to scroll.
+
 Before building or styling any UI (mobile screens, web pages, or Bee's `beeui`
 generative-UI components), read `docs/design-system.md` — it defines the
 tokens, motion, navigation patterns, component recipes, and the generative-UI

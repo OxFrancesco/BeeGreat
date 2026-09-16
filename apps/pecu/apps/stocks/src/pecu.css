@@ -71,8 +71,6 @@
 /* Conversation column */
 .pecu-chat { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px 16px; min-height: 0; min-width: 0; }
 .pecu-conversation { flex: 1; min-height: 0; }
-.pecu-chat-scroll { scrollbar-width: none; }
-.pecu-chat-scroll::-webkit-scrollbar { display: none; }
 .pecu-messages { gap: 18px; padding: 10px 4px 20px; }
 .pecu-messages.is-empty { min-height: 100%; justify-content: center; }
 

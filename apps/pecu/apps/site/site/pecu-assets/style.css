@@ -1,5 +1,7 @@
 /* Pecu tokens. Structure and values follow the shadcn "amber-minimal" theme
    (tweakcn.com/r/themes/amber-minimal.json); see apps/pecu/docs/design-system.md. */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; }
 :root {
   color-scheme: light;
   --background: oklch(1 0 0);
