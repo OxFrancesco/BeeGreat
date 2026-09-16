@@ -5,13 +5,17 @@ import idleStill from "@/assets/mascot/idle.webp?url";
 import thinkingHevc from "@/assets/mascot/thinking.hevc.mp4?url";
 import thinkingWebm from "@/assets/mascot/thinking.webm?url";
 import thinkingStill from "@/assets/mascot/thinking.webp?url";
+import loadingHevc from "@/assets/mascot/loading.hevc.mp4?url";
+import loadingWebm from "@/assets/mascot/loading.webm?url";
+import loadingStill from "@/assets/mascot/loading.webp?url";
 import { cn } from "@/lib/utils";
 
-export type MascotState = "idle" | "thinking";
+export type MascotState = "idle" | "thinking" | "loading";
 
 const clips: Record<MascotState, { hevc: string; webm: string; still: string }> = {
   idle: { hevc: idleHevc, webm: idleWebm, still: idleStill },
   thinking: { hevc: thinkingHevc, webm: thinkingWebm, still: thinkingStill },
+  loading: { hevc: loadingHevc, webm: loadingWebm, still: loadingStill },
 };
 
 // Safari drops the alpha channel from VP9 WebM, so it gets HEVC with alpha.
@@ -28,8 +32,8 @@ function pickSource(video: HTMLVideoElement, state: MascotState) {
 }
 
 /**
- * The snail from `output/blender/pecu-mascot-v2`, looping the clip for the
- * current state with a 180ms crossfade. Reduced motion shows the poster.
+ * Transparent Blender animations with a 180ms crossfade.
+ * Reduced motion and unsupported codecs show the poster.
  */
 export function PecuMascot({
   state = "idle",

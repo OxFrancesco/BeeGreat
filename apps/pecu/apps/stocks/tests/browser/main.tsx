@@ -8,6 +8,7 @@ import {
 import { Route } from "../../src/routes/agent";
 import "./fixture.css";
 const totalMessages = 10000;
+const readDelay = new URLSearchParams(location.search).has("slow") ? 15_000 : 600;
 const threads = Array.from({ length: 1000 }, (_, i) => ({
   id:
     i === 0
@@ -40,7 +41,7 @@ window.fetch = async (input, init) => {
   const before = url.searchParams.get("before"),
     after = url.searchParams.get("after");
   await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(resolve, 600);
+    const timer = setTimeout(resolve, readDelay);
     init?.signal?.addEventListener(
       "abort",
       () => {

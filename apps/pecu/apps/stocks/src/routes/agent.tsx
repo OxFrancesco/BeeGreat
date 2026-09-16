@@ -174,6 +174,7 @@ function AgentWorkspace({
     [account, isSignedIn],
   );
   const messages = account.state?.messages ?? [];
+  const loadingConversation = account.loading && !inFlight;
   const mascotMessageId = account.atLatest && !inFlight ? messages.at(-1)?.id : undefined;
   const empty = !account.loading && account.atLatest && messages.length === 0 && !inFlight;
   const noWallet = Boolean(
@@ -319,21 +320,28 @@ function AgentWorkspace({
           <HistoryNavigation account={account} />
           <Conversation
             className="pecu-conversation"
+            aria-busy={loadingConversation && !account.error}
             key={`${threadId ?? "default"}:${account.state?.messages[0]?.id ?? "empty"}`}
             initial="instant"
             resize="instant"
           >
+            {loadingConversation ? (
+              <div className="pecu-conversation-status" role="status">
+                {account.error ? (
+                  <p className="pecu-bubble-muted">Could not load this conversation.</p>
+                ) : (
+                  <>
+                    <PecuMascot className="pecu-conversation-loader" state="loading" />
+                    <span className="sr-only">Loading conversation…</span>
+                  </>
+                )}
+              </div>
+            ) : null}
             <ConversationContent
               scrollClassName="pecu-chat-scroll"
               className={empty ? "pecu-messages is-empty" : "pecu-messages"}
             >
-              {account.loading && !inFlight ? (
-                <p className="pecu-bubble-muted" role="status">
-                  {account.error
-                    ? "Could not load this conversation."
-                    : "Loading conversation…"}
-                </p>
-              ) : empty ? (
+              {loadingConversation ? null : empty ? (
                 <ConversationEmptyState className="pecu-empty">
                   <PecuMascot className="pecu-hero-snail" state="idle" />
                   <div className="pecu-empty-copy">
@@ -505,7 +513,7 @@ function AgentWorkspace({
                 </>
               )}
             </ConversationContent>
-            <ConversationScrollButton className="pecu-scroll-button" />
+            {!loadingConversation ? <ConversationScrollButton className="pecu-scroll-button" /> : null}
           </Conversation>
 
           <div className="pecu-composer">
