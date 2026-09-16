@@ -222,7 +222,7 @@ function StockWorkspace() {
                             setSelected(s.symbol);
                             document.getElementById("trade")?.scrollIntoView({
                               block: "nearest",
-                              behavior: "smooth",
+                              behavior: "instant",
                             });
                           }}
                           aria-label={`Select ${s.name}`}
@@ -264,7 +264,7 @@ function StockWorkspace() {
                             setSelected(s.symbol);
                             document.getElementById("trade")?.scrollIntoView({
                               block: "nearest",
-                              behavior: "smooth",
+                              behavior: "instant",
                             });
                           }}
                         >

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { ArrowUpRight, ArrowRight } from "lucide-react";
-import { motion } from "motion/react";
 import type { Stock } from "../lib/market";
 import { usdc } from "../lib/market";
 import { Button } from "./ui/button";
@@ -58,12 +57,9 @@ export function TradePanel({
     }
   }
   return (
-    <motion.aside
+    <aside
       id="trade"
       className="trade-panel"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
     >
       <div className="trade-heading">
         <div className="stock-avatar">{stock.name.slice(0, 1)}</div>
@@ -216,6 +212,6 @@ export function TradePanel({
         View token on Base
         <ArrowUpRight size={15} />
       </a>
-    </motion.aside>
+    </aside>
   );
 }

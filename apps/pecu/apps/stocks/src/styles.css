@@ -553,10 +553,23 @@ textarea {
   *::before,
   *::after {
     animation: none !important;
-    transition: none !important;
     scroll-behavior: auto !important;
   }
 }
 
 .history-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; flex-shrink: 0; }
 .messages:has([data-history-window]) { height: 540px; }
+
+@keyframes pecu-thinking {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .pecu-thinking-text { animation: pecu-thinking 2s ease-in-out infinite; }
+}
+[data-slot="dialog-content"], [data-slot="dialog-overlay"] {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(.23, 1, .32, 1);
+}
+[data-slot="dialog-content"][data-state="closed"],
+[data-slot="dialog-overlay"][data-state="closed"] { animation-duration: 150ms; }

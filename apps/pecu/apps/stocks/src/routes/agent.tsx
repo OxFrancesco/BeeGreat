@@ -12,7 +12,8 @@ import {
   RotateCcwIcon,
   Trash2Icon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { z } from "zod";
 import {
   threadIdSchema,
@@ -115,12 +116,14 @@ function AgentPage() {
   const { user } = useUser();
   const { t } = Route.useSearch();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const toggleSidebar = useCallback(
-    () => setSidebarCollapsed((value) => !value),
-    [],
-  );
+  const [sidebarMotion, setSidebarMotion] = useState(true);
+  const toggleSidebar = useCallback((animate = true) => {
+    setSidebarMotion(animate);
+    setSidebarCollapsed((value) => !value);
+  }, []);
   return (
     <AgentWorkspace
+      sidebarMotion={sidebarMotion}
       sidebarCollapsed={sidebarCollapsed}
       toggleSidebar={toggleSidebar}
       key={user?.id ?? "signed-out"}
@@ -132,12 +135,20 @@ function AgentPage() {
 function AgentWorkspace({
   threadId,
   sidebarCollapsed,
+  sidebarMotion,
   toggleSidebar,
 }: {
   threadId: string | null;
   sidebarCollapsed: boolean;
-  toggleSidebar: () => void;
+  sidebarMotion: boolean;
+  toggleSidebar: (animate?: boolean) => void;
 }) {
+  const sidebarToggleRef = useRef<HTMLButtonElement>(null);
+  const reducedMotion = useReducedMotion();
+  const sidebarTransition = {
+    duration: sidebarMotion && !reducedMotion ? 0.2 : 0,
+    ease: [0.77, 0, 0.175, 1] as const,
+  };
   const { isSignedIn } = useUser();
   const clerk = useClerk();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -199,7 +210,10 @@ function AgentWorkspace({
       if (window.matchMedia("(max-width: 900px)").matches) {
         setThreadsOpen((open) => !open);
       } else {
-        toggleSidebar();
+        if (document.getElementById("pecu-thread-sidebar")?.contains(document.activeElement)) {
+          sidebarToggleRef.current?.focus();
+        }
+        toggleSidebar(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -223,24 +237,32 @@ function AgentWorkspace({
   ) : null;
 
   return (
-    <div className="pecu pecu-app">
+    <div className="pecu pecu-app" data-sidebar-collapsed={sidebarCollapsed}>
       {isSignedIn && threadsSupported ? (
-        <aside
+        <motion.aside
           id="pecu-thread-sidebar"
           aria-label="Threads"
           className="pecu-rail"
-          hidden={sidebarCollapsed}
+          inert={sidebarCollapsed}
+          aria-hidden={sidebarCollapsed}
+          initial={false}
+          animate={{ transform: sidebarCollapsed ? "translateX(-100%)" : "translateX(0%)" }}
+          transition={sidebarTransition}
         >
           <a className="pecu-wordmark" href="/">
             pecu
           </a>
           {threadList}
-        </aside>
+        </motion.aside>
       ) : null}
       <div className="pecu-main">
         <header className="pecu-topbar">
           {isSignedIn && threadsSupported ? (
-            <button
+            <motion.button
+              layout="position"
+              layoutDependency={sidebarCollapsed}
+              transition={{ layout: sidebarTransition }}
+              ref={sidebarToggleRef}
               className="pecu-chip pecu-sidebar-toggle"
               type="button"
               aria-label={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
@@ -248,14 +270,14 @@ function AgentWorkspace({
               aria-controls="pecu-thread-sidebar"
               aria-keyshortcuts="Meta+Shift+S"
               title={`${sidebarCollapsed ? "Open" : "Close"} sidebar (⌘⇧S)`}
-              onClick={toggleSidebar}
+              onClick={(event) => toggleSidebar(event.detail !== 0)}
             >
               {sidebarCollapsed ? (
                 <PanelLeftOpenIcon className="size-4" />
               ) : (
                 <PanelLeftCloseIcon className="size-4" />
               )}
-            </button>
+            </motion.button>
           ) : null}
           <a className="pecu-wordmark" href="/">
             pecu
@@ -276,7 +298,7 @@ function AgentWorkspace({
                         <span>Threads</span>
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="pecu pecu-threads-dialog">
+                    <DialogContent animate={false} className="pecu pecu-threads-dialog">
                       <DialogHeader>
                         <DialogTitle>Threads</DialogTitle>
                         <DialogDescription>
@@ -315,7 +337,7 @@ function AgentWorkspace({
           </div>
         </header>
 
-        <main className="pecu-chat">
+        <motion.main className="pecu-chat" layout="position" layoutDependency={sidebarCollapsed} transition={{ layout: sidebarTransition }}>
           <h1 className="sr-only">Pecu agent</h1>
           <HistoryNavigation account={account} />
           <Conversation
@@ -622,7 +644,7 @@ function AgentWorkspace({
               </PromptInputFooter>
             </PromptInput>
           </div>
-        </main>
+        </motion.main>
       </div>
     </div>
   );

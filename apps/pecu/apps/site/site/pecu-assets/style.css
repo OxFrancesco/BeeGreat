@@ -233,7 +233,8 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  .button { transition: none; }
+  .button { transition-property: background-color, color, opacity; }
+  .button:active { transform: none; }
   .bento.arriving { animation: fade-in 240ms ease both; }
   .snail video { display: none; }
   .snail img { visibility: visible !important; }

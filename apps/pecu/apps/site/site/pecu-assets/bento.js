@@ -47,33 +47,41 @@ if (reduceMotion.matches || !revealSource) {
 // Idle snail on the agent tile. The poster stays until frames flow.
 const snail = document.querySelector('.snail');
 const loop = snail?.querySelector('.snail-loop');
-if (loop && !reduceMotion.matches) {
-  const source = pickSource(loop);
-  if (source) {
-    loop.addEventListener('playing', () => snail.classList.add('is-live'), { once: true });
-    loop.addEventListener('error', () => snail.classList.remove('is-live'));
-    document.addEventListener('visibilitychange', () => {
-      if (!loop.src) return;
-      if (document.hidden) loop.pause();
-      else loop.play()?.catch(() => {});
-    });
-    const start = () => {
-      loop.src = source;
-      loop.load();
-      const attempt = loop.play();
-      if (attempt) attempt.catch(() => {});
-    };
-    if ('IntersectionObserver' in window) {
-      const watcher = new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          start();
-          watcher.disconnect();
-        }
-      }, { threshold: 0.2, rootMargin: '200px 0px' });
-      watcher.observe(snail);
-    } else {
-      start();
-    }
+let snailVisible = !('IntersectionObserver' in window);
+const loopSource = loop ? pickSource(loop) : null;
+const syncPlayback = () => {
+  document.documentElement.classList.toggle('motion-ready', !reduceMotion.matches);
+  if (reduceMotion.matches || document.hidden) {
+    reveal.pause();
+    if (reduceMotion.matches) showStill();
+  } else if (revealSource && !reveal.ended && !stage.classList.contains('is-still')) {
+    reveal.play()?.catch(showStill);
+  }
+  if (!loop || !loopSource) return;
+  if (reduceMotion.matches || document.hidden || !snailVisible) {
+    loop.pause();
+    if (reduceMotion.matches) snail.classList.remove('is-live');
+    return;
+  }
+  if (!loop.getAttribute('src')) {
+    loop.src = loopSource;
+    loop.load();
+  }
+  loop.play()?.catch(() => snail.classList.remove('is-live'));
+};
+if (loop && loopSource) {
+  loop.addEventListener('playing', () => {
+    if (!reduceMotion.matches) snail.classList.add('is-live');
+  });
+  loop.addEventListener('error', () => snail.classList.remove('is-live'));
+  if ('IntersectionObserver' in window) {
+    const watcher = new IntersectionObserver((entries) => {
+      snailVisible = entries.some((entry) => entry.isIntersecting);
+      syncPlayback();
+    }, { threshold: 0.2 });
+    watcher.observe(snail);
   }
 }
+reduceMotion.addEventListener('change', syncPlayback);
+document.addEventListener('visibilitychange', syncPlayback);
+syncPlayback();
