@@ -22,15 +22,29 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/index.html") return Response.redirect(new URL("/", url), 308);
+    if (url.pathname === "/favicon.ico" || url.pathname === "/apple-touch-icon.png") {
+      url.pathname = `/pecu-assets${url.pathname}`;
+      return env.ASSETS.fetch(new Request(url, request));
+    }
     if (url.pathname === "/" || url.pathname.startsWith("/pecu-assets/")) {
       if (url.pathname === "/") url.pathname = "/index.html";
       return env.ASSETS.fetch(new Request(url, request));
+    }
+    if (url.pathname === "/chat" || url.pathname.startsWith("/chat/")) {
+      url.pathname = `/agent${url.pathname.slice("/chat".length)}`;
+      return Response.redirect(url, 308);
     }
     if (url.pathname === "/stocks" || url.pathname.startsWith("/stocks/")) {
       url.pathname = `/aero${url.pathname}`;
       return Response.redirect(url, 308);
     }
-    if (url.pathname === "/aero/stocks" || url.pathname.startsWith("/aero/stocks/") || url.pathname.startsWith("/assets/")) {
+    if (
+      url.pathname === "/aero/stocks" ||
+      url.pathname.startsWith("/aero/stocks/") ||
+      url.pathname === "/agent" ||
+      url.pathname.startsWith("/agent/") ||
+      url.pathname.startsWith("/assets/")
+    ) {
       return env.STOCKS.fetch(request);
     }
     if (url.pathname === docsPath || url.pathname === `${docsPath}/` || url.pathname === `${docsPath}/index.html`) {

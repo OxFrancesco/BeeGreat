@@ -3,50 +3,158 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark">
-    <meta name="theme-color" content="#000000">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#ffffff">
     <meta name="darkreader-lock">
-    <title>Pecu | Aero, evmSDK and Stocks</title>
-    <meta name="description" content="Explore the Aero SDK, CLI and TUI, the evmSDK toolkit, and Aero Stocks. Developer tools and a web app for working onchain.">
+    <title>Pecu | Your smart ass on-chain friend</title>
+    <meta name="description" content="Pecu answers on X, keeps a Base smart wallet per verified account, and previews transactions unless you enable YOLO. Built from Aero, evmSDK and Aero Stocks.">
     <link rel="canonical" href="https://pecu.app/">
-    <link rel="icon" href="/pecu-assets/favicon.svg" type="image/svg+xml">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pecu.app/">
+    <meta property="og:title" content="Pecu | Your smart ass on-chain friend">
+    <meta property="og:description" content="Message Pecu on X for balances, swaps, transfers and analytics on Base. Transactions require confirmation unless you enable YOLO.">
+    <meta property="og:image" content="https://pecu.app/pecu-assets/og-reveal.jpg">
+    <meta property="og:image:width" content="1280">
+    <meta property="og:image:height" content="720">
+    <meta property="og:image:alt" content="A clay snail with a coral shell and a gold coin next to the word Pecu.">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Pecu">
+    <meta name="twitter:description" content="Your smart ass on-chain friend.">
+    <meta name="twitter:image" content="https://pecu.app/pecu-assets/og-reveal.jpg">
+    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="/pecu-assets/icon-192.png" type="image/png" sizes="192x192">
+    <link rel="icon" href="/pecu-assets/icon-512.png" type="image/png" sizes="512x512">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="stylesheet" href="/pecu-assets/style.css">
+    <script defer src="/pecu-assets/bento.js"></script>
   </head>
   <body>
-    <a class="skip-link" href="#products">Skip to products</a>
-    <div class="page">
-      <header>
-        <h1>pecu</h1>
-        <a class="author" href="https://oddofrancesco.com/">Francesco Oddo <span aria-hidden="true">↗</span></a>
+    <a class="skip-link" href="#tools">Skip to the tools</a>
+    <main>
+      <div class="topbar">
+        <a class="wordmark" href="/" aria-label="Pecu home">pecu</a>
+        <nav aria-label="Page navigation">
+          <a href="/aero/cli">Aero</a>
+          <a href="/aero/stocks">Stocks</a>
+          <a href="/agent">Agent</a>
+          <a href="https://evm.buddytools.org/">evmSDK ↗</a>
+        </nav>
+      </div>
+
+      <header class="hero">
+        <div class="stage" aria-hidden="true">
+          <video class="reveal" muted playsinline preload="auto" tabindex="-1" data-webm="/pecu-assets/mascot/pecu-reveal.webm" data-hevc="/pecu-assets/mascot/pecu-reveal.hevc.mp4"></video>
+          <img class="reveal-still" src="/pecu-assets/mascot/pecu-reveal.webp" width="1280" height="720" alt="" hidden>
+        </div>
+        <div class="hero-copy">
+          <h1 class="statement">Your smart ass on-chain friend!</h1>
+          <div class="actions">
+            <a class="button primary" href="https://x.com/BeeGreatAI">Message Pecu on X ↗</a>
+            <a class="button" href="/agent">Open the agent →</a>
+          </div>
+        </div>
       </header>
-      <main id="products">
-        <article class="product aero" aria-labelledby="aero-title">
-          <h2 id="aero-title">Aero <span>SDK / CLI / TUI</span></h2>
-          <div class="details">
-            <p>Work with Aerodrome on Base from your code or terminal. The TypeScript SDK, command-line tool, and interactive terminal interface let you explore pools, check positions, swap tokens, manage liquidity, and collect rewards. They also support tokenized stocks and custom stock allocations, with transaction previews you can review before signing.</p>
-            <div class="actions">
-              <a class="button primary" href="/aero/cli">Explore Aero <span aria-hidden="true">↗</span></a>
-              <a class="text-link" href="/aero/cli/docs">Read the docs <span aria-hidden="true">→</span></a>
+
+      <section class="tools" aria-labelledby="tools">
+        <h2 id="tools">What we are building</h2>
+        <div class="grid">
+          <article class="card bento agent" style="--i:0">
+            <div class="tile-visual" aria-hidden="true">
+              <div class="snail">
+                <img class="snail-still" src="/pecu-assets/mascot/idle.webp" width="960" height="720" alt="">
+                <video class="snail-loop" muted loop playsinline preload="none" data-webm="/pecu-assets/mascot/idle.webm" data-hevc="/pecu-assets/mascot/idle.hevc.mp4"></video>
+              </div>
+              <div class="chat">
+                <div class="bubble you">swap 0.01 ETH to USDC</div>
+                <div class="bubble bot">
+                  <b>Swap preview</b>
+                  <span>0.01 ETH → at least <b class="num">24.61 USDC</b></span>
+                  <span class="meta">Base · expires in 10 min</span>
+                  <span class="code">Reply <em>confirm</em> or <em>/confirm K7Q2ZM</em></span>
+                </div>
+              </div>
             </div>
+            <div class="tile-copy">
+              <h3>Pecu on X</h3>
+              <p>Send a message to <a href="https://x.com/BeeGreatAI">@BeeGreatAI</a>, or sign in with the same X account at <a href="/agent">pecu.app/agent</a>. The first message on X creates your Base smart wallet through Crossmint. Ask for balances, quotes, swaps, transfers, Aave positions, Nansen analytics or Polymarket odds in plain words or with short commands like <code>/swap</code> and <code>/send</code>. Reads answer at once. Anything that moves money comes back as a preview with a six-character code, and only you, from the same conversation, can confirm it. Enabling YOLO skips confirmation for new transaction requests.</p>
+              <div class="tile-actions">
+                <a class="button primary" href="https://x.com/BeeGreatAI">Message Pecu ↗</a>
+                <a class="button" href="/agent">Open in the browser →</a>
+                <span class="hint">Start with <code>/wallet</code>, then <code>/deposit</code>.</span>
+              </div>
+            </div>
+          </article>
+
+          <div class="tool-grid">
+          <article class="card bento aero" style="--i:1">
+            <div class="tile-visual" aria-hidden="true">
+              <div class="ribbons"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <code class="cmd"><span>$</span>aero swap --from-token ETH
+  --to-token USDC --amount 0.01
+  --use-decimals --dry-run</code>
+            </div>
+            <div class="tile-copy">
+              <h3>Aero <small>SDK, CLI and TUI</small></h3>
+              <p>Aerodrome on Base from TypeScript or a terminal. Pools, positions, swaps, liquidity, staking, rewards, veNFT locks and tokenized stocks, each returned as an unsigned plan you review before signing. Pecu's <code>/aero</code> commands call this same SDK.</p>
+              <div class="tile-actions">
+                <a class="button" href="/aero/cli">Explore Aero →</a>
+                <a class="text-link" href="/aero/cli/docs">Docs →</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="card bento stocks" style="--i:2">
+            <div class="tile-visual" aria-hidden="true">
+              <div class="basket">
+                <div class="row"><span>NVDAc</span><span class="track"><i style="--w:50%"></i></span><b>50%</b></div>
+                <div class="row"><span>AAPLc</span><span class="track"><i style="--w:30%"></i></span><b>30%</b></div>
+                <div class="row"><span>TSLAc</span><span class="track"><i style="--w:20%"></i></span><b>20%</b></div>
+              </div>
+            </div>
+            <div class="tile-copy">
+              <h3>Aero Stocks</h3>
+              <p>Tokenized stocks on Base, in the browser. Sign in with X, link the Pecu wallet you already have, see holdings, preview buys and sells, and save a basket with target weights. The same agent answers in the side panel.</p>
+              <div class="tile-actions">
+                <a class="button" href="/aero/stocks">Open Stocks →</a>
+              </div>
+            </div>
+          </article>
+
+          <article class="card bento evm" style="--i:3">
+            <div class="tile-visual" aria-hidden="true">
+              <div class="inspect">
+                <span class="addr">0x8335…2913</span>
+                <span class="line"><em>symbol</em> USDC</span>
+                <span class="line"><em>decimals</em> 6</span>
+                <span class="line"><em>balanceOf</em> <b class="num">1,204.50</b></span>
+              </div>
+            </div>
+            <div class="tile-copy">
+              <h3>evmSDK</h3>
+              <p>Reads and unsigned plans for any EVM chain. Token balances, allowances, contract reads and decoding, transfers, approvals and arbitrary calls, from the SDK, the <code>evm</code> CLI, a TUI or an MCP server. Pecu runs it inside a Cloudflare Sandbox that cannot sign.</p>
+              <div class="tile-actions">
+                <a class="button" href="https://evm.buddytools.org/">Explore evmSDK ↗</a>
+                <a class="text-link" href="https://github.com/OxFrancesco/evmSDK">Source ↗</a>
+              </div>
+            </div>
+          </article>
           </div>
-        </article>
-        <article class="product" aria-labelledby="evm-title">
-          <h2 id="evm-title">evmSDK</h2>
-          <p>A toolkit for Ethereum, Base, and other EVM chains. Use the SDK, CLI, terminal interface, or MCP server to inspect contracts, read balances, prepare transfers, and work with swaps and bridges. Shared command schemas make it usable by both developers and agents, while stored transaction plans let you review an action and check its result afterward.</p>
-          <div class="actions">
-            <a class="button" href="https://evm.buddytools.org/">Explore evmSDK <span aria-hidden="true">↗</span></a>
-            <a class="text-link" href="https://github.com/OxFrancesco/evmSDK">Source <span aria-hidden="true">↗</span></a>
-          </div>
-        </article>
-        <article class="product" aria-labelledby="stocks-title">
-          <h2 id="stocks-title">Aero Stocks <span>Web app</span></h2>
-          <p>Browse tokenized stocks on Base and manage them in your browser. Link your existing Pecu X wallet to see holdings, preview buys and sells, and set allocations for a stock basket. The app uses the same agent as Pecu, so you can ask for help in plain language and review transaction proposals before confirming them.</p>
-          <div class="actions">
-            <a class="button" href="/aero/stocks">Open Stocks <span aria-hidden="true">→</span></a>
-          </div>
-        </article>
-      </main>
-      <footer><a href="mailto:info@pecu.app">info@pecu.app</a></footer>
-    </div>
+        </div>
+
+
+          <aside class="card bento notice" style="--i:4" aria-labelledby="notice">
+            <h3 id="notice">Experimental. Unofficial.</h3>
+            <p>Pecu and the tools under it are early software built with AI coding agents. Transactions on Base are real, and a wrong amount, address or approval can lose funds for good. Start with reads, keep small amounts, and check every preview yourself.</p>
+            <p>Pecu is an independent project. It is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, Mellow Protocol, Crossmint, Aave, Nansen or Polymarket. Protocol names describe compatibility only. All trademarks belong to their owners.</p>
+          </aside>
+      </section>
+
+      <footer>
+        <a href="mailto:info@pecu.app">info@pecu.app</a>
+        <a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK">Aero SDK on GitHub ↗</a>
+        <a href="https://github.com/OxFrancesco/evmSDK">evmSDK on GitHub ↗</a>
+        <a href="https://oddofrancesco.com/">Francesco Oddo ↗</a>
+      </footer>
+    </main>
   </body>
 </html>
