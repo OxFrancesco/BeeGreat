@@ -47,3 +47,5 @@ This change covers Pecu desktop/mobile web, the Stocks chat, their authenticated
 ## Mascot
 
 Chat avatars use the existing transparent 3D assets without a painted tile or shadow. Their box is 72 px on desktop and 60 px on mobile, 50% larger than the previous 48 px and 40 px. The thinking state retains the alpha WebM/HEVC animation and transparent reduced-motion poster.
+
+The 3D scene's `Studio · seamless ivory` floor is hidden in the final exports. Merely removing the CSS tile left a rectangular shadow in the old image and video pixels. `scripts/render-mascot-alpha.py` renders the original idle/thinking scenes as RGBA with that floor disabled. Both 72-frame loops have zero alpha along all four canvas edges. Encode the sequence as VP9 `yuva420p` with `auto-alt-ref=0` for Chrome and HEVC VideoToolbox with `alpha_quality=0.9`, `bgra`, and the `hvc1` tag for Safari. WebP posters retain the same alpha channel. The browser uses the poster for reduced motion.
