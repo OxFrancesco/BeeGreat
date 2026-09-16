@@ -119,7 +119,7 @@ function AgentPage() {
     <AgentWorkspace
       sidebarCollapsed={sidebarCollapsed}
       toggleSidebar={toggleSidebar}
-      key={`${user?.id ?? "signed-out"}:${t ?? ""}`}
+      key={user?.id ?? "signed-out"}
       threadId={t ?? null}
     />
   );
@@ -138,8 +138,12 @@ function AgentWorkspace({
   const clerk = useClerk();
   const navigate = useNavigate({ from: Route.fullPath });
   const account = useAccount(Boolean(isSignedIn), threadId);
-  const [draft, setDraft] = useState("");
-  const [inFlight, setInFlight] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const draftKey = threadId ?? "default";
+  const draft = drafts[draftKey] ?? "";
+  const setDraft = (value: string) =>
+    setDrafts((current) => ({ ...current, [draftKey]: value }));
+  const inFlight = account.inFlight;
   const [threadsOpen, setThreadsOpen] = useState(false);
   const signIn = () =>
     void clerk.openSignIn({
@@ -148,28 +152,25 @@ function AgentWorkspace({
   const openThread = useCallback(
     (id: string | null) => {
       setThreadsOpen(false);
-      void navigate({ search: id ? { t: id } : {} });
+      void navigate({ search: id ? { t: id } : {}, resetScroll: false });
     },
     [navigate],
   );
   const newThread = useCallback(() => {
     if (!isSignedIn) return signIn();
-    openThread(crypto.randomUUID().slice(0, 8));
-  }, [isSignedIn, openThread]);
+    const id = crypto.randomUUID().slice(0, 8);
+    account.prepareNewThread(id);
+    openThread(id);
+  }, [isSignedIn, openThread, account.prepareNewThread]);
   const send = useCallback(
     async (text: string, requestId?: string, answerTo?: string) => {
       if (!isSignedIn) return signIn();
-      setInFlight(text);
-      try {
-        await account.send(text, requestId, undefined, answerTo);
-      } finally {
-        setInFlight(null);
-      }
+      await account.send(text, requestId, undefined, answerTo);
     },
     [account, isSignedIn],
   );
   const messages = account.state?.messages ?? [];
-  const empty = messages.length === 0 && !inFlight;
+  const empty = !account.loading && messages.length === 0 && !inFlight;
   const noWallet = Boolean(
     isSignedIn && account.state && !account.state.wallet,
   );
@@ -208,6 +209,7 @@ function AgentWorkspace({
       }}
       onNew={newThread}
       onOpen={openThread}
+      onPrefetch={account.prefetch}
       pending={account.pending}
       threads={threads}
     />
@@ -259,6 +261,7 @@ function AgentWorkspace({
                   <Dialog onOpenChange={setThreadsOpen} open={threadsOpen}>
                     <DialogTrigger asChild>
                       <button
+                        aria-label="Threads"
                         className="pecu-chip pecu-threads-toggle"
                         type="button"
                       >
@@ -319,12 +322,23 @@ function AgentWorkspace({
 
         <main className="pecu-chat">
           <h1 className="sr-only">Pecu agent</h1>
-          <Conversation className="pecu-conversation">
+          <Conversation
+            className="pecu-conversation"
+            key={threadId ?? "default"}
+            initial="instant"
+            resize="instant"
+          >
             <ConversationContent
               scrollClassName="pecu-chat-scroll"
               className={empty ? "pecu-messages is-empty" : "pecu-messages"}
             >
-              {empty ? (
+              {account.loading && !inFlight ? (
+                <p className="pecu-bubble-muted" role="status">
+                  {account.error
+                    ? "Could not load this conversation."
+                    : "Loading conversation…"}
+                </p>
+              ) : empty ? (
                 <ConversationEmptyState className="pecu-empty">
                   <PecuMascot className="pecu-hero-snail" state="idle" />
                   <div className="pecu-empty-copy">
@@ -516,6 +530,25 @@ function AgentWorkspace({
                     <RotateCcwIcon className="size-3.5" />
                     Retry
                   </Button>
+                ) : account.loading ? (
+                  <Button
+                    className="pecu-inline-link"
+                    onClick={() =>
+                      void account
+                        .reload()
+                        .catch((error) =>
+                          account.setError(
+                            error instanceof Error
+                              ? error.message
+                              : "Could not load this conversation.",
+                          ),
+                        )
+                    }
+                    size="sm"
+                    variant="link"
+                  >
+                    Retry loading
+                  </Button>
                 ) : null}
               </div>
             ) : null}
@@ -565,7 +598,11 @@ function AgentWorkspace({
                 </PromptInputTools>
                 <PromptInputSubmit
                   className="pecu-submit"
-                  disabled={account.pending || (isSignedIn && !draft.trim())}
+                  disabled={
+                    account.pending ||
+                    account.loading ||
+                    (isSignedIn && !draft.trim())
+                  }
                   status={
                     account.pending
                       ? "submitted"
@@ -588,6 +625,7 @@ function ThreadList({
   active,
   pending,
   onOpen,
+  onPrefetch,
   onNew,
   onDelete,
 }: {
@@ -595,6 +633,7 @@ function ThreadList({
   active: string | null;
   pending: boolean;
   onOpen: (id: string | null) => void;
+  onPrefetch: (id: string | null) => void;
   onNew: () => void;
   onDelete: (id: string | null) => void;
 }) {
@@ -639,6 +678,9 @@ function ThreadList({
                 aria-current={isActive ? "true" : undefined}
                 className="pecu-thread-open"
                 onClick={() => onOpen(thread.id)}
+                onMouseEnter={() => onPrefetch(thread.id)}
+                onFocus={() => onPrefetch(thread.id)}
+                onTouchStart={() => onPrefetch(thread.id)}
                 type="button"
               >
                 <span className="pecu-thread-title">{title}</span>
