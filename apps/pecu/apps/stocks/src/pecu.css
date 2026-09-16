@@ -90,7 +90,8 @@
 .pecu-turn { display: flex; flex-direction: column; gap: 12px; }
 .pecu-turn .is-user { max-width: min(72%, 560px); }
 .pecu-bubble-user { border-radius: 18px 18px 6px 18px !important; background: var(--coral) !important; color: #fff !important; padding: 9px 14px !important; font-size: 14.5px; line-height: 1.45; box-shadow: 4px 6px 14px #c9482d26, inset 1px 1px 2px #ffb4a0; }
-.pecu-assistant { position: relative; display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 14px; align-items: start; width: 100%; }
+.pecu-assistant { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; width: 100%; }
+.pecu-assistant.has-mascot { grid-template-columns: 72px minmax(0, 1fr); }
 .pecu-avatar { display: block; width: 72px; height: 72px; background: transparent; object-fit: contain; padding: 0; overflow: visible; }
 .pecu-avatar-live { position: relative; padding: 0; }
 .pecu-avatar-live > div { position: absolute; inset: 0; width: 100%; aspect-ratio: auto; transform: scale(1.9); transform-origin: 50% 50%; }
@@ -191,7 +192,7 @@
   .pecu-chat { padding: 0 10px 10px; }
   .pecu-hero-snail { width: min(320px, 80vw); margin-bottom: -20px; }
   .pecu-turn .is-user { max-width: 86%; }
-  .pecu-assistant { grid-template-columns: 60px minmax(0, 1fr); gap: 10px; }
+  .pecu-assistant.has-mascot { grid-template-columns: 60px minmax(0, 1fr); gap: 10px; }
   .pecu-avatar { width: 60px; height: 60px; }
   .pecu-chip span:not(.pecu-dot) { display: none; }
   .pecu-threads-toggle span { display: none; }

@@ -173,6 +173,7 @@ function AgentWorkspace({
     [account, isSignedIn],
   );
   const messages = account.state?.messages ?? [];
+  const mascotMessageId = account.atLatest && !inFlight ? messages.at(-1)?.id : undefined;
   const empty = !account.loading && account.atLatest && messages.length === 0 && !inFlight;
   const noWallet = Boolean(
     isSignedIn && account.state && !account.state.wallet,
@@ -383,8 +384,8 @@ function AgentWorkspace({
                           </MessageContent>
                         </Message>
                         <Message from="assistant">
-                          <div className="pecu-assistant">
-                            <img alt="" className="pecu-avatar" src={avatar} />
+                          <div className={message.id === mascotMessageId ? "pecu-assistant has-mascot" : "pecu-assistant"}>
+                            {message.id === mascotMessageId ? <img alt="" className="pecu-avatar" src={avatar} /> : null}
                             {message.reply ? (
                               <MessageContent className="pecu-bubble-bot">
                                 <MessageResponse>
@@ -499,7 +500,7 @@ function AgentWorkspace({
                       </Message>
                       <Message from="assistant">
                         <div
-                          className="pecu-assistant pecu-thinking"
+                          className="pecu-assistant has-mascot pecu-thinking"
                           role="status"
                         >
                           <span className="pecu-avatar pecu-avatar-live">
