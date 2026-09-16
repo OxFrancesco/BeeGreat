@@ -139,3 +139,13 @@ to keep all action rows at the same bottom inset. Primary links are 184 by
 do not lift on hover, so their alignment stays fixed. Below 1100px all three
 cards stack at the same width, capped at 440px. Below 380px, buttons use
 148px width and card padding drops to 20px.
+
+## AI connection in the profile
+
+Use the existing agent theme and button components. Keep one definition list for
+ChatGPT connection, model, reasoning, OpenCode, and the last provider response.
+Connect, Cancel sign-in, Refresh, and Disconnect use 44px minimum targets. Show
+a plain inline confirmation before disconnecting. Connection errors and expired
+sign-in attempts must leave a usable retry action. Show device sign-in codes only
+while that user is connecting. Never show credentials, account IDs, raw provider
+errors, invented quotas, or a successful-response badge presented as live health.

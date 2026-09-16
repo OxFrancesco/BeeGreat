@@ -1,4 +1,5 @@
-import { useClerk, useUser, UserButton } from "@clerk/tanstack-react-start";
+import { PecuUserButton } from "../components/inference-profile";
+import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
   CopyIcon,
@@ -306,7 +307,7 @@ function AgentWorkspace({
                     YOLO on · turn off
                   </button>
                 ) : null}
-                <UserButton />
+                <PecuUserButton />
               </>
             ) : (
               <Button

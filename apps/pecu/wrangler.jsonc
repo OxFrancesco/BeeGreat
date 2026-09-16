@@ -27,6 +27,7 @@
   },
   "durable_objects": {
     "bindings": [
+      { "name": "INFERENCE", "class_name": "UserInference" },
       {
         "name": "PECU",
         "class_name": "BasedBotDurableObject"
@@ -37,7 +38,8 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["BasedBotDurableObject"]
-    }
+    },
+    { "tag": "v2-user-inference", "new_sqlite_classes": ["UserInference"] }
   ],
   "vars": {
     "BASE_RPC_URL": "https://base-mainnet.g.alchemy.com/public",

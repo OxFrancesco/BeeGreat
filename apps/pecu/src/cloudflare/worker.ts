@@ -1,10 +1,10 @@
+import { InferenceTools, userInference } from "./user-inference";
+export { UserInference } from "./user-inference";
 import { AaveService } from "../integrations/aave";
 import { PolymarketService } from "../integrations/polymarket";
 import { ActivityQueue } from "./activity-queue";
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
-import { codexContainerFetch } from "./codex-fetch";
 import type { PecuAgent } from "../agent";
-import type { AgentCapabilities } from "../harness";
 import { log } from "../logger";
 import { isInvalidXChatPinError } from "../x/errors";
 import { isUnauthorizedXApiError, refreshXOAuthToken } from "../x/oauth";
@@ -14,7 +14,6 @@ import { nextXApiPollDelayMs } from "../x/rate-limit";
 import type { ConversationDiscovery, XChatTransport } from "../x/transport";
 import { loadWorkerConfig, runtimeConfigurationError, type WorkerConfig } from "./config";
 import { DurableStore } from "./durable-store";
-import { OpenCodeHarness } from "./opencode";
 import { shouldRunScheduledPoll } from "./polling";
 import { verifyWhopWebhook, whopWebhookEnvelopeSchema } from "../whop-webhook";
 import { WhopService, whopWebhookSetupSchema } from "../integrations/whop";
@@ -71,7 +70,6 @@ function durableObject(env: Cloudflare.Env): DurableObjectStub {
 export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   private readonly config: WorkerConfig;
   private readonly store: DurableStore;
-  private harness!: OpenCodeHarness;
   private agent?: PecuAgent;
   private webAgent?: WebAgent;
   private transport?: XChatTransport;
@@ -88,15 +86,6 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     this.nextAlarmDelayMs = this.config.pollIntervalMs;
     this.store = new DurableStore(ctx.storage);
     this.ready = ctx.blockConcurrencyWhile(async () => {
-      this.harness = await OpenCodeHarness.create(
-        ctx.storage,
-        this.store,
-        (message): AgentCapabilities => {
-          if (!this.agent) throw new Error(runtimeConfigurationError(this.config) ?? "Pecu runtime is not ready");
-          return this.agent.capabilitiesFor(message);
-        },
-        codexContainerFetch(env.CODEX),
-      );
       this.store.initialize();
       await this.restoreXOAuthState();
       const configurationError = runtimeConfigurationError(this.config);
@@ -130,7 +119,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
             evm: new EvmService(evmWorkerExecutor(env.EVM)),
             verifyUserOperation: (reference) => awaitUserOperation(rpc, reference),
           },
-          this.harness,
+          { respond: (message, capabilities) => userInference(env, message.senderId).respond(message, capabilities.yoloEnabled(), new InferenceTools(capabilities)) },
         );
         await this.agent.resumeExecuting();
         try {
@@ -164,6 +153,11 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       if (url.pathname.startsWith("/internal/web/") && request.method === "POST") {
         if (!this.webAgent) return json({ error: "Agent unavailable" }, 503);
         const raw: unknown = await request.json();
+        if (["/internal/web/inference", "/internal/web/inference-connect", "/internal/web/inference-disconnect"].includes(url.pathname)) {
+          const viewer = webIdentitySchema.parse(raw);
+          const inference = userInference(this.env, viewer.senderId);
+          return json(await (url.pathname.endsWith("-connect") ? inference.startLogin() : url.pathname.endsWith("-disconnect") ? inference.disconnect() : inference.status()));
+        }
         if (url.pathname === "/internal/web/state") return json(this.webAgent.state(webScopeSchema.parse(raw)));
         if (url.pathname === "/internal/web/thread-delete") {
           const { threadId, ...identity } = webThreadDeleteSchema.parse(raw);
@@ -183,23 +177,8 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         return json(result, result.status === "busy" ? 409 : 200);
       }
       if (url.pathname === "/internal/health" && request.method === "GET") return this.health();
-      if (url.pathname === "/internal/auth/status" && request.method === "GET") {
-        return json(await this.harness.authStatus());
-      }
-      if (url.pathname === "/internal/auth/tools" && request.method === "GET") return json(await this.harness.recentTools());
-      if (url.pathname === "/internal/auth/start" && request.method === "POST") {
-        return json(await this.harness.beginChatGptLogin(), 201);
-      }
-      if (url.pathname === "/internal/auth/probe" && request.method === "POST") {
-        const { probeChatGptBoundary } = await import("./provider-probe");
-        const boundary = await probeChatGptBoundary();
-        const model = await this.harness.probe();
-        return json({ boundary, model }, model.ok ? 200 : 503);
-      }
-      if (url.pathname.startsWith("/internal/auth/status/") && request.method === "GET") {
-        const attemptId = decodeURIComponent(url.pathname.slice("/internal/auth/status/".length));
-        if (!attemptId) return json({ error: "attempt ID is required" }, 400);
-        return json(await this.harness.chatGptLoginStatus(attemptId));
+      if (url.pathname.startsWith("/internal/auth/")) {
+        return json({ error: "ChatGPT connections are now per user. Manage your connection in your Pecu profile." }, 410);
       }
       if (url.pathname === "/internal/poll" && request.method === "POST") {
         await this.poll();
@@ -323,18 +302,16 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   }
 
   private async health(): Promise<Response> {
-    const auth = await this.harness.authStatus();
     const configurationError = runtimeConfigurationError(this.config);
     const lastPollAt = await this.ctx.storage.get<number>(lastSuccessfulPollKey);
     const lastActivityAt = await this.ctx.storage.get<number>(lastActivityAtKey);
     const realtimeReady = await this.realtimeReady();
     const pollNotBefore = await this.ctx.storage.get<number>(pollNotBeforeKey);
-    const providerHealthy = !auth.lastResponse || auth.lastResponse.status < 400;
     return json({
-      ok: !configurationError && auth.connected && providerHealthy,
+      ok: !configurationError,
       runtime: "cloudflare-durable-object",
       chain: { id: 8453, name: "Base mainnet", rpcHost: new URL(this.config.baseRpcUrl).hostname, executionEnabled: this.config.enableMainnetExecution },
-      opencode: { connected: auth.connected, model: "openai/gpt-5.6-sol", methods: auth.methods, lastResponse: auth.lastResponse },
+      opencode: { connectionScope: "user", model: "openai/gpt-5.6-sol" },
       xchat: {
         configured: !configurationError,
         pollingEnabled: this.config.xchatPollingEnabled,
@@ -350,7 +327,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       deposits: { configured: Boolean(this.config.whopApiKey && this.config.whopWebhookSecret), pending: this.store.pendingDeposits().length },
       nansen: { configured: Boolean(this.config.nansenApiKey) },
       configurationError,
-    }, !configurationError && auth.connected && providerHealthy ? 200 : 503);
+    }, !configurationError ? 200 : 503);
   }
 
   private pollInFlight: Promise<void> | undefined;
@@ -546,7 +523,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/basket", "/thread-delete"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     return durableObject(this.env).fetch(new Request(`https://pecu.internal/internal/web${path}`, {

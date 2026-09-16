@@ -74,6 +74,8 @@ describe("X Chat WASM in Workerd", () => {
       expect(model.status).toBe(200);
       const modelBody = await model.text();
       expect(modelBody).toBe('{"requests":2}');
+      const inference = await request("/inference");
+      expect(await inference.text()).toBe(JSON.stringify({ disconnected: true, separate: true, blocked: true }));
       let completed = false;
       for (let attempt = 0; attempt < 45; attempt++) {
         const status = await request("/queue");

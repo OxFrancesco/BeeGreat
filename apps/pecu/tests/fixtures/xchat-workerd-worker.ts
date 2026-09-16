@@ -1,3 +1,5 @@
+import { UserInference, InferenceTools } from "../../src/cloudflare/user-inference";
+export { UserInference };
 import { ActivityQueue } from "../../src/cloudflare/activity-queue";
 import { createChat } from "@xdevplatform/chat-xdk";
 import { normalizeJuiceboxConfig } from "../../src/x/chat";
@@ -5,7 +7,7 @@ import { DurableObject } from "cloudflare:workers";
 import { DurableStore } from "../../src/cloudflare/durable-store";
 import { eventProcessingLeaseMs } from "../../src/state";
 
-type Env = { STORE: DurableObjectNamespace<StoreProbe>; MODEL: DurableObjectNamespace<ModelTransportProbe> };
+type Env = { INFERENCE: DurableObjectNamespace<UserInference>; STORE: DurableObjectNamespace<StoreProbe>; MODEL: DurableObjectNamespace<ModelTransportProbe> };
 
 export class ModelTransportProbe extends DurableObject<Env> {
   override async fetch(): Promise<Response> {
@@ -104,6 +106,15 @@ const xdkJuiceboxConfig = {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (new URL(request.url).pathname === "/inference") {
+      const first = env.INFERENCE.getByName(`x:111:${crypto.randomUUID()}`);
+      const second = env.INFERENCE.getByName(`x:222:${crypto.randomUUID()}`);
+      const a = await first.status();
+      const b = await second.status();
+      const bridge = new InferenceTools({ walletAddress: async () => { throw new Error("Must not call tools without a subscription"); } } as never);
+      const reply = await first.respond({ senderId: "111", eventId: "offline-test", conversationId: "test", text: "Hello" } as never, false, bridge);
+      return Response.json({ disconnected: !a.connected && !b.connected, separate: first.id.toString() !== second.id.toString(), blocked: reply.includes("Connect your ChatGPT") });
+    }
     if (["/store", "/queue"].includes(new URL(request.url).pathname)) return env.STORE.get(env.STORE.idFromName("test")).fetch(request);
     if (new URL(request.url).pathname === "/model") return env.MODEL.getByName(crypto.randomUUID()).fetch(request);
     try {

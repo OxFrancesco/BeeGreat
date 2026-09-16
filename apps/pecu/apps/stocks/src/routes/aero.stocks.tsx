@@ -1,5 +1,6 @@
+import { PecuUserButton } from "../components/inference-profile";
 import { createFileRoute } from "@tanstack/react-router";
-import { useClerk, useUser, UserButton } from "@clerk/tanstack-react-start";
+import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { useEffect, useState } from "react";
 import { Search, RefreshCw, ArrowUpRight } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -107,7 +108,7 @@ function StockWorkspace() {
         </nav>
         <div className="auth">
           {isSignedIn ? (
-            <UserButton />
+            <PecuUserButton />
           ) : (
             <Button variant="outline" onClick={signIn}>
               Sign in with X

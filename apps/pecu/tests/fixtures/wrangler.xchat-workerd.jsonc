@@ -4,6 +4,6 @@
   "main": "xchat-workerd-worker.ts",
   "compatibility_date": "2026-08-29",
   "compatibility_flags": ["nodejs_compat"],
-  "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "StoreProbe" }, { "name": "MODEL", "class_name": "ModelTransportProbe" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StoreProbe", "ModelTransportProbe"] }]
+  "durable_objects": { "bindings": [{ "name": "INFERENCE", "class_name": "UserInference" },{ "name": "STORE", "class_name": "StoreProbe" }, { "name": "MODEL", "class_name": "ModelTransportProbe" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StoreProbe", "ModelTransportProbe", "UserInference"] }]
 }

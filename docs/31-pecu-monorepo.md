@@ -80,3 +80,32 @@ While a reply is generating, the web clients show "Pecu is answering…". They
 automatically refresh unresolved replies after a reload. "Resume response" is
 available only when the browser has no active request; it reuses the existing
 request ID and does not create a second transaction.
+
+## Per-user ChatGPT connections
+
+The profile's AI connection page connects a ChatGPT subscription to the verified
+X account. Both `/agent` and Stocks use the same profile component. X chat and
+web chat select `UserInference` by that X sender, so each account has its own
+OpenCode SQLite database, credentials, sessions, and last provider response.
+The shared subscription is never a fallback. Wallet commands remain available
+without a subscription. Other Bee clients and providers are separate products
+and are not changed by this Pecu feature.
+
+The profile shows the configured model and reasoning, connection status, and the
+last provider response time. It does not claim a subscription tier, remaining
+quota, or that a successful HTTP response proves a completed answer. Connect
+starts OpenCode's ChatGPT device flow. Cancel and Disconnect stop future AI
+requests; disconnect leaves wallets and chat history intact. Users authorize
+ChatGPT in OpenAI's browser flow. Credentials never enter browser responses.
+
+Deploy the agent Worker with the `v2-user-inference` SQLite migration, then the
+Stocks web Worker. The old admin OpenCode login routes return 410. Health reports
+per-user connection scope rather than the retired shared account's status.
+Existing users must connect once. Old AI sessions and the old shared credential
+are retained in the main database but are not used by the new runtime. Visible
+chat history remains; new AI conversations start in the user's isolated store.
+
+Validation includes user isolation, no shared fallback, failed disconnect
+blocking future replies, OAuth attempt reuse, restart recovery, concurrent-turn
+locks, the tool allowlist, and a real Workerd RPC check without credentials.
+A full live OAuth and model-reply check requires the user to authorize ChatGPT.

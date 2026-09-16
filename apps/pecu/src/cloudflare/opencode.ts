@@ -284,9 +284,22 @@ export class OpenCodeHarness implements AgentHarness {
     }
     const integration = response.data.find((item) => item.id === "openai");
     return {
-      connected: Boolean(integration?.connections.length),
+      connected: Boolean(integration?.connections.some((connection) => connection.type === "credential")),
       methods: integration?.methods.map((method) => "id" in method ? method.id : method.type) ?? [],
       lastResponse: await this.storage.get<ProviderResponse>(providerResponseKey),
+    };
+  }
+
+  async inferenceStatus() {
+    const auth = await this.authStatus();
+    return {
+      model: model.id,
+      reasoning: model.variant,
+      connected: auth.connected,
+      checkedAt: Date.now(),
+      lastResponse: auth.lastResponse
+        ? { ok: auth.lastResponse.status < 400, at: auth.lastResponse.at }
+        : null,
     };
   }
 
@@ -329,6 +342,21 @@ export class OpenCodeHarness implements AgentHarness {
       instructions: response.data.instructions,
       expiresAt: response.data.time.expires,
     };
+  }
+
+  async cancelChatGptLogin(attemptId: string) {
+    await this.client.integration.oauth.cancel({ integrationID: "openai", attemptID: attemptId, location });
+    const result = await this.chatGptLoginStatus(attemptId);
+    if (result.data.status === "pending") throw new Error("Sign-in is finishing. Try again shortly.");
+  }
+
+  async disconnectChatGpt() {
+    const integrations = await this.client.integration.list({ location });
+    const openai = integrations.data.find((integration) => integration.id === "openai");
+    for (const connection of openai?.connections ?? []) {
+      if (connection.type === "credential") await this.client.credential.remove({ credentialID: connection.id, location });
+    }
+    await this.storage.delete(providerResponseKey);
   }
 
   async chatGptLoginStatus(attemptId: string) {

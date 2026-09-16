@@ -1,5 +1,22 @@
 import { z } from "zod";
 import { agentQuestionSchema } from "./question-contract";
+export const inferenceStatusSchema = z.object({
+  model: z.string(),
+  reasoning: z.string(),
+  connected: z.boolean(),
+  checkedAt: z.number(),
+  lastResponse: z.object({ ok: z.boolean(), at: z.number() }).nullable(),
+  loginState: z.enum(["pending", "complete", "failed", "expired"]).nullable(),
+  login: z.object({
+    url: z.string().url().refine((value) => {
+      const url = new URL(value);
+      return url.protocol === "https:" && ["auth.openai.com", "chatgpt.com"].includes(url.hostname);
+    }),
+    instructions: z.string(),
+    expiresAt: z.union([z.number(), z.enum(["-Infinity", "Infinity", "NaN"])]),
+  }).nullable(),
+});
+export type InferenceStatus = z.infer<typeof inferenceStatusSchema>;
 export const webIdentitySchema = z
   .object({
     userId: z.string().regex(/^user_[A-Za-z0-9]+$/),
