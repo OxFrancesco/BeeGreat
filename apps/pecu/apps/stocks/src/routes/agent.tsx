@@ -147,12 +147,7 @@ function AgentWorkspace({ threadId }: { threadId: string | null }) {
       <div className="pecu-main">
       <header className="pecu-topbar">
         <a className="pecu-wordmark" href="/">pecu</a>
-        <nav aria-label="Page navigation" className="pecu-nav">
-          <a href="/#tools">Tools</a>
-          <a href="/aero/cli">Aero</a>
-          <a href="/aero/stocks">Stocks</a>
-          <a aria-current="page" href="/agent">Agent</a>
-        </nav>
+        {!threadsSupported && <PageNavigation />}
         <div className="pecu-auth">
           {isSignedIn ? (
             <>
@@ -213,7 +208,7 @@ function AgentWorkspace({ threadId }: { threadId: string | null }) {
         <main className="pecu-chat">
           <h1 className="sr-only">Pecu agent</h1>
           <Conversation className="pecu-conversation">
-            <ConversationContent className={empty ? "pecu-messages is-empty" : "pecu-messages"}>
+            <ConversationContent scrollClassName="pecu-chat-scroll" className={empty ? "pecu-messages is-empty" : "pecu-messages"}>
               {empty ? (
                 <ConversationEmptyState className="pecu-empty">
                   <PecuMascot className="pecu-hero-snail" state="idle" />
@@ -477,7 +472,19 @@ function ThreadList({
         Deleting a thread removes its history here. Previews you already confirmed stay
         verifiable on Base.
       </p>
+      <PageNavigation />
     </div>
+  );
+}
+
+function PageNavigation() {
+  return (
+        <nav aria-label="Page navigation" className="pecu-nav">
+          <a href="/#tools">Tools</a>
+          <a href="/aero/cli">Aero</a>
+          <a href="/aero/stocks">Stocks</a>
+          <a aria-current="page" href="/agent">Agent</a>
+        </nav>
   );
 }
 

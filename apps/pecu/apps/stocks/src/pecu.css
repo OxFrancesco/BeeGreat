@@ -69,6 +69,8 @@
 /* Conversation column */
 .pecu-chat { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px 16px; min-height: 0; min-width: 0; }
 .pecu-conversation { flex: 1; min-height: 0; }
+.pecu-chat-scroll { scrollbar-width: none; }
+.pecu-chat-scroll::-webkit-scrollbar { display: none; }
 .pecu-messages { gap: 18px; padding: 10px 4px 20px; }
 .pecu-messages.is-empty { min-height: 100%; justify-content: center; }
 
@@ -161,6 +163,8 @@
 .pecu-thread-confirm button { border: 0; background: var(--surface); color: var(--ink); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
 .pecu-thread-confirm .pecu-thread-danger { background: var(--coral); color: #fff; }
 .pecu-thread-note { margin: auto 0 0; font-size: 12px; line-height: 1.5; color: #9a877a; }
+.pecu-threads .pecu-nav { flex: 0 0 auto; flex-wrap: wrap; gap: 14px; }
+.pecu-threads .pecu-nav a { font-size: 14px; }
 .pecu-threads-toggle { display: none; }
 .pecu .pecu-threads-dialog { border: 0; border-radius: 26px; background: var(--canvas); box-shadow: var(--shadow); max-height: 80dvh; display: flex; flex-direction: column; }
 .pecu .pecu-threads-dialog .pecu-thread-list { max-height: 45dvh; }
