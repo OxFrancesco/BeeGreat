@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StocksRouteImport } from './routes/stocks'
+import { Route as AgentRouteImport } from './routes/agent'
 import { Route as StocksSplatRouteImport } from './routes/stocks.$'
 import { Route as AeroStocksRouteImport } from './routes/aero.stocks'
 import { Route as AeroStocksApiMarketRouteImport } from './routes/aero.stocks.api.market'
@@ -18,6 +19,11 @@ import { Route as AeroStocksApiSplatRouteImport } from './routes/aero.stocks.api
 const StocksRoute = StocksRouteImport.update({
   id: '/stocks',
   path: '/stocks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentRoute = AgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StocksSplatRoute = StocksSplatRouteImport.update({
@@ -42,6 +48,7 @@ const AeroStocksApiSplatRoute = AeroStocksApiSplatRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
   '/stocks/$': typeof StocksSplatRoute
@@ -49,6 +56,7 @@ export interface FileRoutesByFullPath {
   '/aero/stocks/api/market': typeof AeroStocksApiMarketRoute
 }
 export interface FileRoutesByTo {
+  '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
   '/stocks/$': typeof StocksSplatRoute
@@ -57,6 +65,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
   '/stocks/$': typeof StocksSplatRoute
@@ -66,6 +75,7 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
+    | '/agent'
     | '/stocks'
     | '/aero/stocks'
     | '/stocks/$'
@@ -73,6 +83,7 @@ export interface FileRouteTypes {
     | '/aero/stocks/api/market'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/agent'
     | '/stocks'
     | '/aero/stocks'
     | '/stocks/$'
@@ -80,6 +91,7 @@ export interface FileRouteTypes {
     | '/aero/stocks/api/market'
   id:
     | '__root__'
+    | '/agent'
     | '/stocks'
     | '/aero/stocks'
     | '/stocks/$'
@@ -88,6 +100,7 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AgentRoute: typeof AgentRoute
   StocksRoute: typeof StocksRouteWithChildren
   AeroStocksRoute: typeof AeroStocksRouteWithChildren
 }
@@ -99,6 +112,13 @@ declare module '@tanstack/react-router' {
       path: '/stocks'
       fullPath: '/stocks'
       preLoaderRoute: typeof StocksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent': {
+      id: '/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stocks/$': {
@@ -158,6 +178,7 @@ const AeroStocksRouteWithChildren = AeroStocksRoute._addFileChildren(
 )
 
 const rootRouteChildren: RootRouteChildren = {
+  AgentRoute: AgentRoute,
   StocksRoute: StocksRouteWithChildren,
   AeroStocksRoute: AeroStocksRouteWithChildren,
 }

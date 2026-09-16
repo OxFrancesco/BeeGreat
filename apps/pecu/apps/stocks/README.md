@@ -6,6 +6,12 @@ The landing page remains in `BeeGreat/packages/sugar/site/public`. Its Worker ow
 
 The same app also runs at https://pecu.app/aero/stocks through the `apps/pecu/apps/site` routing Worker. CLI navigation points to https://pecu.app/aero/cli and its `/docs` page.
 
+## Agent page
+
+`/agent` is the browser conversation with the Pecu agent, served by this Worker and routed from `pecu.app/agent` by `apps/pecu/apps/site`. It uses the Pecu design system (`src/pecu.css`, tokens in `apps/pecu/docs/design-system.md`) and components ported from Vercel AI Elements under `src/components/ai-elements/` (conversation, message, prompt input, suggestions, confirmation, shimmer). The ports drop the AI SDK, Streamdown and attachment code because the agent is request/response.
+
+Threads are client-chosen ids in the `t` search param. The backend keys each thread as its own conversation (`stocks:USER:SENDER#THREAD`), so previews, confirmations and YOLO are scoped per thread. No `t` means the original conversation the Stocks page uses. `POST /aero/stocks/api/thread-delete` removes a thread's history. The idle and thinking snail clips under `src/assets/mascot/` ship as VP9 WebM with alpha plus HEVC with alpha for Safari.
+
 ## Backend and identity
 
 The private `PECU` service binding calls `StocksGateway` in the existing `pecu` Worker. It delegates to the same `PecuAgent` and existing main Durable Object. SQLite stores web messages, stock snapshots, and one named allocation basket per Clerk user and verified X account. Market quotes use the existing `pecu-aero` service.
@@ -16,7 +22,7 @@ Web conversations have their own history and YOLO setting, initially off. They s
 
 ## Local development
 
-Install all workspaces with `bun install` from the BeeGreat root. Configure `CLERK_SECRET_KEY` and `VITE_CLERK_PUBLISHABLE_KEY` in ignored `.env.local` and `.dev.vars`. Do not commit these files. Check for an existing server before starting `bun run dev`, which uses port 5198.
+Install all workspaces with `bun install` from the BeeGreat root. Configure `CLERK_SECRET_KEY` and `VITE_CLERK_PUBLISHABLE_KEY` in ignored `.env.local` and `.dev.vars`. Do not commit these files. `.env.local` must also exist when you build for deploy: Vite inlines `VITE_CLERK_PUBLISHABLE_KEY` at build time, and a bundle built without it renders a 500 on every page even though the Worker secret is set. Check for an existing server before starting `bun run dev`, which uses port 5198.
 
 Service bindings are configured as remote. Local frontend development therefore uses the deployed Pecu agent and real wallet state. Do not confirm transactions as part of routine UI testing.
 
