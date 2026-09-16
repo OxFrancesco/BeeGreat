@@ -173,7 +173,7 @@ function AgentWorkspace({
     [account, isSignedIn],
   );
   const messages = account.state?.messages ?? [];
-  const empty = !account.loading && messages.length === 0 && !inFlight;
+  const empty = !account.loading && account.atLatest && messages.length === 0 && !inFlight;
   const noWallet = Boolean(
     isSignedIn && account.state && !account.state.wallet,
   );
@@ -373,6 +373,7 @@ function AgentWorkspace({
                 </ConversationEmptyState>
               ) : (
                 <>
+                  {!messages.length && !inFlight ? <p className="pecu-bubble-muted">No messages on this page.</p> : null}
                   <ConversationHistory items={messages}>
                     {(message) => (
                       <div className="pecu-turn" key={message.id}>
