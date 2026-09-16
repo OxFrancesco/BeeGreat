@@ -17,7 +17,6 @@ export const Route = createRootRoute({
     ],
     links: [
       { rel: "stylesheet", href: styles },
-      { rel: "icon", href: "/favicon.svg" },
     ],
   }),
   component: Root,

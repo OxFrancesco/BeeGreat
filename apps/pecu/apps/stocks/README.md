@@ -8,7 +8,7 @@ The same app also runs at https://pecu.app/aero/stocks through the `apps/pecu/ap
 
 ## Agent page
 
-`/agent` is the browser conversation with the Pecu agent, served by this Worker and routed from `pecu.app/agent` by `apps/pecu/apps/site`. It uses the Pecu design system (`src/pecu.css`, tokens in `apps/pecu/docs/design-system.md`) and components ported from Vercel AI Elements under `src/components/ai-elements/` (conversation, message, prompt input, suggestions, confirmation, shimmer). The ports drop the AI SDK, Streamdown and attachment code because the agent is request/response.
+`/agent` is the browser conversation with the Pecu agent, served by this Worker and routed from `pecu.app/agent` by `apps/pecu/apps/site`. It uses the Pecu design system (`src/pecu.css`, tokens in `apps/pecu/docs/design-system.md`) and components ported from Vercel AI Elements under `src/components/ai-elements/` (conversation, message, prompt input, suggestions, confirmation, shimmer). The ports drop the AI SDK and attachment code. Agent and Stocks replies share Streamdown Markdown rendering with GFM tables, lists, code blocks and KaTeX math. Use `$...$` for inline math and `$$...$$` for display math; escape literal dollar signs as `\$`. Raw HTML is skipped. Responses currently arrive in full after the backend completes the turn.
 
 The thread sidebar keeps page navigation below the thread list. Its toggle button and Cmd+Shift+S collapse or reopen it without changing the conversation. The collapsed state survives thread switches. On narrow screens, the shortcut toggles the Threads dialog. On narrow screens, the Threads dialog provides the same links. The conversation hides the scrollbar while preserving scrolling and the jump-to-latest button.
 

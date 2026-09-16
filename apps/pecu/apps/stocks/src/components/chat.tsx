@@ -3,29 +3,7 @@ import { ArrowUp, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import type { useAccount } from "../lib/use-account";
-function ReplyText({ text }: { text: string }) {
-  return (
-    <>
-      {text
-        .split(/(https:\/\/basescan\.org\/tx\/0x[0-9a-fA-F]{64})/g)
-        .map((part, i) =>
-          part.startsWith("https://basescan.org/tx/") ? (
-            <a
-              key={i}
-              href={part}
-              className="link"
-              target="_blank"
-              rel="noreferrer"
-            >
-              View transaction on Base
-            </a>
-          ) : (
-            part
-          ),
-        )}
-    </>
-  );
-}
+import { MessageResponse } from "./ai-elements/message";
 export function Chat({
   account,
   signedIn,
@@ -90,13 +68,13 @@ export function Chat({
               </div>
               {message.reply ? (
                 <div className="message assistant">
-                  <ReplyText
-                    text={
+                  <MessageResponse>
+                    {
                       message.reply.preview
                         ? message.reply.preview.text
                         : message.reply.text
                     }
-                  />
+                  </MessageResponse>
                   {message.reply.preview ? (
                     <div className="preview">
                       <span className="muted">

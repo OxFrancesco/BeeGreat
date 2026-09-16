@@ -62,7 +62,11 @@ export const Route = createFileRoute("/agent")({
           "Talk to the Pecu agent in the browser. Balances, quotes, swaps, transfers and analytics on Base, with transaction previews unless you enable YOLO.",
       },
     ],
-    links: [{ rel: "icon", href: "/pecu-assets/icon-192.png", type: "image/png", sizes: "192x192" }],
+    links: [
+      { rel: "icon", href: "/pecu-assets/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { rel: "icon", href: "/pecu-assets/icon-192.png", type: "image/png", sizes: "192x192" },
+      { rel: "apple-touch-icon", href: "/pecu-assets/apple-touch-icon.png", sizes: "180x180" },
+    ],
   }),
   component: AgentPage,
 });

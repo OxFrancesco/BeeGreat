@@ -16,7 +16,10 @@ import { useAccount } from "../lib/use-account";
 import { TradePanel } from "../components/trade-panel";
 import { catalog } from "../lib/catalog";
 import { Chat } from "../components/chat";
-export const Route = createFileRoute("/aero/stocks")({ component: Stocks });
+export const Route = createFileRoute("/aero/stocks")({
+  head: () => ({ links: [{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }] }),
+  component: Stocks,
+});
 function Stocks() {
   const { user } = useUser();
   return <StockWorkspace key={user?.id ?? "signed-out"} />;
