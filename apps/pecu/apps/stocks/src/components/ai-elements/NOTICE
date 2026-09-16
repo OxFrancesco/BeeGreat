@@ -1,0 +1,8 @@
+Vercel AI Elements
+Copyright 2023 Vercel, Inc.
+https://github.com/vercel/ai-elements
+
+These components are modified ports of conversation, message, prompt-input,
+confirmation, shimmer, and suggestion. Pecu removes AI SDK dependencies, uses
+its stored transaction states, and renders plain-text replies.
+Licensed under Apache-2.0. See LICENSE.

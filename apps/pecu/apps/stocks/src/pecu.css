@@ -1,0 +1,196 @@
+/* Pecu agent theme. Tokens mirror apps/pecu/docs/design-system.md and the
+   homepage stylesheet; the shadcn variables are remapped inside .pecu so the
+   ported AI Elements pick up the palette without forking. */
+.pecu {
+  --canvas: #faf7f0;
+  --surface: #fffdf7;
+  --surface-2: #f3ecdd;
+  --ink: #2b1912;
+  --ink-2: #3a241b;
+  --coral: #f06a4c;
+  --coral-deep: #c9482d;
+  --coral-soft: #ffe3d6;
+  --coral-ink: #7a2415;
+  --butter: #ffe079;
+  --butter-soft: #fff0c4;
+  --butter-ink: #6b4d0c;
+  --gold: #f2b544;
+  --gold-deep: #c98a1e;
+  --shadow: 12px 14px 28px #d9c8b070, -9px -9px 24px #ffffffc0, inset 2px 2px 3px #ffffffe0, inset -3px -3px 6px #dccbb340;
+  --shadow-sm: 6px 8px 16px #d9c8b060, -5px -5px 12px #ffffffb0, inset 1px 1px 2px #ffffffd0, inset -2px -2px 4px #dccbb340;
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --primary: var(--coral);
+  --primary-foreground: #fff;
+  --secondary: var(--coral-soft);
+  --secondary-foreground: var(--coral-ink);
+  --muted: var(--surface-2);
+  --muted-foreground: #6f5a4f;
+  --accent: var(--butter-soft);
+  --accent-foreground: var(--butter-ink);
+  --border: #e8dcc8;
+  --input: #e3d6bf;
+  --ring: var(--coral);
+  --destructive: var(--coral-deep);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+
+  font-family: ui-rounded, "SF Pro Rounded", "Avenir Next", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+}
+.pecu .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-variant-numeric: tabular-nums; }
+.pecu a { color: var(--coral-deep); text-underline-offset: 4px; }
+.pecu code { font: 0.9em ui-monospace, "SFMono-Regular", Consolas, monospace; background: var(--surface-2); border-radius: 6px; padding: 2px 6px; color: var(--ink); }
+.pecu button:focus-visible, .pecu a:focus-visible { outline: 3px solid var(--coral-deep); outline-offset: 3px; }
+.pecu textarea:focus-visible { outline: none; }
+.pecu .clay { background: var(--surface); border-radius: 30px; box-shadow: var(--shadow); }
+
+/* App frame: an optional thread rail on the left, then the conversation. */
+.pecu-app { display: grid; grid-template-columns: minmax(0, 1fr); height: 100dvh; }
+.pecu-app:has(> .pecu-rail) { grid-template-columns: 272px minmax(0, 1fr); }
+.pecu-rail { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 18px; padding: 22px 18px 18px; background: var(--surface-2); border-right: 1px solid var(--border); overflow: hidden; }
+.pecu-rail .pecu-wordmark { padding: 0 6px; }
+.pecu-rail + .pecu-main .pecu-topbar .pecu-wordmark { display: none; }
+.pecu-main { display: flex; flex-direction: column; min-width: 0; height: 100dvh; overflow: hidden; }
+.pecu-topbar { display: flex; align-items: center; gap: 22px; width: 100%; padding: 18px 28px 6px; }
+.pecu-wordmark { color: var(--coral); font: 750 22px ui-monospace, "SFMono-Regular", monospace; letter-spacing: -1px; text-decoration: none; }
+.pecu-nav { display: flex; align-items: center; gap: 20px; }
+.pecu-nav a { display: inline-flex; align-items: center; min-height: 40px; font-size: 15px; font-weight: 500; color: var(--ink); text-decoration: none; }
+.pecu-nav a[aria-current], .pecu-nav a:hover { color: var(--coral-deep); }
+.pecu-auth { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.pecu-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: var(--shadow-sm); cursor: pointer; }
+.pecu-chip-warn { background: var(--coral-soft); color: var(--coral-ink); }
+.pecu-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fbf7f; box-shadow: 0 0 0 3px #3fbf7f30; }
+
+/* Conversation column */
+.pecu-chat { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px 16px; min-height: 0; min-width: 0; }
+.pecu-conversation { flex: 1; min-height: 0; }
+.pecu-messages { gap: 18px; padding: 10px 4px 20px; }
+.pecu-messages.is-empty { min-height: 100%; justify-content: center; }
+
+/* Empty state */
+.pecu-empty { gap: 6px; padding: 8px 0 0; }
+/* The render's shadow-catcher floor has a faint alpha across the whole frame; the mask keeps the contact shadow and drops the rectangle. */
+.pecu-hero-snail { width: min(420px, 78vw); margin: -24px 0 -40px; -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 48%, #000 55%, transparent 100%); mask-image: radial-gradient(ellipse 62% 58% at 50% 48%, #000 55%, transparent 100%); }
+.pecu-empty-copy { max-width: 560px; }
+.pecu-empty-copy h2 { margin: 0 0 10px; font-size: clamp(30px, 4vw, 40px); line-height: 1.1; letter-spacing: -0.035em; font-weight: 750; }
+.pecu-empty-copy p { margin: 0; font-size: 16px; line-height: 1.6; color: var(--muted-foreground); }
+.pecu-notice { margin-top: 14px !important; padding: 14px 18px; border-radius: 18px; background: var(--coral-soft); color: var(--coral-ink) !important; text-align: left; }
+
+/* Turns. The user speaks in a coral bubble; Pecu answers as plain text beside
+   her avatar, so replies take only the height of their words. */
+.pecu-turn { display: flex; flex-direction: column; gap: 12px; }
+.pecu-turn .is-user { max-width: min(72%, 560px); }
+.pecu-bubble-user { border-radius: 18px 18px 6px 18px !important; background: var(--coral) !important; color: #fff !important; padding: 9px 14px !important; font-size: 14.5px; line-height: 1.45; box-shadow: 4px 6px 14px #c9482d26, inset 1px 1px 2px #ffb4a0; }
+.pecu-bubble-user .msg-block { color: inherit; }
+.pecu-assistant { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 14px; align-items: start; width: 100%; }
+.pecu-avatar { display: block; width: 48px; height: 48px; border-radius: 16px; background: radial-gradient(circle at 50% 30%, #ffffff, var(--coral-soft)); box-shadow: var(--shadow-sm); object-fit: contain; padding: 2px; overflow: hidden; }
+.pecu-avatar-live { position: relative; padding: 0; }
+.pecu-avatar-live > div { position: absolute; inset: 0; width: 100%; aspect-ratio: auto; transform: scale(1.9); transform-origin: 50% 50%; }
+.pecu-bubble-bot { width: 100%; max-width: 100%; padding: 6px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink); gap: 10px; overflow: visible; }
+.pecu-bubble-muted { color: var(--muted-foreground); flex-direction: row !important; align-items: center; flex-wrap: wrap; gap: 4px; }
+.pecu-message-actions { position: absolute; right: 0; top: 0; opacity: 0; transition: opacity 160ms ease; }
+.pecu-assistant:hover .pecu-message-actions, .pecu-assistant:focus-within .pecu-message-actions { opacity: 1; }
+.pecu .pecu-message-actions button { color: var(--muted-foreground); background: var(--surface); box-shadow: var(--shadow-sm); border-radius: 10px; }
+.pecu-thinking { align-items: center; min-height: 48px; }
+.pecu-shimmer { font-size: 14px; font-weight: 600; }
+.pecu-inline-link { height: auto; padding: 0 4px; color: var(--coral-deep); }
+
+/* Reply text layout from MessageResponse */
+.msg-response { display: grid; gap: 8px; }
+.msg-block { margin: 0; display: grid; gap: 2px; color: inherit; font-size: inherit; line-height: inherit; }
+.msg-line { display: block; }
+.msg-links { display: flex; flex-wrap: wrap; gap: 4px 10px; color: var(--muted-foreground); font-size: 14px; }
+.msg-links a { font-weight: 600; }
+.msg-list { margin: 2px 0 0; display: grid; gap: 0; border-radius: 14px; background: var(--surface); box-shadow: var(--shadow-sm); overflow: hidden; }
+.msg-list-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 18px; align-items: baseline; padding: 8px 14px; font-size: 14px; }
+.msg-list-row + .msg-list-row { border-top: 1px solid #efe6d6; }
+.msg-list dt { margin: 0; font-weight: 650; color: var(--ink); }
+.msg-list dd { margin: 0; text-align: right; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted-foreground); }
+
+/* Confirmation card */
+.pecu-confirmation { margin-top: 2px; padding: 12px 14px !important; border: 0 !important; border-radius: 14px !important; background: var(--butter-soft); box-shadow: inset 2px 2px 3px #fff8dd, inset -3px -3px 5px #d8bf7a55; }
+.pecu-confirmation[data-state="succeeded"] { background: #e3f3e6; box-shadow: inset 2px 2px 3px #f4fbf5, inset -3px -3px 5px #9fc7a855; }
+.pecu-confirmation[data-state="failed"], .pecu-confirmation[data-state="expired"], .pecu-confirmation[data-state="cancelled"] { background: var(--surface-2); }
+.pecu-confirmation[data-state="executing"] { background: var(--coral-soft); }
+.pecu-confirmation-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; font-size: 14px; }
+.pecu-code { padding: 3px 9px; border-radius: 8px; background: var(--ink); color: var(--butter); font-weight: 700; letter-spacing: .08em; font-size: 12.5px; }
+.pecu-confirmation-note { font-size: 13px; color: var(--muted-foreground); }
+
+/* Buttons that carry the clay look */
+.pecu .pecu-button { min-height: 40px; border-radius: 14px; border: 0; background: var(--surface); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-sm); transition: transform 160ms ease; }
+.pecu .pecu-button-primary { background: var(--coral); color: #fff; box-shadow: 6px 7px 14px #c9482d50, inset 2px 2px 4px #ff9f82, inset -3px -3px 5px #b83d24; }
+.pecu .pecu-button:active { transform: translateY(1px); }
+
+/* Composer */
+.pecu-composer { display: grid; gap: 10px; padding-top: 6px; }
+.pecu-suggestions { padding: 2px 2px 4px; }
+.pecu .pecu-suggestion { height: 36px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--shadow-sm); }
+.pecu .pecu-suggestion:hover { background: var(--coral-soft); color: var(--coral-ink); }
+.pecu .pecu-prompt { border: 0; border-radius: 22px; padding: 4px 6px 4px 10px; transition: box-shadow 160ms ease; }
+.pecu .pecu-prompt:focus-within { box-shadow: var(--shadow), 0 0 0 3px #f06a4c55; }
+.pecu .pecu-textarea { min-height: 44px; padding: 12px 12px 4px; font-size: 15.5px; color: var(--ink); background: transparent; border: 0; box-shadow: none; }
+.pecu .pecu-textarea:focus, .pecu .pecu-textarea:focus-visible { outline: none; box-shadow: none; border-color: transparent; }
+.pecu .pecu-textarea::placeholder { color: #9a877a; }
+.pecu-prompt-footer { padding: 0 4px 4px 8px !important; }
+.pecu-prompt-hint { font-size: 12.5px; color: #9a877a; }
+.pecu .pecu-submit { width: 40px; height: 40px; background: var(--coral); color: #fff; box-shadow: 5px 6px 12px #c9482d50, inset 2px 2px 4px #ff9f82, inset -3px -3px 5px #b83d24; transition: transform 160ms ease, opacity 160ms ease; }
+.pecu .pecu-submit:disabled { opacity: .45; }
+.pecu-footnote { margin: 0; text-align: center; font-size: 12px; color: #9a877a; }
+.pecu-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-radius: 14px; background: var(--coral-soft); color: var(--coral-ink); font-size: 14px; }
+.pecu .pecu-scroll-button { border: 0; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
+
+/* Threads */
+.pecu-threads { display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1; }
+.pecu .pecu-new-thread { justify-content: center; width: 100%; }
+.pecu-thread-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; min-height: 0; }
+.pecu-thread { position: relative; display: flex; align-items: stretch; border-radius: 14px; transition: background 160ms ease; }
+.pecu-thread.is-active { background: var(--surface); box-shadow: var(--shadow-sm); }
+.pecu-thread:not(.is-active):hover { background: #ffffff80; }
+.pecu-thread-open { flex: 1; min-width: 0; display: grid; gap: 2px; padding: 9px 12px; border: 0; background: none; color: var(--ink); text-align: left; border-radius: 14px; cursor: pointer; font: inherit; }
+.pecu-thread-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.pecu-thread-meta { font-size: 12px; color: #9a877a; }
+.pecu-thread-delete { flex: 0 0 34px; border: 0; background: none; color: #9a877a; border-radius: 12px; cursor: pointer; opacity: 0; transition: opacity 160ms ease, color 160ms ease; }
+.pecu-thread:hover .pecu-thread-delete, .pecu-thread:focus-within .pecu-thread-delete, .pecu-thread.is-active .pecu-thread-delete { opacity: 1; }
+.pecu-thread-delete:hover { color: var(--coral-deep); }
+.pecu-thread-confirm { display: flex; align-items: center; gap: 4px; padding-right: 6px; font-size: 12px; }
+.pecu-thread-confirm button { border: 0; background: var(--surface); color: var(--ink); border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.pecu-thread-confirm .pecu-thread-danger { background: var(--coral); color: #fff; }
+.pecu-thread-note { margin: auto 0 0; font-size: 12px; line-height: 1.5; color: #9a877a; }
+.pecu-threads-toggle { display: none; }
+.pecu .pecu-threads-dialog { border: 0; border-radius: 26px; background: var(--canvas); box-shadow: var(--shadow); max-height: 80dvh; display: flex; flex-direction: column; }
+.pecu .pecu-threads-dialog .pecu-thread-list { max-height: 45dvh; }
+
+@media (hover: hover) and (pointer: fine) {
+  .pecu .pecu-button:hover, .pecu .pecu-submit:hover:not(:disabled) { transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pecu .pecu-button, .pecu .pecu-submit, .pecu-message-actions { transition: none; }
+  .pecu .pecu-button:hover, .pecu .pecu-submit:hover { transform: none; }
+}
+@media (max-width: 900px) {
+  .pecu-app:has(> .pecu-rail) { grid-template-columns: minmax(0, 1fr); }
+  .pecu-rail { display: none; }
+  .pecu-rail + .pecu-main .pecu-topbar .pecu-wordmark { display: inline; }
+  .pecu-threads-toggle { display: inline-flex; }
+  .pecu-chat { padding: 0 16px 12px; }
+}
+@media (max-width: 760px) {
+  .pecu-topbar { padding: 14px 16px 4px; gap: 12px; flex-wrap: wrap; }
+  .pecu-nav { gap: 14px; order: 3; width: 100%; }
+  .pecu-nav a { font-size: 14px; min-height: 36px; }
+  .pecu-chat { padding: 0 10px 10px; }
+  .pecu-hero-snail { width: min(320px, 80vw); margin-bottom: -20px; }
+  .pecu-turn .is-user { max-width: 86%; }
+  .pecu-assistant { grid-template-columns: 40px minmax(0, 1fr); gap: 10px; }
+  .pecu-avatar { width: 40px; height: 40px; border-radius: 13px; }
+  .pecu-chip span:not(.pecu-dot) { display: none; }
+  .pecu-threads-toggle span { display: none; }
+  .pecu-prompt-hint { display: none; }
+  .msg-list-row { grid-template-columns: 1fr; gap: 0; }
+  .msg-list dd { text-align: left; }
+}

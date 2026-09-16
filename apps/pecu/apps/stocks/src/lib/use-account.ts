@@ -22,7 +22,11 @@ export async function request(path: string, body?: unknown) {
     );
   return data;
 }
-export function useAccount(signedIn: boolean) {
+/**
+ * One web conversation with the Pecu agent. `threadId` selects a thread;
+ * `null` is the original conversation the Stocks page has always used.
+ */
+export function useAccount(signedIn: boolean, threadId: string | null = null) {
   const [state, setState] = useState<WebState | null>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -32,8 +36,9 @@ export function useAccount(signedIn: boolean) {
   } | null>(null);
   const reload = useCallback(async () => {
     if (!signedIn) return;
-    setState(webStateSchema.parse(await request("state")));
-  }, [signedIn]);
+    const query = threadId ? `?t=${encodeURIComponent(threadId)}` : "";
+    setState(webStateSchema.parse(await request(`state${query}`)));
+  }, [signedIn, threadId]);
   useEffect(() => {
     setState(null);
     setRetry(null);
@@ -47,7 +52,7 @@ export function useAccount(signedIn: boolean) {
       setError("");
       setRetry(null);
       try {
-        await request("turn", { requestId, text });
+        await request("turn", { requestId, text, ...(threadId ? { threadId } : {}) });
         await reload();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not reach the agent.");
@@ -57,7 +62,21 @@ export function useAccount(signedIn: boolean) {
         setPending(false);
       }
     },
-    [pending, reload],
+    [pending, reload, threadId],
   );
-  return { state, error, pending, retry, reload, send, setError };
+  const deleteThread = useCallback(
+    async (target: string | null) => {
+      setError("");
+      try {
+        await request("thread-delete", { threadId: target });
+        await reload();
+        return true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not delete the thread.");
+        return false;
+      }
+    },
+    [reload],
+  );
+  return { state, error, pending, retry, reload, send, deleteThread, setError };
 }

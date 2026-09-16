@@ -1,13 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { agentRequest, identity, sameOrigin } from "../lib/server";
-import { basketSchema } from "../../../../src/web-contract";
+import { basketSchema, threadIdSchema } from "../../../../src/web-contract";
 const turn = z
   .object({
     requestId: z.string().uuid(),
     text: z.string().trim().min(1).max(4000),
+    threadId: threadIdSchema.optional(),
   })
   .strict();
+const threadDelete = z.object({ threadId: threadIdSchema.nullable() }).strict();
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
     status,
@@ -19,10 +21,12 @@ const json = (body: unknown, status = 200) =>
 export const Route = createFileRoute("/aero/stocks/api/$")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
+      GET: async ({ request, params }) => {
         if (params._splat !== "state") return json({ error: "Not found" }, 404);
         try {
-          return await agentRequest("state", await identity());
+          const thread = new URL(request.url).searchParams.get("t");
+          const threadId = thread ? threadIdSchema.parse(thread) : undefined;
+          return await agentRequest("state", { ...(await identity()), threadId });
         } catch (error) {
           return json(
             {
@@ -38,7 +42,8 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
       POST: async ({ request, params }) => {
         if (!sameOrigin(request))
           return json({ error: "Invalid request origin" }, 403);
-        if (!["turn", "basket"].includes(params._splat ?? ""))
+        const op = params._splat ?? "";
+        if (!["turn", "basket", "thread-delete"].includes(op))
           return json({ error: "Not found" }, 404);
         try {
           const viewer = await identity();
@@ -47,10 +52,12 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
             return json({ error: "Request too large" }, 413);
           const input: unknown = JSON.parse(body);
           return await agentRequest(
-            params._splat ?? "",
-            params._splat === "turn"
+            op,
+            op === "turn"
               ? { ...turn.parse(input), ...viewer }
-              : { identity: viewer, basket: basketSchema.parse(input) },
+              : op === "thread-delete"
+                ? { ...threadDelete.parse(input), ...viewer }
+                : { identity: viewer, basket: basketSchema.parse(input) },
           );
         } catch (error) {
           return json(

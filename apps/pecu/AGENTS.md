@@ -24,6 +24,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/clerk-javascript` — Official Clerk JavaScript monorepo including the TanStack React Start SDK, middleware, auth helpers, and examples
 - `resources/shadcn` — Official shadcn component registry and Tailwind component implementations
 
+- `resources/ai-elements` — Official Vercel AI Elements shadcn registry and React components for conversations, messages, reasoning, tools, and prompts
+
 <!-- codeview:end -->
 
 ## User-facing chat behavior
