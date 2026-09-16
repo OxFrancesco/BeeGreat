@@ -130,6 +130,14 @@ Run Sugar tests with `bun run --cwd packages/sugar test`. Running
 Use `bun run --cwd packages/sugar typecheck` and
 `bun run --cwd packages/sugar lint` for the package checks.
 
+## Verifying the Aero SDK and CLI
+
+`.devin/skills/verify-aero/SKILL.md` defines the end-to-end verification harness
+for `packages/sugar`. It drives the real `aero` CLI and `SugarClient` through
+real Base transactions from a dedicated micro-funded wallet in an isolated
+environment, writes per-step evidence, and compares against a saved baseline.
+Use it before calling any Aero change done.
+
 ## Standalone SDK publishing
 
 When changing `packages/evm` or `packages/sugar`, publish the matching changes to
