@@ -183,6 +183,8 @@ test("confirmation controls require the code belonging to the persisted preview"
       await f.web.handle({ ...identity, requestId, text: "preview" });
       const message = f.web.state(identity).messages.find((m) => m.id === eventId);
       expect(message?.reply?.preview?.code ?? null).toBe(replyCode === "ABC123" ? "ABC123" : null);
+      expect(message?.canRetry).toBe(false);
+      await expect(f.web.handle({ ...identity, requestId: crypto.randomUUID(), retryOf: eventId, text: "preview" })).rejects.toThrow("transaction");
     }
   } finally {
     f.close();
@@ -244,4 +246,38 @@ test("thread deletion preserves recovery for submitted transactions", async () =
   } finally {
     f.close();
   }
+});
+
+test("retry replaces the latest answer and deduplicates transport retries", async () => {
+  const f = fixture();
+  try {
+    f.store.saveWallet("123", address, address);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "hello" });
+    const original = f.web.state(identity).messages[0]!;
+    const retry = { ...identity, requestId: crypto.randomUUID(), text: original.text, retryOf: original.id };
+    await f.web.handle(retry);
+    await f.web.handle(retry);
+    expect(f.calls()).toBe(2);
+    const messages = f.web.state(identity).messages;
+    expect(messages).toHaveLength(1);
+    expect(messages[0]!.id).not.toBe(original.id);
+    expect(messages[0]!.createdAt).toBe(original.createdAt);
+    await expect(f.web.handle({ ...retry, requestId: crypto.randomUUID() })).rejects.toThrow("latest");
+  } finally { f.close(); }
+});
+
+test("retry rejects another owner, older turns, changed text, and confirmation commands", async () => {
+  const f = fixture();
+  try {
+    f.store.saveWallet("123", address, address);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "hello" });
+    const original = f.web.state(identity).messages[0]!;
+    const retry = { ...identity, requestId: crypto.randomUUID(), text: original.text, retryOf: original.id };
+    await expect(f.web.handle({ ...retry, userId: "user_bob" })).rejects.toThrow("latest");
+    await expect(f.web.handle({ ...retry, text: "changed" })).rejects.toThrow("latest");
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "/confirm ABCDEF" });
+    await expect(f.web.handle(retry)).rejects.toThrow("latest");
+    const last = f.web.state(identity).messages.at(-1)!;
+    await expect(f.web.handle({ ...retry, retryOf: last.id, text: last.text })).rejects.toThrow("transaction");
+  } finally { f.close(); }
 });

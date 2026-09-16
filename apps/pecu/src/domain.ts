@@ -14,6 +14,7 @@ export type VerifiedMessage = Readonly<{
   text: string;
   encodedEvent: string;
   replyConfirmationCode?: string;
+  retryContext?: string;
 }>;
 
 export type Command =

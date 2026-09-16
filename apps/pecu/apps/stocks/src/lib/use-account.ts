@@ -33,6 +33,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
   const [retry, setRetry] = useState<{
     requestId: string;
     text: string;
+    retryOf?: string;
   } | null>(null);
   const reload = useCallback(async () => {
     if (!signedIn) return;
@@ -46,17 +47,18 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     if (signedIn) void reload().catch((e) => setError(e.message));
   }, [signedIn, reload]);
   const send = useCallback(
-    async (text: string, requestId: string = crypto.randomUUID()) => {
+    async (text: string, requestId: string = crypto.randomUUID(), retryOf?: string) => {
       if (pending) return;
       setPending(true);
       setError("");
       setRetry(null);
+      if (retryOf) setState((current) => current ? { ...current, messages: current.messages.map((message) => message.id === retryOf ? { ...message, reply: null } : message) } : current);
       try {
-        await request("turn", { requestId, text, ...(threadId ? { threadId } : {}) });
+        await request("turn", { requestId, text, ...(retryOf ? { retryOf } : {}), ...(threadId ? { threadId } : {}) });
         await reload();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not reach the agent.");
-        setRetry({ requestId, text });
+        setRetry({ requestId, text, retryOf });
         await reload().catch(() => {});
       } finally {
         setPending(false);
@@ -64,6 +66,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     },
     [pending, reload, threadId],
   );
+  const regenerate = useCallback((message: WebState["messages"][number]) => send(message.text, crypto.randomUUID(), message.id), [send]);
   const deleteThread = useCallback(
     async (target: string | null) => {
       setError("");
@@ -78,5 +81,5 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     },
     [reload],
   );
-  return { state, error, pending, retry, reload, send, deleteThread, setError };
+  return { state, error, pending, retry, reload, send, regenerate, deleteThread, setError };
 }

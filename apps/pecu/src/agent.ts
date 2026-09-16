@@ -114,6 +114,8 @@ export type AgentServices = Readonly<{
 }>;
 
 export class PecuAgent {
+  private readonly previewOnly = new Set<string>();
+  private readonly questions = new Map<string, string>();
   private readonly executing = new Set<string>();
   private readonly relayingDeposits = new Set<string>();
 
@@ -187,6 +189,7 @@ export class PecuAgent {
     if (claim === "completed") return this.store.eventReply(message.eventId);
     if (claim === "busy") return undefined;
     try {
+      if (message.retryContext !== undefined) this.previewOnly.add(message.eventId);
       const reply = await this.execute(message);
       this.store.completeEvent(message.eventId, reply);
       return reply;
@@ -195,6 +198,9 @@ export class PecuAgent {
       this.store.completeEvent(message.eventId, reply);
       log("warn", "command_failed", { eventId: message.eventId, senderId: message.senderId, error: errorMessage(error) });
       return reply;
+    } finally {
+      this.previewOnly.delete(message.eventId);
+      this.questions.delete(message.eventId);
     }
   }
 
@@ -218,7 +224,16 @@ export class PecuAgent {
       command = parseCommand(message.text);
     } catch (error) {
       if (/^(?:b)?\//i.test(message.text.trim())) throw error;
-      return this.harness.respond(message, this.capabilitiesFor(message));
+      try {
+        const response = await this.harness.respond(message, this.capabilitiesFor(message));
+        return this.questions.get(message.eventId) ?? response;
+      } catch (error) {
+        const question = this.questions.get(message.eventId);
+        if (question) return question;
+        throw error;
+      } finally {
+        this.questions.delete(message.eventId);
+      }
     }
     switch (command.type) {
       case "help": return helpText + (this.store.yoloEnabled(message.senderId, message.conversationId) ? "\n\nYOLO is currently on for you in this chat. Send /yolo off to require confirmation." : "");
@@ -255,7 +270,8 @@ export class PecuAgent {
   capabilitiesFor(message: VerifiedMessage): AgentCapabilities {
     const wallet = () => this.walletAddress(message.senderId);
     return {
-      yoloEnabled: () => this.store.yoloEnabled(message.senderId, message.conversationId),
+      askUser: async (question, options) => this.askUser(message, question, options),
+      yoloEnabled: () => !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId),
       aaveCall: (name, args) => this.runAave(message, name, args),
       polymarketResearch: (query) => this.polymarketReply(message, query),
       walletAddress: () => this.walletReply(message),
@@ -273,6 +289,19 @@ export class PecuAgent {
       depositStatus: async () => this.depositStatusReply(message),
       nansenCall: (endpoint, input) => this.nansenReply(message, endpoint, input),
     };
+  }
+
+  private askUser(message: VerifiedMessage, question: string, options: readonly string[] = []): string {
+    if (this.store.intentForSource(message.eventId)) throw new Error("A transaction preview already exists. Return its confirmation controls before asking another question.");
+    const existing = this.questions.get(message.eventId);
+    if (existing) return existing;
+    const text = question.trim() + (options.length ? "\n\n" + options.map((option, index) => `${index + 1}. ${option}`).join("\n") : "");
+    this.questions.set(message.eventId, text);
+    return text;
+  }
+
+  private requireAnswer(message: VerifiedMessage): void {
+    if (this.questions.has(message.eventId)) throw new Error("Wait for the user's reply before preparing another transaction.");
   }
 
   private async walletAddress(senderId: string): Promise<`0x${string}`> {
@@ -307,7 +336,22 @@ export class PecuAgent {
 
   private async runAero(message: VerifiedMessage, action: SugarAction, parameters: SugarParameters): Promise<string> {
     const wallet = await this.walletAddress(message.senderId);
-    const result = await this.services.aerodrome.run(wallet, action, parameters);
+    this.requireAnswer(message);
+    let result;
+    try {
+      result = await this.services.aerodrome.run(wallet, action, parameters);
+    } catch (error) {
+      if (action !== "stock_buy" || !/insufficient USDC\b/i.test(errorMessage(error))) throw error;
+      const balances = await this.balanceReply(message);
+      const tokens = balances.split("\n").flatMap((line) => {
+        const match = /^([A-Za-z0-9]+):\s*(\d+(?:\.\d+)?)$/.exec(line.trim());
+        return match && match[1] !== "USDC" && /[1-9]/.test(match[2]!) ? [match[1]!] : [];
+      });
+      const question = tokens.length
+        ? `You don't have enough USDC for this stock purchase.\n\n${balances}\n\nWould you like to swap one of your tokens to USDC to fund it? Choose a token, deposit USDC, or cancel. A quote is needed to check how much it can cover and leave ETH for fees.`
+        : "You don't have enough USDC for this stock purchase, and I found no other funded tokens in the wallet balance list. Would you like to deposit USDC, check another token, or cancel?";
+      return this.askUser(message, question, [...tokens, "Deposit USDC", "Cancel"]);
+    }
     this.saveDetails(message, result.kind === "read" ? result.output : result);
     if (result.kind === "read") {
       return aeroReadText(result.action, result.output);
@@ -587,6 +631,7 @@ export class PecuAgent {
   }
 
   private async persistProposal(message: VerifiedMessage, wallet: `0x${string}`, intent: IntentAction, calls: readonly PlannedCall[], preview: string): Promise<string> {
+    this.requireAnswer(message);
     validateIntentPlan(intent, wallet, calls);
     const previous = this.store.intentForSource(message.eventId);
     if (previous) return "A transaction request is already saved for this message. Use its original preview to confirm or check it; no second request was created.";
@@ -606,7 +651,7 @@ export class PecuAgent {
       expiresAt,
     }, calls);
 
-    if (this.config.enableMainnetExecution && this.store.yoloEnabled(message.senderId, message.conversationId)) {
+    if (this.config.enableMainnetExecution && !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId)) {
       return `${preview}\n\nYOLO is on.\n${await this.confirm(message, await digest(code))}\nCheck this request: /confirm ${code}`;
     }
     const execution = this.config.enableMainnetExecution

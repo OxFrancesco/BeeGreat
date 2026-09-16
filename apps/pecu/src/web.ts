@@ -35,6 +35,7 @@ export class WebAgent {
     sql.exec(
       `CREATE INDEX IF NOT EXISTS basedbot_web_turns_owner ON basedbot_web_turns(owner,created_at)`,
     );
+    sql.exec(`CREATE TABLE IF NOT EXISTS basedbot_web_retries (id TEXT PRIMARY KEY, target TEXT NOT NULL, context TEXT NOT NULL)`);
     sql.exec(
       `CREATE TABLE IF NOT EXISTS basedbot_web_profiles (owner TEXT PRIMARY KEY, stocks TEXT, stocks_at INTEGER, basket TEXT)`,
     );
@@ -100,7 +101,7 @@ export class WebAgent {
         created_at: number;
         reply: string | null;
       }>(
-        "SELECT * FROM basedbot_web_turns WHERE owner=? ORDER BY created_at DESC LIMIT 100",
+        "SELECT * FROM basedbot_web_turns WHERE owner=? ORDER BY created_at DESC, rowid DESC LIMIT 100",
         owner,
       )
       .toArray()
@@ -115,7 +116,7 @@ export class WebAgent {
             intent.state === "pending" && intent.expiresAt < Date.now()
               ? "expired"
               : intent.state;
-        return { id: row.id, text: row.text, createdAt: row.created_at, reply };
+        return { id: row.id, text: row.text, createdAt: row.created_at, reply, canRetry: Boolean(reply) && !intent && !/^(?:b)?\/|^(?:confirm|cancel)$/i.test(row.text.trim()) };
       });
     return {
       wallet: this.store.wallet(identity.senderId)?.address ?? null,
@@ -155,8 +156,20 @@ export class WebAgent {
           eventId,
         )
         .toArray()[0];
+      if (!existing && this.sql.exec("SELECT id FROM basedbot_web_retries WHERE target=? LIMIT 1", eventId).toArray().length) throw new Error("This answer has been replaced. Reload the latest message.");
       if (existing && existing.text !== text)
         throw new Error("This request already belongs to another message.");
+      const retryRecord = this.sql.exec<{ target: string; context: string }>("SELECT target,context FROM basedbot_web_retries WHERE id=?", eventId).toArray()[0];
+      if (retryRecord && input.retryOf && retryRecord.target !== input.retryOf) throw new Error("This retry belongs to another message.");
+      if (input.retryOf && !existing) {
+        const history = this.state(input).messages;
+        const last = history.at(-1);
+        if (!last || last.id !== input.retryOf || last.text !== text) throw new Error("Only the latest answer in this thread can be retried with its original message.");
+        if (!last.canRetry || this.store.executingIntents().some((intent) => intent.senderId === senderId && intent.conversationId === conversationId)) throw new Error("Use the original transaction controls to confirm or check this request; it cannot be retried.");
+        const context = JSON.stringify(history.slice(0, -1).map((turn) => ({ user: turn.text, assistant: turn.reply?.text ?? "" })));
+        this.sql.exec("INSERT INTO basedbot_web_retries(id,target,context) VALUES(?,?,?)", eventId, last.id, context);
+        this.sql.exec("UPDATE basedbot_web_turns SET id=?,reply=NULL WHERE id=? AND owner=?", eventId, last.id, conversationId);
+      }
       if (existing?.reply) return { status: "complete" as const };
       this.sql.exec(
         "INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at) VALUES(?,?,?,?)",
@@ -167,8 +180,9 @@ export class WebAgent {
       );
       if (text === "/aero stocks" && !this.store.eventReply(eventId))
         this.store.saveChatDetails(senderId, conversationId, "null");
+      const retryContext = this.sql.exec<{ context: string }>("SELECT context FROM basedbot_web_retries WHERE id=?", eventId).toArray()[0]?.context;
       const reply = await this.agent.handle(
-        { senderId, conversationId, eventId, text, encodedEvent: "" },
+        { senderId, conversationId, eventId, text, encodedEvent: "", retryContext },
         true,
       );
       if (!reply) return { status: "busy" as const };

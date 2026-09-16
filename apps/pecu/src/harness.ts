@@ -7,6 +7,7 @@ type EvmReadInput<K extends "read" | "inspect" | "decode"> = Parameters<EvmServi
 
 export type AgentCapabilities = Readonly<{
   yoloEnabled(): boolean;
+  askUser(question: string, options?: readonly string[]): Promise<string>;
   aaveCall(name: string, args: Record<string, unknown>): Promise<string>;
   polymarketResearch(query?: string): Promise<string>;
   walletAddress(): Promise<string>;

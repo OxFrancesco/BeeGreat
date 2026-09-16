@@ -5,6 +5,7 @@ import { basketSchema, threadIdSchema } from "../../../../src/web-contract";
 const turn = z
   .object({
     requestId: z.string().uuid(),
+    retryOf: z.string().min(1).max(300).optional(),
     text: z.string().trim().min(1).max(4000),
     threadId: threadIdSchema.optional(),
   })

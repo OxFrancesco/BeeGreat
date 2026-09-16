@@ -44,3 +44,30 @@ The bot package is `@beegreat/pecu` in `apps/pecu`. Its gateway and homepage are
 The bot Workers are `pecu`, `pecu-aero`, `pecu-codex`, and `pecu-evm`. Both the Durable Object and Stocks service bindings use `PECU`. The Durable Object class is `PecuDurableObject`, its named instance is `pecu-main`, and Crossmint owners use `userId:pecu-x-SENDER_ID`. SQLite tables, database defaults, stored keys, agent IDs, and the admin Keychain service also use Pecu.
 
 This is a fresh identity, as requested because there are no users. There is no compatibility mapping or data migration from the former names. Existing remote services are not renamed by a source commit. Deployment must provision secrets for the Pecu Workers and register the configured Pecu webhook with X. `SOURCE.json` retains the original repository URL as a historical source record.
+
+## Clarification and reply retry
+
+Pecu exposes `ask_user` to its OpenCode agent. It delivers a question and optional
+numbered choices as a normal chat reply in both X and web. The next user message
+answers in the same conversation. Asking blocks further transaction proposals in
+that turn. Choosing a funding token does not confirm a swap.
+
+When `stock_buy` reports insufficient USDC, Pecu fetches current wallet balances
+and asks about swapping funded ETH or AERO, depositing USDC, or cancelling. The
+balance list currently covers ETH, USDC, and AERO, not every token. A funding
+quote still needs to establish the amount, available liquidity, and ETH for fees.
+The swap and stock purchase use separate previews and confirmations.
+
+The Agent and Stocks web chats offer Retry on the latest eligible answer. Retry
+replaces that reply without duplicating the user message. Earlier visible history
+is supplied to a fresh model session without the discarded answer. The backend
+validates ownership, original text, and latest-message status. Transport retries
+reuse the same request ID. Transaction-linked replies and commands cannot be
+regenerated; their existing status and confirmation controls remain available.
+Regenerated proposals require confirmation even when the chat has YOLO enabled.
+
+These changes apply to Pecu X and its two web chat views. Bee mobile, Android,
+CLI, iMessage, and voice use a different agent and are unchanged. Only Pecu's
+OpenCode provider path is involved. The backend and Stocks web Worker must both
+be deployed. Responses still arrive as completed messages rather than streamed
+text deltas.

@@ -75,6 +75,11 @@ export function Chat({
                         : message.reply.text
                     }
                   </MessageResponse>
+                  {message.canRetry && message.id === account.state?.messages.at(-1)?.id ? (
+                    <Button variant="ghost" size="icon" aria-label="Retry reply" disabled={account.pending} onClick={() => void account.regenerate(message)}>
+                      <RotateCcw size={14} />
+                    </Button>
+                  ) : null}
                   {message.reply.preview ? (
                     <div className="preview">
                       <span className="muted">
@@ -145,7 +150,7 @@ export function Chat({
               variant="link"
               disabled={account.pending}
               onClick={() =>
-                void account.send(account.retry!.text, account.retry!.requestId)
+                void account.send(account.retry!.text, account.retry!.requestId, account.retry!.retryOf)
               }
             >
               <RotateCcw size={14} />

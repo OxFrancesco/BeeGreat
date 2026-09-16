@@ -308,6 +308,11 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                                 >
                                   <CopyIcon className="size-3.5" />
                                 </MessageAction>
+                                {message.canRetry && message.id === messages.at(-1)?.id ? (
+                                  <MessageAction label="Retry reply" disabled={account.pending} onClick={() => void account.regenerate(message)}>
+                                    <RotateCcwIcon className="size-3.5" />
+                                  </MessageAction>
+                                ) : null}
                               </MessageActions>
                             </MessageContent>
                           ) : (
@@ -363,7 +368,7 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                   <Button
                     className="pecu-inline-link"
                     disabled={account.pending}
-                    onClick={() => void send(account.retry!.text, account.retry!.requestId)}
+                    onClick={() => void account.send(account.retry!.text, account.retry!.requestId, account.retry!.retryOf)}
                     size="sm"
                     variant="link"
                   >

@@ -13,6 +13,7 @@ export const webScopeSchema = webIdentitySchema
 export const webTurnSchema = webScopeSchema
   .extend({
     requestId: z.string().uuid(),
+    retryOf: z.string().min(1).max(300).optional(),
     text: z.string().trim().min(1).max(4000),
   })
   .strict();
@@ -40,6 +41,7 @@ export const webMessageSchema = z.object({
   id: z.string(),
   text: z.string(),
   createdAt: z.number(),
+  canRetry: z.boolean().optional(),
   reply: webReplySchema.nullable(),
 });
 export const webThreadSchema = z.object({

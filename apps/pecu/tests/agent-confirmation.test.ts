@@ -84,7 +84,7 @@ function fixture(options: FixtureOptions = {}) {
     if (!code) throw new Error(`proposal did not include a code: ${reply}`);
     return code;
   };
-  return { store, prepared, approved, verified, records, send, propose };
+  return { agent, store, prepared, approved, verified, records, send, propose };
 }
 
 describe("confirmation authorization and execution", () => {
@@ -291,4 +291,14 @@ test("YOLO executes a persisted plan regardless of provider property order", asy
   const result = await f.send(`/aero stake --pool ${pool}`);
   expect(result).toContain("confirmed on Base");
   expect(f.approved).toHaveLength(1);
+});
+
+ test("regeneration creates a preview even when YOLO is enabled", async () => {
+  const { agent, store, prepared, approved } = fixture();
+  store.setYolo("owner", "chat", true);
+  const reply = await agent.handle({ text: `/aero stake --pool ${pool}`, senderId: "owner", conversationId: "chat", eventId: crypto.randomUUID(), encodedEvent: "", retryContext: "[]" });
+  expect(reply).toContain("/confirm");
+  expect(prepared).toHaveLength(0);
+  expect(approved).toHaveLength(0);
+  expect(store.yoloEnabled("owner", "chat")).toBe(true);
 });
