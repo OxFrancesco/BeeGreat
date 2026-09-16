@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { agentQuestionSchema } from "./question-contract";
+import { clerkUserIdSchema, senderIdSchema } from "./web-identity";
 export const inferenceStatusSchema = z.object({
   model: z.string(),
   reasoning: z.string(),
@@ -30,8 +31,8 @@ export const inferenceStatusSchema = z.object({
 export type InferenceStatus = z.infer<typeof inferenceStatusSchema>;
 export const webIdentitySchema = z
   .object({
-    userId: z.string().regex(/^user_[A-Za-z0-9]+$/),
-    senderId: z.string().regex(/^\d{1,30}$/),
+    userId: clerkUserIdSchema,
+    senderId: senderIdSchema,
   })
   .strict();
 /** Client-chosen thread id. Omitted means the original single web conversation. */
@@ -99,6 +100,8 @@ export const threadCursorSchema = z
   .strict();
 export const webStateSchema = z.object({
   wallet: z.string().nullable(),
+  /** Optional so a client can read state from a backend deployed before web-only senders existed. */
+  senderKind: z.enum(["x", "web"]).optional(),
   yolo: z.boolean(),
   /** Optional so a client can read state from a backend deployed before threads existed. */
   threadId: z.string().nullable().optional(),

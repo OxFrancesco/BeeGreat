@@ -4,6 +4,7 @@ import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/cat
 import type { z } from "zod";
 import type { PecuAgent } from "./agent";
 import type { PecuStore } from "./state";
+import { senderKind } from "./web-identity";
 import {
   basketSchema,
   webReplySchema,
@@ -130,6 +131,7 @@ export class WebAgent {
     const messages = rows.map((row) => this.presentMessage(row));
     return {
       wallet: this.store.wallet(identity.senderId)?.address ?? null,
+      senderKind: senderKind(identity.senderId),
       yolo: this.store.yoloEnabled(identity.senderId, owner),
       threadId: scope.threadId ?? null,
       ...(paged ? {} : { threads: this.threads(identity) }),
@@ -154,7 +156,7 @@ export class WebAgent {
   async handle(input: Turn) {
     const { senderId, requestId, text } = input;
     if (input.retryOf && input.answerTo) throw new Error("A retry cannot also answer a question.");
-    if (!this.store.wallet(senderId))
+    if (senderKind(senderId) === "x" && !this.store.wallet(senderId))
       throw new Error(
         "No Pecu wallet exists for this X account. Send /wallet to Pecu on X first.",
       );

@@ -111,7 +111,7 @@ function StockWorkspace() {
             <PecuUserButton />
           ) : (
             <Button variant="outline" onClick={signIn}>
-              Sign in with X
+              Sign in
             </Button>
           )}
         </div>
@@ -180,9 +180,9 @@ function StockWorkspace() {
           {view === "holdings" && !isSignedIn ? (
             <div className="p-6 bg-white rounded-xl">
               <p className="mb-4">
-                Sign in with your Pecu X account to see your holdings.
+                Sign in with Google or your Pecu X account to see your holdings.
               </p>
-              <Button onClick={signIn}>Sign in with X</Button>
+              <Button onClick={signIn}>Sign in</Button>
             </div>
           ) : (
             <>

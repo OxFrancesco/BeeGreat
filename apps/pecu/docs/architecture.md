@@ -32,7 +32,7 @@ Each Aero tool derives its allowed arguments and required fields from the SDK va
 
 ## Wallet and Aero boundary
 
-Crossmint owns signing and broadcast. Every verified X sender deterministically owns `userId:pecu-x-SENDER_ID:evm:smart` on the `base` chain. A production Crossmint key is required because the staging `base` alias targets a test network.
+Crossmint owns signing and broadcast. Every verified X sender deterministically owns `userId:basedbot-x-SENDER_ID:evm:smart` on the `base` chain. Web users signed in through Clerk without a linked X account are the sender `web-<clerk user id>` and own `userId:basedbot-web-<clerk user id>:evm:smart`; `src/web-identity.ts` is the only place that decides which of the two a signed-in user is. A production Crossmint key is required because the staging `base` alias targets a test network.
 
 The Aero service always overwrites `chain` with `8453`. Transaction callers cannot override `wallet`; positions default to the sender's wallet while still allowing public-owner inspection. Slippage is bounded by `MAX_SLIPPAGE_BPS`.
 

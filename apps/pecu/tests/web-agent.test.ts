@@ -8,10 +8,11 @@ import { services } from "./fixtures/agent-services";
 import { webTurnSchema } from "../src/web-contract";
 const address = "0x1111111111111111111111111111111111111111";
 const identity = { userId: "user_alice", senderId: "123" };
-function fixture(answer?: AgentHarness["respond"]) {
+function fixture(answer?: AgentHarness["respond"], provision = false) {
   const db = new Database(":memory:");
   const store = new Store(":memory:");
   let calls = 0;
+  let created = 0;
   const sql: WebSql = {
     exec: <Row extends Record<string, SqlStorageValue>>(
       query: string,
@@ -37,8 +38,11 @@ function fixture(answer?: AgentHarness["respond"]) {
     },
     store,
     {
-      getOrCreate: async () => {
-        throw new Error("Must reuse existing wallet");
+      getOrCreate: async (senderId: string) => {
+        if (!provision) throw new Error("Must reuse existing wallet");
+        created++;
+        store.saveWallet(senderId, address, address);
+        return { address } as never;
       },
       balances: async () => "",
       usdcBalanceUnits: async () => 0n,
@@ -68,6 +72,7 @@ function fixture(answer?: AgentHarness["respond"]) {
     sql,
     agent,
     calls: () => calls,
+    created: () => created,
     close: () => {
       db.close();
       store.close();
@@ -113,6 +118,22 @@ test("web never creates a wallet or invokes the agent for an unlinked X account"
     f.close();
   }
 });
+test("a web-only sender (Google sign-in) gets its own wallet on the first message", async () => {
+  const f = fixture(undefined, true);
+  const google = { userId: "user_carol", senderId: "web-user_carol" };
+  try {
+    expect(f.web.state(google)).toMatchObject({ wallet: null, senderKind: "web" });
+    await f.web.handle({ ...google, requestId: crypto.randomUUID(), text: "hello" });
+    expect(f.created()).toBe(1);
+    expect(f.calls()).toBe(1);
+    expect(f.web.state(google).wallet).toBe(address);
+    expect(f.store.wallet("web-user_carol")?.address).toBe(address);
+    expect(f.web.state(identity).senderKind).toBe("x");
+    expect(f.web.state({ userId: "user_carol", senderId: "123" }).messages).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
 test("web settings and baskets are scoped to the authenticated web conversation", async () => {
   const f = fixture();
   try {
@@ -142,6 +163,22 @@ test("web request validation rejects wallet overrides and malformed identity", (
     webTurnSchema.safeParse({
       ...identity,
       senderId: "@alice",
+      requestId: crypto.randomUUID(),
+      text: "hello",
+    }).success,
+  ).toBe(false);
+  expect(
+    webTurnSchema.safeParse({
+      ...identity,
+      senderId: "web-user_alice",
+      requestId: crypto.randomUUID(),
+      text: "hello",
+    }).success,
+  ).toBe(true);
+  expect(
+    webTurnSchema.safeParse({
+      ...identity,
+      senderId: "web-treasury",
       requestId: crypto.randomUUID(),
       text: "hello",
     }).success,

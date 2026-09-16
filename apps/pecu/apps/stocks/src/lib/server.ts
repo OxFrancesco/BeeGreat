@@ -1,12 +1,12 @@
 import { auth, clerkClient } from "@clerk/tanstack-react-start/server";
 import { env } from "cloudflare:workers";
-import { verifiedXAccount } from "../../../../src/web-identity";
+import { webSenderId } from "../../../../src/web-identity";
 
 export async function identity() {
   const { userId } = await auth();
-  if (!userId) throw new Error("Sign in with X to use your Pecu wallet.");
+  if (!userId) throw new Error("Sign in to use your Pecu wallet.");
   const user = await clerkClient().users.getUser(userId);
-  return { userId, senderId: verifiedXAccount(user.externalAccounts) };
+  return { userId, senderId: webSenderId(userId, user.externalAccounts) };
 }
 export async function agentRequest(
   path: string,

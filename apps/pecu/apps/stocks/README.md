@@ -1,6 +1,6 @@
 # Aero stocks
 
-The web app at https://aerocli.buddytools.org/aero/stocks uses TanStack Start, Clerk X sign-in, Shadcn, Tailwind, Motion, and Cloudflare Workers. There is no Convex dependency.
+The web app at https://aerocli.buddytools.org/aero/stocks uses TanStack Start, Clerk sign-in (X and Google), Shadcn, Tailwind, Motion, and Cloudflare Workers. There is no Convex dependency.
 
 The landing page remains in `BeeGreat/packages/sugar/site/public`. Its Worker owns `/`; this app owns `/aero/stocks*`, legacy `/stocks*` redirects, and `/assets/*`.
 
@@ -16,9 +16,15 @@ Threads are client-chosen ids in the `t` search param. The backend keys each thr
 
 ## Backend and identity
 
-The private `PECU` service binding calls `StocksGateway` in the existing `pecu` Worker. It delegates to the same `PecuAgent` and existing main Durable Object. SQLite stores web messages, stock snapshots, and one named allocation basket per Clerk user and verified X account. Market quotes use the existing `pecu-aero` service.
+The private `PECU` service binding calls `StocksGateway` in the existing `pecu` Worker. It delegates to the same `PecuAgent` and existing main Durable Object. SQLite stores web messages, stock snapshots, and one named allocation basket per Clerk user and Pecu sender. Market quotes use the existing `pecu-aero` service.
 
-The server retrieves the Clerk user and accepts exactly one verified X OAuth provider ID. Browser-supplied sender IDs, wallet overrides, and editable user metadata cannot establish wallet ownership. The adapter looks up the existing Pecu wallet by numeric X ID. A user without one must first send `/wallet` to Pecu on X.
+The server retrieves the Clerk user and resolves one Pecu sender from it (`src/web-identity.ts`, `webSenderId`). Browser-supplied sender IDs, wallet overrides, and editable user metadata cannot establish wallet ownership.
+
+- A user with exactly one verified X OAuth account keeps the numeric X ID as sender. The adapter looks up the existing Pecu wallet by that ID, so the web app and X DMs share one wallet, and a user without one must first send `/wallet` to Pecu on X.
+- A user with no verified X account (Google or any other Clerk method) gets the web-only sender `web-<clerk user id>`. The agent provisions its Base smart wallet on the first message, under the Crossmint owner `userId:basedbot-web-<clerk user id>`, and `state.senderKind` is `web` so the UI does not point the user to X. This wallet is separate from any X wallet.
+- Two verified X accounts on one Clerk user are ambiguous and rejected.
+
+Linking or unlinking an X account in the Clerk profile therefore changes which sender, wallet, and history the signed-in user sees; the previous wallet is not merged or moved.
 
 Web conversations have their own history and YOLO setting, initially off. They share the agent's transaction previews, confirmations, execution locks, persisted steps, and receipt recovery. Retrying a message keeps its UUID. Confirmation buttons appear only when the displayed code matches the stored preview's hash.
 
@@ -34,7 +40,7 @@ Run `bun run typecheck` and `bun run build` here. Run `bun run pecu:check` at th
 
 Deploy the root `pecu` Worker first when changing `StocksGateway` or `src/web.ts`. Then run `bun run deploy` here. Both configurations pin Francesco's personal Cloudflare account. Install Clerk credentials as Worker secrets and keep the public build key paired with the server secret.
 
-The current deployment uses Clerk's **development instance**, with its shared X OAuth client. It is a deployed preview. Production authentication needs a Clerk production instance and its X OAuth configuration. Authenticated wallet lookup, chat, basket persistence, and trade previews still need a real browser session test after the user accepts X consent. No real transaction was submitted during implementation.
+The current deployment uses Clerk's **development instance**, with its shared X and Google OAuth clients. It is a deployed preview. Production authentication needs a Clerk production instance with its own X and Google OAuth configuration (Google requires a Google Cloud OAuth client whose authorized redirect URI is the Clerk instance's callback). Google is enabled in the Clerk dashboard under User & Authentication → Social connections; no code change is needed to add or remove a provider, only to change how a provider maps to a Pecu sender. Authenticated wallet lookup, chat, basket persistence, and trade previews still need a real browser session test after the user accepts X consent. No real transaction was submitted during implementation.
 
 Legacy `/stocks` URLs redirect permanently to `/aero/stocks`, preserving path suffixes and query parameters. API and Clerk return URLs use the new path.
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Config } from "./config";
 import type { PlannedCall } from "./domain";
 import type { WalletStateStore } from "./state";
+import { senderKind } from "./web-identity";
 
 type BaseWallet = Wallet<"base">;
 
@@ -40,7 +41,7 @@ export class WalletService {
     if (cached) {
       wallet = await this.wallets.getWallet(cached.locator, { chain: "base" });
     } else {
-      const owner = senderId === treasurySenderId ? "userId:pecu-treasury" : `userId:basedbot-x-${senderId}`;
+      const owner = senderId === treasurySenderId ? "userId:pecu-treasury" : senderKind(senderId) === "web" ? `userId:basedbot-${senderId}` : `userId:basedbot-x-${senderId}`;
       try {
         wallet = await this.wallets.getWallet(`${owner}:evm:smart`, { chain: "base" });
       } catch (error) {

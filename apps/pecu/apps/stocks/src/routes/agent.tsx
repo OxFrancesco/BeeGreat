@@ -191,6 +191,7 @@ function AgentWorkspace({
   const noWallet = Boolean(
     isSignedIn && account.state && !account.state.wallet,
   );
+  const webSender = account.state?.senderKind === "web";
   const threads = account.state?.threads;
   const threadsSupported = threads !== undefined;
   useEffect(() => {
@@ -331,7 +332,7 @@ function AgentWorkspace({
                 onClick={signIn}
                 variant="outline"
               >
-                Sign in with X
+                Sign in
               </Button>
             )}
           </div>
@@ -371,11 +372,13 @@ function AgentWorkspace({
                     <p>
                       {isSignedIn
                         ? noWallet
-                          ? "Your X account has no Pecu wallet yet."
+                          ? webSender
+                            ? "Your Base wallet is created with your first message."
+                            : "Your X account has no Pecu wallet yet."
                           : "Ask about your Base wallet, get a quote, or start a swap. Transactions require confirmation unless you enable YOLO."
-                        : "Sign in with the X account you use with Pecu. Transactions require confirmation unless you enable YOLO."}
+                        : "Sign in with Google, or with the X account you use with Pecu. Transactions require confirmation unless you enable YOLO."}
                     </p>
-                    {noWallet ? (
+                    {noWallet && !webSender ? (
                       <p className="pecu-notice">
                         The first message you send to{" "}
                         <a
@@ -613,7 +616,7 @@ function AgentWorkspace({
                   placeholder={
                     isSignedIn
                       ? "Ask Pecu about your wallet…"
-                      : "Sign in with X to start"
+                      : "Sign in to start"
                   }
                   value={draft}
                 />

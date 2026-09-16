@@ -113,7 +113,7 @@ export function TradePanel({
                   : signIn()
               }
             >
-              {signedIn ? "Preview " + action : "Sign in with X"}
+              {signedIn ? "Preview " + action : "Sign in"}
               <ArrowRight size={16} />
             </Button>
           </TabsContent>

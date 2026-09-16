@@ -81,7 +81,7 @@ export function InferenceProfile() {
             </div>
           </div> : <Button className="pecu-button" variant="outline" disabled={busy} onClick={() => setConfirmDisconnect(true)}>Disconnect ChatGPT</Button>}
         </> : null}
-        <p className="pecu-inference-note">Your connection is used only for your X account. ChatGPT usage limits still apply. Remaining usage isn't available here.</p>
+        <p className="pecu-inference-note">Your connection is used only for your Pecu account. ChatGPT usage limits still apply. Remaining usage isn't available here.</p>
       </> : null}
       {error ? <p role="alert">{error}</p> : null}
       <div className="pecu-inference-actions" aria-live="polite">

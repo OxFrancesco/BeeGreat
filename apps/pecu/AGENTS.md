@@ -32,7 +32,7 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 Never add visible scrollbars or custom scrollbar tracks to Pecu UI unless the user explicitly asks. Keep horizontal and vertical scrolling functional while hiding scrollbars on pages, nested lists, dialogs, textareas, and code blocks.
 
-Production identity is persistent: keep the `basedbot` Worker names, `BasedBotDurableObject` export, `basedbot-main` object name, existing storage keys and table names, and `userId:basedbot-x-<sender>` Crossmint owners. Pecu is the product name. Renaming persistent identifiers requires a separate verified state migration.
+Production identity is persistent: keep the `basedbot` Worker names, `BasedBotDurableObject` export, `basedbot-main` object name, existing storage keys and table names, and `userId:basedbot-x-<sender>` Crossmint owners (web-only Clerk users, e.g. Google sign-in, use the sender `web-<clerk user id>` and owner `userId:basedbot-web-<clerk user id>`). Pecu is the product name. Renaming persistent identifiers requires a separate verified state migration.
 
 The first verified message provisions the sender's Base smart wallet before command or model handling, even for greetings and `/help`. Stored wallets skip onboarding across conversations. Creation failures return an error and retry on the next new message; replayed events return their stored reply.
 

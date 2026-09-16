@@ -36,7 +36,7 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
             viewer = await identity();
           } catch {
             return json(
-              { error: "Sign in with X to check Pecu's connection." },
+              { error: "Sign in to check Pecu's connection." },
               401,
             );
           }
@@ -108,7 +108,7 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
             viewer = await identity();
           } catch {
             return json(
-              { error: "Sign in with X to manage your ChatGPT connection." },
+              { error: "Sign in to manage your ChatGPT connection." },
               401,
             );
           }
