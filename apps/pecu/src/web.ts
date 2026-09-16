@@ -6,8 +6,10 @@ import {
   basketSchema,
   webReplySchema,
   type webIdentitySchema,
+  type webScopeSchema,
   type webTurnSchema,
   type WebState,
+  type WebThread,
 } from "./web-contract";
 
 export interface WebSql {
@@ -18,6 +20,7 @@ export interface WebSql {
 }
 
 type Identity = z.infer<typeof webIdentitySchema>;
+type Scope = z.infer<typeof webScopeSchema>;
 type Turn = z.infer<typeof webTurnSchema>;
 export class WebAgent {
   private readonly active = new Set<string>();
@@ -36,17 +39,59 @@ export class WebAgent {
       `CREATE TABLE IF NOT EXISTS basedbot_web_profiles (owner TEXT PRIMARY KEY, stocks TEXT, stocks_at INTEGER, basket TEXT)`,
     );
   }
-  private owner({ userId, senderId }: Identity) {
-    return `stocks:${userId}:${senderId}`;
+  /**
+   * The original web conversation keeps its `stocks:` owner so existing
+   * history, YOLO settings and pending previews stay attached. Extra threads
+   * append `#threadId`; the agent treats each owner as its own conversation.
+   */
+  private owner({ userId, senderId, threadId }: Scope) {
+    const base = `stocks:${userId}:${senderId}`;
+    return threadId ? `${base}#${threadId}` : base;
   }
-  state(identity: Identity): WebState {
-    const owner = this.owner(identity);
+  threads(identity: Identity): WebThread[] {
+    const base = this.owner(identity);
+    return this.sql
+      .exec<{ owner: string; created_at: number; updated_at: number; count: number }>(
+        "SELECT owner, MIN(created_at) AS created_at, MAX(created_at) AS updated_at, COUNT(*) AS count FROM basedbot_web_turns WHERE owner=? OR substr(owner,1,?)=? GROUP BY owner ORDER BY updated_at DESC, owner ASC",
+        base,
+        base.length + 1,
+        `${base}#`,
+      )
+      .toArray()
+      .map((row) => {
+        const first = this.sql
+          .exec<{ text: string }>(
+            "SELECT text FROM basedbot_web_turns WHERE owner=? ORDER BY created_at ASC LIMIT 1",
+            row.owner,
+          )
+          .toArray()[0];
+        return {
+          id: row.owner === base ? null : row.owner.slice(base.length + 1),
+          title: (first?.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          count: row.count,
+        };
+      });
+  }
+  deleteThread(identity: Identity, threadId: string | null) {
+    const owner = this.owner({ ...identity, threadId: threadId ?? undefined });
+    if (this.active.has(owner))
+      throw new Error("Pecu is still answering in this thread. Try again in a moment.");
+    if (this.store.executingIntents().some((intent) =>
+      intent.senderId === identity.senderId && intent.conversationId === owner
+    )) throw new Error("Check the submitted transaction before deleting this thread.");
+    this.sql.exec("DELETE FROM basedbot_web_turns WHERE owner=?", owner);
+  }
+  state(scope: Scope): WebState {
+    const owner = this.owner(scope);
+    const identity = { userId: scope.userId, senderId: scope.senderId };
     const profile = this.sql
       .exec<{
         stocks: string | null;
         stocks_at: number | null;
         basket: string | null;
-      }>("SELECT * FROM basedbot_web_profiles WHERE owner=?", owner)
+      }>("SELECT * FROM basedbot_web_profiles WHERE owner=?", this.owner(identity))
       .toArray()[0];
     const messages = this.sql
       .exec<{
@@ -75,6 +120,8 @@ export class WebAgent {
     return {
       wallet: this.store.wallet(identity.senderId)?.address ?? null,
       yolo: this.store.yoloEnabled(identity.senderId, owner),
+      threadId: scope.threadId ?? null,
+      threads: this.threads(identity),
       messages,
       stocks: profile?.stocks ?? null,
       stocksAt: profile?.stocks_at ?? null,
@@ -160,7 +207,7 @@ export class WebAgent {
         if (stocks && Array.isArray(JSON.parse(stocks)))
           this.sql.exec(
             "INSERT INTO basedbot_web_profiles(owner,stocks,stocks_at) VALUES(?,?,?) ON CONFLICT(owner) DO UPDATE SET stocks=excluded.stocks,stocks_at=excluded.stocks_at",
-            conversationId,
+            this.owner({ userId: input.userId, senderId }),
             stocks,
             Date.now(),
           );
