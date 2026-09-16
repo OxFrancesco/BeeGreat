@@ -4,6 +4,7 @@ resources/
 
 # Local runtime state and secrets
 .env
+.pecu-secrets.json
 .data/
 *.sqlite
 *.sqlite-shm
