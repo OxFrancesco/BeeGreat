@@ -1,7 +1,7 @@
 import { useClerk, useUser, UserButton } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CopyIcon, MessageSquareIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
-import { useCallback, useState } from "react";
+import { CopyIcon, MessageSquareIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 import { threadIdSchema, type previewSchema, type WebThread } from "../../../../src/web-contract";
 import {
@@ -80,10 +80,16 @@ type Preview = z.infer<typeof previewSchema>;
 function AgentPage() {
   const { user } = useUser();
   const { t } = Route.useSearch();
-  return <AgentWorkspace key={`${user?.id ?? "signed-out"}:${t ?? ""}`} threadId={t ?? null} />;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const toggleSidebar = useCallback(() => setSidebarCollapsed((value) => !value), []);
+  return <AgentWorkspace sidebarCollapsed={sidebarCollapsed} toggleSidebar={toggleSidebar} key={`${user?.id ?? "signed-out"}:${t ?? ""}`} threadId={t ?? null} />;
 }
 
-function AgentWorkspace({ threadId }: { threadId: string | null }) {
+function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
+  threadId: string | null;
+  sidebarCollapsed: boolean;
+  toggleSidebar: () => void;
+}) {
   const { isSignedIn } = useUser();
   const clerk = useClerk();
   const navigate = useNavigate({ from: Route.fullPath });
@@ -121,6 +127,21 @@ function AgentWorkspace({ threadId }: { threadId: string | null }) {
   const noWallet = Boolean(isSignedIn && account.state && !account.state.wallet);
   const threads = account.state?.threads;
   const threadsSupported = threads !== undefined;
+  useEffect(() => {
+    if (!isSignedIn || !threadsSupported) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.metaKey || !event.shiftKey || event.altKey || event.ctrlKey || event.key.toLowerCase() !== "s" || event.isComposing) return;
+      event.preventDefault();
+      if (event.repeat) return;
+      if (window.matchMedia("(max-width: 900px)").matches) {
+        setThreadsOpen((open) => !open);
+      } else {
+        toggleSidebar();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isSignedIn, threadsSupported, toggleSidebar]);
   const threadList = threadsSupported ? (
     <ThreadList
       active={threadId}
@@ -139,13 +160,27 @@ function AgentWorkspace({ threadId }: { threadId: string | null }) {
   return (
     <div className="pecu pecu-app">
       {isSignedIn && threadsSupported ? (
-        <aside aria-label="Threads" className="pecu-rail">
+        <aside id="pecu-thread-sidebar" aria-label="Threads" className="pecu-rail" hidden={sidebarCollapsed}>
           <a className="pecu-wordmark" href="/">pecu</a>
           {threadList}
         </aside>
       ) : null}
       <div className="pecu-main">
       <header className="pecu-topbar">
+        {isSignedIn && threadsSupported ? (
+          <button
+            className="pecu-chip pecu-sidebar-toggle"
+            type="button"
+            aria-label={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="pecu-thread-sidebar"
+            aria-keyshortcuts="Meta+Shift+S"
+            title={`${sidebarCollapsed ? "Open" : "Close"} sidebar (⌘⇧S)`}
+            onClick={toggleSidebar}
+          >
+            {sidebarCollapsed ? <PanelLeftOpenIcon className="size-4" /> : <PanelLeftCloseIcon className="size-4" />}
+          </button>
+        ) : null}
         <a className="pecu-wordmark" href="/">pecu</a>
         {!threadsSupported && <PageNavigation />}
         <div className="pecu-auth">
