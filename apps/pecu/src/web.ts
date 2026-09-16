@@ -141,6 +141,7 @@ export class WebAgent {
   }
   async handle(input: Turn) {
     const { senderId, requestId, text } = input;
+    if (input.retryOf && input.answerTo) throw new Error("A retry cannot also answer a question.");
     if (!this.store.wallet(senderId))
       throw new Error(
         "No Pecu wallet exists for this X account. Send /wallet to Pecu on X first.",
@@ -169,6 +170,10 @@ export class WebAgent {
         const context = JSON.stringify(history.slice(0, -1).map((turn) => ({ user: turn.text, assistant: turn.reply?.text ?? "" })));
         this.sql.exec("INSERT INTO basedbot_web_retries(id,target,context) VALUES(?,?,?)", eventId, last.id, context);
         this.sql.exec("UPDATE basedbot_web_turns SET id=?,reply=NULL WHERE id=? AND owner=?", eventId, last.id, conversationId);
+      }
+      if (input.answerTo && !existing) {
+        const last = this.state(input).messages.at(-1);
+        if (last?.id !== input.answerTo || !last.reply?.question?.options.includes(text)) throw new Error("This choice is no longer available. Answer the latest question in this thread.");
       }
       if (existing?.reply) return { status: "complete" as const };
       this.sql.exec(
@@ -200,6 +205,7 @@ export class WebAgent {
           ).join("")
         : undefined;
       const response = {
+        question: this.store.questionForEvent(eventId),
         text: reply,
         preview:
           intent && code && intent.codeHash === codeDigest

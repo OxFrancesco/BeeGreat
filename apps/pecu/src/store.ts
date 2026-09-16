@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { plannedCallSchema, type PlannedCall, type VerifiedMessage } from "./domain";
+import { agentQuestionSchema, type AgentQuestion, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "./domain";
 import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "./state";
 
 export type { ExecutionStep, Intent, IntentState } from "./state";
@@ -63,6 +63,11 @@ export class Store implements PecuStore {
 
   private migrate(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS questions (
+        event_id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
+        json TEXT NOT NULL, answered_event_id TEXT
+      );
+      CREATE INDEX IF NOT EXISTS questions_owner ON questions(sender_id,conversation_id);
       CREATE TABLE IF NOT EXISTS chat_preferences (
         sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL, yolo INTEGER NOT NULL DEFAULT 0,
         PRIMARY KEY(sender_id, conversation_id)
@@ -207,6 +212,23 @@ export class Store implements PecuStore {
         updated_at INTEGER NOT NULL
       );
     `);
+  }
+
+  saveQuestion(message: VerifiedMessage, question: AgentQuestion): void {
+    this.db.query("UPDATE questions SET answered_event_id=? WHERE sender_id=? AND conversation_id=? AND answered_event_id IS NULL AND event_id<>?").run(message.eventId, message.senderId, message.conversationId, message.eventId);
+    this.db.query("INSERT OR IGNORE INTO questions(event_id,sender_id,conversation_id,json) VALUES(?,?,?,?)").run(message.eventId, message.senderId, message.conversationId, JSON.stringify(agentQuestionSchema.parse(question)));
+  }
+
+  questionForEvent(eventId: string): AgentQuestion | undefined {
+    const row = (this.db.query("SELECT json FROM questions WHERE event_id=?").get(eventId) as { json: string } | null);
+    return row ? agentQuestionSchema.parse(JSON.parse(row.json)) : undefined;
+  }
+
+  answerPendingQuestion(message: VerifiedMessage): boolean {
+    const row = (this.db.query("SELECT event_id FROM questions WHERE sender_id=? AND conversation_id=? AND event_id<>? AND (answered_event_id IS NULL OR answered_event_id=?) ORDER BY rowid DESC LIMIT 1").get(message.senderId, message.conversationId, message.eventId, message.eventId) as { event_id: string } | null);
+    if (!row) return false;
+    this.db.query("UPDATE questions SET answered_event_id=? WHERE event_id=?").run(message.eventId, row.event_id);
+    return true;
   }
 
   yoloEnabled(senderId: string, conversationId: string): boolean {

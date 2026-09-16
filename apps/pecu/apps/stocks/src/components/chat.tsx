@@ -69,14 +69,44 @@ export function Chat({
               {message.reply ? (
                 <div className="message assistant">
                   <MessageResponse>
-                    {
-                      message.reply.preview
-                        ? message.reply.preview.text
-                        : message.reply.text
-                    }
+                    {message.reply.preview
+                      ? message.reply.preview.text
+                      : (message.reply.question?.question ??
+                        message.reply.text)}
                   </MessageResponse>
-                  {message.canRetry && message.id === account.state?.messages.at(-1)?.id ? (
-                    <Button variant="ghost" size="icon" aria-label="Retry reply" disabled={account.pending} onClick={() => void account.regenerate(message)}>
+                  {message.reply.question?.options.length ? (
+                    <div
+                      className="flex flex-wrap gap-2 mt-3"
+                      role="group"
+                      aria-label="Answer Pecu"
+                    >
+                      {message.reply.question.options.map((option) => (
+                        <Button
+                          key={option}
+                          variant="outline"
+                          size="sm"
+                          disabled={
+                            account.pending ||
+                            message.id !== account.state?.messages.at(-1)?.id
+                          }
+                          onClick={() =>
+                            void account.answer(message.id, option)
+                          }
+                        >
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {message.canRetry &&
+                  message.id === account.state?.messages.at(-1)?.id ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Retry reply"
+                      disabled={account.pending}
+                      onClick={() => void account.regenerate(message)}
+                    >
                       <RotateCcw size={14} />
                     </Button>
                   ) : null}
@@ -123,19 +153,25 @@ export function Chat({
                 </div>
               ) : (
                 <div className="muted">
-                  Response pending.{" "}
-                  <Button
-                    variant="link"
-                    disabled={account.pending}
-                    onClick={() =>
-                      void account.send(
-                        message.text,
-                        message.id.split(":").at(-1),
-                      )
-                    }
-                  >
-                    Check again
-                  </Button>
+                  <span role="status">
+                    {account.pending
+                      ? "Pecu is answering…"
+                      : "Waiting for Pecu…"}
+                  </span>
+                  {!account.pending ? (
+                    <Button
+                      variant="link"
+                      disabled={account.pending}
+                      onClick={() =>
+                        void account.send(
+                          message.text,
+                          message.id.split(":").at(-1),
+                        )
+                      }
+                    >
+                      Resume response
+                    </Button>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -150,7 +186,12 @@ export function Chat({
               variant="link"
               disabled={account.pending}
               onClick={() =>
-                void account.send(account.retry!.text, account.retry!.requestId, account.retry!.retryOf)
+                void account.send(
+                  account.retry!.text,
+                  account.retry!.requestId,
+                  account.retry!.retryOf,
+                  account.retry!.answerTo,
+                )
               }
             >
               <RotateCcw size={14} />

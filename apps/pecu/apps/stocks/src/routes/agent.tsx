@@ -1,9 +1,21 @@
 import { useClerk, useUser, UserButton } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { CopyIcon, MessageSquareIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, RotateCcwIcon, Trash2Icon } from "lucide-react";
+import {
+  CopyIcon,
+  MessageSquareIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PlusIcon,
+  RotateCcwIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { z } from "zod";
-import { threadIdSchema, type previewSchema, type WebThread } from "../../../../src/web-contract";
+import {
+  threadIdSchema,
+  type previewSchema,
+  type WebThread,
+} from "../../../../src/web-contract";
 import {
   Confirmation,
   ConfirmationAccepted,
@@ -63,9 +75,23 @@ export const Route = createFileRoute("/agent")({
       },
     ],
     links: [
-      { rel: "icon", href: "/pecu-assets/favicon-32.png", type: "image/png", sizes: "32x32" },
-      { rel: "icon", href: "/pecu-assets/icon-192.png", type: "image/png", sizes: "192x192" },
-      { rel: "apple-touch-icon", href: "/pecu-assets/apple-touch-icon.png", sizes: "180x180" },
+      {
+        rel: "icon",
+        href: "/pecu-assets/favicon-32.png",
+        type: "image/png",
+        sizes: "32x32",
+      },
+      {
+        rel: "icon",
+        href: "/pecu-assets/icon-192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: "/pecu-assets/apple-touch-icon.png",
+        sizes: "180x180",
+      },
     ],
   }),
   component: AgentPage,
@@ -85,11 +111,25 @@ function AgentPage() {
   const { user } = useUser();
   const { t } = Route.useSearch();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const toggleSidebar = useCallback(() => setSidebarCollapsed((value) => !value), []);
-  return <AgentWorkspace sidebarCollapsed={sidebarCollapsed} toggleSidebar={toggleSidebar} key={`${user?.id ?? "signed-out"}:${t ?? ""}`} threadId={t ?? null} />;
+  const toggleSidebar = useCallback(
+    () => setSidebarCollapsed((value) => !value),
+    [],
+  );
+  return (
+    <AgentWorkspace
+      sidebarCollapsed={sidebarCollapsed}
+      toggleSidebar={toggleSidebar}
+      key={`${user?.id ?? "signed-out"}:${t ?? ""}`}
+      threadId={t ?? null}
+    />
+  );
 }
 
-function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
+function AgentWorkspace({
+  threadId,
+  sidebarCollapsed,
+  toggleSidebar,
+}: {
   threadId: string | null;
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
@@ -102,7 +142,9 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
   const [inFlight, setInFlight] = useState<string | null>(null);
   const [threadsOpen, setThreadsOpen] = useState(false);
   const signIn = () =>
-    void clerk.openSignIn({ fallbackRedirectUrl: threadId ? `/agent?t=${threadId}` : "/agent" });
+    void clerk.openSignIn({
+      fallbackRedirectUrl: threadId ? `/agent?t=${threadId}` : "/agent",
+    });
   const openThread = useCallback(
     (id: string | null) => {
       setThreadsOpen(false);
@@ -115,11 +157,11 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
     openThread(crypto.randomUUID().slice(0, 8));
   }, [isSignedIn, openThread]);
   const send = useCallback(
-    async (text: string, requestId?: string) => {
+    async (text: string, requestId?: string, answerTo?: string) => {
       if (!isSignedIn) return signIn();
       setInFlight(text);
       try {
-        await account.send(text, requestId);
+        await account.send(text, requestId, undefined, answerTo);
       } finally {
         setInFlight(null);
       }
@@ -128,13 +170,23 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
   );
   const messages = account.state?.messages ?? [];
   const empty = messages.length === 0 && !inFlight;
-  const noWallet = Boolean(isSignedIn && account.state && !account.state.wallet);
+  const noWallet = Boolean(
+    isSignedIn && account.state && !account.state.wallet,
+  );
   const threads = account.state?.threads;
   const threadsSupported = threads !== undefined;
   useEffect(() => {
     if (!isSignedIn || !threadsSupported) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!event.metaKey || !event.shiftKey || event.altKey || event.ctrlKey || event.key.toLowerCase() !== "s" || event.isComposing) return;
+      if (
+        !event.metaKey ||
+        !event.shiftKey ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.key.toLowerCase() !== "s" ||
+        event.isComposing
+      )
+        return;
       event.preventDefault();
       if (event.repeat) return;
       if (window.matchMedia("(max-width: 900px)").matches) {
@@ -164,90 +216,114 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
   return (
     <div className="pecu pecu-app">
       {isSignedIn && threadsSupported ? (
-        <aside id="pecu-thread-sidebar" aria-label="Threads" className="pecu-rail" hidden={sidebarCollapsed}>
-          <a className="pecu-wordmark" href="/">pecu</a>
+        <aside
+          id="pecu-thread-sidebar"
+          aria-label="Threads"
+          className="pecu-rail"
+          hidden={sidebarCollapsed}
+        >
+          <a className="pecu-wordmark" href="/">
+            pecu
+          </a>
           {threadList}
         </aside>
       ) : null}
       <div className="pecu-main">
-      <header className="pecu-topbar">
-        {isSignedIn && threadsSupported ? (
-          <button
-            className="pecu-chip pecu-sidebar-toggle"
-            type="button"
-            aria-label={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
-            aria-expanded={!sidebarCollapsed}
-            aria-controls="pecu-thread-sidebar"
-            aria-keyshortcuts="Meta+Shift+S"
-            title={`${sidebarCollapsed ? "Open" : "Close"} sidebar (⌘⇧S)`}
-            onClick={toggleSidebar}
-          >
-            {sidebarCollapsed ? <PanelLeftOpenIcon className="size-4" /> : <PanelLeftCloseIcon className="size-4" />}
-          </button>
-        ) : null}
-        <a className="pecu-wordmark" href="/">pecu</a>
-        {!threadsSupported && <PageNavigation />}
-        <div className="pecu-auth">
-          {isSignedIn ? (
-            <>
-              {threadsSupported ? (
-              <Dialog onOpenChange={setThreadsOpen} open={threadsOpen}>
-                <DialogTrigger asChild>
-                  <button className="pecu-chip pecu-threads-toggle" type="button">
-                    <MessageSquareIcon className="size-4" />
-                    <span>Threads</span>
+        <header className="pecu-topbar">
+          {isSignedIn && threadsSupported ? (
+            <button
+              className="pecu-chip pecu-sidebar-toggle"
+              type="button"
+              aria-label={sidebarCollapsed ? "Open sidebar" : "Close sidebar"}
+              aria-expanded={!sidebarCollapsed}
+              aria-controls="pecu-thread-sidebar"
+              aria-keyshortcuts="Meta+Shift+S"
+              title={`${sidebarCollapsed ? "Open" : "Close"} sidebar (⌘⇧S)`}
+              onClick={toggleSidebar}
+            >
+              {sidebarCollapsed ? (
+                <PanelLeftOpenIcon className="size-4" />
+              ) : (
+                <PanelLeftCloseIcon className="size-4" />
+              )}
+            </button>
+          ) : null}
+          <a className="pecu-wordmark" href="/">
+            pecu
+          </a>
+          {!threadsSupported && <PageNavigation />}
+          <div className="pecu-auth">
+            {isSignedIn ? (
+              <>
+                {threadsSupported ? (
+                  <Dialog onOpenChange={setThreadsOpen} open={threadsOpen}>
+                    <DialogTrigger asChild>
+                      <button
+                        className="pecu-chip pecu-threads-toggle"
+                        type="button"
+                      >
+                        <MessageSquareIcon className="size-4" />
+                        <span>Threads</span>
+                      </button>
+                    </DialogTrigger>
+                    <DialogContent className="pecu pecu-threads-dialog">
+                      <DialogHeader>
+                        <DialogTitle>Threads</DialogTitle>
+                        <DialogDescription>
+                          Each thread is its own conversation with Pecu, with
+                          its own previews and YOLO setting.
+                        </DialogDescription>
+                      </DialogHeader>
+                      {threadList}
+                    </DialogContent>
+                  </Dialog>
+                ) : null}
+                {account.state?.wallet ? (
+                  <a
+                    className="pecu-chip mono"
+                    href={`https://basescan.org/address/${account.state.wallet}`}
+                    rel="noreferrer"
+                    target="_blank"
+                    title={account.state.wallet}
+                  >
+                    <span className="pecu-dot" />
+                    <span>
+                      {account.state.wallet.slice(0, 6)}…
+                      {account.state.wallet.slice(-4)}
+                    </span>
+                  </a>
+                ) : null}
+                {account.state?.yolo ? (
+                  <button
+                    className="pecu-chip pecu-chip-warn"
+                    disabled={account.pending}
+                    onClick={() => void send("/yolo off")}
+                    type="button"
+                  >
+                    YOLO on · turn off
                   </button>
-                </DialogTrigger>
-                <DialogContent className="pecu pecu-threads-dialog">
-                  <DialogHeader>
-                    <DialogTitle>Threads</DialogTitle>
-                    <DialogDescription>
-                      Each thread is its own conversation with Pecu, with its own previews and
-                      YOLO setting.
-                    </DialogDescription>
-                  </DialogHeader>
-                  {threadList}
-                </DialogContent>
-              </Dialog>
-              ) : null}
-              {account.state?.wallet ? (
-                <a
-                  className="pecu-chip mono"
-                  href={`https://basescan.org/address/${account.state.wallet}`}
-                  rel="noreferrer"
-                  target="_blank"
-                  title={account.state.wallet}
-                >
-                  <span className="pecu-dot" />
-                  <span>
-                    {account.state.wallet.slice(0, 6)}…{account.state.wallet.slice(-4)}
-                  </span>
-                </a>
-              ) : null}
-              {account.state?.yolo ? (
-                <button
-                  className="pecu-chip pecu-chip-warn"
-                  disabled={account.pending}
-                  onClick={() => void send("/yolo off")}
-                  type="button"
-                >
-                  YOLO on · turn off
-                </button>
-              ) : null}
-              <UserButton />
-            </>
-          ) : (
-            <Button className="pecu-button" onClick={signIn} variant="outline">
-              Sign in with X
-            </Button>
-          )}
-        </div>
-      </header>
+                ) : null}
+                <UserButton />
+              </>
+            ) : (
+              <Button
+                className="pecu-button"
+                onClick={signIn}
+                variant="outline"
+              >
+                Sign in with X
+              </Button>
+            )}
+          </div>
+        </header>
 
         <main className="pecu-chat">
           <h1 className="sr-only">Pecu agent</h1>
           <Conversation className="pecu-conversation">
-            <ConversationContent scrollClassName="pecu-chat-scroll" className={empty ? "pecu-messages is-empty" : "pecu-messages"}>
+            <ConversationContent
+              scrollClassName="pecu-chat-scroll"
+              className={empty ? "pecu-messages is-empty" : "pecu-messages"}
+            >
               {empty ? (
                 <ConversationEmptyState className="pecu-empty">
                   <PecuMascot className="pecu-hero-snail" state="idle" />
@@ -263,10 +339,15 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                     {noWallet ? (
                       <p className="pecu-notice">
                         The first message you send to{" "}
-                        <a href="https://x.com/BeeGreatAI" rel="noreferrer" target="_blank">
+                        <a
+                          href="https://x.com/BeeGreatAI"
+                          rel="noreferrer"
+                          target="_blank"
+                        >
                           @BeeGreatAI
                         </a>{" "}
-                        on X creates it. Send <code>/wallet</code>, then come back and reload.
+                        on X creates it. Send <code>/wallet</code>, then come
+                        back and reload.
                       </p>
                     ) : null}
                   </div>
@@ -288,8 +369,40 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                               <MessageResponse>
                                 {message.reply.preview
                                   ? message.reply.preview.text
-                                  : message.reply.text}
+                                  : (message.reply.question?.question ??
+                                    message.reply.text)}
                               </MessageResponse>
+                              {message.reply.question?.options.length ? (
+                                <div
+                                  className="flex flex-wrap gap-2 mt-3"
+                                  role="group"
+                                  aria-label="Answer Pecu"
+                                >
+                                  {message.reply.question.options.map(
+                                    (option) => (
+                                      <Button
+                                        key={option}
+                                        variant="outline"
+                                        size="sm"
+                                        disabled={
+                                          account.pending ||
+                                          message.id !==
+                                            account.state?.messages.at(-1)?.id
+                                        }
+                                        onClick={() =>
+                                          void send(
+                                            option,
+                                            undefined,
+                                            message.id,
+                                          )
+                                        }
+                                      >
+                                        {option}
+                                      </Button>
+                                    ),
+                                  )}
+                                </div>
+                              ) : null}
                               {message.reply.preview ? (
                                 <PreviewCard
                                   busy={account.pending}
@@ -302,14 +415,23 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                                   label="Copy reply"
                                   onClick={() =>
                                     void navigator.clipboard.writeText(
-                                      message.reply?.preview?.text ?? message.reply?.text ?? "",
+                                      message.reply?.preview?.text ??
+                                        message.reply?.text ??
+                                        "",
                                     )
                                   }
                                 >
                                   <CopyIcon className="size-3.5" />
                                 </MessageAction>
-                                {message.canRetry && message.id === messages.at(-1)?.id ? (
-                                  <MessageAction label="Retry reply" disabled={account.pending} onClick={() => void account.regenerate(message)}>
+                                {message.canRetry &&
+                                message.id === messages.at(-1)?.id ? (
+                                  <MessageAction
+                                    label="Retry reply"
+                                    disabled={account.pending}
+                                    onClick={() =>
+                                      void account.regenerate(message)
+                                    }
+                                  >
                                     <RotateCcwIcon className="size-3.5" />
                                   </MessageAction>
                                 ) : null}
@@ -317,18 +439,27 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                             </MessageContent>
                           ) : (
                             <MessageContent className="pecu-bubble-bot pecu-bubble-muted">
-                              <span>Still working on this one.</span>
-                              <Button
-                                className="pecu-inline-link"
-                                disabled={account.pending}
-                                onClick={() =>
-                                  void send(message.text, message.id.split(":").at(-1))
-                                }
-                                size="sm"
-                                variant="link"
-                              >
-                                Check again
-                              </Button>
+                              <span role="status">
+                                {account.pending
+                                  ? "Pecu is answering…"
+                                  : "Waiting for Pecu…"}
+                              </span>
+                              {!account.pending ? (
+                                <Button
+                                  className="pecu-inline-link"
+                                  disabled={account.pending}
+                                  onClick={() =>
+                                    void send(
+                                      message.text,
+                                      message.id.split(":").at(-1),
+                                    )
+                                  }
+                                  size="sm"
+                                  variant="link"
+                                >
+                                  Resume response
+                                </Button>
+                              ) : null}
                             </MessageContent>
                           )}
                         </div>
@@ -343,7 +474,10 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                         </MessageContent>
                       </Message>
                       <Message from="assistant">
-                        <div className="pecu-assistant pecu-thinking" role="status">
+                        <div
+                          className="pecu-assistant pecu-thinking"
+                          role="status"
+                        >
                           <span className="pecu-avatar pecu-avatar-live">
                             <PecuMascot state="thinking" />
                           </span>
@@ -368,7 +502,14 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                   <Button
                     className="pecu-inline-link"
                     disabled={account.pending}
-                    onClick={() => void account.send(account.retry!.text, account.retry!.requestId, account.retry!.retryOf)}
+                    onClick={() =>
+                      void account.send(
+                        account.retry!.text,
+                        account.retry!.requestId,
+                        account.retry!.retryOf,
+                        account.retry!.answerTo,
+                      )
+                    }
                     size="sm"
                     variant="link"
                   >
@@ -407,7 +548,9 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
                   maxLength={4000}
                   onChange={(event) => setDraft(event.currentTarget.value)}
                   placeholder={
-                    isSignedIn ? "Ask Pecu about your wallet…" : "Sign in with X to start"
+                    isSignedIn
+                      ? "Ask Pecu about your wallet…"
+                      : "Sign in with X to start"
                   }
                   value={draft}
                 />
@@ -415,17 +558,24 @@ function AgentWorkspace({ threadId, sidebarCollapsed, toggleSidebar }: {
               <PromptInputFooter className="pecu-prompt-footer">
                 <PromptInputTools>
                   <span className="pecu-prompt-hint">
-                    {account.state?.yolo ? "YOLO is on. New transaction requests execute without confirmation." : "Enter to send. Transactions require confirmation."}
+                    {account.state?.yolo
+                      ? "YOLO is on. New transaction requests execute without confirmation."
+                      : "Enter to send. Transactions require confirmation."}
                   </span>
                 </PromptInputTools>
                 <PromptInputSubmit
                   className="pecu-submit"
                   disabled={account.pending || (isSignedIn && !draft.trim())}
-                  status={account.pending ? "submitted" : account.error ? "error" : "ready"}
+                  status={
+                    account.pending
+                      ? "submitted"
+                      : account.error
+                        ? "error"
+                        : "ready"
+                  }
                 />
               </PromptInputFooter>
             </PromptInput>
-
           </div>
         </main>
       </div>
@@ -448,13 +598,28 @@ function ThreadList({
   onNew: () => void;
   onDelete: (id: string | null) => void;
 }) {
-  const [confirming, setConfirming] = useState<string | null | undefined>(undefined);
+  const [confirming, setConfirming] = useState<string | null | undefined>(
+    undefined,
+  );
   const current = threads.some((thread) => thread.id === active)
     ? threads
-    : [{ id: active, title: "", createdAt: Date.now(), updatedAt: Date.now(), count: 0 }, ...threads];
+    : [
+        {
+          id: active,
+          title: "",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          count: 0,
+        },
+        ...threads,
+      ];
   return (
     <div className="pecu-threads">
-      <Button className="pecu-button pecu-new-thread" onClick={onNew} type="button">
+      <Button
+        className="pecu-button pecu-new-thread"
+        onClick={onNew}
+        type="button"
+      >
         <PlusIcon className="size-4" />
         New thread
       </Button>
@@ -463,9 +628,13 @@ function ThreadList({
           const isActive = thread.id === active;
           const key = thread.id ?? "default";
           const title =
-            thread.title || (thread.id === null ? "First conversation" : "New thread");
+            thread.title ||
+            (thread.id === null ? "First conversation" : "New thread");
           return (
-            <li className={isActive ? "pecu-thread is-active" : "pecu-thread"} key={key}>
+            <li
+              className={isActive ? "pecu-thread is-active" : "pecu-thread"}
+              key={key}
+            >
               <button
                 aria-current={isActive ? "true" : undefined}
                 className="pecu-thread-open"
@@ -474,9 +643,7 @@ function ThreadList({
               >
                 <span className="pecu-thread-title">{title}</span>
                 <span className="pecu-thread-meta">
-                  {thread.count
-                    ? relative(thread.updatedAt)
-                    : "Empty"}
+                  {thread.count ? relative(thread.updatedAt) : "Empty"}
                 </span>
               </button>
               {thread.count ? (
@@ -493,7 +660,10 @@ function ThreadList({
                     >
                       Delete
                     </button>
-                    <button onClick={() => setConfirming(undefined)} type="button">
+                    <button
+                      onClick={() => setConfirming(undefined)}
+                      type="button"
+                    >
                       Keep
                     </button>
                   </span>
@@ -513,8 +683,8 @@ function ThreadList({
         })}
       </ul>
       <p className="pecu-thread-note">
-        Deleting a thread removes its history here. Previews you already confirmed stay
-        verifiable on Base.
+        Deleting a thread removes its history here. Previews you already
+        confirmed stay verifiable on Base.
       </p>
       <PageNavigation />
     </div>
@@ -523,12 +693,14 @@ function ThreadList({
 
 function PageNavigation() {
   return (
-        <nav aria-label="Page navigation" className="pecu-nav">
-          <a href="/#tools">Tools</a>
-          <a href="/aero/cli">Aero</a>
-          <a href="/aero/stocks">Stocks</a>
-          <a aria-current="page" href="/agent">Agent</a>
-        </nav>
+    <nav aria-label="Page navigation" className="pecu-nav">
+      <a href="/#tools">Tools</a>
+      <a href="/aero/cli">Aero</a>
+      <a href="/aero/stocks">Stocks</a>
+      <a aria-current="page" href="/agent">
+        Agent
+      </a>
+    </nav>
   );
 }
 
@@ -586,7 +758,9 @@ function PreviewCard({
             disabled={busy}
             onClick={() => void onSend(`/confirm ${preview.code}`)}
           >
-            {preview.state === "executing" ? "Check transaction" : "Confirm transaction"}
+            {preview.state === "executing"
+              ? "Check transaction"
+              : "Confirm transaction"}
           </ConfirmationAction>
         </ConfirmationActions>
       </ConfirmationRequest>

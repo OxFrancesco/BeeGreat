@@ -3,7 +3,7 @@ import { validateSugarRequest } from "@beegreat/sugar";
 import { isSugarTxAction, type SugarParameters, type SugarTxAction } from "@beegreat/sugar/contracts";
 import { z } from "zod";
 import type { PlannedCall } from "./domain";
-import type { VerifiedMessage } from "./domain";
+import type { AgentQuestion, VerifiedMessage } from "./domain";
 import { isEvmTxAction, validateEvmRequest, type EvmTxAction, type EvmTxParameters } from "./evm";
 
 export type IntentState = "pending" | "executing" | "succeeded" | "failed" | "cancelled" | "expired";
@@ -57,6 +57,9 @@ export type ExecutionStep = Readonly<{
 export const eventProcessingLeaseMs = 2 * 60 * 1_000;
 
 export interface AgentStateStore {
+  saveQuestion(message: VerifiedMessage, question: AgentQuestion): void;
+  questionForEvent(eventId: string): AgentQuestion | undefined;
+  answerPendingQuestion(message: VerifiedMessage): boolean;
   yoloEnabled(senderId: string, conversationId: string): boolean;
   setYolo(senderId: string, conversationId: string, enabled: boolean): void;
   chatDetails(senderId: string, conversationId: string): string | undefined;

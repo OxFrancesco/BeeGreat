@@ -48,8 +48,12 @@ This is a fresh identity, as requested because there are no users. There is no c
 ## Clarification and reply retry
 
 Pecu exposes `ask_user` to its OpenCode agent. It delivers a question and optional
-numbered choices as a normal chat reply in both X and web. The next user message
-answers in the same conversation. Asking blocks further transaction proposals in
+numbered choices as a normal chat reply on X. The web clients render typed choices
+as buttons. A click sends the selected option in the same conversation. The
+backend rejects stale choices, unknown options, and choices from other owners.
+Questions persist across Worker restarts. A choice always requires a transaction
+preview, even with YOLO enabled. Cancel ends the clarification without requiring
+a transaction confirmation code. Asking blocks further transaction proposals in
 that turn. Choosing a funding token does not confirm a swap.
 
 When `stock_buy` reports insufficient USDC, Pecu fetches current wallet balances
@@ -71,3 +75,8 @@ CLI, iMessage, and voice use a different agent and are unchanged. Only Pecu's
 OpenCode provider path is involved. The backend and Stocks web Worker must both
 be deployed. Responses still arrive as completed messages rather than streamed
 text deltas.
+
+While a reply is generating, the web clients show "Pecu is answering…". They
+automatically refresh unresolved replies after a reload. "Resume response" is
+available only when the browser has no active request; it reuses the existing
+request ID and does not create a second transaction.

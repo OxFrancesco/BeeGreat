@@ -1,5 +1,6 @@
 import { test, expect } from "bun:test";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
+import type { AgentHarness } from "../src/harness";
 import { PecuAgent } from "../src/agent";
 import { Store } from "../src/store";
 import { WebAgent, type WebSql } from "../src/web";
@@ -7,7 +8,7 @@ import { services } from "./fixtures/agent-services";
 import { webTurnSchema } from "../src/web-contract";
 const address = "0x1111111111111111111111111111111111111111";
 const identity = { userId: "user_alice", senderId: "123" };
-function fixture() {
+function fixture(answer?: AgentHarness["respond"]) {
   const db = new Database(":memory:");
   const store = new Store(":memory:");
   let calls = 0;
@@ -53,9 +54,9 @@ function fixture() {
     },
     services({}),
     {
-      respond: async (message) => {
+      respond: async (message, capabilities) => {
         calls++;
-        return `Hello ${message.senderId}`;
+        return answer ? answer(message, capabilities) : `Hello ${message.senderId}`;
       },
     },
   );
@@ -279,5 +280,26 @@ test("retry rejects another owner, older turns, changed text, and confirmation c
     await expect(f.web.handle(retry)).rejects.toThrow("latest");
     const last = f.web.state(identity).messages.at(-1)!;
     await expect(f.web.handle({ ...retry, retryOf: last.id, text: last.text })).rejects.toThrow("transaction");
+  } finally { f.close(); }
+});
+
+
+test("question choices persist and accept one owned, current option", async () => {
+  const f = fixture(async (_message, tools) => tools.askUser("How should we fund it?", ["ETH", "AERO", "Cancel"]));
+  try {
+    f.store.saveWallet("123", address, address);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "choose funding" });
+    const restarted = new WebAgent(f.agent, f.store, f.sql);
+    const question = restarted.state(identity).messages.at(-1)!;
+    expect(question.reply?.question).toEqual({ question: "How should we fund it?", options: ["ETH", "AERO", "Cancel"] });
+    const choice = { ...identity, requestId: crypto.randomUUID(), answerTo: question.id, text: "Cancel" };
+    await expect(restarted.handle({ ...choice, userId: "user_bob" })).rejects.toThrow("latest question");
+    await expect(restarted.handle({ ...choice, text: "Invented token" })).rejects.toThrow("latest question");
+    await restarted.handle(choice);
+    await restarted.handle(choice);
+    expect(restarted.state(identity).messages).toHaveLength(2);
+    expect(restarted.state(identity).messages.at(-1)?.reply?.text).toBe("Cancelled. No new transaction was sent.");
+    await expect(restarted.handle({ ...choice, requestId: crypto.randomUUID() })).rejects.toThrow("latest question");
+    expect(f.calls()).toBe(1);
   } finally { f.close(); }
 });

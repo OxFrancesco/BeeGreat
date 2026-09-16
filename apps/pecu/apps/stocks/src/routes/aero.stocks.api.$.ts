@@ -6,6 +6,7 @@ const turn = z
   .object({
     requestId: z.string().uuid(),
     retryOf: z.string().min(1).max(300).optional(),
+    answerTo: z.string().min(1).max(300).optional(),
     text: z.string().trim().min(1).max(4000),
     threadId: threadIdSchema.optional(),
   })

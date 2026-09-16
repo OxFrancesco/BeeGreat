@@ -59,3 +59,15 @@ test("does not offer empty token balances as funding sources", async () => {
   expect(reply).not.toContain("swap ETH");
   expect(reply).toContain("deposit");
 });
+
+test("a typed Cancel answer stops a pending clarification without confirmation-code instructions", async () => {
+  let calls = 0;
+  const { agent } = fixture(async (_message, tools) => {
+    calls++;
+    return tools.askUser("Use ETH?", ["ETH", "Cancel"]);
+  });
+  await agent.handle(message("Buy stock"));
+  const reply = await agent.handle(message("Cancel"));
+  expect(reply).toBe("Cancelled. No new transaction was sent.");
+  expect(calls).toBe(1);
+});

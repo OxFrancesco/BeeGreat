@@ -115,7 +115,6 @@ export type AgentServices = Readonly<{
 
 export class PecuAgent {
   private readonly previewOnly = new Set<string>();
-  private readonly questions = new Map<string, string>();
   private readonly executing = new Set<string>();
   private readonly relayingDeposits = new Set<string>();
 
@@ -189,7 +188,13 @@ export class PecuAgent {
     if (claim === "completed") return this.store.eventReply(message.eventId);
     if (claim === "busy") return undefined;
     try {
-      if (message.retryContext !== undefined) this.previewOnly.add(message.eventId);
+      const answeringQuestion = message.retryContext === undefined && !message.replyConfirmationCode && !/^(?:b)?\//.test(message.text.trim()) && this.store.answerPendingQuestion(message);
+      if (message.retryContext !== undefined || answeringQuestion) this.previewOnly.add(message.eventId);
+      if (answeringQuestion && /^cancel$/i.test(message.text.trim())) {
+        const reply = "Cancelled. No new transaction was sent.";
+        this.store.completeEvent(message.eventId, reply);
+        return reply;
+      }
       const reply = await this.execute(message);
       this.store.completeEvent(message.eventId, reply);
       return reply;
@@ -200,7 +205,6 @@ export class PecuAgent {
       return reply;
     } finally {
       this.previewOnly.delete(message.eventId);
-      this.questions.delete(message.eventId);
     }
   }
 
@@ -226,13 +230,11 @@ export class PecuAgent {
       if (/^(?:b)?\//i.test(message.text.trim())) throw error;
       try {
         const response = await this.harness.respond(message, this.capabilitiesFor(message));
-        return this.questions.get(message.eventId) ?? response;
+        return this.questionText(message.eventId) ?? response;
       } catch (error) {
-        const question = this.questions.get(message.eventId);
+        const question = this.questionText(message.eventId);
         if (question) return question;
         throw error;
-      } finally {
-        this.questions.delete(message.eventId);
       }
     }
     switch (command.type) {
@@ -293,15 +295,20 @@ export class PecuAgent {
 
   private askUser(message: VerifiedMessage, question: string, options: readonly string[] = []): string {
     if (this.store.intentForSource(message.eventId)) throw new Error("A transaction preview already exists. Return its confirmation controls before asking another question.");
-    const existing = this.questions.get(message.eventId);
+    const existing = this.questionText(message.eventId);
     if (existing) return existing;
-    const text = question.trim() + (options.length ? "\n\n" + options.map((option, index) => `${index + 1}. ${option}`).join("\n") : "");
-    this.questions.set(message.eventId, text);
-    return text;
+    this.store.saveQuestion(message, { question: question.trim(), options: [...options] });
+    return this.questionText(message.eventId)!;
+  }
+
+  private questionText(eventId: string): string | undefined {
+    const question = this.store.questionForEvent(eventId);
+    if (!question) return undefined;
+    return question.question + (question.options.length ? "\n\n" + question.options.map((option, index) => `${index + 1}. ${option}`).join("\n") : "");
   }
 
   private requireAnswer(message: VerifiedMessage): void {
-    if (this.questions.has(message.eventId)) throw new Error("Wait for the user's reply before preparing another transaction.");
+    if (this.store.questionForEvent(message.eventId)) throw new Error("Wait for the user's reply before preparing another transaction.");
   }
 
   private async walletAddress(senderId: string): Promise<`0x${string}`> {

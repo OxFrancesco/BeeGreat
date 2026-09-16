@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { agentQuestionSchema } from "./question-contract";
 export const webIdentitySchema = z
   .object({
     userId: z.string().regex(/^user_[A-Za-z0-9]+$/),
@@ -14,6 +15,7 @@ export const webTurnSchema = webScopeSchema
   .extend({
     requestId: z.string().uuid(),
     retryOf: z.string().min(1).max(300).optional(),
+    answerTo: z.string().min(1).max(300).optional(),
     text: z.string().trim().min(1).max(4000),
   })
   .strict();
@@ -34,6 +36,7 @@ export const previewSchema = z.object({
   expiresAt: z.number(),
 });
 export const webReplySchema = z.object({
+  question: agentQuestionSchema.optional(),
   text: z.string(),
   preview: previewSchema.nullable(),
 });
