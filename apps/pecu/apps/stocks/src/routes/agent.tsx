@@ -1,3 +1,5 @@
+import { ConversationHistory } from "@/components/history-window";
+import { HistoryNavigation } from "@/components/history-navigation";
 import { PecuUserButton } from "../components/inference-profile";
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
@@ -213,6 +215,7 @@ function AgentWorkspace({
       onPrefetch={account.prefetch}
       pending={account.pending}
       threads={threads}
+      account={account}
     />
   ) : null;
 
@@ -323,9 +326,10 @@ function AgentWorkspace({
 
         <main className="pecu-chat">
           <h1 className="sr-only">Pecu agent</h1>
+          <HistoryNavigation account={account} />
           <Conversation
             className="pecu-conversation"
-            key={threadId ?? "default"}
+            key={`${threadId ?? "default"}:${account.state?.messages[0]?.id ?? "empty"}`}
             initial="instant"
             resize="instant"
           >
@@ -369,118 +373,122 @@ function AgentWorkspace({
                 </ConversationEmptyState>
               ) : (
                 <>
-                  {messages.map((message) => (
-                    <div className="pecu-turn" key={message.id}>
-                      <Message from="user">
-                        <MessageContent className="pecu-bubble-user">
-                          <MessageResponse>{message.text}</MessageResponse>
-                        </MessageContent>
-                      </Message>
-                      <Message from="assistant">
-                        <div className="pecu-assistant">
-                          <img alt="" className="pecu-avatar" src={avatar} />
-                          {message.reply ? (
-                            <MessageContent className="pecu-bubble-bot">
-                              <MessageResponse>
-                                {message.reply.preview
-                                  ? message.reply.preview.text
-                                  : (message.reply.question?.question ??
-                                    message.reply.text)}
-                              </MessageResponse>
-                              {message.reply.question?.options.length ? (
-                                <div
-                                  className="flex flex-wrap gap-2 mt-3"
-                                  role="group"
-                                  aria-label="Answer Pecu"
-                                >
-                                  {message.reply.question.options.map(
-                                    (option) => (
-                                      <Button
-                                        key={option}
-                                        variant="outline"
-                                        size="sm"
-                                        disabled={
-                                          account.pending ||
-                                          message.id !==
-                                            account.state?.messages.at(-1)?.id
-                                        }
-                                        onClick={() =>
-                                          void send(
-                                            option,
-                                            undefined,
-                                            message.id,
-                                          )
-                                        }
-                                      >
-                                        {option}
-                                      </Button>
-                                    ),
-                                  )}
-                                </div>
-                              ) : null}
-                              {message.reply.preview ? (
-                                <PreviewCard
-                                  busy={account.pending}
-                                  onSend={send}
-                                  preview={message.reply.preview}
-                                />
-                              ) : null}
-                              <MessageActions className="pecu-message-actions">
-                                <MessageAction
-                                  label="Copy reply"
-                                  onClick={() =>
-                                    void navigator.clipboard.writeText(
-                                      message.reply?.preview?.text ??
-                                        message.reply?.text ??
-                                        "",
-                                    )
-                                  }
-                                >
-                                  <CopyIcon className="size-3.5" />
-                                </MessageAction>
-                                {message.canRetry &&
-                                message.id === messages.at(-1)?.id ? (
+                  <ConversationHistory items={messages}>
+                    {(message) => (
+                      <div className="pecu-turn" key={message.id}>
+                        <Message from="user">
+                          <MessageContent className="pecu-bubble-user">
+                            <MessageResponse>{message.text}</MessageResponse>
+                          </MessageContent>
+                        </Message>
+                        <Message from="assistant">
+                          <div className="pecu-assistant">
+                            <img alt="" className="pecu-avatar" src={avatar} />
+                            {message.reply ? (
+                              <MessageContent className="pecu-bubble-bot">
+                                <MessageResponse>
+                                  {message.reply.preview
+                                    ? message.reply.preview.text
+                                    : (message.reply.question?.question ??
+                                      message.reply.text)}
+                                </MessageResponse>
+                                {message.reply.question?.options.length ? (
+                                  <div
+                                    className="flex flex-wrap gap-2 mt-3"
+                                    role="group"
+                                    aria-label="Answer Pecu"
+                                  >
+                                    {message.reply.question.options.map(
+                                      (option) => (
+                                        <Button
+                                          key={option}
+                                          variant="outline"
+                                          size="sm"
+                                          disabled={
+                                            !account.atLatest ||
+                                            account.pending ||
+                                            message.id !==
+                                              account.state?.messages.at(-1)?.id
+                                          }
+                                          onClick={() =>
+                                            void send(
+                                              option,
+                                              undefined,
+                                              message.id,
+                                            )
+                                          }
+                                        >
+                                          {option}
+                                        </Button>
+                                      ),
+                                    )}
+                                  </div>
+                                ) : null}
+                                {message.reply.preview ? (
+                                  <PreviewCard
+                                    busy={account.pending}
+                                    onSend={send}
+                                    preview={message.reply.preview}
+                                  />
+                                ) : null}
+                                <MessageActions className="pecu-message-actions">
                                   <MessageAction
-                                    label="Retry reply"
-                                    disabled={account.pending}
+                                    label="Copy reply"
                                     onClick={() =>
-                                      void account.regenerate(message)
+                                      void navigator.clipboard.writeText(
+                                        message.reply?.preview?.text ??
+                                          message.reply?.text ??
+                                          "",
+                                      )
                                     }
                                   >
-                                    <RotateCcwIcon className="size-3.5" />
+                                    <CopyIcon className="size-3.5" />
                                   </MessageAction>
+                                  {account.atLatest &&
+                                  message.canRetry &&
+                                  message.id === messages.at(-1)?.id ? (
+                                    <MessageAction
+                                      label="Retry reply"
+                                      disabled={account.pending}
+                                      onClick={() =>
+                                        void account.regenerate(message)
+                                      }
+                                    >
+                                      <RotateCcwIcon className="size-3.5" />
+                                    </MessageAction>
+                                  ) : null}
+                                </MessageActions>
+                              </MessageContent>
+                            ) : (
+                              <MessageContent className="pecu-bubble-bot pecu-bubble-muted">
+                                <span role="status">
+                                  {account.pending
+                                    ? "Pecu is answering…"
+                                    : "Waiting for Pecu…"}
+                                </span>
+                                {!account.pending ? (
+                                  <Button
+                                    className="pecu-inline-link"
+                                    disabled={account.pending}
+                                    onClick={() =>
+                                      void send(
+                                        message.text,
+                                        message.id.split(":").at(-1),
+                                      )
+                                    }
+                                    size="sm"
+                                    variant="link"
+                                  >
+                                    Resume response
+                                  </Button>
                                 ) : null}
-                              </MessageActions>
-                            </MessageContent>
-                          ) : (
-                            <MessageContent className="pecu-bubble-bot pecu-bubble-muted">
-                              <span role="status">
-                                {account.pending
-                                  ? "Pecu is answering…"
-                                  : "Waiting for Pecu…"}
-                              </span>
-                              {!account.pending ? (
-                                <Button
-                                  className="pecu-inline-link"
-                                  disabled={account.pending}
-                                  onClick={() =>
-                                    void send(
-                                      message.text,
-                                      message.id.split(":").at(-1),
-                                    )
-                                  }
-                                  size="sm"
-                                  variant="link"
-                                >
-                                  Resume response
-                                </Button>
-                              ) : null}
-                            </MessageContent>
-                          )}
-                        </div>
-                      </Message>
-                    </div>
-                  ))}
+                              </MessageContent>
+                            )}
+                          </div>
+                        </Message>
+                      </div>
+                    )}
+                  </ConversationHistory>
                   {inFlight ? (
                     <div className="pecu-turn" key="in-flight">
                       <Message from="user">
@@ -623,6 +631,7 @@ function AgentWorkspace({
 
 function ThreadList({
   threads,
+  account,
   active,
   pending,
   onOpen,
@@ -631,6 +640,7 @@ function ThreadList({
   onDelete,
 }: {
   threads: WebThread[];
+  account: ReturnType<typeof useAccount>;
   active: string | null;
   pending: boolean;
   onOpen: (id: string | null) => void;
@@ -644,7 +654,7 @@ function ThreadList({
   const current = threads.some((thread) => thread.id === active)
     ? threads
     : [
-        {
+        account.state?.thread ?? {
           id: active,
           title: "",
           createdAt: Date.now(),
@@ -725,6 +735,54 @@ function ThreadList({
           );
         })}
       </ul>
+      <nav className="history-navigation" aria-label="Thread pages">
+        {account.threadPage.olderCursor ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={account.threadsLoading}
+            onClick={() =>
+              void account.loadThreads({
+                before: account.threadPage.olderCursor!,
+              })
+            }
+          >
+            Older threads
+          </Button>
+        ) : null}
+        {account.threadPage.newerCursor ? (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={account.threadsLoading}
+              onClick={() =>
+                void account.loadThreads({
+                  after: account.threadPage.newerCursor!,
+                })
+              }
+            >
+              Newer threads
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={account.threadsLoading}
+              onClick={() => void account.loadThreads()}
+            >
+              Recent
+            </Button>
+          </>
+        ) : null}
+      </nav>
+      {account.threadsError ? (
+        <div role="alert">
+          {account.threadsError}
+          <Button variant="link" onClick={() => void account.loadThreads()}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
       <p className="pecu-thread-note">
         Deleting a thread removes its history here. Previews you already
         confirmed stay verifiable on Base.

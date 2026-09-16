@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { HistoryWindow } from "./history-window";
+import { HistoryNavigation } from "./history-navigation";
+import { useState, useRef } from "react";
 import { ArrowUp, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
@@ -13,6 +15,7 @@ export function Chat({
   signedIn: boolean;
   signIn: () => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   async function submit() {
     if (!draft.trim()) return;
@@ -40,6 +43,7 @@ export function Chat({
           </span>
         ) : null}
       </div>
+      <HistoryNavigation account={account} />
       {!account.state?.messages.length ? (
         <>
           <div className="empty-chat">
@@ -60,122 +64,130 @@ export function Chat({
           </div>
         </>
       ) : (
-        <div className="messages" aria-live="polite">
-          {account.state.messages.map((message) => (
-            <div key={message.id}>
-              <div className="flex justify-end mb-4">
-                <div className="message user">{message.text}</div>
-              </div>
-              {message.reply ? (
-                <div className="message assistant">
-                  <MessageResponse>
-                    {message.reply.preview
-                      ? message.reply.preview.text
-                      : (message.reply.question?.question ??
-                        message.reply.text)}
-                  </MessageResponse>
-                  {message.reply.question?.options.length ? (
-                    <div
-                      className="flex flex-wrap gap-2 mt-3"
-                      role="group"
-                      aria-label="Answer Pecu"
-                    >
-                      {message.reply.question.options.map((option) => (
-                        <Button
-                          key={option}
-                          variant="outline"
-                          size="sm"
-                          disabled={
-                            account.pending ||
-                            message.id !== account.state?.messages.at(-1)?.id
-                          }
-                          onClick={() =>
-                            void account.answer(message.id, option)
-                          }
-                        >
-                          {option}
-                        </Button>
-                      ))}
-                    </div>
-                  ) : null}
-                  {message.canRetry &&
-                  message.id === account.state?.messages.at(-1)?.id ? (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Retry reply"
-                      disabled={account.pending}
-                      onClick={() => void account.regenerate(message)}
-                    >
-                      <RotateCcw size={14} />
-                    </Button>
-                  ) : null}
-                  {message.reply.preview ? (
-                    <div className="preview">
-                      <span className="muted">
-                        {message.reply.preview.state === "pending"
-                          ? `Expires ${new Date(message.reply.preview.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                          : message.reply.preview.state}
-                      </span>
-                      <div className="preview-actions">
-                        {["pending", "executing"].includes(
-                          message.reply.preview.state,
-                        ) ? (
+        <div className="messages" aria-live="polite" ref={scrollRef}>
+          <HistoryWindow
+            items={account.state.messages}
+            scrollRef={scrollRef}
+            key={account.state.messages[0]?.id}
+          >
+            {(message) => (
+              <div key={message.id}>
+                <div className="flex justify-end mb-4">
+                  <div className="message user">{message.text}</div>
+                </div>
+                {message.reply ? (
+                  <div className="message assistant">
+                    <MessageResponse>
+                      {message.reply.preview
+                        ? message.reply.preview.text
+                        : (message.reply.question?.question ??
+                          message.reply.text)}
+                    </MessageResponse>
+                    {message.reply.question?.options.length ? (
+                      <div
+                        className="flex flex-wrap gap-2 mt-3"
+                        role="group"
+                        aria-label="Answer Pecu"
+                      >
+                        {message.reply.question.options.map((option) => (
                           <Button
-                            disabled={account.pending}
-                            onClick={() =>
-                              void account.send(
-                                `/confirm ${message.reply!.preview!.code}`,
-                              )
-                            }
-                          >
-                            {message.reply.preview.state === "executing"
-                              ? "Check transaction"
-                              : "Confirm transaction"}
-                          </Button>
-                        ) : null}
-                        {message.reply.preview.state === "pending" ? (
-                          <Button
-                            disabled={account.pending}
+                            key={option}
                             variant="outline"
+                            size="sm"
+                            disabled={
+                              !account.atLatest ||
+                              account.pending ||
+                              message.id !== account.state?.messages.at(-1)?.id
+                            }
                             onClick={() =>
-                              void account.send(
-                                `/cancel ${message.reply!.preview!.code}`,
-                              )
+                              void account.answer(message.id, option)
                             }
                           >
-                            Cancel
+                            {option}
                           </Button>
-                        ) : null}
+                        ))}
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="muted">
-                  <span role="status">
-                    {account.pending
-                      ? "Pecu is answering…"
-                      : "Waiting for Pecu…"}
-                  </span>
-                  {!account.pending ? (
-                    <Button
-                      variant="link"
-                      disabled={account.pending}
-                      onClick={() =>
-                        void account.send(
-                          message.text,
-                          message.id.split(":").at(-1),
-                        )
-                      }
-                    >
-                      Resume response
-                    </Button>
-                  ) : null}
-                </div>
-              )}
-            </div>
-          ))}
+                    ) : null}
+                    {account.atLatest &&
+                    message.canRetry &&
+                    message.id === account.state?.messages.at(-1)?.id ? (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Retry reply"
+                        disabled={account.pending}
+                        onClick={() => void account.regenerate(message)}
+                      >
+                        <RotateCcw size={14} />
+                      </Button>
+                    ) : null}
+                    {message.reply.preview ? (
+                      <div className="preview">
+                        <span className="muted">
+                          {message.reply.preview.state === "pending"
+                            ? `Expires ${new Date(message.reply.preview.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                            : message.reply.preview.state}
+                        </span>
+                        <div className="preview-actions">
+                          {["pending", "executing"].includes(
+                            message.reply.preview.state,
+                          ) ? (
+                            <Button
+                              disabled={account.pending}
+                              onClick={() =>
+                                void account.send(
+                                  `/confirm ${message.reply!.preview!.code}`,
+                                )
+                              }
+                            >
+                              {message.reply.preview.state === "executing"
+                                ? "Check transaction"
+                                : "Confirm transaction"}
+                            </Button>
+                          ) : null}
+                          {message.reply.preview.state === "pending" ? (
+                            <Button
+                              disabled={account.pending}
+                              variant="outline"
+                              onClick={() =>
+                                void account.send(
+                                  `/cancel ${message.reply!.preview!.code}`,
+                                )
+                              }
+                            >
+                              Cancel
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="muted">
+                    <span role="status">
+                      {account.pending
+                        ? "Pecu is answering…"
+                        : "Waiting for Pecu…"}
+                    </span>
+                    {!account.pending ? (
+                      <Button
+                        variant="link"
+                        disabled={account.pending}
+                        onClick={() =>
+                          void account.send(
+                            message.text,
+                            message.id.split(":").at(-1),
+                          )
+                        }
+                      >
+                        Resume response
+                      </Button>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            )}
+          </HistoryWindow>
         </div>
       )}
       {account.error ? (

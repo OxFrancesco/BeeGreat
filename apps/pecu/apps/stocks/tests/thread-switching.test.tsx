@@ -59,10 +59,17 @@ beforeEach(() => {
   });
   window.document.write("<!doctype html><html><body></body></html>");
   requests = [];
-  globalThis.fetch = ((url: string) =>
-    new Promise<Response>((resolve) =>
-      requests.push({ url, resolve }),
-    )) as typeof fetch;
+  globalThis.fetch = ((url: string) => {
+    if (url.includes("/threads"))
+      return Promise.resolve(
+        Response.json({
+          threads: state(null).threads,
+          olderCursor: null,
+          newerCursor: null,
+        }),
+      );
+    return new Promise<Response>((resolve) => requests.push({ url, resolve }));
+  }) as typeof fetch;
   root = createRoot(document.createElement("div"));
 });
 afterEach(async () => {
@@ -85,7 +92,7 @@ test("revisiting a thread renders cached history before the network responds", a
   await respond(0, state(null));
   await render("aaaaaaaa");
   await respond(
-    requests.findIndex((r) => r.url.endsWith("t=aaaaaaaa")),
+    requests.findIndex((r) => r.url.includes("t=aaaaaaaa")),
     state("aaaaaaaa"),
   );
   await render(null);
@@ -96,9 +103,9 @@ test("a late history response cannot replace the selected thread", async () => {
   await render(null);
   await respond(0, state(null));
   await render("aaaaaaaa");
-  const a = requests.findIndex((r) => r.url.endsWith("t=aaaaaaaa"));
+  const a = requests.findIndex((r) => r.url.includes("t=aaaaaaaa"));
   await render("bbbbbbbb");
-  const b = requests.findIndex((r) => r.url.endsWith("t=bbbbbbbb"));
+  const b = requests.findIndex((r) => r.url.includes("t=bbbbbbbb"));
   await respond(b, state("bbbbbbbb"));
   await respond(a, state("aaaaaaaa"));
   expect(account.state?.messages[0]?.id).toBe("bbbbbbbb");
@@ -117,12 +124,12 @@ test("a pending reply and its completion stay with the originating thread", asyn
   expect(account.pending).toBe(false);
   expect(account.inFlight).toBe(null);
   await respond(
-    requests.findIndex((r) => r.url.endsWith("t=aaaaaaaa")),
+    requests.findIndex((r) => r.url.includes("t=aaaaaaaa")),
     state("aaaaaaaa"),
   );
   await respond(turn, {});
   await respond(
-    requests.findLastIndex((r) => r.url.endsWith("/state")),
+    requests.findLastIndex((r) => r.url.endsWith("/state?paged=1")),
     state(null),
   );
   await act(async () => {
@@ -139,12 +146,12 @@ test("signing out discards history and ignores outstanding requests", async () =
   await render(null);
   await respond(0, state(null));
   await render("aaaaaaaa");
-  const a = requests.findIndex((r) => r.url.endsWith("t=aaaaaaaa"));
+  const a = requests.findIndex((r) => r.url.includes("t=aaaaaaaa"));
   await render("aaaaaaaa", false);
   await respond(a, state("aaaaaaaa"));
   expect(account.state).toBe(null);
   await render(null);
-  expect(account.state).toBe(null);
+  expect(account.state?.messages ?? []).toEqual([]);
 });
 
 test("new threads are empty immediately without borrowing another thread's YOLO setting", async () => {
@@ -169,4 +176,45 @@ test("newer reloads win when responses for the same thread arrive out of order",
     await reload!;
   });
   expect(account.state?.messages).toEqual([]);
+});
+
+test("history navigation keeps old content until its page arrives, then returns to latest", async () => {
+  await render(null);
+  const cursor = { at: 5, row: 5 };
+  await respond(0, { ...state(null), olderCursor: cursor, newerCursor: null });
+  let paging: Promise<void>;
+  await act(async () => {
+    paging = account.pageMessages({ before: cursor });
+  });
+  expect(account.paging).toBe(true);
+  expect(account.state?.messages[0]?.id).toBe("first");
+  expect(requests[1]?.url).toContain("/messages?");
+  await respond(1, {
+    messages: [{ ...state(null).messages[0], id: "older" }],
+    olderCursor: null,
+    newerCursor: cursor,
+  });
+  await act(async () => {
+    await paging!;
+  });
+  expect(account.atLatest).toBe(false);
+  expect(account.state?.messages[0]?.id).toBe("older");
+  await act(async () => {
+    paging = account.pageMessages();
+  });
+  await respond(2, { ...state(null), olderCursor: cursor, newerCursor: null });
+  await act(async () => {
+    await paging!;
+  });
+  expect(account.atLatest).toBe(true);
+});
+
+test("intent prefetch caps concurrent requests and does not fetch every sidebar thread", async () => {
+  await render(null);
+  await respond(0, state(null));
+  expect(requests.length).toBe(1);
+  await act(async () => {
+    for (let i = 0; i < 100; i++) account.prefetch(`thread-${i}`);
+  });
+  expect(requests.length).toBe(3);
 });

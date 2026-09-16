@@ -1,9 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { webStateSchema, type WebState } from "../../../../src/web-contract";
+import {
+  webStateSchema,
+  messagePageSchema,
+  threadPageSchema,
+  type MessagePageQuery,
+  type ThreadPageQuery,
+  type ThreadPage,
+  type WebState,
+} from "../../../../src/web-contract";
+import { historyBytes, trimThreadCache } from "./thread-cache";
 import { z } from "zod";
 const errorSchema = z.object({ error: z.string() });
-export async function request(path: string, body?: unknown) {
+export async function request(
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+) {
   const response = await fetch(`/aero/stocks/api/${path}`, {
+    signal,
     ...(body === undefined
       ? {}
       : {
@@ -30,6 +44,9 @@ type Retry = {
 };
 type ThreadState = {
   state: WebState | null;
+  bytes: number;
+  page: MessagePageQuery;
+  paging: boolean;
   error: string;
   pending: boolean;
   retry: Retry | null;
@@ -37,6 +54,9 @@ type ThreadState = {
 };
 const EMPTY_THREAD: ThreadState = {
   state: null,
+  bytes: 0,
+  page: {},
+  paging: false,
   error: "",
   pending: false,
   retry: null,
@@ -51,94 +71,198 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     WebState,
     "wallet" | "threads"
   > | null>(null);
+  const [threadPage, setThreadPage] = useState<ThreadPage>({
+    threads: [],
+    olderCursor: null,
+    newerCursor: null,
+  });
+  const [threadsLoading, setThreadsLoading] = useState(false);
+  const [threadsError, setThreadsError] = useState("");
   const generation = useRef(0);
-  const loads = useRef(new Map<string | null, Promise<void>>());
-  const sharedVersion = useRef(0);
-  const requestVersion = useRef(0);
+  const active = useRef(threadId);
+  active.current = threadId;
+  const cacheRef = useRef(cache);
+  cacheRef.current = cache;
+  const loads = useRef(
+    new Map<
+      string | null,
+      { promise: Promise<void>; controller: AbortController }
+    >(),
+  );
+  const threadLoad = useRef<AbortController | null>(null);
   const sends = useRef(new Set<string | null>());
   const update = useCallback(
     (id: string | null, patch: Partial<ThreadState>) => {
-      setCache((current) =>
-        new Map(current).set(id, {
-          ...(current.get(id) ?? EMPTY_THREAD),
-          ...patch,
-        }),
-      );
+      setCache((current) => {
+        const next = new Map(current);
+        const entry = { ...(next.get(id) ?? EMPTY_THREAD), ...patch };
+        if (patch.state !== undefined) entry.bytes = historyBytes(patch.state);
+        next.delete(id);
+        next.set(id, entry);
+        return trimThreadCache(next, active.current);
+      });
     },
     [],
   );
+  const loadThreads = useCallback(
+    async (page: ThreadPageQuery = {}) => {
+      if (!signedIn) return;
+      threadLoad.current?.abort();
+      const controller = new AbortController();
+      threadLoad.current = controller;
+      const epoch = generation.current;
+      setThreadsLoading(true);
+      setThreadsError("");
+      try {
+        const result = threadPageSchema.parse(
+          await request(
+            `threads${pageQuery(page)}`,
+            undefined,
+            controller.signal,
+          ),
+        );
+        if (epoch !== generation.current || controller.signal.aborted) return;
+        setThreadPage(result);
+        setShared((current) => ({
+          wallet: current?.wallet ?? null,
+          threads: result.threads,
+        }));
+      } catch (error) {
+        if (epoch === generation.current && !controller.signal.aborted)
+          setThreadsError(
+            error instanceof Error ? error.message : "Could not load threads.",
+          );
+      } finally {
+        if (threadLoad.current === controller) setThreadsLoading(false);
+      }
+    },
+    [signedIn],
+  );
   const load = useCallback(
-    (id: string | null, force = false): Promise<void> => {
+    (
+      id: string | null,
+      force = false,
+      page: MessagePageQuery = {},
+    ): Promise<void> => {
       if (!signedIn) return Promise.resolve();
       const existing = loads.current.get(id);
-      if (existing && !force) return existing;
+      if (existing && !force) return existing.promise;
+      existing?.controller.abort();
+      const controller = new AbortController();
       const epoch = generation.current;
-      const version = ++requestVersion.current;
-      const query = id ? `?t=${encodeURIComponent(id)}` : "";
-      const promise = request(`state${query}`)
+      const previous = cacheRef.current.get(id)?.state;
+      const historyOnly = Boolean(previous && (page.before || page.after));
+      const query = pageQuery(page, id, !historyOnly);
+      const promise = request(
+        `${historyOnly ? "messages" : "state"}${query}`,
+        undefined,
+        controller.signal,
+      )
         .then((data) => {
-          if (epoch !== generation.current || loads.current.get(id) !== promise)
-            return;
-          const state = webStateSchema.parse(data);
-          update(id, { state, error: "" });
-          if (version >= sharedVersion.current) {
-            sharedVersion.current = version;
-            setShared({ wallet: state.wallet, threads: state.threads });
-          }
+          if (epoch !== generation.current || controller.signal.aborted) return;
+          const state = historyOnly
+            ? { ...previous!, ...messagePageSchema.parse(data) }
+            : webStateSchema.parse(data);
+          // Summaries are fetched separately and never duplicated into each history.
+          const { threads: _threads, ...history } = state;
+          update(id, { state: history, error: "", page, paging: false });
+          setShared((current) => ({
+            wallet: state.wallet,
+            threads: current?.threads ?? [],
+          }));
         })
         .finally(() => {
-          if (loads.current.get(id) === promise) loads.current.delete(id);
+          if (loads.current.get(id)?.promise === promise)
+            loads.current.delete(id);
         });
-      loads.current.set(id, promise);
+      loads.current.set(id, { promise, controller });
       return promise;
     },
     [signedIn, update],
   );
   const reload = useCallback(() => load(threadId, true), [load, threadId]);
+  const pageMessages = useCallback(
+    async (page: MessagePageQuery = {}) => {
+      const epoch = generation.current;
+      update(threadId, { paging: true, error: "" });
+      try {
+        await load(threadId, true, page);
+      } catch (error) {
+        if (epoch === generation.current)
+          update(threadId, {
+            paging: false,
+            error:
+              error instanceof Error && error.name === "AbortError"
+                ? ""
+                : error instanceof Error
+                  ? error.message
+                  : "Could not load messages.",
+          });
+      }
+    },
+    [threadId, load, update],
+  );
   const prefetch = useCallback(
     (id: string | null) => {
-      if (!cache.get(id)?.state) void load(id).catch(() => {});
+      if (cacheRef.current.get(id)?.state || loads.current.size >= 2) return;
+      void load(id).catch(() => {});
     },
-    [cache, load],
+    [load],
   );
   useEffect(() => {
     if (!signedIn) {
       generation.current++;
-      loads.current.clear();
       sends.current.clear();
       setCache(new Map());
       setShared(null);
-    }
+      setThreadPage({ threads: [], olderCursor: null, newerCursor: null });
+    } else void loadThreads();
     return () => {
       generation.current++;
+      for (const { controller } of loads.current.values()) controller.abort();
       loads.current.clear();
+      threadLoad.current?.abort();
     };
-  }, [signedIn]);
+  }, [signedIn, loadThreads]);
   useEffect(() => {
     const epoch = generation.current;
-    if (signedIn)
-      void load(threadId).catch((e) => {
-        if (generation.current === epoch)
-          update(threadId, {
-            error:
-              e instanceof Error ? e.message : "Could not load this thread.",
-          });
-      });
-  }, [signedIn, threadId, load, update]);
-  useEffect(() => {
     if (!signedIn) return;
-    for (const thread of shared?.threads?.slice(0, 6) ?? []) {
-      if (thread.id !== threadId && !cache.get(thread.id)?.state)
-        prefetch(thread.id);
+    // Keep the selected history immediately. Cancel obsolete reads on rapid switches.
+    for (const [id, entry] of loads.current) {
+      if (id !== threadId && !sends.current.has(id)) {
+        entry.controller.abort();
+        loads.current.delete(id);
+      }
     }
-  }, [signedIn, shared?.threads, cache, threadId, prefetch]);
+    const cached = cacheRef.current.get(threadId);
+    if (cached?.state) {
+      update(threadId, {});
+      void load(threadId, false, cached.page).catch(() => {});
+      return;
+    }
+    void load(threadId).catch((error) => {
+      if (
+        generation.current === epoch &&
+        active.current === threadId &&
+        error?.name !== "AbortError"
+      )
+        update(threadId, {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not load this thread.",
+        });
+    });
+  }, [signedIn, threadId, load, update]);
   const prepareNewThread = useCallback(
     (id: string) => {
       if (!shared) return;
       update(id, {
         state: {
-          ...shared,
+          wallet: shared.wallet,
           threadId: id,
+          olderCursor: null,
+          newerCursor: null,
           yolo: false,
           messages: [],
           stocks: null,
@@ -180,6 +304,8 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
       if (!signedIn || sends.current.has(threadId)) return;
       const epoch = generation.current;
       sends.current.add(threadId);
+      if (cacheRef.current.get(threadId)?.state?.newerCursor)
+        void load(threadId, true).catch(() => {});
       update(threadId, {
         pending: true,
         error: "",
@@ -208,7 +334,10 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
           ...(answerTo ? { answerTo } : {}),
           ...(threadId ? { threadId } : {}),
         });
-        if (generation.current === epoch) await reload();
+        if (generation.current === epoch) {
+          await reload();
+          void loadThreads();
+        }
       } catch (e) {
         if (generation.current !== epoch) return;
         await reload().catch(() => {});
@@ -225,12 +354,13 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
         }
       }
     },
-    [signedIn, threadId, reload, update],
+    [signedIn, threadId, reload, update, loadThreads, load],
   );
   useEffect(() => {
     if (
       !signedIn ||
       current.pending ||
+      current.state?.newerCursor ||
       !current.state?.messages.some((message) => !message.reply)
     )
       return;
@@ -256,7 +386,8 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
       try {
         await request("thread-delete", { threadId: target });
         if (generation.current !== epoch) return false;
-        loads.current.clear();
+        loads.current.get(target)?.controller.abort();
+        loads.current.delete(target);
         setCache((current) => {
           const next = new Map(current);
           next.delete(target);
@@ -272,7 +403,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
               }
             : current,
         );
-        await reload();
+        await Promise.all([reload(), loadThreads()]);
         return true;
       } catch (e) {
         if (generation.current === epoch)
@@ -282,11 +413,18 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
         return false;
       }
     },
-    [reload, setError],
+    [reload, setError, loadThreads],
   );
   return {
     state,
     loading,
+    paging: current.paging,
+    pageMessages,
+    atLatest: !current.state?.newerCursor,
+    threadPage,
+    threadsLoading,
+    threadsError,
+    loadThreads,
     error: current.error,
     pending: current.pending,
     retry: current.retry,
@@ -300,4 +438,17 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     deleteThread,
     setError,
   };
+}
+
+function pageQuery(
+  page: MessagePageQuery | ThreadPageQuery,
+  id?: string | null,
+  paged = false,
+) {
+  const query = new URLSearchParams();
+  if (id) query.set("t", id);
+  if (paged) query.set("paged", "1");
+  if (page.before) query.set("before", JSON.stringify(page.before));
+  if (page.after) query.set("after", JSON.stringify(page.after));
+  return query.size ? `?${query}` : "";
 }

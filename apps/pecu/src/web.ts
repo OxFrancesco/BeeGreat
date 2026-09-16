@@ -1,3 +1,5 @@
+import { WebHistory, type HistoryRow } from "./web-history";
+import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import type { z } from "zod";
 import type { PecuAgent } from "./agent";
@@ -23,6 +25,7 @@ type Identity = z.infer<typeof webIdentitySchema>;
 type Scope = z.infer<typeof webScopeSchema>;
 type Turn = z.infer<typeof webTurnSchema>;
 export class WebAgent {
+  private readonly history: WebHistory;
   private readonly active = new Set<string>();
   constructor(
     private readonly agent: PecuAgent,
@@ -35,10 +38,13 @@ export class WebAgent {
     sql.exec(
       `CREATE INDEX IF NOT EXISTS basedbot_web_turns_owner ON basedbot_web_turns(owner,created_at)`,
     );
-    sql.exec(`CREATE TABLE IF NOT EXISTS basedbot_web_retries (id TEXT PRIMARY KEY, target TEXT NOT NULL, context TEXT NOT NULL)`);
+    sql.exec(
+      `CREATE TABLE IF NOT EXISTS basedbot_web_retries (id TEXT PRIMARY KEY, target TEXT NOT NULL, context TEXT NOT NULL)`,
+    );
     sql.exec(
       `CREATE TABLE IF NOT EXISTS basedbot_web_profiles (owner TEXT PRIMARY KEY, stocks TEXT, stocks_at INTEGER, basket TEXT)`,
     );
+    this.history = new WebHistory(sql);
   }
   /**
    * The original web conversation keeps its `stocks:` owner so existing
@@ -50,41 +56,60 @@ export class WebAgent {
     return threadId ? `${base}#${threadId}` : base;
   }
   threads(identity: Identity): WebThread[] {
-    const base = this.owner(identity);
-    return this.sql
-      .exec<{ owner: string; created_at: number; updated_at: number; count: number }>(
-        "SELECT owner, MIN(created_at) AS created_at, MAX(created_at) AS updated_at, COUNT(*) AS count FROM basedbot_web_turns WHERE owner=? OR substr(owner,1,?)=? GROUP BY owner ORDER BY updated_at DESC, owner ASC",
-        base,
-        base.length + 1,
-        `${base}#`,
-      )
-      .toArray()
-      .map((row) => {
-        const first = this.sql
-          .exec<{ text: string }>(
-            "SELECT text FROM basedbot_web_turns WHERE owner=? ORDER BY created_at ASC LIMIT 1",
-            row.owner,
-          )
-          .toArray()[0];
-        return {
-          id: row.owner === base ? null : row.owner.slice(base.length + 1),
-          title: (first?.text ?? "").replace(/\s+/g, " ").trim().slice(0, 80),
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-          count: row.count,
-        };
-      });
+    return this.history.threads(identity).threads;
+  }
+  threadPage(identity: Identity, page: ThreadPageQuery = {}) {
+    return this.history.threads(identity, page);
+  }
+  private presentMessage(row: HistoryRow) {
+    const reply = row.reply
+      ? webReplySchema.parse(JSON.parse(row.reply))
+      : null;
+    const intent = this.store.intentForSource(row.id);
+    if (reply?.preview && intent)
+      reply.preview.state =
+        intent.state === "pending" && intent.expiresAt < Date.now()
+          ? "expired"
+          : intent.state;
+    return {
+      id: row.id,
+      text: row.text,
+      createdAt: row.created_at,
+      reply,
+      canRetry:
+        Boolean(reply) &&
+        !intent &&
+        !/^(?:b)?\/|^(?:confirm|cancel)$/i.test(row.text.trim()),
+    };
+  }
+  messagePage(scope: Scope, page: MessagePageQuery = {}) {
+    const { rows, ...cursors } = this.history.messages(scope, page);
+    return {
+      messages: rows.map((row) => this.presentMessage(row)),
+      ...cursors,
+    };
   }
   deleteThread(identity: Identity, threadId: string | null) {
     const owner = this.owner({ ...identity, threadId: threadId ?? undefined });
     if (this.active.has(owner))
-      throw new Error("Pecu is still answering in this thread. Try again in a moment.");
-    if (this.store.executingIntents().some((intent) =>
-      intent.senderId === identity.senderId && intent.conversationId === owner
-    )) throw new Error("Check the submitted transaction before deleting this thread.");
+      throw new Error(
+        "Pecu is still answering in this thread. Try again in a moment.",
+      );
+    if (
+      this.store
+        .executingIntents()
+        .some(
+          (intent) =>
+            intent.senderId === identity.senderId &&
+            intent.conversationId === owner,
+        )
+    )
+      throw new Error(
+        "Check the submitted transaction before deleting this thread.",
+      );
     this.sql.exec("DELETE FROM basedbot_web_turns WHERE owner=?", owner);
   }
-  state(scope: Scope): WebState {
+  state(scope: Scope, paged = false): WebState {
     const owner = this.owner(scope);
     const identity = { userId: scope.userId, senderId: scope.senderId };
     const profile = this.sql
@@ -92,37 +117,24 @@ export class WebAgent {
         stocks: string | null;
         stocks_at: number | null;
         basket: string | null;
-      }>("SELECT * FROM basedbot_web_profiles WHERE owner=?", this.owner(identity))
-      .toArray()[0];
-    const messages = this.sql
-      .exec<{
-        id: string;
-        text: string;
-        created_at: number;
-        reply: string | null;
       }>(
-        "SELECT * FROM basedbot_web_turns WHERE owner=? ORDER BY created_at DESC, rowid DESC LIMIT 100",
-        owner,
+        "SELECT * FROM basedbot_web_profiles WHERE owner=?",
+        this.owner(identity),
       )
-      .toArray()
-      .reverse()
-      .map((row) => {
-        const reply = row.reply
-          ? webReplySchema.parse(JSON.parse(row.reply))
-          : null;
-        const intent = this.store.intentForSource(row.id);
-        if (reply?.preview && intent)
-          reply.preview.state =
-            intent.state === "pending" && intent.expiresAt < Date.now()
-              ? "expired"
-              : intent.state;
-        return { id: row.id, text: row.text, createdAt: row.created_at, reply, canRetry: Boolean(reply) && !intent && !/^(?:b)?\/|^(?:confirm|cancel)$/i.test(row.text.trim()) };
-      });
+      .toArray()[0];
+    const { rows, ...cursors } = this.history.messages(
+      scope,
+      {},
+      paged ? 40 : 100,
+    );
+    const messages = rows.map((row) => this.presentMessage(row));
     return {
       wallet: this.store.wallet(identity.senderId)?.address ?? null,
       yolo: this.store.yoloEnabled(identity.senderId, owner),
       threadId: scope.threadId ?? null,
-      threads: this.threads(identity),
+      ...(paged ? {} : { threads: this.threads(identity) }),
+      thread: this.history.threadFor(scope),
+      ...cursors,
       messages,
       stocks: profile?.stocks ?? null,
       stocksAt: profile?.stocks_at ?? null,

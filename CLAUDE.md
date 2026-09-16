@@ -45,6 +45,7 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 - `resources/opencode-v2` — OpenCode v2 provider and Workerd integration reference for Pecu
 - `resources/cloudflare-containers` — Official Cloudflare Containers SDK and runtime examples
+- `resources/tanstack-virtual` — TanStack Virtual reference for measured variable-height chat and thread lists
 
 <!-- codeview:end -->
 

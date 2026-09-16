@@ -7,14 +7,25 @@ export const inferenceStatusSchema = z.object({
   checkedAt: z.number(),
   lastResponse: z.object({ ok: z.boolean(), at: z.number() }).nullable(),
   loginState: z.enum(["pending", "complete", "failed", "expired"]).nullable(),
-  login: z.object({
-    url: z.string().url().refine((value) => {
-      const url = new URL(value);
-      return url.protocol === "https:" && ["auth.openai.com", "chatgpt.com"].includes(url.hostname);
-    }),
-    instructions: z.string(),
-    expiresAt: z.union([z.number(), z.enum(["-Infinity", "Infinity", "NaN"])]),
-  }).nullable(),
+  login: z
+    .object({
+      url: z
+        .string()
+        .url()
+        .refine((value) => {
+          const url = new URL(value);
+          return (
+            url.protocol === "https:" &&
+            ["auth.openai.com", "chatgpt.com"].includes(url.hostname)
+          );
+        }),
+      instructions: z.string(),
+      expiresAt: z.union([
+        z.number(),
+        z.enum(["-Infinity", "Infinity", "NaN"]),
+      ]),
+    })
+    .nullable(),
 });
 export type InferenceStatus = z.infer<typeof inferenceStatusSchema>;
 export const webIdentitySchema = z
@@ -77,12 +88,24 @@ export const basketSchema = z
     allocations: z.string().min(1).max(300),
   })
   .strict();
+export const messageCursorSchema = z
+  .object({
+    at: z.number().int().nonnegative(),
+    row: z.number().int().positive(),
+  })
+  .strict();
+export const threadCursorSchema = z
+  .object({ at: z.number().int().nonnegative(), id: threadIdSchema.nullable() })
+  .strict();
 export const webStateSchema = z.object({
   wallet: z.string().nullable(),
   yolo: z.boolean(),
   /** Optional so a client can read state from a backend deployed before threads existed. */
   threadId: z.string().nullable().optional(),
   threads: z.array(webThreadSchema).optional(),
+  thread: webThreadSchema.nullable().optional(),
+  olderCursor: messageCursorSchema.nullable().optional(),
+  newerCursor: messageCursorSchema.nullable().optional(),
   messages: z.array(webMessageSchema),
   stocks: z.string().nullable(),
   stocksAt: z.number().nullable(),
@@ -90,3 +113,49 @@ export const webStateSchema = z.object({
 });
 export type WebState = z.infer<typeof webStateSchema>;
 export type WebThread = z.infer<typeof webThreadSchema>;
+
+export const messagePageQuerySchema = z
+  .object({
+    before: messageCursorSchema.optional(),
+    after: messageCursorSchema.optional(),
+  })
+  .strict()
+  .refine(
+    (value) => !(value.before && value.after),
+    "Choose one page direction",
+  );
+export const threadPageQuerySchema = z
+  .object({
+    before: threadCursorSchema.optional(),
+    after: threadCursorSchema.optional(),
+  })
+  .strict()
+  .refine(
+    (value) => !(value.before && value.after),
+    "Choose one page direction",
+  );
+export const webHistoryRequestSchema = webScopeSchema
+  .extend({ page: messagePageQuerySchema.optional() })
+  .strict();
+export const webThreadsRequestSchema = webIdentitySchema
+  .extend({ page: threadPageQuerySchema.optional() })
+  .strict();
+export const webStateRequestSchema = webScopeSchema
+  .extend({ paged: z.boolean().optional() })
+  .strict();
+export const messagePageSchema = z.object({
+  messages: z.array(webMessageSchema),
+  olderCursor: messageCursorSchema.nullable(),
+  newerCursor: messageCursorSchema.nullable(),
+});
+export const threadPageSchema = z.object({
+  threads: z.array(webThreadSchema),
+  olderCursor: threadCursorSchema.nullable(),
+  newerCursor: threadCursorSchema.nullable(),
+});
+export type MessageCursor = z.infer<typeof messageCursorSchema>;
+export type ThreadCursor = z.infer<typeof threadCursorSchema>;
+export type MessagePageQuery = z.infer<typeof messagePageQuerySchema>;
+export type ThreadPageQuery = z.infer<typeof threadPageQuerySchema>;
+export type MessagePage = z.infer<typeof messagePageSchema>;
+export type ThreadPage = z.infer<typeof threadPageSchema>;

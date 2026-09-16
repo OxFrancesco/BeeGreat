@@ -553,3 +553,6 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+
+.history-navigation { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; flex-shrink: 0; }
+.messages:has([data-history-window]) { height: 540px; }

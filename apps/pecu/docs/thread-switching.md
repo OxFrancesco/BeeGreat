@@ -1,29 +1,49 @@
-# Thread switching
+# Thread switching and large histories
 
-The web agent keeps its workspace mounted when the `t` search parameter changes. Only the conversation scroll container resets. Account identity remains the workspace key, so changing accounts discards cached history and drafts.
+The authenticated workspace stays mounted when `/agent?t=...` changes. Cached history renders immediately. A cold thread loads inside the conversation area while the sidebar, header, and composer stay mounted. Each thread keeps its own drafts, YOLO state, pending request, errors, and retry controls.
 
-Thread history stays in memory for the current workspace. Switching to a cached thread renders it immediately and refreshes it in the background. The first six recent threads preload after the initial account response. Hover, focus, and touch also preload a thread. An uncached conversation shows a loading message inside the existing layout until its history arrives. New threads start empty immediately.
+## Bounded reads and rendering
 
-The sidebar and wallet stay visible during history requests. Messages, YOLO state, pending replies, retries, errors, and drafts belong to their thread. A late response updates only its originating thread. Requests started before sign-out or superseded by another reload cannot overwrite current state. Deleting history invalidates the cached thread and outstanding reads.
+The web client requests 40 turns at a time, using `Earlier messages`, `Later messages`, and `Latest`. It replaces the current page instead of accumulating every visited page. The thread sidebar requests 40 indexed summaries per page and keeps the selected thread visible if it is outside that page. Message rows use measured TanStack Virtual windows with two rows of overscan. The small sidebar page renders all of its buttons so keyboard navigation remains available.
+
+The history cache retains at most 12 populated histories, with a 4 MiB serialized-payload budget. It evicts the least recently used inactive pages. The active page remains readable even if that single page exceeds the byte budget. This is a payload budget, not a JavaScript heap limit. Pending and retry controls survive history eviction; user drafts are not discarded. Hover, focus, and touch prefetch at most two concurrent reads. Switching cancels obsolete reads. There is no eager loop over every sidebar thread.
+
+Cached selection revalidates its current page in the background. Message polling applies only to the latest page. Sending from an older page returns to the latest page. Historical question choices and retry buttons cannot act as if they were the latest turn. Superseded requests and responses from before sign-out cannot replace current state.
+
+## Storage and rollout
+
+`basedbot_web_threads` stores one summary per owner, indexed by account, update time, and owner. SQLite insert/delete triggers maintain the title, count, and timestamps for new turns and full-thread deletion. Reply updates and transport retries do not increment counts. Existing histories receive an idempotent, account-scoped backfill on their first summary read. That one-time backfill still scans the account's existing turns; subsequent page reads use the index. Million-turn migration latency has not been measured.
+
+`/threads` and `/messages` accept validated seek cursors and derive ownership from the authenticated identity. Message cursors use creation time and SQLite rowid, preserving order when timestamps tie or a retry changes the message ID. No offset scans or per-thread title queries are used during normal listing. Empty pages retain a reverse cursor so deletion during browsing does not strand the reader.
+
+Deploy the Pecu `basedbot` Worker before the `aero-stocks` web Worker. The old `/state` response remains available with its 100-turn history limit and first summary page. The new client uses `/state?paged=1` and separate summary requests. Existing Durable Object names, storage keys, migration tags, and histories remain in place.
 
 ## Verification
 
-Run from `apps/pecu/apps/stocks`:
+From `apps/pecu`:
 
 ```sh
-bun test ./tests/thread-switching.test.tsx ./tests/message-rendering.test.tsx
 bun run typecheck
-bun run build
+bun test ./tests/web-agent.test.ts ./tests/web-history.test.ts ./tests/history-workerd.test.ts
 ```
 
-For browser checks, ensure port 5198 is unused, then run:
+From `apps/pecu/apps/stocks`:
 
 ```sh
-bunx --no-install vite --config tests/browser/vite.config.ts
+bun run typecheck
+bun test ./tests/thread-switching.test.tsx ./tests/thread-cache.test.ts ./tests/message-rendering.test.tsx
+bun run build
+bunx vite --config tests/browser/vite.config.ts
 ```
 
-Open `http://127.0.0.1:5198/agent`. This fixture renders the real agent route with synthetic account data and a 1.5 second delay on history reads. It cannot submit messages or transactions. Verify cached switches, fresh threads, draft restoration through Back, sidebar collapse, and the mobile thread dialog.
+The database fixture contains 1,000 threads and 100,000 stored turns. It checks complete cursor traversal, equal timestamps, account isolation, idempotent backfill, indexed plans, retries, and deletion. The Workerd test runs migration and triggers in actual Durable Object SQLite.
 
-The September 16 audit reproduced a roughly 1.1 second sidebar disappearance in production, plus replacement of the header and composer. The local cached switch displayed the destination conversation in 52 ms and retained all three DOM nodes without a loading or welcome-screen flash. This measurement uses fixture data, not production API latency.
+The browser fixture at `http://127.0.0.1:5198/agent` models 1,000 threads and 10,000 messages per thread with 600 ms read latency. It renders the actual route and simulates a 15-second pending reply locally. It never sends messages or transactions to an external service. Verify cached switches, older/newer message and thread pages, draft restoration, sidebar collapse, and the mobile dialog. Browser fixtures establish UI behavior, not production load capacity.
 
-The change applies to Pecu's desktop and mobile web layouts and the account hook shared with Stocks. BeeGreat's native apps, CLI, iMessage, voice, provider protocols, and backend contracts have no equivalent Pecu web thread navigation to change. No backend deployment is required for this fix. The browser verification does not establish that the fix has been deployed.
+## Applicable clients
+
+This change covers Pecu desktop/mobile web, the Stocks chat, their authenticated API routes, and the Pecu Worker storage contract. BeeGreat native mobile, Android, CLI, iMessage, voice, Hive, model providers, and channel rendering do not consume these Pecu web-history endpoints. Their behavior is unchanged. Both backend and web deployment are required for this follow-up.
+
+## Mascot
+
+Chat avatars use the existing transparent 3D assets without a painted tile or shadow. Their box is 72 px on desktop and 60 px on mobile, 50% larger than the previous 48 px and 40 px. The thinking state retains the alpha WebM/HEVC animation and transparent reduced-motion poster.

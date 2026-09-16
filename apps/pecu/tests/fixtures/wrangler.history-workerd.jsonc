@@ -1,0 +1,7 @@
+{
+  "name":"pecu-history-workerd-test",
+  "main":"history-workerd-worker.ts",
+  "compatibility_date":"2026-08-29",
+  "durable_objects":{"bindings":[{"name":"HISTORY","class_name":"HistoryProbe"}]},
+  "migrations":[{"tag":"v1","new_sqlite_classes":["HistoryProbe"]}]
+}

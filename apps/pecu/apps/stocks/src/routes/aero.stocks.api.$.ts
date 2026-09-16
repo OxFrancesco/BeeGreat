@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { agentRequest, identity, sameOrigin } from "../lib/server";
-import { basketSchema, threadIdSchema, inferenceStatusSchema } from "../../../../src/web-contract";
+import {
+  basketSchema,
+  threadIdSchema,
+  messagePageQuerySchema,
+  threadPageQuerySchema,
+  inferenceStatusSchema,
+} from "../../../../src/web-contract";
 const turn = z
   .object({
     requestId: z.string().uuid(),
@@ -29,21 +35,57 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
           try {
             viewer = await identity();
           } catch {
-            return json({ error: "Sign in with X to check Pecu's connection." }, 401);
+            return json(
+              { error: "Sign in with X to check Pecu's connection." },
+              401,
+            );
           }
           try {
             const response = await agentRequest("inference", viewer);
-            if (!response.ok) return json({ error: "Could not check Pecu's connection. Try again." }, 503);
+            if (!response.ok)
+              return json(
+                { error: "Could not check Pecu's connection. Try again." },
+                503,
+              );
             return json(inferenceStatusSchema.parse(await response.json()));
           } catch {
-            return json({ error: "Could not check Pecu's connection. Try again." }, 503);
+            return json(
+              { error: "Could not check Pecu's connection. Try again." },
+              503,
+            );
           }
         }
-        if (params._splat !== "state") return json({ error: "Not found" }, 404);
+        if (!["state", "messages", "threads"].includes(params._splat ?? ""))
+          return json({ error: "Not found" }, 404);
         try {
           const thread = new URL(request.url).searchParams.get("t");
           const threadId = thread ? threadIdSchema.parse(thread) : undefined;
-          return await agentRequest("state", { ...(await identity()), threadId });
+          const query = new URL(request.url).searchParams;
+          const page = {
+            ...(query.has("before")
+              ? { before: JSON.parse(query.get("before")!) }
+              : {}),
+            ...(query.has("after")
+              ? { after: JSON.parse(query.get("after")!) }
+              : {}),
+          };
+          const viewer = await identity();
+          if (params._splat === "threads")
+            return await agentRequest("threads", {
+              ...viewer,
+              page: threadPageQuerySchema.parse(page),
+            });
+          if (params._splat === "messages")
+            return await agentRequest("messages", {
+              ...viewer,
+              threadId,
+              page: messagePageQuerySchema.parse(page),
+            });
+          return await agentRequest("state", {
+            ...viewer,
+            threadId,
+            paged: query.get("paged") === "1",
+          });
         } catch (error) {
           return json(
             {
@@ -62,14 +104,30 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
         const op = params._splat ?? "";
         if (["inference-connect", "inference-disconnect"].includes(op)) {
           let viewer;
-          try { viewer = await identity(); }
-          catch { return json({ error: "Sign in with X to manage your ChatGPT connection." }, 401); }
+          try {
+            viewer = await identity();
+          } catch {
+            return json(
+              { error: "Sign in with X to manage your ChatGPT connection." },
+              401,
+            );
+          }
           try {
             const response = await agentRequest(op, viewer);
-            if (!response.ok) return json({ error: "Could not update your connection. Wait for any reply to finish, then try again." }, 503);
+            if (!response.ok)
+              return json(
+                {
+                  error:
+                    "Could not update your connection. Wait for any reply to finish, then try again.",
+                },
+                503,
+              );
             return json(inferenceStatusSchema.parse(await response.json()));
           } catch {
-            return json({ error: "Could not update your connection. Try again." }, 503);
+            return json(
+              { error: "Could not update your connection. Try again." },
+              503,
+            );
           }
         }
         if (!["turn", "basket", "thread-delete"].includes(op))

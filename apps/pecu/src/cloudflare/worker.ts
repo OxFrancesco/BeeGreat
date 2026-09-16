@@ -20,7 +20,7 @@ import { WhopService, whopWebhookSetupSchema } from "../integrations/whop";
 import { aeroWorkerExecutor } from "./aero-client";
 import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
-import { webIdentitySchema, webScopeSchema, webTurnSchema, webThreadDeleteSchema, basketSchema } from "../web-contract";
+import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, basketSchema } from "../web-contract";
 
 const objectName = "basedbot-main";
 const xOAuthStateKey = "basedbot-x-oauth";
@@ -158,7 +158,18 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           const inference = userInference(this.env, viewer.senderId);
           return json(await (url.pathname.endsWith("-connect") ? inference.startLogin() : url.pathname.endsWith("-disconnect") ? inference.disconnect() : inference.status()));
         }
-        if (url.pathname === "/internal/web/state") return json(this.webAgent.state(webScopeSchema.parse(raw)));
+        if (url.pathname === "/internal/web/state") {
+          const input = webStateRequestSchema.parse(raw);
+          return json(this.webAgent.state(input, input.paged));
+        }
+        if (url.pathname === "/internal/web/messages") {
+          const input = webHistoryRequestSchema.parse(raw);
+          return json(this.webAgent.messagePage(input, input.page));
+        }
+        if (url.pathname === "/internal/web/threads") {
+          const input = webThreadsRequestSchema.parse(raw);
+          return json(this.webAgent.threadPage(input, input.page));
+        }
         if (url.pathname === "/internal/web/thread-delete") {
           const { threadId, ...identity } = webThreadDeleteSchema.parse(raw);
           this.webAgent.deleteThread(identity, threadId);
@@ -523,7 +534,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     return durableObject(this.env).fetch(new Request(`https://pecu.internal/internal/web${path}`, {
