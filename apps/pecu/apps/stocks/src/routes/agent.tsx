@@ -52,6 +52,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { PecuMascot } from "@/components/pecu-mascot";
+import { WalletChip } from "@/components/wallet-chip";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -287,19 +288,7 @@ function AgentWorkspace({
                   </Dialog>
                 ) : null}
                 {account.state?.wallet ? (
-                  <a
-                    className="pecu-chip mono"
-                    href={`https://basescan.org/address/${account.state.wallet}`}
-                    rel="noreferrer"
-                    target="_blank"
-                    title={account.state.wallet}
-                  >
-                    <span className="pecu-dot" />
-                    <span>
-                      {account.state.wallet.slice(0, 6)}…
-                      {account.state.wallet.slice(-4)}
-                    </span>
-                  </a>
+                  <WalletChip key={account.state.wallet} address={account.state.wallet} />
                 ) : null}
                 {account.state?.yolo ? (
                   <button

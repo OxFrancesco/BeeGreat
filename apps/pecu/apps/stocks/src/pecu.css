@@ -66,7 +66,15 @@
 .pecu-auth { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .pecu-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 12px; border: 0; border-radius: 999px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: var(--shadow-sm); cursor: pointer; }
 .pecu-chip-warn { background: var(--coral-soft); color: var(--coral-ink); }
-.pecu-dot { width: 8px; height: 8px; border-radius: 50%; background: #3fbf7f; box-shadow: 0 0 0 3px #3fbf7f30; }
+.pecu-wallet { gap: 0; padding: 0; flex-shrink: 0; }
+.pecu-wallet-address { display: flex; align-items: center; min-height: 44px; padding: 0 4px 0 12px; white-space: nowrap; }
+.pecu-wallet-copy, .pecu-wallet-qr-close { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 0; border-radius: 50%; color: var(--ink); background: transparent; cursor: pointer; }
+.pecu-wallet-copy:hover { background: var(--surface-2); }
+.pecu-wallet-qr { z-index: 60; width: 248px; max-width: calc(100vw - 24px); padding: 32px 20px 20px; border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-sm); }
+.pecu-wallet-qr-close { position: absolute; top: 0; right: 0; }
+.pecu-wallet-qr svg[role="img"] { display: block; width: 100%; height: auto; background: white; }
+.pecu-wallet-full-address { margin-top: 10px; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; user-select: all; }
+.pecu-wallet-qr p { margin: 10px 0 0; font-size: 13px; }
 
 /* Conversation column */
 .pecu-chat { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px 16px; min-height: 0; min-width: 0; }
@@ -193,7 +201,8 @@
   .pecu-turn .is-user { max-width: 86%; }
   .pecu-assistant.has-mascot { grid-template-columns: 60px minmax(0, 1fr); gap: 10px; }
   .pecu-avatar { width: 60px; height: 60px; }
-  .pecu-chip span:not(.pecu-dot) { display: none; }
+  .pecu-auth { gap: 6px; }
+  .pecu-wallet-address { font-size: 12px; }
   .pecu-threads-toggle span { display: none; }
   .pecu-prompt-hint { display: none; }
 }

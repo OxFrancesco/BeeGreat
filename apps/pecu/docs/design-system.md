@@ -41,6 +41,8 @@ Hide horizontal and vertical scrollbars throughout Pecu, including pages, thread
 
 Thread selection updates immediately with a flat background. Do not animate its position or fade the selected state. Keep keyboard focus rings inside row controls so the scrolling list cannot clip them.
 
+The agent header shows the same shortened wallet address on desktop and mobile, with no status dot. The adjacent copy button copies the full address. Hover or keyboard focus for one second reveals a locally generated wallet QR code. Clicking or tapping copies and opens the QR code immediately. Escape, outside interaction, or the close button dismisses it.
+
 Cards are the theme's recipe: `--card` background, 1px `--border`,
 `--shadow-xs`. Hover lifts 3px and moves to `--shadow-md`. Tints are flat
 (`--accent`, `--muted`); no gradients. The dark tile uses `--dark` with
