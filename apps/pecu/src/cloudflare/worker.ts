@@ -21,7 +21,7 @@ import { WhopService, whopWebhookSetupSchema } from "../integrations/whop";
 import { aeroWorkerExecutor } from "./aero-client";
 import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
-import { webIdentitySchema, webTurnSchema, basketSchema } from "../web-contract";
+import { webIdentitySchema, webScopeSchema, webTurnSchema, webThreadDeleteSchema, basketSchema } from "../web-contract";
 
 const objectName = "basedbot-main";
 const xOAuthStateKey = "basedbot-x-oauth";
@@ -164,7 +164,12 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       if (url.pathname.startsWith("/internal/web/") && request.method === "POST") {
         if (!this.webAgent) return json({ error: "Agent unavailable" }, 503);
         const raw: unknown = await request.json();
-        if (url.pathname === "/internal/web/state") return json(this.webAgent.state(webIdentitySchema.parse(raw)));
+        if (url.pathname === "/internal/web/state") return json(this.webAgent.state(webScopeSchema.parse(raw)));
+        if (url.pathname === "/internal/web/thread-delete") {
+          const { threadId, ...identity } = webThreadDeleteSchema.parse(raw);
+          this.webAgent.deleteThread(identity, threadId);
+          return json({ ok: true });
+        }
         if (url.pathname === "/internal/web/basket") {
           const identity = webIdentitySchema.parse(typeof raw === 'object' && raw ? Reflect.get(raw, 'identity') : null);
           const basket = basketSchema.parse(typeof raw === 'object' && raw ? Reflect.get(raw, 'basket') : null);
@@ -541,7 +546,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/basket"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/basket", "/thread-delete"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     return durableObject(this.env).fetch(new Request(`https://pecu.internal/internal/web${path}`, {

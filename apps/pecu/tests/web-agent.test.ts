@@ -188,3 +188,60 @@ test("confirmation controls require the code belonging to the persisted preview"
     f.close();
   }
 });
+
+test("web threads keep their own history, YOLO and titles, and the default thread keeps the original owner", async () => {
+  const f = fixture();
+  try {
+    f.store.saveWallet("123", address, address);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "hello default" });
+    await f.web.handle({ ...identity, threadId: "swap-plan", requestId: crypto.randomUUID(), text: "quote 0.01 ETH to USDC" });
+    await f.web.handle({ ...identity, threadId: "swap-plan", requestId: crypto.randomUUID(), text: "again" });
+    f.store.setYolo("123", `stocks:${identity.userId}:${identity.senderId}#swap-plan`, true);
+    const base = f.web.state(identity);
+    expect(base.threadId).toBeNull();
+    expect(base.yolo).toBe(false);
+    expect(base.messages.map((m) => m.text)).toEqual(["hello default"]);
+    expect(
+      base.threads?.map((t) => [t.id, t.title, t.count]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    ).toEqual([
+      [null, "hello default", 1],
+      ["swap-plan", "quote 0.01 ETH to USDC", 2],
+    ]);
+    const thread = f.web.state({ ...identity, threadId: "swap-plan" });
+    expect(thread.threadId).toBe("swap-plan");
+    expect(thread.yolo).toBe(true);
+    expect(thread.messages.map((m) => m.text)).toEqual(["quote 0.01 ETH to USDC", "again"]);
+    expect(f.web.state({ ...identity, userId: "user_bob" }).threads).toEqual([]);
+    f.web.deleteThread(identity, "swap-plan");
+    expect(f.web.state(identity).threads?.map((t) => t.id)).toEqual([null]);
+    expect(f.web.state({ ...identity, threadId: "swap-plan" }).messages).toEqual([]);
+    expect(webTurnSchema.safeParse({ ...identity, threadId: "Bad Thread", requestId: crypto.randomUUID(), text: "x" }).success).toBe(false);
+  } finally {
+    f.close();
+  }
+});
+
+test("thread deletion preserves recovery for submitted transactions", async () => {
+  const f = fixture();
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const threadId = "recover";
+    const conversationId = `stocks:${identity.userId}:${identity.senderId}#${threadId}`;
+    const requestId = crypto.randomUUID();
+    await f.web.handle({ ...identity, threadId, requestId, text: "hello" });
+    f.store.createIntent({
+      id: requestId, codeHash: "test", senderId: identity.senderId,
+      conversationId, sourceEventId: `${conversationId}:${requestId}`,
+      state: "executing", family: "aero", action: "stake",
+      parameters: { chain: 8453, wallet: address, pool: address },
+      preview: "Submitted", planDigest: "test", expiresAt: Date.now() + 60_000,
+    }, []);
+    expect(() => f.web.deleteThread(identity, threadId)).toThrow("submitted transaction");
+    expect(f.web.state({ ...identity, threadId }).messages).toHaveLength(1);
+    await f.web.handle({ ...identity, threadId: "other", requestId: crypto.randomUUID(), text: "hello" });
+    f.web.deleteThread(identity, "other");
+    expect(f.web.state({ ...identity, threadId: "other" }).messages).toHaveLength(0);
+  } finally {
+    f.close();
+  }
+});
