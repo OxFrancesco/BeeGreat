@@ -60,18 +60,25 @@ elif [ -z "${SUGAR_RPC_URI_8453:-}" ]; then
   export SUGAR_RPC_URI_8453="https://base-rpc.publicnode.com"
 fi
 
-# publicnode rejects multicall3 batches of the heavy scan reads: five
-# concurrent pages of 400 pool tuples, or five price-oracle batches of 40
-# tokens, exceed its call cap and the whole batch fails as RPC_READ_FAILED.
-# Smaller pages keep each batch under the cap; a dedicated endpoint needs no
-# cap and a user pin always wins.
+# SDK profile, picked by the resolved endpoint's throttling model. publicnode
+# caps the size of each call, so its profile keeps batches small; keyed
+# endpoints like Alchemy throttle on request count, so they win with fewer,
+# larger calls (the SDK's default sizes, serialized to one worker). Values in
+# $AERO_VERIFY_HOME/env or the process environment always win.
+_av_default() {
+  # $1 = chain-suffixed key, $2 = bare key, $3 = fallback value
+  if [ -z "${!1:-}" ] && [ -z "${!2:-}" ]; then
+    export "$1=$3"
+  fi
+}
+_av_default SUGAR_THREADING_MAX_WORKERS_8453 SUGAR_THREADING_MAX_WORKERS 1
+_av_default SUGAR_QUOTE_MAX_PATHS_8453 SUGAR_QUOTE_MAX_PATHS 200
 if [ "$SUGAR_RPC_URI_8453" = "https://base-rpc.publicnode.com" ]; then
-  if [ -z "${SUGAR_POOL_PAGINATION_MAX_SIZE_8453:-}" ] \
-    && [ -z "${SUGAR_POOL_PAGINATION_MAX_SIZE:-}" ]; then
-    export SUGAR_POOL_PAGINATION_MAX_SIZE_8453=75
-  fi
-  if [ -z "${SUGAR_PRICE_BATCH_SIZE_8453:-}" ] \
-    && [ -z "${SUGAR_PRICE_BATCH_SIZE:-}" ]; then
-    export SUGAR_PRICE_BATCH_SIZE_8453=8
-  fi
+  _av_default SUGAR_QUOTE_BATCH_SIZE_8453 SUGAR_QUOTE_BATCH_SIZE 8
+  _av_default SUGAR_PRICE_BATCH_SIZE_8453 SUGAR_PRICE_BATCH_SIZE 8
+  _av_default SUGAR_POOL_PAGINATION_MAX_SIZE_8453 SUGAR_POOL_PAGINATION_MAX_SIZE 75
+else
+  _av_default SUGAR_QUOTE_BATCH_SIZE_8453 SUGAR_QUOTE_BATCH_SIZE 64
+  _av_default SUGAR_PRICE_BATCH_SIZE_8453 SUGAR_PRICE_BATCH_SIZE 40
+  _av_default SUGAR_POOL_PAGINATION_MAX_SIZE_8453 SUGAR_POOL_PAGINATION_MAX_SIZE 400
 fi

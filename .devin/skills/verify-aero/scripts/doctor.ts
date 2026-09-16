@@ -37,7 +37,7 @@ export type DoctorReport = {
   home: string
   wallet: { present: boolean; address: string | null; dir: string }
   passphrase: boolean
-  rpc: { kind: RpcKind }
+  rpc: { kind: RpcKind; receipts: boolean | null; receiptsError: string | null }
   chain: { id: number | null; ok: boolean; block: string | null }
   balances: Balances | null
   ethUsd: number | null
@@ -130,6 +130,27 @@ export async function runDoctor(options: { budgetUsd?: number } = {}): Promise<D
     problems.push(`RPC unreachable: ${scrub(cause instanceof Error ? cause.message : String(cause))}`)
   }
 
+  // Receipt capability probe: some free endpoints (publicnode) serve reads
+  // but refuse every eth_getTransactionReceipt with a 403, which strands
+  // every CLI plan as active. Probe a real receipt from the latest block.
+  let receipts: boolean | null = null
+  let receiptsError: string | null = null
+  if (chainId === CHAIN_ID) {
+    try {
+      const latest = await client.getBlock({ blockTag: 'latest' })
+      const hash = latest.transactions[0]
+      if (hash === undefined) {
+        receipts = null
+      } else {
+        await client.getTransactionReceipt({ hash })
+        receipts = true
+      }
+    } catch (cause) {
+      receipts = false
+      receiptsError = scrub(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
+
   let balances: Balances | null = null
   if (address && chainId === CHAIN_ID) {
     try {
@@ -179,7 +200,7 @@ export async function runDoctor(options: { budgetUsd?: number } = {}): Promise<D
     home,
     wallet: { present: walletPresent, address, dir: layout.walletDir },
     passphrase,
-    rpc: { kind: rpcKind() },
+    rpc: { kind: rpcKind(), receipts, receiptsError },
     chain: { id: chainId, ok: chainId === CHAIN_ID, block: block === null ? null : block.toString() },
     balances,
     ethUsd,

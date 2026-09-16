@@ -6,6 +6,7 @@ import { SugarClient } from '../../../../packages/sugar/src/client'
 import { createExecutionPlan, localMnemonicSigner, sendPlan } from '../../../../packages/sugar/src/send'
 import { loadLocalWallet, openSecret } from '../../../../packages/sugar/src/wallet'
 import {
+  aeroBin,
   applyVerifyEnv,
   asArray,
   asObject,
@@ -24,6 +25,7 @@ import {
   round6,
   rpcKind,
   runAero,
+  runExpect,
   scrub,
   sleep,
   tokenDecimals,
@@ -70,6 +72,8 @@ type StepRecord = {
   assertions: Assertion[]
   status: StepStatus
   reason?: string
+  recovered?: boolean
+  attempts: number
 }
 
 type Ctx = {
@@ -92,6 +96,7 @@ type Ctx = {
   indexReady: boolean
   before: Balances | null
   journalSnapshot: Map<string, number>
+  minBlock: bigint
   aborted: boolean
   upstreamFailed: boolean
   steps: StepRecord[]
@@ -104,6 +109,8 @@ type Ctx = {
 
 const STEP_TIMEOUT_MS = 10 * 60_000
 const RECEIPT_TIMEOUT_MS = 2 * 60_000
+const MAX_ATTEMPTS = 3
+const RETRY_DELAY_MS = 45_000
 const DUST_USD = 0.05
 
 function assert(rec: StepRecord, name: string, ok: boolean, detail?: string): boolean {
@@ -128,6 +135,7 @@ function newRecord(id: string, title: string, feature: string, kind: StepKind): 
     balanceDelta: null,
     assertions: [],
     status: 'skipped',
+    attempts: 1,
   }
 }
 
@@ -171,6 +179,9 @@ async function receipts(ctx: Ctx, rec: StepRecord, hashes: string[]): Promise<bo
         blockNumber: receipt.blockNumber.toString(),
         gasUsed: (receipt.gasUsed * receipt.effectiveGasPrice).toString(),
       })
+      // Track the highest confirmed block so later reads can wait for the
+      // node to catch up instead of trusting a stale latest.
+      if (receipt.blockNumber > ctx.minBlock) ctx.minBlock = receipt.blockNumber
       if (!assert(rec, `receipt ${hash.slice(0, 10)} succeeded`, receipt.status === 'success', receipt.status)) ok = false
     } catch (cause) {
       assert(rec, `receipt ${hash.slice(0, 10)} fetched`, false, scrub(cause instanceof Error ? cause.message : String(cause)))
@@ -196,19 +207,59 @@ async function withBalanceDelta(ctx: Ctx, rec: StepRecord, before: Balances | nu
   return after
 }
 
-async function positions(): Promise<Record<string, unknown>[]> {
-  const result = await runAero(['positions'])
-  const parsed = asArray(extractLastJson(result.stdout))
-  return parsed ? parsed.filter((item): item is Record<string, unknown> => asObject(item) !== null) : []
+/**
+ * Read balances at the node's latest block, but only once the node has
+ * caught up to the highest receipt block this run produced — a stale latest
+ * read must never make a sweep decide a held token is absent. Throws when
+ * the node never catches up so the step classifies flaky, not nothing.
+ */
+async function latestBalances(ctx: Ctx): Promise<Balances> {
+  if (!ctx.wallet) throw new Error('no wallet')
+  for (let attempt = 0; attempt < 10; attempt++) {
+    if (attempt > 0) await sleep(3000)
+    const block = await ctx.client.getBlockNumber()
+    if (block >= ctx.minBlock) return await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals, block)
+  }
+  throw new Error(`RPC_UNAVAILABLE: node has not reached block ${ctx.minBlock} after 10 polls`)
+}
+
+/**
+ * `aero positions` recorded into the step record, retried, and loud: a
+ * rate-limited CLI used to surface here as an empty list, which made sweeps
+ * read a held position as absent. Throws the CLI's first stderr line after
+ * three attempts so the step classifies flaky instead of skipping.
+ */
+async function positions(rec: StepRecord): Promise<Record<string, unknown>[]> {
+  let detail = ''
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(3000)
+    const result = await cli(rec, ['positions'])
+    const parsed = asArray(extractLastJson(result.stdout))
+    if (result.exitCode === 0 && parsed) {
+      return parsed.filter((item): item is Record<string, unknown> => asObject(item) !== null)
+    }
+    detail = result.stderr.trim().split('\n')[0]
+      || (result.exitCode === 0 ? 'aero positions printed no JSON array' : `aero positions exited ${result.exitCode}`)
+  }
+  throw new Error(detail)
 }
 
 /** Re-poll `aero positions` until the predicate holds; returns the last list. */
-async function positionsUntil(predicate: (all: Record<string, unknown>[]) => boolean, attempts = 4, delayMs = 3000): Promise<Record<string, unknown>[]> {
-  let all = await positions()
+async function positionsUntil(ctx: Ctx, rec: StepRecord, predicate: (all: Record<string, unknown>[]) => boolean, attempts = 4, delayMs = 3000): Promise<Record<string, unknown>[]> {
+  let all = await positions(rec)
+  // A negative answer only counts once the node has passed the highest
+  // receipt block this run produced; otherwise positions can look absent
+  // on a stale read right after a confirmed transaction.
+  let trusted = ctx.minBlock === 0n
   for (let attempt = 1; attempt < attempts && !predicate(all); attempt++) {
     await sleep(delayMs)
-    all = await positions()
+    if (!trusted) {
+      trusted = await ctx.client.getBlockNumber().then((block) => block >= ctx.minBlock).catch(() => false)
+      if (!trusted) continue
+    }
+    all = await positions(rec)
   }
+  if (!trusted && !predicate(all)) throw new Error(`RPC_UNAVAILABLE: node has not reached block ${ctx.minBlock}`)
   return all
 }
 
@@ -234,7 +285,7 @@ function bigOf(value: unknown): bigint {
  * The dry-run output and the send output both land in the record's stdout.
  */
 async function cliTx(ctx: Ctx, rec: StepRecord, args: string[]): Promise<StepStatus> {
-  const before = ctx.wallet ? await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null) : null
+  const before = ctx.wallet ? await latestBalances(ctx).catch(() => null) : null
 
   const dry = await runAero([...args, '--dry-run'], { timeoutMs: STEP_TIMEOUT_MS })
   rec.stdout += `$ scripts/aero ${[...args, '--dry-run'].join(' ')}\n${dry.stdout}`
@@ -263,7 +314,45 @@ async function cliTx(ctx: Ctx, rec: StepRecord, args: string[]): Promise<StepSta
   rec.durationMs += real.durationMs
   const sent = asObject(extractLastJson(real.stdout))
   rec.parsed = sent
-  if (real.exitCode !== 0) return classifyFailure(ctx, real)
+  if (real.exitCode !== 0) {
+    const combined = `${real.stdout}\n${real.stderr}`
+    const reverted = REVERTED_ONCHAIN.exec(combined)
+    // A reverted step can never resume (sendPlan throws on it), so it goes
+    // straight to fail+abort with the gas detail instead of the journal path.
+    if (reverted) return recordReverted(ctx, rec, reverted[1], before)
+    const lost = LOST_RECEIPT.exec(combined)
+    const journal = findActiveJournal(ctx, lost?.[1])
+    if (journal !== null) {
+      const hint = `reconcile by hand with scripts/aero executions resume --id ${journal.id} or scripts/aero executions cancel --id ${journal.id}`
+      if (ctx.journalSnapshot.has(journal.name)) {
+        // The journal predates this run, so the send hit the
+        // unresolved-execution gate without broadcasting anything. A journal
+        // the runner did not create is never auto-resumed.
+        ctx.aborted = true
+        rec.reason = `journal ${journal.id} predates this run and is still active, so the send hit the unresolved-execution gate; ${hint}`
+        return 'fail'
+      }
+      if (journal.steps.some((step) => step.kind === 'submitting')) {
+        // A step marked submitting may or may not have broadcast; resuming
+        // could double-send, so this shape always needs a human.
+        ctx.aborted = true
+        rec.reason = `execution ${journal.id} has a step still in submitting, so the broadcast outcome is unknown; ${hint}`
+        return 'fail'
+      }
+      const successReason = lost !== null
+        ? RECONCILE_REASON
+        : `CLI aborted mid-plan (${scrub(firstStderrLine(real.stderr)).slice(0, 120)}); completed via aero executions resume`
+      return recoverExecution(ctx, rec, journal.id, before, successReason, lost?.[2])
+    }
+    if (/unresolved execution/i.test(combined)) {
+      // The gate fired but the blocking journal could not be read; nothing
+      // was broadcast and retrying would hit the same wall.
+      ctx.aborted = true
+      rec.reason = 'send refused: wallet has an unresolved execution journal; reconcile by hand with scripts/aero executions list then resume --id <id> or cancel --id <id>'
+      return 'fail'
+    }
+    return classifyFailure(ctx, real)
+  }
   if (sent === null) {
     if (/already balanced|no transactions needed/i.test(real.stdout)) return 'ok'
     assert(rec, 'result JSON printed', false, real.stdout.slice(-200))
@@ -280,7 +369,190 @@ async function cliTx(ctx: Ctx, rec: StepRecord, args: string[]): Promise<StepSta
   const receiptsOk = await receipts(ctx, rec, hashes)
   const maxBlock = rec.receipts.reduce((top, receipt) => BigInt(receipt.blockNumber) > top ? BigInt(receipt.blockNumber) : top, 0n)
   await withBalanceDelta(ctx, rec, before, maxBlock > 0n ? maxBlock : undefined)
+  // A confirmed transaction whose post-state cannot be read is an
+  // infrastructure flake, not a failed check: keep the receipts and let the
+  // null delta classify the step flaky rather than failing on 'delta n/a'.
+  if (receiptsOk && ctx.wallet !== null && rec.balanceDelta === null) {
+    rec.reason = 'tx confirmed; balance read failed after retries'
+    return 'flaky'
+  }
   return receiptsOk ? 'ok' : 'fail'
+}
+
+const LOST_RECEIPT = /Execution outcome unknown; resume ([0-9a-f-]{36}) to check (0x[0-9a-fA-F]{64})/
+const REVERTED_ONCHAIN = /reverted on-chain: (0x[0-9a-fA-F]{64})/
+const RECONCILE_REASON = 'CLI lost the receipt wait (RPC); tx confirmed on chain; reconciled via aero executions resume'
+const JOURNAL_NAME = /^[0-9a-f-]{36}\.json$/i
+
+type JournalFile = {
+  id: string
+  name: string
+  status: string | null
+  sender: string | null
+  steps: Record<string, unknown>[]
+}
+
+function firstStderrLine(text: string): string {
+  return text.split('\n').map((line) => line.trim()).find((line) => line.length > 0) ?? 'no stderr output'
+}
+
+function readJournalFile(directory: string, name: string): JournalFile | null {
+  try {
+    const raw = asObject(JSON.parse(readFileSync(join(directory, name), 'utf8')))
+    if (raw === null) return null
+    const plan = asObject(raw.plan)
+    return {
+      id: name.slice(0, -5),
+      name,
+      status: typeof raw.status === 'string' ? raw.status : null,
+      sender: plan !== null && typeof plan.sender === 'string' ? plan.sender : null,
+      steps: asArray(raw.steps)?.filter((step): step is Record<string, unknown> => asObject(step) !== null) ?? [],
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The newest active journal this wallet owns, preferring `preferredId` (the
+ * id a lost receipt wait printed) when it resolves to an active journal.
+ */
+function findActiveJournal(ctx: Ctx, preferredId?: string): JournalFile | null {
+  const directory = ctx.layout.executionsDir
+  if (ctx.wallet === null || !existsSync(directory)) return null
+  const sender = ctx.wallet.toLowerCase()
+  const active = readdirSync(directory)
+    .filter((name) => JOURNAL_NAME.test(name))
+    .map((name) => ({ file: readJournalFile(directory, name), mtime: statSync(join(directory, name)).mtimeMs }))
+    .filter((entry): entry is { file: JournalFile; mtime: number } =>
+      entry.file !== null && entry.file.status === 'active' && entry.file.sender?.toLowerCase() === sender)
+  if (preferredId !== undefined) {
+    const named = active.find((entry) => entry.file.id === preferredId)
+    if (named) return named.file
+  }
+  active.sort((a, b) => b.mtime - a.mtime)
+  return active[0]?.file ?? null
+}
+
+/**
+ * Drive the CLI's own reconcile prompt through expect; returns null when
+ * expect itself cannot run. The resume never rebroadcasts confirmed or
+ * submitted steps, only unsubmitted `ready` ones.
+ */
+async function resumeExecution(rec: StepRecord, planId: string): Promise<ProcResult | null> {
+  const script = [
+    'log_user 1',
+    'set timeout 120',
+    `spawn /bin/bash $env(AERO_CLI) executions resume --id ${planId}`,
+    'expect {',
+    '  -re {Reconcile receipts and continue.*} { send "y\\r"; exp_continue }',
+    '  timeout { puts stderr "timed out waiting for aero executions resume"; exit 1 }',
+    '  eof {}',
+    '}',
+    'catch wait result',
+    'exit [lindex $result 3]',
+  ].join('\n')
+  try {
+    const resume = await runExpect(script, { AERO_CLI: aeroBin() })
+    rec.stdout += `\n$ expect aero executions resume --id ${planId}\n${resume.stdout}`
+    if (resume.stderr) rec.stderr += resume.stderr
+    rec.durationMs += resume.durationMs
+    return resume
+  } catch (cause) {
+    rec.stderr += `[verify] executions resume spawn failed: ${scrub(cause instanceof Error ? cause.message : String(cause))}\n`
+    return null
+  }
+}
+
+/**
+ * The CLI can die mid-plan after some steps already broadcast: the receipt
+ * wait can fail on an endpoint that refuses eth_getTransactionReceipt, or
+ * local preparation can fail before broadcast (the step stays `ready`). In
+ * both shapes the journal is `active` with no `submitting` step, so resuming
+ * through the CLI's own path is safe and never resends. The run created the
+ * journal (a pre-existing one is refused upstream), so one resume settles it.
+ */
+async function recoverExecution(ctx: Ctx, rec: StepRecord, planId: string, before: Balances | null, successReason: string, extraHash?: string): Promise<StepStatus> {
+  const journalFile = join(ctx.layout.executionsDir, `${planId}.json`)
+  const readJournal = () => JOURNAL_NAME.test(`${planId}.json`) ? readJournalFile(ctx.layout.executionsDir, `${planId}.json`) : null
+  const submittedCount = (journal: JournalFile | null) => journal?.steps.filter((step) => step.kind === 'submitted').length ?? 0
+
+  const submittedBefore = submittedCount(readJournal())
+  let resume = await resumeExecution(rec, planId)
+  let journal = readJournal()
+
+  // The resume itself can die on the same transient preparation failure with
+  // the step still `ready`. Nothing new broadcast (no `submitting`, no new
+  // `submitted`), so one more attempt after a cooldown is safe — two total.
+  if (journal !== null && journal.status === 'active'
+    && !journal.steps.some((step) => step.kind === 'submitting')
+    && submittedCount(journal) <= submittedBefore) {
+    rec.stdout += `\n[verify] journal still active after resume; retrying once after 60s\n`
+    await sleep(60_000)
+    resume = await resumeExecution(rec, planId)
+    journal = readJournal()
+  }
+
+  if (resume !== null) {
+    assert(rec, 'executions resume exited 0', resume.exitCode === 0, String(resume.exitCode))
+  }
+
+  const journalComplete = journal?.status === 'complete'
+  assert(rec, 'journal reconciled to complete', journalComplete, journalFile)
+
+  const journalHashes = (journal?.steps ?? [])
+    .map((step) => step.hash)
+    .filter((hash): hash is string => typeof hash === 'string')
+  if (extraHash !== undefined) journalHashes.push(extraHash)
+  const allHashes = [...new Set(journalHashes)]
+  rec.hashes.push(...allHashes.filter((hash) => !rec.hashes.includes(hash)))
+  const unfetched = allHashes.filter((hash) => !rec.receipts.some((receipt) => receipt.hash === hash))
+  const fetchedOk = await receipts(ctx, rec, unfetched)
+  const receiptsOk = allHashes.length > 0 && fetchedOk && rec.receipts.every((receipt) => receipt.status === 'success')
+
+  const maxBlock = rec.receipts.reduce((top, receipt) => BigInt(receipt.blockNumber) > top ? BigInt(receipt.blockNumber) : top, 0n)
+  await withBalanceDelta(ctx, rec, before, maxBlock > 0n ? maxBlock : undefined)
+
+  if (journalComplete && receiptsOk) {
+    rec.reason = successReason
+    rec.recovered = true
+    return 'flaky'
+  }
+  ctx.aborted = true
+  rec.reason = `plan aborted mid-flight and the reconcile did not settle it; reconcile by hand with scripts/aero executions resume --id ${planId} or scripts/aero executions cancel --id ${planId}`
+  return 'fail'
+}
+
+/**
+ * A step reverted on-chain: record the hash and receipt, then report the gas
+ * detail so a tight-estimate revert (gasUsed near 100% of the limit) reads
+ * differently from a contract-logic revert. sendPlan marks the journal
+ * `failed`, which does not block later plans, so the run goes on: dependent
+ * tx steps are skipped through upstreamFailed and the sweeps still run.
+ */
+async function recordReverted(ctx: Ctx, rec: StepRecord, hash: string, before: Balances | null): Promise<StepStatus> {
+  const hint = 'journal marked failed (does not block new plans); dependent steps skip, sweeps still run'
+  rec.hashes.push(hash)
+  try {
+    const [receipt, transaction] = await Promise.all([
+      ctx.client.getTransactionReceipt({ hash: hash as Hex }),
+      ctx.client.getTransaction({ hash: hash as Hex }),
+    ])
+    rec.receipts.push({
+      hash,
+      status: receipt.status,
+      blockNumber: receipt.blockNumber.toString(),
+      gasUsed: (receipt.gasUsed * receipt.effectiveGasPrice).toString(),
+    })
+    if (receipt.blockNumber > ctx.minBlock) ctx.minBlock = receipt.blockNumber
+    const pct = transaction.gas > 0n ? receipt.gasUsed * 100n / transaction.gas : 0n
+    rec.reason = `reverted on-chain (gasUsed ${receipt.gasUsed} of limit ${transaction.gas}, ${pct}%); ${hint}`
+    await withBalanceDelta(ctx, rec, before, receipt.blockNumber)
+  } catch (cause) {
+    rec.stderr += `[verify] revert detail lookup failed: ${scrub(cause instanceof Error ? cause.message : String(cause))}\n`
+    rec.reason = `reverted on-chain: ${hash}; ${hint}`
+  }
+  return 'fail'
 }
 
 /**
@@ -361,8 +633,13 @@ function txStep(def: { id: string; feature: string; title: string; args: (ctx: C
     id: def.id, title: def.title, feature: def.feature, kind: 'tx', modes: TX_MODES, needs: def.needs,
     run: async (ctx, rec) => {
       const status = await cliTx(ctx, rec, def.args(ctx))
-      if (status !== 'ok' || !def.check) return status
-      return def.check(ctx, rec)
+      // A journal-recovered flaky has the tx confirmed on chain, so its check
+      // still runs and never blocks downstream (only fail sets upstreamFailed).
+      // A generic infra flake has no on-chain state to check; keep it flaky.
+      if (status !== 'ok' && !(status === 'flaky' && rec.recovered)) return status
+      if (!def.check) return status
+      const checked = await def.check(ctx, rec)
+      return checked === 'ok' ? status : checked
     },
   }
 }
@@ -395,7 +672,9 @@ const ZERO = '0x0000000000000000000000000000000000000000'
 
 /** Unstake then withdraw any position we hold in one of the two pinned pools. */
 async function sweepPool(ctx: Ctx, rec: StepRecord, lp: string): Promise<'did' | 'nothing' | 'failed' | 'flaky'> {
-  const all = await positions()
+  // A failed positions read must never look like an empty wallet.
+  const all = await positions(rec).catch(() => null)
+  if (all === null) return 'flaky'
   const ours = positionsInPool(all, lp).filter((position) => String(position.alm ?? ZERO).toLowerCase() === ZERO)
   const isCl = ours.some((position) => positionPool(position).is_cl === true) || lp === CL_LP
   let did = false
@@ -432,7 +711,7 @@ async function sweepTokenToEth(ctx: Ctx, rec: StepRecord, symbol: 'USDC' | 'AERO
 /** Sell whatever NVDAc balance exists above dust back to USDC. */
 async function sweepStocks(ctx: Ctx, rec: StepRecord): Promise<'did' | 'nothing' | 'failed' | 'flaky'> {
   if (!ctx.wallet) return 'nothing'
-  const balances = await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null)
+  const balances = await latestBalances(ctx).catch(() => null)
   if (!balances) return 'flaky'
   if (Number(balances.nvdac) <= dustThreshold(ctx, 'nvdac')) return 'nothing'
   const status = await cliTx(ctx, rec, ['stocks', 'sell', '--stock', 'NVDAc', '--amount', balances.nvdac])
@@ -530,7 +809,9 @@ function buildSteps(): StepDef[] {
       const entries = (asArray(rec.parsed) ?? []).map(asObject).filter((item): item is Record<string, unknown> => item !== null)
       const active = entries.filter((entry) => entry.status === 'active')
       if (!assert(rec, 'no active execution', active.length === 0, active.map((entry) => String(entry.id)).join(', '))) {
-        if (ctx.mode !== 'reads') {
+        // Only modes that broadcast must stop; the unresolved-execution gate
+        // lives in sendPlan, so reads and dry-run never touch it.
+        if (ctx.mode === 'full' || ctx.mode === 'sweep') {
           rec.stderr += '\nreconcile first: scripts/aero executions resume --id <id> or scripts/aero executions cancel --id <id>\n'
           ctx.aborted = true
         }
@@ -590,7 +871,7 @@ function buildSteps(): StepDef[] {
       id, title: `Swap leftover ${symbol} above dust back to ETH`, modes: SWEEP_MODES,
       run: async (ctx, rec) => {
         if (!ctx.wallet) return 'nothing'
-        const balances = await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null)
+        const balances = await latestBalances(ctx).catch(() => null)
         if (!balances) return 'flaky'
         return sweepTokenToEth(ctx, rec, symbol, symbol === 'USDC' ? balances.usdc : balances.aero)
       },
@@ -604,8 +885,9 @@ function buildSteps(): StepDef[] {
     args: (ctx) => ['swap', '--from-token', 'ETH', '--to-token', 'USDC', '--amount', ctx.ethLeg, '--use-decimals'],
     check: async (ctx, rec) => {
       const minOut = asObject(rec.plan?.quote)?.min_amount_out
-      const delta = rec.balanceDelta?.usdc
-      assert(rec, 'USDC delta covers min_amount_out', minOut !== undefined && delta != null && Number(delta) >= Number(formatUnits(BigInt(String(minOut)), 6)), `delta ${delta ?? 'n/a'} USDC vs min ${String(minOut)}`)
+      if (rec.balanceDelta === null) return 'flaky'
+      const delta = rec.balanceDelta.usdc
+      assert(rec, 'USDC delta covers min_amount_out', minOut !== undefined && Number(delta) >= Number(formatUnits(BigInt(String(minOut)), 6)), `delta ${delta} USDC vs min ${String(minOut)}`)
       return allOk(rec)
     },
   }))
@@ -615,8 +897,9 @@ function buildSteps(): StepDef[] {
     args: (ctx) => ['swap', '--from-token', 'ETH', '--to-token', 'AERO', '--amount', ctx.ethLeg, '--use-decimals'],
     check: async (ctx, rec) => {
       const minOut = asObject(rec.plan?.quote)?.min_amount_out
-      const delta = rec.balanceDelta?.aero
-      assert(rec, 'AERO delta covers min_amount_out', minOut !== undefined && delta != null && Number(delta) >= Number(formatUnits(BigInt(String(minOut)), 18)), `delta ${delta ?? 'n/a'} AERO vs min ${String(minOut)}`)
+      if (rec.balanceDelta === null) return 'flaky'
+      const delta = rec.balanceDelta.aero
+      assert(rec, 'AERO delta covers min_amount_out', minOut !== undefined && Number(delta) >= Number(formatUnits(BigInt(String(minOut)), 18)), `delta ${delta} AERO vs min ${String(minOut)}`)
       return allOk(rec)
     },
   }))
@@ -628,7 +911,7 @@ function buildSteps(): StepDef[] {
     args: (ctx) => ['deposit', '--pool', BASIC_LP, '--amount0', ctx.usdcHalf, '--use-decimals'],
     check: async (ctx, rec) => {
       const hasLiquidity = (all: Record<string, unknown>[]) => positionsInPool(all, BASIC_LP).some((position) => bigOf(position.liquidity) > 0n)
-      const ours = positionsInPool(await positionsUntil(hasLiquidity), BASIC_LP)
+      const ours = positionsInPool(await positionsUntil(ctx, rec, hasLiquidity), BASIC_LP)
       assert(rec, 'position with liquidity exists', ours.some((position) => bigOf(position.liquidity) > 0n), `${ours.length} position(s) in pool`)
       return allOk(rec)
     },
@@ -639,7 +922,7 @@ function buildSteps(): StepDef[] {
     args: () => ['stake', '--pool', BASIC_LP],
     check: async (ctx, rec) => {
       const isStaked = (all: Record<string, unknown>[]) => positionsInPool(all, BASIC_LP).some((position) => bigOf(position.staked) > 0n)
-      const ours = positionsInPool(await positionsUntil(isStaked), BASIC_LP)
+      const ours = positionsInPool(await positionsUntil(ctx, rec, isStaked), BASIC_LP)
       assert(rec, 'staked > 0', ours.some((position) => bigOf(position.staked) > 0n))
       return allOk(rec)
     },
@@ -655,7 +938,7 @@ function buildSteps(): StepDef[] {
     args: () => ['unstake', '--pool', BASIC_LP],
     check: async (ctx, rec) => {
       const isUnstaked = (all: Record<string, unknown>[]) => positionsInPool(all, BASIC_LP).every((position) => bigOf(position.staked) === 0n)
-      const ours = positionsInPool(await positionsUntil(isUnstaked), BASIC_LP)
+      const ours = positionsInPool(await positionsUntil(ctx, rec, isUnstaked), BASIC_LP)
       assert(rec, 'staked == 0', ours.every((position) => bigOf(position.staked) === 0n))
       assert(rec, 'liquidity > 0', ours.some((position) => bigOf(position.liquidity) > 0n))
       return allOk(rec)
@@ -672,10 +955,11 @@ function buildSteps(): StepDef[] {
     args: () => ['withdraw', '--pool', BASIC_LP],
     check: async (ctx, rec) => {
       const isEmpty = (all: Record<string, unknown>[]) => positionsInPool(all, BASIC_LP).every((position) => bigOf(position.liquidity) === 0n && bigOf(position.staked) === 0n)
-      const ours = positionsInPool(await positionsUntil(isEmpty), BASIC_LP)
+      const ours = positionsInPool(await positionsUntil(ctx, rec, isEmpty), BASIC_LP)
       assert(rec, 'no liquidity left in pool', ours.every((position) => bigOf(position.liquidity) === 0n && bigOf(position.staked) === 0n))
       const delta = rec.balanceDelta
-      assert(rec, 'USDC and AERO increased', delta !== null && Number(delta.usdc) > 0 && Number(delta.aero) > 0, delta ? `+${delta.usdc} USDC +${delta.aero} AERO` : 'no delta')
+      if (delta === null) return 'flaky'
+      assert(rec, 'USDC and AERO increased', Number(delta.usdc) > 0 && Number(delta.aero) > 0, `+${delta.usdc} USDC +${delta.aero} AERO`)
       return allOk(rec)
     },
   }))
@@ -687,11 +971,13 @@ function buildSteps(): StepDef[] {
     args: (ctx) => ['deposit', '--pool', CL_LP, '--amount0', ctx.usdcHalf, '--price-lower', ctx.clPriceLower, '--price-upper', ctx.clPriceUpper, '--use-decimals'],
     check: async (ctx, rec) => {
       const hasCl = (all: Record<string, unknown>[]) => positionsInPool(all, CL_LP).some((position) => positionPool(position).is_cl === true && bigOf(position.liquidity) > 0n)
-      const ours = positionsInPool(await positionsUntil(hasCl), CL_LP)
+      const ours = positionsInPool(await positionsUntil(ctx, rec, hasCl), CL_LP)
         .filter((position) => positionPool(position).is_cl === true && bigOf(position.liquidity) > 0n)
       if (!assert(rec, 'CL position with liquidity exists', ours.length > 0)) return 'fail'
       const chosen = ours.reduce((top, position) => bigOf(position.id) > bigOf(top.id) ? position : top)
-      if (ours.length > 1) assert(rec, 'single CL position in pool', false, `${ours.length} found; using highest id ${String(chosen.id)}`)
+      // Several NFTs in the pool (a stray from an earlier run) is a warning,
+      // not a failure: the newest id is the one this run minted.
+      if (ours.length > 1) assert(rec, 'single CL position in pool (warning)', true, `${ours.length} found; using highest id ${String(chosen.id)}`)
       ctx.clPositionId = String(chosen.id)
       assert(rec, 'captured position id', /^\d+$/.test(ctx.clPositionId), ctx.clPositionId)
       return allOk(rec)
@@ -748,7 +1034,7 @@ function buildSteps(): StepDef[] {
     needs: needCl,
     check: async (ctx, rec) => {
       const isStaked = (all: Record<string, unknown>[]) => positionsInPool(all, CL_LP).some((position) => String(position.id) === ctx.clPositionId && bigOf(position.staked) > 0n)
-      const target = positionsInPool(await positionsUntil(isStaked), CL_LP).find((position) => String(position.id) === ctx.clPositionId)
+      const target = positionsInPool(await positionsUntil(ctx, rec, isStaked), CL_LP).find((position) => String(position.id) === ctx.clPositionId)
       assert(rec, 'staked > 0', target !== undefined && bigOf(target.staked) > 0n)
       return allOk(rec)
     },
@@ -766,7 +1052,7 @@ function buildSteps(): StepDef[] {
     needs: needCl,
     check: async (ctx, rec) => {
       const isUnstaked = (all: Record<string, unknown>[]) => positionsInPool(all, CL_LP).some((position) => String(position.id) === ctx.clPositionId && bigOf(position.staked) === 0n)
-      const target = positionsInPool(await positionsUntil(isUnstaked), CL_LP).find((position) => String(position.id) === ctx.clPositionId)
+      const target = positionsInPool(await positionsUntil(ctx, rec, isUnstaked), CL_LP).find((position) => String(position.id) === ctx.clPositionId)
       assert(rec, 'staked == 0', target !== undefined && bigOf(target.staked) === 0n)
       return allOk(rec)
     },
@@ -784,7 +1070,7 @@ function buildSteps(): StepDef[] {
     needs: needCl,
     check: async (ctx, rec) => {
       const isGone = (all: Record<string, unknown>[]) => !positionsInPool(all, CL_LP).some((position) => String(position.id) === ctx.clPositionId)
-      const ours = positionsInPool(await positionsUntil(isGone), CL_LP)
+      const ours = positionsInPool(await positionsUntil(ctx, rec, isGone), CL_LP)
       assert(rec, 'position id gone from positions', !ours.some((position) => String(position.id) === ctx.clPositionId))
       return allOk(rec)
     },
@@ -796,7 +1082,8 @@ function buildSteps(): StepDef[] {
     id: 'tx.create-venft', feature: 'venft', title: 'Lock AERO into a one-week veNFT',
     args: (ctx) => ['create-venft', '--amount', ctx.venftAero, '--use-decimals', '--lock-duration-seconds', '604800'],
     check: async (ctx, rec) => {
-      assert(rec, 'veNFT count +1', rec.balanceDelta !== null && rec.balanceDelta.veNftCount === '1', String(rec.balanceDelta?.veNftCount))
+      if (rec.balanceDelta === null) return 'flaky'
+      assert(rec, 'veNFT count +1', rec.balanceDelta.veNftCount === '1', rec.balanceDelta.veNftCount)
       return allOk(rec)
     },
   }))
@@ -805,13 +1092,14 @@ function buildSteps(): StepDef[] {
     id: 'tx.stocks.buy', title: 'Buy NVDAc with USDC', feature: 'stocks', kind: 'tx', modes: TX_MODES,
     run: async (ctx, rec) => {
       if (!ctx.wallet) return 'skipped'
-      const balances = await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null)
+      const balances = await latestBalances(ctx).catch(() => null)
       if (!balances) return 'flaky'
       const spend = Math.min(ctx.budgetUsd, 0.95 * Number(balances.usdc))
       if (spend < DUST_USD) return 'skipped'
       const status = await cliTx(ctx, rec, ['stocks', 'buy', '--stock', 'NVDAc', '--amount', spend.toFixed(6)])
       if (status !== 'ok') return status
-      assert(rec, 'NVDAc balance increased', rec.balanceDelta !== null && Number(rec.balanceDelta.nvdac) > 0, String(rec.balanceDelta?.nvdac))
+      if (rec.balanceDelta === null) return 'flaky'
+      assert(rec, 'NVDAc balance increased', Number(rec.balanceDelta.nvdac) > 0, rec.balanceDelta.nvdac)
       return allOk(rec)
     },
   })
@@ -820,7 +1108,7 @@ function buildSteps(): StepDef[] {
     id: 'tx.stocks.sell', title: 'Sell the full NVDAc balance back to USDC', feature: 'stocks', kind: 'tx', modes: TX_MODES,
     run: async (ctx, rec) => {
       if (!ctx.wallet) return 'skipped'
-      const balances = await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null)
+      const balances = await latestBalances(ctx).catch(() => null)
       if (!balances) return 'flaky'
       if (Number(balances.nvdac) <= 0) return 'skipped'
       const status = await cliTx(ctx, rec, ['stocks', 'sell', '--stock', 'NVDAc', '--amount', balances.nvdac])
@@ -828,7 +1116,8 @@ function buildSteps(): StepDef[] {
       // Read at the step's receipt block so the check cannot race the node.
       const maxBlock = rec.receipts.reduce((top, receipt) => BigInt(receipt.blockNumber) > top ? BigInt(receipt.blockNumber) : top, 0n)
       const after = await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals, maxBlock > 0n ? maxBlock : undefined).catch(() => null)
-      assert(rec, 'NVDAc balance is zero', after !== null && Number(after.nvdac) === 0, after?.nvdac)
+      if (after === null) return 'flaky'
+      assert(rec, 'NVDAc balance is zero', Number(after.nvdac) === 0, after.nvdac)
       return allOk(rec)
     },
   })
@@ -912,7 +1201,7 @@ function buildSteps(): StepDef[] {
       id, title: `Swap remaining ${symbol} above dust back to ETH`, modes: ['full'],
       run: async (ctx, rec) => {
         if (!ctx.wallet) return 'nothing'
-        const balances = await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null)
+        const balances = await latestBalances(ctx).catch(() => null)
         if (!balances) return 'flaky'
         return sweepTokenToEth(ctx, rec, symbol, symbol === 'USDC' ? balances.usdc : balances.aero)
       },
@@ -939,8 +1228,17 @@ function buildSteps(): StepDef[] {
     args: () => ['executions', 'list'],
     check: (ctx, rec) => {
       const entries = (asArray(rec.parsed) ?? []).map(asObject).filter((item): item is Record<string, unknown> => item !== null)
-      const bad = entries.filter((entry) => entry.status === 'active' || entry.status === 'failed')
-      assert(rec, 'no active or failed journals', bad.length === 0, bad.map((entry) => `${String(entry.id)}:${String(entry.status)}`).join(', '))
+      // Judge only journals this run created or touched, the same rule the
+      // journal copy uses; historical journals belong to their own runs.
+      const touchedThisRun = (id: unknown): boolean => {
+        if (typeof id !== 'string' || !JOURNAL_NAME.test(`${id}.json`)) return true
+        const file = join(ctx.layout.executionsDir, `${id}.json`)
+        if (!existsSync(file)) return true
+        const previous = ctx.journalSnapshot.get(`${id}.json`)
+        return previous === undefined || statSync(file).mtimeMs > previous
+      }
+      const bad = entries.filter((entry) => (entry.status === 'active' || entry.status === 'failed') && touchedThisRun(entry.id))
+      assert(rec, 'no active or failed journals from this run', bad.length === 0, bad.map((entry) => `${String(entry.id)}:${String(entry.status)}`).join(', '))
       return allOk(rec)
     },
   }))
@@ -949,7 +1247,7 @@ function buildSteps(): StepDef[] {
     id: 'final.balances', title: 'Record balances, gas spend, and leftover dust', feature: 'final', kind: 'local', modes: ['full', 'sweep', 'dry-run'],
     needs: needWallet,
     run: async (ctx, rec) => {
-      const after = ctx.wallet ? await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null) : null
+      const after = ctx.wallet ? await latestBalances(ctx).catch(() => null) : null
       if (!after) return 'flaky'
       rec.parsed = { before: ctx.before, after }
       const dust: string[] = []
@@ -979,6 +1277,7 @@ type StepSummary = {
   gasUsedWei: string
   durationMs: number
   reason?: string
+  attempts: number
 }
 
 type CompareRow = { id: string; baseline: string; current: string; verdict: 'REGRESSION' | 'WARN' | 'INFO' | 'same'; detail?: string }
@@ -1030,6 +1329,7 @@ function stepSummary(step: StepRecord): StepSummary {
     gasUsedWei: gasUsedWei.toString(),
     durationMs: step.durationMs,
     reason: step.reason,
+    attempts: step.attempts,
   }
 }
 
@@ -1164,6 +1464,7 @@ async function main(): Promise<number> {
     journalSnapshot: new Map(),
     aborted: false,
     upstreamFailed: false,
+    minBlock: 0n,
     steps: [],
     runId: id,
     runDir,
@@ -1193,11 +1494,17 @@ async function main(): Promise<number> {
     doctor = await runDoctor({ budgetUsd: args.budgetUsd })
     writeFileSync(join(runDir, 'doctor.json'), JSON.stringify(doctor, null, 2))
     ctx.wallet = doctor.wallet.address as Address | null
-    // In dry-run mode nothing is broadcast, so a thin wallet does not block;
-    // missing funds only downgrade the steps that need a balance.
+    // In dry-run mode nothing is broadcast, so a thin wallet or a stale
+    // active journal does not block; missing funds only downgrade the steps
+    // that need a balance.
     const blocking = args.mode === 'dry-run'
-      ? doctor.problems.filter((problem) => !/ETH balance|could not price ETH/.test(problem))
-      : doctor.problems
+      ? doctor.problems.filter((problem) => !/ETH balance|could not price ETH|active execution journal/.test(problem))
+      : [...doctor.problems]
+    if ((args.mode === 'full' || args.mode === 'sweep') && doctor.rpc.receipts === false) {
+      blocking.push(
+        `endpoint cannot serve eth_getTransactionReceipt (${doctor.rpc.receiptsError ?? 'probe failed'}); the CLI would strand every plan as active. Pin a receipt-capable endpoint via AERO_VERIFY_RPC in $AERO_VERIFY_HOME/env`,
+      )
+    }
     if (blocking.length > 0) return refuse(blocking)
     try {
       acquireRunLock(layout.runLock)
@@ -1310,16 +1617,27 @@ async function main(): Promise<number> {
         finishStep(ctx, rec, 'skipped', 'upstream failed')
         continue
       }
-      let status: StepStatus
-      try {
-        status = await step.run(ctx, rec)
-      } catch (cause) {
-        rec.stderr += `[verify] ${scrub(cause instanceof Error ? cause.message : String(cause))}\n`
-        status = FLAKY_PATTERN.test(rec.stderr) ? 'flaky' : 'fail'
-      }
-      if (ctx.interrupted) {
-        status = 'fail'
-        rec.reason = 'interrupted'
+      // A pure infra flake (flaky, nothing broadcast) gets up to 3 attempts
+      // with a 45 s cooldown; a step holding a hash or receipt touched the
+      // chain, so it is final no matter the status.
+      let status: StepStatus = 'skipped'
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        rec.attempts = attempt
+        if (attempt > 1) await sleep(RETRY_DELAY_MS)
+        rec.stdout += `# attempt ${attempt}\n`
+        try {
+          status = await step.run(ctx, rec)
+        } catch (cause) {
+          const message = scrub(cause instanceof Error ? cause.message : String(cause))
+          rec.stderr += `[verify] ${message}\n`
+          status = FLAKY_PATTERN.test(message) ? 'flaky' : 'fail'
+        }
+        if (ctx.interrupted) {
+          status = 'fail'
+          rec.reason = 'interrupted'
+        }
+        const retryable = status === 'flaky' && rec.hashes.length === 0 && rec.receipts.length === 0 && !ctx.interrupted && !ctx.aborted
+        if (!retryable) break
       }
       finishStep(ctx, rec, status)
       if (status === 'fail' && step.kind === 'tx') ctx.upstreamFailed = true
@@ -1338,7 +1656,7 @@ async function main(): Promise<number> {
       }
     }
 
-    const after = ctx.wallet ? await readBalances(ctx.client, ctx.wallet, ctx.nvdacDecimals).catch(() => null) : null
+    const after = ctx.wallet ? await latestBalances(ctx).catch(() => null) : null
     const totalGas = ctx.steps.reduce((sum, step) => sum + step.receipts.reduce((inner, receipt) => inner + BigInt(receipt.gasUsed), 0n), 0n)
     const txCount = ctx.steps.reduce((sum, step) => sum + step.hashes.length, 0)
     const netEthDeltaWei = ctx.before && after

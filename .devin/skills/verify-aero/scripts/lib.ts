@@ -110,17 +110,14 @@ export function applyVerifyEnv(home: string): VerifyLayout {
   // SUGAR_RPC_URI_8453, which would otherwise look like a user-env override.
   resolvedRpcKind = rpcKind()
   process.env.SUGAR_RPC_URI_8453 = rpcUrl()
-  // publicnode rejects multicall3 batches of the heavy scan reads: five
-  // concurrent pages of 400 pool tuples, or five price-oracle batches of 40
-  // tokens, exceed its call cap and the whole batch fails as RPC_READ_FAILED.
-  // Smaller pages keep each batch under the cap; a dedicated endpoint needs
-  // no cap and a user pin always wins.
-  if (process.env.SUGAR_RPC_URI_8453 === PUBLICNODE_RPC) {
-    if (!process.env.SUGAR_POOL_PAGINATION_MAX_SIZE_8453 && !process.env.SUGAR_POOL_PAGINATION_MAX_SIZE) {
-      process.env.SUGAR_POOL_PAGINATION_MAX_SIZE_8453 = '75'
-    }
-    if (!process.env.SUGAR_PRICE_BATCH_SIZE_8453 && !process.env.SUGAR_PRICE_BATCH_SIZE) {
-      process.env.SUGAR_PRICE_BATCH_SIZE_8453 = '8'
+  // SDK profile picked by the resolved endpoint's throttling model (see the
+  // profile comments below). Env-file and process values already loaded above
+  // win over these defaults.
+  const profile = process.env.SUGAR_RPC_URI_8453 === PUBLICNODE_RPC ? PUBLICNODE_PROFILE : KEYED_PROFILE
+  for (const [key, value] of Object.entries(profile)) {
+    const bare = key.replace(/_8453$/, '')
+    if (process.env[key] === undefined && process.env[bare] === undefined) {
+      process.env[key] = value
     }
   }
   if (!process.env.SUGAR_WALLET_PASSPHRASE && existsSync(layout.passphraseFile)) {
@@ -136,6 +133,25 @@ export type RpcKind = 'verify-override' | 'user-env' | 'publicnode-default'
 // AERO_VERIFY_RPC also makes runs faster because the TUI raises scan
 // concurrency when SUGAR_RPC_URI_8453 is set.
 export const PUBLICNODE_RPC = 'https://base-rpc.publicnode.com'
+
+// publicnode caps the size of each call, so its profile keeps batches small.
+export const PUBLICNODE_PROFILE: Record<string, string> = {
+  SUGAR_THREADING_MAX_WORKERS_8453: '1',
+  SUGAR_QUOTE_BATCH_SIZE_8453: '8',
+  SUGAR_QUOTE_MAX_PATHS_8453: '200',
+  SUGAR_PRICE_BATCH_SIZE_8453: '8',
+  SUGAR_POOL_PAGINATION_MAX_SIZE_8453: '75',
+}
+
+// Keyed endpoints like Alchemy throttle on request count (CU/s), so they win
+// with fewer, larger calls: the SDK's default batch sizes on one worker.
+export const KEYED_PROFILE: Record<string, string> = {
+  SUGAR_THREADING_MAX_WORKERS_8453: '1',
+  SUGAR_QUOTE_BATCH_SIZE_8453: '64',
+  SUGAR_QUOTE_MAX_PATHS_8453: '200',
+  SUGAR_PRICE_BATCH_SIZE_8453: '40',
+  SUGAR_POOL_PAGINATION_MAX_SIZE_8453: '400',
+}
 
 let resolvedRpcKind: RpcKind | null = null
 
@@ -153,7 +169,7 @@ function rpcUrl(): string {
 export type Public = ReturnType<typeof createPublicClient<ReturnType<typeof http>, typeof base>>
 
 export function publicClient(): Public {
-  return createPublicClient({ chain: base, transport: http(rpcUrl(), { retryCount: 2, timeout: 30_000 }) })
+  return createPublicClient({ chain: base, transport: http(rpcUrl(), { retryCount: 5, retryDelay: 1000, timeout: 30_000 }) })
 }
 
 const erc20 = parseAbi([
@@ -171,20 +187,32 @@ export type Balances = {
 }
 
 export async function readBalances(client: Public, wallet: Address, nvdacDecimals = 18, blockNumber?: bigint): Promise<Balances> {
-  const [eth, usdc, aero, nvdac, veNfts] = await Promise.all([
-    client.getBalance({ address: wallet, ...(blockNumber !== undefined ? { blockNumber } : {}) }),
-    client.readContract({ address: USDC, abi: erc20, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
-    client.readContract({ address: AERO_TOKEN, abi: erc20, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
-    client.readContract({ address: NVDAC, abi: erc20, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
-    client.readContract({ address: VOTING_ESCROW, abi: erc721, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
-  ])
-  return {
-    eth: formatUnits(eth, 18),
-    usdc: formatUnits(usdc, 6),
-    aero: formatUnits(aero, 18),
-    nvdac: formatUnits(nvdac, nvdacDecimals),
-    veNftCount: Number(veNfts),
+  // A lagging or throttled node can fail one of the five reads, so retry the
+  // batch before giving up. Pinning every call to blockNumber keeps a lagging
+  // node erroring rather than answering with stale state.
+  let lastError: unknown = new Error('balance reads never ran')
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) await sleep(3000)
+    try {
+      const [eth, usdc, aero, nvdac, veNfts] = await Promise.all([
+        client.getBalance({ address: wallet, ...(blockNumber !== undefined ? { blockNumber } : {}) }),
+        client.readContract({ address: USDC, abi: erc20, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
+        client.readContract({ address: AERO_TOKEN, abi: erc20, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
+        client.readContract({ address: NVDAC, abi: erc20, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
+        client.readContract({ address: VOTING_ESCROW, abi: erc721, functionName: 'balanceOf', args: [wallet], ...(blockNumber !== undefined ? { blockNumber } : {}) }),
+      ])
+      return {
+        eth: formatUnits(eth, 18),
+        usdc: formatUnits(usdc, 6),
+        aero: formatUnits(aero, 18),
+        nvdac: formatUnits(nvdac, nvdacDecimals),
+        veNftCount: Number(veNfts),
+      }
+    } catch (cause) {
+      lastError = cause
+    }
   }
+  throw lastError
 }
 
 export async function tokenDecimals(client: Public, token: Address): Promise<number> {
@@ -220,12 +248,12 @@ export function killActiveProcs(): void {
 }
 
 /** Spawn a child, capture output, kill on timeout. */
-export async function runProcess(argv: string[], options: { cwd?: string; timeoutMs?: number } = {}): Promise<ProcResult> {
+export async function runProcess(argv: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv; stdin?: Blob; timeoutMs?: number } = {}): Promise<ProcResult> {
   const startedAt = Date.now()
   const proc = Bun.spawn(argv, {
     cwd: options.cwd,
-    env: process.env,
-    stdin: 'ignore',
+    env: options.env ?? process.env,
+    stdin: options.stdin ?? 'ignore',
     stdout: 'pipe',
     stderr: 'pipe',
   })
@@ -251,6 +279,15 @@ export async function runProcess(argv: string[], options: { cwd?: string; timeou
 
 export function runAero(args: string[], options: { timeoutMs?: number } = {}): Promise<ProcResult> {
   return runProcess([aeroBin(), ...args], options)
+}
+
+/**
+ * Drive an interactive aero command through expect: the Tcl script goes to
+ * expect's stdin (`expect -`) and extra env vars ride along. Same shape
+ * setup-wallet.sh uses, for commands that prompt on a TTY.
+ */
+export function runExpect(script: string, env: Record<string, string>, timeoutMs = 2 * 60_000): Promise<ProcResult> {
+  return runProcess(['/usr/bin/expect', '-'], { env: { ...process.env, ...env }, stdin: new Blob([script]), timeoutMs })
 }
 
 /** The last top-level JSON value printed to stdout (reads and plans are pretty-printed last). */
