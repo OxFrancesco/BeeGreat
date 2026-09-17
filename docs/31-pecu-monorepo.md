@@ -122,3 +122,7 @@ ChatGPT connection is available directly from the Pecu profile menu. The
 it once, while older replies retain an explicit Connect ChatGPT button. Device
 sign-in shows a copyable code with clipboard feedback. Connection management is
 shared by Pecu and Stocks web chat; X Chat receives the direct connection link.
+
+Expired ChatGPT device sign-in attempts are cleared before polling the provider.
+The profile remains usable after a code expires, including when the provider has
+already removed the attempt. Saved credentials still determine connection status.

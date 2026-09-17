@@ -48,10 +48,14 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     await this.ready;
     const pending = await this.ctx.storage.get<OAuthStart>("login");
     if (pending) {
-      const result = await this.harness.chatGptLoginStatus(pending.attemptId);
-      if (result.data.status !== "pending") {
+      // OpenCode removes expired attempts from memory. Do not poll an expired
+      // attempt retained in durable storage: its status endpoint then returns 500.
+      const loginState = Number(pending.expiresAt) <= Date.now()
+        ? "expired"
+        : (await this.harness.chatGptLoginStatus(pending.attemptId)).data.status;
+      if (loginState !== "pending") {
         await this.ctx.storage.delete("login");
-        await this.ctx.storage.put("loginState", result.data.status);
+        await this.ctx.storage.put("loginState", loginState);
       }
     }
     const status = await this.harness.inferenceStatus();

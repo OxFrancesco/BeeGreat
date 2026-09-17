@@ -6,7 +6,7 @@ class Memory {
   async put(key: string, value: unknown) { this.values.set(key, value); }
   async delete(key: string) { return this.values.delete(key); }
 }
-const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; hold?: Promise<void>; complete: boolean }>();
+const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean }>();
 mock.module("cloudflare:workers", () => ({
   RpcTarget: class {},
   DurableObject: class { constructor(public ctx: unknown, public env: unknown) {} },
@@ -20,7 +20,7 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
     async authStatus() { return { connected: state.connected }; },
     async inferenceStatus() { return { model: "test", reasoning: "medium", connected: state.connected, checkedAt: Date.now(), lastResponse: null }; },
     async beginChatGptLogin() { state.starts++; state.complete = false; return { attemptId: "test", url: "https://auth.openai.com/codex/device", instructions: "Test code", expiresAt: Date.now() + 600000 }; },
-    async chatGptLoginStatus() { if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
+    async chatGptLoginStatus() { if (state.loginStatusError) throw state.loginStatusError; if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
     async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }) { state.calls++; if (state.hold) await state.hold; return capabilities.walletAddress(); },
@@ -63,6 +63,24 @@ expect(states.get(a.storage)!.starts).toBe(2);
 const restarted = make(a.storage);
 expect((await restarted.instance.status()).loginState).toBe("expired");
 expect((await restarted.instance.status()).login).toBeNull();
+const expired = make();
+await expired.instance.startLogin();
+const oldLogin = await expired.storage.get<Record<string, unknown>>("login");
+await expired.storage.put("login", { ...oldLogin, expiresAt: Date.now() - 900000 });
+states.get(expired.storage)!.loginStatusError = new Error("UnexpectedStatus", { cause: { status: 500 } });
+const recovered = await expired.instance.status();
+expect(recovered.login).toBeNull();
+expect(recovered.loginState).toBe("expired");
+expect(recovered.connected).toBe(false);
+states.get(expired.storage)!.loginStatusError = undefined;
+await expired.instance.startLogin();
+expect(states.get(expired.storage)!.starts).toBe(2);
+states.get(expired.storage)!.loginStatusError = new Error("temporary service failure");
+await expect(expired.instance.status()).rejects.toThrow("temporary service failure");
+expect(await expired.storage.get("login")).toBeDefined();
+states.get(expired.storage)!.connected = true;
+await expired.storage.put("login", { ...oldLogin, expiresAt: Date.now() - 1 });
+expect((await expired.instance.status()).connected).toBe(true);
 const names: string[] = [];
 const env = { INFERENCE: { idFromName(name: string) { names.push(name); return name; }, get(id: string) { return id; } } } as never;
 expect(userInference(env, "123")).toBe(userInference(env, "123"));
