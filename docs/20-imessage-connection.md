@@ -60,6 +60,24 @@ environment variable is gone.
 - Terminal Web3 transitions enqueue `imessageDeliveries`. The Railway bridge
   leases, sends, and acknowledges each row; failed sends back off and expired
   leases recover after a bridge restart.
+- The bridge claims immediately on startup, then waits 2.4 to 3 seconds after
+  a delivery. Empty claims and claim failures double the next base interval
+  from 3 seconds to 60 seconds, with 20% downward jitter. At steady idle it
+  makes one claim every 48 to 60 seconds. Requests never overlap. A new item
+  after idle can wait up to 60 seconds before its claim, plus network and send
+  time. Failed-send retry deadlines and expired leases remain owned by Convex.
+- Outbox HTTP requests time out after 10 seconds. SIGTERM and SIGINT stop new
+  claims and drain the active delivery, with a 25-second process deadline.
+  The next process claims immediately and recovers expired leases normally.
+- No new wakeup subscription, callback endpoint, or credentials are introduced.
+  Spectrum carries inbound user messages, not Convex outbox events. An
+  event-driven replacement would need an authenticated bridge notification
+  channel and durable recovery. The existing Flue settlement event wakes the
+  agent conversation and does not notify this global outbox loop.
+- Delivery remains at least once. Enqueue deduplication and lease ownership
+  reject duplicate rows and stale acknowledgements, but a crash after sending
+  and before acknowledgement can resend the message. The scheduling change
+  does not add an exactly-once guarantee or change due-time ordering.
 - Progress is deliberately quiet: distinct material stages only, no successful
   per-tool completion bubble, and at most two delayed silence heartbeats.
 

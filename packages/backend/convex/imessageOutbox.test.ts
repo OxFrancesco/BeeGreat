@@ -1,5 +1,5 @@
 import { convexTest } from 'convex-test'
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import { internal } from './_generated/api'
 import schema from './schema'
@@ -7,7 +7,9 @@ import { modules } from './test.setup'
 
 const userId = 'user_imessage_outbox'
 const ownerKey = `https://issuer.example.test|${userId}`
-const address = '+393331234567'
+const address = 'outbox-fixture@example.test'
+
+afterEach(() => { vi.useRealTimers() })
 
 async function terminalIMessageAction() {
   const t = convexTest(schema, modules)
@@ -15,7 +17,7 @@ async function terminalIMessageAction() {
     const connectionId = await ctx.db.insert('imessageConnections', {
       userId,
       address,
-      addressKind: 'phone',
+      addressKind: 'email',
       connectedAt: Date.now(),
       updatedAt: Date.now(),
     })
@@ -32,7 +34,7 @@ async function terminalIMessageAction() {
     const actionId = await ctx.db.insert('web3Actions', {
       userId,
       conversationId: `${userId}~${threadId}`,
-      summary: 'Claim the selected pool fees',
+      summary: 'Non-financial delivery fixture',
       payload: {
         kind: 'execute_plan',
         chainId: 8453,
@@ -62,7 +64,7 @@ describe('iMessage terminal delivery outbox', () => {
       address,
       leaseId: 'bridge-lease-1',
       action: {
-        summary: 'Claim the selected pool fees',
+        summary: 'Non-financial delivery fixture',
         status: 'executed',
       },
     })
@@ -97,5 +99,60 @@ describe('iMessage terminal delivery outbox', () => {
     await expect(
       t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'none' }),
     ).resolves.toBeNull()
+  })
+})
+
+
+describe('outbox recovery and competing bridges', () => {
+  test('empty queue stays empty without creating lease records', async () => {
+    const t = convexTest(schema, modules)
+    expect(await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'empty' })).toBeNull()
+    expect(await t.run(ctx => ctx.db.query('imessageDeliveries').collect())).toEqual([])
+  })
+
+  test('two competing bridges cannot both claim the same delivery', async () => {
+    const { t, actionId } = await terminalIMessageAction()
+    await t.mutation(internal.imessageOutbox.enqueueAction, { actionId })
+    const results = await Promise.all(['a', 'b'].map(leaseId =>
+      t.mutation(internal.imessageOutbox.claimNext, { leaseId }),
+    ))
+    expect(results.filter(Boolean)).toHaveLength(1)
+  })
+
+  test('restart reclaims expired lease and rejects stale completion and retry', async () => {
+    vi.useFakeTimers()
+    const { t, actionId } = await terminalIMessageAction()
+    await t.mutation(internal.imessageOutbox.enqueueAction, { actionId })
+    const first = await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'crashed' })
+    expect(first).not.toBeNull()
+    expect(await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'early' })).toBeNull()
+    vi.setSystemTime(Date.now() + 30_001)
+    const recovered = await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'restarted' })
+    expect(recovered?.deliveryId).toBe(first?.deliveryId)
+    await t.mutation(internal.imessageOutbox.complete, { deliveryId: first!.deliveryId, leaseId: 'crashed' })
+    await t.mutation(internal.imessageOutbox.retry, { deliveryId: first!.deliveryId, leaseId: 'crashed' })
+    expect(await t.run(ctx => ctx.db.get(first!.deliveryId))).toMatchObject({ status: 'leased', leaseId: 'restarted' })
+    await t.mutation(internal.imessageOutbox.complete, { deliveryId: recovered!.deliveryId, leaseId: 'restarted' })
+    expect(await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'later' })).toBeNull()
+  })
+
+  test('failed delivery waits for retry deadline and retains ordering by due time', async () => {
+    vi.useFakeTimers()
+    const { t, actionId } = await terminalIMessageAction()
+    await t.mutation(internal.imessageOutbox.enqueueAction, { actionId })
+    const first = await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'first' })
+    await t.mutation(internal.imessageOutbox.retry, { deliveryId: first!.deliveryId, leaseId: 'first' })
+    expect(await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'too-early' })).toBeNull()
+    const secondId = await t.run(async ctx => {
+      const row = await ctx.db.get(first!.deliveryId)
+      const { _id, _creationTime, ...rest } = row!
+      return ctx.db.insert('imessageDeliveries', { ...rest, summary: 'Second fixture', nextAttemptAt: Date.now() })
+    })
+    const second = await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'second' })
+    expect(second?.deliveryId).toBe(secondId)
+    vi.setSystemTime(Date.now() + 2_000)
+    const retried = await t.mutation(internal.imessageOutbox.claimNext, { leaseId: 'retry' })
+    expect(retried?.deliveryId).toBe(first?.deliveryId)
+    expect(await t.run(ctx => ctx.db.get(first!.deliveryId))).toMatchObject({ attempts: 1 })
   })
 })

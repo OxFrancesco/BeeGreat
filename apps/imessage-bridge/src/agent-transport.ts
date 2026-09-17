@@ -123,7 +123,9 @@ export function createAgentTransport(options: AgentTransportOptions) {
     input: OutboxActionInput,
   ): Promise<T> {
     const response = await fetch(`${agentUrl}/bridge/outbox`, {
-      signal: options.signal,
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(10_000)])
+        : AbortSignal.timeout(10_000),
       method: 'POST',
       headers: { ...bridgeHeaders, 'content-type': 'application/json' },
       body: JSON.stringify({ action, ...input }),

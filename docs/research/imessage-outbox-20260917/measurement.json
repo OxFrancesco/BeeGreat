@@ -1,0 +1,292 @@
+{
+  "at": "2026-09-17T07:46:36.484Z",
+  "baselineRevision": "96b02c7f72abd98b6a04ba0f752599c55f97430a",
+  "windowMs": 120000,
+  "idleCounts": {
+    "before": 40,
+    "after": 6
+  },
+  "deliveries": [
+    {
+      "mode": "before",
+      "latencyMs": 169
+    },
+    {
+      "mode": "after",
+      "latencyMs": 12540
+    }
+  ],
+  "events": [
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 1
+    },
+    {
+      "mode": "after",
+      "action": "claim_delivery",
+      "elapsedMs": 2
+    },
+    {
+      "mode": "after",
+      "action": "claim_delivery",
+      "elapsedMs": 2915
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 3002
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 6010
+    },
+    {
+      "mode": "after",
+      "action": "claim_delivery",
+      "elapsedMs": 7904
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 9016
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 12027
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 15030
+    },
+    {
+      "mode": "after",
+      "action": "claim_delivery",
+      "elapsedMs": 17657
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 18030
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 21031
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 24033
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 27034
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 30036
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 33038
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 36039
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 39047
+    },
+    {
+      "mode": "after",
+      "action": "claim_delivery",
+      "elapsedMs": 40579
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 42051
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 45053
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 48055
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 51058
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 54060
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 57063
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 60065
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 63067
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 66087
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 69105
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 72133
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 75135
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 78277
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 81144
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 84147
+    },
+    {
+      "mode": "after",
+      "action": "claim_delivery",
+      "elapsedMs": 84534
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 87151
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 90153
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 93156
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 96158
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 99162
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 102161
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 105163
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 108164
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 111167
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 114172
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 117174
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 120176
+    },
+    {
+      "mode": "before",
+      "action": "complete_delivery",
+      "elapsedMs": 120188
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 123176
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 126178
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 129179
+    },
+    {
+      "mode": "before",
+      "action": "claim_delivery",
+      "elapsedMs": 132179
+    },
+    {
+      "mode": "after",
+      "action": "claim_delivery",
+      "elapsedMs": 132558
+    },
+    {
+      "mode": "after",
+      "action": "complete_delivery",
+      "elapsedMs": 132559
+    }
+  ],
+  "boundary": "Real wall-clock bridge code; intercepted HTTP and Spectrum fixture. No production requests or billing measurement."
+}

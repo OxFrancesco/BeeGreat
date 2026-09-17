@@ -3,10 +3,11 @@
 // never strands a delivery; failures are retried server-side.
 
 import { projectTextWeb3Action } from '@beegreat/tool-presentation'
-import { markdown, richlink, type Space } from 'spectrum-ts'
+import { markdown, richlink } from 'spectrum-ts'
 import type { AgentTransport } from './agent-transport'
 import type { Web3ActionProjection } from './bee-response'
 import { captureBridgeFailure } from './failures'
+import { startOutboxPoller, type PollClock } from './outbox-poller'
 
 export type ClaimedDelivery = {
   deliveryId: string
@@ -23,13 +24,13 @@ export type ClaimedDelivery = {
 }
 
 export function startTerminalDeliveryPolling(
-  transport: AgentTransport,
-  openDm: (address: string) => Promise<Space>,
+  transport: Pick<AgentTransport, 'outboxAction'>,
+  openDm: (address: string) => Promise<{
+    send: (content: ReturnType<typeof markdown> | ReturnType<typeof richlink>) => Promise<unknown>
+  }>,
+  timing?: PollClock,
 ) {
-  let deliveryPollActive = false
   async function pollTerminalDeliveries() {
-    if (deliveryPollActive) return
-    deliveryPollActive = true
     const leaseId = crypto.randomUUID()
     let delivery: ClaimedDelivery | null = null
     try {
@@ -37,7 +38,7 @@ export function startTerminalDeliveryPolling(
         'claim_delivery',
         { leaseId },
       )
-      if (!delivery) return
+      if (!delivery) return false
       const projected = projectTextWeb3Action({
         summary: delivery.action.summary,
         kind: delivery.action.kind,
@@ -62,22 +63,21 @@ export function startTerminalDeliveryPolling(
         leaseId: delivery.leaseId,
       })
     } catch (error) {
+      if (!delivery) throw error
       captureBridgeFailure(error, 'outbox.deliver')
-      if (delivery) {
-        await transport
-          .outboxAction('retry_delivery', {
-            deliveryId: delivery.deliveryId,
-            leaseId: delivery.leaseId,
-          })
-          .catch(() => {})
-      }
-    } finally {
-      deliveryPollActive = false
+      await transport
+        .outboxAction('retry_delivery', {
+          deliveryId: delivery.deliveryId,
+          leaseId: delivery.leaseId,
+        })
+        .catch(() => {})
     }
+    return true
   }
 
-  const deliveryTimer = setInterval(() => void pollTerminalDeliveries(), 3_000)
-  deliveryTimer.unref()
-  void pollTerminalDeliveries()
-  return deliveryTimer
+  return startOutboxPoller(
+    pollTerminalDeliveries,
+    error => captureBridgeFailure(error, 'outbox.claim'),
+    timing,
+  )
 }

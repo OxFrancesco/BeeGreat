@@ -59,10 +59,25 @@ const app = await Spectrum({
   providers: [imessage.config()],
 })
 
-startTerminalDeliveryPolling(transport, async (address) => {
+const outbox = startTerminalDeliveryPolling(transport, async (address) => {
   const im = imessage(app)
   return await im.space.create(await im.user(address))
 })
+
+let shuttingDown = false
+async function shutdown(exitCode = 0) {
+  if (shuttingDown) return
+  shuttingDown = true
+  // Finish an in-flight delivery when possible. A forced exit leaves the
+  // durable lease available for recovery by the next bridge instance.
+  const deadline = setTimeout(() => process.exit(exitCode), 25_000)
+  await outbox.stop()
+  await Sentry.flush(2_000)
+  clearTimeout(deadline)
+  process.exit(exitCode)
+}
+process.once('SIGTERM', () => void shutdown())
+process.once('SIGINT', () => void shutdown())
 
 console.log(`imessage-bridge: connected; resolving senders via ${AGENT_URL}`)
 
@@ -244,18 +259,26 @@ const identities = createInboundQueue({
   timeoutMs: 15_000,
   onError: error => captureBridgeFailure(error, 'identity.resolve'),
 })
-for await (const incoming of app.messages) {
-  const [space, message] = incoming
-  if (!acceptsPrivateMessage(imessage(space)) || !message.sender?.id) continue
-  const sender = normalizeAddress(message.sender.id)
-  identities.enqueue(sender, async signal => {
-    const userId = await identity.resolve(sender, signal)
-    if (!userId) {
-      await welcomeUnknownSender(messageSpace(space, signal), sender, signal)
-      return
-    }
-    if (!inbound.enqueue(userId, signal => handleMessage(incoming, signal, userId))) {
-      captureBridgeFailure(new Error('Inbound account queue is full'), 'inbound.capacity')
-    }
-  })
+try {
+  for await (const incoming of app.messages) {
+    if (shuttingDown) break
+    const [space, message] = incoming
+    if (!acceptsPrivateMessage(imessage(space)) || !message.sender?.id) continue
+    const sender = normalizeAddress(message.sender.id)
+    identities.enqueue(sender, async signal => {
+      const userId = await identity.resolve(sender, signal)
+      if (!userId) {
+        await welcomeUnknownSender(messageSpace(space, signal), sender, signal)
+        return
+      }
+      if (!inbound.enqueue(userId, signal => handleMessage(incoming, signal, userId))) {
+        captureBridgeFailure(new Error('Inbound account queue is full'), 'inbound.capacity')
+      }
+    })
+  }
+} catch (error) {
+  captureBridgeFailure(error, 'provider.stream')
+} finally {
+  // A closed provider stream must restart under Railway's ON_FAILURE policy.
+  await shutdown(1)
 }
