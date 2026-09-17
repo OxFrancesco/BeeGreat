@@ -6,6 +6,10 @@ describe("Cloudflare configuration boundary", () => {
     expect(loadWorkerConfig({}).typesafeApiKey).toBeUndefined();
     expect(loadWorkerConfig({ TYPESAFE_API_KEY: "test-key" }).typesafeApiKey).toBe("test-key");
   });
+  test("OpenRouter is optional and loaded only from server configuration", () => {
+    expect(loadWorkerConfig({}).openRouterApiKey).toBeUndefined();
+    expect(loadWorkerConfig({ OPENROUTER_API_KEY: "sk-or-test" }).openRouterApiKey).toBe("sk-or-test");
+  });
   test("defaults to locked Base mainnet", () => {
     const config = loadWorkerConfig({});
     expect(config.baseRpcUrl).toBe("https://mainnet.base.org");

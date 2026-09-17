@@ -5,6 +5,7 @@ import type { VerifiedMessage } from "../domain";
 import { DurableStore } from "./durable-store";
 import { OpenCodeHarness, type OAuthStart } from "./opencode";
 import { codexContainerFetch } from "./codex-fetch";
+import { loadWorkerConfig } from "./config";
 import { log } from "../logger";
 import { UsageLimitError } from "../usage-limit";
 
@@ -42,7 +43,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       this.harness = await OpenCodeHarness.create(ctx.storage, store, (message) => {
         if (!this.active || this.active.eventId !== message.eventId) throw new Error("This turn has ended. Send your request again.");
         return this.active.capabilities;
-      }, codexContainerFetch(env.CODEX));
+      }, codexContainerFetch(env.CODEX), loadWorkerConfig(env).openRouterApiKey);
       store.initialize();
     });
   }
@@ -62,7 +63,8 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       }
     }
     const status = await this.harness.inferenceStatus();
-    return { ...status, connected: status.connected && !await this.ctx.storage.get<boolean>("disconnected"), login: await this.ctx.storage.get<OAuthStart>("login") ?? null, loginState: await this.ctx.storage.get<string>("loginState") ?? null };
+    const connected = status.connected && !await this.ctx.storage.get<boolean>("disconnected");
+    return { ...status, connected, fallback: { configured: this.harness.fallbackConfigured, active: this.harness.fallbackConfigured && (!connected || status.usageLimit !== null) }, login: await this.ctx.storage.get<OAuthStart>("login") ?? null, loginState: await this.ctx.storage.get<string>("loginState") ?? null };
   }
 
   async startLogin() {
@@ -127,8 +129,9 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     };
     this.active = { eventId: message.eventId, capabilities };
     try {
-      if (await this.ctx.storage.get<boolean>("disconnected") || !(await this.harness.authStatus()).connected) return chatGptConnectionRequired;
-      return await this.harness.respond(message, capabilities, mode);
+      const chatGpt = !await this.ctx.storage.get<boolean>("disconnected") && (await this.harness.authStatus()).connected;
+      if (!chatGpt && !this.harness.fallbackConfigured) return chatGptConnectionRequired;
+      return await this.harness.respond(message, capabilities, mode, chatGpt);
     } catch (error) {
       // Returned as a reply, not thrown: RPC would flatten the subclass and the caller would wrap it as a command failure.
       if (!(error instanceof UsageLimitError)) throw error;

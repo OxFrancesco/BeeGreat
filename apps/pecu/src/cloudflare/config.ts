@@ -55,6 +55,7 @@ export type WorkerConfig = Readonly<{
   nansenApiKey?: string;
   typesafeApiKey?: string;
   nansenApiUrl: string;
+  openRouterApiKey?: string;
 }>;
 
 export function loadWorkerConfig(env: object): WorkerConfig {
@@ -109,6 +110,7 @@ export function loadWorkerConfig(env: object): WorkerConfig {
     ...optionalConfig("whopWebhookSecret", envString(env, "WHOP_WEBHOOK_SECRET")),
     ...optionalConfig("nansenApiKey", envString(env, "NANSEN_API_KEY")),
     ...optionalConfig("typesafeApiKey", envString(env, "TYPESAFE_API_KEY")),
+    ...optionalConfig("openRouterApiKey", envString(env, "OPENROUTER_API_KEY")),
     whopApiUrl: value.WHOP_API_URL,
     whopApiVersionDate: value.WHOP_API_VERSION_DATE,
     depositRelayMaxUsd: value.DEPOSIT_RELAY_MAX_USD,

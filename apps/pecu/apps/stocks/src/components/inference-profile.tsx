@@ -53,10 +53,14 @@ export function ConnectionRecovery({ reply }: { reply: { text: string; recovery?
   return <Button className="pecu-button mt-3" onClick={openChatGptConnection}>Connect ChatGPT</Button>;
 }
 
-function usageLimitLine(limit: NonNullable<InferenceStatus["usageLimit"]>) {
-  if (limit.kind === "usage_not_included") return "Your ChatGPT plan doesn't include Codex usage, so AI replies aren't available.";
-  if (limit.resetsAt === null) return "Your ChatGPT usage limit is reached. Try again later.";
-  return `Your ChatGPT usage limit is reached. It resets ${new Date(limit.resetsAt).toLocaleString(undefined, { hour: "2-digit", minute: "2-digit", weekday: "short" })}.`;
+function usageLimitLine(limit: NonNullable<InferenceStatus["usageLimit"]>, fallback: boolean) {
+  if (limit.kind === "usage_not_included") return fallback
+    ? "Your ChatGPT plan doesn't include Codex usage. Replies use Pecu's built-in model."
+    : "Your ChatGPT plan doesn't include Codex usage, so AI replies aren't available.";
+  const until = limit.resetsAt === null ? null : new Date(limit.resetsAt).toLocaleString(undefined, { hour: "2-digit", minute: "2-digit", weekday: "short" });
+  if (fallback) return `Your ChatGPT usage limit is reached. Replies use Pecu's built-in model until it ${until ? `resets ${until}` : "lifts"}.`;
+  if (until === null) return "Your ChatGPT usage limit is reached. Try again later.";
+  return `Your ChatGPT usage limit is reached. It resets ${until}.`;
 }
 
 export function LoginCode({ code }: { code: string }) {
@@ -135,11 +139,14 @@ export function InferenceProfile({ inDialog = false, onConnected }: { inDialog?:
           <p className="pecu-inference-waiting" role="status">Waiting for you to finish signing in.</p>
           <Button className="pecu-button pecu-inference-cancel" variant="ghost" disabled={busy} onClick={() => void refresh("disconnect")}>Cancel sign-in</Button>
         </div> : null}
-        {!status.connected && !status.login ? <Button className="pecu-button pecu-inference-connect" disabled={busy} onClick={() => void refresh("connect")}><ChatGptLogo />Connect ChatGPT</Button> : null}
+        {!status.connected && !status.login ? <div className="pecu-inference-login">
+          <Button className="pecu-button pecu-inference-connect" disabled={busy} onClick={() => void refresh("connect")}><ChatGptLogo />Connect ChatGPT</Button>
+          {status.fallback?.configured ? <p role="status" className="pecu-inference-waiting">AI replies currently use Pecu's built-in model. Connect ChatGPT to use your own subscription instead.</p> : null}
+        </div> : null}
         {status.connected ? <>
-          {status.usageLimit ? <p role="status" className="pecu-inference-waiting">{usageLimitLine(status.usageLimit)}</p> : null}
+          {status.usageLimit ? <p role="status" className="pecu-inference-waiting">{usageLimitLine(status.usageLimit, Boolean(status.fallback?.configured))}</p> : null}
           {confirmDisconnect ? <div className="pecu-inference-login">
-            <p>Disconnect ChatGPT? AI replies will stop until you reconnect. Your wallet and wallet commands will still work.</p>
+            <p>Disconnect ChatGPT? {status.fallback?.configured ? "AI replies will use Pecu's built-in model until you reconnect." : "AI replies will stop until you reconnect."} Your wallet and wallet commands will still work.</p>
             <div className="pecu-inference-actions">
               <Button className="pecu-button" variant="outline" disabled={busy} onClick={() => setConfirmDisconnect(false)}>Keep connected</Button>
               <Button className="pecu-button" disabled={busy} onClick={() => void refresh("disconnect")}>Disconnect</Button>

@@ -13,6 +13,8 @@ export const inferenceStatusSchema = z.object({
     .object({ kind: z.enum(["usage_limit_reached", "usage_not_included"]), resetsAt: z.number().nullable() })
     .nullable()
     .optional(),
+  /** Optional so a client can read status from a backend deployed before the shared fallback existed. */
+  fallback: z.object({ configured: z.boolean(), active: z.boolean() }).optional(),
   loginState: z.enum(["pending", "complete", "failed", "expired"]).nullable(),
   login: z
     .object({

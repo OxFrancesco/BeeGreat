@@ -1,4 +1,5 @@
 import { InferenceTools, userInference } from "./user-inference";
+import { fallbackModels } from "./opencode";
 import { TypeSafeRequestClassifier } from "../request-classifier";
 export { UserInference } from "./user-inference";
 import { AaveService } from "../integrations/aave";
@@ -324,7 +325,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       ok: !configurationError,
       runtime: "cloudflare-durable-object",
       chain: { id: 8453, name: "Base mainnet", rpcHost: new URL(this.config.baseRpcUrl).hostname, executionEnabled: this.config.enableMainnetExecution },
-      opencode: { connectionScope: "user", model: "openai/gpt-5.6-sol" },
+      opencode: { connectionScope: "user", model: "openai/gpt-5.6-sol", fallback: { provider: fallbackModels.default.providerID, model: `${fallbackModels.default.providerID}/${fallbackModels.default.id}`, configured: Boolean(this.config.openRouterApiKey) } },
       xchat: {
         configured: !configurationError,
         pollingEnabled: this.config.xchatPollingEnabled,

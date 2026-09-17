@@ -156,6 +156,15 @@ curl https://YOUR-WORKER.workers.dev/health
 
 Keep `ENABLE_MAINNET_EXECUTION=false` while testing wallets, reads, and transaction previews. Enabling it requires a deliberate configuration change and redeploy. See [docs/architecture.md](docs/architecture.md) for the boundaries and remaining live proof.
 
+## OpenRouter fallback
+
+Each user's AI replies normally run on their own connected ChatGPT subscription. When the operator sets an `OPENROUTER_API_KEY` Worker secret, three cases instead run the same turn on OpenRouter through OpenCode's built-in `openrouter` provider, billed to the operator's OpenRouter credits: the user has no ChatGPT connection, the user's stored usage limit is still active, or the ChatGPT request fails mid-turn with a provider error. The fallback uses the same models (`openai/gpt-5.6-sol` at medium effort, `openai/gpt-5.6-luna` at low effort) on the same conversation session, and the user sees a normal reply with no indication of the route. Requests are pinned to OpenAI's endpoint on OpenRouter (`provider.only = ["openai"]`), so an OpenAI outage fails the fallback instead of routing to Azure or Bedrock. Without the secret, the existing connect-ChatGPT and usage-limit replies are unchanged.
+
+```sh
+bunx wrangler secret put OPENROUTER_API_KEY
+```
+
+`GET /health` reports `opencode.fallback.configured`, and the profile's status payload carries `fallback.configured` and `fallback.active` so the web UI can say when replies are using the built-in model.
 
 ## Add funds with Whop
 

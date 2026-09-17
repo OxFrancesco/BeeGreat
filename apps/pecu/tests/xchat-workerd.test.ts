@@ -73,7 +73,7 @@ describe("X Chat WASM in Workerd", () => {
       const model = await request("/model");
       expect(model.status).toBe(200);
       const modelBody = await model.text();
-      expect(modelBody).toBe('{"requests":2}');
+      expect(modelBody).toBe('{"requests":2,"fallback":{"path":"/api/v1/chat/completions","authorized":true,"model":"openai/gpt-5.6-sol","effort":"medium","provider":{"only":["openai"]}}}');
       const inference = await request("/inference");
       expect(await inference.text()).toBe(JSON.stringify({ disconnected: true, separate: true, blocked: true }));
       let completed = false;

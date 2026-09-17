@@ -87,9 +87,11 @@ The profile's AI connection page connects a ChatGPT subscription to the verified
 X account. Both `/agent` and Stocks use the same profile component. X chat and
 web chat select `UserInference` by that X sender, so each account has its own
 OpenCode SQLite database, credentials, sessions, and last provider response.
-The shared subscription is never a fallback. Wallet commands remain available
-without a subscription. Other Bee clients and providers are separate products
-and are not changed by this Pecu feature.
+The retired shared ChatGPT credential is never used. When the operator
+configures `OPENROUTER_API_KEY`, the same OpenCode session falls back to
+OpenRouter for users without a connection or past their usage limit. Wallet
+commands remain available without a subscription. Other Bee clients and
+providers are separate products and are not changed by this Pecu feature.
 
 The profile shows the configured model and reasoning, connection status, and the
 last provider response time. It does not claim a subscription tier, remaining
@@ -105,7 +107,8 @@ Existing users must connect once. Old AI sessions and the old shared credential
 are retained in the main database but are not used by the new runtime. Visible
 chat history remains; new AI conversations start in the user's isolated store.
 
-Validation includes user isolation, no shared fallback, failed disconnect
+Validation includes user isolation, no fallback without the operator's
+OpenRouter key, OpenRouter routing and hook scoping, failed disconnect
 blocking future replies, OAuth attempt reuse, restart recovery, concurrent-turn
 locks, the tool allowlist, and a real Workerd RPC check without credentials.
 A full live OAuth and model-reply check requires the user to authorize ChatGPT.
@@ -153,4 +156,5 @@ mobile, Android, web, CLI, iMessage, voice, and OpenRouter agent are unaffected.
 No client contract or presentation change is required. Removing the TypeSafe
 secret disables classification. Deploy the updated Codex transport before the
 Pecu Worker because it must admit Luna as well as Sol. A user's own connected
-ChatGPT subscription remains required for all model responses.
+ChatGPT subscription remains required for all model responses unless the
+operator-configured OpenRouter fallback is present.

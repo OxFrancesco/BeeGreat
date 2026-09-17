@@ -7,35 +7,38 @@ class Memory {
   async delete(key: string) { return this.values.delete(key); }
 }
 import { UsageLimitError } from "../../src/usage-limit";
-const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean; usageLimit?: boolean }>();
+const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean; usageLimit?: boolean; lastChatGpt?: boolean }>();
 mock.module("cloudflare:workers", () => ({
   RpcTarget: class {},
   DurableObject: class { constructor(public ctx: unknown, public env: unknown) {} },
 }));
 mock.module("../../src/cloudflare/durable-store", () => ({ DurableStore: class { initialize() {} } }));
 mock.module("../../src/cloudflare/codex-fetch", () => ({ codexContainerFetch() {} }));
-mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async create(storage: Memory) {
+mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async create(storage: Memory, _store: unknown, _resolve: unknown, _fetch: unknown, openRouterApiKey?: string) {
   const state = states.get(storage) ?? { connected: false, starts: 0, calls: 0, failDisconnect: false, complete: false };
   states.set(storage, state);
+  const fallbackConfigured = Boolean(openRouterApiKey);
   return {
+    fallbackConfigured,
     async authStatus() { return { connected: state.connected }; },
-    async inferenceStatus() { return { model: "test", reasoning: "medium", connected: state.connected, checkedAt: Date.now(), lastResponse: null }; },
+    async inferenceStatus() { return { model: "test", reasoning: "medium", connected: state.connected, checkedAt: Date.now(), lastResponse: null, usageLimit: state.usageLimit ? { kind: "usage_limit_reached", resetsAt: null } : null }; },
     async beginChatGptLogin() { state.starts++; state.complete = false; return { attemptId: "test", url: "https://auth.openai.com/codex/device", instructions: "Test code", expiresAt: Date.now() + 600000 }; },
     async chatGptLoginStatus() { if (state.loginStatusError) throw state.loginStatusError; if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
-    async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }) {
+    async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }, _mode?: unknown, chatGpt = true) {
       state.calls++;
-      if (state.usageLimit) throw new UsageLimitError({ kind: "usage_limit_reached", planType: "plus", resetsAt: Date.now() + 3_600_000, observedAt: Date.now() });
+      state.lastChatGpt = chatGpt;
+      if (state.usageLimit && !fallbackConfigured) throw new UsageLimitError({ kind: "usage_limit_reached", planType: "plus", resetsAt: Date.now() + 3_600_000, observedAt: Date.now() });
       if (state.hold) await state.hold;
       return capabilities.walletAddress();
     },
   };
 } } }));
 const { UserInference, userInference, InferenceTools } = await import("../../src/cloudflare/user-inference");
-const make = (storage = new Memory()) => {
+const make = (storage = new Memory(), env: Record<string, string> = {}) => {
   const ctx = { storage, blockConcurrencyWhile: (fn: () => Promise<void>) => fn() };
-  return { storage, instance: new UserInference(ctx as never, {} as never) };
+  return { storage, instance: new UserInference(ctx as never, env as never) };
 };
 const a = make(); const b = make();
 await a.instance.status(); await b.instance.status();
@@ -105,4 +108,21 @@ const explanationTools = new InferenceTools({
 await expect(explanationTools.call("walletAddress", [])).rejects.toThrow("explanation-only");
 await expect(explanationTools.call("evmPropose", [])).rejects.toThrow("explanation-only");
 expect(await explanationTools.call("askUser", ["Which account?"])).toBe("Which account?");
-console.log("isolation, no fallback, OAuth reuse, disconnect, failure recovery, restart, turn locks, RPC allowlist passed");
+// With OPENROUTER_API_KEY a missing connection, an active limit, and a disconnect all still answer.
+const keyed = make(new Memory(), { OPENROUTER_API_KEY: "sk-or-test" });
+expect(await keyed.instance.respond(message, false, tools)).toBe("wallet-a");
+expect(states.get(keyed.storage)!.lastChatGpt).toBe(false);
+expect((await keyed.instance.status()).fallback).toEqual({ configured: true, active: true });
+await keyed.instance.startLogin();
+states.get(keyed.storage)!.complete = true;
+expect((await keyed.instance.status()).connected).toBe(true);
+expect((await keyed.instance.status()).fallback).toEqual({ configured: true, active: false });
+expect(await keyed.instance.respond(message, false, tools)).toBe("wallet-a");
+expect(states.get(keyed.storage)!.lastChatGpt).toBe(true);
+states.get(keyed.storage)!.usageLimit = true;
+expect((await keyed.instance.status()).fallback).toEqual({ configured: true, active: true });
+await keyed.instance.disconnect();
+expect(await keyed.instance.respond(message, false, tools)).toBe("wallet-a");
+expect(states.get(keyed.storage)!.lastChatGpt).toBe(false);
+expect((await a.instance.status()).fallback).toEqual({ configured: false, active: false });
+console.log("isolation, OpenRouter fallback, OAuth reuse, disconnect, failure recovery, restart, turn locks, RPC allowlist passed");
