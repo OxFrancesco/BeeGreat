@@ -1,5 +1,5 @@
 import { UserButton } from "@clerk/tanstack-react-start";
-import { CpuIcon } from "lucide-react";
+import { ChatGptLogo } from "./chatgpt-logo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { inferenceStatusSchema, type InferenceStatus } from "../../../../src/web-contract";
 import { Button } from "./ui/button";
@@ -14,11 +14,11 @@ export function PecuUserButton() {
     <div ref={profile}>
       <UserButton>
         <UserButton.MenuItems>
-          <UserButton.Action label="ChatGPT connection" labelIcon={<CpuIcon size={16} />} onClick={openChatGptConnection} />
+          <UserButton.Action label="ChatGPT connection" labelIcon={<ChatGptLogo size={20} />} onClick={openChatGptConnection} />
           <UserButton.Action label="manageAccount" />
           <UserButton.Action label="signOut" />
         </UserButton.MenuItems>
-        <UserButton.UserProfilePage label="ChatGPT connection" labelIcon={<CpuIcon size={16} />} url="ai-connection">
+        <UserButton.UserProfilePage label="ChatGPT connection" labelIcon={<ChatGptLogo size={20} />} url="ai-connection">
           <InferenceProfile />
         </UserButton.UserProfilePage>
       </UserButton>
@@ -116,11 +116,11 @@ export function InferenceProfile({ inDialog = false }: { inDialog?: boolean }) {
         {status.loginState === "failed" ? <p role="alert">ChatGPT sign-in didn't finish. Try connecting again.</p> : null}
         {status.login ? <div className="pecu-inference-login">
           {userCode ? <><p>Enter this code in ChatGPT:</p><LoginCode key={userCode} code={userCode} /></> : <p>{status.login.instructions}</p>}
-          <a href={status.login.url} target="_blank" rel="noopener noreferrer" className="pecu-button pecu-inference-link">Continue with ChatGPT</a>
+          <a href={status.login.url} target="_blank" rel="noopener noreferrer" className="pecu-button pecu-inference-link"><ChatGptLogo />Continue with ChatGPT</a>
           <p className="pecu-inference-waiting" role="status">Waiting for you to finish signing in.</p>
           <Button className="pecu-button pecu-inference-cancel" variant="ghost" disabled={busy} onClick={() => void refresh("disconnect")}>Cancel sign-in</Button>
         </div> : null}
-        {!status.connected && !status.login ? <Button className="pecu-button" disabled={busy} onClick={() => void refresh("connect")}>Connect ChatGPT</Button> : null}
+        {!status.connected && !status.login ? <Button className="pecu-button pecu-inference-connect" disabled={busy} onClick={() => void refresh("connect")}><ChatGptLogo />Connect ChatGPT</Button> : null}
         {status.connected ? <>
           {confirmDisconnect ? <div className="pecu-inference-login">
             <p>Disconnect ChatGPT? AI replies will stop until you reconnect. Your wallet and wallet commands will still work.</p>

@@ -225,3 +225,8 @@
 .pecu-inference button { min-height: 44px; }
 .pecu-inference .pecu-inference-cancel { margin-top: 4px; align-self: center; background: transparent; box-shadow: none; }
 .pecu-inference-error { display: grid; gap: 12px; font-size: 14px; }
+
+.pecu.pecu-connection-dialog:has(.pecu-inference-connect) { padding: 48px 24px; }
+.pecu .pecu-inference-connect { display: flex; width: fit-content; max-width: 100%; margin-inline: auto; gap: 10px; }
+.pecu .pecu-inference-link { gap: 10px; }
+.pecu .pecu-inference-connect svg, .pecu .pecu-inference-link svg { width: 24px; height: 24px; }

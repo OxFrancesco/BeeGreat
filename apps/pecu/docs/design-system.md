@@ -187,6 +187,8 @@ content while signing in. The panel has no visible title, connection details,
 account explanation, refresh control, timestamp, or nested card. Use a 400px
 maximum width, 24px side padding, and 20px between sign-in controls.
 Place the code and copy button in one inset cream field. Use a coral pill for
-Continue with ChatGPT and a plain text button for Cancel sign-in.
+Continue with ChatGPT and a plain text button for Cancel sign-in. Center the
+standalone Connect ChatGPT button horizontally and vertically in its panel.
+Use the ChatGPT mark in the profile shortcut and connection buttons.
 Copy reports success only after the clipboard write resolves, and leaves the
 code selectable if access fails. Sign-in is never started automatically.
