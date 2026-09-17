@@ -10,6 +10,7 @@ import type { VerifiedMessage } from "../domain";
 import type { AgentCapabilities, AgentHarness, ResponseMode } from "../harness";
 import type { HarnessStateStore } from "../state";
 import { log } from "../logger";
+import { isUsageLimitError, parseUsageLimit, usageLimitActive, UsageLimitError, type UsageLimit } from "../usage-limit";
 
 const systemPrompt = `You are Pecu, an X Chat assistant for Base wallets, deposits, Aerodrome, Aave, Nansen analytics, and Polymarket research.
 Reply in concise plain text for an everyday user. Never paste JSON, raw tool output, calldata, wei amounts, internal plan IDs, or framework names into chat. Explain amounts in token units. Preserve exact recipients, minimum received amounts, unavailable fee estimates, and confirmation/cancellation commands from transaction previews. Technical output is available only through the deterministic b/verbose command. You have the complete Aero SDK and CLI surface through typed tools, plus generic EVM tools for any Base mainnet token or contract.
@@ -39,6 +40,9 @@ export type OAuthStart = Readonly<{
 type CapabilityResolver = (message: VerifiedMessage) => AgentCapabilities;
 type ProviderResponse = Readonly<{ status: number; errorKind?: string; at: number }>;
 const providerResponseKey = "basedbot-last-provider-response";
+const usageLimitKey = "basedbot-usage-limit";
+/** One retry is enough for a transient provider failure; more only delays the same error for a chat user. */
+const maxRetryAttempt = 2;
 
 export class OpenCodeHarness implements AgentHarness {
   private constructor(
@@ -67,16 +71,27 @@ export class OpenCodeHarness implements AgentHarness {
           let errorKind: string | undefined;
           if (!event.response.ok) {
             const body = await event.response.clone().text();
-            errorKind = body.includes("cf-chl-") || body.includes("Just a moment")
+            const limit = parseUsageLimit(event.response.status, body, event.response.headers);
+            if (limit) await storage.put<UsageLimit>(usageLimitKey, limit);
+            errorKind = limit ? `usage-limit:${limit.kind}`
+              : body.includes("cf-chl-") || body.includes("Just a moment")
               ? "cloudflare-challenge"
               : body.includes("unsupported_country") ? "unsupported-country"
               : body.includes("invalid_api_key") ? "invalid-api-key"
               : body.includes("token_expired") ? "expired-token"
               : body.match(/<title>([^<]{1,120})<\/title>/i)?.[1]
                 ?? event.response.headers.get("content-type") ?? "unknown";
+          } else {
+            await storage.delete(usageLimitKey);
           }
           log("info", "model_http_response", { host: url.hostname, path: url.pathname, status: event.response.status, errorKind, hasAccountHeader: event.request.headers.has("chatgpt-account-id") });
           await storage.put<ProviderResponse>(providerResponseKey, { status: event.response.status, errorKind, at: Date.now() });
+        });
+        await context.session.hook("retry", async (event) => {
+          const limit = await storage.get<UsageLimit>(usageLimitKey);
+          const exhausted = isUsageLimitError(event.error) || (limit !== undefined && usageLimitActive(limit));
+          if (exhausted || event.attempt > maxRetryAttempt) event.decision = { retry: false };
+          log("info", "model_retry_decision", { sessionId: event.sessionID, attempt: event.attempt, status: event.error.status, exhausted, retry: event.decision.retry });
         });
         await context.tool.transform((draft) => {
           for (const tool of draft.list()) draft.remove(tool.id);
@@ -235,7 +250,15 @@ export class OpenCodeHarness implements AgentHarness {
     return new OpenCodeHarness(client, store, storage);
   }
 
+  async usageLimit(): Promise<UsageLimit | undefined> {
+    const limit = await this.storage.get<UsageLimit>(usageLimitKey);
+    return limit && usageLimitActive(limit) ? limit : undefined;
+  }
+
   async respond(message: VerifiedMessage, capabilities: AgentCapabilities, mode?: ResponseMode): Promise<string> {
+    // A spent subscription answers every request with the same 429; skip the provider until it resets.
+    const knownLimit = await this.usageLimit();
+    if (knownLimit) throw new UsageLimitError(knownLimit);
     const turnModel = mode ? smallModel : model;
     let sessionId = this.store.agentSession(message.senderId, message.conversationId);
     if (message.retryContext !== undefined) sessionId = undefined;
@@ -268,7 +291,11 @@ export class OpenCodeHarness implements AgentHarness {
     const messages = await this.client.sessions.context({ sessionID: sessionId });
     const assistant = messages.toReversed().find((entry) => entry.type === "assistant" && entry.time.created >= inbox.timeCreated);
     if (!assistant || assistant.type !== "assistant") throw new Error("OpenCode completed without an assistant response");
-    if (assistant.error) throw new Error(assistant.error.message);
+    if (assistant.error) {
+      const limit = await this.usageLimit();
+      if (limit && isUsageLimitError(assistant.error)) throw new UsageLimitError(limit);
+      throw new Error(assistant.error.message);
+    }
     const text = assistant.content
       .filter((part): part is Extract<(typeof assistant.content)[number], { type: "text" }> => part.type === "text")
       .map((part) => part.text.trim())
@@ -296,7 +323,7 @@ export class OpenCodeHarness implements AgentHarness {
   }
 
   async inferenceStatus() {
-    const auth = await this.authStatus();
+    const [auth, limit] = await Promise.all([this.authStatus(), this.usageLimit()]);
     return {
       model: model.id,
       reasoning: model.variant,
@@ -305,6 +332,7 @@ export class OpenCodeHarness implements AgentHarness {
       lastResponse: auth.lastResponse
         ? { ok: auth.lastResponse.status < 400, at: auth.lastResponse.at }
         : null,
+      usageLimit: limit ? { kind: limit.kind, resetsAt: limit.resetsAt ?? null } : null,
     };
   }
 
@@ -363,6 +391,7 @@ export class OpenCodeHarness implements AgentHarness {
       if (connection.type === "credential") await this.client.credential.remove({ credentialID: connection.id, location });
     }
     await this.storage.delete(providerResponseKey);
+    await this.storage.delete(usageLimitKey);
   }
 
   async chatGptLoginStatus(attemptId: string) {

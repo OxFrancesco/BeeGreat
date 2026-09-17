@@ -6,7 +6,8 @@ class Memory {
   async put(key: string, value: unknown) { this.values.set(key, value); }
   async delete(key: string) { return this.values.delete(key); }
 }
-const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean }>();
+import { UsageLimitError } from "../../src/usage-limit";
+const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean; usageLimit?: boolean }>();
 mock.module("cloudflare:workers", () => ({
   RpcTarget: class {},
   DurableObject: class { constructor(public ctx: unknown, public env: unknown) {} },
@@ -23,7 +24,12 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
     async chatGptLoginStatus() { if (state.loginStatusError) throw state.loginStatusError; if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
-    async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }) { state.calls++; if (state.hold) await state.hold; return capabilities.walletAddress(); },
+    async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }) {
+      state.calls++;
+      if (state.usageLimit) throw new UsageLimitError({ kind: "usage_limit_reached", planType: "plus", resetsAt: Date.now() + 3_600_000, observedAt: Date.now() });
+      if (state.hold) await state.hold;
+      return capabilities.walletAddress();
+    },
   };
 } } }));
 const { UserInference, userInference, InferenceTools } = await import("../../src/cloudflare/user-inference");
@@ -52,6 +58,12 @@ await new Promise((resolve) => setTimeout(resolve, 0));
 await expect(a.instance.disconnect()).rejects.toThrow("Wait");
 await expect(a.instance.respond(message, false, tools)).rejects.toThrow("previous request");
 release(); await active; states.get(a.storage)!.hold = undefined;
+states.get(a.storage)!.usageLimit = true;
+const limited = await a.instance.respond(message, false, tools);
+expect(limited).toContain("usage limit on your ChatGPT plus plan has been reached");
+expect(limited).toContain("Wallet commands");
+expect(limited).not.toContain("Could not process");
+states.get(a.storage)!.usageLimit = false;
 states.get(a.storage)!.failDisconnect = true;
 await expect(a.instance.disconnect()).rejects.toThrow("offline");
 expect((await a.instance.status()).connected).toBe(false);

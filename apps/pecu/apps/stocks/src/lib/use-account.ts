@@ -79,6 +79,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     newerCursor: null,
   });
   const [threadsLoading, setThreadsLoading] = useState(false);
+  const [threadsLoaded, setThreadsLoaded] = useState(false);
   const [threadsError, setThreadsError] = useState("");
   const generation = useRef(0);
   const active = useRef(threadId);
@@ -126,6 +127,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
         );
         if (epoch !== generation.current || controller.signal.aborted) return;
         setThreadPage(result);
+        setThreadsLoaded(true);
         setShared((current) => ({
           wallet: current?.wallet ?? null,
           threads: result.threads,
@@ -225,6 +227,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
       recoveryRequests.current.clear();
       setCache(new Map());
       setShared(null);
+      setThreadsLoaded(false);
       setThreadPage({ threads: [], olderCursor: null, newerCursor: null });
     } else void loadThreads();
     return () => {
@@ -434,6 +437,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     atLatest: !current.state?.newerCursor,
     threadPage,
     threadsLoading,
+    threadsLoaded,
     threadsError,
     loadThreads,
     error: current.error,

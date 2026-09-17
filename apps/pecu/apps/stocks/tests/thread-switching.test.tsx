@@ -77,6 +77,16 @@ afterEach(async () => {
   globalThis.fetch = originalFetch;
 });
 
+test("reports when the thread list has loaded so the workspace can land on the latest thread", async () => {
+  await render(null, false);
+  expect(account.threadsLoaded).toBe(false);
+  await render(null);
+  expect(account.threadsLoaded).toBe(true);
+  expect(account.threadPage.threads[0]?.id).toBeNull();
+  await render(null, false);
+  expect(account.threadsLoaded).toBe(false);
+});
+
 test("keeps account chrome while loading another thread without showing its predecessor's messages or YOLO", async () => {
   await render(null);
   await respond(0, state(null));

@@ -5,6 +5,8 @@ import type { VerifiedMessage } from "../domain";
 import { DurableStore } from "./durable-store";
 import { OpenCodeHarness, type OAuthStart } from "./opencode";
 import { codexContainerFetch } from "./codex-fetch";
+import { log } from "../logger";
+import { UsageLimitError } from "../usage-limit";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
 const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
@@ -127,6 +129,11 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     try {
       if (await this.ctx.storage.get<boolean>("disconnected") || !(await this.harness.authStatus()).connected) return chatGptConnectionRequired;
       return await this.harness.respond(message, capabilities, mode);
+    } catch (error) {
+      // Returned as a reply, not thrown: RPC would flatten the subclass and the caller would wrap it as a command failure.
+      if (!(error instanceof UsageLimitError)) throw error;
+      log("info", "usage_limit_reply", { eventId: message.eventId, kind: error.limit.kind, resetsAt: error.limit.resetsAt });
+      return error.message;
     } finally { this.active = undefined; }
   }
 }

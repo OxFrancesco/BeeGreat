@@ -2,6 +2,14 @@
 
 The authenticated workspace stays mounted when `/agent?t=...` changes. Cached history renders immediately. A cold thread loads inside the conversation area while the sidebar, header, and composer stay mounted. Each thread keeps its own drafts, YOLO state, pending request, errors, and retry controls.
 
+## Landing thread
+
+Opening `/agent` without `t` lands on the most recently updated thread once the summary page has loaded, replacing the URL so the back button is not polluted. The unnamed original conversation is only shown first when it is the latest. Choosing it from the sidebar afterwards is respected; the redirect runs once per signed-in mount.
+
+## ChatGPT connection resume
+
+A reply that asks the user to connect ChatGPT opens the connection dialog. When the sign-in completes in that dialog, the dialog closes and the workspace regenerates the latest turn if it is that connect reply, so the original question is answered without retyping it. The inline `Connect ChatGPT` button hides as soon as any profile view reports the account as connected. Connection state is shared through `src/lib/inference-navigation.ts`, not refetched per message.
+
 ## Bounded reads and rendering
 
 The web client requests 40 turns at a time, using `Earlier messages`, `Later messages`, and `Latest`. It replaces the current page instead of accumulating every visited page. The thread sidebar requests 40 indexed summaries per page and keeps the selected thread visible if it is outside that page. Message rows use measured TanStack Virtual windows with two rows of overscan. The small sidebar page renders all of its buttons so keyboard navigation remains available.

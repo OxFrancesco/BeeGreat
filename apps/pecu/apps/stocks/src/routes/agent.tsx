@@ -66,6 +66,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/lib/use-account";
+import { useChatGptConnected } from "@/lib/inference-navigation";
+import { needsChatGptConnection } from "../../../../src/inference-recovery";
 import avatar from "@/assets/mascot/avatar.webp?url";
 
 const searchSchema = z.object({ t: threadIdSchema.optional() });
@@ -196,6 +198,25 @@ function AgentWorkspace({
   const webSender = account.state?.senderKind === "web";
   const threads = account.state?.threads;
   const threadsSupported = threads !== undefined;
+  const landed = useRef(false);
+  useEffect(() => {
+    if (landed.current || !isSignedIn || !account.threadsLoaded) return;
+    landed.current = true;
+    // Opening /agent lands on the most recently active thread; the unnamed original conversation only when it is the latest.
+    const latest = account.threadPage.threads[0];
+    if (threadId === null && latest?.id) void navigate({ search: { t: latest.id }, replace: true, resetScroll: false });
+  }, [isSignedIn, threadId, account.threadsLoaded, account.threadPage.threads, navigate]);
+  const chatGptConnected = useChatGptConnected();
+  const previousConnection = useRef(chatGptConnected);
+  useEffect(() => {
+    const before = previousConnection.current;
+    previousConnection.current = chatGptConnected;
+    // A sign-in that finished on this page answers the question that asked for it, instead of leaving the inline ask.
+    if (before !== false || chatGptConnected !== true) return;
+    const last = messages.at(-1);
+    if (!last?.reply || !last.canRetry || !needsChatGptConnection(last.reply) || !account.atLatest || account.pending) return;
+    void account.regenerate(last);
+  }, [chatGptConnected, messages, account]);
   useEffect(() => {
     if (!isSignedIn || !threadsSupported) return;
     const onKeyDown = (event: KeyboardEvent) => {

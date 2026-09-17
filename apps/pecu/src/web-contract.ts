@@ -8,6 +8,11 @@ export const inferenceStatusSchema = z.object({
   connected: z.boolean(),
   checkedAt: z.number(),
   lastResponse: z.object({ ok: z.boolean(), at: z.number() }).nullable(),
+  /** Optional so a client can read status from a backend deployed before usage limits were tracked. */
+  usageLimit: z
+    .object({ kind: z.enum(["usage_limit_reached", "usage_not_included"]), resetsAt: z.number().nullable() })
+    .nullable()
+    .optional(),
   loginState: z.enum(["pending", "complete", "failed", "expired"]).nullable(),
   login: z
     .object({

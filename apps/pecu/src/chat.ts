@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isTransactionReadPermissionError } from "./wallet-errors";
+import { UsageLimitError } from "./usage-limit";
 import type { AeroPlanResult } from "./aerodrome";
 import { formatUnits, type EvmPlanResult, type EvmReadResult } from "./evm";
 import type { WhopDeposit } from "./integrations/whop";
@@ -154,6 +155,7 @@ export function verbosePage(json: string | undefined, page: number): string {
 }
 
 export function chatError(error: unknown): string {
+  if (error instanceof UsageLimitError) return error.message;
   if (isTransactionReadPermissionError(error)) return "A wallet permission is missing. The bot administrator needs to fix it before I can check transaction status. Don't repeat the transaction request.";
   if (error instanceof z.ZodError) {
     return `Please check your request: ${error.issues.map((issue) => `${issue.path.join(" ") || "input"}: ${issue.message}`).slice(0, 3).join("; ")}`;
