@@ -1,4 +1,5 @@
 import { InferenceTools, userInference } from "./user-inference";
+import { TypeSafeRequestClassifier } from "../request-classifier";
 export { UserInference } from "./user-inference";
 import { AaveService } from "../integrations/aave";
 import { PolymarketService } from "../integrations/polymarket";
@@ -119,7 +120,8 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
             evm: new EvmService(evmWorkerExecutor(env.EVM)),
             verifyUserOperation: (reference) => awaitUserOperation(rpc, reference),
           },
-          { respond: (message, capabilities) => userInference(env, message.senderId).respond(message, capabilities.yoloEnabled(), new InferenceTools(capabilities)) },
+          { respond: (message, capabilities, mode) => userInference(env, message.senderId).respond(message, capabilities.yoloEnabled(), new InferenceTools(capabilities, mode), mode) },
+          this.config.typesafeApiKey ? new TypeSafeRequestClassifier(this.config.typesafeApiKey) : undefined,
         );
         await this.agent.resumeExecuting();
         try {

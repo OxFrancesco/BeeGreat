@@ -1,5 +1,6 @@
 export const codexEndpoint = "https://chatgpt.com/backend-api/codex/responses";
 export const codexModel = "gpt-5.6-sol";
+export const codexSmallModel = "gpt-5.6-luna";
 export const maxCodexRequestBytes = 8 * 1024 * 1024;
 
 const requestHeaders = ["authorization", "chatgpt-account-id", "content-type", "accept", "originator", "session-id", "user-agent", "openai-beta", "x-codex-beta-features"];
@@ -28,7 +29,7 @@ export async function handleCodexRequest(request: Request, send: (request: Reque
   const body = await new Blob(chunks).text();
   try {
     const input = JSON.parse(body);
-    if (input?.model !== codexModel || input.store !== false || input.stream !== true) throw new Error("Invalid Codex request");
+    if ((input?.model !== codexModel && input?.model !== codexSmallModel) || input.store !== false || input.stream !== true) throw new Error("Invalid Codex request");
   } catch {
     return Response.json({ error: { message: "Expected the configured Codex model with stream enabled and storage disabled" } }, { status: 400 });
   }

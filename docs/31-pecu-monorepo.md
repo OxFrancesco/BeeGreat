@@ -126,3 +126,31 @@ shared by Pecu and Stocks web chat; X Chat receives the direct connection link.
 Expired ChatGPT device sign-in attempts are cleared before polling the provider.
 The profile remains usable after a code expires, including when the provider has
 already removed the attempt. Saved credentials still determine connection status.
+
+## Request classification
+
+Pecu can use `@typesafe-ai/sdk` with the server-side `TYPESAFE_API_KEY` secret.
+Explicit commands and existing natural wallet shortcuts still bypass inference.
+Other messages are classified before the per-user ChatGPT agent runs:
+
+- A standalone wallet address, balance, stock holdings, Aerodrome positions,
+  deposit status, or help request runs its existing deterministic handler.
+- General explanations use `gpt-5.6-luna` with low reasoning. Wallet and action
+  tools are blocked for that turn; the model can ask for clarification.
+- Requests combining tools and prose use Luna with the existing typed tools,
+  transaction previews, confirmation rules, and YOLO policy.
+
+TypeSafe receives only the current message text, not sender identifiers,
+credentials, or stored conversation history. Its output must match the fixed
+allowlist and report confidence of at least 0.9. Missing configuration, malformed
+answers, low confidence, HTTP errors, messages over 8,000 characters, and a
+2.5-second timeout retain the existing Sol path. There are no classifier retries.
+Regeneration and answers to pending clarification questions retain Sol and the
+existing preview-only protection.
+
+Both Pecu and Stocks web chat and X Chat use this shared routing. Bee's separate
+mobile, Android, web, CLI, iMessage, voice, and OpenRouter agent are unaffected.
+No client contract or presentation change is required. Removing the TypeSafe
+secret disables classification. Deploy the updated Codex transport before the
+Pecu Worker because it must admit Luna as well as Sol. A user's own connected
+ChatGPT subscription remains required for all model responses.

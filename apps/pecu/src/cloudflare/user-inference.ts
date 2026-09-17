@@ -1,6 +1,6 @@
 import { chatGptConnectionRequired } from "../inference-recovery";
 import { DurableObject, RpcTarget } from "cloudflare:workers";
-import type { AgentCapabilities } from "../harness";
+import type { AgentCapabilities, ResponseMode } from "../harness";
 import type { VerifiedMessage } from "../domain";
 import { DurableStore } from "./durable-store";
 import { OpenCodeHarness, type OAuthStart } from "./opencode";
@@ -10,9 +10,10 @@ type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
 const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
 
 export class InferenceTools extends RpcTarget {
-  constructor(private readonly capabilities: AgentCapabilities) { super(); }
+  constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode) { super(); }
   async call(name: Capability, args: unknown[]): Promise<string> {
     if (!allowed.has(name)) throw new Error("Tool unavailable");
+    if (this.mode === "response" && name !== "askUser") throw new Error("This turn is explanation-only. Ask the user to clarify if live data or an action is needed.");
     const invoke = this.capabilities[name] as (...args: unknown[]) => Promise<string>;
     return invoke(...args);
   }
@@ -99,7 +100,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     } finally { this.changing = false; }
   }
 
-  async respond(message: VerifiedMessage, yolo: boolean, bridge: InferenceTools) {
+  async respond(message: VerifiedMessage, yolo: boolean, bridge: InferenceTools, mode?: ResponseMode) {
     await this.ready;
     if (this.active || this.changing) throw new Error("Pecu is finishing your previous request. Try again shortly.");
     const capabilities: AgentCapabilities = {
@@ -125,7 +126,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     this.active = { eventId: message.eventId, capabilities };
     try {
       if (await this.ctx.storage.get<boolean>("disconnected") || !(await this.harness.authStatus()).connected) return chatGptConnectionRequired;
-      return await this.harness.respond(message, capabilities);
+      return await this.harness.respond(message, capabilities, mode);
     } finally { this.active = undefined; }
   }
 }

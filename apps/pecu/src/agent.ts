@@ -17,6 +17,7 @@ import { treasurySenderId, WalletService } from "./wallet";
 import { whopDepositForwardSchema, whopLedgerActivitySchema } from "./whop-webhook";
 import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlanText, evmReadText, verbosePage } from "./chat";
 import { isTransactionReadPermissionError } from "./wallet-errors";
+import type { RequestClassifier, RequestRoute } from "./request-classifier";
 
 async function digest(value: string): Promise<string> {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -125,6 +126,7 @@ export class PecuAgent {
     private readonly wallets: AgentWallets,
     private readonly services: AgentServices,
     private readonly harness: AgentHarness,
+    private readonly classifier?: RequestClassifier,
   ) {}
 
   async resumeExecuting(): Promise<void> {
@@ -231,7 +233,21 @@ export class PecuAgent {
     } catch (error) {
       if (/^(?:b)?\//i.test(message.text.trim())) throw error;
       try {
-        const response = await this.harness.respond(message, this.capabilitiesFor(message));
+        const route: RequestRoute = this.previewOnly.has(message.eventId)
+          ? { kind: "fallback" }
+          : await this.classifier?.classify(message.text) ?? { kind: "fallback" };
+        log("info", "request_routed", { eventId: message.eventId, route: route.kind, ...(route.kind === "command" ? { command: route.command } : {}) });
+        if (route.kind === "command") {
+          switch (route.command) {
+            case "wallet": return this.walletReply(message);
+            case "balance": return this.balanceReply(message);
+            case "stocks": return this.runAero(message, "stocks", {});
+            case "positions": return this.runAero(message, "positions", {});
+            case "deposit_status": return this.depositStatusReply(message);
+            case "help": return helpText;
+          }
+        }
+        const response = await this.harness.respond(message, this.capabilitiesFor(message), route.kind === "response" || route.kind === "mixed" ? route.kind : undefined);
         return this.questionText(message.eventId) ?? response;
       } catch (error) {
         const question = this.questionText(message.eventId);

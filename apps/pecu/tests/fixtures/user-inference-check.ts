@@ -86,4 +86,11 @@ const env = { INFERENCE: { idFromName(name: string) { names.push(name); return n
 expect(userInference(env, "123")).toBe(userInference(env, "123"));
 expect(userInference(env, "456")).not.toBe(userInference(env, "123"));
 await expect(tools.call("constructor" as never, [])).rejects.toThrow("Tool unavailable");
+const explanationTools = new InferenceTools({
+  walletAddress: async () => { throw new Error("wallet must not run"); },
+  askUser: async () => "Which account?",
+} as never, "response");
+await expect(explanationTools.call("walletAddress", [])).rejects.toThrow("explanation-only");
+await expect(explanationTools.call("evmPropose", [])).rejects.toThrow("explanation-only");
+expect(await explanationTools.call("askUser", ["Which account?"])).toBe("Which account?");
 console.log("isolation, no fallback, OAuth reuse, disconnect, failure recovery, restart, turn locks, RPC allowlist passed");

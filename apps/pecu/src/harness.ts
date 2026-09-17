@@ -26,6 +26,8 @@ export type AgentCapabilities = Readonly<{
   nansenCall(endpoint: NansenEndpointName, input: unknown): Promise<string>;
 }>;
 
+export type ResponseMode = "response" | "mixed";
+
 export interface AgentHarness {
-  respond(message: VerifiedMessage, capabilities: AgentCapabilities): Promise<string>;
+  respond(message: VerifiedMessage, capabilities: AgentCapabilities, mode?: ResponseMode): Promise<string>;
 }

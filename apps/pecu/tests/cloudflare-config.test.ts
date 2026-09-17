@@ -2,6 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { loadWorkerConfig, runtimeConfigurationError } from "../src/cloudflare/config";
 
 describe("Cloudflare configuration boundary", () => {
+  test("TypeSafe is optional and loaded only from server configuration", () => {
+    expect(loadWorkerConfig({}).typesafeApiKey).toBeUndefined();
+    expect(loadWorkerConfig({ TYPESAFE_API_KEY: "test-key" }).typesafeApiKey).toBe("test-key");
+  });
   test("defaults to locked Base mainnet", () => {
     const config = loadWorkerConfig({});
     expect(config.baseRpcUrl).toBe("https://mainnet.base.org");

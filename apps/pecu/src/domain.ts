@@ -195,7 +195,7 @@ function parseNansenCommand(parts: string[]): Command {
 export function parseCommand(input: string): Command {
   const parts = input.trim().replace(/^(?:b)?\//i, "").split(/\s+/);
   const verb = parts[0]?.toLowerCase();
-  if (!verb || verb === "help" || verb === "start") return { type: "help" };
+  if (!verb || ((verb === "help" || verb === "start") && parts.length === 1)) return { type: "help" };
   if (verb === "wallet" && parts.length === 1) return { type: "wallet" };
   if (verb === "stocks" && parts.length === 1) return { type: "aero", action: "stocks", parameters: {} };
   if (verb === "balance" && parts.length === 1) return { type: "balance" };

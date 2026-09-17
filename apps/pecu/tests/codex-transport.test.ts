@@ -11,6 +11,14 @@ function request(patch: Record<string, unknown> = {}, path = "/responses") {
 }
 
 describe("Codex container transport", () => {
+  test("allows Luna with the same subscription and storage protections", async () => {
+    const response = await handleCodexRequest(request({ model: "gpt-5.6-luna" }), async (outbound) => {
+      expect(await outbound.json()).toMatchObject({ model: "gpt-5.6-luna", store: false, stream: true });
+      return new Response("ok");
+    });
+    expect(response.status).toBe(200);
+    expect((await handleCodexRequest(request({ model: "gpt-5.6-luna", store: true }), async () => { throw new Error("must not send"); })).status).toBe(400);
+  });
   test("keeps the Codex request and event stream intact without forwarding unrelated headers", async () => {
     const frames = 'data: {"type":"response.completed"}\n\n';
     let calls = 0;
