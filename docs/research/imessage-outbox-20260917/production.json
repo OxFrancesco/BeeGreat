@@ -1,0 +1,640 @@
+{
+  "sourceCommit": "1f33cf180bbfe103f997ee7f8f492bf24df2fce5",
+  "deploymentId": "2d58eb4a-5377-4a20-bcb3-49e277a32f66",
+  "instanceId": "e88684c4-958c-4e85-8e9e-b3e6476dcd16",
+  "imageDigest": "sha256:4eaae58ad7bada6e1d79ba6d7f3436fca679491001ad88f128db3a9b350848ed",
+  "startupAt": "2026-09-17T08:11:23.849593384Z",
+  "startup": "Spectrum iMessage provider started; bridge connected to expected worker",
+  "before": {
+    "phase": "before",
+    "deployment": "quirky-hyena-231",
+    "start": 1789631858.60489,
+    "end": 1789631978.60489,
+    "windowSeconds": 120,
+    "counts": {
+      "POST /internal/imessage": 40,
+      "imessageOutbox:claimNext": 40
+    },
+    "claimErrors": 0,
+    "events": [
+      {
+        "timestamp": 1789631860.2639651,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.025079891,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631860.2655892,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.050069738,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631863.262122,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.016694412,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631863.2635624,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048400804,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631866.255931,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.01726552,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631866.25748,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.041853547,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631869.2716432,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.022371439,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631869.2733083,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.054548268,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631872.264643,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017200511,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631872.2661579,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.041777651,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631875.2726617,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017484317,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631875.2741592,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048545954,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631878.2709165,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.023341904,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631878.2725143,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048291925,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631881.2663105,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017012098,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631881.2678554,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048477204,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631884.2649748,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017338087,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631884.2665575,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.042427458,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631887.2749946,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.02308379,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631887.2765863,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.054445138,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631890.2671568,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.016687301,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631890.2686646,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.040909852,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631893.2800968,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017161776,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631893.2816336,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048503859,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631896.2727253,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.02249331,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631896.2742674,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.046854922,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631899.2766254,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017159485,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631899.2782319,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.049837378,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631902.2750585,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017351763,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631902.2767332,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.042904997,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631905.2798102,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.022785171,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631905.281291,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.054169186,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631908.2689245,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017269023,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631908.2705302,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.042160828,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631911.276179,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.016927305,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631911.277774,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048850789,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631914.2787995,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.023087258,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631914.2804909,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048407665,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631917.2802353,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017907093,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631917.2819352,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.049416785,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631920.2753117,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017750917,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631920.2768784,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.042491412,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631923.2878203,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.0235714,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631923.2894216,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.056335463,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631926.2764738,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.016933082,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631926.278049,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.041713462,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631929.2834935,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017305232,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631929.2850435,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.049992651,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631932.2834115,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.02251002,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631932.284992,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.047740811,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631935.2843199,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.01661488,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631935.2859013,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048623154,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631938.2788367,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017208641,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631938.2804103,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.04184087,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631941.2922308,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.022523125,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631941.2938056,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.05382663,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631944.282752,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017114217,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631944.2843056,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.041815639,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631947.3048267,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017359072,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631947.3063867,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.050389945,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631950.292382,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.023205138,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631950.2941413,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048180213,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631953.2939339,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.016956538,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631953.2955892,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.048345078,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631956.2900307,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.019417394,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631956.2916596,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.043879832,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631959.3046248,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.023694407,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631959.3063922,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.056619738,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631962.2905746,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.016865371,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631962.2920997,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.04173858,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631965.3000166,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017800008,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631965.3015115,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.050363261,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631968.2999218,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.022811748,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631968.3014724,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.047828272,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631971.308101,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.02151741,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631971.3096557,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.053385806,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631974.2953146,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.017309467,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631974.2969558,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.042064518,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631977.30781,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.022749242,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789631977.309462,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.054957057,
+        "returnBytes": null,
+        "failed": false
+      }
+    ],
+    "historyReconciled": true
+  },
+  "after": {
+    "phase": "after",
+    "deployment": "quirky-hyena-231",
+    "start": 1789632768.79106,
+    "end": 1789632888.79106,
+    "windowSeconds": 120,
+    "counts": {
+      "POST /internal/imessage": 3,
+      "imessageOutbox:claimNext": 3
+    },
+    "claimErrors": 0,
+    "events": [
+      {
+        "timestamp": 1789632769.8446393,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.040740551,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789632769.846829,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.103651302,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789632823.5004182,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.042916288,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789632823.5026054,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.10491267,
+        "returnBytes": null,
+        "failed": false
+      },
+      {
+        "timestamp": 1789632880.182362,
+        "identifier": "imessageOutbox:claimNext",
+        "executionTime": 0.042173381,
+        "returnBytes": 4,
+        "failed": false
+      },
+      {
+        "timestamp": 1789632880.1847446,
+        "identifier": "POST /internal/imessage",
+        "executionTime": 0.102679676,
+        "returnBytes": null,
+        "failed": false
+      }
+    ],
+    "historyReconciled": true
+  }
+}

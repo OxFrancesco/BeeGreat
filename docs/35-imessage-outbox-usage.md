@@ -1,6 +1,7 @@
 # iMessage outbox usage fix
 
-September 17, 2026. Prepared locally on `main`. Not deployed.
+September 17, 2026. Source commit `1f33cf180bbfe103f997ee7f8f492bf24df2fce5`
+is pushed to GitHub and deployed to the production Railway bridge.
 
 ## Result
 
@@ -42,10 +43,36 @@ BASELINE_REVISION=96b02c7f72abd98b6a04ba0f752599c55f97430a bun run apps/imessage
 The supplied September 17 audit reports 601K calls this cycle and 209K each to
 `HTTP /internal/imessage` and `imessageOutbox.claimNext` over seven days. Those
 are audit inputs, not counts remeasured here. No billing savings are claimed.
-Production before/after request counts and latency still need measurement after
-rollout. Use equal idle windows and count both functions separately; keep normal
-identity traffic separate from claim operations. Do not sum the pair as unique
+Production request counts were measured below. Real-recipient delivery latency
+remains unmeasured. Use equal idle windows and count both functions separately.
+Keep normal identity traffic separate from claim operations. Do not sum the pair as unique
 deliveries. Observe actual invoices before attributing monetary savings.
+
+## Measured in production after deployment
+
+Read-only Convex execution logs from `quirky-hyena-231` captured two 120-second
+windows. The old bridge was the sole running replica for the first window.
+The replacement was the sole active replica for the second window. Retained
+execution history reconciled the log stream startup boundary. The observed
+post-release claim intervals were 53.656 and 56.682 seconds.
+
+| Function | Before | After |
+| --- | ---: | ---: |
+| `imessageOutbox:claimNext` | 40 | 3 |
+| `POST /internal/imessage` | 40 | 3 |
+| Claim errors | 0 | 0 |
+
+Before: 2026-09-17T07:57:38+00:00 through 2026-09-17T07:59:38+00:00.
+After: 2026-09-17T08:12:48+00:00 through 2026-09-17T08:14:48+00:00.
+
+These are observed function executions, not projected monthly savings. Claims
+returned four bytes, consistent with the null empty-queue response. No enqueue,
+complete or retry executions appeared in either observed window. The post-release
+window began after startup; it is not the same startup phase as the local test.
+[Production events and deployment evidence](research/imessage-outbox-20260917/production.json)
+are retained without message content. No transactions or real-recipient test
+messages were sent. Production delivery latency and invoice savings remain
+unverified.
 
 ## Complete delivery path
 
@@ -92,8 +119,8 @@ the linked BeeGreat project, with one running replica:
 | Project | BeeGreat, `3a7da22d-63f1-4b32-bae7-1b0ae7c15cbd` |
 | Environment | production, `7b0b353e-5909-4fdc-a078-349cbc54bcac` |
 | Bridge service | `f8b5c392-5e4a-4a79-a408-1e639d73d0e4` |
-| Active deployment | `15e7955a-9b8a-4639-8313-15e9fe006a75`, September 7 |
-| Running instance | `dee38d1f-1b01-4eca-bf25-1123dfd0119c` |
+| Active deployment | `2d58eb4a-5377-4a20-bcb3-49e277a32f66`, September 17 |
+| Running instance | `e88684c4-958c-4e85-8e9e-b3e6476dcd16` |
 | Region | `us-east4-eqdc4a` |
 | Bridge AGENT_URL | `https://beegreat-agent.oddofrancesco000.workers.dev` |
 | Active worker version | `d9a38c89-667f-4201-9a8f-7437f0bb3d24`, September 7 |
@@ -106,12 +133,19 @@ found. This inventory covers the linked Railway project and this Mac, not
 unregistered hosts or unrelated Railway accounts.
 
 Live worker settings expose CONVEX_URL as a secret binding, without its value.
-The deployment runbook names `quirky-hyena-231` as the shared client backend;
-that target name was not independently read back from the live secret. No
-backend configuration was changed. Railway SSH inspection was unavailable
-because no SSH key is registered. Its logs command requested Railway agent
-tooling. Thus deployment metadata and the live bridge URL were verified, but
-running source and its exact commit were not inspected.
+The production measurements above observed the outbox executing on
+`quirky-hyena-231`. Railway reports the new deployment successful and only its
+replacement replica active. Startup logs at 08:11:23 UTC show Spectrum starting
+with the iMessage provider and the bridge connecting to the expected worker.
+The former deployment was `15e7955a-9b8a-4639-8313-15e9fe006a75`.
+
+The new release used a `git archive` snapshot of the pushed commit, excluding
+local secrets, dependencies and untracked files. Railway's image digest is
+`sha256:4eaae58ad7bada6e1d79ba6d7f3436fca679491001ad88f128db3a9b350848ed`. Its configured
+install command remains `bun install` and its start command remains
+`bun run --cwd apps/imessage-bridge start`. SSH was unavailable because no key
+is registered; runtime logs were retrieved through the Railway CLI's built-in
+MCP `get_logs` tool without modifying editor configuration.
 
 ## Validation and rollout
 
@@ -128,12 +162,10 @@ Passed with Bun:
   bundle proves compilation, not a provider connection.
 - Git whitespace check.
 
-Only the Railway bridge requires a production update. Deploy the reviewed
-repository snapshot from the monorepo root to the exact service/environment
-above, because it imports workspace packages. First recheck live deployment
-ownership and local changes. Ensure Railway gives the bridge enough shutdown
-time to drain, then verify the replacement instance and remove any old replica
-only through the normal deployment rollout. Do not manually clear leases.
+Only the Railway bridge needed a production update. It was deployed from the
+isolated monorepo snapshot after local/remote commit equality was verified.
+Railway finished the build, reported SUCCESS, started one replacement replica
+and removed the old deployment from its active list. No leases were cleared.
 
 Convex has test-only changes. The agent worker, web, Expo mobile, Android, CLI,
 voice and shared contracts need no deployment or rebuild. Their user-facing
@@ -141,9 +173,9 @@ behavior and both OpenRouter and ChatGPT provider paths are unchanged. No
 reverse-state controls or presentation changes apply. Normal iMessage chat
 still uses the existing inbound stream; only terminal outbox updates back off.
 
-After rollout, compare equal idle windows in Convex logs and verify a safe
-fixture in an isolated queue or an explicitly authorized test recipient. Do not
-inject synthetic records into the live outbox: the bridge could send them.
+Equal production idle windows are recorded above. For provider delivery
+verification, use an isolated queue or an explicitly authorized test recipient.
+Do not inject synthetic records into the live outbox: the bridge could send them.
 Lease-expiry recovery and retry delivery can now take up to the idle cap beyond
 their eligibility time. Rollback is redeployment of the previous bridge artifact;
 it needs no schema rollback and leaves durable deliveries intact, but restores
