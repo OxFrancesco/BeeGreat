@@ -1,3 +1,4 @@
+import { chatGptConnectionRequired } from "../inference-recovery";
 import { DurableObject, RpcTarget } from "cloudflare:workers";
 import type { AgentCapabilities } from "../harness";
 import type { VerifiedMessage } from "../domain";
@@ -119,7 +120,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     };
     this.active = { eventId: message.eventId, capabilities };
     try {
-      if (await this.ctx.storage.get<boolean>("disconnected") || !(await this.harness.authStatus()).connected) return "Connect your ChatGPT subscription in your Pecu profile at https://pecu.app/agent to use AI chat. Wallet commands still work.";
+      if (await this.ctx.storage.get<boolean>("disconnected") || !(await this.harness.authStatus()).connected) return chatGptConnectionRequired;
       return await this.harness.respond(message, capabilities);
     } finally { this.active = undefined; }
   }

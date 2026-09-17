@@ -1,3 +1,4 @@
+import { stockSnapshotSchema } from "./stock-contract";
 import { z } from "zod";
 import { agentQuestionSchema } from "./question-contract";
 import { clerkUserIdSchema, senderIdSchema } from "./web-identity";
@@ -21,6 +22,7 @@ export const inferenceStatusSchema = z.object({
           );
         }),
       instructions: z.string(),
+      userCode: z.string().regex(/^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/).optional(),
       expiresAt: z.union([
         z.number(),
         z.enum(["-Infinity", "Infinity", "NaN"]),
@@ -65,6 +67,9 @@ export const previewSchema = z.object({
   expiresAt: z.number(),
 });
 export const webReplySchema = z.object({
+  recovery: z.literal("connect_chatgpt").optional(),
+  holdings: stockSnapshotSchema.optional(),
+  holdingsOnly: z.boolean().optional(),
   question: agentQuestionSchema.optional(),
   text: z.string(),
   preview: previewSchema.nullable(),

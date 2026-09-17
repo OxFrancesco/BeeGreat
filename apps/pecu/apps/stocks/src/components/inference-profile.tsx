@@ -3,18 +3,72 @@ import { CpuIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { inferenceStatusSchema, type InferenceStatus } from "../../../../src/web-contract";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
+import { openChatGptConnection } from "../lib/inference-navigation";
+import { chatGptUserCode, needsChatGptConnection } from "../../../../src/inference-recovery";
+
 
 export function PecuUserButton() {
+  const profile = useRef<HTMLDivElement>(null);
   return (
-    <UserButton>
-      <UserButton.UserProfilePage label="AI connection" labelIcon={<CpuIcon size={16} />} url="ai-connection">
-        <InferenceProfile />
-      </UserButton.UserProfilePage>
-    </UserButton>
+    <div ref={profile}>
+      <UserButton>
+        <UserButton.MenuItems>
+          <UserButton.Action label="ChatGPT connection" labelIcon={<CpuIcon size={16} />} onClick={openChatGptConnection} />
+          <UserButton.Action label="manageAccount" />
+          <UserButton.Action label="signOut" />
+        </UserButton.MenuItems>
+        <UserButton.UserProfilePage label="ChatGPT connection" labelIcon={<CpuIcon size={16} />} url="ai-connection">
+          <InferenceProfile />
+        </UserButton.UserProfilePage>
+      </UserButton>
+      <ChatGptConnectionDialog onCloseFocus={() => profile.current?.querySelector("button")?.focus()} />
+    </div>
   );
 }
 
-export function InferenceProfile() {
+export function ChatGptConnectionDialog({ onCloseFocus }: { onCloseFocus?: () => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const sync = () => setOpen(window.location.hash === "#chatgpt");
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
+  return (
+    <Dialog open={open} onOpenChange={(next) => {
+      setOpen(next);
+      if (!next && window.location.hash === "#chatgpt") window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+    }}>
+      <DialogContent animate={false} className="pecu pecu-connection-dialog" aria-describedby={undefined} aria-labelledby="pecu-inference-title" onCloseAutoFocus={onCloseFocus ? (event) => { event.preventDefault(); onCloseFocus(); } : undefined}>
+        <InferenceProfile inDialog />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ConnectionRecovery({ reply }: { reply: { text: string; recovery?: "connect_chatgpt" } }) {
+  if (!needsChatGptConnection(reply)) return null;
+  return <Button className="pecu-button mt-3" onClick={openChatGptConnection}>Connect ChatGPT</Button>;
+}
+
+export function LoginCode({ code }: { code: string }) {
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
+  useEffect(() => { setCopyState("idle"); }, [code]);
+  return <div>
+    <div className="pecu-inference-code">
+      <code className="select-all font-mono text-xl" aria-label="ChatGPT sign-in code">{code}</code>
+      <Button className="pecu-button" variant="outline" onClick={async () => {
+        try { await navigator.clipboard.writeText(code); setCopyState("copied"); }
+        catch { setCopyState("failed"); }
+      }}>{copyState === "copied" ? "Copied" : "Copy code"}</Button>
+    </div>
+    <span role="status" className={copyState === "failed" ? "pecu-inference-error" : "sr-only"}>{copyState === "failed" ? "Couldn't copy. Select the code and copy it manually." : copyState === "copied" ? "Code copied." : ""}</span>
+  </div>;
+}
+
+export function InferenceProfile({ inDialog = false }: { inDialog?: boolean }) {
+  const Title = inDialog ? DialogTitle : "h2";
   const [status, setStatus] = useState<InferenceStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,25 +105,20 @@ export function InferenceProfile() {
     const timer = window.setInterval(() => { void refresh(); }, 5000);
     return () => window.clearInterval(timer);
   }, [status?.login, refresh]);
+  const userCode = status?.login ? status.login.userCode ?? chatGptUserCode(status.login.instructions) : undefined;
   return (
     <section className="pecu pecu-inference" aria-labelledby="pecu-inference-title" aria-busy={busy}>
-      <h2 id="pecu-inference-title">AI connection</h2>
-      <p>Use your ChatGPT subscription for Pecu's AI replies, here and in X chat.</p>
+      <Title className="sr-only" id="pecu-inference-title">ChatGPT connection</Title>
+
       {status ? <>
-        <dl>
-          <div><dt>ChatGPT</dt><dd>{status.connected ? "Connected" : "Not connected"}</dd></div>
-          <div><dt>Model</dt><dd>{status.model}</dd></div>
-          <div><dt>Reasoning</dt><dd className="capitalize">{status.reasoning}</dd></div>
-          <div><dt>Runs through</dt><dd>OpenCode</dd></div>
-          <div><dt>Last AI request</dt><dd>{status.lastResponse ? <>{status.lastResponse.ok ? "Provider responded" : "Provider returned an error"}<time dateTime={new Date(status.lastResponse.at).toISOString()}>{new Date(status.lastResponse.at).toLocaleString()}</time></> : "No requests yet"}</dd></div>
-        </dl>
+
         {status.loginState === "expired" ? <p role="status">Sign-in expired. Connect ChatGPT to try again.</p> : null}
         {status.loginState === "failed" ? <p role="alert">ChatGPT sign-in didn't finish. Try connecting again.</p> : null}
-        {status.login ? <div className="pecu-inference-login" role="status">
-          <p>{status.login.instructions}</p>
+        {status.login ? <div className="pecu-inference-login">
+          {userCode ? <><p>Enter this code in ChatGPT:</p><LoginCode key={userCode} code={userCode} /></> : <p>{status.login.instructions}</p>}
           <a href={status.login.url} target="_blank" rel="noopener noreferrer" className="pecu-button pecu-inference-link">Continue with ChatGPT</a>
-          <p>Waiting for you to finish signing in.</p>
-          <Button className="pecu-button" variant="outline" disabled={busy} onClick={() => void refresh("disconnect")}>Cancel sign-in</Button>
+          <p className="pecu-inference-waiting" role="status">Waiting for you to finish signing in.</p>
+          <Button className="pecu-button pecu-inference-cancel" variant="ghost" disabled={busy} onClick={() => void refresh("disconnect")}>Cancel sign-in</Button>
         </div> : null}
         {!status.connected && !status.login ? <Button className="pecu-button" disabled={busy} onClick={() => void refresh("connect")}>Connect ChatGPT</Button> : null}
         {status.connected ? <>
@@ -81,13 +130,9 @@ export function InferenceProfile() {
             </div>
           </div> : <Button className="pecu-button" variant="outline" disabled={busy} onClick={() => setConfirmDisconnect(true)}>Disconnect ChatGPT</Button>}
         </> : null}
-        <p className="pecu-inference-note">Your connection is used only for your Pecu account. ChatGPT usage limits still apply. Remaining usage isn't available here.</p>
       </> : null}
-      {error ? <p role="alert">{error}</p> : null}
-      <div className="pecu-inference-actions" aria-live="polite">
-        <Button className="pecu-button" variant="outline" disabled={busy} onClick={() => void refresh()}>{busy ? "Checking…" : "Refresh"}</Button>
-        {status ? <span>Checked {new Date(status.checkedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span> : null}
-      </div>
+      {!status && !error ? <p role="status">Checking connection…</p> : null}
+      {error ? <div className="pecu-inference-error"><p role="alert">{error}</p><Button className="pecu-button" variant="outline" disabled={busy} onClick={() => void refresh()}>Try again</Button></div> : null}
     </section>
   );
 }

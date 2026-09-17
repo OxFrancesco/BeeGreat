@@ -1,3 +1,4 @@
+import { StockHoldings } from "../components/stock-holdings";
 import { PecuUserButton } from "../components/inference-profile";
 import { createFileRoute } from "@tanstack/react-router";
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
@@ -44,7 +45,7 @@ function StockWorkspace() {
   const [selected, setSelected] = useState("NVDAc");
   const [view, setView] = useState("market");
   const signIn = () => {
-    void clerk.openSignIn({ fallbackRedirectUrl: "/aero/stocks" });
+    void clerk.openSignIn({ fallbackRedirectUrl: `/aero/stocks${window.location.hash === "#chatgpt" ? "#chatgpt" : ""}` });
   };
   async function refresh() {
     setLoading(true);
@@ -79,13 +80,6 @@ function StockWorkspace() {
     (s) =>
       `${s.name} ${s.symbol}`.toLowerCase().includes(search.toLowerCase()) &&
       (view === "market" || Number(s.balance) > 0),
-  );
-  const total = holdings.reduce(
-    (sum, s) => sum + Number(s.balance ?? 0) * Number(s.price_usdc ?? 0),
-    0,
-  );
-  const partial = holdings.some(
-    (s) => s.balance === null || s.price_usdc === null,
   );
   return (
     <div className="shell">
@@ -186,17 +180,8 @@ function StockWorkspace() {
             </div>
           ) : (
             <>
-              {view === "holdings" && holdings.length ? (
-                <div className="portfolio-total">
-                  <span>{partial ? "Priced holdings" : "Stock holdings"}</span>
-                  {usdc(total)}
-                  <p className="muted">
-                    {partial ? "Some holdings could not be priced. " : ""}
-                    {account.state?.stocksAt
-                      ? `Checked ${new Date(account.state.stocksAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                      : ""}
-                  </p>
-                </div>
+              {view === "holdings" && account.state?.stocksAt ? (
+                <StockHoldings stocks={holdings} observedAt={account.state.stocksAt} />
               ) : null}
               <table className="stock-table">
                 <thead>

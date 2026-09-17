@@ -109,3 +109,16 @@ Validation includes user isolation, no shared fallback, failed disconnect
 blocking future replies, OAuth attempt reuse, restart recovery, concurrent-turn
 locks, the tool allowlist, and a real Workerd RPC check without credentials.
 A full live OAuth and model-reply check requires the user to authorize ChatGPT.
+
+## Stock holdings chart
+
+Pecu chat, Stocks chat, and the Holdings tab share a Dither Kit pie chart.
+`/stocks` and stock ownership questions use tool-produced snapshots saved per
+event. Allocation uses estimated USDC value and identifies unavailable balances
+or prices. See [stock holdings](../apps/pecu/docs/stock-holdings-chart.md).
+
+ChatGPT connection is available directly from the Pecu profile menu. The
+`/agent#chatgpt` link opens the same panel. A fresh missing-connection reply opens
+it once, while older replies retain an explicit Connect ChatGPT button. Device
+sign-in shows a copyable code with clipboard feedback. Connection management is
+shared by Pecu and Stocks web chat; X Chat receives the direct connection link.

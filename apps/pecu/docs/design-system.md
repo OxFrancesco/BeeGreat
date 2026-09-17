@@ -37,6 +37,11 @@ not reuse them; the theme's amber ramp stands in for the coin.
 
 ## Surfaces
 
+The agent uses `--pecu-canvas` for both its cream workspace and the document
+background. Keep `html` and `body` matched while `.pecu-app` is mounted so
+overscroll and mobile pull-to-refresh do not reveal the Stocks background.
+Preserve native scrolling and pull-to-refresh.
+
 Hide horizontal and vertical scrollbars throughout Pecu, including pages, thread lists, dialogs, textareas, tables, and code blocks. Preserve native scrolling and keyboard access. Do not add custom scrollbar tracks or disable overflow to hide a scrollbar.
 
 Thread selection updates immediately with a flat background. Do not animate its position or fade the selected state. Keep keyboard focus rings inside row controls so the scrolling list cannot clip them.
@@ -164,10 +169,24 @@ cards stack at the same width, capped at 440px. Below 380px, buttons use
 
 ## AI connection in the profile
 
-Use the existing agent theme and button components. Keep one definition list for
-ChatGPT connection, model, reasoning, OpenCode, and the last provider response.
-Connect, Cancel sign-in, Refresh, and Disconnect use 44px minimum targets. Show
+Use the existing agent theme and button components. Keep only the current
+connection controls. Connect, Copy code, Cancel sign-in, and Disconnect use
+44px minimum targets. Show
 a plain inline confirmation before disconnecting. Connection errors and expired
 sign-in attempts must leave a usable retry action. Show device sign-in codes only
 while that user is connecting. Never show credentials, account IDs, raw provider
 errors, invented quotas, or a successful-response badge presented as live health.
+
+
+ChatGPT connection is a direct action in the profile menu on desktop and mobile.
+It opens the same scrollable panel as `/agent#chatgpt`. New missing-connection
+replies open it once and retain a button to reopen it. History loads do not
+redirect. Closing returns to the current conversation. Connect, the device code,
+Copy code, Continue with ChatGPT, waiting text, and Cancel are the only visible
+content while signing in. The panel has no visible title, connection details,
+account explanation, refresh control, timestamp, or nested card. Use a 400px
+maximum width, 24px side padding, and 20px between sign-in controls.
+Place the code and copy button in one inset cream field. Use a coral pill for
+Continue with ChatGPT and a plain text button for Cancel sign-in.
+Copy reports success only after the clipboard write resolves, and leaves the
+code selectable if access fails. Sign-in is never started automatically.

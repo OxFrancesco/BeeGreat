@@ -1,3 +1,5 @@
+import { needsChatGptConnection } from "../../../../src/inference-recovery";
+import { openChatGptConnection } from "./inference-navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   webStateSchema,
@@ -90,6 +92,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     >(),
   );
   const threadLoad = useRef<AbortController | null>(null);
+  const recoveryRequests = useRef(new Set<string>());
   const sends = useRef(new Set<string | null>());
   const update = useCallback(
     (id: string | null, patch: Partial<ThreadState>) => {
@@ -163,6 +166,12 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
           const state = historyOnly
             ? { ...previous!, ...messagePageSchema.parse(data) }
             : webStateSchema.parse(data);
+          for (const message of state.messages) {
+            const requestId = message.id.split(":").at(-1)!;
+            if (!message.reply || !recoveryRequests.current.has(requestId)) continue;
+            recoveryRequests.current.delete(requestId);
+            if (id === active.current && needsChatGptConnection(message.reply)) openChatGptConnection();
+          }
           // Summaries are fetched separately and never duplicated into each history.
           const { threads: _threads, ...history } = state;
           update(id, { state: history, error: "", page, paging: false });
@@ -213,6 +222,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     if (!signedIn) {
       generation.current++;
       sends.current.clear();
+      recoveryRequests.current.clear();
       setCache(new Map());
       setShared(null);
       setThreadPage({ threads: [], olderCursor: null, newerCursor: null });
@@ -304,6 +314,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
       if (!signedIn || sends.current.has(threadId)) return;
       const epoch = generation.current;
       sends.current.add(threadId);
+      recoveryRequests.current.add(requestId);
       if (cacheRef.current.get(threadId)?.state?.newerCursor)
         void load(threadId, true).catch(() => {});
       update(threadId, {

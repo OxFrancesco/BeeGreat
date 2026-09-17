@@ -1,3 +1,4 @@
+import { stockSnapshotSchema, type StockSnapshot } from "./stock-contract";
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -63,6 +64,7 @@ export class Store implements PecuStore {
 
   private migrate(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS questions (
         event_id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
         json TEXT NOT NULL, answered_event_id TEXT
@@ -212,6 +214,15 @@ export class Store implements PecuStore {
         updated_at INTEGER NOT NULL
       );
     `);
+  }
+
+  saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void {
+    this.db.query("INSERT OR REPLACE INTO stock_snapshots(event_id,json) VALUES(?,?)").run(eventId, JSON.stringify(stockSnapshotSchema.parse(snapshot)));
+  }
+
+  stockSnapshot(eventId: string): StockSnapshot | undefined {
+    const row = this.db.query<{ json: string }, [string]>("SELECT json FROM stock_snapshots WHERE event_id=?").get(eventId);
+    return row ? stockSnapshotSchema.parse(JSON.parse(row.json)) : undefined;
   }
 
   saveQuestion(message: VerifiedMessage, question: AgentQuestion): void {

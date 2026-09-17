@@ -1,3 +1,4 @@
+import { chatGptUserCode } from "../inference-recovery";
 import { aaveSkill, aaveSkillNames, aaveSchema } from "../integrations/aave";
 import type { OpenCodeWorkerd } from "@opencode-ai/sdk/workerd";
 import { isSugarTxAction, type SugarParameters } from "@beegreat/sugar/contracts";
@@ -30,6 +31,7 @@ export type OAuthStart = Readonly<{
   attemptId: string;
   url: string;
   instructions: string;
+  userCode?: string;
   expiresAt: number | "-Infinity" | "Infinity" | "NaN";
 }>;
 
@@ -340,6 +342,7 @@ export class OpenCodeHarness implements AgentHarness {
       attemptId: response.data.attemptID,
       url: response.data.url,
       instructions: response.data.instructions,
+      userCode: chatGptUserCode(response.data.instructions),
       expiresAt: response.data.time.expires,
     };
   }

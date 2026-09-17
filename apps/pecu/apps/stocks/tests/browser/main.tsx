@@ -1,3 +1,4 @@
+import { connectionFixture } from "./connection";
 import { createRoot } from "react-dom/client";
 import {
   createRootRoute,
@@ -102,6 +103,7 @@ window.fetch = async (input, init) => {
     basket: null,
   });
 };
+connectionFixture();
 const rootRoute = createRootRoute({ component: Outlet });
 const agentRoute = Route.update({
   id: "/agent",

@@ -8,7 +8,7 @@ import { services } from "./fixtures/agent-services";
 import { webTurnSchema } from "../src/web-contract";
 const address = "0x1111111111111111111111111111111111111111";
 const identity = { userId: "user_alice", senderId: "123" };
-function fixture(answer?: AgentHarness["respond"], provision = false) {
+function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"]) {
   const db = new Database(":memory:");
   const store = new Store(":memory:");
   let calls = 0;
@@ -56,7 +56,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false) {
         throw new Error("No signing");
       },
     },
-    services({}),
+    services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }),
     {
       respond: async (message, capabilities) => {
         calls++;
@@ -338,5 +338,38 @@ test("question choices persist and accept one owned, current option", async () =
     expect(restarted.state(identity).messages.at(-1)?.reply?.text).toBe("Cancelled. No new transaction was sent.");
     await expect(restarted.handle({ ...choice, requestId: crypto.randomUUID() })).rejects.toThrow("latest question");
     expect(f.calls()).toBe(1);
+  } finally { f.close(); }
+});
+
+
+test("stock snapshots follow command and model tool replies, persist on replay, and never leak to other turns", async () => {
+  const stocks = [{ symbol: "NVDAc", name: "NVIDIA", address, balance: "2", price_usdc: "150", error: null }];
+  const f = fixture(async (_message, capabilities) => capabilities.aeroRead("stocks", {}), true, stocks);
+  try {
+    f.store.saveWallet("123", address, address);
+    for (const text of ["/stocks", "How many stocks do I own?", "Please inspect the stocks I hold today"]) {
+      const turn = { ...identity, requestId: crypto.randomUUID(), text };
+      await f.web.handle(turn);
+      const before = f.web.state(identity).messages.at(-1)!.reply!.holdings;
+      expect(before?.stocks).toEqual(stocks);
+      await f.web.handle(turn);
+      expect(f.web.state(identity).messages.at(-1)!.reply!.holdings).toEqual(before);
+      expect(JSON.parse(f.web.state(identity).stocks!)).toEqual(stocks);
+    }
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "/help" });
+    expect(f.web.state(identity).messages.at(-1)!.reply!.holdings).toBeUndefined();
+    expect(f.web.state({ ...identity, senderId: "456" }).stocks).toBeNull();
+    const restarted = new WebAgent(f.agent, f.store, f.sql);
+    expect(restarted.state(identity).messages[0]!.reply!.holdings?.stocks).toEqual(stocks);
+  } finally { f.close(); }
+});
+
+test("missing ChatGPT connection replies carry a typed recovery action", async () => {
+  const { chatGptConnectionRequired } = await import("../src/inference-recovery");
+  const f = fixture(async () => chatGptConnectionRequired);
+  try {
+    f.store.saveWallet("123", address, address);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "hello" });
+    expect(f.web.state(identity).messages.at(-1)?.reply?.recovery).toBe("connect_chatgpt");
   } finally { f.close(); }
 });

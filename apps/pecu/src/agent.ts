@@ -1,3 +1,4 @@
+import { stocksSchema } from "./stock-contract";
 import type { AaveService } from "./integrations/aave";
 import type { PolymarketService } from "./integrations/polymarket";
 import type { WhopService } from "./integrations/whop";
@@ -219,6 +220,7 @@ export class PecuAgent {
     const naturalWalletCommand = message.text.trim().startsWith("/")
       ? undefined
       : parseNaturalWalletCommand(message.text);
+    if (naturalWalletCommand?.type === "aero") return this.runAero(message, naturalWalletCommand.action, naturalWalletCommand.parameters);
     if (naturalWalletCommand?.type === "wallet") return this.walletReply(message);
     if (naturalWalletCommand?.type === "balance") return this.balanceReply(message);
     if (naturalWalletCommand?.type === "deposit") return this.depositReply(message);
@@ -361,6 +363,10 @@ export class PecuAgent {
     }
     this.saveDetails(message, result.kind === "read" ? result.output : result);
     if (result.kind === "read") {
+      if (result.action === "stocks") {
+        const stocks = stocksSchema.safeParse(result.output);
+        if (stocks.success) this.store.saveStockSnapshot(message.eventId, { stocks: stocks.data, observedAt: Date.now() });
+      }
       return aeroReadText(result.action, result.output);
     }
     if (result.kind === "unchanged") {

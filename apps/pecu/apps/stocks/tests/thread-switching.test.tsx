@@ -218,3 +218,26 @@ test("intent prefetch caps concurrent requests and does not fetch every sidebar 
   });
   expect(requests.length).toBe(3);
 });
+
+test("a fresh missing-connection reply opens ChatGPT settings once, but old history does not", async () => {
+  await render(null);
+  const old = state(null);
+  old.messages[0]!.reply = { text: "Connect ChatGPT", preview: null, recovery: "connect_chatgpt" };
+  await respond(0, old);
+  expect(window.location.hash).toBe("");
+  const requestId = crypto.randomUUID();
+  let sending: Promise<void>;
+  await act(async () => { sending = account.send("hello", requestId); });
+  await respond(1, { status: "complete" });
+  const next = state(null);
+  next.messages = [{ id: `stocks:user:test:${requestId}`, text: "hello", createdAt: 2, reply: { text: "Connect ChatGPT", preview: null, recovery: "connect_chatgpt" } }];
+  await respond(2, next);
+  await act(async () => { await sending!; });
+  expect(window.location.hash).toBe("#chatgpt");
+  window.history.replaceState(null, "", "/");
+  let reloading: Promise<void>;
+  await act(async () => { reloading = account.reload(); });
+  await respond(3, next);
+  await act(async () => { await reloading!; });
+  expect(window.location.hash).toBe("");
+});

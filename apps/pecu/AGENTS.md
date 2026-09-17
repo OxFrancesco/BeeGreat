@@ -67,6 +67,7 @@ Source of truth: `src/domain.ts`, `src/agent.ts`, `src/evm.ts`, and the pinned `
 | `/help` | Shows the short command list. | Send `/help`. |
 | `/start` | Alias for `/help`. | Send `/start`. |
 | `/wallet` | Creates or retrieves the sender's Base smart wallet and shows its address. | Send `/wallet`, then use the returned address when funding the wallet on Base. |
+| `/stocks` | Shows stock holdings with a value-weighted chart on web and a text response in X Chat. | Send `/stocks` or ask which stocks you own. |
 | `/balance` | Shows ETH, USDC, and AERO balances. | Send `/balance`. Use `/token` for another token. |
 | `/deposit` | Shows the Whop funding page and bank or crypto deposit details for adding money. Asks for an email on first use. | `/deposit` or `/deposit 50` |
 | `/deposit setup EMAIL` | Creates the sender's Whop funding account with the given email. Whop uses it for deposit receipts. | `/deposit setup you@example.com` |

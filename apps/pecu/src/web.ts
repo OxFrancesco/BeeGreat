@@ -1,3 +1,5 @@
+import { needsChatGptConnection } from "./inference-recovery";
+import { aeroReadText } from "./chat";
 import { WebHistory, type HistoryRow } from "./web-history";
 import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
@@ -197,8 +199,6 @@ export class WebAgent {
         text,
         Date.now(),
       );
-      if (text === "/aero stocks" && !this.store.eventReply(eventId))
-        this.store.saveChatDetails(senderId, conversationId, "null");
       const retryContext = this.sql.exec<{ context: string }>("SELECT context FROM basedbot_web_retries WHERE id=?", eventId).toArray()[0]?.context;
       const reply = await this.agent.handle(
         { senderId, conversationId, eventId, text, encodedEvent: "", retryContext },
@@ -218,7 +218,10 @@ export class WebAgent {
             (byte) => byte.toString(16).padStart(2, "0"),
           ).join("")
         : undefined;
+      const holdings = this.store.stockSnapshot(eventId);
       const response = {
+        ...(needsChatGptConnection({ text: reply }) ? { recovery: "connect_chatgpt" as const } : {}),
+        ...(holdings ? { holdings, holdingsOnly: reply === aeroReadText("stocks", holdings.stocks) } : {}),
         question: this.store.questionForEvent(eventId),
         text: reply,
         preview:
@@ -236,15 +239,13 @@ export class WebAgent {
         JSON.stringify(response),
         eventId,
       );
-      if (text === "/aero stocks") {
-        const stocks = this.store.chatDetails(senderId, conversationId);
-        if (stocks && Array.isArray(JSON.parse(stocks)))
-          this.sql.exec(
-            "INSERT INTO basedbot_web_profiles(owner,stocks,stocks_at) VALUES(?,?,?) ON CONFLICT(owner) DO UPDATE SET stocks=excluded.stocks,stocks_at=excluded.stocks_at",
-            this.owner({ userId: input.userId, senderId }),
-            stocks,
-            Date.now(),
-          );
+      if (holdings) {
+        this.sql.exec(
+          "INSERT INTO basedbot_web_profiles(owner,stocks,stocks_at) VALUES(?,?,?) ON CONFLICT(owner) DO UPDATE SET stocks=excluded.stocks,stocks_at=excluded.stocks_at",
+          this.owner({ userId: input.userId, senderId }),
+          JSON.stringify(holdings.stocks),
+          holdings.observedAt,
+        );
       }
       return { status: "complete" as const };
     } finally {

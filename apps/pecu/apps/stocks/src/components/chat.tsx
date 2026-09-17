@@ -1,3 +1,5 @@
+import { ConnectionRecovery } from "./inference-profile";
+import { StockHoldings } from "./stock-holdings";
 import { HistoryWindow } from "./history-window";
 import { HistoryNavigation } from "./history-navigation";
 import { useState, useRef } from "react";
@@ -77,12 +79,17 @@ export function Chat({
                 </div>
                 {message.reply ? (
                   <div className="message assistant">
-                    <MessageResponse>
-                      {message.reply.preview
-                        ? message.reply.preview.text
-                        : (message.reply.question?.question ??
-                          message.reply.text)}
-                    </MessageResponse>
+                    {!(message.reply.holdings && message.reply.holdingsOnly) ? (
+                      <MessageResponse>
+                        {message.reply.preview
+                          ? message.reply.preview.text
+                          : (message.reply.question?.question ?? message.reply.text)}
+                      </MessageResponse>
+                    ) : null}
+                    <ConnectionRecovery reply={message.reply} />
+                    {message.reply.holdings ? (
+                      <StockHoldings {...message.reply.holdings} />
+                    ) : null}
                     {message.reply.question?.options.length ? (
                       <div
                         className="flex flex-wrap gap-2 mt-3"

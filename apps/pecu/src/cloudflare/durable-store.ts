@@ -1,3 +1,4 @@
+import { stockSnapshotSchema, type StockSnapshot } from "../stock-contract";
 import { agentQuestionSchema, type AgentQuestion, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "../domain";
 import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "../state";
 
@@ -56,6 +57,7 @@ export class DurableStore implements PecuStore {
 
   initialize(): void {
     this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS basedbot_stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS basedbot_questions (
         event_id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
         json TEXT NOT NULL, answered_event_id TEXT
@@ -174,6 +176,15 @@ export class DurableStore implements PecuStore {
         updated_at INTEGER NOT NULL
       );
     `);
+  }
+
+  saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void {
+    this.sql.exec("INSERT OR REPLACE INTO basedbot_stock_snapshots(event_id,json) VALUES(?,?)", eventId, JSON.stringify(stockSnapshotSchema.parse(snapshot)));
+  }
+
+  stockSnapshot(eventId: string): StockSnapshot | undefined {
+    const row = this.first<{ json: string }>("SELECT json FROM basedbot_stock_snapshots WHERE event_id=?", eventId);
+    return row ? stockSnapshotSchema.parse(JSON.parse(row.json)) : undefined;
   }
 
   saveQuestion(message: VerifiedMessage, question: AgentQuestion): void {

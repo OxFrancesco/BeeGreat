@@ -197,6 +197,7 @@ export function parseCommand(input: string): Command {
   const verb = parts[0]?.toLowerCase();
   if (!verb || verb === "help" || verb === "start") return { type: "help" };
   if (verb === "wallet" && parts.length === 1) return { type: "wallet" };
+  if (verb === "stocks" && parts.length === 1) return { type: "aero", action: "stocks", parameters: {} };
   if (verb === "balance" && parts.length === 1) return { type: "balance" };
   if (verb === "aave" && (parts.length === 1 || parts[1] === "help")) return { type: "aave-help" };
   if (verb === "polymarket") {
@@ -232,7 +233,7 @@ export function parseCommand(input: string): Command {
   throw new Error("Unknown command. Send /help to see the available commands.");
 }
 
-export function parseNaturalWalletCommand(input: string): Extract<Command, { type: "wallet" | "balance" | "deposit" }> | undefined {
+export function parseNaturalWalletCommand(input: string): Extract<Command, { type: "wallet" | "balance" | "deposit" | "aero" }> | undefined {
   const text = input
     .trim()
     .toLowerCase()
@@ -240,6 +241,10 @@ export function parseNaturalWalletCommand(input: string): Extract<Command, { typ
     .replace(/[^a-z0-9' ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+  if (/^(?:(?:show|check|list) (?:me )?my (?:stock holdings|stocks|stock portfolio)|(?:how many|what|which) stocks do i (?:own|have))$/.test(text)) {
+    return { type: "aero", action: "stocks", parameters: {} };
+  }
 
   if (
     /^(?:what(?:'s| is)|show|tell) (?:me )?(?:my )?(?:base |smart )?wallet address$/.test(text)
@@ -338,6 +343,7 @@ export const helpText = [
   "/yolo on  Execute new requests without a confirmation prompt",
   "/yolo off  Require confirmation again",
   "b/verbose  Show technical details for your latest result",
+  "/stocks  Show your stock holdings",
   "/aero help  Explore pools, liquidity, rewards, and more",
   "/aave help  Explore lending, borrowing, and Aave positions",
   "/polymarket QUESTION  Research market odds and trends",

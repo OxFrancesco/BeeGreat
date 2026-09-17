@@ -1,3 +1,5 @@
+import { ConnectionRecovery } from "../components/inference-profile";
+import { StockHoldings } from "../components/stock-holdings";
 import { ConversationHistory } from "@/components/history-window";
 import { HistoryNavigation } from "@/components/history-navigation";
 import { PecuUserButton } from "../components/inference-profile";
@@ -162,7 +164,7 @@ function AgentWorkspace({
   const [threadsOpen, setThreadsOpen] = useState(false);
   const signIn = () =>
     void clerk.openSignIn({
-      fallbackRedirectUrl: threadId ? `/agent?t=${threadId}` : "/agent",
+      fallbackRedirectUrl: `${threadId ? `/agent?t=${threadId}` : "/agent"}${window.location.hash === "#chatgpt" ? "#chatgpt" : ""}`,
     });
   const openThread = useCallback(
     (id: string | null) => {
@@ -410,12 +412,17 @@ function AgentWorkspace({
                             {message.id === mascotMessageId ? <img alt="" className="pecu-avatar" src={avatar} /> : null}
                             {message.reply ? (
                               <MessageContent className="pecu-bubble-bot">
-                                <MessageResponse>
-                                  {message.reply.preview
-                                    ? message.reply.preview.text
-                                    : (message.reply.question?.question ??
-                                      message.reply.text)}
-                                </MessageResponse>
+                                {!(message.reply.holdings && message.reply.holdingsOnly) ? (
+                                  <MessageResponse>
+                                    {message.reply.preview
+                                      ? message.reply.preview.text
+                                      : (message.reply.question?.question ?? message.reply.text)}
+                                  </MessageResponse>
+                                ) : null}
+                                <ConnectionRecovery reply={message.reply} />
+                    {message.reply.holdings ? (
+                                  <StockHoldings {...message.reply.holdings} />
+                                ) : null}
                                 {message.reply.question?.options.length ? (
                                   <div
                                     className="flex flex-wrap gap-2 mt-3"

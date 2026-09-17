@@ -1,3 +1,4 @@
+import type { StockSnapshot } from "./stock-contract";
 import { aaveIntentParameters, type AaveParameters } from "./integrations/aave";
 import { validateSugarRequest } from "@beegreat/sugar";
 import { isSugarTxAction, type SugarParameters, type SugarTxAction } from "@beegreat/sugar/contracts";
@@ -57,6 +58,8 @@ export type ExecutionStep = Readonly<{
 export const eventProcessingLeaseMs = 2 * 60 * 1_000;
 
 export interface AgentStateStore {
+  saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void;
+  stockSnapshot(eventId: string): StockSnapshot | undefined;
   saveQuestion(message: VerifiedMessage, question: AgentQuestion): void;
   questionForEvent(eventId: string): AgentQuestion | undefined;
   answerPendingQuestion(message: VerifiedMessage): boolean;
