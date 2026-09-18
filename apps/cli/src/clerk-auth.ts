@@ -36,7 +36,7 @@ async function defaultOpenBrowser(url: string) {
     process.platform === "darwin"
       ? ["open", url]
       : process.platform === "win32"
-        ? ["cmd", "/c", "start", "", url]
+        ? ["rundll32", "url.dll,FileProtocolHandler", url]
         : ["xdg-open", url];
   const child = Bun.spawn(command, { stdout: "ignore", stderr: "ignore" });
   if ((await child.exited) !== 0) {
