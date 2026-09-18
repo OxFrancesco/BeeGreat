@@ -102,9 +102,10 @@ export function JournalEntryEditorScreen() {
   const [calendarMonth, setCalendarMonth] = useState(() =>
     monthStartForDate(localDateKey()),
   );
-  const monthDays = useQuery(api.journalEntries.listMonth, {
-    monthStart: calendarMonth,
-  });
+  const monthDays = useQuery(
+    api.journalEntries.listMonth,
+    dateEditing ? { monthStart: calendarMonth } : 'skip',
+  );
   useEffect(() => {
     if (entry) session.receive(entry);
     else if (entry === null && userId) { clearJournalEditorDrafts(userId, entryId); session.discard(); }
