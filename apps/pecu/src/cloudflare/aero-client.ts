@@ -1,11 +1,14 @@
-import type { AeroExecutor } from "../aerodrome";
+import type { SugarJson } from "@beegreat/sugar";
+import type { AeroRequest } from "./aero-protocol";
+
+export type AeroExecutor = (request: AeroRequest) => Promise<SugarJson>;
 
 export function aeroWorkerExecutor(service: Pick<Fetcher, "fetch">): AeroExecutor {
-  return async (action, parameters) => {
+  return async (request) => {
     const response = await service.fetch("https://aero.internal/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, parameters }),
+      body: JSON.stringify(request),
     });
     if (!response.ok) {
       const payload: unknown = await response.json();

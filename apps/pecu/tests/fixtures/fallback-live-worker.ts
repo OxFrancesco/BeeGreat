@@ -16,6 +16,7 @@ const capabilities: AgentCapabilities = {
   walletBalances: toolsDisabled,
   aeroRead: toolsDisabled,
   aeroPropose: toolsDisabled,
+  stockTrades: toolsDisabled,
   evmToken: toolsDisabled,
   evmAllowance: toolsDisabled,
   evmRead: toolsDisabled,

@@ -1,0 +1,28 @@
+export type ChatCommand = Readonly<{ command: string; args?: string; summary: string }>;
+
+export const chatCommands: readonly ChatCommand[] = [
+  { command: "/wallet", summary: "Create or show your wallet" },
+  { command: "/balance", summary: "Check your balances" },
+  { command: "/stocks", summary: "Show your stock holdings" },
+  { command: "/deposit", summary: "Add money by bank transfer or crypto" },
+  { command: "/deposit status", summary: "Check your deposits" },
+  { command: "/quote", args: "0.001 ETH to USDC", summary: "See how much you would receive" },
+  { command: "/swap", args: "0.001 ETH to USDC", summary: "Preview a swap" },
+  { command: "/send", args: "1 USDC to 0x…", summary: "Preview a transfer" },
+  { command: "/token", args: "USDC", summary: "Check a token balance" },
+  { command: "/allowance", args: "USDC for 0x…", summary: "Check spending permission" },
+  { command: "/approve", args: "1 USDC for 0x…", summary: "Preview a spending limit" },
+  { command: "/revoke", args: "USDC for 0x…", summary: "Preview removing spending permission" },
+  { command: "/confirm", args: "CODE", summary: "Confirm using a code" },
+  { command: "/cancel", args: "CODE", summary: "Cancel a pending transaction" },
+  { command: "/yolo", summary: "Check whether confirmation prompts are on" },
+  { command: "/yolo on", summary: "Execute new requests without a confirmation prompt" },
+  { command: "/yolo off", summary: "Require confirmation again" },
+  { command: "/verbose", summary: "Show technical details for your latest result" },
+  { command: "/aero help", summary: "Explore pools, liquidity, rewards, and more" },
+  { command: "/aave help", summary: "Explore lending, borrowing, and Aave positions" },
+  { command: "/polymarket", args: "QUESTION", summary: "Research market odds and trends" },
+  { command: "/polymarket status", summary: "Read your latest research result" },
+  { command: "/nansen help", summary: "On-chain analytics for tokens, wallets, and prediction markets" },
+  { command: "/help", summary: "Show the command list" },
+];

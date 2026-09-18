@@ -12,6 +12,32 @@ test("Aero Worker rejects a foreign chain before contacting RPC", async () => {
   expect(response.status).toBe(400);
 });
 
+test("a stock_basket request on a foreign chain is rejected before any RPC", async () => {
+  const response = await worker.fetch(new Request("https://aero.internal/", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "stock_basket", chain: 10, wallet,
+      trades: [{ side: "buy", stock: "NVDAc", amount: "1" }], slippage: 0.01,
+    }),
+  }), { ALCHEMY_RPC_URL: "https://invalid.example" });
+  expect(response.status).toBe(400);
+});
+
+test("a stock_basket request with malformed trades is rejected before any RPC", async () => {
+  for (const trades of [
+    [],
+    [{ side: "hold", stock: "NVDAc", amount: "1" }],
+    [{ side: "buy", stock: "NVDAc", amount: "one" }],
+    [{ side: "buy", stock: "NVDAc", amount: "1", extra: true }],
+  ]) {
+    const response = await worker.fetch(new Request("https://aero.internal/", {
+      method: "POST",
+      body: JSON.stringify({ action: "stock_basket", chain: 8453, wallet, trades, slippage: 0.01 }),
+    }), { ALCHEMY_RPC_URL: "https://invalid.example" });
+    expect(response.status).toBe(400);
+  }
+});
+
 test("Aero service propagates remote failures and accepts the next request", async () => {
   let calls = 0;
   const execute = aeroWorkerExecutor({ fetch: async () => ++calls === 1

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SUGAR_ACTIONS } from "@beegreat/sugar/contracts";
+import { chatCommands } from "../src/commands";
 import { parseCommand, parseNaturalWalletCommand } from "../src/domain";
 
 describe("command grammar", () => {
@@ -41,6 +42,29 @@ describe("command grammar", () => {
   );
 });
 
+describe("command reference", () => {
+  const concreteArgs = new Map<string, string>([
+    ["/quote", "0.001 ETH to USDC"],
+    ["/swap", "0.001 ETH to USDC"],
+    ["/send", "1 USDC to 0x1111111111111111111111111111111111111111"],
+    ["/token", "USDC"],
+    ["/allowance", "USDC for 0x1111111111111111111111111111111111111111"],
+    ["/approve", "1 USDC for 0x1111111111111111111111111111111111111111"],
+    ["/revoke", "USDC for 0x1111111111111111111111111111111111111111"],
+    ["/confirm", "ABC123"],
+    ["/cancel", "ABC123"],
+    ["/polymarket", "Will the Fed cut rates?"],
+  ]);
+
+  test("every documented command parses without an unknown-command error", () => {
+    for (const entry of chatCommands) {
+      const example = concreteArgs.get(entry.command) ?? "";
+      const input = `${entry.command}${example ? ` ${example}` : ""}`;
+      expect(() => parseCommand(input), input).not.toThrow();
+    }
+  });
+});
+
 describe("natural wallet commands", () => {
   test.each([
     "What's my address?",
@@ -57,6 +81,23 @@ describe("natural wallet commands", () => {
     "How much ETH do I have?",
   ])("routes verified balance lookup without relying on model tool choice: %s", (input) => {
     expect(parseNaturalWalletCommand(input)).toEqual({ type: "balance" });
+  });
+
+  test.each([
+    "stocks",
+    "my stocks",
+    "my stock holdings",
+    "show my portfolio",
+    "check my stock holdings",
+    "list my stocks",
+    "view my stock portfolio",
+    "what stocks do I own",
+    "which stocks do I hold",
+    "how many stocks do I have",
+    "what am I holding",
+    "what's in my stock portfolio",
+  ])("routes stock holdings requests without relying on model tool choice: %s", (input) => {
+    expect(parseNaturalWalletCommand(input)).toEqual({ type: "aero", action: "stocks", parameters: {} });
   });
 
   test.each([

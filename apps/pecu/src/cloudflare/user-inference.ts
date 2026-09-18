@@ -10,7 +10,7 @@ import { log } from "../logger";
 import { UsageLimitError } from "../usage-limit";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
-const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
+const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
 
 export class InferenceTools extends RpcTarget {
   constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode) { super(); }
@@ -116,6 +116,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       walletBalances: (...args) => bridge.call("walletBalances", args),
       aeroRead: (...args) => bridge.call("aeroRead", args),
       aeroPropose: (...args) => bridge.call("aeroPropose", args),
+      stockTrades: (...args) => bridge.call("stockTrades", args),
       evmToken: (...args) => bridge.call("evmToken", args),
       evmAllowance: (...args) => bridge.call("evmAllowance", args),
       evmRead: (...args) => bridge.call("evmRead", args),

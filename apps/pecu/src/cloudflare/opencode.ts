@@ -2,6 +2,7 @@ import { chatGptConnectionRequired, chatGptUserCode } from "../inference-recover
 import { aaveSkill, aaveSkillNames, aaveSchema } from "../integrations/aave";
 import type { OpenCodeWorkerd } from "@opencode-ai/sdk/workerd";
 import { isSugarTxAction, type SugarParameters } from "@beegreat/sugar/contracts";
+import { stockTradeSchema } from "../stock-contract";
 import { aeroTools } from "./aero-tools";
 import { evmTools } from "./evm-tools";
 import { nansenEndpointNames, nansenEndpoints } from "../integrations/nansen";
@@ -17,7 +18,7 @@ Reply in concise plain text for an everyday user. Never paste JSON, raw tool out
 Use wallet tools for wallet facts and balances. Use the action-specific Aero tools for live reads and transaction proposals.
 Use evm_token_balance for any token balance, evm_read and evm_inspect for contract reads, and evm_transfer, evm_approve, evm_revoke, or evm_contract_call to propose generic transactions. Always read balances or allowances before proposing a transfer or approval.
 Use the transaction tool result as the source of truth. Normally it returns a preview: tell the user to reply to it with confirm or cancel and preserve the /confirm CODE fallback. With YOLO enabled, the tool can execute and return a verified outcome. Report success only when the tool confirms it, and preserve transaction links and recovery codes. Never enable YOLO yourself; only the explicit /yolo on command changes it.
-Create at most one proposal per user message. If an ambiguity would change a transaction, call ask_user with a short question and useful options, then stop and wait for the next user message. Never answer your own question. A funding-token choice is not permission to choose an arbitrary swap amount. Quote the required funding swap, preserve ETH for fees, and prepare its preview before a stock purchase. If stock_buy reports insufficient USDC and asks about other holdings, repeat that question and wait. After the funding swap is confirmed, recheck USDC and prepare the stock purchase separately. Never treat a choice as confirmation or infer that a held token has sufficient value or liquidity.
+Create at most one proposal per user message. When one message asks for several stock trades, combine them into a single aero_stock_trades proposal instead of refusing or picking one. When a message needs several unrelated transactions, prepare the first now and say you will prepare the next one after it is confirmed. If an ambiguity would change a transaction, call ask_user with a short question and useful options, then stop and wait for the next user message. Never answer your own question. A funding-token choice is not permission to choose an arbitrary swap amount. Quote the required funding swap, preserve ETH for fees, and prepare its preview before a stock purchase. If stock_buy reports insufficient USDC and asks about other holdings, repeat that question and wait. After the funding swap is confirmed, recheck USDC and prepare the stock purchase separately. Never treat a choice as confirmation or infer that a held token has sufficient value or liquidity.
 The chain is always Base mainnet (8453), and the smart wallet is bound to the verified X sender. Never request or accept private keys, seed phrases, auth tokens, wallet overrides, or another chain.
 For Aave requests, first load the matching official workflow with aave_skill: safe-transactions, yield-analysis, deleverage, account-activity, or tx-confirmation. Inspect aave_schema for exact arguments, then use aave_call. Its prepare_action tool runs fresh discovery, inspection and simulation before creating a Base transaction preview. If the result is an approval-only preview, explain that it does not supply or repay yet. Other prepare_* actions and signed orders are not available. Reads may compare chains but all wallet transactions stay on Base.
 Use polymarket_research for market odds, price history, order books, or trader positions. It uses read-only public Polymarket data through Exa. Probabilities are market-implied odds, not certainties. Keep the sources and timestamps. Call with no query to retrieve an unfinished result, never launch duplicate research to check status.
@@ -217,6 +218,18 @@ export class OpenCodeHarness implements AgentHarness {
               },
             });
           }
+          draft.add({
+            name: "aero_stock_trades",
+            options: { codemode: false },
+            description: "Propose several tokenized stock buys and sells as one transaction with one confirmation. Use this whenever one message asks for more than one stock trade, for example $1 of NVDAc and $1 of AAPLc. Base mainnet only. Never executes a transaction.",
+            input: z.strictObject({
+              trades: z.array(stockTradeSchema).min(1).max(8).describe("One entry per trade. Buy amounts are USDC to spend in human units; sell amounts are stock token units."),
+              slippage: z.number().gt(0).lt(1).optional().describe("Fraction, for example 0.005 means 0.5 percent. Omit to use the configured maximum."),
+            }),
+            execute: async ({ trades, slippage }, toolContext) => ({
+              content: await capabilities(toolContext.sessionID).stockTrades(trades, slippage),
+            }),
+          });
           for (const tool of evmTools) {
             draft.add({
               name: tool.name,
@@ -267,6 +280,7 @@ export class OpenCodeHarness implements AgentHarness {
           { action: "deposit_status", resource: "*", effect: "allow" },
           ...nansenEndpointNames.map((name) => ({ action: `nansen_${name}`, resource: "*", effect: "allow" as const })),
           ...aeroTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
+          { action: "aero_stock_trades", resource: "*", effect: "allow" },
           ...evmTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
         ],
         agents: {

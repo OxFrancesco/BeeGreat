@@ -16,7 +16,10 @@ function fixture(respond: AgentHarness["respond"], balances = "ETH: 0.001979\nUS
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
     store,
     { getOrCreate: async () => ({ address: `0x${"1".repeat(40)}` }), balances: async () => balances } as unknown as WalletService,
-    services({ aerodrome: { run: async () => { runs++; throw new Error("Insufficient USDC balance"); } } }),
+    services({ aerodrome: {
+      run: async () => { runs++; throw new Error("Insufficient USDC balance"); },
+      basket: async () => { throw new Error("unexpected aero basket call"); },
+    } }),
     { respond },
   );
   return { agent, runs: () => runs };

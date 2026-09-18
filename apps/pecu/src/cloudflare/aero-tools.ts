@@ -4,8 +4,8 @@ import { z } from "zod";
 
 const descriptions: Record<SugarAction, string> = {
   stocks: "Read the SDK's supported tokenized stocks, live USDC prices, and verified wallet holdings. Report any unavailable prices as errors, never as zero.",
-  stock_buy: "Propose buying a tokenized stock with USDC. amount is the USDC spend in human units. Requires sufficient wallet funds and explicit user confirmation.",
-  stock_sell: "Propose selling a tokenized stock for USDC. amount is in human stock token units. Requires sufficient wallet holdings and explicit user confirmation.",
+  stock_buy: "Propose buying a tokenized stock with USDC. amount is the USDC spend in human units. Requires sufficient wallet funds and explicit user confirmation. For more than one stock trade in one message use aero_stock_trades.",
+  stock_sell: "Propose selling a tokenized stock for USDC. amount is in human stock token units. Requires sufficient wallet holdings and explicit user confirmation. For more than one stock trade in one message use aero_stock_trades.",
   index_rebalance: "Propose rebalancing tokenized stock holdings to allocations with an optional USDC cash contribution. Requires explicit user confirmation.",
   quote: "Get a live swap quote. This only reads prices and never creates a transaction plan. amount_out_decimal is the output token amount. from_price_usd and to_price_usd are reference prices, not the implied execution price.",
   swap: "Propose a swap. This persists a transaction plan for explicit user confirmation.",

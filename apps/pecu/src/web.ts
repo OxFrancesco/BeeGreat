@@ -1,5 +1,5 @@
 import { needsChatGptConnection } from "./inference-recovery";
-import { aeroReadText } from "./chat";
+import { aeroReadText, intentTitle } from "./chat";
 import { WebHistory, type HistoryRow } from "./web-history";
 import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
@@ -69,11 +69,16 @@ export class WebAgent {
       ? webReplySchema.parse(JSON.parse(row.reply))
       : null;
     const intent = this.store.intentForSource(row.id);
-    if (reply?.preview && intent)
+    if (reply?.preview && intent) {
       reply.preview.state =
         intent.state === "pending" && intent.expiresAt < Date.now()
           ? "expired"
           : intent.state;
+      reply.preview.title ??= intentTitle(intent);
+      if (intent.result !== undefined && (reply.preview.state === "succeeded" || reply.preview.state === "failed")) {
+        reply.preview.result = intent.result;
+      }
+    }
     return {
       id: row.id,
       text: row.text,
@@ -228,6 +233,7 @@ export class WebAgent {
           intent && code && intent.codeHash === codeDigest
             ? {
                 code,
+                title: intentTitle(intent),
                 text: intent.preview,
                 state: intent.state,
                 expiresAt: intent.expiresAt,

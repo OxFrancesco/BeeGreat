@@ -5,7 +5,7 @@ import { PecuAgent } from "../src/agent";
 import { Store } from "../src/store";
 import { WebAgent, type WebSql } from "../src/web";
 import { services } from "./fixtures/agent-services";
-import { webTurnSchema } from "../src/web-contract";
+import { confirmationCommand, webTurnSchema } from "../src/web-contract";
 const address = "0x1111111111111111111111111111111111111111";
 const identity = { userId: "user_alice", senderId: "123" };
 function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"]) {
@@ -221,6 +221,7 @@ test("confirmation controls require the code belonging to the persisted preview"
       await f.web.handle({ ...identity, requestId, text: "preview" });
       const message = f.web.state(identity).messages.find((m) => m.id === eventId);
       expect(message?.reply?.preview?.code ?? null).toBe(replyCode === "ABC123" ? "ABC123" : null);
+      expect(message?.reply?.preview?.title ?? null).toBe(replyCode === "ABC123" ? "Stake position" : null);
       expect(message?.canRetry).toBe(false);
       await expect(f.web.handle({ ...identity, requestId: crypto.randomUUID(), retryOf: eventId, text: "preview" })).rejects.toThrow("transaction");
     }
@@ -372,4 +373,46 @@ test("missing ChatGPT connection replies carry a typed recovery action", async (
     await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "hello" });
     expect(f.web.state(identity).messages.at(-1)?.reply?.recovery).toBe("connect_chatgpt");
   } finally { f.close(); }
+});
+
+test("a completed intent exposes its stored result on the preview", async () => {
+  const f = fixture();
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const conversationId = `stocks:${identity.userId}:${identity.senderId}`;
+    const requestId = crypto.randomUUID();
+    const eventId = `${conversationId}:${requestId}`;
+    const code = "ABC123";
+    const result = "Aerodrome stake confirmed on Base mainnet.\nhttps://basescan.org/tx/0xabc";
+    f.store.createIntent({
+      id: requestId,
+      codeHash: new Bun.CryptoHasher("sha256").update(code).digest("hex"),
+      senderId: identity.senderId, conversationId, sourceEventId: eventId,
+      state: "pending", family: "aero", action: "stake",
+      parameters: { chain: 8453, wallet: address, pool: address },
+      preview: "Stored preview", planDigest: "test", expiresAt: Date.now() + 60_000,
+    }, []);
+    f.store.claimEvent(eventId, conversationId, identity.senderId);
+    f.store.completeEvent(eventId, `Preview /confirm ${code}`);
+    await f.web.handle({ ...identity, requestId, text: "preview" });
+    let preview = f.web.state(identity).messages.find((m) => m.id === eventId)?.reply?.preview;
+    expect(preview?.title).toBe("Stake position");
+    expect(preview?.result).toBeUndefined();
+    f.store.transitionIntent(requestId, "pending", "succeeded", result);
+    preview = f.web.state(identity).messages.find((m) => m.id === eventId)?.reply?.preview;
+    expect(preview?.state).toBe("succeeded");
+    expect(preview?.title).toBe("Stake position");
+    expect(preview?.result).toBe(result);
+  } finally { f.close(); }
+});
+
+test("confirmationCommand parses only exact confirm and cancel commands", () => {
+  expect(confirmationCommand("/confirm 39d685")).toEqual({ kind: "confirm", code: "39D685" });
+  expect(confirmationCommand("/cancel 39d685")).toEqual({ kind: "cancel", code: "39D685" });
+  expect(confirmationCommand("  /confirm ABC123  ")).toEqual({ kind: "confirm", code: "ABC123" });
+  expect(confirmationCommand("/confirm")).toBeUndefined();
+  expect(confirmationCommand("/confirm 12345")).toBeUndefined();
+  expect(confirmationCommand("/confirm 1234567")).toBeUndefined();
+  expect(confirmationCommand("/confirm ABCDEF extra")).toBeUndefined();
+  expect(confirmationCommand("confirm ABC123")).toBeUndefined();
 });

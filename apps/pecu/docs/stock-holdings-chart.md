@@ -2,7 +2,10 @@
 
 `/stocks`, `/aero stocks`, and common ownership questions read the sender's
 stock tokens on Base. Other natural-language requests use the same tool through
-either inference provider. The stock tool saves validated data and observation
+either inference provider. The read resolves the stock catalog in one `tokens`
+contract call and prices it with the Sugar price oracle, two RPC calls in
+total. Oracle prices were measured within about 0.25 percent of a one-unit
+quoter price. The stock tool saves validated data and observation
 time per incoming event in both SQLite stores. Web replies carry this snapshot;
 history and request replays retain it. Unrelated replies cannot reuse a previous
 turn's chart. Successful reads also update the Stocks holdings cache.

@@ -242,7 +242,14 @@ export function parseNaturalWalletCommand(input: string): Extract<Command, { typ
     .replace(/\s+/g, " ")
     .trim();
 
-  if (/^(?:(?:show|check|list) (?:me )?my (?:stock holdings|stocks|stock portfolio)|(?:how many|what|which) stocks do i (?:own|have))$/.test(text)) {
+  if (
+    /^(?:my )?stocks$/.test(text)
+    || /^my stock holdings$/.test(text)
+    || /^(?:show|check|list|view) (?:me )?(?:my )?(?:stock )?(?:holdings|portfolio|stocks|stock holdings|stock portfolio)$/.test(text)
+    || /^(?:how many|what|which) stocks? (?:do i|have i) (?:own|have|hold)$/.test(text)
+    || /^(?:what|which) (?:stocks? )?am i holding$/.test(text)
+    || /^what(?:'s| is) in my (?:stock )?portfolio$/.test(text)
+  ) {
     return { type: "aero", action: "stocks", parameters: {} };
   }
 

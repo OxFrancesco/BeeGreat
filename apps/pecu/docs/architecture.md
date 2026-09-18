@@ -18,12 +18,13 @@ X OAuth authenticates the bot account. XChat public keys decrypt messages, and C
 
 Before each model turn, the exact verified message is persisted against the OpenCode session. Tool execution resolves capabilities from that persisted binding, so Durable Object eviction cannot turn a resumed tool call into an unbound request.
 
-OpenCode's only active agent is `pecu`. Its plugin removes the built-in tool surface and exposes two wallet tools, one tool per Aero action, and nine generic EVM tools:
+OpenCode's only active agent is `pecu`. Its plugin removes the built-in tool surface and exposes two wallet tools, one tool per Aero action, a composite stock-trade tool, and nine generic EVM tools:
 
 - wallet address
 - wallet balances
 - all read-only actions from `SUGAR_ACTIONS`
 - all state-changing actions from `SUGAR_TX_ACTIONS`
+- `aero_stock_trades` (one preview for several stock buys and sells)
 - `evm_token_balance`, `evm_allowance`, `evm_read`, `evm_inspect`, `evm_decode` (reads)
 - `evm_transfer`, `evm_approve`, `evm_revoke`, `evm_contract_call` (plans)
 - `deposit_instructions`, `deposit_setup`, `deposit_status` (Whop funding)
@@ -34,7 +35,11 @@ Each Aero tool derives its allowed arguments and required fields from the SDK va
 
 Crossmint owns signing and broadcast. Every verified X sender deterministically owns `userId:basedbot-x-SENDER_ID:evm:smart` on the `base` chain. Web users signed in through Clerk without a linked X account are the sender `web-<clerk user id>` and own `userId:basedbot-web-<clerk user id>:evm:smart`; `src/web-identity.ts` is the only place that decides which of the two a signed-in user is. A production Crossmint key is required because the staging `base` alias targets a test network.
 
-The Aero service always overwrites `chain` with `8453`. Transaction callers cannot override `wallet`; positions default to the sender's wallet while still allowing public-owner inspection. Slippage is bounded by `MAX_SLIPPAGE_BPS`.
+The Aero service always overwrites `chain` with `8453`. Transaction callers cannot override `wallet`; positions default to the sender's wallet while still allowing public-owner inspection. Slippage is bounded by `MAX_SLIPPAGE_BPS`. When the sender's wallet address is already stored, `walletAddress` returns it directly instead of paying a Crossmint `getWallet` round trip; wallet creation still goes through `getOrCreate`.
+
+The `pecu-aero` Worker keeps a shared 10-minute cache store and runs RPC calls with concurrency 4. Three requests take a fast path instead of the SDK's catalog scans. `stocks` with a wallet reads the stock catalog in one `tokens` contract call and prices it with the Sugar price oracle, two RPC calls in total. `stock_buy` and `stock_sell` resolve the traded token directly instead of scanning the token catalog. `stock_basket` takes a list of buys and sells, validates them against the wallet's balances, quotes each leg, and returns one basket plan.
+
+A basket plan persists as one intent of family `stocks` with action `stock_basket`. Its calls are approvals followed by a single router action, which is the same shape `validatePlan` already enforces for other Aero plans, so several stock trades in one message still produce one preview, one confirmation, and one transaction.
 
 Read actions execute immediately. Transaction actions return ordered unsigned calls. Pecu validates their structure, hashes them, and atomically persists the proposal and steps before returning a preview. The model cannot confirm its own proposal.
 
@@ -50,7 +55,7 @@ Execution is idempotent per step. Before approving, the bot reads Crossmint's re
 
 The Worker runs `printf '%s' "$EVM_INPUT" | bun dist/cli.js COMMAND --stdin` with the JSON in `EVM_INPUT`, so user-controlled bytes never reach shell parsing. Each call receives `EVM_DATABASE=/tmp/evm/UUID/operations.sqlite` and the directory is removed before the response returns. The sandbox filesystem also resets whenever the container sleeps; that is acceptable because the Durable Object is the only durable record of any plan. The only secrets in the sandbox are the RPC URL and an optional Etherscan key.
 
-`src/evm.ts` is the Worker-side client. It resolves token symbols through the Aero SDK's canonical Base token list, converts human amounts to base units with string arithmetic after reading the token's decimals, refuses transfers that exceed the sender's balance before asking the sandbox for a plan, and requires the returned plan's `account` to equal the sender's wallet. `validateEvmPlan` in `src/policy.ts` then pins the single returned call to the declared action: native transfers carry `0x` calldata and positive value, ERC-20 transfers and approvals carry exactly the `transfer(address,uint256)` or `approve(address,uint256)` selector with 64 bytes of arguments and zero value, revokes must encode a zero allowance, and contract calls need calldata. Intents record `family: "aero" | "evm"` so both stores re-validate parameters with the right validator on load.
+`src/evm.ts` is the Worker-side client. It resolves token symbols through the Aero SDK's canonical Base token list, converts human amounts to base units with string arithmetic after reading the token's decimals, refuses transfers that exceed the sender's balance before asking the sandbox for a plan, and requires the returned plan's `account` to equal the sender's wallet. `validateEvmPlan` in `src/policy.ts` then pins the single returned call to the declared action: native transfers carry `0x` calldata and positive value, ERC-20 transfers and approvals carry exactly the `transfer(address,uint256)` or `approve(address,uint256)` selector with 64 bytes of arguments and zero value, revokes must encode a zero allowance, and contract calls need calldata. Intents record `family: "aero" | "stocks" | "evm" | "aave" | "deposit"` so both stores re-validate parameters with the right validator on load.
 
 Aero stays in-process in `pecu-aero`. Its cache store and tuned concurrency would be lost behind a per-call process spawn, and its role-tagged `transaction_steps` are richer than the evm CLI's `aero` wrapper.
 

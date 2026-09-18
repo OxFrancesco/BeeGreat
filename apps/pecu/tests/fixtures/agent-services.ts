@@ -1,5 +1,5 @@
 import type { AgentServices } from "../../src/agent";
-import type { AeroResult } from "../../src/aerodrome";
+import type { AeroResult, StockBasketPlanResult } from "../../src/aerodrome";
 import type { EvmPlanResult, EvmReadResult } from "../../src/evm";
 import type { UserOperationOutcome } from "../../src/receipt";
 import type { WalletTransaction } from "../../src/wallet";
@@ -27,9 +27,12 @@ export const confirmedOutcome = (hash = "0xabc"): UserOperationOutcome => ({ sta
 
 export const pendingOutcome: UserOperationOutcome = { status: "pending" };
 
-export function services(overrides: Partial<AgentServices> & { aero?: AeroResult }): AgentServices {
+export function services(overrides: Partial<AgentServices> & { aero?: AeroResult; basket?: StockBasketPlanResult }): AgentServices {
   return {
-    aerodrome: overrides.aerodrome ?? { run: async () => { if (!overrides.aero) throw new Error("unexpected aero call"); return overrides.aero; } },
+    aerodrome: overrides.aerodrome ?? {
+      run: async () => { if (!overrides.aero) throw new Error("unexpected aero call"); return overrides.aero; },
+      basket: async () => { if (!overrides.basket) throw new Error("unexpected aero basket call"); return overrides.basket; },
+    },
     evm: overrides.evm ?? unusedEvm,
     verifyUserOperation: overrides.verifyUserOperation ?? (async (reference) => confirmedOutcome(reference.hash)),
   };

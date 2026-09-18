@@ -1,9 +1,11 @@
 import { z } from "zod";
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import { UsageLimitError } from "./usage-limit";
-import type { AeroPlanResult } from "./aerodrome";
+import type { AeroPlanResult, StockBasketPlanResult } from "./aerodrome";
 import { formatUnits, type EvmPlanResult, type EvmReadResult } from "./evm";
 import type { WhopDeposit } from "./integrations/whop";
+import type { IntentAction } from "./state";
+import { resolveStock } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 
 const units = z.string().regex(/^\d+$/);
 const token = z.object({ symbol: z.string(), decimals: z.number().int().min(0).max(255) });
@@ -83,17 +85,61 @@ export function aeroReadText(action: string, output: unknown): string {
     : readableResult(output));
 }
 
-export function aeroPlanText(plan: AeroPlanResult): string {
+export function aeroPlanText(plan: AeroPlanResult | StockBasketPlanResult): string {
   const quote = plan.action === "swap" ? quoteText(plan.context, true) : undefined;
   const action = label(plan.action);
   const trades = z.array(z.object({ from: z.string(), to: z.string(), amount: z.string(), expected: z.string(), minimum: z.string() })).safeParse(plan.context.trades);
-  if (["stock_buy", "stock_sell", "index_rebalance"].includes(plan.action) && trades.success && trades.data.length) {
+  if (["stock_buy", "stock_sell", "index_rebalance", "stock_basket"].includes(plan.action) && trades.success && trades.data.length) {
     return trades.data.map((trade) => `${trade.amount} ${trade.from} → about ${trade.expected} ${trade.to}\nMinimum received: ${trade.minimum} ${trade.to}`).join("\n\n") + "\nNetwork fee: not estimated yet.";
   }
   return [
     quote ?? `${action} on Base\n${readableResult({ ...plan.parameters, ...plan.context })}`,
     "Network fee: not estimated yet.",
   ].join("\n");
+}
+
+function stockTitle(reference: string): string {
+  try {
+    return resolveStock(reference).symbol;
+  } catch {
+    return reference;
+  }
+}
+
+/** Short human-readable preview title; never shows machine identifiers. */
+export function intentTitle(intent: IntentAction): string {
+  if (intent.family === "stocks") {
+    return intent.parameters.trades
+      .map((trade) => `${trade.side === "buy" ? "Buy" : "Sell"} ${stockTitle(trade.stock)}`)
+      .join(" · ");
+  }
+  if (intent.family === "aero") {
+    const parameters = intent.parameters;
+    switch (intent.action) {
+      case "stock_buy": return `Buy ${String(parameters.stock ?? "stock")} with ${String(parameters.amount ?? "?")} USDC`;
+      case "stock_sell": return `Sell ${String(parameters.amount ?? "?")} ${String(parameters.stock ?? "stock")}`;
+      case "swap": return "Swap";
+      case "index_rebalance": return "Rebalance stocks";
+      case "deposit": return "Add liquidity";
+      case "withdraw": return "Remove liquidity";
+      case "stake": return "Stake position";
+      case "unstake": return "Unstake position";
+      case "claim_emissions": return "Claim emissions";
+      case "claim_fees": return "Claim fees";
+      case "create_venft": return "Lock AERO";
+    }
+  }
+  if (intent.family === "aave") return intent.parameters.stage === "approval" ? "Aave token approval" : `Aave ${intent.parameters.action}`;
+  if (intent.family === "evm") {
+    const parameters = intent.parameters as { amount?: string; token?: string };
+    switch (intent.action) {
+      case "transfer": return `Send ${parameters.amount} ${parameters.token ?? "ETH"}`;
+      case "approve": return `Approve ${parameters.token}`;
+      case "revoke": return `Revoke ${parameters.token}`;
+      case "contract_call": return "Contract call";
+    }
+  }
+  return "Deposit relay";
 }
 
 export function evmReadText(result: EvmReadResult): string {

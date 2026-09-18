@@ -153,6 +153,8 @@ Transaction options and amount rules:
 - Slippage is a fraction: `--slippage 0.005` means 0.5%. The bot currently defaults to 1% and rejects values above its configured maximum. A lower custom value is allowed.
 - Flags accept `--name value` or `--name=value`. Use hyphenated flag names in documentation. Boolean flags accept `--flag`, `--flag true`, `--flag=false`, or `--no-flag`. Do not assume a flag supported by one action is supported by another.
 
+The model also has an `aero_stock_trades` tool for composite stock orders. When one message asks for several stock buys or sells, it combines them into a single basket preview: one confirmation code, approvals followed by one router action, and one persisted intent. It is not a slash command.
+
 ### Natural-language requests
 
 Users do not need to memorize the command list. Examples:

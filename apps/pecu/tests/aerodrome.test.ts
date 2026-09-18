@@ -8,7 +8,7 @@ const service = new AerodromeService({ baseRpcUrl: "https://example.com", maxSli
 
 describe("Aero request boundary", () => {
   test("common Base symbols resolve to SDK canonical tokens before catalog ambiguity", async () => {
-    const bound = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 100 }, async (_action, parameters) => parameters);
+    const bound = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 100 }, async (request) => "parameters" in request ? request.parameters : {});
     const result = await bound.run(wallet, "quote", { from_token: "usdc", to_token: "AERO", amount: "1", use_decimals: true });
     expect(result.parameters).toMatchObject({ from_token: KNOWN_TOKENS[8453].usdc.tokenAddress, to_token: KNOWN_TOKENS[8453].aero.tokenAddress });
     expect((await bound.run(wallet, "quote", { from_token: "ETH", to_token: other, amount: "1" })).parameters).toMatchObject({ from_token: "ETH", to_token: other });
@@ -24,18 +24,19 @@ describe("Aero request boundary", () => {
     await expect(bound.run(wallet, "stock_buy", { stock: "NVDAc", amount: "1" })).rejects.toThrow("empty transaction plan");
   });
   test("stock reads use the verified wallet", async () => {
-    const bound = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 100 }, async (action, parameters) => {
-      expect(action).toBe("stocks");
-      expect(parameters).toEqual({ chain: 8453, wallet });
+    const bound = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 100 }, async (request) => {
+      expect(request.action).toBe("stocks");
+      expect("parameters" in request ? request.parameters : undefined).toEqual({ chain: 8453, wallet });
       return [];
     });
     expect((await bound.run(wallet, "stocks", {})).kind).toBe("read");
   });
 
   test("all stock plans use the configured slippage and verified wallet", async () => {
-    const bound = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 50 }, async (_action, parameters) => {
-      expect(parameters.wallet).toBe(wallet);
-      expect(parameters.slippage).toBe(0.005);
+    const bound = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 50 }, async (request) => {
+      if (!("parameters" in request)) throw new Error("unexpected request shape");
+      expect(request.parameters.wallet).toBe(wallet);
+      expect(request.parameters.slippage).toBe(0.005);
       throw new Error("verified binding");
     });
     for (const action of ["stock_buy", "stock_sell", "index_rebalance"] as const) {

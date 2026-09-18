@@ -87,6 +87,7 @@ export function validateIntentPlan(
   calls: readonly PlannedCall[],
 ): void {
   if (intent.family === "aero") validatePlan(intent.action, wallet, calls);
+  else if (intent.family === "stocks") validatePlan(intent.action, wallet, calls);
   else if (intent.family === "aave") {
     if (intent.parameters.chainId !== 8453 || intent.parameters.sender.toLowerCase() !== wallet.toLowerCase()) throw new Error("Aave plan has the wrong wallet or chain");
     validatePlan("swap", wallet, calls);
@@ -101,7 +102,7 @@ export function validateIntentPlan(
  * target, value, or calldata directly.
  */
 export function validatePlan(
-  action: SugarTxAction,
+  action: SugarTxAction | "stock_basket",
   wallet: `0x${string}`,
   calls: readonly PlannedCall[],
 ): void {

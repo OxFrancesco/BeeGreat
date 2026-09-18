@@ -1,4 +1,4 @@
-import { stocksSchema } from "./stock-contract";
+import { stocksSchema, type StockTrade } from "./stock-contract";
 import type { AaveService } from "./integrations/aave";
 import type { PolymarketService } from "./integrations/polymarket";
 import type { WhopService } from "./integrations/whop";
@@ -43,6 +43,7 @@ function actionLabel(action: string): string {
 function familyLabel(intent: IntentAction): string {
   if (intent.family === "aave") return `Aave ${intent.parameters.stage === "approval" ? "token approval" : intent.parameters.action}`;
   if (intent.family === "aero") return `Aerodrome ${actionLabel(intent.action)}`;
+  if (intent.family === "stocks") return "Stock trades";
   if (intent.family === "deposit") return "Deposit relay";
   return `EVM ${actionLabel(intent.action)}`;
 }
@@ -110,7 +111,7 @@ export type AgentServices = Readonly<{
   polymarket?: Pick<PolymarketService, "research">;
   whop?: Pick<WhopService, "createAccount" | "createDeposit">;
   nansen?: Pick<NansenService, "call">;
-  aerodrome: Pick<AerodromeService, "run">;
+  aerodrome: Pick<AerodromeService, "run" | "basket">;
   evm: Pick<EvmService, "tokenBalance" | "allowance" | "read" | "inspect" | "decode" | "propose">;
   verifyUserOperation: UserOperationVerifier;
 }>;
@@ -298,6 +299,7 @@ export class PecuAgent {
       walletBalances: () => this.balanceReply(message),
       aeroRead: (action, parameters) => this.runAero(message, action, parameters),
       aeroPropose: (action, parameters) => this.runAero(message, action, parameters),
+      stockTrades: (trades, slippage) => this.runStockBasket(message, trades, slippage),
       evmToken: async (token) => this.readReply(message, await this.services.evm.tokenBalance(await wallet(), token)),
       evmAllowance: async (token, spender) => this.readReply(message, await this.services.evm.allowance(await wallet(), token, spender)),
       evmRead: async (input) => this.readReply(message, await this.services.evm.read(input)),
@@ -330,6 +332,8 @@ export class PecuAgent {
   }
 
   private async walletAddress(senderId: string): Promise<`0x${string}`> {
+    const stored = this.store.wallet(senderId)?.address;
+    if (stored !== undefined && /^0x[0-9a-fA-F]{40}$/.test(stored)) return stored as `0x${string}`;
     const wallet = await this.wallets.getOrCreate(senderId);
     if (!/^0x[0-9a-fA-F]{40}$/.test(wallet.address)) throw new Error("Wallet address is not a valid Base address");
     return wallet.address as `0x${string}`;
@@ -367,15 +371,7 @@ export class PecuAgent {
       result = await this.services.aerodrome.run(wallet, action, parameters);
     } catch (error) {
       if (action !== "stock_buy" || !/insufficient USDC\b/i.test(errorMessage(error))) throw error;
-      const balances = await this.balanceReply(message);
-      const tokens = balances.split("\n").flatMap((line) => {
-        const match = /^([A-Za-z0-9]+):\s*(\d+(?:\.\d+)?)$/.exec(line.trim());
-        return match && match[1] !== "USDC" && /[1-9]/.test(match[2]!) ? [match[1]!] : [];
-      });
-      const question = tokens.length
-        ? `You don't have enough USDC for this stock purchase.\n\n${balances}\n\nWould you like to swap one of your tokens to USDC to fund it? Choose a token, deposit USDC, or cancel. A quote is needed to check how much it can cover and leave ETH for fees.`
-        : "You don't have enough USDC for this stock purchase, and I found no other funded tokens in the wallet balance list. Would you like to deposit USDC, check another token, or cancel?";
-      return this.askUser(message, question, [...tokens, "Deposit USDC", "Cancel"]);
+      return this.insufficientUsdcReply(message);
     }
     this.saveDetails(message, result.kind === "read" ? result.output : result);
     if (result.kind === "read") {
@@ -389,6 +385,32 @@ export class PecuAgent {
       return "Your index already matches these allocations. No transaction plan was created.";
     }
     return this.persistProposal(message, wallet, { family: "aero", action: result.action, parameters: result.parameters }, result.calls, aeroPlanText(result));
+  }
+
+  private async insufficientUsdcReply(message: VerifiedMessage): Promise<string> {
+    const balances = await this.balanceReply(message);
+    const tokens = balances.split("\n").flatMap((line) => {
+      const match = /^([A-Za-z0-9]+):\s*(\d+(?:\.\d+)?)$/.exec(line.trim());
+      return match && match[1] !== "USDC" && /[1-9]/.test(match[2]!) ? [match[1]!] : [];
+    });
+    const question = tokens.length
+      ? `You don't have enough USDC for this stock purchase.\n\n${balances}\n\nWould you like to swap one of your tokens to USDC to fund it? Choose a token, deposit USDC, or cancel. A quote is needed to check how much it can cover and leave ETH for fees.`
+      : "You don't have enough USDC for this stock purchase, and I found no other funded tokens in the wallet balance list. Would you like to deposit USDC, check another token, or cancel?";
+    return this.askUser(message, question, [...tokens, "Deposit USDC", "Cancel"]);
+  }
+
+  private async runStockBasket(message: VerifiedMessage, trades: readonly StockTrade[], slippage?: number): Promise<string> {
+    const wallet = await this.walletAddress(message.senderId);
+    this.requireAnswer(message);
+    let result;
+    try {
+      result = await this.services.aerodrome.basket(wallet, trades, slippage);
+    } catch (error) {
+      if (!/insufficient USDC\b/i.test(errorMessage(error))) throw error;
+      return this.insufficientUsdcReply(message);
+    }
+    this.saveDetails(message, result);
+    return this.persistProposal(message, wallet, { family: "stocks", action: "stock_basket", parameters: result.parameters }, result.calls, aeroPlanText(result));
   }
 
   private async runEvm(message: VerifiedMessage, action: EvmTxAction, parameters: unknown): Promise<string> {
