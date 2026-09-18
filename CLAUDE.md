@@ -47,6 +47,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/cloudflare-containers` — Official Cloudflare Containers SDK and runtime examples
 - `resources/tanstack-virtual` — TanStack Virtual reference for measured variable-height chat and thread lists
 
+- `resources/dither-kit` — Official Dither Kit chart components and canvas engine
+
 <!-- codeview:end -->
 
 ## Design system
