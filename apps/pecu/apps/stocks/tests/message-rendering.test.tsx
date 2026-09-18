@@ -10,11 +10,17 @@ test("renders the reported bold stock reply and GFM structures", () => {
   for (const tag of ["<ul", "<li", "<table", "<del", "<code"]) expect(html).toContain(tag);
 });
 
-test("renders inline and display LaTeX with KaTeX", () => {
-  const html = render("Inline $E=mc^2$.\n\n$$\n\\frac{1}{2} + \\sqrt{x}\n$$");
+test("renders display LaTeX with KaTeX", () => {
+  const html = render("$$\n\\frac{1}{2} + \\sqrt{x}\n$$");
   expect(html).toContain('class="katex"');
   expect(html).toContain("katex-display");
   expect(html).toContain("<math");
+});
+
+test("renders dollar amounts literally without inline math", () => {
+  const html = render("Buy $1 of NVDAc and $1 of AAPLc");
+  expect(html).toContain("Buy $1 of NVDAc and $1 of AAPLc");
+  expect(html).not.toContain('class="katex"');
 });
 
 test("keeps code and escaped currency literal", () => {

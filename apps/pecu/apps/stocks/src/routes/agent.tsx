@@ -1,4 +1,7 @@
+import { CommandMenu } from "../components/command-menu";
 import { ConnectionRecovery } from "../components/inference-profile";
+import { CopyButton } from "../components/copy-button";
+import { PreviewCard } from "../components/preview-card";
 import { StockHoldings } from "../components/stock-holdings";
 import { ConversationHistory } from "@/components/history-window";
 import { HistoryNavigation } from "@/components/history-navigation";
@@ -6,7 +9,6 @@ import { PecuUserButton } from "../components/inference-profile";
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
-  CopyIcon,
   MessageSquareIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
@@ -18,19 +20,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { z } from "zod";
 import {
+  confirmationCommand,
   threadIdSchema,
-  type previewSchema,
   type WebThread,
 } from "../../../../src/web-contract";
-import {
-  Confirmation,
-  ConfirmationAccepted,
-  ConfirmationAction,
-  ConfirmationActions,
-  ConfirmationRejected,
-  ConfirmationRequest,
-  ConfirmationTitle,
-} from "@/components/ai-elements/confirmation";
+import { useCommandMenu } from "../lib/use-command-menu";
+import { turnPresentation } from "../lib/turns";
 import {
   Conversation,
   ConversationContent,
@@ -42,6 +37,7 @@ import {
   MessageAction,
   MessageActions,
   MessageContent,
+  MessagePlain,
   MessageResponse,
 } from "@/components/ai-elements/message";
 import {
@@ -111,10 +107,8 @@ const SUGGESTIONS = [
   "Quote 0.01 ETH to USDC",
   "Show my Aerodrome positions",
   "Odds of a Fed rate cut on Polymarket?",
-  "/aero stocks",
+  "/stocks",
 ];
-
-type Preview = z.infer<typeof previewSchema>;
 
 function AgentPage() {
   const { user } = useUser();
@@ -162,7 +156,9 @@ function AgentWorkspace({
   const draft = drafts[draftKey] ?? "";
   const setDraft = (value: string) =>
     setDrafts((current) => ({ ...current, [draftKey]: value }));
+  const menu = useCommandMenu(draft, setDraft);
   const inFlight = account.inFlight;
+  const busyCode = inFlight ? confirmationCommand(inFlight)?.code : undefined;
   const [threadsOpen, setThreadsOpen] = useState(false);
   const signIn = () =>
     void clerk.openSignIn({
@@ -190,7 +186,14 @@ function AgentWorkspace({
   );
   const messages = account.state?.messages ?? [];
   const loadingConversation = account.loading && !inFlight;
-  const mascotMessageId = account.atLatest && !inFlight ? messages.at(-1)?.id : undefined;
+  // The mascot marks the latest visible reply; fully hidden command turns do not count.
+  const mascotMessageId =
+    account.atLatest && !inFlight
+      ? [...messages].reverse().find((message) => {
+          const presentation = turnPresentation(message, messages);
+          return presentation.kind === "chat" || presentation.showReply;
+        })?.id
+      : undefined;
   const empty = !account.loading && account.atLatest && messages.length === 0 && !inFlight;
   const noWallet = Boolean(
     isSignedIn && account.state && !account.state.wallet,
@@ -421,37 +424,79 @@ function AgentWorkspace({
                 <>
                   {!messages.length && !inFlight ? <p className="pecu-bubble-muted">No messages on this page.</p> : null}
                   <ConversationHistory items={messages}>
-                    {(message) => (
-                      <div className="pecu-turn" key={message.id}>
-                        <Message from="user">
-                          <MessageContent className="pecu-bubble-user">
-                            <MessageResponse>{message.text}</MessageResponse>
-                          </MessageContent>
-                        </Message>
-                        <Message from="assistant">
-                          <div className={message.id === mascotMessageId ? "pecu-assistant has-mascot" : "pecu-assistant"}>
-                            {message.id === mascotMessageId ? <img alt="" className="pecu-avatar" src={avatar} /> : null}
-                            {message.reply ? (
-                              <MessageContent className="pecu-bubble-bot">
-                                {!(message.reply.holdings && message.reply.holdingsOnly) ? (
-                                  <MessageResponse>
-                                    {message.reply.preview
-                                      ? message.reply.preview.text
-                                      : (message.reply.question?.question ?? message.reply.text)}
-                                  </MessageResponse>
-                                ) : null}
-                                <ConnectionRecovery reply={message.reply} />
-                    {message.reply.holdings ? (
-                                  <StockHoldings {...message.reply.holdings} />
-                                ) : null}
-                                {message.reply.question?.options.length ? (
-                                  <div
-                                    className="flex flex-wrap gap-2 mt-3"
-                                    role="group"
-                                    aria-label="Answer Pecu"
-                                  >
-                                    {message.reply.question.options.map(
-                                      (option) => (
+                    {(message) => {
+                      const presentation = turnPresentation(message, messages);
+                      if (
+                        presentation.kind === "command" &&
+                        !presentation.showReply
+                      )
+                        return null;
+                      const reply = message.reply;
+                      const copyText = reply
+                        ? reply.preview
+                          ? `${reply.preview.title ? `${reply.preview.title}\n` : ""}${reply.preview.text}`
+                          : reply.question
+                            ? `${reply.question.question}${reply.question.options
+                                .map((option, index) => `\n${index + 1}. ${option}`)
+                                .join("")}`
+                            : reply.text
+                        : "";
+                      const hasMascot =
+                        message.id === mascotMessageId &&
+                        presentation.kind === "chat";
+                      return (
+                        <div className="pecu-turn" key={message.id}>
+                          {presentation.kind === "chat" ? (
+                            <Message from="user">
+                              <MessageContent className="pecu-bubble-user">
+                                <MessagePlain>{message.text}</MessagePlain>
+                              </MessageContent>
+                              <MessageActions className="pecu-message-actions">
+                                <CopyButton
+                                  label="Copy message"
+                                  text={message.text}
+                                />
+                              </MessageActions>
+                            </Message>
+                          ) : null}
+                          <Message from="assistant">
+                            <div
+                              className={
+                                (hasMascot
+                                  ? "pecu-assistant has-mascot"
+                                  : "pecu-assistant") +
+                                (presentation.kind === "command"
+                                  ? " pecu-outcome"
+                                  : "")
+                              }
+                            >
+                              {hasMascot ? (
+                                <img
+                                  alt=""
+                                  className="pecu-avatar"
+                                  src={avatar}
+                                />
+                              ) : null}
+                              {reply ? (
+                                <MessageContent className="pecu-bubble-bot">
+                                  {reply.preview ? null : !(
+                                      reply.holdings && reply.holdingsOnly
+                                    ) ? (
+                                    <MessageResponse>
+                                      {reply.question?.question ?? reply.text}
+                                    </MessageResponse>
+                                  ) : null}
+                                  <ConnectionRecovery reply={reply} />
+                                  {reply.holdings ? (
+                                    <StockHoldings {...reply.holdings} />
+                                  ) : null}
+                                  {reply.question?.options.length ? (
+                                    <div
+                                      className="flex flex-wrap gap-2 mt-3"
+                                      role="group"
+                                      aria-label="Answer Pecu"
+                                    >
+                                      {reply.question.options.map((option) => (
                                         <Button
                                           key={option}
                                           variant="outline"
@@ -460,7 +505,8 @@ function AgentWorkspace({
                                             !account.atLatest ||
                                             account.pending ||
                                             message.id !==
-                                              account.state?.messages.at(-1)?.id
+                                              account.state?.messages.at(-1)
+                                                ?.id
                                           }
                                           onClick={() =>
                                             void send(
@@ -472,80 +518,75 @@ function AgentWorkspace({
                                         >
                                           {option}
                                         </Button>
-                                      ),
-                                    )}
-                                  </div>
-                                ) : null}
-                                {message.reply.preview ? (
-                                  <PreviewCard
-                                    busy={account.pending}
-                                    onSend={send}
-                                    preview={message.reply.preview}
-                                  />
-                                ) : null}
-                                <MessageActions className="pecu-message-actions">
-                                  <MessageAction
-                                    label="Copy reply"
-                                    onClick={() =>
-                                      void navigator.clipboard.writeText(
-                                        message.reply?.preview?.text ??
-                                          message.reply?.text ??
-                                          "",
-                                      )
-                                    }
-                                  >
-                                    <CopyIcon className="size-3.5" />
-                                  </MessageAction>
-                                  {account.atLatest &&
-                                  message.canRetry &&
-                                  message.id === messages.at(-1)?.id ? (
-                                    <MessageAction
-                                      label="Retry reply"
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                  {reply.preview ? (
+                                    <PreviewCard
+                                      busy={account.pending}
+                                      confirming={
+                                        busyCode === reply.preview.code
+                                      }
+                                      onSend={send}
+                                      preview={reply.preview}
+                                    />
+                                  ) : null}
+                                  <MessageActions className="pecu-message-actions">
+                                    <CopyButton
+                                      label="Copy reply"
+                                      text={copyText}
+                                    />
+                                    {account.atLatest &&
+                                    message.canRetry &&
+                                    message.id === messages.at(-1)?.id ? (
+                                      <MessageAction
+                                        label="Retry reply"
+                                        disabled={account.pending}
+                                        onClick={() =>
+                                          void account.regenerate(message)
+                                        }
+                                      >
+                                        <RotateCcwIcon className="size-3.5" />
+                                      </MessageAction>
+                                    ) : null}
+                                  </MessageActions>
+                                </MessageContent>
+                              ) : (
+                                <MessageContent className="pecu-bubble-bot pecu-bubble-muted">
+                                  <span role="status">
+                                    {account.pending
+                                      ? "Pecu is answering…"
+                                      : "Waiting for Pecu…"}
+                                  </span>
+                                  {!account.pending ? (
+                                    <Button
+                                      className="pecu-inline-link"
                                       disabled={account.pending}
                                       onClick={() =>
-                                        void account.regenerate(message)
+                                        void send(
+                                          message.text,
+                                          message.id.split(":").at(-1),
+                                        )
                                       }
+                                      size="sm"
+                                      variant="link"
                                     >
-                                      <RotateCcwIcon className="size-3.5" />
-                                    </MessageAction>
+                                      Resume response
+                                    </Button>
                                   ) : null}
-                                </MessageActions>
-                              </MessageContent>
-                            ) : (
-                              <MessageContent className="pecu-bubble-bot pecu-bubble-muted">
-                                <span role="status">
-                                  {account.pending
-                                    ? "Pecu is answering…"
-                                    : "Waiting for Pecu…"}
-                                </span>
-                                {!account.pending ? (
-                                  <Button
-                                    className="pecu-inline-link"
-                                    disabled={account.pending}
-                                    onClick={() =>
-                                      void send(
-                                        message.text,
-                                        message.id.split(":").at(-1),
-                                      )
-                                    }
-                                    size="sm"
-                                    variant="link"
-                                  >
-                                    Resume response
-                                  </Button>
-                                ) : null}
-                              </MessageContent>
-                            )}
-                          </div>
-                        </Message>
-                      </div>
-                    )}
+                                </MessageContent>
+                              )}
+                            </div>
+                          </Message>
+                        </div>
+                      );
+                    }}
                   </ConversationHistory>
-                  {inFlight ? (
+                  {inFlight && !busyCode ? (
                     <div className="pecu-turn" key="in-flight">
                       <Message from="user">
                         <MessageContent className="pecu-bubble-user">
-                          <MessageResponse>{inFlight}</MessageResponse>
+                          <MessagePlain>{inFlight}</MessagePlain>
                         </MessageContent>
                       </Message>
                       <Message from="assistant">
@@ -626,29 +667,38 @@ function AgentWorkspace({
                 ))}
               </Suggestions>
             ) : null}
-            <PromptInput
-              className="pecu-prompt clay"
-              onSubmit={({ text }, event) => {
-                if (!isSignedIn) return signIn();
-                event.currentTarget.reset();
-                setDraft("");
-                void send(text);
-              }}
-            >
-              <PromptInputBody>
-                <PromptInputTextarea
-                  aria-label="Message Pecu"
-                  className="pecu-textarea"
-                  maxLength={4000}
-                  onChange={(event) => setDraft(event.currentTarget.value)}
-                  placeholder={
-                    isSignedIn
-                      ? "Ask Pecu about your wallet…"
-                      : "Sign in to start"
-                  }
-                  value={draft}
-                />
-              </PromptInputBody>
+            <div className="pecu-prompt-wrap">
+              <CommandMenu menu={menu} />
+              <PromptInput
+                className="pecu-prompt clay"
+                onSubmit={({ text }, event) => {
+                  if (!isSignedIn) return signIn();
+                  event.currentTarget.reset();
+                  setDraft("");
+                  void send(text);
+                }}
+              >
+                <PromptInputBody>
+                  <PromptInputTextarea
+                    aria-activedescendant={
+                      menu.open ? menu.optionId(menu.activeIndex) : undefined
+                    }
+                    aria-autocomplete="list"
+                    aria-controls={menu.open ? menu.listboxId : undefined}
+                    aria-expanded={menu.open}
+                    aria-label="Message Pecu"
+                    className="pecu-textarea"
+                    maxLength={4000}
+                    onChange={(event) => setDraft(event.currentTarget.value)}
+                    onKeyDown={menu.onKeyDown}
+                    placeholder={
+                      isSignedIn
+                        ? "Ask Pecu about your wallet…"
+                        : "Sign in to start"
+                    }
+                    value={draft}
+                  />
+                </PromptInputBody>
               <PromptInputFooter className="pecu-prompt-footer">
                 <PromptInputTools>
                   <span className="pecu-prompt-hint">
@@ -673,7 +723,8 @@ function AgentWorkspace({
                   }
                 />
               </PromptInputFooter>
-            </PromptInput>
+              </PromptInput>
+            </div>
           </div>
         </motion.main>
       </div>
@@ -865,70 +916,4 @@ function relative(timestamp: number) {
   if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
   return days === 1 ? "yesterday" : `${days} days ago`;
-}
-
-function PreviewCard({
-  preview,
-  busy,
-  onSend,
-}: {
-  preview: Preview;
-  busy: boolean;
-  onSend: (text: string) => Promise<void>;
-}) {
-  const expires = new Date(preview.expiresAt).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const labels: Record<Preview["state"], string> = {
-    pending: `Waiting for you · expires ${expires}`,
-    executing: "Submitted · waiting for the receipt",
-    succeeded: "Executed and verified on Base",
-    failed: "Failed",
-    cancelled: "Cancelled",
-    expired: "Expired without confirmation",
-  };
-  return (
-    <Confirmation className="pecu-confirmation" state={preview.state}>
-      <ConfirmationTitle className="pecu-confirmation-title">
-        <span className="mono pecu-code">{preview.code}</span>
-        <span>{labels[preview.state]}</span>
-      </ConfirmationTitle>
-      <ConfirmationRequest>
-        <ConfirmationActions>
-          {preview.state === "pending" ? (
-            <ConfirmationAction
-              className="pecu-button"
-              disabled={busy}
-              onClick={() => void onSend(`/cancel ${preview.code}`)}
-              variant="outline"
-            >
-              Cancel
-            </ConfirmationAction>
-          ) : null}
-          <ConfirmationAction
-            className="pecu-button pecu-button-primary"
-            disabled={busy}
-            onClick={() => void onSend(`/confirm ${preview.code}`)}
-          >
-            {preview.state === "executing"
-              ? "Check transaction"
-              : "Confirm transaction"}
-          </ConfirmationAction>
-        </ConfirmationActions>
-      </ConfirmationRequest>
-      <ConfirmationAccepted>
-        <span className="pecu-confirmation-note">
-          Pecu read the receipt and checked the user operation itself succeeded.
-        </span>
-      </ConfirmationAccepted>
-      <ConfirmationRejected>
-        <span className="pecu-confirmation-note">
-          {preview.state === "failed"
-            ? "Execution encountered an error. Check the reply and transaction status before trying again."
-            : "Nothing was sent. Ask again if you still want to do this."}
-        </span>
-      </ConfirmationRejected>
-    </Confirmation>
-  );
 }

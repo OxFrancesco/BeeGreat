@@ -192,3 +192,34 @@ standalone Connect ChatGPT button horizontally and vertically in its panel.
 Use the ChatGPT mark in the profile shortcut and connection buttons.
 Copy reports success only after the clipboard write resolves, and leaves the
 code selectable if access fails. Sign-in is never started automatically.
+
+## Confirmation card
+
+The preview card shows the intent title and a status line, the six character
+code chip, the preview rows, and the actions or outcome for its state.
+Pending keeps a butter left accent, executing coral, succeeded green, and
+failed, cancelled and expired fall back to the muted surface with no accent.
+Preview text renders as label and value rows split on blank lines, with
+amounts in monospace. Confirm is a coral pill and cancel is a plain text
+button; while a confirmation is in flight the pill shows a spinner and both
+buttons stay disabled. Succeeded cards list a Basescan link per transaction
+in the result. The code chip stays on the card because X chat users confirm
+with it there.
+
+## Message actions
+
+Every turn carries a small copy action under its bubble: user text on the
+right, assistant copy under the reply on the left, next to Retry where it
+applies. The row is hidden until the turn is hovered or focused and stays
+visible on touch devices. Copy reports Copied only after the clipboard write
+resolves, and says Couldn't copy without changing the icon when it fails.
+
+## Command menu
+
+Typing a slash in either composer opens a completion list above the input
+filtered by prefix. Arrow keys move with wrap, Enter or Tab accepts the
+active item, and Escape dismisses until the draft changes. Accepting a
+command that takes arguments leaves a trailing space; a complete no-argument
+command closes the menu so the next Enter sends. The textarea exposes
+listbox autocomplete semantics with aria-controls, aria-expanded and
+aria-activedescendant.

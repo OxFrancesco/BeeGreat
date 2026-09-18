@@ -103,7 +103,142 @@ window.fetch = async (input, init) => {
     basket: null,
   });
 };
+function previewFixture() {
+  if (!new URLSearchParams(location.search).has("preview")) return;
+  const wallet = "0x1234567890123456789012345678901234567890";
+  const swapResult =
+    "Aerodrome swap confirmed on Base mainnet.\nhttps://basescan.org/tx/0x933d8f8cb5584d9667fd2c845e7977bf67ece4f430dbb5389e63427cb999a716\nhttps://basescan.org/tx/0x486874bfa131f165c002c30fb2ea0ef24cc8036764c869a5ad3756957f3a33d3";
+  const basketText =
+    "1 USDC → about 0.00452492 NVDAc\nMinimum received: 0.00447967 NVDAc\n\n1 USDC → about 0.00297571 AAPLc\nMinimum received: 0.00294595 AAPLc\nNetwork fee: not estimated yet.";
+  const basketPreview = {
+    code: "39D685",
+    title: "Buy NVDAc · Buy AAPLc",
+    state: "pending",
+    expiresAt: Date.now() + 600000,
+    text: basketText,
+  };
+  const failedResult =
+    "Crossmint reports that the transaction failed before inclusion";
+  const messages: object[] = [
+    {
+      id: "pv:1",
+      text: "What's my balance?",
+      createdAt: 1,
+      reply: { text: "ETH: 0.5\nUSDC: 12.4\nAERO: 0", preview: null },
+    },
+    {
+      id: "pv:2",
+      text: "Buy $1 of NVDAc and $1 of AAPLc",
+      createdAt: 2,
+      reply: { text: basketText, preview: basketPreview },
+    },
+    {
+      id: "pv:3",
+      text: "Swap 0.001 ETH to USDC",
+      createdAt: 3,
+      reply: {
+        text: swapResult,
+        preview: {
+          code: "A1B2C3",
+          title: "Swap",
+          state: "succeeded",
+          expiresAt: Date.now() + 600000,
+          text: "Swap 0.001 ETH for about 3.9 USDC on Base.\nMinimum received: 3.8 USDC\nNetwork fee: not estimated yet.",
+          result: swapResult,
+        },
+      },
+    },
+    {
+      id: "pv:4",
+      text: "/confirm A1B2C3",
+      createdAt: 4,
+      reply: { text: swapResult, preview: null },
+    },
+    {
+      id: "pv:5",
+      text: "/cancel D4E5F6",
+      createdAt: 5,
+      reply: {
+        text: "Confirmation code not found for this X account and conversation.",
+        preview: null,
+      },
+    },
+    {
+      id: "pv:6",
+      text: "Send 1 USDC to 0x1111111111111111111111111111111111111111",
+      createdAt: 6,
+      reply: {
+        text: failedResult,
+        preview: {
+          code: "F00BA5",
+          title: "Send 1 USDC",
+          state: "failed",
+          expiresAt: Date.now() + 600000,
+          text: "Send 1 USDC to 0x1111…1111.\nNetwork fee: not estimated yet.",
+          result: failedResult,
+        },
+      },
+    },
+  ];
+  const thread = {
+    id: null,
+    title: "",
+    createdAt: 1,
+    updatedAt: Date.now(),
+    count: messages.length,
+  };
+  window.fetch = async (input, init) => {
+    const url = new URL(String(input), location.origin);
+    if (init?.method === "POST") {
+      if (!url.pathname.endsWith("/turn"))
+        throw new Error("This fixture only simulates messages.");
+      const body = JSON.parse(String(init.body));
+      if (body.text === "/confirm 39D685") {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const result =
+          "Stock trades confirmed on Base mainnet.\nhttps://basescan.org/tx/0x933d8f8cb5584d9667fd2c845e7977bf67ece4f430dbb5389e63427cb999a716";
+        basketPreview.state = "succeeded";
+        Object.assign(basketPreview, { result });
+        messages.push({
+          id: `pv:${messages.length + 1}`,
+          text: body.text,
+          createdAt: Date.now(),
+          reply: { text: result, preview: null },
+        });
+      } else {
+        messages.push({
+          id: `pv:${messages.length + 1}`,
+          text: body.text,
+          createdAt: Date.now(),
+          reply: { text: `Echo: ${body.text}`, preview: null },
+        });
+      }
+      return Response.json({ status: "complete" });
+    }
+    if (url.pathname.endsWith("/threads"))
+      return Response.json({
+        threads: [thread],
+        olderCursor: null,
+        newerCursor: null,
+      });
+    if (url.pathname.endsWith("/state") || url.pathname.endsWith("/messages"))
+      return Response.json({
+        threadId: null,
+        thread,
+        wallet,
+        yolo: false,
+        olderCursor: null,
+        newerCursor: null,
+        messages,
+        stocks: null,
+        stocksAt: null,
+        basket: null,
+      });
+    throw new Error(`Unexpected request ${url.pathname}`);
+  };
+}
 connectionFixture();
+previewFixture();
 const rootRoute = createRootRoute({ component: Outlet });
 const agentRoute = Route.update({
   id: "/agent",

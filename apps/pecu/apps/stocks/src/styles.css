@@ -389,20 +389,6 @@ textarea {
   color: #255ecc;
   text-decoration: none;
 }
-.preview {
-  border: 1px solid #d6e0f1;
-  border-left: 3px solid #ef9758;
-  border-radius: 10px;
-  padding: 18px;
-  margin-top: 12px;
-  background: #fafbfe;
-  white-space: pre-wrap;
-}
-.preview-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 16px;
-}
 .basket-row {
   display: flex;
   gap: 8px;

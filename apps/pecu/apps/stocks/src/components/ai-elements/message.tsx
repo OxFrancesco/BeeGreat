@@ -69,7 +69,7 @@ export const MessageAction = ({
   </Button>
 );
 
-const markdownPlugins = { math: createMathPlugin({ singleDollarTextMath: true }) };
+const markdownPlugins = { math: createMathPlugin({ singleDollarTextMath: false }) };
 
 export type MessageResponseProps = HTMLAttributes<HTMLDivElement> & {
   children: string;
@@ -84,6 +84,23 @@ export const MessageResponse = ({
     <Streamdown mode="static" plugins={markdownPlugins} skipHtml controls={false}>
       {children}
     </Streamdown>
+  </div>
+);
+
+export type MessagePlainProps = HTMLAttributes<HTMLDivElement> & {
+  children: string;
+};
+
+export const MessagePlain = ({
+  children,
+  className,
+  ...props
+}: MessagePlainProps) => (
+  <div
+    className={cn("msg-response break-words whitespace-pre-wrap", className)}
+    {...props}
+  >
+    {children}
   </div>
 );
 

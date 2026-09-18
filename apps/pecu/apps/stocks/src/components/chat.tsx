@@ -1,4 +1,6 @@
+import { CommandMenu } from "./command-menu";
 import { ConnectionRecovery } from "./inference-profile";
+import { PreviewCard } from "./preview-card";
 import { StockHoldings } from "./stock-holdings";
 import { HistoryWindow } from "./history-window";
 import { HistoryNavigation } from "./history-navigation";
@@ -7,6 +9,9 @@ import { ArrowUp, RotateCcw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import type { useAccount } from "../lib/use-account";
+import { useCommandMenu } from "../lib/use-command-menu";
+import { turnPresentation } from "../lib/turns";
+import { confirmationCommand } from "../../../../src/web-contract";
 import { MessageResponse } from "./ai-elements/message";
 export function Chat({
   account,
@@ -19,6 +24,10 @@ export function Chat({
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
+  const menu = useCommandMenu(draft, setDraft);
+  const busyCode = account.inFlight
+    ? confirmationCommand(account.inFlight)?.code
+    : undefined;
   async function submit() {
     if (!draft.trim()) return;
     if (!signedIn) {
@@ -72,128 +81,118 @@ export function Chat({
             scrollRef={scrollRef}
             key={account.state.messages[0]?.id}
           >
-            {(message) => (
-              <div key={message.id}>
-                <div className="flex justify-end mb-4">
-                  <div className="message user">{message.text}</div>
-                </div>
-                {message.reply ? (
-                  <div className="message assistant">
-                    {!(message.reply.holdings && message.reply.holdingsOnly) ? (
-                      <MessageResponse>
-                        {message.reply.preview
-                          ? message.reply.preview.text
-                          : (message.reply.question?.question ?? message.reply.text)}
-                      </MessageResponse>
-                    ) : null}
-                    <ConnectionRecovery reply={message.reply} />
-                    {message.reply.holdings ? (
-                      <StockHoldings {...message.reply.holdings} />
-                    ) : null}
-                    {message.reply.question?.options.length ? (
-                      <div
-                        className="flex flex-wrap gap-2 mt-3"
-                        role="group"
-                        aria-label="Answer Pecu"
-                      >
-                        {message.reply.question.options.map((option) => (
-                          <Button
-                            key={option}
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                              !account.atLatest ||
-                              account.pending ||
-                              message.id !== account.state?.messages.at(-1)?.id
-                            }
-                            onClick={() =>
-                              void account.answer(message.id, option)
-                            }
-                          >
-                            {option}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : null}
-                    {account.atLatest &&
-                    message.canRetry &&
-                    message.id === account.state?.messages.at(-1)?.id ? (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Retry reply"
-                        disabled={account.pending}
-                        onClick={() => void account.regenerate(message)}
-                      >
-                        <RotateCcw size={14} />
-                      </Button>
-                    ) : null}
-                    {message.reply.preview ? (
-                      <div className="preview">
-                        <span className="muted">
-                          {message.reply.preview.state === "pending"
-                            ? `Expires ${new Date(message.reply.preview.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-                            : message.reply.preview.state}
-                        </span>
-                        <div className="preview-actions">
-                          {["pending", "executing"].includes(
-                            message.reply.preview.state,
-                          ) ? (
+            {(message) => {
+              const presentation = turnPresentation(
+                message,
+                account.state?.messages ?? [],
+              );
+              if (presentation.kind === "command" && !presentation.showReply)
+                return null;
+              return (
+                <div key={message.id}>
+                  {presentation.kind === "chat" ? (
+                    <div className="flex justify-end mb-4">
+                      <div className="message user">{message.text}</div>
+                    </div>
+                  ) : null}
+                  {message.reply ? (
+                    <div
+                      className={
+                        presentation.kind === "command"
+                          ? "message assistant pecu-outcome"
+                          : "message assistant"
+                      }
+                    >
+                      {message.reply.preview ? null : !(
+                          message.reply.holdings && message.reply.holdingsOnly
+                        ) ? (
+                        <MessageResponse>
+                          {message.reply.question?.question ??
+                            message.reply.text}
+                        </MessageResponse>
+                      ) : null}
+                      <ConnectionRecovery reply={message.reply} />
+                      {message.reply.holdings ? (
+                        <StockHoldings {...message.reply.holdings} />
+                      ) : null}
+                      {message.reply.question?.options.length ? (
+                        <div
+                          className="flex flex-wrap gap-2 mt-3"
+                          role="group"
+                          aria-label="Answer Pecu"
+                        >
+                          {message.reply.question.options.map((option) => (
                             <Button
-                              disabled={account.pending}
-                              onClick={() =>
-                                void account.send(
-                                  `/confirm ${message.reply!.preview!.code}`,
-                                )
-                              }
-                            >
-                              {message.reply.preview.state === "executing"
-                                ? "Check transaction"
-                                : "Confirm transaction"}
-                            </Button>
-                          ) : null}
-                          {message.reply.preview.state === "pending" ? (
-                            <Button
-                              disabled={account.pending}
+                              key={option}
                               variant="outline"
+                              size="sm"
+                              disabled={
+                                !account.atLatest ||
+                                account.pending ||
+                                message.id !==
+                                  account.state?.messages.at(-1)?.id
+                              }
                               onClick={() =>
-                                void account.send(
-                                  `/cancel ${message.reply!.preview!.code}`,
-                                )
+                                void account.answer(message.id, option)
                               }
                             >
-                              Cancel
+                              {option}
                             </Button>
-                          ) : null}
+                          ))}
                         </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="muted">
-                    <span role="status">
-                      {account.pending
-                        ? "Pecu is answering…"
-                        : "Waiting for Pecu…"}
-                    </span>
-                    {!account.pending ? (
-                      <Button
-                        variant="link"
-                        disabled={account.pending}
-                        onClick={() =>
-                          void account.send(
-                            message.text,
-                            message.id.split(":").at(-1),
-                          )
-                        }
-                      >
-                        Resume response
-                      </Button>
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            )}
+                      ) : null}
+                      {account.atLatest &&
+                      message.canRetry &&
+                      message.id === account.state?.messages.at(-1)?.id ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Retry reply"
+                          disabled={account.pending}
+                          onClick={() => void account.regenerate(message)}
+                        >
+                          <RotateCcw size={14} />
+                        </Button>
+                      ) : null}
+                      {message.reply.preview ? (
+                        <div className="pecu pecu-embed">
+                          <PreviewCard
+                            busy={account.pending}
+                            confirming={
+                              busyCode === message.reply.preview.code
+                            }
+                            onSend={(text) => account.send(text)}
+                            preview={message.reply.preview}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="muted">
+                      <span role="status">
+                        {account.pending
+                          ? "Pecu is answering…"
+                          : "Waiting for Pecu…"}
+                      </span>
+                      {!account.pending ? (
+                        <Button
+                          variant="link"
+                          disabled={account.pending}
+                          onClick={() =>
+                            void account.send(
+                              message.text,
+                              message.id.split(":").at(-1),
+                            )
+                          }
+                        >
+                          Resume response
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              );
+            }}
           </HistoryWindow>
         </div>
       )}
@@ -219,35 +218,45 @@ export function Chat({
           ) : null}
         </div>
       ) : null}
-      {account.pending ? (
+      {account.pending && !busyCode ? (
         <p className="muted px-6" role="status">
           Aero is working…
         </p>
       ) : null}
-      <form
-        className="chat-compose"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void submit();
-        }}
-      >
-        <Textarea
-          aria-label="Message Aero"
-          placeholder="Ask about stocks or your wallet…"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          maxLength={4000}
-        />
-        <Button
-          type="submit"
-          size="icon"
-          className="h-11 w-11 rounded-xl"
-          aria-label="Send message"
-          disabled={account.pending || !draft.trim()}
+      <div className="pecu pecu-embed pecu-prompt-wrap">
+        <CommandMenu menu={menu} />
+        <form
+          className="chat-compose"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submit();
+          }}
         >
-          <ArrowUp size={19} />
-        </Button>
-      </form>
+          <Textarea
+            aria-activedescendant={
+              menu.open ? menu.optionId(menu.activeIndex) : undefined
+            }
+            aria-autocomplete="list"
+            aria-controls={menu.open ? menu.listboxId : undefined}
+            aria-expanded={menu.open}
+            aria-label="Message Aero"
+            placeholder="Ask about stocks or your wallet…"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={menu.onKeyDown}
+            maxLength={4000}
+          />
+          <Button
+            type="submit"
+            size="icon"
+            className="h-11 w-11 rounded-xl"
+            aria-label="Send message"
+            disabled={account.pending || !draft.trim()}
+          >
+            <ArrowUp size={19} />
+          </Button>
+        </form>
+      </div>
     </section>
   );
 }

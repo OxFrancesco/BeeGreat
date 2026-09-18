@@ -4,6 +4,10 @@ Normal replies show human token amounts and useful controls. Swap previews inclu
 
 `b/verbose` or `/verbose` returns the latest stored technical result for the verified sender and conversation. `b/verbose 2` reads the next page. It does not rerun tools or enable JSON on future replies. Details survive SQLite and Durable Object restarts.
 
+## Web confirmation flow
+
+The web preview card's confirm and cancel buttons send the same `/confirm CODE` and `/cancel CODE` turns the X chat uses. The web hides those command bubbles and shows the outcome in the card: status, receipt links, and failure detail all live on the original preview. Replies that carry information the card does not, like an unknown code or a duplicate confirmation, stay visible. X chat is unchanged.
+
 ## Validation
 
 TypeScript, 145 tests, and all four Worker dry-run builds passed. Tests cover exact dust amounts, human token balances, private verbose output, pagination, no additional transaction execution, and persistence in Workerd.

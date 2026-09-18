@@ -1,8 +1,17 @@
 /* Pecu agent theme. Tokens mirror apps/pecu/docs/design-system.md and the
    homepage stylesheet; the shadcn variables are remapped inside .pecu so the
    ported AI Elements pick up the palette without forking. */
+:root {
+  --pecu-canvas: #faf7f0;
+}
+
+html:has(.pecu-app),
+body:has(.pecu-app) {
+  background: var(--pecu-canvas);
+}
+
 .pecu {
-  --canvas: #faf7f0;
+  --canvas: var(--pecu-canvas);
   --surface: #fffdf7;
   --surface-2: #f3ecdd;
   --ink: #2b1912;
@@ -105,9 +114,12 @@
 .pecu-avatar-live > div { position: absolute; inset: 0; width: 100%; aspect-ratio: auto; transform: scale(1.9); transform-origin: 50% 50%; }
 .pecu-bubble-bot { width: 100%; max-width: 100%; padding: 6px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink); gap: 10px; overflow: visible; }
 .pecu-bubble-muted { color: var(--muted-foreground); flex-direction: row !important; align-items: center; flex-wrap: wrap; gap: 4px; }
-.pecu-message-actions { position: absolute; right: 0; top: 0; opacity: 0; transition: opacity 160ms ease; }
-.pecu-assistant:hover .pecu-message-actions, .pecu-assistant:focus-within .pecu-message-actions { opacity: 1; }
-.pecu .pecu-message-actions button { color: var(--muted-foreground); background: var(--surface); box-shadow: var(--shadow-sm); border-radius: 10px; }
+.pecu-message-actions { position: static; display: flex; gap: 2px; margin-top: 2px; opacity: 0; transition: opacity 160ms ease; }
+.pecu-turn:hover .pecu-message-actions, .pecu-turn:focus-within .pecu-message-actions { opacity: 1; }
+@media (hover: none) { .pecu-message-actions { opacity: .75; } }
+.pecu .pecu-message-actions button { width: 28px; height: 28px; border-radius: 8px; color: var(--muted-foreground); background: transparent; box-shadow: none; }
+.pecu .pecu-message-actions button:hover { background: var(--surface-2); }
+.pecu-turn .is-user .pecu-message-actions { justify-content: flex-end; }
 .pecu-thinking { align-items: center; min-height: 72px; }
 .pecu-shimmer { font-size: 14px; font-weight: 600; }
 .pecu-inline-link { height: auto; padding: 0 4px; color: var(--coral-deep); }
@@ -124,18 +136,34 @@
 .msg-response blockquote { border-left: 3px solid var(--border); padding-left: 12px; }
 
 /* Confirmation card */
-.pecu-confirmation { margin-top: 2px; padding: 12px 14px !important; border: 0 !important; border-radius: 14px !important; background: var(--butter-soft); box-shadow: inset 2px 2px 3px #fff8dd, inset -3px -3px 5px #d8bf7a55; }
-.pecu-confirmation[data-state="succeeded"] { background: #e3f3e6; box-shadow: inset 2px 2px 3px #f4fbf5, inset -3px -3px 5px #9fc7a855; }
+.pecu-confirmation { margin-top: 2px; padding: 14px 16px !important; border: 1px solid var(--border) !important; border-radius: 18px !important; background: var(--surface); box-shadow: var(--shadow-sm); }
+.pecu-confirmation[data-state="pending"] { box-shadow: var(--shadow-sm), inset 4px 0 0 var(--butter); }
+.pecu-confirmation[data-state="executing"] { box-shadow: var(--shadow-sm), inset 4px 0 0 var(--coral); }
+.pecu-confirmation[data-state="succeeded"] { box-shadow: var(--shadow-sm), inset 4px 0 0 #7fbf8a; }
 .pecu-confirmation[data-state="failed"], .pecu-confirmation[data-state="expired"], .pecu-confirmation[data-state="cancelled"] { background: var(--surface-2); }
-.pecu-confirmation[data-state="executing"] { background: var(--coral-soft); }
-.pecu-confirmation-title { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; font-size: 14px; }
-.pecu-code { padding: 3px 9px; border-radius: 8px; background: var(--ink); color: var(--butter); font-weight: 700; letter-spacing: .08em; font-size: 12.5px; }
+.pecu-confirmation-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pecu-confirmation-heading { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pecu-confirmation-name { font-size: 15px; font-weight: 650; color: var(--ink); }
+.pecu-confirmation-status { font-size: 13px; color: var(--muted-foreground); }
+.pecu-code { flex-shrink: 0; padding: 3px 9px; border-radius: 8px; background: var(--surface-2); color: var(--ink); font-weight: 700; letter-spacing: .08em; font-size: 12px; }
+.pecu-confirmation-body { display: flex; flex-direction: column; }
+.pecu-confirmation-rows { display: grid; grid-template-columns: minmax(96px, auto) 1fr; gap: 6px 12px; margin: 0; padding: 0; }
+.pecu-confirmation-rows + .pecu-confirmation-rows { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.pecu-confirmation-row { display: contents; }
+.pecu-confirmation-row dt { color: var(--muted-foreground); font-size: 13px; }
+.pecu-confirmation-row dd { margin: 0; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+.pecu-confirmation-row.is-plain { display: block; grid-column: 1 / -1; margin: 0; color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+.pecu-confirmation-actions { justify-content: flex-end; }
+.pecu-confirmation-actions .pecu-button-primary { border-radius: 999px; min-height: 44px; padding: 0 18px; }
+.pecu-confirmation-links { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .pecu-confirmation-note { font-size: 13px; color: var(--muted-foreground); }
 
 /* Buttons that carry the clay look */
 .pecu .pecu-button { min-height: 40px; border-radius: 14px; border: 0; background: var(--surface); color: var(--ink); font-weight: 650; box-shadow: var(--shadow-sm); transition: transform 160ms ease; }
 .pecu .pecu-button-primary { background: var(--coral); color: #fff; box-shadow: 6px 7px 14px #c9482d50, inset 2px 2px 4px #ff9f82, inset -3px -3px 5px #b83d24; }
 .pecu .pecu-button:active { transform: translateY(1px); }
+.pecu .pecu-button-quiet { background: transparent; box-shadow: none; color: var(--ink); }
+.pecu .pecu-button-quiet:hover { background: var(--surface-2); transform: none; }
 
 /* Composer */
 .pecu-composer { display: grid; gap: 10px; padding-top: 6px; }
@@ -151,6 +179,18 @@
 .pecu-prompt-hint { font-size: 12.5px; color: #9a877a; }
 .pecu .pecu-submit { width: 40px; height: 40px; background: var(--coral); color: #fff; box-shadow: 5px 6px 12px #c9482d50, inset 2px 2px 4px #ff9f82, inset -3px -3px 5px #b83d24; transition: transform 160ms ease, opacity 160ms ease; }
 .pecu .pecu-submit:disabled { opacity: .45; }
+.pecu-prompt-wrap { position: relative; }
+.pecu-command-menu { position: absolute; left: 6px; right: 6px; bottom: calc(100% + 8px); z-index: 5; max-height: calc(8 * 44px + 12px); overflow-y: auto; padding: 6px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.pecu-command-item { display: flex; align-items: baseline; gap: 8px; min-height: 40px; padding: 8px 10px; border-radius: 12px; cursor: pointer; }
+.pecu-command-item[aria-selected="true"] { background: var(--surface-2); }
+.pecu-command-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+.pecu-command-args { font-size: 13px; color: var(--muted-foreground); }
+.pecu-command-summary { margin-left: auto; padding-left: 16px; font-size: 13px; color: var(--muted-foreground); text-align: right; }
+@media (max-width: 760px) {
+  .pecu-command-item { flex-wrap: wrap; }
+  .pecu-command-summary { width: 100%; margin-left: 0; padding-left: 0; text-align: left; }
+}
+.pecu-embed { background: transparent; font-family: inherit; color: inherit; }
 .pecu-footnote { margin: 0; text-align: center; font-size: 12px; color: #9a877a; }
 .pecu-error { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-radius: 14px; background: var(--coral-soft); color: var(--coral-ink); font-size: 14px; }
 .pecu .pecu-scroll-button { border: 0; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-sm); }
