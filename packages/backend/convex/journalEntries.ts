@@ -8,6 +8,7 @@ const MAX_BODY_LENGTH = 50_000
 const MAX_TITLE_LENGTH = 160
 const MAX_TIME_ZONE_LENGTH = 100
 const MAX_TIMELINE_ENTRIES = 100
+const MAX_MONTH_ENTRIES = 1000
 const MAX_TAGS = 10
 const MAX_TAG_LENGTH = 30
 const MAX_PHOTOS = 10
@@ -199,15 +200,11 @@ async function attachmentView(ctx: AuthContext, attachment: Doc<'journalAttachme
   return view
 }
 
-async function entryView(ctx: AuthContext, entry: Doc<'journalEntries'>) {
-  const attachments = await ctx.db
-    .query('journalAttachments')
-    .withIndex('by_entry_id_and_created_at', (q) => q.eq('entryId', entry._id))
-    .order('asc')
-    .collect()
-  const photos = (
-    await Promise.all(attachments.map((attachment) => attachmentView(ctx, attachment)))
-  ).filter((photo): photo is NonNullable<typeof photo> => photo !== null)
+function buildEntryView(
+  entry: Doc<'journalEntries'>,
+  coverPhoto: PhotoView | null,
+  attachmentCount: number,
+) {
   return {
     id: entry._id,
     localDate: entry.localDate,
@@ -218,14 +215,40 @@ async function entryView(ctx: AuthContext, entry: Doc<'journalEntries'>) {
     tags: entry.tags ?? [],
     isPinned: entry.isPinned,
     isFavorite: entry.isFavorite,
-    coverPhoto: photos[0] ?? null,
-    attachmentCount: photos.length,
+    coverPhoto,
+    attachmentCount,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
   }
 }
 
-function hasContent(entry: Awaited<ReturnType<typeof entryView>>) {
+async function entryView(ctx: AuthContext, entry: Doc<'journalEntries'>) {
+  const attachments = await ctx.db
+    .query('journalAttachments')
+    .withIndex('by_entry_id_and_created_at', (q) => q.eq('entryId', entry._id))
+    .order('asc')
+    .take(MAX_PHOTOS)
+  const photos = (
+    await Promise.all(attachments.map((attachment) => attachmentView(ctx, attachment)))
+  ).filter((photo): photo is NonNullable<typeof photo> => photo !== null)
+  return buildEntryView(entry, photos[0] ?? null, photos.length)
+}
+
+async function entrySummaryView(ctx: AuthContext, entry: Doc<'journalEntries'>) {
+  const attachments = await ctx.db
+    .query('journalAttachments')
+    .withIndex('by_entry_id_and_created_at', (q) => q.eq('entryId', entry._id))
+    .order('asc')
+    .take(MAX_PHOTOS)
+  let coverPhoto: PhotoView | null = null
+  for (const attachment of attachments) {
+    coverPhoto = await attachmentView(ctx, attachment)
+    if (coverPhoto) break
+  }
+  return buildEntryView(entry, coverPhoto, attachments.length)
+}
+
+function hasContent(entry: ReturnType<typeof buildEntryView>) {
   return (
     entry.title.trim().length > 0 ||
     entry.body.trim().length > 0 ||
@@ -348,7 +371,7 @@ export const listRecent = query({
       )
       .order('desc')
       .take(Math.min(MAX_TIMELINE_ENTRIES * 3, args.limit * 3))
-    const views = await Promise.all(entries.map((entry) => entryView(ctx, entry)))
+    const views = await Promise.all(entries.map((entry) => entrySummaryView(ctx, entry)))
     return views.filter(hasContent).slice(0, args.limit)
   },
 })
@@ -366,7 +389,7 @@ export const listDay = query({
       )
       .order('desc')
       .collect()
-    return (await Promise.all(entries.map((entry) => entryView(ctx, entry)))).filter(
+    return (await Promise.all(entries.map((entry) => entrySummaryView(ctx, entry)))).filter(
       hasContent,
     )
   },
@@ -386,19 +409,28 @@ export const listMonth = query({
           .gte('localDate', args.monthStart)
           .lt('localDate', nextMonthStart(args.monthStart)),
       )
-      .collect()
-    const views = (await Promise.all(entries.map((entry) => entryView(ctx, entry)))).filter(
-      hasContent,
+      .take(MAX_MONTH_ENTRIES)
+    const hasPhotos = await Promise.all(
+      entries.map(
+        async (entry) =>
+          (await ctx.db
+            .query('journalAttachments')
+            .withIndex('by_entry_id_and_created_at', (q) => q.eq('entryId', entry._id))
+            .first()) !== null,
+      ),
     )
     const days = new Map<string, { localDate: string; entryCount: number; hasPhoto: boolean }>()
-    for (const entry of views) {
+    for (const [index, entry] of entries.entries()) {
+      const hasPhoto = hasPhotos[index]
+      const hasText = entry.title.trim().length > 0 || entry.body.trim().length > 0
+      if (!hasText && !hasPhoto) continue
       const current = days.get(entry.localDate) ?? {
         localDate: entry.localDate,
         entryCount: 0,
         hasPhoto: false,
       }
       current.entryCount += 1
-      current.hasPhoto ||= entry.attachmentCount > 0
+      current.hasPhoto ||= hasPhoto
       days.set(entry.localDate, current)
     }
     return [...days.values()].sort((left, right) => left.localDate.localeCompare(right.localDate))
@@ -428,7 +460,7 @@ export const search = query({
         q.search('searchText', searchQuery).eq('ownerKey', ownerKey),
       )
       .take(50)
-    return Promise.all(entries.map((entry) => entryView(ctx, entry)))
+    return Promise.all(entries.map((entry) => entrySummaryView(ctx, entry)))
   },
 })
 
