@@ -37,6 +37,8 @@ import {
 } from './lib'
 import { ethUsdPrice, runDoctor } from './doctor'
 import { acquireRunLock } from './safety'
+import { almPassProblem, journalContents, rangeIsConsistent } from './alm-proof'
+import { completedJournalForHashes } from './sent-proof'
 
 /**
  * verify-aero runner. Drives the real aero CLI on Base 8453 from the isolated
@@ -107,10 +109,11 @@ type Ctx = {
   interrupted: boolean
 }
 
-const STEP_TIMEOUT_MS = 10 * 60_000
+const STEP_TIMEOUT_MS = Number(process.env.AERO_VERIFY_STEP_TIMEOUT_MS ?? 600_000)
+if (!Number.isSafeInteger(STEP_TIMEOUT_MS) || STEP_TIMEOUT_MS <= 0) {
+  throw new Error('AERO_VERIFY_STEP_TIMEOUT_MS must be a positive integer')
+}
 const RECEIPT_TIMEOUT_MS = 2 * 60_000
-const MAX_ATTEMPTS = 3
-const RETRY_DELAY_MS = 45_000
 const DUST_USD = 0.05
 
 function assert(rec: StepRecord, name: string, ok: boolean, detail?: string): boolean {
@@ -163,7 +166,7 @@ async function cli(rec: StepRecord, args: string[], timeoutMs = STEP_TIMEOUT_MS)
 
 function classifyFailure(ctx: Ctx, result: ProcResult): StepStatus {
   const blob = `${result.stderr}\n${result.stdout}`
-  if (FLAKY_PATTERN.test(blob)) return 'flaky'
+  if (result.timedOut || FLAKY_PATTERN.test(blob)) return 'flaky'
   if (ctx.mode === 'dry-run' && NEEDS_STATE_PATTERN.test(blob)) return 'skipped'
   return 'fail'
 }
@@ -360,10 +363,10 @@ async function cliTx(ctx: Ctx, rec: StepRecord, args: string[]): Promise<StepSta
   }
   if (!assert(rec, 'result status is sent', sent.status === 'sent', String(sent.status))) return 'fail'
   const hashes = asArray(sent.hashes)?.filter((hash): hash is string => typeof hash === 'string') ?? []
-  // Accumulate: sweep steps run several CLI invocations per record; the count
-  // assertion covers only this invocation's hashes against its own plan.
+  // Each send rebuilds its plan; prove this invocation against its execution journal.
   rec.hashes.push(...hashes)
-  if (!assert(rec, 'hashes match plan step count', steps !== null && hashes.length === steps.length, `${hashes.length} hashes vs ${steps?.length ?? '?'} plan steps`)) {
+  const completedJournal = completedJournalForHashes({ directory: ctx.layout.executionsDir, sender: ctx.wallet, chainId: CHAIN_ID, hashes })
+  if (!assert(rec, 'hashes exactly match a completed execution journal', completedJournal !== undefined, completedJournal ?? `${hashes.length} hashes; no unique matching completed journal`)) {
     return 'fail'
   }
   const receiptsOk = await receipts(ctx, rec, hashes)
@@ -755,6 +758,8 @@ function buildSteps(): StepDef[] {
     check: (ctx, rec) => {
       const out = Number(asObject(rec.parsed)?.amount_out_decimal)
       assert(rec, 'amount_out_decimal > 0', Number.isFinite(out) && out > 0, String(out))
+      const price = Number(asObject(rec.parsed)?.from_price_usd)
+      assert(rec, 'from_price_usd > 0', Number.isFinite(price) && price > 0, String(price))
       return allOk(rec)
     },
   }))
@@ -794,6 +799,16 @@ function buildSteps(): StepDef[] {
     check: (ctx, rec) => {
       const stocks = asArray(rec.parsed)
       assert(rec, 'ten stocks listed', stocks !== null && stocks.length === 10, `${stocks?.length ?? 'n/a'}`)
+      assert(rec, 'all stock prices resolved', stocks !== null && stocks.every((stock) => {
+        const item = asObject(stock)
+        const price = Number(item?.price_usdc)
+        return Number.isFinite(price) && price > 0 && !item?.error
+      }))
+      const errors = stocks?.map((stock) => String(asObject(stock)?.error ?? '')).filter(Boolean) ?? []
+      if (errors.some((error) => FLAKY_PATTERN.test(error))) {
+        rec.reason = scrub(errors.join('; '))
+        return 'flaky'
+      }
       const nvda = stocks?.map(asObject).find((item) => item?.symbol === 'NVDAc')
       const price = Number(nvda?.price_usdc)
       if (Number.isFinite(price) && price > 0) ctx.nvdaPriceUsd = price
@@ -884,10 +899,9 @@ function buildSteps(): StepDef[] {
     id: 'tx.swap.eth-usdc', feature: 'swap', title: 'Swap the ETH leg into USDC',
     args: (ctx) => ['swap', '--from-token', 'ETH', '--to-token', 'USDC', '--amount', ctx.ethLeg, '--use-decimals'],
     check: async (ctx, rec) => {
-      const minOut = asObject(rec.plan?.quote)?.min_amount_out
       if (rec.balanceDelta === null) return 'flaky'
       const delta = rec.balanceDelta.usdc
-      assert(rec, 'USDC delta covers min_amount_out', minOut !== undefined && Number(delta) >= Number(formatUnits(BigInt(String(minOut)), 6)), `delta ${delta} USDC vs min ${String(minOut)}`)
+      assert(rec, 'USDC balance increased after confirmed swap', Number(delta) > 0, `delta ${delta} USDC; preview minimum is not the executed quote`)
       return allOk(rec)
     },
   }))
@@ -896,10 +910,9 @@ function buildSteps(): StepDef[] {
     id: 'tx.swap.eth-aero', feature: 'swap', title: 'Swap the ETH leg into AERO',
     args: (ctx) => ['swap', '--from-token', 'ETH', '--to-token', 'AERO', '--amount', ctx.ethLeg, '--use-decimals'],
     check: async (ctx, rec) => {
-      const minOut = asObject(rec.plan?.quote)?.min_amount_out
       if (rec.balanceDelta === null) return 'flaky'
       const delta = rec.balanceDelta.aero
-      assert(rec, 'AERO delta covers min_amount_out', minOut !== undefined && Number(delta) >= Number(formatUnits(BigInt(String(minOut)), 18)), `delta ${delta} AERO vs min ${String(minOut)}`)
+      assert(rec, 'AERO balance increased after confirmed swap', Number(delta) > 0, `delta ${delta} AERO; preview minimum is not the executed quote`)
       return allOk(rec)
     },
   }))
@@ -1001,7 +1014,7 @@ function buildSteps(): StepDef[] {
   }))
 
   steps.push(readStep({
-    id: 'read.alm-status', feature: 'alm', title: 'ALM status reports the position in range',
+    id: 'read.alm-status', feature: 'alm', title: 'ALM status reports a range consistent with the current tick',
     modes: ['full', 'dry-run'],
     needs: needAlm,
     args: () => ['alm', 'status'],
@@ -1009,7 +1022,7 @@ function buildSteps(): StepDef[] {
       const entries = asArray(rec.parsed) ?? []
       const entry = entries.map(asObject).find((item) => String(item?.pool ?? '').toLowerCase() === CL_LP.toLowerCase())
       if (!assert(rec, 'status entry for CL pool', entry !== undefined)) return 'fail'
-      assert(rec, 'in_range is true', entry?.in_range === true, String(entry?.in_range))
+      assert(rec, 'range and in_range agree with tick', entry !== null && entry !== undefined && rangeIsConsistent(entry), JSON.stringify(entry))
       assert(rec, 'position_id matches', String(entry?.position_id) === ctx.clPositionId, `${String(entry?.position_id)} vs ${ctx.clPositionId}`)
       return allOk(rec)
     },
@@ -1019,11 +1032,13 @@ function buildSteps(): StepDef[] {
     id: 'read.alm-serve-once', title: 'One ALM serve pass in dry-run broadcasts nothing', feature: 'alm', kind: 'read', modes: ['full', 'dry-run'],
     needs: needAlm,
     run: async (ctx, rec) => {
-      const beforeList = existsSync(ctx.layout.executionsDir) ? readdirSync(ctx.layout.executionsDir).sort() : []
+      const beforeContents = journalContents(ctx.layout.executionsDir)
       const result = await cli(rec, ['serve', '--once'])
-      const afterList = existsSync(ctx.layout.executionsDir) ? readdirSync(ctx.layout.executionsDir).sort() : []
+      const afterContents = journalContents(ctx.layout.executionsDir)
+      if (!assert(rec, 'execution journal names and contents unchanged', beforeContents === afterContents)) return 'fail'
       if (result.exitCode !== 0) return classifyFailure(ctx, result)
-      assert(rec, 'no journal written (nothing broadcast)', JSON.stringify(beforeList) === JSON.stringify(afterList), `${beforeList.length} -> ${afterList.length} file(s)`)
+      const problem = almPassProblem(`${result.stdout}\n${result.stderr}`)
+      assert(rec, 'dry-run completed without blocked, failed, recovery, or missing-position output', problem === undefined, problem)
       return allOk(rec)
     },
   })
@@ -1617,31 +1632,23 @@ async function main(): Promise<number> {
         finishStep(ctx, rec, 'skipped', 'upstream failed')
         continue
       }
-      // A pure infra flake (flaky, nothing broadcast) gets up to 3 attempts
-      // with a 45 s cooldown; a step holding a hash or receipt touched the
-      // chain, so it is final no matter the status.
-      let status: StepStatus = 'skipped'
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        rec.attempts = attempt
-        if (attempt > 1) await sleep(RETRY_DELAY_MS)
-        rec.stdout += `# attempt ${attempt}\n`
-        try {
-          status = await step.run(ctx, rec)
-        } catch (cause) {
-          const message = scrub(cause instanceof Error ? cause.message : String(cause))
-          rec.stderr += `[verify] ${message}\n`
-          status = FLAKY_PATTERN.test(message) ? 'flaky' : 'fail'
-        }
-        if (ctx.interrupted) {
-          status = 'fail'
-          rec.reason = 'interrupted'
-        }
-        const retryable = status === 'flaky' && rec.hashes.length === 0 && rec.receipts.length === 0 && !ctx.interrupted && !ctx.aborted
-        if (!retryable) break
+      let status: StepStatus
+      rec.attempts = 1
+      rec.stdout += '# attempt 1\n'
+      try {
+        status = await step.run(ctx, rec)
+      } catch (cause) {
+        const message = scrub(cause instanceof Error ? cause.message : String(cause))
+        rec.stderr += `[verify] ${message}\n`
+        status = FLAKY_PATTERN.test(message) ? 'flaky' : 'fail'
+      }
+      if (ctx.interrupted) {
+        status = 'fail'
+        rec.reason = 'interrupted'
       }
       finishStep(ctx, rec, status)
       if (status === 'fail' && step.kind === 'tx') ctx.upstreamFailed = true
-      if (ctx.aborted) break
+      if (status === 'fail' || status === 'flaky' || ctx.aborted) break
     }
 
     // Copy every journal created or touched during the run into the evidence dir.
@@ -1702,7 +1709,7 @@ async function main(): Promise<number> {
     writeFileSync(join(runDir, 'report.md'), renderReport(ctx, summary, compare))
 
     if (ctx.aborted) return 3
-    const failures = ctx.steps.filter((step) => step.status === 'fail').length
+    const failures = ctx.steps.filter((step) => step.status === 'fail' || step.status === 'flaky').length
     const exitCode = regressions.length > 0 ? 2 : failures > 0 ? 1 : 0
     if (args.accept && exitCode === 0) {
       copyFileSync(join(runDir, 'summary.json'), layout.baselineFile)

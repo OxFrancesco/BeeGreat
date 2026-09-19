@@ -17,7 +17,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 
 - Start every recipe from the baseline state unless its preconditions say otherwise.
 - Treat every command as literal. Keep addresses, pool names, and flags unchanged.
-- Read commands print JSON on stdout. Transaction commands print a plan summary, per-step send lines, then a `{"status":"sent",...}` JSON object; with `--dry-run` they print only the unsigned plan JSON.
+- Most read commands print JSON on stdout; `wallet status` prints text. `index delete` also prints text. Transaction commands print a plan summary, per-step send lines, then a `{"status":"sent",...}` JSON object; with `--dry-run` they print only the unsigned plan JSON.
 - Pass `--yes` to broadcast without the interactive confirm, `--dry-run` to build the plan without broadcasting, and `--use-decimals` when an amount is given in human units.
 - After a mutation, restore baseline: the post-sweep returns USDC, AERO, and stock balances to ETH. Do not remove proof artifacts during cleanup.
 
@@ -26,7 +26,7 @@ This directory is the maintained source for verifying the user-facing behavior o
 - Capture the command, stdout, stderr, and exit code for every invocation. For transactions also capture the plan JSON, the `hashes` array, independently fetched receipts (viem), balance deltas, and a copy of the execution journal.
 - Record the step id with every artifact; `runs/<run-id>/steps/NN-<id>.json` is the canonical record.
 - A step that cannot run because a precondition is unmet is reported `skipped` with the reason, never claimed verified through another path.
-- A step that failed on RPC infrastructure (`rate limited`, `429`, timeouts) is `flaky`, not a regression. Retry on a better RPC.
+- A step that failed on RPC infrastructure (`rate limited`, `429`, timeouts) is `flaky`, not a regression. The runner stops on `fail` or `flaky` with a nonzero exit. Health-check again before a fresh run, using a better RPC when necessary.
 
 ## Feature entry contract
 
@@ -47,7 +47,7 @@ Keep implementation details out of the map. Name only user paths, stable handles
 - [CL liquidity](./liquidity-cl.md) covers the same lifecycle on `CL2000-USDC/AERO` plus the price range and NFT burn.
 - [veNFT](./venft.md) covers `create-venft` and the SDK-only expired-lock sweep.
 - [Stocks and indices](./stocks-and-indices.md) covers stock list, buy, sell, and the saved-index lifecycle with rebalance dry-run.
-- [ALM dry-run](./alm-dry-run.md) covers `alm init`, `alm status`, and `serve --once`; `--execute` is deliberately never driven.
-- [Wallet](./wallet.md) covers expect-driven create, restore, status, and remove.
+- [ALM dry-run](./alm-dry-run.md) covers `alm init`, `alm status`, and `serve --once`, with manual recovery prerequisites; `--execute` is deliberately never driven.
+- [Wallet](./wallet.md) covers expect-driven create and restore, text status, prompted removal, and manual external pairing.
 - [Executions](./executions.md) covers the journal list and manual resume/cancel recovery.
 - [TUI](./tui.md) covers `aero tui` driven through tmux; it is not part of the automated runner.

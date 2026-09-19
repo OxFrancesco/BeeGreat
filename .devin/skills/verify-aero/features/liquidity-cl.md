@@ -22,7 +22,7 @@ The concentrated-liquidity lifecycle on `CL2000-USDC/AERO` (lp `0xBE00fF35AF70E8
 Preconditions:
 
 - `bun scripts/doctor.ts` exits 0 and the wallet holds USDC and AERO.
-- Price bounds are in token1-per-token0 human units, here AERO per USDC. The runner quotes `aero quote --from-token USDC --to-token AERO --amount 1 --use-decimals` for spot and uses 0.5x and 2x around it.
+- Price bounds are in token1-per-token0 human units, here AERO per USDC. The runner quotes `aero quote --from-token USDC --to-token AERO --amount 1 --use-decimals` as a routed price estimate and uses 0.5x and 2x around it; this is not necessarily this pool's spot price.
 
 - **Deposit.** Run `scripts/aero deposit --pool 0xBE00fF35AF70E8415D0eB605a286D8A45466A4c1 --amount0 0.4 --price-lower <spot*0.5> --price-upper <spot*2> --use-decimals --yes`. `aero positions` gains a `is_cl: true` entry on this pool with `liquidity > 0`; its `id` is the position NFT used below.
 - **Stake.** Run `scripts/aero stake --position <id> --yes`. Two transactions (approve, then gauge deposit); `staked > 0` afterwards.
@@ -34,7 +34,7 @@ Preconditions:
 
 ## Gotchas
 
-- A position out of range still mints but earns nothing; the runner always brackets the live spot price.
-- The ALM steps (`local.alm-init`, `read.alm-status`, `read.alm-serve-once`) run while this position is live, between deposit and stake. See [ALM dry-run](./alm-dry-run.md).
+- A position out of range still mints but earns nothing; check the resulting position's range explicitly instead of assuming the routed estimate brackets this pool's price.
+- The ALM steps (`local.alm-init`, `read.alm-status`, `read.alm-serve-once`) run between deposit and stake in an unfiltered full run. The filter above excludes them; include `alm` in `--only swap,liquidity-cl,alm,sweep` to exercise that detour. See [ALM dry-run](./alm-dry-run.md).
 - `--burn` only works on a full withdraw; a partial withdraw leaves the NFT alive.
 - Several CL positions can coexist in one pool; the runner picks the highest id and warns if it had to choose.

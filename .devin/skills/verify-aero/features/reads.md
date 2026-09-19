@@ -1,6 +1,6 @@
 # Reads
 
-Every read command the CLI exposes: quoting a swap, listing pools, positions, epochs, and stocks, checking wallet status, and listing execution journals. Each prints JSON on stdout and never touches the wallet or chain state.
+Every read command the CLI exposes: quoting a swap, listing pools, positions, epochs, and stocks, checking wallet status, and listing execution journals. Most print JSON on stdout; wallet status prints text. These commands do not sign transactions or change on-chain state.
 
 ## Sub-features
 
@@ -17,8 +17,8 @@ Every read command the CLI exposes: quoting a swap, listing pools, positions, ep
 
 - Run `aero quote --from-token <from> --to-token <to> --amount <n> [--use-decimals]`.
 - Run `aero pools [--token0 <sym>] [--token1 <sym>] [--full] [--limit <n>]`.
-- Run `aero positions`.
-- Run `aero epochs --lp <address> [--limit <n>]` or `aero epochs-latest [--pool-type volatile|stable|concentrated]`.
+- Run `aero positions [--owner <address>]`.
+- Run `aero epochs --lp <address> [--limit <n>]` or `aero epochs-latest [--pool-type volatile|stable|cl]`.
 - Run `aero stocks list`.
 - Run `aero wallet status`.
 - Run `aero executions list`.
@@ -27,7 +27,7 @@ Every read command the CLI exposes: quoting a swap, listing pools, positions, ep
 
 Preconditions:
 
-- `bun scripts/doctor.ts` reports the Base chain and a reachable RPC. A wallet is needed for `positions` and `wallet status` only.
+- `bun scripts/doctor.ts` reports the Base chain and a reachable RPC. The runner requires the isolated wallet. Standalone `positions --owner <address>` can read another address without a configured signer; `wallet status` prints a no-wallet message when none is configured.
 
 - **Quote.** Price the ETH leg. Run `scripts/aero quote --from-token ETH --to-token USDC --amount 0.01 --use-decimals`. Exit 0 and the JSON contains `amount_out_decimal` above zero plus `from_price_usd`.
 - **Pools.** List the pinned pair. Run `scripts/aero pools --token0 USDC --token1 AERO --full --limit 6`. The array includes lp `0x6cDcb1C4A4D1C3C6d054b27AC5B77e89eAFb971d` (vAMM) and `0xBE00fF35AF70E8415D0eB605a286D8A45466A4c1` (CL2000).

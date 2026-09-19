@@ -1,6 +1,6 @@
 # Wallet
 
-`aero wallet` manages the encrypted local wallet: `create` generates a fresh mnemonic, `restore` imports one, `status` shows the active wallet's address and storage source, and `remove` deletes it. `aero connect` pairs an external wallet instead. Create and restore are interactive, so they are driven through `expect`.
+`aero wallet` manages the encrypted local wallet: `create` generates a fresh mnemonic, `restore` imports one, `status` shows the active wallet's address and storage source, and `remove` deletes it. `aero wallet connect` pairs an external wallet instead. Create, restore, and remove are interactive; setup uses `expect` for create and restore.
 
 ## Sub-features
 
@@ -14,7 +14,7 @@
 
 - Run `aero wallet create` or `aero wallet restore` in a terminal and answer the prompts.
 - Run `aero wallet status` or `aero wallet remove`.
-- Run `aero connect --browser` to pair Rabby or another EIP-6963 extension, `aero connect` for a WalletConnect QR session, `aero disconnect` to drop the pairing.
+- Run `aero wallet connect --browser` to pair Rabby or another EIP-6963 extension, `aero wallet connect` for a WalletConnect QR session, `aero wallet disconnect` to drop the pairing.
 
 ## Driving it with verify-aero
 
@@ -28,8 +28,8 @@ Preconditions:
 - **Restore.** Run `AERO_VERIFY_MNEMONIC="word1 ... word12" bash scripts/setup-wallet.sh`. The script answers the hidden mnemonic prompt and the same confirmation.
 - **Existing wallet.** Run `bash scripts/setup-wallet.sh` again; it detects `wallet.enc`, prints the address, and exits 0. `--force` overwrites.
 - **Status.** Run `scripts/aero wallet status`. Output contains `local encrypted wallet` and the verify address.
-- **Remove.** Run `scripts/aero wallet remove` to delete the wallet file. Only ever run this on the isolated home.
-- **Browser and WalletConnect.** `scripts/aero connect --browser` (Rabby/EIP-6963), `scripts/aero connect` (WalletConnect QR), and `scripts/aero disconnect` are manual-only entry points; this suite never drives them.
+- **Remove.** Run `scripts/aero wallet remove` and answer its deletion confirmation. A confirmed removal prints `Local wallet deleted.`; declining keeps the wallet. Use a disposable isolated home for this recipe, preserving the funded verification wallet.
+- **Browser and WalletConnect.** `scripts/aero wallet connect --browser` (Rabby/EIP-6963), `scripts/aero wallet connect` (WalletConnect QR), and `scripts/aero wallet disconnect` are manual-only entry points; this suite never drives them.
 
 ## Gotchas
 
