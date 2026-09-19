@@ -26,7 +26,7 @@ Persistent per-machine settings live in `$AERO_VERIFY_HOME/env`: plain `KEY=VALU
 
 ## Doctor
 
-`bun .devin/skills/verify-aero/scripts/doctor.ts` prints a JSON health report and exits 0 when the environment is driveable, 1 with a `problems` list otherwise. The runner calls it as preflight in every mode except `reads`.
+`bun .devin/skills/verify-aero/scripts/doctor.ts` prints a JSON health report and exits 0 when the environment is driveable, 1 with a `problems` list otherwise. The runner calls it in every mode; `reads` records the report without refusing unhealthy prerequisites. Run Doctor explicitly before manual drives.
 
 The report covers the bun version, git revision and dirty flag, `AERO_VERIFY_HOME`, wallet presence and address, passphrase availability, RPC kind (`verify-override`, `user-env`, or `publicnode-default`, never the URL), whether the endpoint serves `eth_getTransactionReceipt` (`rpc.receipts`, with the scrubbed `receiptsError` when false), the live chain id and block number, wallet balances (ETH, USDC, AERO, NVDAc, veNFT count), the ETH/USD price, the ETH required for the run, journal state (files, active journals, stale locks), the run lock, and confirmation that `SUGAR_WALLET_DIR` is not the real wallet directory.
 
@@ -66,7 +66,9 @@ publicnode is reads-only: it answers `eth_getTransactionReceipt` with a 403 `Arc
 
 The SDK profile is picked by the resolved endpoint's throttling model. publicnode caps the size of each call, so its profile keeps batches small (quote batch 8, price batch 8, pool page 75). Keyed endpoints like Alchemy throttle on request count, so they win with fewer, larger calls: the SDK's default sizes on one worker (quote batch 64, price batch 40, pool page 400, max paths 200). Values in `$AERO_VERIFY_HOME/env` or the process environment always win. Measured on the Alchemy dev key with the keyed profile: quote 25 s, positions 22 s, `pools --full` 37 s, stocks list 37 s.
 
-Steps that end `flaky` without broadcasting anything (no hashes, no receipts) retry the whole step up to 3 attempts with a 45 s cooldown between them; records and the summary carry `attempts`, and each attempt's output is kept under a `# attempt N` marker. A step holding a hash or receipt is final either way.
+Every step gets one attempt. A `fail` or `flaky` result stops the run and returns nonzero; evidence and the owned run lock are finalized before exit. Doctor and reconcile the failure before starting another drive. Automatic sweep does not run after a failure: inspect the saved balances and journals before any separately authorized recovery.
+
+`AERO_VERIFY_STEP_TIMEOUT_MS` sets a positive integer timeout in milliseconds for runner CLI steps (default 600000). It does not change Doctor or RPC receipt timeouts. Commands run in separate POSIX process groups; timeout and interruption kill the owned group, including descendants holding output pipes open. See [Bun spawn documentation](https://bun.sh/reference/bun/spawn).
 
 ## Evidence
 
@@ -79,7 +81,9 @@ Each run writes `runs/<YYYYMMDD-HHMMSS-mode>/` under `AERO_VERIFY_HOME`:
 - `summary.json` is the machine-readable rollup: per-step status, totals (tx count, gas wei, net ETH delta, dust list, veNFT count), and the comparison against baseline.
 - `report.md` is the human-readable version.
 
-A mutation step is proven when the record contains the CLI command, the plan JSON from `--dry-run`, the transaction hashes from the send, receipts fetched directly through viem (independent of the CLI's own report), the balance delta, and the journal copy. Dry-run mode proves plan building only; the runner verifies nothing was sent by checking that no new journal appears and `aero executions list` stays unchanged on the `serve --once` path.
+Preview and send are separate CLI invocations: send rebuilds its quote and plan. Swap assertions prove a positive token delta after confirmed receipts, not compliance with the earlier preview minimum.
+
+A mutation step is proven when the record contains the CLI command, the plan JSON from `--dry-run`, the transaction hashes from the send, receipts fetched directly through viem (independent of the CLI's own report), the balance delta, and the journal copy. Dry-run mode proves plan building only; the ALM check requires dry-run startup, rejects known failure/recovery messages, and compares journal names and contents before and after `serve --once`. No new journal alone is not proof that evaluation succeeded.
 
 Drive only through real user paths: the `aero` CLI for everything it covers. The single exception is `sweep.pre.venft-expired`, which withdraws expired veNFT locks through `SugarClient.withdrawVeNft` + `sendPlan` because the CLI has no withdraw command. Never call internal setters or write state files directly to manufacture a pass.
 
@@ -87,7 +91,7 @@ Drive only through real user paths: the `aero` CLI for everything it covers. The
 
 The baseline lives at `AERO_VERIFY_HOME/baseline.json` and is a copy of a clean run's `summary.json`. Save one after a known-good full run with `--accept` (accepted only when the run exits 0). Every later run compares step-by-step: a step that was `ok` and is now `fail` is a regression; `ok` to `skipped`, a step missing from the run, or a changed `transaction_steps` count is a warning; new steps are informational; `flaky` never counts.
 
-Exit codes: 0 all good, 1 step failures with no regression, 2 at least one regression versus baseline, 3 preflight refused.
+Exit codes: 0 no failed/flaky steps (inspect skips and coverage), 1 failed or flaky steps with no regression, 2 at least one regression versus baseline, 3 preflight refused.
 
 ## Cleanup
 
@@ -114,6 +118,9 @@ The wallet file is encrypted; deleting `AERO_VERIFY_HOME` entirely retires the w
 - `bun scripts/verify.ts` is the runner described under Drive.
 - `bash scripts/cleanup.sh` removes disposable state; see Cleanup.
 - `bunx tsc --noEmit -p scripts/tsconfig.json` typechecks the TypeScript helpers.
+- `scripts/alm-proof.ts` is imported by the runner: it rejects known failed ALM evaluations, checks tick/range consistency and hashes journal contents. Successful hold passes have no explicit completion marker in the product; startup without an error is not independent proof of every evaluation branch.
+- `scripts/sent-proof.ts` matches sent hashes to a unique completed journal using the product journal decoder; the earlier preview does not determine sent-step count.
+- From the repository root, `bun test ./.devin/skills/verify-aero/scripts/` runs harness regression tests, including process-group timeout and ALM false-pass cases.
 
 ## Feature map
 

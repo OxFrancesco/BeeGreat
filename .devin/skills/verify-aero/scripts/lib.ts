@@ -242,15 +242,24 @@ export const activeProcs = new Set<ReturnType<typeof Bun.spawn>>()
 export function killActiveProcs(): void {
   for (const proc of activeProcs) {
     try {
-      proc.kill('SIGKILL')
+      process.kill(-proc.pid, 'SIGKILL')
     } catch { /* already gone */ }
   }
 }
 
-/** Spawn a child, capture output, kill on timeout. */
+function killActiveProcess(proc: ReturnType<typeof Bun.spawn>): void {
+  try {
+    process.kill(-proc.pid, 'SIGKILL')
+  } catch (error) {
+    if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) throw error
+  }
+}
+
+/** Spawn a child, capture output, kill its process group on timeout. */
 export async function runProcess(argv: string[], options: { cwd?: string; env?: NodeJS.ProcessEnv; stdin?: Blob; timeoutMs?: number } = {}): Promise<ProcResult> {
   const startedAt = Date.now()
   const proc = Bun.spawn(argv, {
+    detached: true,
     cwd: options.cwd,
     env: options.env ?? process.env,
     stdin: options.stdin ?? 'ignore',
@@ -262,7 +271,7 @@ export async function runProcess(argv: string[], options: { cwd?: string; env?: 
   const timeoutMs = options.timeoutMs ?? 10 * 60_000
   const timer = setTimeout(() => {
     timedOut = true
-    proc.kill('SIGKILL')
+    killActiveProcess(proc)
   }, timeoutMs)
   try {
     const [exitCode, stdout, stderr] = await Promise.all([
@@ -273,6 +282,7 @@ export async function runProcess(argv: string[], options: { cwd?: string; env?: 
     return { exitCode, stdout: scrub(stdout), stderr: scrub(stderr), durationMs: Date.now() - startedAt, timedOut }
   } finally {
     clearTimeout(timer)
+    killActiveProcess(proc)
     activeProcs.delete(proc)
   }
 }

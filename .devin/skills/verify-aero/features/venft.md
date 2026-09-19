@@ -1,12 +1,11 @@
 # veNFT
 
-`create-venft` locks AERO into a vote-escrow NFT for a chosen duration. The suite locks a small amount for one week (604800 seconds); VotingEscrow rounds the unlock time down to the weekly Thursday 00:00 UTC boundary, so the lock expires somewhere between 0 and 7 days out and never reverts, and the next run's sweep withdraws it once `expiresAt` has passed.
+`create-venft` locks AERO into a vote-escrow NFT for a chosen duration. The suite locks a small amount for one week (604800 seconds); VotingEscrow rounds the unlock time down to the weekly Thursday 00:00 UTC boundary, placing expiry at the next weekly boundary. Creation can still fail. A later run's sweep withdraws eligible locks once `expiresAt` has passed.
 
 ## Sub-features
 
 - `venft-create` locks AERO into a new veNFT.
 - `venft-sweep-expired` withdraws locks whose `expiresAt` has passed.
-- `venft-lifecycle-sdk` covers the SDK-only methods that the CLI does not expose.
 
 ## How to get to it (user POV)
 
@@ -21,7 +20,7 @@ Preconditions:
 - VotingEscrow on Base is `0xeBf418Fe2512e7E6bd9b87a8F0f294aCDC67e6B4` (confirmed through `SugarClient.getVeNftContracts()`).
 
 - **Create.** Run `scripts/aero create-venft --amount <aero> --use-decimals --lock-duration-seconds 604800 --yes`. The amount is sized to about $0.30 of AERO. Afterwards `balanceOf(wallet)` on VotingEscrow is one higher; the runner records it as the `veNftCount` delta.
-- **Sweep expired locks.** Handled inside the runner as `sweep.pre.venft-expired`. It calls `client.getVeNfts(wallet)`, filters for `expiresAt <= now`, `lockedAmount > 0`, not permanent, and not managed, and sends `client.withdrawVeNft(id)` through `sendPlan` with the sealed local wallet. This is the one place the suite signs outside the CLI, because no CLI command exists for it.
+- **Sweep expired locks.** Handled inside the runner as `sweep.pre.venft-expired`. It calls `client.getVeNfts(wallet)`, filters for `expiresAt > 0`, `expiresAt <= now`, `lockedAmount > 0`, not permanent, and not managed, and sends `client.withdrawVeNft(id)` through `sendPlan` with the sealed local wallet. This is the one place the suite signs outside the CLI, because no CLI command exists for it.
 - **Runner.** `bun scripts/verify.ts --mode full --only swap,venft,sweep` for the lock; the expired sweep runs automatically at the start of `full` and `sweep` modes.
 
 ## Gotchas
