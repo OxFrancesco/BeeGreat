@@ -1,4 +1,5 @@
 import { InferenceTools, userInference } from "./user-inference";
+import { captureAgentEvent } from "../analytics";
 import { fallbackModels } from "./opencode";
 import { TypeSafeRequestClassifier } from "../request-classifier";
 export { UserInference } from "./user-inference";
@@ -111,6 +112,9 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           this.store,
           wallets,
           {
+            analytics: Reflect.get(env, "POSTHOG_ENABLED") === "true"
+              ? (senderId, event) => ctx.waitUntil(captureAgentEvent({ senderId, event }))
+              : undefined,
             aave: new AaveService(),
             polymarket: new PolymarketService(this.config.exaApiKey, ctx.storage),
             whop: this.config.whopApiKey

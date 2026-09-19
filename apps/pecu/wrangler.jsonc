@@ -42,6 +42,7 @@
     { "tag": "v2-user-inference", "new_sqlite_classes": ["UserInference"] }
   ],
   "vars": {
+    "POSTHOG_ENABLED": "true",
     "BASE_RPC_URL": "https://base-mainnet.g.alchemy.com/public",
     "ENABLE_MAINNET_EXECUTION": "true",
     "XCHAT_POLLING_ENABLED": "true",

@@ -6,6 +6,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import styles from "../styles.css?url";
+import { Analytics } from "../components/analytics";
 export const Route = createRootRoute({
   head: () => ({
     meta: [
@@ -40,6 +41,7 @@ function Root() {
           signUpFallbackRedirectUrl="/aero/stocks"
         >
           <Outlet />
+          <Analytics />
         </ClerkProvider>
         <Scripts />
       </body>

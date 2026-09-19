@@ -1,4 +1,5 @@
 import { stocksSchema, type StockTrade } from "./stock-contract";
+import type { AgentAnalytics, AgentAnalyticsEvent } from "./analytics";
 import type { AaveService } from "./integrations/aave";
 import type { PolymarketService } from "./integrations/polymarket";
 import type { WhopService } from "./integrations/whop";
@@ -107,6 +108,7 @@ type AgentWallets = Pick<WalletService, "balances" | "prepare" | "approve" | "tr
 export type UserOperationVerifier = (reference: UserOperationReference) => Promise<UserOperationOutcome>;
 
 export type AgentServices = Readonly<{
+  analytics?: AgentAnalytics;
   aave?: Pick<AaveService, "call" | "propose">;
   polymarket?: Pick<PolymarketService, "research">;
   whop?: Pick<WhopService, "createAccount" | "createDeposit">;
@@ -129,6 +131,14 @@ export class PecuAgent {
     private readonly harness: AgentHarness,
     private readonly classifier?: RequestClassifier,
   ) {}
+
+  private track(senderId: string, event: AgentAnalyticsEvent): void {
+    try {
+      this.services.analytics?.(senderId, event);
+    } catch {
+      log("warn", "analytics_delivery_failed", {});
+    }
+  }
 
   async resumeExecuting(): Promise<void> {
     if (!this.config.enableMainnetExecution) return;
@@ -191,21 +201,27 @@ export class PecuAgent {
     );
     if (claim === "completed") return this.store.eventReply(message.eventId);
     if (claim === "busy") return undefined;
+    const startedAt = Date.now();
+    const channel = message.conversationId.startsWith("stocks:") ? "web" : "x";
+    this.track(message.senderId, { event: "pecu_message_received", channel });
     try {
       const answeringQuestion = message.retryContext === undefined && !message.replyConfirmationCode && !/^(?:b)?\//.test(message.text.trim()) && this.store.answerPendingQuestion(message);
       if (message.retryContext !== undefined || answeringQuestion) this.previewOnly.add(message.eventId);
       if (answeringQuestion && /^cancel$/i.test(message.text.trim())) {
         const reply = "Cancelled. No new transaction was sent.";
         this.store.completeEvent(message.eventId, reply);
+        this.track(message.senderId, { event: "pecu_message_completed", channel, duration_ms: Date.now() - startedAt });
         return reply;
       }
       const reply = await this.execute(message);
       this.store.completeEvent(message.eventId, reply);
+      this.track(message.senderId, { event: "pecu_message_completed", channel, duration_ms: Date.now() - startedAt });
       return reply;
     } catch (error) {
       const reply = chatError(error);
       this.store.completeEvent(message.eventId, reply);
       log("warn", "command_failed", { eventId: message.eventId, senderId: message.senderId, error: errorMessage(error) });
+      this.track(message.senderId, { event: "pecu_message_failed", channel, duration_ms: Date.now() - startedAt });
       return reply;
     } finally {
       this.previewOnly.delete(message.eventId);
@@ -214,7 +230,10 @@ export class PecuAgent {
 
   private async execute(message: VerifiedMessage): Promise<string> {
     if (message.senderId === treasurySenderId) throw new Error("This sender ID is reserved for the Pecu treasury.");
-    if (!this.store.wallet(message.senderId)) await this.walletAddress(message.senderId);
+    if (!this.store.wallet(message.senderId)) {
+      await this.walletAddress(message.senderId);
+      this.track(message.senderId, { event: "pecu_wallet_provisioned" });
+    }
     if (/^(?:confirm|cancel)$/i.test(message.text.trim())) {
       if (!message.replyConfirmationCode) return 'Reply to the transaction preview with "confirm" or "cancel", or use the code shown in that preview.';
       const codeHash = await digest(message.replyConfirmationCode);
