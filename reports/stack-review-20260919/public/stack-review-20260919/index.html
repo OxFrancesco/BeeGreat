@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BeeGreat review and merge</title><style>body{max-width:860px;margin:48px auto;padding:0 24px;font:16px/1.65 system-ui;color:#222}h1,h2{line-height:1.2}h2{margin-top:40px}a{color:inherit}table{border-collapse:collapse}td,th{padding:9px;text-align:left;border-bottom:1px solid #ddd}code{overflow-wrap:anywhere}*{scrollbar-width:none}*::-webkit-scrollbar{display:none}</style><a href="report.md">Markdown report</a><h1>BeeGreat review and merge</h1>
+<p>September 19, 2026. Reviewed changes from the main checkout and the RPC worktree, created four stacked PRs, and merged them with six existing PRs. No open PRs remain at this review.</p>
+<h2>Merged</h2>
+<ul>
+<li><a href="https://github.com/OxFrancesco/BeeGreat/pull/36">#36 Analytics</a></li>
+<li><a href="https://github.com/OxFrancesco/BeeGreat/pull/37">#37 Shared design and transaction previews</a></li>
+<li><a href="https://github.com/OxFrancesco/BeeGreat/pull/38">#38 Aero verification</a></li>
+<li><a href="https://github.com/OxFrancesco/BeeGreat/pull/39">#39 RPC benchmark and recorded evidence</a></li>
+<li>Existing PRs #30–35: admin token comparison, Windows URL opening, removal of unsafe backend endpoints, journal queries, and mobile search.</li>
+</ul>
+<h2>Review fixes</h2>
+<ul>
+<li>Reset persisted analytics identity when the signed-in account changes.</li>
+<li>Bundle Inter and JetBrains Mono with their licenses.</li>
+<li>Render real transaction component states in the design reference.</li>
+<li>Replace stale tests after deleting public backend agent endpoints.</li>
+<li>Preserve calendar results beyond 1,000 monthly entries.</li>
+</ul>
+<p>The initial suspected missing benchmark import was present at the bottom of the module. The benchmark bundle passed. Standards review found no remaining actionable issue in the scoped changes. Spec review used docs 36–38 and its confirmed findings were fixed.</p>
+<h2>Checks</h2>
+<table>
+<thead>
+<tr><th>Check</th><th>Result</th></tr>
+</thead>
+<tbody>
+<tr><td>Pecu</td><td>351 tests, typecheck, design checks and four Worker dry-run builds passed</td></tr>
+<tr><td>Stocks/Agent</td><td>48 tests, typecheck and production build passed</td></tr>
+<tr><td>Site</td><td>Typecheck and production build passed</td></tr>
+<tr><td>Backend</td><td>408 tests and typecheck passed</td></tr>
+<tr><td>CLI</td><td>66 tests and typecheck passed</td></tr>
+<tr><td>Mobile</td><td>Typecheck passed</td></tr>
+<tr><td>Aero verification scripts</td><td>13 tests, 74 assertions passed</td></tr>
+<tr><td>Browser analytics</td><td>Bundled SDK transport, redaction, account reset and deduplication passed</td></tr>
+<tr><td>Local browser</td><td>Design sample submitted and completed states verified</td></tr>
+<tr><td>RPC benchmark</td><td>Bundle passed; historical evidence retained</td></tr>
+<tr><td>Secret scan</td><td>Four matches reviewed: public token address, public ingestion token, deployment ID and binary font patch; no new credential identified</td></tr>
+</tbody>
+</table>
+<p>GitHub main at <code>ea31e61</code> exactly matched the tested combined source tree before this report-only change. GitHub CodeRabbit statuses passed; the repository has no build CI configured.</p>
+<h2>Worktrees and scope</h2>
+<p>Four original worktrees exist, including main. The RPC worktree changes are merged. Two additional worktree registrations point to missing temporary directories. Preserve existing worktrees and ignored local data. Temporary review worktrees can be removed after synchronization.</p>
+<p>Pecu changes apply to web and X as documented. Bee mobile changes are search debounce and calendar subscription gating; backend journal changes serve all its callers. CLI changes cover Windows URL opening. Android, iMessage, voice and Hive implementations were not changed. No EVM or Aero SDK source changed, so no standalone SDK publication is required.</p>
+<p>No product deployment, funded Aero verification, new provider benchmark, or native device UI test was performed. No transaction was prepared or sent. The report is the only deployment in this task.</p>
+</html>
