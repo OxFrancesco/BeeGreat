@@ -1,0 +1,98 @@
+[
+  {
+    "operation": "block",
+    "provider": "alchemy",
+    "count": 30,
+    "errors": 0,
+    "p50": 118,
+    "p95": 178
+  },
+  {
+    "operation": "block",
+    "provider": "chainstack",
+    "count": 30,
+    "errors": 0,
+    "p50": 34,
+    "p95": 37
+  },
+  {
+    "operation": "balance",
+    "provider": "alchemy",
+    "count": 30,
+    "errors": 0,
+    "p50": 118,
+    "p95": 120
+  },
+  {
+    "operation": "balance",
+    "provider": "chainstack",
+    "count": 30,
+    "errors": 0,
+    "p50": 36,
+    "p95": 38
+  },
+  {
+    "operation": "contract",
+    "provider": "alchemy",
+    "count": 30,
+    "errors": 0,
+    "p50": 118,
+    "p95": 128
+  },
+  {
+    "operation": "contract",
+    "provider": "chainstack",
+    "count": 30,
+    "errors": 0,
+    "p50": 36,
+    "p95": 38
+  },
+  {
+    "operation": "logs",
+    "provider": "alchemy",
+    "count": 30,
+    "errors": 0,
+    "p50": 227,
+    "p95": 246
+  },
+  {
+    "operation": "logs",
+    "provider": "chainstack",
+    "count": 30,
+    "errors": 0,
+    "p50": 68,
+    "p95": 72
+  },
+  {
+    "operation": "simulation",
+    "provider": "alchemy",
+    "count": 30,
+    "errors": 0,
+    "p50": 116,
+    "p95": 123
+  },
+  {
+    "operation": "simulation",
+    "provider": "chainstack",
+    "count": 30,
+    "errors": 0,
+    "p50": 36,
+    "p95": 39
+  },
+  {
+    "operation": "concurrent",
+    "provider": "alchemy",
+    "count": 30,
+    "errors": 0,
+    "p50": 120,
+    "p95": 167
+  },
+  {
+    "operation": "concurrent",
+    "provider": "chainstack",
+    "count": 30,
+    "errors": 0,
+    "p50": 38,
+    "p95": 102
+  }
+]

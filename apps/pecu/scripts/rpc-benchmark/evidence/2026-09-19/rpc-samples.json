@@ -1,0 +1,3152 @@
+[
+  {
+    "round": 0,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:05:41.855Z",
+    "operation": "block",
+    "block": 51509692,
+    "heads": [
+      "0x311f9bf",
+      "0x311f9bf"
+    ],
+    "consistent": null,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 0,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 0,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 1,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 1,
+        "ms": 333,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 2,
+        "ms": 140,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 2,
+        "ms": 33,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 3,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 3,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 4,
+        "ms": 143,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 5,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 5,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 6,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 6,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 7,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 7,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 8,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 8,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 9,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 9,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 0,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:05:45.276Z",
+    "operation": "balance",
+    "block": 51509694,
+    "heads": [
+      "0x311f9c1",
+      "0x311f9c1"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 0,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 0,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 1,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 1,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 2,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 2,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 3,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 3,
+        "ms": 113,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 4,
+        "ms": 134,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 5,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 5,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 6,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 6,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 7,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 7,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 8,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 8,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 9,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 9,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 0,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:05:48.454Z",
+    "operation": "contract",
+    "block": 51509696,
+    "heads": [
+      "0x311f9c3",
+      "0x311f9c3"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 0,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 0,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 1,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 1,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 2,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 2,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 3,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 3,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 4,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 5,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 5,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 6,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 6,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 7,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 7,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 8,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 8,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 9,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 9,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 0,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:05:52.722Z",
+    "operation": "logs",
+    "block": 51509697,
+    "heads": [
+      "0x311f9c4",
+      "0x311f9c4"
+    ],
+    "consistent": false,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 0,
+        "ms": 246,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 0,
+        "ms": 71,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 1,
+        "ms": 40,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 1,
+        "ms": 220,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 2,
+        "ms": 235,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 2,
+        "ms": 69,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 3,
+        "ms": 39,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 3,
+        "ms": 223,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 4,
+        "ms": 229,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 4,
+        "ms": 69,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 5,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 5,
+        "ms": 377,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 6,
+        "ms": 123,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 6,
+        "ms": 66,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 7,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 7,
+        "ms": 123,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 8,
+        "ms": 123,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 8,
+        "ms": 40,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 9,
+        "ms": 39,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 9,
+        "ms": 227,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 0,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:05:55.901Z",
+    "operation": "simulation",
+    "block": 51509699,
+    "heads": [
+      "0x311f9c6",
+      "0x311f9c6"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 0,
+        "ms": 122,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 0,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 1,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 1,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 2,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 2,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 3,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 3,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 4,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 5,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 5,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 6,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 6,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 7,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 7,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 8,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 8,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 9,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 9,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 0,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:08.090Z",
+    "operation": "concurrent",
+    "block": 51509701,
+    "heads": [
+      "0x311f9c8",
+      "0x311f9c8"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 0,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 0,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 1,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 1,
+        "ms": 330,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 2,
+        "ms": 128,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 2,
+        "ms": 48,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 3,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 3,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 4,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 4,
+        "ms": 52,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 5,
+        "ms": 361,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 5,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 6,
+        "ms": 167,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 6,
+        "ms": 68,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 7,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 7,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 8,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 8,
+        "ms": 57,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 9,
+        "ms": 41,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 9,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 1,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:11.266Z",
+    "operation": "block",
+    "block": 51509707,
+    "heads": [
+      "0x311f9ce",
+      "0x311f9ce"
+    ],
+    "consistent": null,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 0,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 0,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 1,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 1,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 2,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 2,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 3,
+        "ms": 33,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 3,
+        "ms": 112,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 4,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 4,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 5,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 5,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 6,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 6,
+        "ms": 33,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 7,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 7,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 8,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 8,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 9,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 9,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 1,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:14.456Z",
+    "operation": "balance",
+    "block": 51509709,
+    "heads": [
+      "0x311f9d0",
+      "0x311f9d0"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 0,
+        "ms": 111,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 0,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 1,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 1,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 2,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 2,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 3,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 3,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 4,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 4,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 5,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 5,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 6,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 6,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 7,
+        "ms": 39,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 7,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 8,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 8,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 9,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 9,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 1,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:17.709Z",
+    "operation": "contract",
+    "block": 51509710,
+    "heads": [
+      "0x311f9d1",
+      "0x311f9d1"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 0,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 0,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 1,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 1,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 2,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 2,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 3,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 3,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 4,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 4,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 5,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 5,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 6,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 6,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 7,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 7,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 8,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 8,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 9,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 9,
+        "ms": 128,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 1,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:22.121Z",
+    "operation": "logs",
+    "block": 51509712,
+    "heads": [
+      "0x311f9d3",
+      "0x311f9d3"
+    ],
+    "consistent": false,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 0,
+        "ms": 235,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 0,
+        "ms": 69,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 1,
+        "ms": 67,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 1,
+        "ms": 232,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 2,
+        "ms": 226,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 2,
+        "ms": 73,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 3,
+        "ms": 69,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 3,
+        "ms": 224,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 4,
+        "ms": 225,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 4,
+        "ms": 71,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 5,
+        "ms": 70,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 5,
+        "ms": 226,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 6,
+        "ms": 232,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 6,
+        "ms": 68,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 7,
+        "ms": 69,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 7,
+        "ms": 223,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 8,
+        "ms": 226,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 8,
+        "ms": 72,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 9,
+        "ms": 68,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 9,
+        "ms": 231,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 1,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:25.303Z",
+    "operation": "simulation",
+    "block": 51509714,
+    "heads": [
+      "0x311f9d5",
+      "0x311f9d5"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 0,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 0,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 1,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 1,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 2,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 2,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 3,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 3,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 4,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 5,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 5,
+        "ms": 129,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 6,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 6,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 7,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 7,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 8,
+        "ms": 123,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 8,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 9,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 9,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 1,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:37.522Z",
+    "operation": "concurrent",
+    "block": 51509716,
+    "heads": [
+      "0x311f9d7",
+      "0x311f9d7"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 0,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 0,
+        "ms": 39,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 1,
+        "ms": 102,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 1,
+        "ms": 123,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 2,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 2,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 3,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 3,
+        "ms": 128,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 4,
+        "ms": 123,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 4,
+        "ms": 40,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 5,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 5,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 6,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 6,
+        "ms": 40,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 7,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 7,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 8,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 8,
+        "ms": 45,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 9,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 9,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:40.769Z",
+    "operation": "block",
+    "block": 51509722,
+    "heads": [
+      "0x311f9dd",
+      "0x311f9dd"
+    ],
+    "consistent": null,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 0,
+        "ms": 178,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 0,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 1,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 1,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 2,
+        "ms": 131,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 2,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 3,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 3,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 4,
+        "ms": 136,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 5,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 5,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 6,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 6,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 7,
+        "ms": 50,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 7,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 8,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 8,
+        "ms": 33,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "block",
+        "sample": 9,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "block",
+        "sample": 9,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:43.927Z",
+    "operation": "balance",
+    "block": 51509723,
+    "heads": [
+      "0x311f9de",
+      "0x311f9de"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 0,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 0,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 1,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 1,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 2,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 2,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 3,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 3,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 4,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 4,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 5,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 5,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 6,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 6,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 7,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 7,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 8,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 8,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "balance",
+        "sample": 9,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "balance",
+        "sample": 9,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:47.138Z",
+    "operation": "contract",
+    "block": 51509725,
+    "heads": [
+      "0x311f9e0",
+      "0x311f9e0"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 0,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 0,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 1,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 1,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 2,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 2,
+        "ms": 38,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 3,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 3,
+        "ms": 160,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 4,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 5,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 5,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 6,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 6,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 7,
+        "ms": 39,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 7,
+        "ms": 114,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 8,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 8,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "contract",
+        "sample": 9,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "contract",
+        "sample": 9,
+        "ms": 115,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:51.839Z",
+    "operation": "logs",
+    "block": 51509727,
+    "heads": [
+      "0x311f9e2",
+      "0x311f9e2"
+    ],
+    "consistent": false,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 0,
+        "ms": 229,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 0,
+        "ms": 71,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 1,
+        "ms": 67,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 1,
+        "ms": 234,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 2,
+        "ms": 227,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 2,
+        "ms": 71,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 3,
+        "ms": 67,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 3,
+        "ms": 231,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 4,
+        "ms": 230,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 4,
+        "ms": 70,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 5,
+        "ms": 68,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 5,
+        "ms": 227,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 6,
+        "ms": 233,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 6,
+        "ms": 71,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 7,
+        "ms": 67,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 7,
+        "ms": 239,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 8,
+        "ms": 227,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 8,
+        "ms": 67,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "logs",
+        "sample": 9,
+        "ms": 68,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "logs",
+        "sample": 9,
+        "ms": 223,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:06:54.997Z",
+    "operation": "simulation",
+    "block": 51509729,
+    "heads": [
+      "0x311f9e4",
+      "0x311f9e4"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 0,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 0,
+        "ms": 39,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 1,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 1,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 2,
+        "ms": 117,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 2,
+        "ms": 41,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 3,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 3,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 4,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 4,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 5,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 5,
+        "ms": 113,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 6,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 6,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 7,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 7,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 8,
+        "ms": 116,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 8,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "simulation",
+        "sample": 9,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "simulation",
+        "sample": 9,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  },
+  {
+    "round": 2,
+    "runtime": "cloudflare-worker",
+    "colo": "FCO",
+    "startedAt": "2026-09-19T09:07:07.180Z",
+    "operation": "concurrent",
+    "block": 51509730,
+    "heads": [
+      "0x311f9e5",
+      "0x311f9e5"
+    ],
+    "consistent": true,
+    "rows": [
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 0,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 0,
+        "ms": 35,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 1,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 1,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 2,
+        "ms": 119,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 2,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 3,
+        "ms": 37,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 3,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 4,
+        "ms": 120,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 4,
+        "ms": 36,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 5,
+        "ms": 34,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 5,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 6,
+        "ms": 121,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 6,
+        "ms": 39,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 7,
+        "ms": 41,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 7,
+        "ms": 137,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 8,
+        "ms": 141,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 8,
+        "ms": 43,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "chainstack",
+        "operation": "concurrent",
+        "sample": 9,
+        "ms": 40,
+        "ok": true,
+        "errors": []
+      },
+      {
+        "provider": "alchemy",
+        "operation": "concurrent",
+        "sample": 9,
+        "ms": 118,
+        "ok": true,
+        "errors": []
+      }
+    ]
+  }
+]

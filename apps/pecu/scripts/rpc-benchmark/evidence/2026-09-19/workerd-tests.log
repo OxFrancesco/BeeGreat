@@ -1,0 +1,12 @@
+bun test v1.4.2 (744846f84)
+
+tests/history-workerd.test.ts:
+(pass) history migration and triggers work in actual Durable Object SQLite [1282.92ms]
+
+tests/xchat-workerd.test.ts:
+(pass) X Chat WASM in Workerd > initializes the X Chat and Juicebox WASM modules [46644.10ms]
+
+ 2 pass
+ 0 fail
+ 11 expect() calls
+Ran 2 tests across 2 files. [47.94s]

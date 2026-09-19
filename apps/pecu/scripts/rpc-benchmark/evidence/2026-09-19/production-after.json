@@ -1,0 +1,67 @@
+[
+  {
+    "operation": "production-pools",
+    "status": 200,
+    "ms": 309,
+    "ok": true,
+    "poolAddresses": [
+      "0x723AEf6543aecE026a15662Be4D3fb3424D502A9",
+      "0x2722C8f9B5E2aC72D1f225f8e8c990E449ba0078",
+      "0xAf58FDeE432a104a932a899968d60F92838886cd",
+      "0x2B7704f1cb9324cD8586B33C6c540CbD64E58237",
+      "0x0B25c51637c43decd6CC1C1e3da4518D54ddb528"
+    ]
+  },
+  {
+    "operation": "production-pools",
+    "status": 200,
+    "ms": 50,
+    "ok": true,
+    "poolAddresses": [
+      "0x723AEf6543aecE026a15662Be4D3fb3424D502A9",
+      "0x2722C8f9B5E2aC72D1f225f8e8c990E449ba0078",
+      "0xAf58FDeE432a104a932a899968d60F92838886cd",
+      "0x2B7704f1cb9324cD8586B33C6c540CbD64E58237",
+      "0x0B25c51637c43decd6CC1C1e3da4518D54ddb528"
+    ]
+  },
+  {
+    "operation": "production-pools",
+    "status": 200,
+    "ms": 42,
+    "ok": true,
+    "poolAddresses": [
+      "0x723AEf6543aecE026a15662Be4D3fb3424D502A9",
+      "0x2722C8f9B5E2aC72D1f225f8e8c990E449ba0078",
+      "0xAf58FDeE432a104a932a899968d60F92838886cd",
+      "0x2B7704f1cb9324cD8586B33C6c540CbD64E58237",
+      "0x0B25c51637c43decd6CC1C1e3da4518D54ddb528"
+    ]
+  },
+  {
+    "operation": "production-pools",
+    "status": 200,
+    "ms": 41,
+    "ok": true,
+    "poolAddresses": [
+      "0x723AEf6543aecE026a15662Be4D3fb3424D502A9",
+      "0x2722C8f9B5E2aC72D1f225f8e8c990E449ba0078",
+      "0xAf58FDeE432a104a932a899968d60F92838886cd",
+      "0x2B7704f1cb9324cD8586B33C6c540CbD64E58237",
+      "0x0B25c51637c43decd6CC1C1e3da4518D54ddb528"
+    ]
+  },
+  {
+    "operation": "production-pools",
+    "status": 200,
+    "ms": 44,
+    "ok": true,
+    "poolAddresses": [
+      "0x723AEf6543aecE026a15662Be4D3fb3424D502A9",
+      "0x2722C8f9B5E2aC72D1f225f8e8c990E449ba0078",
+      "0xAf58FDeE432a104a932a899968d60F92838886cd",
+      "0x2B7704f1cb9324cD8586B33C6c540CbD64E58237",
+      "0x0B25c51637c43decd6CC1C1e3da4518D54ddb528"
+    ]
+  }
+]

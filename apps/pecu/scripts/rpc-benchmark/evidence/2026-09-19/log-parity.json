@@ -1,0 +1,174 @@
+{
+  "runtime": "cloudflare-worker",
+  "colo": "FCO",
+  "startedAt": "2026-09-19T09:08:51.597Z",
+  "operation": "logs",
+  "block": 51509786,
+  "heads": [
+    "0x311fa1d",
+    "0x311fa1d"
+  ],
+  "consistent": true,
+  "rows": [
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 0,
+      "ms": 335,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 0,
+      "ms": 71,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 1,
+      "ms": 72,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 1,
+      "ms": 350,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 2,
+      "ms": 339,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 2,
+      "ms": 71,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 3,
+      "ms": 70,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 3,
+      "ms": 638,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 4,
+      "ms": 339,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 4,
+      "ms": 75,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 5,
+      "ms": 76,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 5,
+      "ms": 332,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 6,
+      "ms": 337,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 6,
+      "ms": 69,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 7,
+      "ms": 73,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 7,
+      "ms": 346,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 8,
+      "ms": 348,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 8,
+      "ms": 71,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "logs",
+      "sample": 9,
+      "ms": 73,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "logs",
+      "sample": 9,
+      "ms": 333,
+      "ok": true,
+      "errors": []
+    }
+  ]
+}
