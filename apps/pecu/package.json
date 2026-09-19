@@ -13,12 +13,14 @@
     "build": "WRANGLER_WRITE_LOGS=false bunx wrangler deploy --dry-run --outdir dist/cloudflare && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.aero.jsonc --dry-run --outdir dist/aero && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.codex.jsonc --dry-run --containers-rollout=none --outdir dist/codex && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.evm.jsonc --dry-run --containers-rollout=none --outdir dist/evm",
     "typecheck": "tsc --noEmit",
     "test": "bun test ./tests/*.test.ts",
-    "check": "bun run typecheck && bun run test && bun run build",
+    "check": "bun run design:check && bun run typecheck && bun run test && bun run build",
     "cloudflare:types": "WRANGLER_WRITE_LOGS=false bunx wrangler types",
     "cloudflare:dev": "bun run dev",
     "cloudflare:build": "bun run build",
     "cloudflare:deploy": "WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.codex.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.evm.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.aero.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy",
-    "aero:check-version": "bun scripts/check-aero-version.ts"
+    "aero:check-version": "bun scripts/check-aero-version.ts",
+    "design:sync": "bun scripts/sync-design-theme.ts",
+    "design:check": "bun scripts/check-design.ts && bun run --cwd apps/stocks lint:design"
   },
   "dependencies": {
     "@beegreat/sugar": "github:OxFrancesco/aerodrome-sdk-ts#af1464619f74992d6d41923609297de9788001cf",

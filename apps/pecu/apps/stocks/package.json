@@ -4,11 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "bun run catalog && vite --host 127.0.0.1 --port 5198",
-    "build": "bun run catalog && vite build",
+    "build": "bun ../../scripts/check-design.ts && bun run lint:design && bun run catalog && vite build",
     "typecheck": "tsc --noEmit",
+    "verify:analytics": "bun scripts/verify-analytics.ts",
     "deploy": "bun run build && wrangler deploy",
     "catalog": "bun scripts/sync-catalog.ts",
-    "verify:analytics": "bun scripts/verify-analytics.ts"
+    "lint:design": "oxlint -c .oxlintrc.json src"
   },
   "dependencies": {
     "@clerk/tanstack-react-start": "^0.29.10",

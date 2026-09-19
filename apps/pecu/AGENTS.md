@@ -180,3 +180,13 @@ Polymarket uses Exa Agent API with only the `polymarket` data source and minimal
 Whop deposits give users a fiat on-ramp. `WHOP_API_KEY` and `WHOP_WEBHOOK_SECRET` are Cloudflare secrets, never in code. Each sender gets one connected account keyed by their verified ID; `/deposit` reuses it. Confirmed `deposit.succeeded` webhooks relay the same dollar amount in Base USDC from the treasury wallet automatically, with no confirmation step. Repeat bank and crypto details exactly as the tool returns them; never invent payment details, fees, or timing. Deposits over the automatic caps wait for manual review.
 
 Nansen analytics is read-only. `NANSEN_API_KEY` is a Cloudflare secret, never in code. Every user-visible Nansen reply must end with `Data: Nansen (nansen.ai)`. Nansen's redistribution terms forbid labels endpoints, all `smart-money/*` endpoints, the PnL leaderboards, and `tgm/holders`, and `tgm/dex-trades` must always send `only_smart_money: false`. The allowed path list is pinned by `tests/integrations-nansen.test.ts`; keep it in sync with any catalog change. Analytics answers report what the data shows and are not financial advice.
+
+## Pecu visual consistency
+
+Pecu and Pecu Agent share `theme/amber-minimal.json`, generated `theme/theme.css`,
+and `theme/clay.css`. Keep the original claymation snail and clay depth in controls.
+Amber-minimal owns UI colors and typography; the clay layer owns material and shape.
+Do not add a second palette or override the upstream tokens in product stylesheets.
+Read `docs/design-system.md` before UI work and run `bun run design:check` afterwards.
+Update the `/design` specimens with new visual patterns. Charts may retain distinct
+series colors; their data-driven styles have explicit lint exceptions.

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun scripts/build-docs.ts",
+    "build": "bun ../../scripts/check-design.ts && bun scripts/build-docs.ts",
     "build:check": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit"
   },

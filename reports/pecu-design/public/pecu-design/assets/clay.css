@@ -1,0 +1,24 @@
+/* Pecu's material layer. Amber-minimal owns color and type; clay owns depth and shape. */
+.pecu-theme,
+.pecu {
+  --clay-radius-control: 14px;
+  --clay-radius-surface: 22px;
+  --clay-radius-large: 30px;
+  --clay-radius-pill: 999px;
+  --clay-light: color-mix(in oklch, var(--background) 85%, transparent);
+  --clay-shade: color-mix(in oklch, var(--foreground) 12%, transparent);
+  --clay-shadow:
+    8px 10px 22px var(--clay-shade), -6px -6px 18px var(--clay-light),
+    inset 2px 2px 3px var(--clay-light), inset -3px -3px 6px var(--clay-shade);
+  --clay-shadow-sm:
+    4px 5px 12px var(--clay-shade), inset 1px 1px 2px var(--clay-light),
+    inset -2px -2px 4px var(--clay-shade);
+  --clay-shadow-primary:
+    5px 6px 14px color-mix(in oklch, var(--primary) 24%, transparent),
+    inset 2px 2px 4px color-mix(in oklch, var(--primary) 45%, var(--background)),
+    inset -3px -3px 5px
+      color-mix(in oklch, var(--primary) 72%, var(--foreground));
+  --clay-shadow-inset: inset 1px 2px 5px var(--clay-shade);
+  --clay-focus: 0 0 0 3px color-mix(in oklch, var(--ring) 40%, transparent);
+  --clay-hover: color-mix(in oklch, var(--primary) 88%, var(--background));
+}

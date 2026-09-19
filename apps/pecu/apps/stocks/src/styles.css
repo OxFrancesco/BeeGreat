@@ -1,12 +1,17 @@
 @import "katex/dist/katex.min.css";
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;550;600;650;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
+@import "../../../theme/fonts.css";
+@import "../../../theme/theme.css";
+@import "../../../theme/clay.css";
 @import "./pecu.css";
 @source "../../../../../node_modules/streamdown/dist/*.js";
 /* Dark mode is opt-in by class. The OS preference must not restyle a light-only app. */
 @custom-variant dark (&:where(.dark, .dark *));
 @theme inline {
   --color-background: var(--background);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
@@ -25,6 +30,8 @@
 }
 :root {
   --background: #f6f8fc;
+  --card: var(--background);
+  --card-foreground: var(--foreground);
   --foreground: #152a4c;
   --primary: #255ecc;
   --primary-foreground: #fff;

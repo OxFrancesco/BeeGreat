@@ -309,7 +309,6 @@ function AgentWorkspace({
           <a className="pecu-wordmark" href="/">
             pecu
           </a>
-          {!threadsSupported && <PageNavigation />}
           <div className="pecu-auth">
             {isSignedIn ? (
               <>
@@ -890,21 +889,7 @@ function ThreadList({
         Deleting a thread removes its history here. Previews you already
         confirmed stay verifiable on Base.
       </p>
-      <PageNavigation />
     </div>
-  );
-}
-
-function PageNavigation() {
-  return (
-    <nav aria-label="Page navigation" className="pecu-nav">
-      <a href="/#tools">Tools</a>
-      <a href="/aero/cli">Aero</a>
-      <a href="/aero/stocks">Stocks</a>
-      <a aria-current="page" href="/agent">
-        Agent
-      </a>
-    </nav>
   );
 }
 

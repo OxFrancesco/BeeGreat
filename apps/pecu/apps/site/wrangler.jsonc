@@ -11,5 +11,5 @@
     { "binding": "CLI", "service": "aero-cli-site" },
     { "binding": "STOCKS", "service": "aero-stocks" }
   ],
-  "build": { "command": "bun scripts/build-docs.ts" }
+  "build": { "command": "bun run build" }
 }

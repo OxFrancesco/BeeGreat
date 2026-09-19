@@ -1,4 +1,5 @@
 {
   "extends": "../../tsconfig.json",
+  "compilerOptions": { "jsx": "react-jsx", "paths": { "@/*": ["../stocks/src/*"] } },
   "include": ["worker.ts", "scripts/*.ts", "../../worker-configuration.d.ts"]
 }

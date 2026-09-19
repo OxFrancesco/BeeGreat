@@ -1,7 +1,20 @@
-import { Loader2Icon } from "lucide-react";
+import {
+  ArrowDownIcon,
+  CheckIcon,
+  Clock3Icon,
+  Loader2Icon,
+  CircleAlertIcon,
+  XIcon,
+} from "lucide-react";
+import { useId } from "react";
 import type { z } from "zod";
 import type { previewSchema } from "../../../../src/web-contract";
-import { previewRows } from "../lib/preview";
+import {
+  confirmationLabel,
+  previewPresentation,
+  type PreviewRow,
+} from "../lib/preview";
+import { CopyButton } from "./copy-button";
 import {
   Confirmation,
   ConfirmationAccepted,
@@ -25,6 +38,60 @@ function isAmount(value: string) {
   return /^(about )?\d/.test(value);
 }
 
+function DetailRows({ rows }: { rows: readonly PreviewRow[] }) {
+  return (
+    <dl className="pecu-confirmation-rows">
+      {rows.map((row, index) => (
+        <div
+          className={`pecu-confirmation-row${row.label ? "" : " is-plain"}`}
+          key={index}
+        >
+          {row.label ? (
+            <dt>{row.label}</dt>
+          ) : (
+            <dt className="sr-only">Details</dt>
+          )}
+          <dd
+            className={
+              isAmount(row.value) || /^0x/.test(row.value) ? "mono" : undefined
+            }
+          >
+            <span>{row.value}</span>
+            {/^0x[\da-fA-F]{40}$/.test(row.value) ? (
+              <CopyButton
+                text={row.value}
+                label={
+                  row.label === "To"
+                    ? "Copy recipient"
+                    : `Copy ${row.label.toLowerCase()}`
+                }
+                className="pecu-preview-copy"
+              />
+            ) : null}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function Amount({ row }: { row: PreviewRow }) {
+  const label =
+    row.label === "You receive"
+      ? "Estimated receive"
+      : row.label === "You pay"
+        ? "Pay"
+        : row.label;
+  const value =
+    row.label === "You receive" ? row.value.replace(/^about /, "") : row.value;
+  return (
+    <div className="pecu-preview-amount">
+      <span>{label}</span>
+      <strong className="mono">{value}</strong>
+    </div>
+  );
+}
+
 export function PreviewCard({
   preview,
   busy,
@@ -36,12 +103,29 @@ export function PreviewCard({
   confirming: boolean;
   onSend: (text: string) => Promise<void>;
 }) {
+  const headingId = useId();
+  const {
+    groups: parsedGroups,
+    metadata,
+    basket,
+  } = previewPresentation(preview.text);
+  const groups = parsedGroups.map((group) => ({
+    ...group,
+    details: group.details.filter(
+      (row) =>
+        !(
+          row.label === "Action" &&
+          row.value.toLowerCase() === preview.title?.toLowerCase()
+        ),
+    ),
+  }));
+  const approval = /approval|^Approve\b/i.test(preview.title ?? "");
   const expires = new Date(preview.expiresAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
   const labels: Record<Preview["state"], string> = {
-    pending: `Waiting for your confirmation · expires ${expires}`,
+    pending: `Review before confirming · expires ${expires}`,
     executing: "Submitted, waiting for the receipt",
     succeeded: "Executed and verified on Base",
     failed: "Failed",
@@ -54,57 +138,66 @@ export function PreviewCard({
       : "Confirming…"
     : labels[preview.state];
   const links = (preview.result ?? "").match(TX_LINK) ?? [];
+  const StateIcon =
+    preview.state === "succeeded"
+      ? CheckIcon
+      : preview.state === "failed"
+        ? CircleAlertIcon
+        : preview.state === "cancelled" || preview.state === "expired"
+          ? XIcon
+          : Clock3Icon;
   return (
-    <Confirmation className="pecu-confirmation" state={preview.state}>
+    <Confirmation
+      className="pecu-confirmation"
+      state={preview.state}
+      aria-labelledby={headingId}
+      aria-busy={confirming}
+    >
       <ConfirmationTitle className="pecu-confirmation-head">
         <span className="pecu-confirmation-heading">
-          <span className="pecu-confirmation-name">
+          <span className="pecu-confirmation-name" id={headingId}>
             {preview.title ?? "Transaction"}
           </span>
-          <span className="pecu-confirmation-status">{status}</span>
-        </span>
-        <span
-          aria-label="Confirmation code"
-          className="mono pecu-code"
-          title={`Use /confirm ${preview.code} in X chat`}
-        >
-          {preview.code}
+          <span className="pecu-confirmation-status" role="status">
+            <StateIcon aria-hidden="true" size={16} />
+            {status}
+          </span>
         </span>
       </ConfirmationTitle>
-      <div className="pecu-confirmation-body">
-        {previewRows(preview.text).map((group, index) => (
-          <dl className="pecu-confirmation-rows" key={index}>
-            {group.map((row, rowIndex) =>
-              row.label ? (
-                <div className="pecu-confirmation-row" key={rowIndex}>
-                  <dt>{row.label}</dt>
-                  <dd className={isAmount(row.value) ? "mono" : undefined}>
-                    {row.value}
-                  </dd>
-                </div>
-              ) : (
-                <dd
-                  className="pecu-confirmation-row is-plain"
-                  key={rowIndex}
-                >
-                  {row.value}
-                </dd>
-              ),
-            )}
-          </dl>
+      <div
+        className={`pecu-confirmation-body${basket ? " is-basket" : ""}${approval ? " is-approval" : ""}`}
+      >
+        {groups.map((group, index) => (
+          <div className="pecu-preview-group" key={index}>
+            {group.amounts.length ? (
+              <div className="pecu-preview-amounts">
+                {group.amounts.map((row, rowIndex) => (
+                  <div className="pecu-preview-amount-wrap" key={rowIndex}>
+                    {rowIndex > 0 && row.label === "You receive" ? (
+                      <ArrowDownIcon
+                        className="pecu-preview-arrow"
+                        size={18}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <Amount row={row} />
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {group.details.length ? <DetailRows rows={group.details} /> : null}
+          </div>
         ))}
+        {metadata.length ? <DetailRows rows={metadata} /> : null}
+        {approval &&
+        !preview.text.includes("This only approves token spending.") ? (
+          <p className="pecu-preview-approval-note">
+            This authorizes token spending. It does not transfer tokens.
+          </p>
+        ) : null}
       </div>
       <ConfirmationRequest>
         <ConfirmationActions className="pecu-confirmation-actions">
-          {preview.state === "pending" ? (
-            <ConfirmationAction
-              className="pecu-button pecu-button-quiet"
-              disabled={busy || confirming}
-              onClick={() => void onSend(`/cancel ${preview.code}`)}
-            >
-              Cancel
-            </ConfirmationAction>
-          ) : null}
           <ConfirmationAction
             className="pecu-button pecu-button-primary"
             disabled={busy || confirming}
@@ -112,15 +205,29 @@ export function PreviewCard({
           >
             {confirming ? (
               <>
-                <Loader2Icon className="size-4 animate-spin" />
+                <Loader2Icon
+                  className="size-4 animate-spin"
+                  aria-hidden="true"
+                />
                 {preview.state === "executing" ? "Checking…" : "Confirming…"}
               </>
             ) : preview.state === "executing" ? (
               "Check transaction"
+            ) : basket ? (
+              "Confirm basket"
             ) : (
-              "Confirm"
+              confirmationLabel(preview.title)
             )}
           </ConfirmationAction>
+          {preview.state === "pending" ? (
+            <ConfirmationAction
+              className="pecu-button"
+              disabled={busy || confirming}
+              onClick={() => void onSend(`/cancel ${preview.code}`)}
+            >
+              Cancel
+            </ConfirmationAction>
+          ) : null}
         </ConfirmationActions>
       </ConfirmationRequest>
       <ConfirmationAccepted>
@@ -136,7 +243,7 @@ export function PreviewCard({
           </div>
         ) : null}
         <span className="pecu-confirmation-note">
-          Pecu read the receipt and checked the user operation itself succeeded.
+          Receipt verified on Base. Amounts above are from the original preview.
         </span>
       </ConfirmationAccepted>
       <ConfirmationRejected>
@@ -151,6 +258,17 @@ export function PreviewCard({
             : "Nothing was sent. Ask again if you still want to do this."}
         </span>
       </ConfirmationRejected>
+      <details className="pecu-preview-reference">
+        <summary>Confirmation code</summary>
+        <div>
+          <code>{preview.code}</code>
+          <CopyButton
+            text={`/confirm ${preview.code}`}
+            label="Copy confirmation command"
+            className="pecu-preview-copy"
+          />
+        </div>
+      </details>
     </Confirmation>
   );
 }
