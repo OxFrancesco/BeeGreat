@@ -1,3 +1,5 @@
+import { generationEvents } from "../inference-analytics";
+import type { AgentAnalytics } from "../analytics";
 import { chatGptConnectionRequired, chatGptUserCode } from "../inference-recovery";
 import { aaveSkill, aaveSkillNames, aaveSchema } from "../integrations/aave";
 import type { OpenCodeWorkerd } from "@opencode-ai/sdk/workerd";
@@ -86,6 +88,7 @@ export class OpenCodeHarness implements AgentHarness {
     private readonly store: HarnessStateStore,
     private readonly storage: DurableObjectStorage,
     readonly fallbackConfigured: boolean,
+    private readonly analytics?: AgentAnalytics,
   ) {}
 
   static async create(
@@ -94,6 +97,7 @@ export class OpenCodeHarness implements AgentHarness {
     resolveCapabilities: CapabilityResolver,
     providerFetch?: typeof globalThis.fetch,
     openRouterApiKey?: string,
+    analytics?: AgentAnalytics,
   ): Promise<OpenCodeHarness> {
     // OpenCode initializes cryptographic IDs while its modules load. Workerd only
     // permits that inside a request/DO handler, so keep the runtime imports lazy.
@@ -295,7 +299,7 @@ export class OpenCodeHarness implements AgentHarness {
       },
       plugins: [plugin],
     });
-    return new OpenCodeHarness(client, store, storage, Boolean(openRouterApiKey));
+    return new OpenCodeHarness(client, store, storage, Boolean(openRouterApiKey), analytics);
   }
 
   async usageLimit(): Promise<UsageLimit | undefined> {
@@ -359,7 +363,26 @@ export class OpenCodeHarness implements AgentHarness {
 
   private async turn(sessionId: string, text: string, metadata: Record<string, string>) {
     const inbox = await this.client.sessions.prompt({ sessionID: sessionId, text, metadata });
-    await this.client.sessions.wait({ sessionID: sessionId });
+    try {
+      await this.client.sessions.wait({ sessionID: sessionId });
+    } finally {
+      if (this.analytics) {
+        try {
+          const cursorKey = `analytics:inference:${sessionId}`;
+          const after = await this.storage.get<number>(cursorKey);
+          const entries = await Array.fromAsync(this.client.sessions.log({ sessionID: sessionId, after, follow: false }));
+          const events = await generationEvents(entries, {
+            senderId: metadata.senderId, eventId: metadata.eventId,
+            conversationId: metadata.conversationId, startedAt: inbox.timeCreated,
+          });
+          const cursor = entries.reduce((seq, entry) => Math.max(seq, entry.type === "log.synced" ? entry.seq ?? 0 : entry.durable.seq), after ?? 0);
+          await this.storage.put(cursorKey, cursor);
+          for (const event of events) this.analytics(metadata.senderId, event);
+        } catch {
+          log("warn", "inference_analytics_failed", {});
+        }
+      }
+    }
     const messages = await this.client.sessions.context({ sessionID: sessionId });
     const assistant = messages.toReversed().find((entry) => entry.type === "assistant" && entry.time.created >= inbox.timeCreated);
     if (!assistant || assistant.type !== "assistant") throw new Error("OpenCode completed without an assistant response");

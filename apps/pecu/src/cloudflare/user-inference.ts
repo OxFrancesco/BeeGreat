@@ -1,3 +1,4 @@
+import { captureAgentEvent } from "../analytics";
 import { chatGptConnectionRequired } from "../inference-recovery";
 import { DurableObject, RpcTarget } from "cloudflare:workers";
 import type { AgentCapabilities, ResponseMode } from "../harness";
@@ -43,7 +44,10 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       this.harness = await OpenCodeHarness.create(ctx.storage, store, (message) => {
         if (!this.active || this.active.eventId !== message.eventId) throw new Error("This turn has ended. Send your request again.");
         return this.active.capabilities;
-      }, codexContainerFetch(env.CODEX), loadWorkerConfig(env).openRouterApiKey);
+      }, codexContainerFetch(env.CODEX), loadWorkerConfig(env).openRouterApiKey,
+        Reflect.get(env, "POSTHOG_ENABLED") === "true"
+          ? (senderId, event) => { ctx.waitUntil(captureAgentEvent({ senderId, event })); }
+          : undefined);
       store.initialize();
     });
   }

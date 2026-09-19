@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pecu PostHog tracking</title><style>*{box-sizing:border-box;scrollbar-width:none}*::-webkit-scrollbar{display:none}body{margin:0;background:#f9f9f9;color:#202020;font:17px/1.65 Georgia,serif}main{max-width:780px;margin:0 auto;padding:48px 24px 80px}h1,h2{font-family:Helvetica,sans-serif;line-height:1.2}h1{font-size:32px;margin:0 0 20px}h2{font-size:21px;margin:36px 0 12px}a{color:#644a40;text-underline-offset:4px}li{margin:8px 0}code{font-size:13px;overflow-wrap:anywhere}p{margin:16px 0}@media(max-width:480px){main{padding:28px 20px}h1{font-size:28px}}</style></head><body><main><h1>Pecu PostHog tracking</h1>
+<p>19 September 2026</p>
+<p>Pecu now has pageviews, landing-link clicks, signed-in identity linking, agent message outcomes, and first-message wallet provisioning events. Web and X Chat share the backend instrumentation.</p>
+<p>The unused Default project was renamed Pecu with Francesco&#39;s approval after PostHog rejected a new project because of the account&#39;s plan limit. Data goes to the EU region.</p>
+<h2>LLM token usage and estimated cost</h2>
+<p>The agent now emits one AI generation event per primary model step, including tool loops and failed attempts. ChatGPT and OpenRouter events share hashed traces and conversation IDs. Durable log cursors prevent replaying older usage and preserve events across compaction.</p>
+<p>Input includes cache tokens; output includes reasoning tokens. Both breakdowns are also recorded. Costs are explicitly labeled estimates: ChatGPT values represent API-equivalent usage, not subscription charges, and OpenRouter estimates are not invoice reconciliation. Missing/zero catalog pricing remains unknown unless PostHog can match a price. Auxiliary title/compaction calls and TypeSafe classifier usage are excluded.</p>
+<p>346 tests passed, including harness failure isolation, cursor progression, fallback grouping, token accounting, and privacy. TypeScript and the Worker build passed. PostHog read back two synthetic events with 140 input, 50 output, 40 cached, and 30 reasoning tokens, each with the supplied $0.00123 test estimate and environment=verification. No real LLM call was made for this check. Exclude verification events from production cost reports.</p>
+<p><a href="https://eu.posthog.com/project/278624/ai-observability/generations">AI generations</a> · <a href="https://posthog.com/docs/ai-observability/installation/manual-capture">Manual AI capture</a></p>
+<h2>Original analytics verification</h2>
+<ul>
+<li>341 Pecu tests passed. Two Workerd tests needed a rerun outside the sandbox to bind localhost ports.</li>
+<li>Pecu, Stocks, and landing TypeScript checks passed. Worker, web, and landing builds passed.</li>
+<li>The bundled browser SDK passed transport, private-property redaction, account reset, and duplicate-pageview checks in Happy DOM. Bot filtering was disabled only in that verification environment.</li>
+<li>A synthetic backend SDK event was read back through the PostHog plugin with environment set to verification. It did not invoke the agent or create a wallet.</li>
+<li>Live Chrome navigation from the landing page to Agent returned HTTP 200 from PostHog. The plugin read back landing and Agent pageviews with clean URLs, including after a thread query appeared in the browser.</li>
+<li>Live landing navigation-click events were also read back from PostHog. Clicks use immediate fetch delivery because the verification browser blocks beacon requests. No browser settings were changed.</li>
+<li>No funds moved.</li>
+</ul>
+<h2>Deployment</h2>
+<p>All three services were deployed to Francesco&#39;s personal Cloudflare account. The live landing analytics file matched the built file byte for byte, and the production CSP allows the EU endpoint.</p>
+<h2>Data boundaries</h2>
+<p>Chat text, replies, emails, wallet addresses, transaction amounts, credentials, confirmation codes, private URL segments, and query strings are excluded. Session replay, automatic content capture, automatic exceptions, performance capture, and GeoIP enrichment are disabled. Signed-in identity uses a domain-prefixed SHA-256 sender digest; this is pseudonymous tracking.</p>
+<p>Message completed means the handler saved a reply. It does not certify a transaction or model response. Wallet provisioned may mean an existing wallet was retrieved and cached. Delivery is best effort, not an accounting record.</p>
+<h2>Scope</h2>
+<p>The Pecu Worker, Agent/Stocks web app, and landing site are affected. Bee mobile, Android, CLI, iMessage, voice, and Hive are separate products and were not changed. The Aero, EVM, and Codex container workers do not need updates.</p>
+<p>Source changes remain uncommitted in BeeGreat. Run the browser check with <code>bun run --cwd apps/pecu/apps/stocks verify:analytics</code>.</p>
+<p><a href="https://eu.posthog.com/project/278624/settings/project">PostHog project</a> · <a href="https://posthog.com/docs/libraries/cloudflare-workers">SDK documentation</a></p>
+<p><a href="./report.md">Markdown report</a></p></main></body></html>

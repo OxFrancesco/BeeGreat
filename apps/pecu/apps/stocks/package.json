@@ -7,7 +7,8 @@
     "build": "bun run catalog && vite build",
     "typecheck": "tsc --noEmit",
     "deploy": "bun run build && wrangler deploy",
-    "catalog": "bun scripts/sync-catalog.ts"
+    "catalog": "bun scripts/sync-catalog.ts",
+    "verify:analytics": "bun scripts/verify-analytics.ts"
   },
   "dependencies": {
     "@clerk/tanstack-react-start": "^0.29.10",
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.54.9",
+    "@shadcn/lint": "0.1.1",
     "@tailwindcss/vite": "^4.2.2",
     "@types/d3-scale": "^4.0.9",
     "@types/d3-shape": "^3.2.0",

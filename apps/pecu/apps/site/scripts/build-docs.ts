@@ -3,6 +3,13 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "../../..");
 await cp(resolve(import.meta.dir, "../site"), resolve(import.meta.dir, "../public"), { recursive: true });
+const analytics = await Bun.build({
+  entrypoints: [resolve(import.meta.dir, "analytics.ts")],
+  outdir: resolve(import.meta.dir, "../public/pecu-assets"),
+  target: "browser",
+  minify: true,
+});
+if (!analytics.success) throw new AggregateError(analytics.logs, "Analytics bundle failed");
 const packageJson = await Bun.file(resolve(root, "package.json")).json();
 const revision = packageJson.dependencies["@beegreat/sugar"].split("#")[1];
 const source = await Bun.file(new URL("../README.md", import.meta.resolve("@beegreat/sugar"))).text();
