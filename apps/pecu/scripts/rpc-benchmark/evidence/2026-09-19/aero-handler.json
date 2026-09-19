@@ -1,0 +1,208 @@
+{
+  "runtime": "cloudflare-worker",
+  "colo": "FCO",
+  "operation": "aero-pools",
+  "rows": [
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 0,
+      "warmup": false,
+      "ms": 115,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 0,
+      "warmup": false,
+      "ms": 35,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 1,
+      "warmup": false,
+      "ms": 37,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 1,
+      "warmup": false,
+      "ms": 144,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 2,
+      "warmup": false,
+      "ms": 131,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 2,
+      "warmup": false,
+      "ms": 37,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 3,
+      "warmup": false,
+      "ms": 43,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 3,
+      "warmup": false,
+      "ms": 119,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 4,
+      "warmup": false,
+      "ms": 117,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 4,
+      "warmup": false,
+      "ms": 36,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 5,
+      "warmup": false,
+      "ms": 37,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 5,
+      "warmup": false,
+      "ms": 120,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 6,
+      "warmup": false,
+      "ms": 119,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 6,
+      "warmup": false,
+      "ms": 37,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 7,
+      "warmup": false,
+      "ms": 39,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 7,
+      "warmup": false,
+      "ms": 117,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 8,
+      "warmup": false,
+      "ms": 116,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 8,
+      "warmup": false,
+      "ms": 45,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": 9,
+      "warmup": false,
+      "ms": 38,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": 9,
+      "warmup": false,
+      "ms": 121,
+      "ok": true,
+      "errors": []
+    }
+  ],
+  "cold": [
+    {
+      "provider": "chainstack",
+      "operation": "aero-pools",
+      "sample": -1,
+      "warmup": true,
+      "ms": 104,
+      "ok": true,
+      "errors": []
+    },
+    {
+      "provider": "alchemy",
+      "operation": "aero-pools",
+      "sample": -1,
+      "warmup": true,
+      "ms": 121,
+      "ok": true,
+      "errors": []
+    }
+  ],
+  "consistent": true
+}
