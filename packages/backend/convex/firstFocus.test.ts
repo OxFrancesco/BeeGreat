@@ -112,11 +112,6 @@ const toggleTask = makeFunctionReference<
   { taskId: Id<'tasks'> },
   null
 >('tasks:toggle')
-const completeAgentTask = makeFunctionReference<
-  'mutation',
-  { userId: string; taskId: Id<'tasks'> },
-  { id: Id<'tasks'>; title: string; status: 'done' }
->('agent:completeTask')
 const removeGoal = makeFunctionReference<
   'mutation',
   { goalId: Id<'goals'> },
@@ -137,67 +132,6 @@ const removeTask = makeFunctionReference<
   { taskId: Id<'tasks'> },
   null
 >('tasks:remove')
-const deleteAgentGoal = makeFunctionReference<
-  'mutation',
-  { userId: string; goalId: Id<'goals'> },
-  { id: Id<'goals'>; title: string; deleted: boolean }
->('agent:deleteGoal')
-const createAgentGoal = makeFunctionReference<
-  'mutation',
-  { userId: string; title: string; finalGoal?: string },
-  { id: Id<'goals'>; title: string }
->('agent:createGoal')
-const deleteAgentProject = makeFunctionReference<
-  'mutation',
-  { userId: string; projectId: Id<'projects'> },
-  { id: Id<'projects'>; title: string; deleted: boolean }
->('agent:deleteProject')
-const deleteAgentTask = makeFunctionReference<
-  'mutation',
-  { userId: string; taskId: Id<'tasks'> },
-  { id: Id<'tasks'>; title: string; deleted: boolean }
->('agent:deleteTask')
-const getAgentGoals = makeFunctionReference<
-  'query',
-  { userId: string },
-  Array<{ id: Id<'goals'>; title: string }>
->('agent:getGoals')
-const listAgentTasks = makeFunctionReference<
-  'query',
-  { userId: string; goalId?: Id<'goals'>; status?: 'todo' | 'done' },
-  Array<{ id: Id<'tasks'>; title: string }>
->('agent:listTasks')
-const createAgentProject = makeFunctionReference<
-  'mutation',
-  { userId: string; goalId: Id<'goals'>; title: string },
-  { id: Id<'projects'>; title: string; goal: string }
->('agent:createProject')
-const updateAgentProject = makeFunctionReference<
-  'mutation',
-  { userId: string; projectId: Id<'projects'>; title: string },
-  { id: Id<'projects'>; title: string }
->('agent:updateProject')
-const createAgentTask = makeFunctionReference<
-  'mutation',
-  {
-    userId: string
-    goalId: Id<'goals'>
-    projectId?: Id<'projects'>
-    title: string
-    dueDate?: number
-  },
-  { id: Id<'tasks'>; title: string; goal: string }
->('agent:createTask')
-const updateAgentTask = makeFunctionReference<
-  'mutation',
-  {
-    userId: string
-    taskId: Id<'tasks'>
-    title?: string
-    dueDate?: number | null
-  },
-  { id: Id<'tasks'>; title: string }
->('agent:updateTask')
 const listGoals = makeFunctionReference<
   'query',
   Record<string, never>,
@@ -685,223 +619,11 @@ test('authenticated Task deletion removes its Highlight and first-focus receipt 
   })
 })
 
-test('legacy agent Goal deletion requires the matching Clerk identity for focus-world cleanup', async () => {
-  const t = convexTest(schema, modules)
-  const owner = t.withIdentity({
-    subject: 'agent-delete-owner',
-    tokenIdentifier: 'https://issuer.example.test|agent-delete-owner',
-  })
-  const attacker = t.withIdentity({
-    subject: 'agent-delete-attacker',
-    tokenIdentifier: 'https://issuer.example.test|agent-delete-attacker',
-  })
-  const created = await owner.mutation(confirmPlan, plan('agent-delete-plan'))
-  if (!created.bundle) throw new Error('Expected a confirmed bundle')
-
-  await expect(
-    t.mutation(deleteAgentGoal, {
-      userId: 'agent-delete-owner',
-      goalId: created.bundle.goalId,
-    }),
-  ).rejects.toThrow('Authentication required')
-  await expect(
-    attacker.mutation(deleteAgentGoal, {
-      userId: 'agent-delete-owner',
-      goalId: created.bundle.goalId,
-    }),
-  ).rejects.toThrow('Authenticated user does not match')
-
-  await expect(
-    owner.mutation(deleteAgentGoal, {
-      userId: 'agent-delete-owner',
-      goalId: created.bundle.goalId,
-    }),
-  ).resolves.toMatchObject({ deleted: true })
-  await t.run(async (ctx) => {
-    expect(await ctx.db.get('golieBees', created.bundle!.golieBeeId)).toBeNull()
-    expect(
-      await ctx.db.get('highlights', created.bundle!.highlightId),
-    ).toBeNull()
-  })
+test('legacy public agent module is unavailable', () => {
+  expect(Object.keys(modules)).not.toContain('./agent.ts')
 })
 
-test('legacy agent Project and Task deletion require Clerk identity only for focus-owned rows', async () => {
-  const t = convexTest(schema, modules)
-  const userId = 'agent-child-delete-owner'
-  const ownerKey = `https://issuer.example.test|${userId}`
-  const owner = t.withIdentity({ subject: userId, tokenIdentifier: ownerKey })
-
-  const projectPlan = await owner.mutation(
-    confirmPlan,
-    plan('agent-project-delete-plan'),
-  )
-  if (!projectPlan.bundle) throw new Error('Expected a confirmed bundle')
-  await expect(
-    t.mutation(deleteAgentProject, {
-      userId,
-      projectId: projectPlan.bundle.projectId,
-    }),
-  ).rejects.toThrow('Authentication required')
-  await owner.mutation(deleteAgentProject, {
-    userId,
-    projectId: projectPlan.bundle.projectId,
-  })
-
-  const taskPlan = await owner.mutation(
-    confirmPlan,
-    plan('agent-task-delete-plan'),
-  )
-  if (!taskPlan.bundle) throw new Error('Expected a confirmed bundle')
-  await expect(
-    t.mutation(deleteAgentTask, {
-      userId,
-      taskId: taskPlan.bundle.taskId,
-    }),
-  ).rejects.toThrow('Authentication required')
-  await owner.mutation(deleteAgentTask, {
-    userId,
-    taskId: taskPlan.bundle.taskId,
-  })
-
-  await t.run(async (ctx) => {
-    expect(
-      await ctx.db.get('highlights', projectPlan.bundle!.highlightId),
-    ).toBeNull()
-    expect(
-      await ctx.db.get('highlights', taskPlan.bundle!.highlightId),
-    ).toBeNull()
-    expect(
-      await ctx.db
-        .query('firstFocusBundles')
-        .withIndex('by_owner_key_and_request_id', (q) =>
-          q
-            .eq('ownerKey', ownerKey)
-            .eq('requestId', 'agent-project-delete-plan'),
-        )
-        .unique(),
-    ).toBeNull()
-    expect(
-      await ctx.db
-        .query('firstFocusBundles')
-        .withIndex('by_owner_key_and_request_id', (q) =>
-          q.eq('ownerKey', ownerKey).eq('requestId', 'agent-task-delete-plan'),
-        )
-        .unique(),
-    ).toBeNull()
-  })
-})
-
-test('legacy agent cannot use caller-supplied userId to inspect or bypass an active Highlight', async () => {
-  const t = convexTest(schema, modules)
-  const owner = t.withIdentity({
-    subject: 'agent-highlight-owner',
-    tokenIdentifier: 'https://issuer.example.test|agent-highlight-owner',
-  })
-  const created = await owner.mutation(confirmPlan, plan('agent-guard-plan'))
-  if (!created.bundle) throw new Error('Expected a confirmed bundle')
-
-  await expect(
-    t.mutation(completeAgentTask, {
-      userId: 'agent-highlight-owner',
-      taskId: created.bundle.taskId,
-    }),
-  ).rejects.toThrow('Authentication required')
-  await expect(
-    owner.mutation(completeAgentTask, {
-      userId: 'agent-highlight-owner',
-      taskId: created.bundle.taskId,
-    }),
-  ).rejects.toThrow('authenticated client')
-  expect((await owner.query(getCurrent, {})).activeHighlight?.taskId).toBe(
-    created.bundle.taskId,
-  )
-})
-
-test('agent reads and every descendant mutation isolate focus-owned lineages by Clerk issuer', async () => {
-  const t = convexTest(schema, modules)
-  const userId = 'agent-lineage-owner'
-  const owner = t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `https://issuer-a.example.test|${userId}`,
-  })
-  const otherIssuer = t.withIdentity({
-    subject: userId,
-    tokenIdentifier: `https://issuer-b.example.test|${userId}`,
-  })
-  const created = await owner.mutation(confirmPlan, plan('agent-lineage-plan'))
-  if (!created.bundle) throw new Error('Expected a confirmed bundle')
-
-  expect(await t.query(getAgentGoals, { userId })).toEqual([])
-  expect(await t.query(listAgentTasks, { userId })).toEqual([])
-  expect(await otherIssuer.query(getAgentGoals, { userId })).toEqual([])
-  expect(await otherIssuer.query(listAgentTasks, { userId })).toEqual([])
-  expect(await owner.query(getAgentGoals, { userId })).toHaveLength(1)
-  expect(await owner.query(listAgentTasks, { userId })).toHaveLength(1)
-
-  await expect(
-    t.mutation(createAgentProject, {
-      userId,
-      goalId: created.bundle.goalId,
-      title: 'Unauthenticated project',
-    }),
-  ).rejects.toThrow('Authentication required')
-  await expect(
-    otherIssuer.mutation(createAgentProject, {
-      userId,
-      goalId: created.bundle.goalId,
-      title: 'Foreign project',
-    }),
-  ).rejects.toThrow('Goal not found')
-  await expect(
-    otherIssuer.mutation(updateAgentProject, {
-      userId,
-      projectId: created.bundle.projectId,
-      title: 'Foreign project title',
-    }),
-  ).rejects.toThrow('Project not found')
-  await expect(
-    otherIssuer.mutation(createAgentTask, {
-      userId,
-      goalId: created.bundle.goalId,
-      projectId: created.bundle.projectId,
-      title: 'Foreign task',
-    }),
-  ).rejects.toThrow('Goal not found')
-  await expect(
-    otherIssuer.mutation(completeAgentTask, {
-      userId,
-      taskId: created.bundle.taskId,
-    }),
-  ).rejects.toThrow('Task not found')
-  await expect(
-    otherIssuer.mutation(updateAgentTask, {
-      userId,
-      taskId: created.bundle.taskId,
-      title: 'Foreign task title',
-    }),
-  ).rejects.toThrow('Task not found')
-  await expect(
-    otherIssuer.mutation(deleteAgentTask, {
-      userId,
-      taskId: created.bundle.taskId,
-    }),
-  ).rejects.toThrow('Task not found')
-  await expect(
-    otherIssuer.mutation(deleteAgentProject, {
-      userId,
-      projectId: created.bundle.projectId,
-    }),
-  ).rejects.toThrow('Project not found')
-
-  expect((await owner.query(getAgentGoals, { userId }))[0]?.title).toBe(
-    'Launch BeeGreat',
-  )
-  expect((await owner.query(listAgentTasks, { userId }))[0]?.title).toBe(
-    'Record the first plan',
-  )
-})
-
-test('all Goal creation paths allow seven Active Goals but reject an eighth', async () => {
+test('authenticated Goal creation allows seven Active Goals but rejects an eighth', async () => {
   const t = convexTest(schema, modules)
   const owner = t.withIdentity({
     tokenIdentifier: 'https://issuer.example.test|seven-goal-owner',
@@ -927,46 +649,6 @@ test('all Goal creation paths allow seven Active Goals but reject an eighth', as
   await expect(owner.mutation(createGoal, { title: 'Goal 8' })).rejects.toThrow(
     'at most 7',
   )
-
-  await expect(
-    t.mutation(createAgentGoal, {
-      userId: 'uninitialized-agent-owner',
-      title: 'Cannot exist yet',
-    }),
-  ).rejects.toThrow('Authentication required')
-
-  const agentOwner = t.withIdentity({
-    subject: 'agent-seven-goal-owner',
-    tokenIdentifier: 'https://issuer.example.test|agent-seven-goal-owner',
-  })
-  await agentOwner.mutation(confirmPlan, plan('agent-hive-setup'))
-  const agentGoalIds: Id<'goals'>[] = []
-  for (let goal = 2; goal <= 7; goal += 1) {
-    agentGoalIds.push(
-      (
-        await agentOwner.mutation(createAgentGoal, {
-          userId: 'agent-seven-goal-owner',
-          title: `Agent Goal ${goal}`,
-        })
-      ).id,
-    )
-  }
-  const agentGoals = (await agentOwner.query(getCurrent, {})).activeGoals
-  expect(agentGoals).toHaveLength(7)
-  expect(
-    agentGoals.find((goal) => goal.title === 'Launch BeeGreat')?.golieBee.seed,
-  ).toBe('agent-hive-setup')
-  for (const goalId of agentGoalIds) {
-    expect(
-      agentGoals.find((goal) => goal.goalId === goalId)?.golieBee.seed,
-    ).toBe(goalId)
-  }
-  await expect(
-    agentOwner.mutation(createAgentGoal, {
-      userId: 'agent-seven-goal-owner',
-      title: 'Agent Goal 8',
-    }),
-  ).rejects.toThrow('at most 7')
 })
 
 test('Active Goal limits are isolated by Clerk issuer for a shared subject', async () => {
@@ -995,11 +677,10 @@ test('Active Goal limits are isolated by Clerk issuer for a shared subject', asy
     secondIssuer.mutation(confirmPlan, plan('second-issuer-first-focus')),
   ).resolves.toMatchObject({ status: 'created' })
   await expect(
-    secondIssuer.mutation(createAgentGoal, {
-      userId: subject,
-      title: 'Second issuer agent Goal',
+    secondIssuer.mutation(createGoal, {
+      title: 'Second issuer Goal',
     }),
-  ).resolves.toMatchObject({ title: 'Second issuer agent Goal' })
+  ).resolves.toEqual(expect.any(String))
 
   expect((await firstIssuer.query(getCurrent, {})).activeGoals).toHaveLength(7)
   expect((await secondIssuer.query(getCurrent, {})).activeGoals).toHaveLength(2)
