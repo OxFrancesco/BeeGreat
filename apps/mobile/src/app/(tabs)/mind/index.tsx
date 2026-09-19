@@ -2,7 +2,7 @@ import { api } from '@beegreat/backend/convex/_generated/api';
 import { usePaginatedQuery, useQuery } from 'convex/react';
 import { router } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -66,8 +66,14 @@ function LiveMindScreen() {
   const [kind, setKind] = useState<Kind>();
   const [label, setLabel] = useState<string>();
   const [search, setSearch] = useState('');
-  const query = search.trim();
+  const [query, setQuery] = useState('');
   const labels = useQuery(api.bookmarks.labels, {});
+
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search.trim()), 220);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const paginated = usePaginatedQuery(
     api.bookmarks.list,
     { kind, label },
