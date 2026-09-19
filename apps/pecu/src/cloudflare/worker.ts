@@ -12,7 +12,7 @@ import { log } from "../logger";
 import { isInvalidXChatPinError } from "../x/errors";
 import { isUnauthorizedXApiError, refreshXOAuthToken } from "../x/oauth";
 import { XActivityAdmin } from "../x/activity";
-import { verifyWebhookSignature, webhookCrcResponse } from "../x/webhook";
+import { constantTimeEqual, verifyWebhookSignature, webhookCrcResponse } from "../x/webhook";
 import { nextXApiPollDelayMs } from "../x/rate-limit";
 import type { ConversationDiscovery, XChatTransport } from "../x/transport";
 import { loadWorkerConfig, runtimeConfigurationError, type WorkerConfig } from "./config";
@@ -63,7 +63,7 @@ async function digest(value: string): Promise<string> {
 }
 
 function authorized(request: Request, config: WorkerConfig): boolean {
-  return Boolean(config.adminToken) && request.headers.get("Authorization") === `Bearer ${config.adminToken}`;
+  return Boolean(config.adminToken) && constantTimeEqual(request.headers.get("Authorization") ?? "", `Bearer ${config.adminToken}`);
 }
 
 function durableObject(env: Cloudflare.Env): DurableObjectStub {

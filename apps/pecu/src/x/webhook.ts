@@ -14,7 +14,7 @@ async function signature(secret: string, value: string): Promise<string> {
   return `sha256=${btoa(binary)}`;
 }
 
-function constantTimeEqual(left: string, right: string): boolean {
+export function constantTimeEqual(left: string, right: string): boolean {
   const length = Math.max(left.length, right.length);
   let difference = left.length ^ right.length;
   for (let index = 0; index < length; index += 1) {
