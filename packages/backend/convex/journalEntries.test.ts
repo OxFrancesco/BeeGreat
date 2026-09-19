@@ -289,3 +289,35 @@ test('only one concurrent journal writer can commit the same revision', async ()
   const current = await owner.query(journalEntries.get, { entryId: draft.id })
   expect(current!.updatedAt).toBeGreaterThan(draft.updatedAt)
 })
+
+
+test('month summaries include days and counts beyond 1000 entries', async () => {
+  const t = convexTest(schema, modules)
+  const account = identity('busy-journal-owner')
+  const owner = t.withIdentity(account)
+  await t.run(async (ctx) => {
+    for (let index = 0; index < 1002; index += 1) {
+      const localDate = index < 1001 ? '2026-07-01' : '2026-07-31'
+      await ctx.db.insert('journalEntries', {
+        ownerKey: account.tokenIdentifier,
+        userId: account.subject,
+        localDate,
+        timeZone: 'UTC',
+        occurredAt: Date.parse(`${localDate}T12:00:00Z`) + index,
+        title: 'Entry',
+        body: '',
+        searchText: 'Entry',
+        isPinned: false,
+        isFavorite: false,
+        createdAt: index,
+        updatedAt: index,
+      })
+    }
+  })
+  expect(await owner.query(journalEntries.listMonth, {
+    monthStart: '2026-07-01',
+  })).toEqual([
+    { localDate: '2026-07-01', entryCount: 1001, hasPhoto: false },
+    { localDate: '2026-07-31', entryCount: 1, hasPhoto: false },
+  ])
+})

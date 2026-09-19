@@ -8,7 +8,6 @@ const MAX_BODY_LENGTH = 50_000
 const MAX_TITLE_LENGTH = 160
 const MAX_TIME_ZONE_LENGTH = 100
 const MAX_TIMELINE_ENTRIES = 100
-const MAX_MONTH_ENTRIES = 1000
 const MAX_TAGS = 10
 const MAX_TAG_LENGTH = 30
 const MAX_PHOTOS = 10
@@ -409,7 +408,7 @@ export const listMonth = query({
           .gte('localDate', args.monthStart)
           .lt('localDate', nextMonthStart(args.monthStart)),
       )
-      .take(MAX_MONTH_ENTRIES)
+      .collect()
     const hasPhotos = await Promise.all(
       entries.map(
         async (entry) =>
