@@ -10,7 +10,6 @@
 
 import type * as accountDeletion from "../accountDeletion.js";
 import type * as accountDeletionActions from "../accountDeletionActions.js";
-import type * as agent from "../agent.js";
 import type * as agentCrm from "../agentCrm.js";
 import type * as agentFocus from "../agentFocus.js";
 import type * as agentJobDispatch from "../agentJobDispatch.js";
@@ -166,7 +165,6 @@ import type {
 declare const fullApi: ApiFromModules<{
   accountDeletion: typeof accountDeletion;
   accountDeletionActions: typeof accountDeletionActions;
-  agent: typeof agent;
   agentCrm: typeof agentCrm;
   agentFocus: typeof agentFocus;
   agentJobDispatch: typeof agentJobDispatch;
