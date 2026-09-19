@@ -1,0 +1,54 @@
+{
+  "jsPlugins": [
+    "@shadcn/lint"
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "shadcn/no-raw-colors": "error",
+    "shadcn/no-inline-styles": [
+      "error",
+      {
+        "deny": [
+          "color",
+          "background",
+          "backgroundColor",
+          "borderColor",
+          "boxShadow",
+          "fontFamily"
+        ]
+      }
+    ],
+    "shadcn/no-arbitrary-values": [
+      "error",
+      {
+        "deny": [
+          "color",
+          "effects"
+        ]
+      }
+    ]
+  },
+  "settings": {
+    "shadcn": {
+      "note": "Use amber-minimal tokens and the shared clay material in apps/pecu/theme. Keep Pecu's clay depth and original mascot."
+    }
+  },
+  "ignorePatterns": [
+    "src/routeTree.gen.ts",
+    "tests/**",
+    "scripts/**"
+  ],
+  "overrides": [
+    {
+      "files": [
+        "src/components/dither-kit/**",
+        "src/components/stock-holdings.tsx"
+      ],
+      "rules": {
+        "shadcn/no-inline-styles": "off"
+      }
+    }
+  ]
+}

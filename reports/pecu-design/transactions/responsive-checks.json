@@ -1,0 +1,366 @@
+[
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Send 250 USDC",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Approve USDC",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Revoke USDC",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Buy NVDAc · Buy AAPLc",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Add liquidity",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave token approval",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Contract call",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Remove liquidity",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Stake position",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Claim fees",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave supply",
+    "width": 320
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Send 250 USDC",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Approve USDC",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Revoke USDC",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Buy NVDAc · Buy AAPLc",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Add liquidity",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave token approval",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Contract call",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Remove liquidity",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Stake position",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Claim fees",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave supply",
+    "width": 390
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Send 250 USDC",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Approve USDC",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Revoke USDC",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Buy NVDAc · Buy AAPLc",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Add liquidity",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave token approval",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Contract call",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Remove liquidity",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Stake position",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Claim fees",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave supply",
+    "width": 768
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Send 250 USDC",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Approve USDC",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Revoke USDC",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Buy NVDAc · Buy AAPLc",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Add liquidity",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave token approval",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Contract call",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Swap",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Remove liquidity",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Stake position",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Claim fees",
+    "width": 1440
+  },
+  {
+    "cardOverflow": false,
+    "pageOverflow": false,
+    "smallActions": false,
+    "title": "Aave supply",
+    "width": 1440
+  }
+]

@@ -1,0 +1,32 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="darkreader-lock"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pecu transaction redesign</title><style>*{box-sizing:border-box;scrollbar-width:none}body{max-width:960px;margin:40px auto;padding:0 24px;font:16px/1.7 system-ui;color:#262626;background:#fff}h1{font-size:32px;letter-spacing:-.03em}h2{font-size:22px}a{color:#89510a}img{max-width:100%;height:auto;border-radius:16px}img[alt^=Mobile]{max-width:390px}li{margin:8px 0}</style><h1>Responsive transaction previews</h1>
+<p>Pecu now uses the selected amount-led clay card, with amber-minimal colors and
+typography. Baskets keep each trade with its minimum received amount. Approval
+cards separate the spending permission from the follow-up action.</p>
+<p><a href="./live/transactions">Try the interactive preview</a></p>
+<p>The preview uses fictional data and the actual React component. Its controls only
+change local state. No quote was requested, no wallet was connected and no funds moved.</p>
+<h2>Checked</h2>
+<ul>
+<li>13 transaction examples at 320, 390, 768 and 1440 CSS pixels. All 52 combinations
+fit without horizontal page/card overflow, with transaction actions at least 44px tall.</li>
+<li>Full addresses and long decimal amounts, per-trade minimums, and unknown fields.</li>
+<li>Pending, submitted, completed, failed, cancelled and expired states. Submitted
+transactions offer Check transaction, without Cancel. Busy controls disable submission.</li>
+<li>The actual Agent conversation at 320px, address copy feedback and reduced motion.</li>
+<li>19 focused tests, both frontend builds and typechecks, design lint and theme drift checks.</li>
+</ul>
+<p><code>/design</code> now renders the real React component during its build. Its sample controls
+remain local. The backend contract, execution and confirmation rules are unchanged.
+X chat retains its text presentation. BeeGreat native, CLI and iMessage clients do
+not use this Pecu web component. Stocks chat and Pecu Agent share it.</p>
+<p>Product deployment remains pending. Changes are uncommitted on main; unrelated
+analytics work was preserved. This report and interactive fixture are isolated.
+Existing build warnings concern font import order and bundle size.</p>
+<p><a href="./verification.mp4">Watch browser interaction highlights</a></p>
+<p>The recording contains actual browser frames with idle gaps shortened.</p>
+<p><img src="./desktop.png" alt="Desktop preview" /></p>
+<p><img src="./mobile.png" alt="Mobile preview" /></p>
+<p><img src="./basket.png" alt="Basket preview" /></p>
+<p><img src="./approval.png" alt="Approval preview" /></p>
+<p><img src="./chat-mobile.png" alt="Mobile Agent conversation" /></p>
+</html>

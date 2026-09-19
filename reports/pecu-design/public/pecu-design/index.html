@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pecu design reference</title><style>*{box-sizing:border-box;scrollbar-width:none}body{max-width:920px;margin:40px auto;padding:0 24px;font:16px/1.7 system-ui;color:#252525;background:#fff}h1{font-size:32px;letter-spacing:-.03em}a{color:#89510a}img{max-width:100%;height:auto;border:1px solid #ddd;border-radius:12px}img[alt^=Mobile]{max-width:390px}li{margin:8px 0}</style><h1>Pecu amber clay design</h1>
+<p>Pecu and Pecu Agent now share amber-minimal colors and typography. The original
+snail, soft control shapes, inset highlights and clay shadows remain.</p>
+<p>The theme JSON is pinned locally. Both products import its generated CSS and one
+shared clay stylesheet. <code>/design</code> reads those same sources during the build.</p>
+<p><code>bun run --cwd apps/pecu design:check</code> checks theme drift and CSS, then runs
+<code>@shadcn/lint</code> through Oxlint. It rejects raw palette colors, arbitrary hex colors,
+inline shadow/font/color overrides and local redefinitions of upstream tokens.
+Data-driven chart styles have explicit exceptions. Visual review is still needed.</p>
+<p>Both frontend builds and typechecks passed. Policy tests and deliberately invalid
+lint probes passed. Browser checks covered the reference, homepage, real Agent
+components, mobile layout, command completion and the simulated connection panel.
+All transaction and sign-in data was fictional. No funds moved or real OAuth started.</p>
+<p>Product deployment remains pending. Unrelated analytics work was preserved.
+Changes remain uncommitted on main. This preview is an isolated deployed build.</p>
+<p><a href="./preview/">Open design preview</a></p>
+<p><a href="./agent-verification.mp4">Watch Agent verification</a></p>
+<p><img src="./desktop.png" alt="Design reference" /></p>
+<p><img src="./mobile.png" alt="Mobile reference" /></p>
+<p><img src="./agent.png" alt="Agent clay controls" /></p>
+<p><img src="./connection.png" alt="Connection controls" /></p>
+</html>

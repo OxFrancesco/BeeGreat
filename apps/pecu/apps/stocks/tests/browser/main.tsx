@@ -1,4 +1,5 @@
 import { connectionFixture } from "./connection";
+import { TransactionFixture } from "./transactions";
 import { createRoot } from "react-dom/client";
 import {
   createRootRoute,
@@ -247,5 +248,5 @@ const agentRoute = Route.update({
 } as never);
 const router = createRouter({ routeTree: rootRoute.addChildren([agentRoute]) });
 createRoot(document.getElementById("root")!).render(
-  <RouterProvider router={router} />,
+  new URLSearchParams(location.search).has("transactions") ? <TransactionFixture /> : <RouterProvider router={router} />,
 );

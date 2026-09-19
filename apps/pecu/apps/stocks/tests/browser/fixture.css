@@ -1,2 +1,10 @@
 @import "../../src/styles.css";
 @source "../../src";
+body:has(.transaction-fixture) { background: var(--card); }
+.transaction-fixture { max-width: 740px; margin: 32px auto; padding: 0 24px 40px; }
+.transaction-fixture h1 { font-size: 24px; font-weight: 650; }
+.transaction-fixture > p { margin-block: 8px 20px; color: var(--muted-foreground); }
+.transaction-fixture-controls { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+.transaction-fixture-controls label { display: grid; gap: 4px; max-width: 100%; }
+.transaction-fixture-controls select { max-width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: var(--clay-radius-control); padding: 8px; }
+.transaction-fixture output { display: block; margin-top: 24px; overflow-wrap: anywhere; }

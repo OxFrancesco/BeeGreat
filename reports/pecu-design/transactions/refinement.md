@@ -1,0 +1,1 @@
+Concept 10 was edited with the built-in image generation tool to remove Cancel from the Submitted card. Prompt: Remove only the Cancel button in the top-right Submitted card; preserve Check transaction and all other cards, text, amounts, layout and clay styling. Keep the pending card's Cancel action.

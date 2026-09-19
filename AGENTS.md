@@ -49,6 +49,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 - `resources/dither-kit` — Official Dither Kit chart components and canvas engine
 
+- `resources/shadcn-lint` — Official shadcn Tailwind design system linter and configuration reference
+
 <!-- codeview:end -->
 
 ## Design system
