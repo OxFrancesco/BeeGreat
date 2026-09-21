@@ -1,4 +1,5 @@
-import { safeParameterSchemas, safeReadSchemas, safeCallDescription, safeTransactionSummary, type SafeReadCommand } from "./safe";
+import { decodeFunctionData, encodeFunctionData, erc20Abi } from "viem";
+import { safeParameterSchemas, safeReadSchemas, safeCallDescription, isSafeModuleConfiguration, safeTransactionSummary, type SafeReadCommand } from "./safe";
 import { KNOWN_TOKENS } from "@beegreat/sugar";
 import { z } from "zod";
 import type { EvmCommand } from "./cloudflare/evm-protocol";
@@ -7,7 +8,7 @@ import { log } from "./logger";
 
 export type EvmExecutor = (command: EvmCommand, input: Record<string, unknown>) => Promise<unknown>;
 
-export const EVM_TX_ACTIONS = ["transfer", "approve", "revoke", "contract_call", "safe_create", "safe_approve", "safe_execute"] as const;
+export const EVM_TX_ACTIONS = ["transfer", "approve", "revoke", "contract_call", "safe_create", "safe_approve", "safe_execute", "safe_execute_signatures", "safe_budget_spend", "safe_role_execute", "safe_roles_deploy", "safe_passkey_deploy"] as const;
 export type EvmTxAction = (typeof EVM_TX_ACTIONS)[number];
 export function isEvmTxAction(value: string): value is EvmTxAction {
   return EVM_TX_ACTIONS.some((action) => action === value);
@@ -164,6 +165,37 @@ export class EvmService {
   async propose(wallet: Address, action: EvmTxAction, rawParameters: unknown): Promise<EvmPlanResult> {
     const key = `pecu-${crypto.randomUUID()}`;
     switch (action) {
+      case "safe_budget_spend": {
+        const p = validateEvmRequest("safe_budget_spend", rawParameters);
+        const operation = await this.call("safe-budget-spend", { ...p, account: wallet, key }, operationView);
+        const description = await this.safeDescription({ chainId: 8453, safe: p.safe, to: p.token === "0x0000000000000000000000000000000000000000" ? p.to : p.token, value: p.token === "0x0000000000000000000000000000000000000000" ? p.amount : "0", data: p.token === "0x0000000000000000000000000000000000000000" ? "0x" : encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [p.to, BigInt(p.amount)] }), nonce: "0", hash: `0x${"0".repeat(64)}` });
+        return this.planResult(wallet, action, p, `Use your organization budget to ${description}. No additional owner approvals are required.`, { safe: p.safe }, operation);
+      }
+      case "safe_role_execute": {
+        const p = validateEvmRequest("safe_role_execute", rawParameters);
+        const operation = await this.call("safe-role-execute", { ...p, account: wallet, key }, operationView);
+        let tokenCall = false;
+        try { const decoded = decodeFunctionData({ abi: erc20Abi, data: p.data as `0x${string}` }); tokenCall = decoded.functionName === "transfer" || decoded.functionName === "approve"; } catch { tokenCall = false; }
+        const description = tokenCall
+          ? await this.safeDescription({ chainId: 8453, safe: p.safe, to: p.to, data: p.data, value: "0", nonce: "0", hash: `0x${"0".repeat(64)}` })
+          : await this.roleCallDescription(p.to, p.data);
+        return this.planResult(wallet, action, p, `Use the granted organization role to ${description}. No additional owner approvals are required.`, { safe: p.safe }, operation);
+      }
+      case "safe_roles_deploy": {
+        const p = validateEvmRequest("safe_roles_deploy", rawParameters);
+        const operation = await this.call("safe-roles-deploy", { ...p, account: wallet, key }, operationView.extend({ module: address }));
+        return this.planResult(wallet, action, p, `Deploy a permissions module owned by organization wallet ${p.safe}. It will have no authority until owners enable it and grant permissions.`, { module: operation.module, safe: p.safe }, operation);
+      }
+      case "safe_passkey_deploy": {
+        const p = validateEvmRequest("safe_passkey_deploy", rawParameters);
+        const operation = await this.call("safe-passkey-deploy", { ...p, account: wallet, key }, operationView.extend({ owner: address }));
+        return this.planResult(wallet, action, p, `Deploy passkey signer ${operation.owner}. Owners must separately approve adding it to organization wallet ${p.safe}.`, { owner: operation.owner, safe: p.safe }, operation);
+      }
+      case "safe_execute_signatures": {
+        const p = validateEvmRequest("safe_execute_signatures", rawParameters);
+        const operation = await this.call("safe-execute-signatures", { ...p, account: wallet, key }, operationView);
+        return this.planResult(wallet, action, p, safeTransactionSummary("Execute with the collected owner signatures from", p.transaction, await this.safeDescription(p.transaction)), { safe: p.transaction.safe }, operation);
+      }
       case "safe_create": {
         const parameters = validateEvmRequest("safe_create", rawParameters);
         const operation = await this.call("safe-deploy", { ...parameters, account: wallet, key }, operationView.extend({ deployment: z.object({ safe: address }) }));
@@ -232,8 +264,24 @@ export class EvmService {
     }
   }
 
+  private async roleCallDescription(to: Address, data: string): Promise<string> {
+    const decoded = await this.call("decode", { address: to, data, kind: "call" }, decodeView);
+    if (decoded.source !== "etherscan") throw new Error("Role call requires a verified contract ABI");
+    const call = z.object({ functionName: z.string(), args: z.array(z.union([z.string(), z.boolean(), z.number()])).optional() }).parse(decoded.result);
+    const args = (call.args ?? []).map((value, index) => `argument ${index + 1}: ${String(value)}`).join(", ");
+    return `call ${call.functionName} on ${to}${args ? ` with ${args}. Numeric arguments use contract base units` : ""}`;
+  }
+
   private async safeDescription(transaction: EvmTxParameters<"safe_approve">["transaction"]): Promise<string> {
+    if (transaction.operation !== 1 && transaction.to.toLowerCase() !== transaction.safe.toLowerCase() && isSafeModuleConfiguration(transaction.data as `0x${string}`)) {
+      await this.call("safe-module-info", { safe: transaction.safe, module: transaction.to }, z.object({ enabled: z.boolean() }));
+    }
     const description = safeCallDescription(transaction);
+    if (description.kind === "batch") return (await Promise.all(description.calls.map(call => this.safeDescription({ ...transaction, ...call, operation: 0 })))).map((text, index) => `${index + 1}. ${text}`).join("\n");
+    if (description.kind === "budget") {
+      const meta = description.token === "0x0000000000000000000000000000000000000000" ? { decimals: 18, symbol: "ETH" } : await this.call("token", { address: transaction.safe, token: description.token }, tokenView);
+      return `allow ${description.delegate} to transfer up to ${formatUnits(description.amount, meta.decimals)} ${meta.symbol} ${description.resetMinutes ? `every ${description.resetMinutes} minutes` : "once"}`;
+    }
     if (description.kind === "plain") return description.text;
     const meta = await this.call("token", { address: transaction.safe, token: transaction.to }, tokenView);
     const amount = formatUnits(description.amount, meta.decimals);

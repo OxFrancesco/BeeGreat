@@ -72,8 +72,15 @@ export function validateEvmPlan(
     case "safe_approve":
       if (value !== 0n || selector(call) !== "d4d9bdcd" || call.data.length !== 74) throw new Error("Safe approval must call approveHash with zero value");
       return;
+    case "safe_execute_signatures":
     case "safe_execute":
       if (value !== 0n || selector(call) !== "6a761202") throw new Error("Safe execution must call execTransaction with zero outer value");
+      return;
+    case "safe_budget_spend":
+    case "safe_role_execute":
+    case "safe_roles_deploy":
+    case "safe_passkey_deploy":
+      if (value !== 0n || call.data.length < 10) throw new Error("Safe extension calls must have zero outer value");
       return;
     case "contract_call": {
       if (call.data.length < 10) throw new Error("Contract call has invalid calldata");
