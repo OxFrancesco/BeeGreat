@@ -21,6 +21,11 @@ function localLink(value: string): string {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/nansen-showcase" || url.pathname.startsWith("/nansen-showcase/")) {
+      if (["/nansen-showcase/", "/nansen-showcase/index.html"].includes(url.pathname)) return Response.redirect(new URL("/nansen-showcase", url), 308);
+      if (url.pathname === "/nansen-showcase") url.pathname = "/nansen-showcase/index.html";
+      return env.ASSETS.fetch(new Request(url, request));
+    }
     if (["/design", "/design/", "/design/index.html"].includes(url.pathname)) {
       if (url.pathname !== "/design") return Response.redirect(new URL("/design", url), 308);
       url.pathname = "/design/index.html";

@@ -9,7 +9,8 @@
     "verify:analytics": "bun scripts/verify-analytics.ts",
     "deploy": "bun run build && wrangler deploy",
     "catalog": "bun scripts/sync-catalog.ts",
-    "lint:design": "oxlint -c .oxlintrc.json src"
+    "lint:design": "oxlint -c .oxlintrc.json src showcase",
+    "build:showcase": "vite build --config showcase/vite.config.ts"
   },
   "dependencies": {
     "@clerk/tanstack-react-start": "^0.29.10",

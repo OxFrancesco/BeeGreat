@@ -10,6 +10,7 @@ const styles = [
   "apps/site/site/pecu-assets/style.css",
   "apps/site/site/pecu-assets/design.css",
   "apps/stocks/src/pecu.css",
+  "apps/stocks/showcase/style.css",
 ];
 
 export function designViolations(css: string): string[] {
@@ -94,6 +95,7 @@ if (import.meta.main) {
       ],
     ],
     ["apps/site/site/index.html", ['class="pecu-theme"']],
+    ["apps/stocks/showcase/index.html", ['class="pecu-theme"']],
   ] as const) {
     const content = await Bun.file(resolve(root, file)).text();
     for (const value of required)

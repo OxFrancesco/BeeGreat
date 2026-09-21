@@ -31,3 +31,5 @@ await Bun.write(resolve(output, "index.html"), `<!doctype html><html lang="en"><
 </style></head><body><header><a class="logo" href="/aero/cli">aero</a><a href="/aero/stocks">Stocks</a><a href="/aero/cli">CLI</a><a aria-current="page" href="/aero/cli/docs">Docs</a></header><main><aside aria-label="On this page">${headings.map(h => `<a href="#${h.id}">${escape(h.text)}</a>`).join("")}</aside><article>${content}</article></main></body></html>`);
 console.log(`Built CLI docs from Aero SDK ${revision.slice(0, 8)}`);
 await import("./build-design");
+const showcase = Bun.spawn(["bun", "run", "--cwd", resolve(root, "apps/stocks"), "build:showcase"], { stdout: "inherit", stderr: "inherit" });
+if (await showcase.exited) throw new Error("Nansen showcase build failed");

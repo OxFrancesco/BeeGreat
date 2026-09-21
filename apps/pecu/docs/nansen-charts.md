@@ -22,6 +22,23 @@ Pecu Agent and Stocks chat share one renderer. X Chat gets a source-attributed t
 
 Documented fixtures cover gains/losses, null versus zero, partial pagination, portfolio source failure, saved-event isolation and provider tool calls. Browser specimens include all three charts plus missing, empty and unavailable states. The report demo uses fictional data.
 
-The local checkout has no NANSEN_API_KEY. Production stores it as a Worker secret. Fixture tests do not prove live upstream responses; release verification must include read-only requests through the deployed app.
+Production stores NANSEN_API_KEY as a Worker secret. Collection scripts read it from the environment; credentials and raw responses are excluded from Git. Fixture tests do not prove live upstream responses; release verification must include read-only requests through the deployed app.
 
 Sources: [flow intelligence](https://docs.nansen.ai/api/token-god-mode/flow-intelligence), [Nansen API](https://docs.nansen.ai/), [redistribution guidance](https://docs.nansen.ai/guides/redistribution-guide).
+
+## Public showcase and collection
+
+[pecu.app/nansen-showcase](https://pecu.app/nansen-showcase) presents saved token flows, wallet P&L and portfolio exposure. Each example includes a prompt that can be copied into Pecu. Switching examples or chart measures makes no Nansen request. The page labels illustrative data when used; collected snapshots retain their source and retrieval time.
+
+The site build bundles the shared chart renderer and `apps/stocks/showcase/data.json`. Only selected normalized snapshots are published. Raw responses remain in the ignored `output/nansen-showcase` directory.
+
+Run the collector from `apps/pecu`, with NANSEN_API_KEY in the environment and an absolute output directory:
+
+```sh
+bun scripts/nansen/collect.ts /path/to/BeeGreat/output/nansen-showcase
+bun scripts/nansen/export.ts /path/to/BeeGreat/output/nansen-showcase
+```
+
+The batch plans 1,000 requests: 10 screeners, five reads for each of 150 tokens, and four reads for each of 60 public trader wallets. It covers Base, Ethereum, Arbitrum, Optimism and Polygon. Calls are paced, logged and capped at 1,000 requests and credits. Authentication, billing, rate-limit, unexpected cost and network errors stop collection. There are no automatic retries. Completed jobs are reused on restart; an unfinished ledger entry requires inspection before resuming. Export requires all three example categories.
+
+The public site is the only deployment target for showcase changes. Agent/Stocks use the same chart component; the showcase introduces no chat, provider, transaction or mobile behavior.

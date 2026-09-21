@@ -92,16 +92,16 @@ function PortfolioChart({ snapshot }: { snapshot: Extract<AnalyticsSnapshot, { k
   </>;
 }
 
-export function NansenChart({ snapshot }: { snapshot: AnalyticsSnapshot }) {
+export function NansenChart({ snapshot, illustrative = false }: { snapshot: AnalyticsSnapshot; illustrative?: boolean }) {
   const title = snapshot.kind === "flows" ? "Token flows" : snapshot.kind === "pnl" ? "Trading P&L" : "Portfolio exposure";
   return <section className="my-4 min-w-0 w-full max-w-xl rounded-xl border border-border bg-card p-4 text-card-foreground" aria-label={title}>
     <h3 className="!m-0 text-base font-semibold">{title}</h3>
-    <p className="!mt-1 text-sm text-muted-foreground">{analyticsAddress(snapshot.subject)} · {snapshot.chain === "all" ? "All chains" : snapshot.chain} · {snapshot.period}</p>
+    <p className="!mt-1 text-sm text-muted-foreground">{illustrative ? "Illustrative data" : analyticsAddress(snapshot.subject)} · {snapshot.chain === "all" ? "All chains" : snapshot.chain} · {snapshot.period}</p>
     {snapshot.kind === "flows" ? <>
       <ValueChart rows={snapshot.rows.map((row) => ({ key: row.label, label: row.label, value: row.netUsd, detail: `${row.label}: net inflow ${analyticsUsd(row.netUsd)}${row.wallets === null ? " · Wallet count unavailable" : ` · ${row.wallets} wallets`}` }))} />
       <p className="text-sm text-muted-foreground">Positive values mean net inflows to the group. Groups may overlap; transfers are not necessarily trades.</p>
     </> : snapshot.kind === "pnl" ? <PnlChart snapshot={snapshot} /> : <PortfolioChart snapshot={snapshot} />}
     {snapshot.partial ? <p role="status" className="text-sm text-muted-foreground">Partial data. Missing values are not counted as zero; returned rows may not cover the full result.</p> : null}
-    <p className="!mb-0 mt-3 text-xs text-muted-foreground"><a href="https://nansen.ai" target="_blank" rel="noreferrer" className="underline">Data: Nansen</a> · Retrieved {new Date(snapshot.observedAt).toLocaleString()}</p>
+    <p className="!mb-0 mt-3 text-xs text-muted-foreground"><a href="https://nansen.ai" target="_blank" rel="noreferrer" className="underline">{illustrative ? "Nansen integration" : "Data: Nansen"}</a>{illustrative ? null : <> · Retrieved {new Date(snapshot.observedAt).toLocaleString()}</>}</p>
   </section>;
 }

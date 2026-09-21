@@ -15,3 +15,10 @@ test("server-rendered chart replies retain accessible exact data and source attr
   expect(html).not.toContain("NaN");
   expect(html).not.toContain("Infinity");
 });
+
+test("illustrative charts do not claim a Nansen retrieval", () => {
+  const markup = renderToStaticMarkup(<NansenChart snapshot={analyticsFixtures[0]!} illustrative />);
+  expect(markup).toContain("Illustrative data");
+  expect(markup).not.toContain("Retrieved");
+  expect(markup).not.toContain("Data: Nansen");
+});
