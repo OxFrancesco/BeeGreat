@@ -1,3 +1,4 @@
+import { safeParameterSchemas, safeReadSchemas } from "../safe";
 import { z } from "zod";
 import type { AgentCapabilities } from "../harness";
 
@@ -36,6 +37,14 @@ function tool<I extends z.ZodTypeAny>(definition: ToolDefinition<I>): EvmTool {
 const proposalNote = "Persists an unsigned transaction plan for explicit user confirmation. Never executes a transaction. Base mainnet only.";
 
 export const evmTools: readonly EvmTool[] = [
+  tool({ name: "safe_info", description: "Read an organization Safe wallet's owners, required approvals and nonce on Base. Does not change the personal wallet.", input: safeReadSchemas["safe-info"], run: (capabilities, input) => capabilities.safeRead("safe-info", input) }),
+  tool({ name: "safe_propose", description: "Build a portable organization Safe transaction. Value is wei; data is calldata. Pecu supports native transfers, ERC-20 transfers and allowances, and the owner/cancel tools. Other contract calls require evmSDK. No signature or execution. Retain the returned complete transaction for approval tools; do not expose JSON in normal replies.", input: safeReadSchemas["safe-propose"], run: (capabilities, input) => capabilities.safeRead("safe-propose", input) }),
+  tool({ name: "safe_approvals", description: "Check how many on-chain owners approved the exact Safe transaction. Never imply that a Pecu confirmation represents multiple owners.", input: safeReadSchemas["safe-approvals"], run: (capabilities, input) => capabilities.safeRead("safe-approvals", input) }),
+  tool({ name: "safe_cancel_propose", description: "Propose cancelling the current Safe nonce. Cancellation needs the same owner threshold and on-chain execution before competing proposals. Does not revoke existing approvals.", input: safeReadSchemas["safe-cancel-propose"], run: (capabilities, input) => capabilities.safeRead("safe-cancel-propose", input) }),
+  tool({ name: "safe_owner_propose", description: "Propose adding/removing an owner or changing the Safe threshold. Current owners must approve and execute. Do not lower the threshold without an explicit user request.", input: safeReadSchemas["safe-owner-propose"], run: (capabilities, input) => capabilities.safeRead("safe-owner-propose", input) }),
+  tool({ name: "safe_create", description: `Create an organization Safe wallet with explicit owner addresses and threshold. Ask for missing owners. Independent owners need separately controlled signing and recovery keys. ${proposalNote}`, input: safeParameterSchemas.safe_create.omit({ saltNonce: true }), run: (capabilities, input) => capabilities.evmPropose("safe_create", { ...input, saltNonce: BigInt("0x" + crypto.randomUUID().replaceAll("-", "")).toString() }) }),
+  tool({ name: "safe_approve", description: `Record only the verified sender's on-chain approval of a complete reviewed Safe transaction. Requires their wallet to be an owner. Approval is permanent for that hash and does not execute the Safe transaction. ${proposalNote}`, input: safeParameterSchemas.safe_approve, run: (capabilities, input) => capabilities.evmPropose("safe_approve", input) }),
+  tool({ name: "safe_execute", description: `Execute the exact Safe transaction after the on-chain threshold is met. This spends funds from the Safe; the sender pays relay fees. ${proposalNote}`, input: safeParameterSchemas.safe_execute, run: (capabilities, input) => capabilities.evmPropose("safe_execute", input) }),
   tool({
     name: "evm_token_balance",
     description: "Read the verified sender's balance of any token on Base mainnet, ETH included. Returns human units, base units, symbol, and decimals.",

@@ -1,3 +1,4 @@
+import { safeParameterSchemas, safeReadSchemas, safeCallDescription, safeTransactionSummary, type SafeReadCommand } from "./safe";
 import { KNOWN_TOKENS } from "@beegreat/sugar";
 import { z } from "zod";
 import type { EvmCommand } from "./cloudflare/evm-protocol";
@@ -6,7 +7,7 @@ import { log } from "./logger";
 
 export type EvmExecutor = (command: EvmCommand, input: Record<string, unknown>) => Promise<unknown>;
 
-export const EVM_TX_ACTIONS = ["transfer", "approve", "revoke", "contract_call"] as const;
+export const EVM_TX_ACTIONS = ["transfer", "approve", "revoke", "contract_call", "safe_create", "safe_approve", "safe_execute"] as const;
 export type EvmTxAction = (typeof EVM_TX_ACTIONS)[number];
 export function isEvmTxAction(value: string): value is EvmTxAction {
   return EVM_TX_ACTIONS.some((action) => action === value);
@@ -22,6 +23,7 @@ const tokenReference = z.string().min(1).max(256);
 const functionSignature = z.string().min(1).max(2_000).regex(/^function\s+[A-Za-z_$][\w$]*\s*\(/, "signature must start with function NAME(");
 
 export const evmTxParameterSchemas = {
+  ...safeParameterSchemas,
   transfer: z.strictObject({ to: address, amount: decimalAmount, token: tokenReference.optional() }),
   approve: z.strictObject({ token: tokenReference, spender: address, amount: decimalAmount }),
   revoke: z.strictObject({ token: tokenReference, spender: address }),
@@ -154,9 +156,31 @@ export class EvmService {
     return { kind: "read", command: "decode", output: { address: input.address, kind: input.kind, ...view } };
   }
 
+  async safeRead(command: SafeReadCommand, input: Record<string, unknown>): Promise<EvmReadResult> {
+    const parameters = safeReadSchemas[command].parse(input);
+    return { kind: "read", command, output: await this.executor(command, { ...parameters, chainId: BASE_CHAIN_ID }) };
+  }
+
   async propose(wallet: Address, action: EvmTxAction, rawParameters: unknown): Promise<EvmPlanResult> {
     const key = `pecu-${crypto.randomUUID()}`;
     switch (action) {
+      case "safe_create": {
+        const parameters = validateEvmRequest("safe_create", rawParameters);
+        const operation = await this.call("safe-deploy", { ...parameters, account: wallet, key }, operationView.extend({ deployment: z.object({ safe: address }) }));
+        return this.planResult(wallet, action, parameters,
+          `Create an organization wallet requiring ${parameters.threshold} of ${parameters.owners.length} owners.\nWallet: ${operation.deployment.safe}\nOwners: ${parameters.owners.join(", ")}\nOwners must control their own keys for independent approval.`,
+          { safe: operation.deployment.safe }, operation);
+      }
+      case "safe_approve": {
+        const parameters = validateEvmRequest("safe_approve", rawParameters);
+        const operation = await this.call("safe-approve", { ...parameters, account: wallet, key }, operationView);
+        return this.planResult(wallet, action, parameters, safeTransactionSummary("Approve", parameters.transaction, await this.safeDescription(parameters.transaction)) + "\nThis records your approval on-chain. It does not execute the organization transaction. Approval cannot be individually revoked.", { safe: parameters.transaction.safe }, operation);
+      }
+      case "safe_execute": {
+        const parameters = validateEvmRequest("safe_execute", rawParameters);
+        const operation = await this.call("safe-execute", { ...parameters, account: wallet, key }, operationView);
+        return this.planResult(wallet, action, parameters, safeTransactionSummary("Execute the approved transaction from", parameters.transaction, await this.safeDescription(parameters.transaction)), { safe: parameters.transaction.safe }, operation);
+      }
       case "transfer": {
         const parameters = validateEvmRequest("transfer", rawParameters);
         const token = resolveToken(parameters.token);
@@ -206,6 +230,16 @@ export class EvmService {
         throw new Error(`Unsupported EVM action: ${String(_exhaustive)}`);
       }
     }
+  }
+
+  private async safeDescription(transaction: EvmTxParameters<"safe_approve">["transaction"]): Promise<string> {
+    const description = safeCallDescription(transaction);
+    if (description.kind === "plain") return description.text;
+    const meta = await this.call("token", { address: transaction.safe, token: transaction.to }, tokenView);
+    const amount = formatUnits(description.amount, meta.decimals);
+    return description.action === "transfer"
+      ? `send ${amount} ${meta.symbol} to ${description.recipient}`
+      : `allow ${description.recipient} to spend ${amount} ${meta.symbol}`;
   }
 
   private async allowancePlan(

@@ -193,3 +193,7 @@ Update the `/design` specimens with new visual patterns. Charts may retain disti
 series colors; their data-driven styles have explicit lint exceptions.
 
 Portfolio analytics: `/nansen portfolio [ADDRESS]` returns wallet tokens and DeFi positions separately. See `docs/nansen-charts.md`.
+
+## Organization wallets
+
+Safe tools run through the shared EVM tool set and confirmation flow. `safe_create` uses explicit owners and threshold; it does not replace the personal Crossmint wallet. `safe_approve` records exactly one owner's permanent on-chain approval. `safe_execute` requires the existing on-chain threshold. `safe_cancel_propose` and `safe_owner_propose` produce proposals requiring that same threshold. Never describe multiple backend-controlled wallets as independently controlled signers. See `docs/39-safe-organization-wallets.md` at the monorepo root for scope and verification.
