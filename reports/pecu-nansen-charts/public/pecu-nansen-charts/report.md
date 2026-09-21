@@ -35,3 +35,15 @@ Sources: [flow intelligence](https://docs.nansen.ai/api/token-god-mode/flow-inte
 - 360 backend tests and 49 frontend tests passed. Backend, frontend and site typechecks, design checks, frontend/site builds and four Worker dry-run builds passed. Staged secret scan passed.
 - Production backend health returned ok and Nansen configured. Both deployed backend and frontend versions were read back. The live design page contains the chart reference.
 - The Agent browser path was verified with live data. Stocks chat shares its renderer but was not separately exercised with live data. X Chat text fallback and provider tool paths were covered by tests.
+
+## Public showcase — 2026-09-21
+
+[Open the showcase](https://pecu.app/nansen-showcase). It includes 15 token-flow, six trading P&L and six wallet/DeFi examples, drawn from saved Nansen responses. Charts lead; copyable prompts follow. Desktop uses an example list and mobile uses a select control.
+
+The collection completed exactly 1,000 requests, all HTTP 200, using 1,000 credits. It covers 150 tokens on five chains and 60 public wallets discovered in DEX trades. Raw responses and the request ledger remain local and ignored by Git. Credentials are stored in macOS Keychain and excluded from code and output. No funds moved.
+
+Source: 916fa82, with layout refinement 7bc14e5. Both pushed to GitHub main. Backend, frontend and site typechecks passed, along with frontend/site builds, design lint, 21 focused backend tests and two chart rendering tests. Collector tests verify the 1,000-request ceiling, resumability and stopping on authentication or unexpected-cost errors.
+
+Browser checks covered all three categories, realized/unrealized P&L, wallet/DeFi selection, expanded rows, prompt copying and mobile selection without horizontal overflow. The public site is the only deployment target; existing chat deployments were unchanged.
+
+Final site version: 6162dbbf-966d-47f9-b6c1-1f8141a1a36a. The live public URL rendered all three categories and measure controls. Browser recording returned no frames on the final pass; the attached video is a screenshot walkthrough of the deployed views.
