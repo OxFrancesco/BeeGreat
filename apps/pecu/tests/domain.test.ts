@@ -87,14 +87,12 @@ describe("natural wallet commands", () => {
     "stocks",
     "my stocks",
     "my stock holdings",
-    "show my portfolio",
     "check my stock holdings",
     "list my stocks",
     "view my stock portfolio",
     "what stocks do I own",
     "which stocks do I hold",
     "how many stocks do I have",
-    "what am I holding",
     "what's in my stock portfolio",
   ])("routes stock holdings requests without relying on model tool choice: %s", (input) => {
     expect(parseNaturalWalletCommand(input)).toEqual({ type: "aero", action: "stocks", parameters: {} });
@@ -144,12 +142,12 @@ describe("nansen command grammar", () => {
     expect(parseCommand("/nansen wallet")).toEqual({ type: "nansen", endpoint: "wallet_balances", input: {} });
     expect(parseCommand("/nansen wallet base")).toEqual({ type: "nansen", endpoint: "wallet_balances", input: { chain: "base" } });
     expect(parseCommand("/nansen wallet 0xabc ethereum")).toEqual({ type: "nansen", endpoint: "wallet_balances", input: { chain: "ethereum", address: "0xabc" } });
-    expect(parseCommand("/nansen pnl solana")).toEqual({ type: "nansen", endpoint: "wallet_pnl", input: { chain: "solana" } });
+    expect(parseCommand("/nansen pnl solana")).toEqual({ type: "nansen", endpoint: "wallet_pnl_breakdown", input: { chain: "solana" } });
     expect(parseCommand("/nansen markets fed rate cut")).toEqual({ type: "nansen", endpoint: "prediction_markets", input: { query: "fed rate cut" } });
     expect(parseCommand("/nansen markets")).toEqual({ type: "nansen", endpoint: "prediction_markets", input: {} });
   });
 
-  test.each(["/nansen token", "/nansen token 0xabc mars", "/nansen wallet nope!", "/nansen flows 0xabc 7d", "/nansen bogus"])(
+  test.each(["/nansen token", "/nansen token 0xabc mars", "/nansen wallet nope!", "/nansen flows 0xabc 30d", "/nansen bogus"])(
     "rejects unsafe or unsupported input: %s",
     (input) => expect(() => parseCommand(input)).toThrow("Usage: /nansen"),
   );
@@ -173,4 +171,8 @@ describe("generic EVM command grammar", () => {
     expect(() => parseCommand(`/approve USDC for ${spender}`)).toThrow("Usage: /approve");
     expect(() => parseCommand("/token")).toThrow("Usage: /token");
   });
+});
+
+ test.each(["show my portfolio", "what am I holding", "show my crypto portfolio"])("general portfolio requests use Nansen: %s", (input) => {
+  expect(parseNaturalWalletCommand(input)).toEqual({ type: "nansen", endpoint: "wallet_portfolio", input: {} });
 });

@@ -464,6 +464,7 @@ export class PecuAgent {
     if (!nansen) return "Nansen analytics is not configured yet.";
     const result = await nansen.call(endpoint, input, { wallet: await this.walletAddress(message.senderId) });
     this.saveDetails(message, result.data);
+    if (result.analytics) this.store.saveAnalytics(message.eventId, result.analytics);
     return result.text;
   }
 

@@ -1,5 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { WebHistory, webOwner } from "../../src/web-history";
+import { DurableStore } from "../../src/cloudflare/durable-store";
+import { analyticsSnapshotSchema, analyticsText, type AnalyticsSnapshot } from "../../src/analytics-contract";
 export class HistoryProbe extends DurableObject {
   override async fetch() {
     const sql = this.ctx.storage.sql;
@@ -32,6 +34,11 @@ export class HistoryProbe extends DurableObject {
     );
     const count = new WebHistory(sql).threadFor(scope)?.count;
     sql.exec("DELETE FROM basedbot_web_turns WHERE owner=?", webOwner(scope));
+    const store = new DurableStore(this.ctx.storage);
+    store.initialize();
+    const snapshot: AnalyticsSnapshot = { kind: "flows", key: "test-flow", observedAt: 1, subject: "test-token", chain: "base", period: "1d", partial: false, rows: [{ label: "Whales", netUsd: -50, wallets: 2 }] };
+    store.saveAnalytics("analytics-event", { snapshot, text: analyticsText(snapshot) });
+    const reopened = new DurableStore(this.ctx.storage);
     return Response.json({
       initial: initial?.count,
       latest: latest.rows.length,
@@ -39,6 +46,8 @@ export class HistoryProbe extends DurableObject {
       roundtrip: JSON.stringify(latest.rows) === JSON.stringify(back.rows),
       count,
       deleted: history.threads(scope).threads.length === 0,
+      analyticsRestored: JSON.stringify(reopened.analytics("analytics-event")[0]?.snapshot) === JSON.stringify(analyticsSnapshotSchema.parse(snapshot)),
+      analyticsIsolated: reopened.analytics("different-event").length === 0,
     });
   }
 }

@@ -62,6 +62,8 @@ test("history migration and triggers work in actual Durable Object SQLite", asyn
         roundtrip: true,
         count: 106,
         deleted: true,
+        analyticsRestored: true,
+        analyticsIsolated: true,
       }),
     );
   } catch (error) {

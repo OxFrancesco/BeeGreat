@@ -29,3 +29,5 @@ https://www.tripwire.sh/dither-kit for the upstream API.
 
 Verification uses synthetic holdings. It does not prove a live wallet lookup
 or production deployment, and moves no funds.
+
+Generic crypto portfolio requests now use Nansen analytics. Explicit stock holdings requests retain this stock chart. See [Nansen charts](nansen-charts.md).

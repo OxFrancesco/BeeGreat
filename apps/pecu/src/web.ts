@@ -224,7 +224,9 @@ export class WebAgent {
           ).join("")
         : undefined;
       const holdings = this.store.stockSnapshot(eventId);
+      const analytics = this.store.analytics(eventId);
       const response = {
+        ...(analytics.length ? { analytics, analyticsOnly: analytics.length === 1 && reply === analytics[0]?.text } : {}),
         ...(needsChatGptConnection({ text: reply }) ? { recovery: "connect_chatgpt" as const } : {}),
         ...(holdings ? { holdings, holdingsOnly: reply === aeroReadText("stocks", holdings.stocks) } : {}),
         question: this.store.questionForEvent(eventId),

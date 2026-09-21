@@ -197,3 +197,7 @@ Dither chart internals and `stock-holdings.tsx` are exempt from the inline-style
 rule because chart geometry and series colors come from data. Raw Tailwind color
 and arbitrary color checks still apply there. Aero Stocks' standalone blue
 workspace is outside this Pecu homepage/Agent theme change.
+
+## Nansen analytics
+
+Use `NansenChart` for typed flow, P&L and portfolio snapshots. Dither bars retain a zero baseline and negative values. Allocation pies use priced positive assets, with exact accessible rows below. Realized/unrealized and wallet/DeFi controls change local views without API calls. Do not animate financial amounts or add bloom. Keep missing values distinct from zero, disclose partial results, and retain the Nansen source link and retrieval time. Wallet balances and DeFi assets must not be summed. Interactive specimens: `/pecu-nansen-charts/demo/analytics.html` on reports.buddytools.org.

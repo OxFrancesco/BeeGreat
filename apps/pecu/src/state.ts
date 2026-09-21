@@ -1,4 +1,5 @@
 import type { StockSnapshot } from "./stock-contract";
+import type { AnalyticsResult } from "./analytics-contract";
 import { stockBasketParameters, type StockBasketParameters } from "./stock-contract";
 import { aaveIntentParameters, type AaveParameters } from "./integrations/aave";
 import { validateSugarRequest } from "@beegreat/sugar";
@@ -63,6 +64,8 @@ export const eventProcessingLeaseMs = 2 * 60 * 1_000;
 export interface AgentStateStore {
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void;
   stockSnapshot(eventId: string): StockSnapshot | undefined;
+  saveAnalytics(eventId: string, result: AnalyticsResult): void;
+  analytics(eventId: string): AnalyticsResult[];
   saveQuestion(message: VerifiedMessage, question: AgentQuestion): void;
   questionForEvent(eventId: string): AgentQuestion | undefined;
   answerPendingQuestion(message: VerifiedMessage): boolean;

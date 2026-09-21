@@ -92,7 +92,7 @@ describe("NansenService", () => {
       "tgm/token-information", "tgm/flow-intelligence", "tgm/flows", "tgm/who-bought-sold",
       "tgm/transfers", "tgm/dex-trades", "token-screener", "tgm/token-ohlcv",
       "profiler/address/current-balance", "profiler/address/transactions", "profiler/address/pnl-summary",
-      "profiler/address/counterparties", "profiler/address/related-wallets",
+      "profiler/address/counterparties", "profiler/address/related-wallets", "profiler/address/pnl",
       "prediction-market/market-screener", "prediction-market/event-screener", "prediction-market/orderbook",
       "prediction-market/trades-by-market", "prediction-market/top-holders", "prediction-market/pnl-by-market",
       "prediction-market/address-summary",

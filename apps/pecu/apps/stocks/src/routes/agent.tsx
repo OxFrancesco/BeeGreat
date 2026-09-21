@@ -1,3 +1,4 @@
+import { NansenChart } from "../components/nansen-charts";
 import { CommandMenu } from "../components/command-menu";
 import { ConnectionRecovery } from "../components/inference-profile";
 import { CopyButton } from "../components/copy-button";
@@ -479,13 +480,14 @@ function AgentWorkspace({
                               {reply ? (
                                 <MessageContent className="pecu-bubble-bot">
                                   {reply.preview ? null : !(
-                                      reply.holdings && reply.holdingsOnly
+                                      (reply.holdings && reply.holdingsOnly) || reply.analyticsOnly
                                     ) ? (
                                     <MessageResponse>
                                       {reply.question?.question ?? reply.text}
                                     </MessageResponse>
                                   ) : null}
                                   <ConnectionRecovery reply={reply} />
+                                  {reply.analytics?.map((result) => <NansenChart key={result.snapshot.key} snapshot={result.snapshot} />)}
                                   {reply.holdings ? (
                                     <StockHoldings {...reply.holdings} />
                                   ) : null}

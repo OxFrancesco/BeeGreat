@@ -1,4 +1,5 @@
 import { stockSnapshotSchema } from "./stock-contract";
+import { analyticsResultsSchema } from "./analytics-contract";
 import { z } from "zod";
 import { agentQuestionSchema } from "./question-contract";
 import { clerkUserIdSchema, senderIdSchema } from "./web-identity";
@@ -82,6 +83,8 @@ export function confirmationCommand(text: string): { kind: "confirm" | "cancel";
   return { kind: match[1].toLowerCase() as "confirm" | "cancel", code: match[2].toUpperCase() };
 }
 export const webReplySchema = z.object({
+  analytics: analyticsResultsSchema.optional(),
+  analyticsOnly: z.boolean().optional(),
   recovery: z.literal("connect_chatgpt").optional(),
   holdings: stockSnapshotSchema.optional(),
   holdingsOnly: z.boolean().optional(),

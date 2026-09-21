@@ -1,3 +1,4 @@
+import { analyticsResultSchema, type AnalyticsResult } from "../analytics-contract";
 import { stockSnapshotSchema, type StockSnapshot } from "../stock-contract";
 import { agentQuestionSchema, type AgentQuestion, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "../domain";
 import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "../state";
@@ -57,6 +58,7 @@ export class DurableStore implements PecuStore {
 
   initialize(): void {
     this.sql.exec(`
+      CREATE TABLE IF NOT EXISTS basedbot_analytics (event_id TEXT NOT NULL, chart_key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,chart_key));
       CREATE TABLE IF NOT EXISTS basedbot_stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS basedbot_questions (
         event_id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
@@ -176,6 +178,15 @@ export class DurableStore implements PecuStore {
         updated_at INTEGER NOT NULL
       );
     `);
+  }
+
+  saveAnalytics(eventId: string, result: AnalyticsResult): void {
+    const value = analyticsResultSchema.parse(result);
+    this.sql.exec("INSERT OR REPLACE INTO basedbot_analytics(event_id,chart_key,json) VALUES(?,?,?)", eventId, value.snapshot.key, JSON.stringify(value));
+  }
+
+  analytics(eventId: string): AnalyticsResult[] {
+    return this.sql.exec<{ json: string }>("SELECT json FROM basedbot_analytics WHERE event_id=? ORDER BY rowid DESC LIMIT 12", eventId).toArray().reverse().map((row) => analyticsResultSchema.parse(JSON.parse(row.json)));
   }
 
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void {

@@ -92,9 +92,9 @@ Source of truth: `src/domain.ts`, `src/agent.ts`, `src/evm.ts`, and the pinned `
 | `/aero help` | Shows the advanced Aerodrome command reference. | `/aero`, `/aero help`, `/aero --help`, and `/aero -h` all show the same help. |
 | `/nansen` or `/nansen help` | Shows the Nansen analytics commands. | `/nansen` |
 | `/nansen token TOKEN [chain] [timeframe]` | Shows a token snapshot: price, market cap, liquidity, volume, holders. | `/nansen token 0xTOKEN base 7d` |
-| `/nansen flows TOKEN [chain]` | Shows net token inflows and outflows per holder cohort. | `/nansen flows 0xTOKEN` |
+| `/nansen flows TOKEN [chain] [timeframe]` | Shows net token inflows and outflows per holder cohort. | `/nansen flows 0xTOKEN` |
 | `/nansen wallet [ADDRESS] [chain]` | Shows token balances for an address, defaulting to the sender's wallet on Base. | `/nansen wallet` or `/nansen wallet 0xADDRESS ethereum` |
-| `/nansen pnl [ADDRESS] [chain]` | Shows realized PnL, win rate, and top tokens for an address. | `/nansen pnl` |
+| `/nansen pnl [ADDRESS] [chain]` | Shows realized and unrealized P&L by token for an address. | `/nansen pnl` |
 | `/nansen markets [words]` | Lists Polymarket markets ranked by 24h volume, optionally filtered by search words. | `/nansen markets fed rate cut` |
 
 ### Advanced Aerodrome reads
@@ -190,3 +190,5 @@ Do not add a second palette or override the upstream tokens in product styleshee
 Read `docs/design-system.md` before UI work and run `bun run design:check` afterwards.
 Update the `/design` specimens with new visual patterns. Charts may retain distinct
 series colors; their data-driven styles have explicit lint exceptions.
+
+Portfolio analytics: `/nansen portfolio [ADDRESS]` returns wallet tokens and DeFi positions separately. See `docs/nansen-charts.md`.

@@ -397,3 +397,5 @@ the Mind copy stays. See `29-raindrop.md`.
 ### Mascot rendering
 
 Use the yellow voxel Bee from `assets/bee-3d/minecraft-yellow`. Mobile uses `FloatingBee`; web uses `BeeMascot`. Both accept `BeeAnimation` from `@beegreat/tool-presentation`. Use thinking for active replies and succeed for goal celebrations. Settled chat avatars are static. Reduced motion selects the matching PNG. Health moods and the doctor variant come from this same model. See `docs/25-bee-mascot.md` for asset generation.
+
+Pecu Nansen analytics use the shared `apps/pecu/apps/stocks/src/components/nansen-charts.tsx` renderer on both Pecu web chat surfaces. See `apps/pecu/docs/nansen-charts.md` for chart contracts and text-channel fallbacks.

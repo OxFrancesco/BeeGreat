@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { log } from "../logger";
+import { analyticsText, type AnalyticsResult } from "../analytics-contract";
+import { nansenAnalytics } from "./nansen-analytics";
 
 export const nansenChains = [
   "arbitrum", "avalanche", "base", "bitcoin", "bnb", "ethereum", "hyperevm", "hyperliquid",
@@ -200,6 +202,20 @@ const entry = <S extends z.ZodType>(definition: Readonly<{
 const wallet = (input: { address?: string }, context: NansenContext): string => input.address ?? context.wallet;
 
 export const nansenEndpoints = {
+  wallet_portfolio: entry({
+    path: "profiler/address/current-balance",
+    description: "Visual portfolio exposure: wallet token balances across all chains and supported DeFi positions, including debt. Uses two Nansen reads. Wallet and DeFi values stay separate to avoid double-counting receipt tokens.",
+    input: z.object({ address: address.optional() }),
+    body: (i, context) => ({ address: wallet(i, context), chain: "all", hide_spam_token: true, pagination: { page: 1, per_page: 1000 } }),
+    summarize: () => empty,
+  }),
+  wallet_pnl_breakdown: entry({
+    path: "profiler/address/pnl",
+    description: "Visual trading profit and loss by token, including winners and losers, realized and unrealized USD. Prefer this for P&L charts and trading performance. Up to 1000 tokens; incomplete data is labeled.",
+    input: z.object({ address: address.optional(), chain: pnlChain, days: days.default(30) }),
+    body: (i, context) => ({ address: wallet(i, context), chain: i.chain, date: range(i.days), filters: { show_realized: true }, pagination: { page: 1, per_page: 1000 } }),
+    summarize: () => empty,
+  }),
   token_info: entry({
     path: "tgm/token-information",
     description: "Token God Mode snapshot for a token: price, market cap, FDV, liquidity, volume with buy/sell split, trades, unique traders, holders, and links. Default chain is Base.",
@@ -369,6 +385,7 @@ export type NansenResult = Readonly<{
   text: string;
   data: unknown;
   credits: { cost?: string; remaining?: string };
+  analytics?: AnalyticsResult;
 }>;
 
 const errorSchema = z.object({
@@ -424,18 +441,34 @@ export class NansenService {
   async call(endpointName: NansenEndpointName, input: unknown, context: NansenContext): Promise<NansenResult> {
     if (!this.apiKey) throw new Error("Nansen analytics is not configured yet.");
     const spec = nansenEndpoints[endpointName];
-    const response = await this.request.call(globalThis, `${this.apiUrl}/${spec.path}`, {
+    const requestBody = spec.buildBody(input, context);
+    let result: { body: unknown; credits: NansenResult["credits"] };
+    if (endpointName === "wallet_portfolio") {
+      const [balances, defi] = await Promise.allSettled([
+        this.read(spec.path, requestBody),
+        this.read("portfolio/defi-holdings", { wallet_address: requestBody.address }),
+      ]);
+      if (balances.status === "rejected" && defi.status === "rejected") throw balances.reason;
+      result = { body: { balances: balances.status === "fulfilled" ? balances.value.body : null, defi: defi.status === "fulfilled" ? defi.value.body : null }, credits: {} };
+    } else result = await this.read(spec.path, requestBody);
+    const snapshot = nansenAnalytics(endpointName, requestBody, result.body, Date.now());
+    if (!snapshot && (endpointName === "wallet_portfolio" || endpointName === "wallet_pnl_breakdown")) throw new Error("Nansen returned analytics in an unsupported format. Try again later.");
+    const text = snapshot ? analyticsText(snapshot) : spec.summarize(result.body);
+    return { endpoint: endpointName, text, data: result.body, credits: result.credits, ...(snapshot ? { analytics: { snapshot, text } } : {}) };
+  }
+
+  private async read(path: string, body: Record<string, unknown>) {
+    const response = await this.request.call(globalThis, `${this.apiUrl}/${path}`, {
       method: "POST",
-      headers: { "content-type": "application/json", apikey: this.apiKey },
-      body: JSON.stringify(spec.buildBody(input, context)),
+      headers: { "content-type": "application/json", apikey: this.apiKey ?? "" },
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(25_000),
     });
     const cost = response.headers.get("X-Nansen-Credits-Cost") ?? undefined;
     const remaining = response.headers.get("X-Nansen-Credits-Remaining") ?? undefined;
     const requestId = response.headers.get("X-Request-Id") ?? undefined;
-    log("info", "nansen_call", { endpoint: endpointName, status: response.status, creditsCost: cost, creditsRemaining: remaining, requestId });
+    log("info", "nansen_call", { endpoint: path, status: response.status, creditsCost: cost, creditsRemaining: remaining, requestId });
     if (!response.ok) throw new Error(nansenError(await response.text(), response.status, response.headers.get("Retry-After")));
-    const body = envelope.parse(await response.json());
-    return { endpoint: endpointName, text: spec.summarize(body), data: body, credits: { cost, remaining } };
+    return { body: envelope.parse(await response.json()), credits: { cost, remaining } };
   }
 }

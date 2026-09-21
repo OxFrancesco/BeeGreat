@@ -1,3 +1,4 @@
+import { analyticsResultSchema, type AnalyticsResult } from "./analytics-contract";
 import { stockSnapshotSchema, type StockSnapshot } from "./stock-contract";
 import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
@@ -64,6 +65,7 @@ export class Store implements PecuStore {
 
   private migrate(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS analytics (event_id TEXT NOT NULL, chart_key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,chart_key));
       CREATE TABLE IF NOT EXISTS stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS questions (
         event_id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
@@ -214,6 +216,15 @@ export class Store implements PecuStore {
         updated_at INTEGER NOT NULL
       );
     `);
+  }
+
+  saveAnalytics(eventId: string, result: AnalyticsResult): void {
+    const value = analyticsResultSchema.parse(result);
+    this.db.query("INSERT OR REPLACE INTO analytics(event_id,chart_key,json) VALUES(?,?,?)").run(eventId, value.snapshot.key, JSON.stringify(value));
+  }
+
+  analytics(eventId: string): AnalyticsResult[] {
+    return this.db.query<{ json: string }, [string]>("SELECT json FROM analytics WHERE event_id=? ORDER BY rowid DESC LIMIT 12").all(eventId).reverse().map((row) => analyticsResultSchema.parse(JSON.parse(row.json)));
   }
 
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void {

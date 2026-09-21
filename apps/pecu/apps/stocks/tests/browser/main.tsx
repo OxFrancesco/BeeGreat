@@ -1,3 +1,5 @@
+import { analyticsFixtures } from "../fixtures/nansen-analytics";
+import { analyticsText } from "../../../../src/analytics-contract";
 import { connectionFixture } from "./connection";
 import { TransactionFixture } from "./transactions";
 import { createRoot } from "react-dom/client";
@@ -96,6 +98,10 @@ window.fetch = async (input, init) => {
           reply: {
             text: `Response ${start + i}. **Wallet analysis**\n\n${"The balances and activity are available for review. ".repeat(1 + (i % 5))}\n\n- USDC balance reviewed\n- No transaction submitted`,
             preview: null,
+            ...(new URLSearchParams(location.search).has("analytics") && start + i === totalMessages ? {
+              text: "These charts use fictional data for UI verification.",
+              analytics: analyticsFixtures.slice(0, 3).map((snapshot) => ({ snapshot, text: analyticsText(snapshot) })),
+            } : {}),
           },
         }))
       : [],

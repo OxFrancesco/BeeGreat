@@ -164,12 +164,15 @@ function parseNansenCommand(parts: string[]): Command {
       return { type: "nansen", endpoint: "token_info", input: { token, ...rest } };
     }
     case "flows": {
-      const usage = "Usage: /nansen flows 0xTOKEN [chain]";
+      const usage = "Usage: /nansen flows 0xTOKEN [chain] [timeframe]";
       const token = parts[2];
       if (!token || !nansenAddress.test(token)) throw new Error(usage);
       const rest = nansenPositional(parts.slice(3), usage);
-      if (rest.timeframe !== undefined) throw new Error(usage);
-      return { type: "nansen", endpoint: "token_flow_intelligence", input: { token, ...(rest.chain ? { chain: rest.chain } : {}) } };
+      return { type: "nansen", endpoint: "token_flow_intelligence", input: { token, ...rest } };
+    }
+    case "portfolio": {
+      if (parts.length > 3 || (parts[2] && !nansenAddress.test(parts[2]))) throw new Error("Usage: /nansen portfolio [0xADDRESS]");
+      return { type: "nansen", endpoint: "wallet_portfolio", input: parts[2] ? { address: parts[2] } : {} };
     }
     case "wallet":
     case "pnl": {
@@ -181,14 +184,14 @@ function parseNansenCommand(parts: string[]): Command {
         else if (nansenAddress.test(arg) && input.address === undefined) input.address = arg;
         else throw new Error(usage);
       }
-      return { type: "nansen", endpoint: sub === "wallet" ? "wallet_balances" : "wallet_pnl", input };
+      return { type: "nansen", endpoint: sub === "wallet" ? "wallet_balances" : "wallet_pnl_breakdown", input };
     }
     case "markets": {
       const query = parts.slice(2).join(" ").trim();
       return { type: "nansen", endpoint: "prediction_markets", input: query ? { query } : {} };
     }
     default:
-      throw new Error("Usage: /nansen token|flows|wallet|pnl|markets or /nansen help");
+      throw new Error("Usage: /nansen token|flows|wallet|portfolio|pnl|markets or /nansen help");
   }
 }
 
@@ -233,7 +236,7 @@ export function parseCommand(input: string): Command {
   throw new Error("Unknown command. Send /help to see the available commands.");
 }
 
-export function parseNaturalWalletCommand(input: string): Extract<Command, { type: "wallet" | "balance" | "deposit" | "aero" }> | undefined {
+export function parseNaturalWalletCommand(input: string): Extract<Command, { type: "wallet" | "balance" | "deposit" | "aero" | "nansen" }> | undefined {
   const text = input
     .trim()
     .toLowerCase()
@@ -241,6 +244,15 @@ export function parseNaturalWalletCommand(input: string): Extract<Command, { typ
     .replace(/[^a-z0-9' ]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+  if (/^(?:show|check|list|view) (?:me )?(?:my )?(?:crypto )?(?:holdings|portfolio|portfolio exposure)$/.test(text)
+    || /^(?:what|which) am i holding$/.test(text)
+    || /^what(?:'s| is) in my portfolio$/.test(text)) {
+    return { type: "nansen", endpoint: "wallet_portfolio", input: {} };
+  }
+  if (/^(?:show|check|view) (?:me )?my (?:trading )?(?:pnl|p l|profit and loss)$/.test(text)) {
+    return { type: "nansen", endpoint: "wallet_pnl_breakdown", input: {} };
+  }
 
   if (
     /^(?:my )?stocks$/.test(text)
@@ -317,9 +329,10 @@ export const nansenHelpText = [
   "Nansen on-chain analytics",
   "",
   "/nansen token 0xTOKEN [chain] [timeframe]",
-  "/nansen flows 0xTOKEN [chain]",
+  "/nansen flows 0xTOKEN [chain] [timeframe]",
   "/nansen wallet [0xADDRESS] [chain]",
   "/nansen pnl [0xADDRESS] [chain]",
+  "/nansen portfolio [0xADDRESS]",
   "/nansen markets [search words]",
   "",
   "Chains: base (default), ethereum, arbitrum, optimism, polygon, bnb, solana, and other Nansen chains. Timeframes: 5m, 1h, 6h, 12h, 1d, 7d.",

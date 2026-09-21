@@ -1,3 +1,4 @@
+import { NansenService } from "../src/integrations/nansen";
 import { test, expect } from "bun:test";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import type { AgentHarness } from "../src/harness";
@@ -8,7 +9,42 @@ import { services } from "./fixtures/agent-services";
 import { confirmationCommand, webTurnSchema } from "../src/web-contract";
 const address = "0x1111111111111111111111111111111111111111";
 const identity = { userId: "user_alice", senderId: "123" };
-function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"]) {
+
+test("Nansen charts persist with direct and model replies, replay without a new read, and never leak into another turn", async () => {
+  let reads = 0;
+  const fetcher: typeof fetch = Object.assign(async () => {
+    reads++;
+    return Response.json({ data: [{ smart_trader_net_flow_usd: 100, whale_net_flow_usd: -50 }] });
+  }, { preconnect: fetch.preconnect });
+  const nansen = new NansenService("test", "https://nansen.test/api/v1", fetcher);
+  const f = fixture(async (message, capabilities) => {
+    if (message.text === "explain flows") {
+      await capabilities.nansenCall("token_flow_intelligence", { token: address });
+      return "Smart trader inflows and whale outflows differ.";
+    }
+    return "Hello";
+  }, false, undefined, nansen);
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const direct = { ...identity, requestId: crypto.randomUUID(), text: `/nansen flows ${address}` };
+    await f.web.handle(direct);
+    const first = f.web.state(identity).messages.at(-1)?.reply;
+    expect(first?.analyticsOnly).toBe(true);
+    expect(first?.analytics?.[0]?.snapshot.kind).toBe("flows");
+    const saved = first?.analytics;
+    await f.web.handle(direct);
+    expect(reads).toBe(1);
+    expect(new WebAgent(f.agent, f.store, f.sql).state(identity).messages.at(-1)?.reply?.analytics).toEqual(saved);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "hello" });
+    expect(f.web.state(identity).messages.at(-1)?.reply?.analytics).toBeUndefined();
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "explain flows" });
+    const explained = f.web.state(identity).messages.at(-1)?.reply;
+    expect(explained?.analyticsOnly).toBe(false);
+    expect(explained?.analytics).toHaveLength(1);
+    expect(explained?.text).toContain("differ");
+  } finally { f.close(); }
+});
+function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService) {
   const db = new Database(":memory:");
   const store = new Store(":memory:");
   let calls = 0;
@@ -56,7 +92,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
         throw new Error("No signing");
       },
     },
-    services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }),
+    { ...services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), ...(nansen ? { nansen } : {}) },
     {
       respond: async (message, capabilities) => {
         calls++;
