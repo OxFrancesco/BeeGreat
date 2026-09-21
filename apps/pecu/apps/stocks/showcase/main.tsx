@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Copy, Check, ArrowUpRight } from "lucide-react";
+import { Copy, Check, ArrowRight } from "lucide-react";
+import { Button } from "../src/components/ui/button";
 import { NansenChart } from "../src/components/nansen-charts";
 import { showcaseSchema } from "./schema";
 import source from "./data.json";
@@ -24,11 +25,11 @@ function Showcase() {
   }
   return <div className="pecu showcase">
     <a className="showcase-skip" href="#examples">Skip to examples</a>
-    <header className="showcase-header"><a className="showcase-wordmark" href="/" aria-label="Pecu home">pecu</a><a className="pecu-button pecu-button-primary" href="/agent">Open Pecu <ArrowUpRight size={16} aria-hidden="true" /></a></header>
+    <header className="showcase-header"><a className="showcase-wordmark" href="/" aria-label="Pecu home">pecu</a><Button asChild className="pecu-button pecu-button-primary showcase-open"><a href="/agent">Open Pecu <ArrowRight aria-hidden="true" /></a></Button></header>
     <main>
       <h1>Nansen showcase</h1>
       <p className="showcase-intro">Explore token flows, trading results and portfolio exposure. {collection.source === "nansen" ? "Examples use saved Nansen data." : "These examples use fictional data. Ask Pecu to run the same analysis with Nansen data."}</p>
-      <div className="showcase-tabs" role="group" aria-label="Choose analysis">{views.map((view) => <button key={view.kind} type="button" aria-pressed={kind === view.kind} onClick={() => { setKind(view.kind); choose(""); }}>{view.label}</button>)}</div>
+      <div className="showcase-tabs" role="group" aria-label="Choose analysis">{views.map((view) => <Button variant="ghost" key={view.kind} type="button" aria-pressed={kind === view.kind} onClick={() => { setKind(view.kind); choose(""); }}>{view.label}</Button>)}</div>
       <div className={`showcase-workspace${examples.length > 1 ? "" : " showcase-single"}`} id="examples">
         {examples.length > 1 ? <nav className="showcase-picker" aria-label="Data examples">
           <label htmlFor="example-select">Example</label>

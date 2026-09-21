@@ -42,3 +42,5 @@ bun scripts/nansen/export.ts /path/to/BeeGreat/output/nansen-showcase
 The batch plans 1,000 requests: 10 screeners, five reads for each of 150 tokens, and four reads for each of 60 public trader wallets. It covers Base, Ethereum, Arbitrum, Optimism and Polygon. Calls are paced, logged and capped at 1,000 requests and credits. Authentication, billing, rate-limit, unexpected cost and network errors stop collection. There are no automatic retries. Completed jobs are reused on restart; an unfinished ledger entry requires inspection before resuming. Export requires all three example categories.
 
 The public site is the only deployment target for showcase changes. Agent/Stocks use the same chart component; the showcase introduces no chat, provider, transaction or mobile behavior.
+
+The showcase header uses the shared button component with explicit padding and a 44px target. Below 900px, examples move into a select control; phone analysis tabs share three columns. The shared Dither X axis limits label density to the available plot width. Responsive checks cover all 27 examples at 320px and all three categories at 390, 768, 900, 1024, 1280 and 1536px.

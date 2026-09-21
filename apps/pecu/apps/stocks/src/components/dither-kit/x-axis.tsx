@@ -16,7 +16,8 @@ export function XAxis({
   const ctx = useChartPart("XAxis")
   if (!ctx.ready) return null
 
-  const step = Math.max(1, Math.ceil(ctx.dataLength / maxTicks))
+  const visibleTicks = Math.max(1, Math.min(maxTicks, Math.floor(ctx.plot.width / 72)))
+  const step = Math.max(1, Math.ceil(ctx.dataLength / visibleTicks))
   const y = ctx.plot.height + tickMargin
 
   return (

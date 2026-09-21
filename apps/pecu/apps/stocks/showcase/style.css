@@ -2,23 +2,23 @@ html, body, #root { min-height: 100%; margin: 0; }
 .showcase { min-height: 100vh; padding: 0 36px 64px; }
 .showcase-header { display: flex; justify-content: space-between; align-items: center; max-width: 1120px; margin: auto; min-height: 96px; gap: 20px; }
 .showcase-wordmark { font: 750 26px var(--font-mono); text-decoration: none; letter-spacing: -1px; }
-.showcase-header .pecu-button { display: inline-flex; gap: 8px; align-items: center; text-decoration: none; }
+.showcase-header .showcase-open { min-height: 44px; height: auto; padding: 12px 18px; gap: 10px; font-size: 14px; line-height: 20px; text-decoration: none; }
 .showcase main { max-width: 1120px; margin: 28px auto 0; }
 .showcase h1 { font-size: clamp(30px, 4vw, 46px); font-weight: 650; line-height: 1.15; letter-spacing: -.035em; margin: 0 0 16px; }
 .showcase-intro { max-width: 680px; font-size: 16px; line-height: 1.6; color: var(--muted-foreground); margin: 0 0 32px; }
 .showcase-tabs { display: flex; gap: 8px; flex-wrap: wrap; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
 .showcase-tabs button { min-height: 44px; padding: 10px 18px; border-radius: var(--clay-radius-control); font-size: 15px; cursor: pointer; }
-.showcase-tabs button[aria-pressed=true] { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--clay-shadow); }
-.showcase-workspace { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 48px; padding-top: 32px; align-items: start; }
+.showcase-tabs button[aria-pressed=true] { background: var(--secondary); color: var(--foreground); box-shadow: none; }
+.showcase-workspace { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 32px; padding-top: 32px; align-items: start; }
 .showcase-picker { min-width: 0; }
 .showcase-picker label, .showcase-picker select { display: none; }
 .showcase-example-list { display: grid; gap: 4px; }
 .showcase-example-list button { padding: 14px 16px; min-height: 64px; text-align: left; border-left: 2px solid transparent; cursor: pointer; font-size: 15px; border-radius: 0 var(--radius) var(--radius) 0; }
 .showcase-example-list button span { display: block; color: var(--muted-foreground); margin-top: 4px; font-size: 12px; text-transform: capitalize; }
 .showcase-example-list button[aria-pressed=true] { border-color: var(--primary); background: var(--secondary); }
-.showcase-example { min-width: 0; max-width: 780px; }
+.showcase-example { min-width: 0; width: 100%; }
 .showcase-question { display: flex; align-items: start; gap: 12px; border-radius: var(--clay-radius-control); background: var(--secondary); padding: 18px 20px; }
-.showcase-question p { flex: 1; margin: 0; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
+.showcase-question p { flex: 1; min-width: 0; margin: 0; font-size: 16px; line-height: 1.5; overflow-wrap: anywhere; }
 .showcase-question button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border-radius: var(--radius); cursor: pointer; }
 .showcase-question button:hover { background: var(--muted); }
 .showcase-note { margin: 20px 0; line-height: 1.6; font-size: 14px; color: var(--muted-foreground); }
@@ -26,7 +26,7 @@ html, body, #root { min-height: 100%; margin: 0; }
 .showcase-example section > div[aria-hidden=true] { height: 280px; }
 .showcase-skip { position: absolute; left: 20px; top: -80px; padding: 12px; background: var(--card); z-index: 10; }
 .showcase-skip:focus { top: 12px; }
-@media(max-width:760px) { .showcase { padding: 0 18px 40px; } .showcase-header { min-height: 80px; } .showcase main { margin-top: 18px; } .showcase-intro { font-size: 15px; margin-bottom: 24px; } .showcase-tabs { gap: 4px; } .showcase-tabs button { padding: 10px 12px; font-size: 13px; } .showcase-workspace { display: block; padding-top: 24px; } .showcase-picker { margin-bottom: 20px; } .showcase-picker label { display: block; margin-bottom: 6px; font-size: 13px; } .showcase-picker select { display: block; width: 100%; min-height: 48px; padding: 10px 12px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--clay-radius-control); } .showcase-example-list { display: none; } .showcase-question { padding: 14px; } .showcase-question p { font-size: 15px; } .showcase-example section { padding: 16px; } .showcase-example section > div[aria-hidden=true] { height: 230px; } }
+@media(max-width:900px) { .showcase { padding: 0 18px 40px; } .showcase-header { min-height: 80px; } .showcase main { margin-top: 18px; } .showcase-intro { font-size: 15px; margin-bottom: 24px; } .showcase-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } .showcase-tabs button { height: auto; min-height: 48px; min-width: 0; padding: 10px 8px; font-size: 13px; line-height: 1.4; white-space: normal; } .showcase-workspace { display: block; padding-top: 24px; } .showcase-picker { margin-bottom: 20px; } .showcase-picker label { display: block; margin-bottom: 6px; font-size: 13px; } .showcase-picker select { display: block; width: 100%; min-height: 48px; padding: 10px 12px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--clay-radius-control); } .showcase-example-list { display: none; } .showcase-question { padding: 14px; } .showcase-question p { font-size: 15px; } .showcase-example section { padding: 16px; } .showcase-example section > div[aria-hidden=true] { height: 230px; } }
 .showcase-workspace.showcase-single { grid-template-columns: minmax(0, 1fr); }
 .showcase-single .showcase-example { width: 100%; max-width: 850px; }
 @media(min-width:1000px) { .showcase-single .showcase-example { max-width: none; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(230px, .8fr); gap: 44px; align-items: start; }  }
@@ -34,3 +34,16 @@ html, body, #root { min-height: 100%; margin: 0; }
 .showcase button:focus-visible, .showcase select:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 
 .showcase-context { margin-top: 24px; }
+
+.showcase-example section { overflow-wrap: anywhere; }
+.showcase-example section > .font-mono { font-size: clamp(1rem, 2vw, 1.25rem); }
+.showcase-example section [data-slot="button"] { min-height: 44px; height: auto; white-space: normal; }
+.showcase-example section dd { min-width: 0; }
+.showcase a:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+@media (max-width: 400px) {
+  .showcase { padding-inline: 16px; }
+  .showcase-header .showcase-open { padding-inline: 14px; }
+  .showcase-example section { padding: 14px; }
+}
+
+@media (min-width: 600px) and (max-width: 900px) { .showcase-tabs { display: flex; } .showcase-tabs button { padding-inline: 18px; font-size: 14px; } }
