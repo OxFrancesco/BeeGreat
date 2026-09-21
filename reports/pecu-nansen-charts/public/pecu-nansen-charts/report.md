@@ -22,6 +22,16 @@ Pecu Agent and Stocks chat share one renderer. X Chat gets a source-attributed t
 
 Documented fixtures cover gains/losses, null versus zero, partial pagination, portfolio source failure, saved-event isolation and provider tool calls. Browser specimens include all three charts plus missing, empty and unavailable states. The report demo uses fictional data.
 
-The local checkout has no NANSEN_API_KEY. Live upstream responses and production deployment are not verified by fixture tests. Set the key in the intended environment and check a read-only Nansen request before releasing the app. This work does not deploy Pecu production.
+Production release verified on 2026-09-21. The Worker has NANSEN_API_KEY configured. Read-only portfolio, DeFi, P&L and USDC cohort-flow requests returned live data in the signed-in Pecu Agent. Chart controls worked and snapshots survived leaving and reopening the thread. No funds moved. The demo above remains fictional data.
 
 Sources: [flow intelligence](https://docs.nansen.ai/api/token-god-mode/flow-intelligence), [Nansen API](https://docs.nansen.ai/), [redistribution guidance](https://docs.nansen.ai/guides/redistribution-guide).
+
+## Release evidence
+
+- Source commit: fa1819d078ab5d2d9464c20404c94e8140a1d126, pushed to GitHub main.
+- Backend: 90d32f89-10a5-40bd-b704-af5f16ddde32.
+- Agent/Stocks frontend: 6a25981e-f66d-4faf-a831-6e8903258f67.
+- Pecu site: 6648784c-5009-4fde-896c-c68169ecbc8b.
+- 360 backend tests and 49 frontend tests passed. Backend, frontend and site typechecks, design checks, frontend/site builds and four Worker dry-run builds passed. Staged secret scan passed.
+- Production backend health returned ok and Nansen configured. Both deployed backend and frontend versions were read back. The live design page contains the chart reference.
+- The Agent browser path was verified with live data. Stocks chat shares its renderer but was not separately exercised with live data. X Chat text fallback and provider tool paths were covered by tests.
