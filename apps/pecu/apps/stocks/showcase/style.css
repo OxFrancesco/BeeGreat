@@ -29,8 +29,8 @@ html, body, #root { min-height: 100%; margin: 0; }
 @media(max-width:760px) { .showcase { padding: 0 18px 40px; } .showcase-header { min-height: 80px; } .showcase main { margin-top: 18px; } .showcase-intro { font-size: 15px; margin-bottom: 24px; } .showcase-tabs { gap: 4px; } .showcase-tabs button { padding: 10px 12px; font-size: 13px; } .showcase-workspace { display: block; padding-top: 24px; } .showcase-picker { margin-bottom: 20px; } .showcase-picker label { display: block; margin-bottom: 6px; font-size: 13px; } .showcase-picker select { display: block; width: 100%; min-height: 48px; padding: 10px 12px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: var(--clay-radius-control); } .showcase-example-list { display: none; } .showcase-question { padding: 14px; } .showcase-question p { font-size: 15px; } .showcase-example section { padding: 16px; } .showcase-example section > div[aria-hidden=true] { height: 230px; } }
 .showcase-workspace.showcase-single { grid-template-columns: minmax(0, 1fr); }
 .showcase-single .showcase-example { width: 100%; max-width: 850px; }
-@media(min-width:1000px) { .showcase-single .showcase-example { max-width: none; display: grid; grid-template-columns: minmax(230px, .8fr) minmax(0, 1.5fr); gap: 44px; align-items: start; }  }
+@media(min-width:1000px) { .showcase-single .showcase-example { max-width: none; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(230px, .8fr); gap: 44px; align-items: start; }  }
 
 .showcase button:focus-visible, .showcase select:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 
-.showcase-context { margin-bottom: 24px; }
+.showcase-context { margin-top: 24px; }

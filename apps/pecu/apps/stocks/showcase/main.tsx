@@ -36,12 +36,12 @@ function Showcase() {
           <div className="showcase-example-list">{examples.map((example) => <button type="button" key={example.id} aria-pressed={active?.id === example.id} onClick={() => choose(example.id)}>{example.name}<span>{example.snapshot.chain === "all" ? "Across chains" : example.snapshot.chain}</span></button>)}</div>
         </nav> : null}
         {active ? <article className="showcase-example" aria-label={active.name}>
+          <NansenChart key={active.id} snapshot={active.snapshot} illustrative={collection.source === "illustrative"} />
           <div className="showcase-context">
           <div className="showcase-question"><p>{active.question}</p><button type="button" onClick={copy} aria-label={copied ? "Prompt copied" : "Copy prompt"}>{copied ? <Check size={18} /> : <Copy size={18} />}</button></div>
           {active.note ? <p className="showcase-note">{active.note}</p> : null}
           {copyError ? <p role="status">Could not copy. Select the question above to copy it.</p> : null}
           </div>
-          <NansenChart key={active.id} snapshot={active.snapshot} illustrative={collection.source === "illustrative"} />
         </article> : <p role="status">Examples are being prepared.</p>}
       </div>
     </main>
