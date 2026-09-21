@@ -1,0 +1,678 @@
+{
+  "widths": [
+    {
+      "target": 320,
+      "category": "Token flows",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "target": 320,
+      "category": "Trading P&L",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "target": 320,
+      "category": "Portfolio exposure",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "target": 390,
+      "category": "Token flows",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 390
+    },
+    {
+      "target": 390,
+      "category": "Trading P&L",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 390
+    },
+    {
+      "target": 390,
+      "category": "Portfolio exposure",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 390
+    },
+    {
+      "target": 768,
+      "category": "Token flows",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 768
+    },
+    {
+      "target": 768,
+      "category": "Trading P&L",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 768
+    },
+    {
+      "target": 768,
+      "category": "Portfolio exposure",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 768
+    },
+    {
+      "target": 900,
+      "category": "Token flows",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 900
+    },
+    {
+      "target": 900,
+      "category": "Trading P&L",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 900
+    },
+    {
+      "target": 900,
+      "category": "Portfolio exposure",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 900
+    },
+    {
+      "target": 1024,
+      "category": "Token flows",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1024
+    },
+    {
+      "target": 1024,
+      "category": "Trading P&L",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1024
+    },
+    {
+      "target": 1024,
+      "category": "Portfolio exposure",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1024
+    },
+    {
+      "target": 1280,
+      "category": "Token flows",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1280
+    },
+    {
+      "target": 1280,
+      "category": "Trading P&L",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1280
+    },
+    {
+      "target": 1280,
+      "category": "Portfolio exposure",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1280
+    },
+    {
+      "target": 1536,
+      "category": "Token flows",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1536
+    },
+    {
+      "target": 1536,
+      "category": "Trading P&L",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1536
+    },
+    {
+      "target": 1536,
+      "category": "Portfolio exposure",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 18px",
+        "width": 140.0142059326172
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 1536
+    }
+  ],
+  "examples": [
+    {
+      "category": "Token flows",
+      "example": "USDC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "WBTC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "PYUSD",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "USDC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "WETH",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "WMATIC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "WBTC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "USDC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "USAD",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "WETH",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "USDT0",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "USDC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "WETH",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "USDC",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Token flows",
+      "example": "USDT",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Trading P&L",
+      "example": "Trader 1",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Trading P&L",
+      "example": "Trader 2",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Trading P&L",
+      "example": "Trader 3",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Trading P&L",
+      "example": "Trader 4",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Trading P&L",
+      "example": "Trader 5",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Trading P&L",
+      "example": "Trader 6",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Portfolio exposure",
+      "example": "Wallet 1",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Portfolio exposure",
+      "example": "Wallet 2",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Portfolio exposure",
+      "example": "Wallet 3",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Portfolio exposure",
+      "example": "Wallet 4",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Portfolio exposure",
+      "example": "Wallet 5",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    },
+    {
+      "category": "Portfolio exposure",
+      "example": "Wallet 6",
+      "button": {
+        "font": "14px",
+        "height": 43.99147415161133,
+        "padding": "12px 14px",
+        "width": 132.00283813476562
+      },
+      "labelsOverlap": false,
+      "overflow": 0,
+      "tinyControls": [],
+      "width": 320
+    }
+  ]
+}

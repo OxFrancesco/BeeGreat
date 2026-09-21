@@ -47,3 +47,11 @@ Source: 916fa82, with layout refinement 7bc14e5. Both pushed to GitHub main. Bac
 Browser checks covered all three categories, realized/unrealized P&L, wallet/DeFi selection, expanded rows, prompt copying and mobile selection without horizontal overflow. The public site is the only deployment target; existing chat deployments were unchanged.
 
 Final site version: 6162dbbf-966d-47f9-b6c1-1f8141a1a36a. The live public URL rendered all three categories and measure controls. Browser recording returned no frames on the final pass; the attached video is a screenshot walkthrough of the deployed views.
+
+## Responsive refinement
+
+The header link now uses the shared button component, explicit 14px type, horizontal padding and a 44px touch target. Analysis tabs use quiet selection states. At phone widths they share three columns; up to 900px the example list becomes a select control. Long amounts and addresses wrap. Dither X-axis labels fit the plot width, shared by the showcase, Agent and Stocks.
+
+Source b921359. All 27 examples passed a 320px sweep, and the three analysis categories passed at 390, 768, 900, 1024, 1280 and 1536px. Measurements found no page overflow or overlapping axis labels. All visible controls met the 44px target within subpixel rounding. Typechecks, design lint, both builds and 50 frontend tests passed. The data collection was not rerun.
+
+Responsive release: site 86a8f56b-19ad-42d4-9206-85fb620f6012; Agent/Stocks 745b056d-15d9-4fa9-b6cf-9f6dec774a5f. Production mobile widths were rechecked and Open Pecu reached the authenticated Agent page.
