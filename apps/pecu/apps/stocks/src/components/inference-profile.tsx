@@ -1,4 +1,5 @@
 import { UserButton } from "@clerk/tanstack-react-start";
+import { CardsIcon, openPecuCards, PecuCardsDialog } from "./pecu-cards";
 import { ChatGptLogo } from "./chatgpt-logo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { inferenceStatusSchema, type InferenceStatus } from "../../../../src/web-contract";
@@ -14,6 +15,7 @@ export function PecuUserButton() {
     <div ref={profile}>
       <UserButton>
         <UserButton.MenuItems>
+          <UserButton.Action label="My cards" labelIcon={<CardsIcon />} onClick={openPecuCards} />
           <UserButton.Action label="ChatGPT connection" labelIcon={<ChatGptLogo size={20} />} onClick={openChatGptConnection} />
           <UserButton.Action label="manageAccount" />
           <UserButton.Action label="signOut" />
@@ -23,6 +25,7 @@ export function PecuUserButton() {
         </UserButton.UserProfilePage>
       </UserButton>
       <ChatGptConnectionDialog onCloseFocus={() => profile.current?.querySelector("button")?.focus()} />
+      <PecuCardsDialog />
     </div>
   );
 }

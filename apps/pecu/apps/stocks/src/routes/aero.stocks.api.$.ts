@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { agentRequest, identity, sameOrigin } from "../lib/server";
+import { agentRequest, cardIdentity, identity, sameOrigin } from "../lib/server";
+import { cardCollectionSchema } from "../../../../src/cards-contract";
 import {
   basketSchema,
   threadIdSchema,
@@ -30,6 +31,7 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
+        if (params._splat === "cards") return cardsRequest(false);
         if (params._splat === "inference") {
           let viewer;
           try {
@@ -102,6 +104,7 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
         if (!sameOrigin(request))
           return json({ error: "Invalid request origin" }, 403);
         const op = params._splat ?? "";
+        if (op === "cards-claim") return cardsRequest(true);
         if (["inference-connect", "inference-disconnect"].includes(op)) {
           let viewer;
           try {
@@ -163,3 +166,14 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
     },
   },
 });
+
+async function cardsRequest(claim: boolean) {
+  let viewer;
+  try { viewer = await cardIdentity(); }
+  catch { return json({ error: "Sign in to view your cards." }, 401); }
+  try {
+    const response = await agentRequest(claim ? "cards-claim" : "cards", viewer);
+    if (!response.ok) throw new Error("Cards unavailable");
+    return json(cardCollectionSchema.parse(await response.json()));
+  } catch { return json({ error: "Could not load your cards. Try again." }, 503); }
+}

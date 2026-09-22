@@ -1,0 +1,1 @@
+{"name":"pecu-cards-workerd-test","main":"cards-workerd-worker.ts","compatibility_date":"2026-08-29","durable_objects":{"bindings":[{"name":"CARDS","class_name":"CardsProbe"}]},"migrations":[{"tag":"v1","new_sqlite_classes":["CardsProbe"]}]}

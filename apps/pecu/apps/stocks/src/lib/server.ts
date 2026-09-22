@@ -8,6 +8,10 @@ export async function identity() {
   const user = await clerkClient().users.getUser(userId);
   return { userId, senderId: webSenderId(userId, user.externalAccounts) };
 }
+export async function cardIdentity() {
+  const viewer = await identity();
+  return { userId: viewer.userId, xId: viewer.senderId.startsWith("web-") ? null : viewer.senderId };
+}
 export async function agentRequest(
   path: string,
   body: unknown,
