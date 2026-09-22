@@ -7,6 +7,24 @@ const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const APPROVAL_SELECTORS = new Set(["095ea7b3", "87517c45"]);
 const ERC20_TRANSFER_SELECTOR = "a9059cbb";
 const ERC20_APPROVE_SELECTOR = "095ea7b3";
+/**
+ * Token-moving or allowance-granting functions a generic contract call must
+ * not smuggle past the per-action validators: ERC-20 transfer, approve,
+ * transferFrom, increaseAllowance, permit; ERC-721 setApprovalForAll and both
+ * safeTransferFrom forms; ERC-1155 safeTransferFrom and safeBatchTransferFrom;
+ * Aave approveDelegation.
+ */
+const TOKEN_MOVING_SELECTORS = new Set([
+  ERC20_TRANSFER_SELECTOR, ERC20_APPROVE_SELECTOR, "23b872dd", "39509351", "d505accf",
+  "a22cb465", "42842e0e", "b88d4fde",
+  "f242432a", "2eb2c2d6",
+  "87517c45",
+]);
+
+/** Plans whose calldata is model-authored rather than SDK-built always wait for a human, even with YOLO on. */
+export function requiresExplicitConfirmation(intent: IntentAction): boolean {
+  return intent.family === "evm" && intent.action === "contract_call";
+}
 
 function selector(call: PlannedCall): string {
   return call.data.slice(2, 10).toLowerCase();
@@ -49,6 +67,9 @@ export function validateEvmPlan(
     }
     case "contract_call": {
       if (call.data.length < 10) throw new Error("Contract call has invalid calldata");
+      if (TOKEN_MOVING_SELECTORS.has(selector(call))) {
+        throw new Error("A contract call cannot transfer or approve tokens directly. Use send, approve, or revoke for that.");
+      }
       return;
     }
     default: {

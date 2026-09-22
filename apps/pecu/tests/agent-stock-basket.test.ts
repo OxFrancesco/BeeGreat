@@ -86,11 +86,11 @@ describe("stock basket proposals", () => {
     expect(reply).toContain("2 USDC → about 0.01 AAPLc");
     expect(reply).toContain("Minimum received: 0.0099 AAPLc");
     expect(reply).toContain("Network fee: not estimated yet");
-    const code = reply.match(/\/confirm ([A-F0-9]{6})/)?.[1];
+    const code = reply.match(/\/confirm ([A-Z0-9]{6})/)?.[1];
     expect(code).toBeDefined();
     expect(prepared).toHaveLength(0);
 
-    const intent = store.intentForCode(await sha256(code!));
+    const intent = store.intentForCode(await sha256(code!), "owner", "chat");
     expect(intent?.family).toBe("stocks");
     expect(intent?.action).toBe("stock_basket");
     expect(intent?.parameters).toEqual({ trades: [...trades], slippage: 0.01 });
@@ -101,7 +101,7 @@ describe("stock basket proposals", () => {
     expect(prepared).toHaveLength(2);
     expect(prepared.map((call) => call.role)).toEqual(["approval", "action"]);
     expect(approved).toEqual(["tx-1", "tx-2"]);
-    expect(store.intentForCode(await sha256(code!))?.state).toBe("succeeded");
+    expect(store.intentForCode(await sha256(code!), "owner", "chat")?.state).toBe("succeeded");
   });
 
   test("an insufficient USDC basket error asks how to fund the purchase", async () => {
@@ -120,8 +120,8 @@ describe("stock basket proposals", () => {
     const { agent, store, message } = fixture();
     const request = message("Buy $1 of NVDAc and $2 of AAPLc");
     const reply = await agent.capabilitiesFor(request).stockTrades(trades);
-    const code = reply.match(/\/confirm ([A-F0-9]{6})/)![1]!;
-    const stored = store.intentForCode(await sha256(code));
+    const code = reply.match(/\/confirm ([A-Z0-9]{6})/)![1]!;
+    const stored = store.intentForCode(await sha256(code), "owner", "chat");
     expect(stored?.family).toBe("stocks");
     if (stored?.family !== "stocks") throw new Error("expected stocks family");
     expect(stored.parameters.trades).toEqual([...trades]);

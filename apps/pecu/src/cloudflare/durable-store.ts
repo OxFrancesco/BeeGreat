@@ -349,8 +349,13 @@ export class DurableStore implements PecuStore {
     return row ? this.toIntent(row) : undefined;
   }
 
-  intentForCode(codeHash: string): Intent | undefined {
-    const row = this.first<IntentRow>("SELECT * FROM basedbot_aero_intents WHERE code_hash=?", codeHash);
+  intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined {
+    const row = this.first<IntentRow>(
+      "SELECT * FROM basedbot_aero_intents WHERE code_hash=? AND sender_id=? AND conversation_id=?",
+      codeHash,
+      senderId,
+      conversationId,
+    );
     return row ? this.toIntent(row) : undefined;
   }
 

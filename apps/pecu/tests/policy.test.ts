@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateEvmPlan, validateIntentPlan, validatePlan } from "../src/policy";
+import { requiresExplicitConfirmation, validateEvmPlan, validateIntentPlan, validatePlan } from "../src/policy";
 import type { PlannedCall } from "../src/domain";
 
 const wallet = "0x1111111111111111111111111111111111111111" as const;
@@ -74,6 +74,21 @@ describe("generic EVM plan policy", () => {
     expect(() => validateEvmPlan("approve", wallet, [erc20Transfer])).toThrow("not an ERC-20 approve");
     expect(() => validateEvmPlan("revoke", wallet, [erc20Approve])).toThrow("allowance to zero");
     expect(() => validateEvmPlan("contract_call", wallet, [{ ...action, data: "0x" }])).toThrow("invalid calldata");
+  });
+
+  test("a contract call cannot smuggle a token transfer or approval past the per-action validators", () => {
+    const selectors = ["a9059cbb", "095ea7b3", "23b872dd", "39509351", "d505accf", "a22cb465", "42842e0e", "b88d4fde", "f242432a", "2eb2c2d6", "87517c45"];
+    for (const selector of selectors) {
+      expect(() => validateEvmPlan("contract_call", wallet, [{ ...action, data: `0x${selector}${word(BigInt(recipient))}${word(1n)}` }])).toThrow("cannot transfer or approve tokens");
+    }
+    expect(() => validateEvmPlan("contract_call", wallet, [{ ...action, data: `0xA9059CBB${word(BigInt(recipient))}${word(1n)}` }])).toThrow("cannot transfer or approve tokens");
+    expect(() => validateEvmPlan("contract_call", wallet, [{ ...action, data: `0xa694fc3a${word(1n)}` }])).not.toThrow();
+  });
+
+  test("contract calls always require explicit confirmation; SDK-built plans do not", () => {
+    expect(requiresExplicitConfirmation({ family: "evm", action: "contract_call", parameters: { address: recipient, signature: "function stake(uint256)" } })).toBe(true);
+    expect(requiresExplicitConfirmation({ family: "evm", action: "transfer", parameters: { to: recipient, amount: "1" } })).toBe(false);
+    expect(requiresExplicitConfirmation({ family: "aero", action: "swap", parameters: { chain: 8453 } })).toBe(false);
   });
 
   test("dispatches by intent family", () => {

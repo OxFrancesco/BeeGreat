@@ -20,8 +20,9 @@ type FixtureOptions = Readonly<{
   enableMainnetExecution?: boolean;
   aeroResult?: AeroResult;
   evmResult?: EvmPlanResult;
-  outcomes?: UserOperationOutcome[];
+  outcomes?: Array<UserOperationOutcome | Error>;
   transactionReadError?: () => Error | undefined;
+  approveError?: () => Error | undefined;
 }>;
 
 function fixture(options: FixtureOptions = {}) {
@@ -45,6 +46,8 @@ function fixture(options: FixtureOptions = {}) {
         return { transactionId: id };
       },
       approve: async (_senderId, id) => {
+        const rejected = options.approveError?.();
+        if (rejected) throw rejected;
         approved.push(id);
         records.set(id, submittedTransaction(id, wallet, `0x${approved.length.toString().padStart(64, "0")}`));
         return { hash: records.get(id)?.hash };
@@ -70,7 +73,9 @@ function fixture(options: FixtureOptions = {}) {
       }),
       verifyUserOperation: async (reference) => {
         verified.push(reference.hash);
-        return outcomes.shift() ?? confirmedOutcome(reference.hash);
+        const next = outcomes.shift();
+        if (next instanceof Error) throw next;
+        return next ?? confirmedOutcome(reference.hash);
       },
     }),
     { respond: async () => { throw new Error("unexpected model call"); } },
@@ -80,7 +85,7 @@ function fixture(options: FixtureOptions = {}) {
   });
   const propose = async (command = `/aero stake --pool ${pool}`) => {
     const reply = await send(command);
-    const code = reply?.match(/\/cancel ([A-F0-9]{6})/)?.[1];
+    const code = reply?.match(/\/cancel ([A-Z0-9]{6})/)?.[1];
     if (!code) throw new Error(`proposal did not include a code: ${reply}`);
     return code;
   };
@@ -97,7 +102,7 @@ describe("confirmation authorization and execution", () => {
     expect(response).not.toContain("{");
     expect(prepared).toHaveLength(1);
     expect(approved).toHaveLength(0);
-    expect(store.intentForCode(await sha256(code))?.state).toBe("executing");
+    expect(store.intentForCode(await sha256(code), "owner", "chat")?.state).toBe("executing");
     blocked = false;
     expect(await send(`/confirm ${code}`)).toContain("confirmed on Base");
     expect(prepared).toHaveLength(1);
@@ -239,7 +244,7 @@ describe("confirmation authorization and execution", () => {
     const { store, propose, send } = fixture({ outcomes: [{ status: "reverted", hash: "0xdead", block: "1", gasUsed: "1" }] });
     const code = await propose();
     expect(await send(`/confirm ${code}`)).toContain("reverted");
-    const intent = store.intentForCode(await sha256(code));
+    const intent = store.intentForCode(await sha256(code), "owner", "chat");
     expect(intent?.state).toBe("failed");
     expect(store.steps(intent?.id ?? "").map((step) => step.state)).toEqual(["failed"]);
   });
@@ -248,20 +253,85 @@ describe("confirmation authorization and execution", () => {
     const { store, approved, verified, propose, send } = fixture({ outcomes: [{ status: "pending" }] });
     const code = await propose();
     expect(await send(`/confirm ${code}`)).toContain("not verified yet");
-    const intent = store.intentForCode(await sha256(code));
+    const intent = store.intentForCode(await sha256(code), "owner", "chat");
     expect(intent?.state).toBe("executing");
     expect(store.steps(intent?.id ?? "").map((step) => step.state)).toEqual(["submitted"]);
     expect(await send(`/confirm ${code}`)).toContain("confirmed on Base mainnet");
     expect(approved).toEqual(["tx-1"]);
     expect(verified).toHaveLength(2);
-    expect(store.intentForCode(await sha256(code))?.state).toBe("succeeded");
+    expect(store.intentForCode(await sha256(code), "owner", "chat")?.state).toBe("succeeded");
+  });
+
+  test("a failure right after approval keeps the intent executing and a re-check completes it without approving again", async () => {
+    let reads = 0;
+    const { store, prepared, approved, propose, send } = fixture({ transactionReadError: () => reads++ === 1 ? new Error("Crossmint request timed out") : undefined });
+    const code = await propose();
+    const reply = await send(`/confirm ${code}`);
+    expect(reply).toContain("couldn't confirm the status");
+    expect(reply).toContain("nothing will be resubmitted");
+    expect(approved).toEqual(["tx-1"]);
+    const intent = store.intentForCode(await sha256(code), "owner", "chat");
+    expect(intent?.state).toBe("executing");
+    expect(store.steps(intent?.id ?? "").map((step) => step.state)).toEqual(["prepared"]);
+    expect(await send(`/confirm ${code}`)).toContain("confirmed on Base mainnet");
+    expect(prepared).toHaveLength(1);
+    expect(approved).toEqual(["tx-1"]);
+    expect(store.intentForCode(await sha256(code), "owner", "chat")?.state).toBe("succeeded");
+  });
+
+  test("a rejected approval that leaves the transaction awaiting approval fails the intent on that step", async () => {
+    const { store, approved, propose, send } = fixture({ approveError: () => new Error("Crossmint rejected the signature") });
+    const code = await propose();
+    expect(await send(`/confirm ${code}`)).toContain("rejected the signature");
+    expect(approved).toHaveLength(0);
+    const intent = store.intentForCode(await sha256(code), "owner", "chat");
+    expect(intent?.state).toBe("failed");
+    expect(store.steps(intent?.id ?? "").map((step) => step.state)).toEqual(["failed"]);
+  });
+
+  test("a receipt lookup error after submission keeps the intent executing", async () => {
+    const { store, approved, verified, propose, send } = fixture({ outcomes: [new Error("RPC eth_getTransactionReceipt failed with HTTP 502")] });
+    const code = await propose();
+    const reply = await send(`/confirm ${code}`);
+    expect(reply).toContain("couldn't confirm the status");
+    expect(reply).toContain("basescan.org/tx/");
+    const intent = store.intentForCode(await sha256(code), "owner", "chat");
+    expect(intent?.state).toBe("executing");
+    expect(store.steps(intent?.id ?? "").map((step) => step.state)).toEqual(["submitted"]);
+    expect(await send(`/confirm ${code}`)).toContain("confirmed on Base mainnet");
+    expect(approved).toEqual(["tx-1"]);
+    expect(verified).toHaveLength(2);
+  });
+
+  test("confirmation codes use the wider unambiguous alphabet and resolve per sender and conversation", async () => {
+    const { store, propose } = fixture();
+    const code = await propose();
+    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+    const hash = await sha256(code);
+    expect(store.intentForCode(hash, "owner", "chat")).toBeDefined();
+    expect(store.intentForCode(hash, "attacker", "chat")).toBeUndefined();
+    expect(store.intentForCode(hash, "owner", "other")).toBeUndefined();
+  });
+
+  test("a contract call proposal is never auto-executed by YOLO", async () => {
+    const { agent, store, prepared, approved } = fixture({ evmResult: {
+      kind: "transaction", action: "contract_call", parameters: { address: pool, signature: "function stake(uint256)", args: ["1"] }, summary: "Call stake(1)", context: {},
+      calls: [{ role: "action", from: wallet, to: pool, data: "0xa694fc3a0000000000000000000000000000000000000000000000000000000000000001", value: "0" }],
+    } });
+    store.setYolo("owner", "chat", true);
+    const message = { text: "stake 1 in the pool", senderId: "owner", conversationId: "chat", eventId: crypto.randomUUID(), encodedEvent: "verified-event" };
+    const reply = await agent.capabilitiesFor(message).evmPropose("contract_call", {});
+    expect(reply).toContain("always needs your confirmation");
+    expect(reply).toContain("/confirm");
+    expect(prepared).toHaveLength(0);
+    expect(approved).toHaveLength(0);
   });
 
   test("/send previews an EVM transfer and confirms it through the same gate", async () => {
     const { store, prepared, approved, propose, send } = fixture();
     const code = await propose(`/send 5 USDC to ${recipient}`);
     expect(prepared).toHaveLength(0);
-    const intent = store.intentForCode(await sha256(code));
+    const intent = store.intentForCode(await sha256(code), "owner", "chat");
     expect(intent?.family).toBe("evm");
     expect(intent?.action).toBe("transfer");
     expect(await send(`/confirm ${code}`)).toContain("EVM transfer confirmed on Base mainnet");

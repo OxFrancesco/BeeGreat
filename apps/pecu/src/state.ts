@@ -78,7 +78,8 @@ export interface AgentStateStore {
   eventReply(eventId: string): string | undefined;
   createIntent(intent: Intent, calls: readonly PlannedCall[]): void;
   intentForSource(eventId: string): Intent | undefined;
-  intentForCode(codeHash: string): Intent | undefined;
+  /** Resolve a confirmation code for one sender in one conversation; a code from another scope is not found. */
+  intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined;
   executingIntents(): Intent[];
   transitionIntent(id: string, from: IntentState, to: IntentState, result?: string): boolean;
   steps(intentId: string): ExecutionStep[];

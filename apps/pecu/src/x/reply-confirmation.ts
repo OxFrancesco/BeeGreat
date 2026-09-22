@@ -15,6 +15,6 @@ export function replyConfirmationCode(event: Event, botUserId: string, store: Pi
   const preview = parsed.data;
   const savedText = preview.replyingToMessageId ? store.outgoingReplyText(preview.replyingToMessageId, event.conversationId) : undefined;
   const text = savedText ?? (event.replyPreviewValidation === "valid" ? preview.messageText : undefined);
-  const codes = [...new Set(Array.from(text?.matchAll(/\/confirm ([A-F0-9]{6})\b/g) ?? [], (match) => match[1]))];
+  const codes = [...new Set(Array.from(text?.matchAll(/\/confirm ([A-Z0-9]{6})\b/g) ?? [], (match) => match[1]))];
   return codes.length === 1 ? codes[0] : undefined;
 }
