@@ -103,7 +103,7 @@ export function InferenceProfile({ inDialog = false, onConnected }: { inDialog?:
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`/aero/stocks/api/inference${action ? `-${action}` : ""}`, {
+      const response = await fetch(`/stocks/api/inference${action ? `-${action}` : ""}`, {
         method: action ? "POST" : "GET",
         cache: "no-store",
       });

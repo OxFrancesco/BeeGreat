@@ -9,6 +9,7 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true, "html_handling": "none" },
   "services": [
     { "binding": "CLI", "service": "aero-cli-site" },
+    { "binding": "EVM", "service": "evm-sdk-site" },
     { "binding": "STOCKS", "service": "aero-stocks" }
   ],
   "build": { "command": "bun run build" }

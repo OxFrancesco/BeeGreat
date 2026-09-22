@@ -26,7 +26,7 @@ async function readMarket() {
     observedAt: Date.now(),
   };
 }
-export const Route = createFileRoute("/aero/stocks/api/market")({
+export const Route = createFileRoute("/stocks/api/market")({
   server: {
     handlers: {
       GET: async () => {

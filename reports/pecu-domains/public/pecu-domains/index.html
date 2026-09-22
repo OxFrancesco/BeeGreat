@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pecu domain migration</title><style>*{box-sizing:border-box;scrollbar-width:none}*::-webkit-scrollbar{display:none}body{margin:0;background:#f9f9f9;color:#202020;font:17px/1.7 Georgia,serif}main{max-width:780px;margin:auto;padding:40px 24px}h1{font-size:30px}h2{font-size:23px;margin-top:32px}a{color:#644a40;overflow-wrap:anywhere}code{font-size:13px;overflow-wrap:anywhere}</style><main><h1>Pecu domain migration</h1>
+<p>Deployed on 22 September 2026.</p>
+<ul>
+<li>Aero CLI and SDK: https://pecu.app/un-aerosdk</li>
+<li>EVM SDK: https://pecu.app/evmsdk</li>
+<li>Stocks: https://pecu.app/stocks</li>
+<li>Aero documentation: https://pecu.app/un-aerosdk/docs</li>
+</ul>
+<p>The old Pecu <code>/aero/cli</code> and <code>/aero/stocks</code> paths redirect with HTTP 308, preserving suffixes, queries and request methods. The BuddyTools domains remain available for compatibility.</p>
+<p>Both SDK pages reuse their existing Workers through the Pecu gateway. Their asset paths, links and canonical/social URLs resolve under Pecu. Stocks routes, API calls, sign-in return URLs and navigation use <code>/stocks</code>. The completed card work was preserved.</p>
+<h2>Verification</h2>
+<p>Both production builds and TypeScript checks passed, as did five analytics tests. Live page and asset checks passed. Chrome rendered both SDK pages, including the Aero scene. Stocks restored the existing signed-in session and displayed holdings and saved history. The public market API returned HTTP 200. No transaction was requested or executed. Card claims and new sign-in flows were not exercised.</p>
+<p>Some stock quotes were unavailable from the upstream market provider. Build output retains existing CSS import-order and chunk-size warnings.</p>
+<h2>Deployment and scope</h2>
+<ul>
+<li>Pecu gateway: <code>22e2779e-dae5-4fce-882e-763481fb9db8</code></li>
+<li>Stocks: <code>61998f4a-8db9-4512-b96d-8fd5afab63ca</code></li>
+</ul>
+<p>Deployed in Francesco's personal Cloudflare account. Changes remain uncommitted in BeeGreat.</p>
+<p>Web routes, deep links, API endpoints and static SDK sites apply. Bee mobile, Android, CLI commands, iMessage, voice, providers and transaction contracts are unchanged. Existing routes remain reachable through redirects. No SDK package code changed, so standalone SDK releases and on-chain verification do not apply. The agent Worker, Convex and Railway did not require deployment.</p>
+<p><a href="/pecu-domains/report.md">Download Markdown</a></p></main></html>

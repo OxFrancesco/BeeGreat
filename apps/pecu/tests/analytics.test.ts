@@ -77,5 +77,8 @@ test("identities are deterministic and do not expose X or Clerk IDs", async () =
 test("dynamic routes cannot leak identifiers into page properties", () => {
   expect(analyticsPath("/agent/private-thread")).toBe("/agent");
   expect(analyticsPath("/aero/stocks/private-wallet")).toBe("/aero/stocks");
+  for (const path of ["/stocks", "/un-aerosdk", "/un-aerosdk/docs", "/evmsdk"]) {
+    expect(analyticsPath(`${path}/private-token`)).toBe(path);
+  }
   expect(analyticsPath("/private-token")).toBe("/other");
 });

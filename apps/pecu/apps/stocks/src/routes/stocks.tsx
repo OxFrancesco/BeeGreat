@@ -18,7 +18,7 @@ import { useAccount } from "../lib/use-account";
 import { TradePanel } from "../components/trade-panel";
 import { catalog } from "../lib/catalog";
 import { Chat } from "../components/chat";
-export const Route = createFileRoute("/aero/stocks")({
+export const Route = createFileRoute("/stocks")({
   head: () => ({ links: [{ rel: "icon", href: "/favicon.svg", type: "image/svg+xml" }] }),
   component: Stocks,
 });
@@ -45,13 +45,13 @@ function StockWorkspace() {
   const [selected, setSelected] = useState("NVDAc");
   const [view, setView] = useState("market");
   const signIn = () => {
-    void clerk.openSignIn({ fallbackRedirectUrl: `/aero/stocks${window.location.hash === "#chatgpt" ? "#chatgpt" : ""}` });
+    void clerk.openSignIn({ fallbackRedirectUrl: `/stocks${window.location.hash === "#chatgpt" ? "#chatgpt" : ""}` });
   };
   async function refresh() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/aero/stocks/api/market");
+      const response = await fetch("/stocks/api/market");
       if (!response.ok) throw new Error("Prices are temporarily unavailable.");
       const data = marketSchema.parse(await response.json());
       setMarket(data.stocks);
@@ -84,17 +84,17 @@ function StockWorkspace() {
   return (
     <div className="shell">
       <header className="topbar">
-        <a className="wordmark" href="https://pecu.app/aero/cli">
+        <a className="wordmark" href="https://pecu.app/un-aerosdk">
           aero
         </a>
         <nav className="nav" aria-label="Main navigation">
-          <a href="/aero/stocks" aria-current="page">
+          <a href="/stocks" aria-current="page">
             Stocks
           </a>
-          <a href="https://pecu.app/aero/cli">CLI</a>
+          <a href="https://pecu.app/un-aerosdk">CLI</a>
           <a
             className="docs"
-            href="https://pecu.app/aero/cli/docs"
+            href="https://pecu.app/un-aerosdk/docs"
           >
             Docs
             <ArrowUpRight size={13} className="inline ml-1" />
@@ -310,7 +310,7 @@ function StockWorkspace() {
       <p className="notice">
         Prices are token swap quotes for one token, not exchange share prices.
         Aero is experimental and unofficial.{" "}
-        <a className="link" href="https://pecu.app/aero/cli#experimental">
+        <a className="link" href="https://pecu.app/un-aerosdk#experimental">
           Read the risks.
         </a>
       </p>

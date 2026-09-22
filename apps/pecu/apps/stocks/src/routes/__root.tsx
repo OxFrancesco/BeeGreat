@@ -24,7 +24,7 @@ export const Route = createRootRoute({
   notFoundComponent: () => (
     <main className="p-8">
       <h1>Page not found</h1>
-      <a href="/aero/stocks">Back to stocks</a>
+      <a href="/stocks">Back to stocks</a>
     </main>
   ),
 });
@@ -37,8 +37,8 @@ function Root() {
       <body>
         <ClerkProvider
           publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
-          signInFallbackRedirectUrl="/aero/stocks"
-          signUpFallbackRedirectUrl="/aero/stocks"
+          signInFallbackRedirectUrl="/stocks"
+          signUpFallbackRedirectUrl="/stocks"
         >
           <Outlet />
           <Analytics />

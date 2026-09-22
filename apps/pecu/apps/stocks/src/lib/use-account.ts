@@ -32,7 +32,7 @@ export async function request(
   body?: unknown,
   signal?: AbortSignal,
 ) {
-  const response = await fetch(`/aero/stocks/api/${path}`, {
+  const response = await fetch(`/stocks/api/${path}`, {
     signal,
     ...(body === undefined
       ? {}
@@ -54,7 +54,7 @@ export async function streamTurn(
   body: unknown,
   onParagraph: (text: string) => void,
 ): Promise<void> {
-  const response = await fetch("/aero/stocks/api/turn", {
+  const response = await fetch("/stocks/api/turn", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
