@@ -3,6 +3,7 @@ import type { VerifiedMessage } from "./domain";
 import type { EvmService, EvmTxAction } from "./evm";
 import type { NansenEndpointName } from "./integrations/nansen";
 import type { StockTrade } from "./stock-contract";
+import type { ParagraphSink } from "./web-stream";
 
 type EvmReadInput<K extends "read" | "inspect" | "decode"> = Parameters<EvmService[K]>[0];
 
@@ -31,5 +32,6 @@ export type AgentCapabilities = Readonly<{
 export type ResponseMode = "response" | "mixed";
 
 export interface AgentHarness {
-  respond(message: VerifiedMessage, capabilities: AgentCapabilities, mode?: ResponseMode): Promise<string>;
+  /** `progress` receives finished paragraphs while the model is still writing; channels that cannot show partial replies omit it. */
+  respond(message: VerifiedMessage, capabilities: AgentCapabilities, mode?: ResponseMode, progress?: ParagraphSink): Promise<string>;
 }

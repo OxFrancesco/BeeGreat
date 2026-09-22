@@ -7,7 +7,7 @@ class Memory {
   async delete(key: string) { return this.values.delete(key); }
 }
 import { UsageLimitError } from "../../src/usage-limit";
-const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean; usageLimit?: boolean; lastChatGpt?: boolean }>();
+const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean; usageLimit?: boolean; lastChatGpt?: boolean; lastStreamed?: boolean }>();
 mock.module("cloudflare:workers", () => ({
   RpcTarget: class {},
   DurableObject: class { constructor(public ctx: unknown, public env: unknown) {} },
@@ -26,11 +26,13 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
     async chatGptLoginStatus() { if (state.loginStatusError) throw state.loginStatusError; if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
-    async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }, _mode?: unknown, chatGpt = true) {
+    async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }, _mode?: unknown, progress?: (paragraph: string) => void, chatGpt = true) {
       state.calls++;
       state.lastChatGpt = chatGpt;
+      state.lastStreamed = progress !== undefined;
       if (state.usageLimit && !fallbackConfigured) throw new UsageLimitError({ kind: "usage_limit_reached", planType: "plus", resetsAt: Date.now() + 3_600_000, observedAt: Date.now() });
       if (state.hold) await state.hold;
+      progress?.("First paragraph.");
       return capabilities.walletAddress();
     },
   };
@@ -53,6 +55,14 @@ states.get(a.storage)!.complete = true;
 expect((await a.instance.status()).connected).toBe(true);
 expect((await b.instance.status()).connected).toBe(false);
 expect(await a.instance.respond(message, false, tools)).toBe("wallet-a");
+// Without a sink the harness is told not to stream; with one, paragraphs arrive through the RPC bridge before the reply.
+expect(states.get(a.storage)!.lastStreamed).toBe(false);
+const paragraphs: string[] = [];
+const streamingTools = new InferenceTools({ walletAddress: async () => "wallet-a" } as never, undefined, (text) => paragraphs.push(text));
+expect(await a.instance.respond(message, false, streamingTools)).toBe("wallet-a");
+expect(states.get(a.storage)!.lastStreamed).toBe(true);
+await new Promise((resolve) => setTimeout(resolve, 0));
+expect(paragraphs).toEqual(["First paragraph."]);
 expect(await b.instance.respond(message, false, tools)).toContain("Connect your ChatGPT");
 let release!: () => void;
 states.get(a.storage)!.hold = new Promise<void>((resolve) => { release = resolve; });

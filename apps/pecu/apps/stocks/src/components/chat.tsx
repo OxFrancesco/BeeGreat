@@ -14,6 +14,7 @@ import { useCommandMenu } from "../lib/use-command-menu";
 import { turnPresentation } from "../lib/turns";
 import { confirmationCommand } from "../../../../src/web-contract";
 import { MessageResponse } from "./ai-elements/message";
+import { StreamedReply } from "./streamed-reply";
 export function Chat({
   account,
   signedIn,
@@ -169,6 +170,12 @@ export function Chat({
                         </div>
                       ) : null}
                     </div>
+                  ) : account.pending &&
+                    account.partial.length &&
+                    message.id === account.state?.messages.at(-1)?.id ? (
+                    <div className="message assistant" role="status">
+                      <StreamedReply paragraphs={account.partial} />
+                    </div>
                   ) : (
                     <div className="muted">
                       <span role="status">
@@ -221,9 +228,15 @@ export function Chat({
         </div>
       ) : null}
       {account.pending && !busyCode ? (
-        <p className="muted px-6" role="status">
-          Aero is working…
-        </p>
+        account.inFlight && account.partial.length ? (
+          <div className="message assistant mx-6" role="status">
+            <StreamedReply paragraphs={account.partial} />
+          </div>
+        ) : (
+          <p className="muted px-6" role="status">
+            Aero is working…
+          </p>
+        )
       ) : null}
       <div className="pecu pecu-embed pecu-prompt-wrap">
         <CommandMenu menu={menu} />

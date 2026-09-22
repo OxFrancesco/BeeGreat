@@ -7,6 +7,7 @@ import type { z } from "zod";
 import type { PecuAgent } from "./agent";
 import type { PecuStore } from "./state";
 import { senderKind } from "./web-identity";
+import type { ParagraphSink } from "./web-stream";
 import {
   basketSchema,
   webReplySchema,
@@ -160,7 +161,11 @@ export class WebAgent {
       JSON.stringify(basket),
     );
   }
-  async handle(input: Turn) {
+  /** Whether a turn is currently running in this thread, so a caller can refuse before opening a stream. */
+  busy(scope: Scope): boolean {
+    return this.active.has(this.owner(scope));
+  }
+  async handle(input: Turn, progress?: ParagraphSink) {
     const { senderId, requestId, text } = input;
     if (input.retryOf && input.answerTo) throw new Error("A retry cannot also answer a question.");
     if (senderKind(senderId) === "x" && !this.store.wallet(senderId))
@@ -208,6 +213,7 @@ export class WebAgent {
       const reply = await this.agent.handle(
         { senderId, conversationId, eventId, text, encodedEvent: "", retryContext },
         true,
+        progress,
       );
       if (!reply) return { status: "busy" as const };
       const intent = this.store.intentForSource(eventId);

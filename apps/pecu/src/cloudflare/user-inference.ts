@@ -9,17 +9,25 @@ import { codexContainerFetch } from "./codex-fetch";
 import { loadWorkerConfig } from "./config";
 import { log } from "../logger";
 import { UsageLimitError } from "../usage-limit";
+import type { ParagraphSink } from "../web-stream";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
 const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
 
 export class InferenceTools extends RpcTarget {
-  constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode) { super(); }
+  constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode, private readonly onParagraph?: ParagraphSink) { super(); }
   async call(name: Capability, args: unknown[]): Promise<string> {
     if (!allowed.has(name)) throw new Error("Tool unavailable");
     if (this.mode === "response" && name !== "askUser") throw new Error("This turn is explanation-only. Ask the user to clarify if live data or an action is needed.");
     const invoke = this.capabilities[name] as (...args: unknown[]) => Promise<string>;
     return invoke(...args);
+  }
+  /** Whether the caller wants partial replies; lets the inference object skip the event subscription otherwise. */
+  streams(): boolean {
+    return this.onParagraph !== undefined;
+  }
+  paragraph(text: string): void {
+    this.onParagraph?.(text);
   }
 }
 
@@ -136,7 +144,11 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     try {
       const chatGpt = !await this.ctx.storage.get<boolean>("disconnected") && (await this.harness.authStatus()).connected;
       if (!chatGpt && !this.harness.fallbackConfigured) return chatGptConnectionRequired;
-      return await this.harness.respond(message, capabilities, mode, chatGpt);
+      // The bridge is an RPC stub: `paragraph` resolves remotely, so it is fired without waiting and a dropped caller never stalls the turn.
+      const progress: ParagraphSink | undefined = await bridge.streams()
+        ? (text) => { void Promise.resolve(bridge.paragraph(text)).catch(() => {}); }
+        : undefined;
+      return await this.harness.respond(message, capabilities, mode, progress, chatGpt);
     } catch (error) {
       // Returned as a reply, not thrown: RPC would flatten the subclass and the caller would wrap it as a command failure.
       if (!(error instanceof UsageLimitError)) throw error;

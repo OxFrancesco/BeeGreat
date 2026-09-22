@@ -138,6 +138,7 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
           if (body.length > 8192)
             return json({ error: "Request too large" }, 413);
           const input: unknown = JSON.parse(body);
+          // A turn that accepts text/event-stream is answered paragraph by paragraph; the agent's streaming body passes through untouched.
           return await agentRequest(
             op,
             op === "turn"
@@ -145,6 +146,7 @@ export const Route = createFileRoute("/aero/stocks/api/$")({
               : op === "thread-delete"
                 ? { ...threadDelete.parse(input), ...viewer }
                 : { identity: viewer, basket: basketSchema.parse(input) },
+            op === "turn" ? request.headers.get("Accept") : undefined,
           );
         } catch (error) {
           return json(
