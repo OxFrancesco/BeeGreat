@@ -51,6 +51,14 @@ function familyLabel(intent: IntentAction): string {
   if (intent.family === "aero") return `Aerodrome ${actionLabel(intent.action)}`;
   if (intent.family === "stocks") return "Stock trades";
   if (intent.family === "deposit") return "Deposit relay";
+  if (intent.action === "safe_create") return "Organization wallet creation";
+  if (intent.action === "safe_approve") return "Your organization wallet approval";
+  if (intent.action === "safe_budget_spend") return "Organization budget payment";
+  if (intent.action === "safe_role_execute") return "Organization role transaction";
+  if (intent.action === "safe_roles_deploy") return "Organization permissions module";
+  if (intent.action === "safe_passkey_deploy") return "Organization passkey signer";
+  if (intent.action === "safe_execute_signatures") return "Organization wallet transaction";
+  if (intent.action === "safe_execute") return "Organization wallet transaction";
   return `EVM ${actionLabel(intent.action)}`;
 }
 
@@ -111,7 +119,7 @@ export type AgentServices = Readonly<{
   whop?: Pick<WhopService, "createAccount" | "createDeposit">;
   nansen?: Pick<NansenService, "call">;
   aerodrome: Pick<AerodromeService, "run" | "basket">;
-  evm: Pick<EvmService, "tokenBalance" | "allowance" | "read" | "inspect" | "decode" | "propose">;
+  evm: Pick<EvmService, "tokenBalance" | "allowance" | "read" | "inspect" | "decode" | "propose" | "safeRead">;
   verifyUserOperation: UserOperationVerifier;
 }>;
 
@@ -329,6 +337,11 @@ export class PecuAgent {
       evmRead: async (input) => this.readReply(message, await this.services.evm.read(input)),
       evmInspect: async (input) => this.readReply(message, await this.services.evm.inspect(input)),
       evmDecode: async (input) => this.readReply(message, await this.services.evm.decode(input)),
+      safeRead: async (command, input) => {
+        const result = await this.services.evm.safeRead(command, input);
+        this.saveDetails(message, result.output);
+        return JSON.stringify(result.output);
+      },
       evmPropose: (action, parameters) => this.runEvm(message, action, parameters),
       depositInstructions: (amount) => this.depositReply(message, amount),
       depositSetup: (email) => this.depositSetup(message, email),

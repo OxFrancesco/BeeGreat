@@ -193,3 +193,9 @@ Update the `/design` specimens with new visual patterns. Charts may retain disti
 series colors; their data-driven styles have explicit lint exceptions.
 
 Portfolio analytics: `/nansen portfolio [ADDRESS]` returns wallet tokens and DeFi positions separately. See `docs/nansen-charts.md`.
+
+## Organization wallets
+
+Safe tools run through the shared EVM tool set and confirmation flow. `safe_create` uses explicit owners and threshold; it does not replace the personal Crossmint wallet. `safe_approve` records exactly one owner's permanent on-chain approval. `safe_execute` requires the existing on-chain threshold. `safe_cancel_propose` and `safe_owner_propose` produce proposals requiring that same threshold. Never describe multiple backend-controlled wallets as independently controlled signers. See `docs/39-safe-organization-wallets.md` at the monorepo root for scope and verification.
+
+Safe extensions use the same confirmation boundary. Budgets bypass per-payment quorum within the owner-approved allowance. Roles restrict a member to selected targets, selectors and static arguments; a secondary Safe can be a member without changing the treasury threshold. Passkey signer deployment is separate from adding an owner. Signer replacement requires the surviving quorum. Pimlico ERC-4337 submission runs in evmSDK with a persistent local journal, not in Pecu's disposable unsigned sandbox. Pecu relays confirmed Safe calls through its existing Crossmint path.

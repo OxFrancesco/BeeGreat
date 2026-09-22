@@ -1,3 +1,4 @@
+import { validateSafePlan } from "./safe-policy";
 import type { SugarTxAction } from "@beegreat/sugar/contracts";
 import { BASE_USDC_ADDRESS, type PlannedCall } from "./domain";
 import type { EvmTxAction } from "./evm";
@@ -65,6 +66,22 @@ export function validateEvmPlan(
       if (action === "revoke" && BigInt(`0x${call.data.slice(74)}`) !== 0n) throw new Error("Revoke must set the allowance to zero");
       return;
     }
+    case "safe_create":
+      if (value !== 0n || selector(call) !== "1688f0b9") throw new Error("Safe deployment must call createProxyWithNonce with zero value");
+      return;
+    case "safe_approve":
+      if (value !== 0n || selector(call) !== "d4d9bdcd" || call.data.length !== 74) throw new Error("Safe approval must call approveHash with zero value");
+      return;
+    case "safe_execute_signatures":
+    case "safe_execute":
+      if (value !== 0n || selector(call) !== "6a761202") throw new Error("Safe execution must call execTransaction with zero outer value");
+      return;
+    case "safe_budget_spend":
+    case "safe_role_execute":
+    case "safe_roles_deploy":
+    case "safe_passkey_deploy":
+      if (value !== 0n || call.data.length < 10) throw new Error("Safe extension calls must have zero outer value");
+      return;
     case "contract_call": {
       if (call.data.length < 10) throw new Error("Contract call has invalid calldata");
       if (TOKEN_MOVING_SELECTORS.has(selector(call))) {
@@ -113,7 +130,11 @@ export function validateIntentPlan(
     if (intent.parameters.chainId !== 8453 || intent.parameters.sender.toLowerCase() !== wallet.toLowerCase()) throw new Error("Aave plan has the wrong wallet or chain");
     validatePlan("swap", wallet, calls);
   } else if (intent.family === "deposit") validateDepositPlan(intent.parameters, wallet, calls);
-  else validateEvmPlan(intent.action, wallet, calls);
+  else {
+    validateEvmPlan(intent.action, wallet, calls);
+    const call = calls[0];
+    if (call) validateSafePlan(intent.action, intent.parameters, call);
+  }
 }
 
 /**

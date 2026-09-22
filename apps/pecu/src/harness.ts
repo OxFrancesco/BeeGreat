@@ -1,3 +1,4 @@
+import type { SafeReadCommand } from "./safe";
 import type { SugarAction, SugarParameters, SugarTxAction } from "@beegreat/sugar/contracts";
 import type { VerifiedMessage } from "./domain";
 import type { EvmService, EvmTxAction } from "./evm";
@@ -22,6 +23,7 @@ export type AgentCapabilities = Readonly<{
   evmRead(input: EvmReadInput<"read">): Promise<string>;
   evmInspect(input: EvmReadInput<"inspect">): Promise<string>;
   evmDecode(input: EvmReadInput<"decode">): Promise<string>;
+  safeRead(command: SafeReadCommand, input: Record<string, unknown>): Promise<string>;
   evmPropose(action: EvmTxAction, parameters: unknown): Promise<string>;
   depositInstructions(amount?: string): Promise<string>;
   depositSetup(email: string): Promise<string>;

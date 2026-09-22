@@ -52,7 +52,7 @@ const sugar = JSON.parse(await readFile(join(output, 'packages/sugar/package.jso
 sugar.scripts.lint = sugar.scripts.lint.replace('../../.oxlintrc.json', '../../.oxlintrc.base.json')
 await json('packages/sugar/package.json', sugar)
 await mkdir(join(output, 'docs'), { recursive: true })
-for (const name of ['23-general-evm-sdk.md', '24-evm-smart-wallets.md']) {
+for (const name of ['23-general-evm-sdk.md', '24-evm-smart-wallets.md', '39-safe-organization-wallets.md']) {
   const text = await readFile(join(root, 'docs', name), 'utf8')
   await write(`docs/${name}`, text.replaceAll('bun run --cwd packages/evm ', 'bun run ').replaceAll('../packages/evm/README.md', '../README.md'))
 }

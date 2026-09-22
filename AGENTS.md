@@ -51,6 +51,10 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 - `resources/shadcn-lint` — Official shadcn Tailwind design system linter and configuration reference
 
+- `resources/safe-smart-account` — Official Safe contracts for threshold approvals and deterministic deployment
+
+- `resources/safe-modules` — Official Safe allowance, passkey and ERC-4337 module source
+
 <!-- codeview:end -->
 
 ## Design system

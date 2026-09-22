@@ -1,3 +1,7 @@
+import { encodeFunctionData } from "viem";
+import { safeAbi } from "../../../packages/evm/src/safe/contracts";
+import { safeTransactionHash } from "../../../packages/evm/src/safe/transactions";
+import type { AgentHarness } from "../src/harness";
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { PecuAgent } from "../src/agent";
 import { Store } from "../src/store";
@@ -16,6 +20,7 @@ const stores: Store[] = [];
 afterEach(() => { for (const store of stores.splice(0)) store.close(); });
 
 type FixtureOptions = Readonly<{
+  respond?: AgentHarness["respond"];
   quoteTtlSeconds?: number;
   enableMainnetExecution?: boolean;
   aeroResult?: AeroResult;
@@ -78,7 +83,7 @@ function fixture(options: FixtureOptions = {}) {
         return next ?? confirmedOutcome(reference.hash);
       },
     }),
-    { respond: async () => { throw new Error("unexpected model call"); } },
+    { respond: options.respond ?? (async () => { throw new Error("unexpected model call"); }) },
   );
   const send = (text: string, senderId = "owner", conversationId = "chat", eventId = crypto.randomUUID(), replyConfirmationCode?: string) => agent.handle({
     text, senderId, conversationId, eventId, replyConfirmationCode, encodedEvent: "verified-event",
@@ -371,4 +376,25 @@ test("YOLO executes a persisted plan regardless of provider property order", asy
   expect(prepared).toHaveLength(0);
   expect(approved).toHaveLength(0);
   expect(store.yoloEnabled("owner", "chat")).toBe(true);
+});
+
+
+test("Safe approval uses the same sender-bound confirmation and reports only one owner's approval", async () => {
+  const payload = { chainId: 8453, safe: pool, to: recipient, value: "1", data: "0x", nonce: "0" } as const;
+  const transaction = { ...payload, hash: safeTransactionHash(payload) };
+  const result: EvmPlanResult = {
+    kind: "transaction", action: "safe_approve", parameters: { transaction }, summary: "Record your organization wallet approval", context: {},
+    calls: [{ from: wallet, to: pool, data: encodeFunctionData({ abi: safeAbi, functionName: "approveHash", args: [transaction.hash] }), value: "0", role: "action" }],
+  };
+  const { send, propose, prepared, approved } = fixture({ evmResult: result, respond: (_message, capabilities) => capabilities.evmPropose("safe_approve", { transaction }) });
+  const code = await propose("Please record my organization wallet approval");
+  expect(prepared).toHaveLength(0);
+  await send(`/confirm ${code}`, "other-owner");
+  expect(approved).toHaveLength(0);
+  const reply = await send(`/confirm ${code}`);
+  expect(reply).toContain("Your organization wallet approval confirmed");
+  expect(prepared).toHaveLength(1);
+  expect(approved).toHaveLength(1);
+  await send(`/confirm ${code}`);
+  expect(approved).toHaveLength(1);
 });

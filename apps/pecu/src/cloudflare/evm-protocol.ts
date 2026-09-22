@@ -8,8 +8,8 @@ export const EVM_CHAIN_ID = 8453 as const;
  * execution, and journal recovery commands are deliberately absent: the
  * Durable Object owns credentials and the persisted intent.
  */
-export const EVM_READ_COMMANDS = ["read", "token", "balance", "inspect", "decode", "allowance", "identity", "block", "transaction", "units"] as const;
-export const EVM_PLAN_COMMANDS = ["prepare-call", "transfer", "approve", "revoke"] as const;
+export const EVM_READ_COMMANDS = ["read", "token", "balance", "inspect", "decode", "allowance", "identity", "block", "transaction", "units", "safe-info", "safe-propose", "safe-approvals", "safe-cancel-propose", "safe-owner-propose", "safe-batch-propose", "safe-module-info", "safe-module-propose", "safe-budget", "safe-budget-propose", "safe-budget-revoke-propose", "safe-role-grant-propose", "safe-role-revoke-propose", "safe-role-check", "safe-passkey-address", "safe-passkey-owner-propose", "safe-sponsored-enable-propose"] as const;
+export const EVM_PLAN_COMMANDS = ["prepare-call", "transfer", "approve", "revoke", "safe-deploy", "safe-approve", "safe-execute", "safe-execute-signatures", "safe-budget-spend", "safe-role-execute", "safe-roles-deploy", "safe-passkey-deploy"] as const;
 export const EVM_COMMANDS = [...EVM_READ_COMMANDS, ...EVM_PLAN_COMMANDS] as const;
 export type EvmCommand = (typeof EVM_COMMANDS)[number];
 

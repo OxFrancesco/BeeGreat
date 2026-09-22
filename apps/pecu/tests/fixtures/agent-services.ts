@@ -10,6 +10,7 @@ export const unusedEvm: AgentServices["evm"] = {
   tokenBalance: unexpected("evm tokenBalance"),
   allowance: unexpected("evm allowance"),
   read: unexpected("evm read"),
+  safeRead: unexpected("Safe read"),
   inspect: unexpected("evm inspect"),
   decode: unexpected("evm decode"),
   propose: unexpected("evm propose"),

@@ -22,6 +22,7 @@ const capabilities: AgentCapabilities = {
   evmRead: toolsDisabled,
   evmInspect: toolsDisabled,
   evmDecode: toolsDisabled,
+  safeRead: toolsDisabled,
   evmPropose: toolsDisabled,
   depositInstructions: toolsDisabled,
   depositSetup: toolsDisabled,
