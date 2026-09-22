@@ -23,6 +23,8 @@ import { WhopService, whopWebhookSetupSchema } from "../integrations/whop";
 import { aeroWorkerExecutor } from "./aero-client";
 import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
+import { PecuCards } from "../cards";
+import { cardViewerSchema } from "../cards-contract";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, basketSchema } from "../web-contract";
 import { sseContentType, turnEventStream } from "../web-stream";
 
@@ -74,6 +76,7 @@ function durableObject(env: Cloudflare.Env): DurableObjectStub {
 export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   private readonly config: WorkerConfig;
   private readonly store: DurableStore;
+  private readonly cards: PecuCards;
   private agent?: PecuAgent;
   private webAgent?: WebAgent;
   private transport?: XChatTransport;
@@ -89,6 +92,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     this.config = loadWorkerConfig(env);
     this.nextAlarmDelayMs = this.config.pollIntervalMs;
     this.store = new DurableStore(ctx.storage);
+    this.cards = new PecuCards(ctx.storage.sql);
     this.ready = ctx.blockConcurrencyWhile(async () => {
       this.store.initialize();
       await this.restoreXOAuthState();
@@ -158,6 +162,15 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     await this.ready;
     const url = new URL(request.url);
     try {
+      if (["/internal/web/cards", "/internal/web/cards-claim"].includes(url.pathname) && request.method === "POST") {
+        const viewer = cardViewerSchema.parse(await request.json());
+        return json(url.pathname.endsWith("-claim") ? this.cards.claim(viewer) : this.cards.collection(viewer));
+      }
+      if (url.pathname === "/internal/cards/backfill" && request.method === "POST") {
+        const viewers = cardViewerSchema.array().max(100).parse(await request.json());
+        const results = viewers.map((viewer) => this.cards.claim(viewer));
+        return json({ processed: results.length, granted: results.filter((r) => r.created).length, owned: results.filter((r) => r.status === "owned").length, soldOut: results.some((r) => r.status === "sold_out") });
+      }
       if (url.pathname.startsWith("/internal/web/") && request.method === "POST") {
         if (!this.webAgent) return json({ error: "Agent unavailable" }, 503);
         const raw: unknown = await request.json();
@@ -560,7 +573,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");
@@ -640,6 +653,7 @@ export default {
       }
     }
     const internalPath = url.pathname
+      .replace(/^\/admin\/cards\/backfill$/, "/internal/cards/backfill")
       .replace(/^\/admin\/opencode\/login\/status\//, "/internal/auth/status/")
       .replace(/^\/admin\/opencode\/login$/, "/internal/auth/start")
       .replace(/^\/admin\/opencode\/status$/, "/internal/auth/status")

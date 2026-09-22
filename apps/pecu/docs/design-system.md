@@ -201,3 +201,7 @@ workspace is outside this Pecu homepage/Agent theme change.
 ## Nansen analytics
 
 Use `NansenChart` for typed flow, P&L and portfolio snapshots. Dither bars retain a zero baseline and negative values. Allocation pies use priced positive assets, with exact accessible rows below. Realized/unrealized and wallet/DeFi controls change local views without API calls. Do not animate financial amounts or add bloom. Keep missing values distinct from zero, disclose partial results, and retain the Nansen source link and retrieval time. Wallet balances and DeFi assets must not be summed. Interactive examples: `/nansen-showcase` on pecu.app.
+
+### Card collection
+
+The shared account menu opens My cards in the existing dialog. Show owned Blender card artwork with transparent surroundings, the card name, and copy count only above one. A newly granted card opens the dialog with a short fade and upward movement; reduced motion disables that entrance. Keep loading, retry, exhausted-drop, and connect-X states in the same dialog. The card is an actual 3D model with drag rotation, zoom, turn-over and reset controls. Arrow keys turn it, plus/minus zoom, and Home resets. There is no automatic spin. Closing it clears the cards hash and disposes the viewer. Cards persist after X disconnects.

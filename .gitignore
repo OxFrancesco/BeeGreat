@@ -29,3 +29,9 @@ assets/bee-3d/bee-3d-final.zip
 
 # Generated artwork, renders, and delivery artifacts
 /output/
+
+# Python bytecode from Blender tooling
+__pycache__/
+
+# Pecu card GLB models (39 MB, deployed with the Worker; rebuild with tools/pecu-cards/export-web.py)
+apps/pecu/apps/stocks/public/assets/pecu-cards/*.glb
