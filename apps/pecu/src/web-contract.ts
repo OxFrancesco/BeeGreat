@@ -62,7 +62,7 @@ export const webThreadDeleteSchema = webIdentitySchema
   .extend({ threadId: threadIdSchema.nullable() })
   .strict();
 export const previewSchema = z.object({
-  code: z.string().regex(/^[A-F0-9]{6}$/),
+  code: z.string().regex(/^[A-Z0-9]{6}$/),
   title: z.string().optional(),
   text: z.string(),
   state: z.enum([

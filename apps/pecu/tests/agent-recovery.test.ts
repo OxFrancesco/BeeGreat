@@ -44,7 +44,7 @@ describe("interrupted transaction recovery", () => {
   test("keeps interrupted plans untouched while mainnet execution is locked", async () => {
     const { store, prepare, approve, lookup, agent } = fixture(false);
     await agent.resumeExecuting();
-    expect(store.intentForCode("code")?.state).toBe("executing");
+    expect(store.intentForCode("code", "sender", "chat")?.state).toBe("executing");
     expect(prepare).not.toHaveBeenCalled();
     expect(approve).not.toHaveBeenCalled();
     expect(lookup).not.toHaveBeenCalled();
@@ -52,8 +52,8 @@ describe("interrupted transaction recovery", () => {
   test("does not revive an expired confirmation after a restart", async () => {
     const { store, prepare, approve, lookup, agent } = fixture(true, Date.now() - 1_000);
     await agent.resumeExecuting();
-    expect(store.intentForCode("code")?.state).toBe("failed");
-    expect(store.intentForCode("code")?.result).toContain("expired");
+    expect(store.intentForCode("code", "sender", "chat")?.state).toBe("failed");
+    expect(store.intentForCode("code", "sender", "chat")?.result).toContain("expired");
     expect(prepare).not.toHaveBeenCalled();
     expect(approve).not.toHaveBeenCalled();
     expect(lookup).not.toHaveBeenCalled();
@@ -62,8 +62,8 @@ describe("interrupted transaction recovery", () => {
   test("rejects altered persisted plans before reaching Crossmint", async () => {
     const { store, prepare, approve, lookup, agent } = fixture(true);
     await agent.resumeExecuting();
-    expect(store.intentForCode("code")?.state).toBe("failed");
-    expect(store.intentForCode("code")?.result).toContain("digest mismatch");
+    expect(store.intentForCode("code", "sender", "chat")?.state).toBe("failed");
+    expect(store.intentForCode("code", "sender", "chat")?.result).toContain("digest mismatch");
     expect(prepare).not.toHaveBeenCalled();
     expect(approve).not.toHaveBeenCalled();
     expect(lookup).not.toHaveBeenCalled();

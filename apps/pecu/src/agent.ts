@@ -9,7 +9,8 @@ import type { Config } from "./config";
 import { aeroHelpText, BASE_USDC_ADDRESS, depositAmountPattern, helpText, nansenHelpText, parseCommand, parseNaturalWalletCommand, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "./domain";
 import type { AgentCapabilities, AgentHarness } from "./harness";
 import { log } from "./logger";
-import { validateIntentPlan } from "./policy";
+import { executeSteps, type OutcomeUnknown, type InclusionPending, type Reverted, type StepFailed } from "./execution";
+import { requiresExplicitConfirmation, validateIntentPlan } from "./policy";
 import type { DepositRecord, DepositState, FundingAccount, Intent, IntentAction, PecuStore } from "./state";
 import { AerodromeService } from "./aerodrome";
 import type { EvmReadResult, EvmService, EvmTxAction } from "./evm";
@@ -29,8 +30,11 @@ function planDigest(calls: readonly PlannedCall[]): Promise<string> {
   return digest(JSON.stringify(calls.map((call) => plannedCallSchema.parse(call))));
 }
 
+/** 32 symbols without I, O, 0, 1; 256 is a multiple of 32 so a byte modulo stays uniform. */
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
 function confirmationCode(): string {
-  return crypto.randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase();
+  return Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]!).join("");
 }
 
 function errorMessage(error: unknown): string {
@@ -93,14 +97,6 @@ function explorerLink(hash: string): string {
   return `https://basescan.org/tx/${hash}`;
 }
 
-/** A step was submitted but its inclusion is not yet verifiable. The intent stays executing. */
-class PendingInclusionError extends Error {
-  constructor(readonly hash: string | undefined) {
-    super(hash ? `Transaction ${hash} was submitted but is not yet included on Base` : "Transaction was submitted but has no hash yet");
-    this.name = "PendingInclusionError";
-  }
-}
-
 type AgentWallets = Pick<WalletService, "balances" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits"> & {
   getOrCreate(senderId: string): Promise<{ address: string }>;
 };
@@ -156,6 +152,8 @@ export class PecuAgent {
         this.store.transitionIntent(intent.id, "executing", "failed", "Transaction plan was not persisted before shutdown");
         return;
       }
+      const executor = intent.family === "deposit" ? treasurySenderId : intent.senderId;
+      let wallet: `0x${string}`;
       try {
         const started = steps.some((step) => step.transactionId !== undefined);
         if (!started && Date.now() > intent.expiresAt) throw new Error("Transaction plan expired; recovery stopped");
@@ -163,28 +161,34 @@ export class PecuAgent {
         if (await planDigest(calls) !== intent.planDigest) {
           throw new Error("Persisted plan digest mismatch; recovery stopped");
         }
-        const executor = intent.family === "deposit" ? treasurySenderId : intent.senderId;
-        const wallet = await this.walletAddress(executor);
+        wallet = await this.walletAddress(executor);
         validateIntentPlan(intent, wallet, calls);
-        const links = await this.executeSteps(executor, intent.id, wallet, intent.expiresAt);
-        const result = intent.family === "deposit"
-          ? ["Deposit relay confirmed on Base mainnet.", ...links].join("\n")
-          : [`Recovered and completed the interrupted ${familyLabel(intent)} action on Base.`, ...links].join("\n");
-        this.store.transitionIntent(intent.id, "executing", "succeeded", result);
-        if (intent.family === "deposit") this.depositRelaySucceeded(intent.id, result);
-        log("info", "intent_recovered", { intentId: intent.id, action: intent.action, steps: steps.length });
       } catch (error) {
-        if (isTransactionReadPermissionError(error)) {
-          log("warn", "intent_recovery_permission_blocked", { intentId: intent.id });
-          return;
-        }
-        if (error instanceof PendingInclusionError) {
-          log("warn", "intent_recovery_pending", { intentId: intent.id, action: intent.action, hash: error.hash });
-          return;
-        }
         this.store.transitionIntent(intent.id, "executing", "failed", errorMessage(error));
         if (intent.family === "deposit") this.depositRelayFailed(intent.id, errorMessage(error));
         log("error", "intent_recovery_failed", { intentId: intent.id, action: intent.action, error: errorMessage(error) });
+        return;
+      }
+      const run = await this.runSteps(executor, intent, wallet);
+      switch (run.outcome) {
+        case "succeeded": {
+          const links = run.hashes.map(explorerLink);
+          const result = intent.family === "deposit"
+            ? ["Deposit relay confirmed on Base mainnet.", ...links].join("\n")
+            : [`Recovered and completed the interrupted ${familyLabel(intent)} action on Base.`, ...links].join("\n");
+          this.store.transitionIntent(intent.id, "executing", "succeeded", result);
+          if (intent.family === "deposit") this.depositRelaySucceeded(intent.id, result);
+          log("info", "intent_recovered", { intentId: intent.id, action: intent.action, steps: steps.length });
+          return;
+        }
+        case "unsettled":
+          log("warn", "intent_recovery_unsettled", { intentId: intent.id, action: intent.action, failure: run.failure._tag, ...(run.failure.hash ? { hash: run.failure.hash } : {}) });
+          return;
+        case "failed":
+          this.failIntent(intent.id, run.failure);
+          if (intent.family === "deposit") this.depositRelayFailed(intent.id, run.failure.message);
+          log("error", "intent_recovery_failed", { intentId: intent.id, action: intent.action, error: run.failure.message });
+          return;
       }
     } finally {
       this.executing.delete(intent.id);
@@ -637,23 +641,58 @@ export class PecuAgent {
     if (!this.store.transitionDeposit(deposit.id, deposit.state, "relaying", { intentId, relayUsdcUnits: units.toString() })) return;
     this.relayingDeposits.add(deposit.id);
     try {
-      const links = await this.executeSteps(treasurySenderId, intentId, treasury, expiresAt);
-      const result = ["Deposit relay confirmed on Base mainnet.", ...links].join("\n");
-      this.store.transitionIntent(intentId, "executing", "succeeded", result);
-      this.depositRelaySucceeded(intentId, result);
-    } catch (error) {
-      if (!(error instanceof PendingInclusionError)) {
-        const failed = this.store.steps(intentId).find((step) => step.state !== "succeeded");
-        if (failed) this.store.markStepFailed(intentId, failed.position, errorMessage(error));
-        this.store.transitionIntent(intentId, "executing", "failed", errorMessage(error));
-        log("error", "deposit_relay_failed", { depositId: deposit.id, error: errorMessage(error) });
-        this.depositRelayFailed(intentId, errorMessage(error));
-      } else {
-        log("warn", "deposit_relay_pending", { depositId: deposit.id });
+      const run = await this.runSteps(treasurySenderId, { id: intentId, expiresAt }, treasury);
+      switch (run.outcome) {
+        case "succeeded": {
+          const result = ["Deposit relay confirmed on Base mainnet.", ...run.hashes.map(explorerLink)].join("\n");
+          this.store.transitionIntent(intentId, "executing", "succeeded", result);
+          this.depositRelaySucceeded(intentId, result);
+          return;
+        }
+        case "unsettled":
+          log("warn", "deposit_relay_unsettled", { depositId: deposit.id, failure: run.failure._tag });
+          return;
+        case "failed":
+          this.failIntent(intentId, run.failure);
+          log("error", "deposit_relay_failed", { depositId: deposit.id, error: run.failure.message });
+          this.depositRelayFailed(intentId, run.failure.message);
+          return;
       }
     } finally {
       this.relayingDeposits.delete(deposit.id);
     }
+  }
+
+  private runSteps(senderId: string, intent: Pick<Intent, "id" | "expiresAt">, wallet: `0x${string}`) {
+    return executeSteps(
+      { wallets: this.wallets, journal: this.store, verifyUserOperation: this.services.verifyUserOperation },
+      { intentId: intent.id, senderId, wallet, expiresAt: intent.expiresAt },
+    );
+  }
+
+  /** Record a terminal step failure on the exact step that produced it and close the intent. */
+  private failIntent(intentId: string, failure: StepFailed | Reverted): void {
+    this.store.markStepFailed(intentId, failure.position, failure.message);
+    this.store.transitionIntent(intentId, "executing", "failed", failure.message);
+  }
+
+  private unsettledReply(intent: Intent, failure: OutcomeUnknown | InclusionPending): string {
+    if (failure._tag === "InclusionPending") {
+      return [
+        `${familyLabel(intent)} was submitted but its inclusion is not verified yet.`,
+        ...(failure.hash ? [explorerLink(failure.hash)] : []),
+        "Send the same /confirm code again to re-check. Nothing will be resubmitted.",
+      ].join("\n");
+    }
+    log("warn", "intent_outcome_unknown", { intentId: intent.id, action: intent.action, transactionId: failure.transactionId, error: failure.reason });
+    if (isTransactionReadPermissionError(failure.reason)) {
+      return "I couldn't check this transaction because a wallet permission is missing. The bot administrator needs to fix it. This request is saved; don't create another swap. Once fixed, confirm this same preview again to check or continue it.";
+    }
+    return [
+      `I couldn't confirm the status of this ${familyLabel(intent)} with the wallet provider.`,
+      ...(failure.hash ? [explorerLink(failure.hash)] : []),
+      "The request is saved and nothing will be resubmitted. Send the same /confirm code again to re-check.",
+    ].join("\n");
   }
 
   private async depositHoldReason(deposit: DepositRecord, ignoreCaps: boolean): Promise<string | undefined> {
@@ -722,11 +761,12 @@ export class PecuAgent {
       expiresAt,
     }, calls);
 
-    if (this.config.enableMainnetExecution && !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId)) {
+    const yolo = this.config.enableMainnetExecution && !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId);
+    if (yolo && !requiresExplicitConfirmation(intent)) {
       return `${preview}\n\nYOLO is on.\n${await this.confirm(message, await digest(code))}\nCheck this request: /confirm ${code}`;
     }
     const execution = this.config.enableMainnetExecution
-      ? `Reply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${Math.floor(this.config.quoteTtlSeconds / 60)} minutes.`
+      ? `${yolo ? "YOLO is on, but a contract call always needs your confirmation.\n" : ""}Reply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${Math.floor(this.config.quoteTtlSeconds / 60)} minutes.`
       : `Transactions are currently disabled. Nothing has been sent.\nCancel: /cancel ${code}`;
     return `${preview}\n\n${execution}`;
   }
@@ -761,64 +801,22 @@ export class PecuAgent {
 
     this.executing.add(intent.id);
     try {
-      const links = await this.executeSteps(message.senderId, intent.id, wallet, intent.expiresAt);
-      const result = [`${familyLabel(intent)} confirmed on Base mainnet.`, ...links].join("\n");
-      this.store.transitionIntent(intent.id, "executing", "succeeded", result);
-      return result;
-    } catch (error) {
-      if (isTransactionReadPermissionError(error)) {
-        return "I couldn't check this transaction because a wallet permission is missing. The bot administrator needs to fix it. This request is saved; don't create another swap. Once fixed, confirm this same preview again to check or continue it.";
+      const run = await this.runSteps(message.senderId, intent, wallet);
+      switch (run.outcome) {
+        case "succeeded": {
+          const result = [`${familyLabel(intent)} confirmed on Base mainnet.`, ...run.hashes.map(explorerLink)].join("\n");
+          this.store.transitionIntent(intent.id, "executing", "succeeded", result);
+          return result;
+        }
+        case "unsettled":
+          return this.unsettledReply(intent, run.failure);
+        case "failed":
+          this.failIntent(intent.id, run.failure);
+          throw new Error(run.failure.message);
       }
-      if (error instanceof PendingInclusionError) {
-        return [
-          `${familyLabel(intent)} was submitted but its inclusion is not verified yet.`,
-          ...(error.hash ? [explorerLink(error.hash)] : []),
-          "Send the same /confirm code again to re-check. Nothing will be resubmitted.",
-        ].join("\n");
-      }
-      const failed = this.store.steps(intent.id).find((step) => step.state !== "succeeded");
-      if (failed) this.store.markStepFailed(intent.id, failed.position, errorMessage(error));
-      this.store.transitionIntent(intent.id, "executing", "failed", errorMessage(error));
-      throw error;
     } finally {
       this.executing.delete(intent.id);
     }
-  }
-
-  /**
-   * Execute persisted steps in order. Each step is idempotent: Crossmint is
-   * only asked to approve while the transaction still awaits approval, and a
-   * step only counts as succeeded once the receipt carries a matching
-   * UserOperationEvent whose inner success flag is set.
-   */
-  private async executeSteps(senderId: string, intentId: string, wallet: `0x${string}`, expiresAt: number): Promise<string[]> {
-    const links: string[] = [];
-    for (const step of this.store.steps(intentId)) {
-      if (step.state === "succeeded") continue;
-      let transactionId = step.transactionId;
-      if (!transactionId) {
-        if (Date.now() > expiresAt) throw new Error("This transaction preview expired before the next step could be sent. Request a fresh preview.");
-        const prepared = await this.wallets.prepare(senderId, step.call);
-        transactionId = prepared.transactionId;
-        this.store.markStepPrepared(intentId, step.position, transactionId);
-      }
-      let record = await this.wallets.transaction(senderId, transactionId);
-      if (record.sender.toLowerCase() !== wallet.toLowerCase()) throw new Error("Crossmint transaction belongs to a different wallet");
-      if (record.status === "awaiting-approval") {
-        if (Date.now() > expiresAt) throw new Error("This transaction preview expired before approval. Request a fresh preview.");
-        await this.wallets.approve(senderId, transactionId);
-        record = await this.wallets.transaction(senderId, transactionId);
-      }
-      if (record.status === "failed") throw new Error("Crossmint reports that the transaction failed before inclusion");
-      if (!record.hash) throw new PendingInclusionError(undefined);
-      this.store.markStepSubmitted(intentId, step.position, record.hash);
-      const outcome = await this.services.verifyUserOperation({ hash: record.hash, sender: record.sender, userOperationHash: record.userOperationHash });
-      if (outcome.status === "pending") throw new PendingInclusionError(record.hash);
-      if (outcome.status === "reverted") throw new Error(`Transaction ${record.hash} was included but the user operation reverted`);
-      this.store.markStepSucceeded(intentId, step.position, outcome.hash);
-      links.push(explorerLink(outcome.hash));
-    }
-    return links;
   }
 
   private cancel(message: VerifiedMessage, codeHash: string): string {
@@ -831,7 +829,7 @@ export class PecuAgent {
   }
 
   private authorizedIntent(message: VerifiedMessage, codeHash: string): Intent {
-    const intent = this.store.intentForCode(codeHash);
+    const intent = this.store.intentForCode(codeHash, message.senderId, message.conversationId);
     if (!intent || intent.senderId !== message.senderId || intent.conversationId !== message.conversationId) {
       throw new Error("Confirmation code not found for this X account and conversation.");
     }

@@ -334,8 +334,8 @@ export class Store implements PecuStore {
     return row ? this.toIntent(row) : undefined;
   }
 
-  intentForCode(codeHash: string): Intent | undefined {
-    const row = this.db.query("SELECT * FROM aero_intents WHERE code_hash = ?").get(codeHash) as IntentRow | null;
+  intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined {
+    const row = this.db.query("SELECT * FROM aero_intents WHERE code_hash = ? AND sender_id = ? AND conversation_id = ?").get(codeHash, senderId, conversationId) as IntentRow | null;
     return row ? this.toIntent(row) : undefined;
   }
 

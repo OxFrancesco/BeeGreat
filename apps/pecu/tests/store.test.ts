@@ -30,10 +30,29 @@ describe("durable state", () => {
       state: "pending", family: "aero", action: "stake", parameters: { chain: 8453, wallet: call.from, pool: call.to },
       preview: "stake preview", planDigest: "digest", expiresAt,
     }, [call]);
-    expect(store.intentForCode("hash")?.action).toBe("stake");
+    expect(store.intentForCode("hash", "2", "1:2")?.action).toBe("stake");
     expect(store.steps("intent-1").map((step) => step.call)).toEqual([call]);
     expect(store.transitionIntent("intent-1", "pending", "executing")).toBe(true);
     expect(store.transitionIntent("intent-1", "pending", "executing")).toBe(false);
+  });
+
+  test("resolves a confirmation code only within its sender and conversation", () => {
+    store = new Store(":memory:");
+    const call = {
+      role: "action" as const,
+      from: "0x1111111111111111111111111111111111111111" as const,
+      to: "0x2222222222222222222222222222222222222222" as const,
+      data: "0x12345678" as const,
+      value: "0",
+    };
+    store.createIntent({
+      id: "intent-1", codeHash: "hash", senderId: "2", conversationId: "1:2", sourceEventId: "event-1",
+      state: "pending", family: "aero", action: "stake", parameters: { chain: 8453, wallet: call.from, pool: call.to },
+      preview: "stake preview", planDigest: "digest", expiresAt: Date.now() + 1000,
+    }, [call]);
+    expect(store.intentForCode("hash", "2", "1:2")?.id).toBe("intent-1");
+    expect(store.intentForCode("hash", "9", "1:2")).toBeUndefined();
+    expect(store.intentForCode("hash", "2", "1:9")).toBeUndefined();
   });
 
   test("reuses the same outbox record for one source event", () => {

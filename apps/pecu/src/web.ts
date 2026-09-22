@@ -211,7 +211,7 @@ export class WebAgent {
       );
       if (!reply) return { status: "busy" as const };
       const intent = this.store.intentForSource(eventId);
-      const code = reply.match(/\/(?:confirm|cancel) ([A-F0-9]{6})\b/)?.[1];
+      const code = reply.match(/\/(?:confirm|cancel) ([A-Z0-9]{6})\b/)?.[1];
       const codeDigest = code
         ? Array.from(
             new Uint8Array(
