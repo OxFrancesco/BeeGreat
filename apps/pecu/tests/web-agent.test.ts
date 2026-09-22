@@ -94,9 +94,9 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
     },
     { ...services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), ...(nansen ? { nansen } : {}) },
     {
-      respond: async (message, capabilities) => {
+      respond: async (message, capabilities, mode, progress) => {
         calls++;
-        return answer ? answer(message, capabilities) : `Hello ${message.senderId}`;
+        return answer ? answer(message, capabilities, mode, progress) : `Hello ${message.senderId}`;
       },
     },
   );
@@ -135,6 +135,34 @@ test("web reuses an existing X wallet and persists deduplicated history across a
     await expect(f.web.handle({ ...turn, text: "different" })).rejects.toThrow(
       "another message",
     );
+  } finally {
+    f.close();
+  }
+});
+test("a web turn forwards finished paragraphs to the caller while the model writes, and deterministic commands never stream", async () => {
+  const f = fixture(async (message, _capabilities, _mode, progress) => {
+    progress?.("Checking your wallet.");
+    progress?.("Done, here is the summary.");
+    return `Checking your wallet.\nDone, here is the summary.`;
+  });
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const seen: string[] = [];
+    const scope = { ...identity };
+    expect(f.web.busy(scope)).toBe(false);
+    const turn = f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "how is my wallet doing" }, (paragraph) => {
+      seen.push(paragraph);
+      expect(f.web.busy(scope)).toBe(true);
+    });
+    expect(f.web.busy(scope)).toBe(true);
+    expect(await turn).toEqual({ status: "complete" });
+    expect(seen).toEqual(["Checking your wallet.", "Done, here is the summary."]);
+    expect(f.web.busy(scope)).toBe(false);
+    expect(f.web.state(identity).messages.at(-1)?.reply?.text).toContain("summary");
+    const direct: string[] = [];
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "/help" }, (paragraph) => direct.push(paragraph));
+    expect(direct).toEqual([]);
+    expect(f.calls()).toBe(1);
   } finally {
     f.close();
   }

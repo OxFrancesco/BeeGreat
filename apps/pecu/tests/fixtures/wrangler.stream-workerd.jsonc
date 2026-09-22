@@ -1,0 +1,8 @@
+{
+  "name": "pecu-stream-workerd-test",
+  "main": "stream-workerd-worker.ts",
+  "compatibility_date": "2026-08-29",
+  "durable_objects": { "bindings": [{ "name": "STREAM", "class_name": "StreamProbe" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["StreamProbe"] }],
+  "services": [{ "binding": "RELAY", "service": "pecu-stream-workerd-test", "entrypoint": "Relay" }]
+}

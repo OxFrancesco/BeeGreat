@@ -11,6 +11,7 @@ export async function identity() {
 export async function agentRequest(
   path: string,
   body: unknown,
+  accept?: string | null,
 ): Promise<Response> {
   const binding: unknown = Reflect.get(env, "PECU");
   if (
@@ -22,7 +23,7 @@ export async function agentRequest(
     throw new Error("Agent connection is unavailable.");
   return binding.fetch(`https://pecu.internal/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(accept ? { Accept: accept } : {}) },
     body: JSON.stringify(body),
   });
 }

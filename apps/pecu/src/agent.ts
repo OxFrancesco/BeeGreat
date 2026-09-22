@@ -20,6 +20,7 @@ import { whopDepositForwardSchema, whopLedgerActivitySchema } from "./whop-webho
 import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlanText, evmReadText, verbosePage } from "./chat";
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import type { RequestClassifier, RequestRoute } from "./request-classifier";
+import type { ParagraphSink } from "./web-stream";
 
 async function digest(value: string): Promise<string> {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -196,7 +197,7 @@ export class PecuAgent {
     }
   }
 
-  async handle(message: VerifiedMessage, retryUnanswered = false): Promise<string | undefined> {
+  async handle(message: VerifiedMessage, retryUnanswered = false, progress?: ParagraphSink): Promise<string | undefined> {
     const claim = this.store.claimEvent(
       message.eventId,
       message.conversationId,
@@ -217,7 +218,7 @@ export class PecuAgent {
         this.track(message.senderId, { event: "pecu_message_completed", channel, duration_ms: Date.now() - startedAt });
         return reply;
       }
-      const reply = await this.execute(message);
+      const reply = await this.execute(message, progress);
       this.store.completeEvent(message.eventId, reply);
       this.track(message.senderId, { event: "pecu_message_completed", channel, duration_ms: Date.now() - startedAt });
       return reply;
@@ -232,7 +233,7 @@ export class PecuAgent {
     }
   }
 
-  private async execute(message: VerifiedMessage): Promise<string> {
+  private async execute(message: VerifiedMessage, progress?: ParagraphSink): Promise<string> {
     if (message.senderId === treasurySenderId) throw new Error("This sender ID is reserved for the Pecu treasury.");
     if (!this.store.wallet(message.senderId)) {
       await this.walletAddress(message.senderId);
@@ -271,7 +272,7 @@ export class PecuAgent {
             case "help": return helpText;
           }
         }
-        const response = await this.harness.respond(message, this.capabilitiesFor(message), route.kind === "response" || route.kind === "mixed" ? route.kind : undefined);
+        const response = await this.harness.respond(message, this.capabilitiesFor(message), route.kind === "response" || route.kind === "mixed" ? route.kind : undefined, progress);
         return this.questionText(message.eventId) ?? response;
       } catch (error) {
         const question = this.questionText(message.eventId);

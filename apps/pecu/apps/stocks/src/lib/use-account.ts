@@ -11,8 +11,22 @@ import {
   type WebState,
 } from "../../../../src/web-contract";
 import { historyBytes, trimThreadCache } from "./thread-cache";
+import {
+  readSseEvents,
+  sseContentType,
+  webTurnEventSchema,
+} from "../../../../src/web-stream";
 import { z } from "zod";
 const errorSchema = z.object({ error: z.string() });
+const busyMessage =
+  "The agent is still processing your previous message. Retry shortly.";
+async function failed(response: Response) {
+  const data: unknown = await response.json().catch(() => null);
+  return new Error(
+    errorSchema.safeParse(data).data?.error ??
+      (response.status === 409 ? busyMessage : "Request failed. Please try again."),
+  );
+}
 export async function request(
   path: string,
   body?: unknown,
@@ -28,15 +42,41 @@ export async function request(
           body: JSON.stringify(body),
         }),
   });
-  const data: unknown = await response.json();
-  if (!response.ok)
-    throw new Error(
-      errorSchema.safeParse(data).data?.error ??
-        (response.status === 409
-          ? "The agent is still processing your previous message. Retry shortly."
-          : "Request failed. Please try again."),
-    );
-  return data;
+  if (!response.ok) throw await failed(response);
+  return (await response.json()) as unknown;
+}
+/**
+ * Sends a turn and reports each finished paragraph as the agent writes it.
+ * A backend that answers with plain JSON (older deploy, deterministic
+ * command) resolves the same way with no paragraphs.
+ */
+export async function streamTurn(
+  body: unknown,
+  onParagraph: (text: string) => void,
+): Promise<void> {
+  const response = await fetch("/aero/stocks/api/turn", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: `${sseContentType}, application/json`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw await failed(response);
+  if (!response.headers.get("Content-Type")?.includes(sseContentType) || !response.body) {
+    await response.json();
+    return;
+  }
+  for await (const raw of readSseEvents(response.body)) {
+    const event = webTurnEventSchema.parse(raw);
+    if (event.type === "paragraph") onParagraph(event.text);
+    else if (event.type === "error") throw new Error(event.error);
+    else if (event.status === "busy") throw new Error(busyMessage);
+    else return;
+  }
+  throw new Error(
+    "The connection dropped while Pecu was answering. The reply will appear here when it is ready.",
+  );
 }
 type Retry = {
   requestId: string;
@@ -53,6 +93,8 @@ type ThreadState = {
   pending: boolean;
   retry: Retry | null;
   inFlight: string | null;
+  /** Paragraphs of the reply being written right now; cleared once the turn completes. */
+  partial: readonly string[];
 };
 const EMPTY_THREAD: ThreadState = {
   state: null,
@@ -63,6 +105,7 @@ const EMPTY_THREAD: ThreadState = {
   pending: false,
   retry: null,
   inFlight: null,
+  partial: [],
 };
 
 export function useAccount(signedIn: boolean, threadId: string | null = null) {
@@ -325,6 +368,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
         error: "",
         retry: null,
         inFlight: retryOf ? null : text,
+        partial: [],
       });
       if (retryOf)
         setCache((current) => {
@@ -341,13 +385,26 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
           });
         });
       try {
-        await request("turn", {
-          requestId,
-          text,
-          ...(retryOf ? { retryOf } : {}),
-          ...(answerTo ? { answerTo } : {}),
-          ...(threadId ? { threadId } : {}),
-        });
+        await streamTurn(
+          {
+            requestId,
+            text,
+            ...(retryOf ? { retryOf } : {}),
+            ...(answerTo ? { answerTo } : {}),
+            ...(threadId ? { threadId } : {}),
+          },
+          (paragraph) => {
+            if (generation.current !== epoch) return;
+            setCache((current) => {
+              const entry = current.get(threadId);
+              if (!entry?.pending) return current;
+              return new Map(current).set(threadId, {
+                ...entry,
+                partial: [...entry.partial, paragraph],
+              });
+            });
+          },
+        );
         if (generation.current === epoch) {
           await reload();
           void loadThreads();
@@ -364,7 +421,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
       } finally {
         if (generation.current === epoch) {
           sends.current.delete(threadId);
-          update(threadId, { pending: false, inFlight: null });
+          update(threadId, { pending: false, inFlight: null, partial: [] });
         }
       }
     },
@@ -444,6 +501,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     pending: current.pending,
     retry: current.retry,
     inFlight: current.inFlight,
+    partial: current.partial,
     reload,
     prefetch,
     prepareNewThread,

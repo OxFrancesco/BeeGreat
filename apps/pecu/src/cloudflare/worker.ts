@@ -24,6 +24,7 @@ import { aeroWorkerExecutor } from "./aero-client";
 import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, basketSchema } from "../web-contract";
+import { sseContentType, turnEventStream } from "../web-stream";
 
 const objectName = "basedbot-main";
 const xOAuthStateKey = "basedbot-x-oauth";
@@ -191,6 +192,10 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         if (url.pathname !== "/internal/web/turn") return json({error:"not found"},404);
         const input = webTurnSchema.safeParse(raw);
         if (!input.success) return json({ error: "Invalid web request" }, 400);
+        if (request.headers.get("Accept")?.includes(sseContentType)) {
+          if (this.webAgent.busy(input.data)) return json({ status: "busy" }, 409);
+          return this.streamTurn(this.webAgent, input.data);
+        }
         const result = await this.webAgent.handle(input.data);
         return json(result, result.status === "busy" ? 409 : 200);
       }
@@ -270,6 +275,20 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       log("error", "durable_object_request_failed", { path: url.pathname, error: errorMessage(error) });
       return json({ error: errorMessage(error) }, 500);
     }
+  }
+
+  /**
+   * Answers a web turn as server-sent events. The turn itself runs under
+   * `waitUntil`, so a tab that closes mid-reply never aborts the model or
+   * leaves the thread locked; the reply lands in history as usual.
+   */
+  private streamTurn(webAgent: WebAgent, input: Parameters<WebAgent["handle"]>[0]): Response {
+    const { response, done } = turnEventStream(
+      (progress) => webAgent.handle(input, progress),
+      (error) => log("error", "durable_object_request_failed", { path: "/internal/web/turn", error: errorMessage(error) }),
+    );
+    this.ctx.waitUntil(done);
+    return response;
   }
 
   override async alarm(): Promise<void> {
@@ -544,8 +563,9 @@ export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
     if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
+    const accept = request.headers.get("Accept");
     return durableObject(this.env).fetch(new Request(`https://pecu.internal/internal/web${path}`, {
-      method:"POST",headers:{"Content-Type":"application/json"},body,
+      method:"POST",headers:{"Content-Type":"application/json",...(accept ? { Accept: accept } : {})},body,
     }));
   }
 }

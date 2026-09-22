@@ -90,15 +90,15 @@ try {
   expect(creates.at(-1)!.config?.providers?.openrouter?.settings?.provider).toEqual({ only: ["openai"] });
   expect(keyed.fallbackConfigured).toBe(true);
   await plugin!.setup(pluginContext);
-  expect(await keyed.respond({ ...message, eventId: "6" }, capabilities, undefined, false)).toBe("answer");
+  expect(await keyed.respond({ ...message, eventId: "6" }, capabilities, undefined, undefined, false)).toBe("answer");
   expect(switched.at(-1)!.model).toEqual(openrouter);
-  expect(await keyed.respond({ ...message, eventId: "7" }, capabilities, "response", false)).toBe("answer");
+  expect(await keyed.respond({ ...message, eventId: "7" }, capabilities, "response", undefined, false)).toBe("answer");
   expect(switched.at(-1)!.model).toEqual(openrouterSmall);
 
   // A stored ChatGPT limit no longer refuses the turn when the fallback exists.
   await hooks.get("http.response")!({ model: openai, request, response: new Response(limitBody, { status: 429, headers: { "content-type": "application/json" } }) });
   const limitedBefore = prompts.length;
-  expect(await keyed.respond({ ...message, eventId: "8" }, capabilities, undefined, true)).toBe("answer");
+  expect(await keyed.respond({ ...message, eventId: "8" }, capabilities, undefined, undefined, true)).toBe("answer");
   expect(prompts.length).toBe(limitedBefore + 1);
   expect(switched.at(-1)!.model).toEqual(openrouter);
 
@@ -107,7 +107,7 @@ try {
   contextQueue.push({ type: "assistant", time: { created: 2 }, content: [], error: { type: "provider.internal", message: "server_error", status: 500 } });
   const midBefore = prompts.length;
   const midSwitches = switched.length;
-  expect(await keyed.respond({ ...message, eventId: "9" }, capabilities, undefined, true)).toBe("answer");
+  expect(await keyed.respond({ ...message, eventId: "9" }, capabilities, undefined, undefined, true)).toBe("answer");
   expect(prompts.length).toBe(midBefore + 2);
   expect(prompts.at(-1)).toBe(prompts.at(-2));
   expect(switched.slice(midSwitches).map((entry) => entry.model)).toEqual([openai, openrouter]);
@@ -115,7 +115,7 @@ try {
   // A non-provider error surfaces without a fallback retry.
   contextQueue.push({ type: "assistant", time: { created: 2 }, content: [], error: { type: "unknown", message: "boom" } });
   const boomBefore = prompts.length;
-  await expect(keyed.respond({ ...message, eventId: "10" }, capabilities, undefined, true)).rejects.toThrow("boom");
+  await expect(keyed.respond({ ...message, eventId: "10" }, capabilities, undefined, undefined, true)).rejects.toThrow("boom");
   expect(prompts.length).toBe(boomBefore + 1);
 
   // OpenRouter responses never store or clear the user's ChatGPT limit, and its retries ignore one.
@@ -133,8 +133,8 @@ try {
   expect(openRouterThird.decision).toEqual({ retry: false });
 
   // Without the key the connect and usage-limit replies are unchanged.
-  await expect(harness.respond({ ...message, eventId: "11" }, capabilities, undefined, false)).rejects.toThrow("Connect your ChatGPT");
-  const stillLimited = await harness.respond({ ...message, eventId: "12" }, capabilities, undefined, true).catch((error: Error) => error);
+  await expect(harness.respond({ ...message, eventId: "11" }, capabilities, undefined, undefined, false)).rejects.toThrow("Connect your ChatGPT");
+  const stillLimited = await harness.respond({ ...message, eventId: "12" }, capabilities, undefined, undefined, true).catch((error: Error) => error);
   expect(stillLimited).toBeInstanceOf(Error);
   expect((stillLimited as Error).message).toContain("usage limit on your ChatGPT plus plan has been reached");
   console.log("Luna selection, retained session, Sol fallback, response instructions, usage-limit short-circuit, OpenRouter fallback passed");

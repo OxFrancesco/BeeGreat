@@ -61,6 +61,7 @@ export class FallbackProbe extends DurableObject<Env> {
         { eventId: crypto.randomUUID(), senderId: "probe", conversationId: "probe", text: "Reply with exactly the word OK and nothing else.", encodedEvent: "probe" } as VerifiedMessage,
         capabilities,
         mode === "response" ? "response" : undefined,
+        undefined,
         false,
       );
       return Response.json({ text, elapsedMs: Date.now() - startedAt, fallbackConfigured: harness.fallbackConfigured, providerCalls });

@@ -52,6 +52,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { PecuMascot } from "@/components/pecu-mascot";
+import { StreamedReply } from "@/components/streamed-reply";
 import { WalletChip } from "@/components/wallet-chip";
 import { Button } from "@/components/ui/button";
 import {
@@ -552,6 +553,12 @@ function AgentWorkspace({
                                     ) : null}
                                   </MessageActions>
                                 </MessageContent>
+                              ) : account.pending &&
+                                account.partial.length &&
+                                message.id === messages.at(-1)?.id ? (
+                                <MessageContent className="pecu-bubble-bot" role="status">
+                                  <StreamedReply paragraphs={account.partial} />
+                                </MessageContent>
                               ) : (
                                 <MessageContent className="pecu-bubble-bot pecu-bubble-muted">
                                   <span role="status">
@@ -592,15 +599,25 @@ function AgentWorkspace({
                       </Message>
                       <Message from="assistant">
                         <div
-                          className="pecu-assistant has-mascot pecu-thinking"
+                          className={
+                            account.partial.length
+                              ? "pecu-assistant has-mascot"
+                              : "pecu-assistant has-mascot pecu-thinking"
+                          }
                           role="status"
                         >
                           <span className="pecu-avatar pecu-avatar-live">
                             <PecuMascot state="thinking" />
                           </span>
-                          <Shimmer className="pecu-shimmer" duration={1.6}>
-                            Pecu is working on it
-                          </Shimmer>
+                          {account.partial.length ? (
+                            <MessageContent className="pecu-bubble-bot">
+                              <StreamedReply paragraphs={account.partial} />
+                            </MessageContent>
+                          ) : (
+                            <Shimmer className="pecu-shimmer" duration={1.6}>
+                              Pecu is working on it
+                            </Shimmer>
+                          )}
                         </div>
                       </Message>
                     </div>
