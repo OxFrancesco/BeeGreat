@@ -11,10 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StocksRouteImport } from './routes/stocks'
 import { Route as AgentRouteImport } from './routes/agent'
-import { Route as StocksSplatRouteImport } from './routes/stocks.$'
 import { Route as AeroStocksRouteImport } from './routes/aero.stocks'
-import { Route as AeroStocksApiMarketRouteImport } from './routes/aero.stocks.api.market'
-import { Route as AeroStocksApiSplatRouteImport } from './routes/aero.stocks.api.$'
+import { Route as StocksApiMarketRouteImport } from './routes/stocks.api.market'
+import { Route as StocksApiSplatRouteImport } from './routes/stocks.api.$'
+import { Route as AeroStocksSplatRouteImport } from './routes/aero.stocks.$'
 
 const StocksRoute = StocksRouteImport.update({
   id: '/stocks',
@@ -26,24 +26,24 @@ const AgentRoute = AgentRouteImport.update({
   path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StocksSplatRoute = StocksSplatRouteImport.update({
-  id: '/$',
-  path: '/$',
-  getParentRoute: () => StocksRoute,
-} as any)
 const AeroStocksRoute = AeroStocksRouteImport.update({
   id: '/aero/stocks',
   path: '/aero/stocks',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AeroStocksApiMarketRoute = AeroStocksApiMarketRouteImport.update({
+const StocksApiMarketRoute = StocksApiMarketRouteImport.update({
   id: '/api/market',
   path: '/api/market',
-  getParentRoute: () => AeroStocksRoute,
+  getParentRoute: () => StocksRoute,
 } as any)
-const AeroStocksApiSplatRoute = AeroStocksApiSplatRouteImport.update({
+const StocksApiSplatRoute = StocksApiSplatRouteImport.update({
   id: '/api/$',
   path: '/api/$',
+  getParentRoute: () => StocksRoute,
+} as any)
+const AeroStocksSplatRoute = AeroStocksSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
   getParentRoute: () => AeroStocksRoute,
 } as any)
 
@@ -51,26 +51,26 @@ export interface FileRoutesByFullPath {
   '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
-  '/stocks/$': typeof StocksSplatRoute
-  '/aero/stocks/api/$': typeof AeroStocksApiSplatRoute
-  '/aero/stocks/api/market': typeof AeroStocksApiMarketRoute
+  '/aero/stocks/$': typeof AeroStocksSplatRoute
+  '/stocks/api/$': typeof StocksApiSplatRoute
+  '/stocks/api/market': typeof StocksApiMarketRoute
 }
 export interface FileRoutesByTo {
   '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
-  '/stocks/$': typeof StocksSplatRoute
-  '/aero/stocks/api/$': typeof AeroStocksApiSplatRoute
-  '/aero/stocks/api/market': typeof AeroStocksApiMarketRoute
+  '/aero/stocks/$': typeof AeroStocksSplatRoute
+  '/stocks/api/$': typeof StocksApiSplatRoute
+  '/stocks/api/market': typeof StocksApiMarketRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
-  '/stocks/$': typeof StocksSplatRoute
-  '/aero/stocks/api/$': typeof AeroStocksApiSplatRoute
-  '/aero/stocks/api/market': typeof AeroStocksApiMarketRoute
+  '/aero/stocks/$': typeof AeroStocksSplatRoute
+  '/stocks/api/$': typeof StocksApiSplatRoute
+  '/stocks/api/market': typeof StocksApiMarketRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -78,25 +78,25 @@ export interface FileRouteTypes {
     | '/agent'
     | '/stocks'
     | '/aero/stocks'
-    | '/stocks/$'
-    | '/aero/stocks/api/$'
-    | '/aero/stocks/api/market'
+    | '/aero/stocks/$'
+    | '/stocks/api/$'
+    | '/stocks/api/market'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/agent'
     | '/stocks'
     | '/aero/stocks'
-    | '/stocks/$'
-    | '/aero/stocks/api/$'
-    | '/aero/stocks/api/market'
+    | '/aero/stocks/$'
+    | '/stocks/api/$'
+    | '/stocks/api/market'
   id:
     | '__root__'
     | '/agent'
     | '/stocks'
     | '/aero/stocks'
-    | '/stocks/$'
-    | '/aero/stocks/api/$'
-    | '/aero/stocks/api/market'
+    | '/aero/stocks/$'
+    | '/stocks/api/$'
+    | '/stocks/api/market'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -121,13 +121,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/stocks/$': {
-      id: '/stocks/$'
-      path: '/$'
-      fullPath: '/stocks/$'
-      preLoaderRoute: typeof StocksSplatRouteImport
-      parentRoute: typeof StocksRoute
-    }
     '/aero/stocks': {
       id: '/aero/stocks'
       path: '/aero/stocks'
@@ -135,42 +128,49 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AeroStocksRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/aero/stocks/api/market': {
-      id: '/aero/stocks/api/market'
+    '/stocks/api/market': {
+      id: '/stocks/api/market'
       path: '/api/market'
-      fullPath: '/aero/stocks/api/market'
-      preLoaderRoute: typeof AeroStocksApiMarketRouteImport
-      parentRoute: typeof AeroStocksRoute
+      fullPath: '/stocks/api/market'
+      preLoaderRoute: typeof StocksApiMarketRouteImport
+      parentRoute: typeof StocksRoute
     }
-    '/aero/stocks/api/$': {
-      id: '/aero/stocks/api/$'
+    '/stocks/api/$': {
+      id: '/stocks/api/$'
       path: '/api/$'
-      fullPath: '/aero/stocks/api/$'
-      preLoaderRoute: typeof AeroStocksApiSplatRouteImport
+      fullPath: '/stocks/api/$'
+      preLoaderRoute: typeof StocksApiSplatRouteImport
+      parentRoute: typeof StocksRoute
+    }
+    '/aero/stocks/$': {
+      id: '/aero/stocks/$'
+      path: '/$'
+      fullPath: '/aero/stocks/$'
+      preLoaderRoute: typeof AeroStocksSplatRouteImport
       parentRoute: typeof AeroStocksRoute
     }
   }
 }
 
 interface StocksRouteChildren {
-  StocksSplatRoute: typeof StocksSplatRoute
+  StocksApiSplatRoute: typeof StocksApiSplatRoute
+  StocksApiMarketRoute: typeof StocksApiMarketRoute
 }
 
 const StocksRouteChildren: StocksRouteChildren = {
-  StocksSplatRoute: StocksSplatRoute,
+  StocksApiSplatRoute: StocksApiSplatRoute,
+  StocksApiMarketRoute: StocksApiMarketRoute,
 }
 
 const StocksRouteWithChildren =
   StocksRoute._addFileChildren(StocksRouteChildren)
 
 interface AeroStocksRouteChildren {
-  AeroStocksApiSplatRoute: typeof AeroStocksApiSplatRoute
-  AeroStocksApiMarketRoute: typeof AeroStocksApiMarketRoute
+  AeroStocksSplatRoute: typeof AeroStocksSplatRoute
 }
 
 const AeroStocksRouteChildren: AeroStocksRouteChildren = {
-  AeroStocksApiSplatRoute: AeroStocksApiSplatRoute,
-  AeroStocksApiMarketRoute: AeroStocksApiMarketRoute,
+  AeroStocksSplatRoute: AeroStocksSplatRoute,
 }
 
 const AeroStocksRouteWithChildren = AeroStocksRoute._addFileChildren(

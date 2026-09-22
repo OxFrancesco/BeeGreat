@@ -27,7 +27,7 @@ const json = (body: unknown, status = 200) =>
       "X-Content-Type-Options": "nosniff",
     },
   });
-export const Route = createFileRoute("/aero/stocks/api/$")({
+export const Route = createFileRoute("/stocks/api/$")({
   server: {
     handlers: {
       GET: async ({ request, params }) => {
