@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Wallet P&amp;L on Pecu Agent</title><style>body{max-width:760px;margin:48px auto;padding:0 24px;font:17px/1.6 system-ui;color:#302c27;background:#faf9f6}a{color:#986017}img,video{display:block;max-width:100%;margin:16px 0;border-radius:12px}h1{font-size:30px}h2{margin-top:40px}li{margin:8px 0}code{font-size:.9em}*{scrollbar-width:none}*::-webkit-scrollbar{display:none}</style>
+<h1>Wallet P&amp;L on Pecu Agent</h1>
+<p>Live on <a href="https://pecu.app/agent">pecu.app/agent</a> since 23 September 2026.</p>
+<video controls muted playsinline preload="metadata" src="./pecu-wallet-pnl.mp4"></video>
+<ul>
+<li>Hovering the wallet address opens a card with the last 30 days of Base trading P&amp;L: total, realized, unrealized and the three largest movers.</li>
+<li>Clicking the address opens a full page at <code>#pnl</code> with 7D, 30D, 90D and 1Y. It shows the total, a realized/unrealized split, bars for the eight largest movers and every token.</li>
+<li>Back, Escape and browser Back close it. Basescan moved from the address to the page header.</li>
+<li>On phones, a tap opens the page directly. The token table keeps Token and Total and puts realized and unrealized under the total.</li>
+</ul>
+<img src="./2-hover.png" alt="Hover card under the wallet address with total, realized, unrealized and top movers">
+<img src="./3-page.png" alt="Full P&amp;L page with period tabs, total, split, bar chart and token table">
+<h2>Data</h2>
+<p>The Durable Object reads Nansen <code>profiler/address/pnl</code> for the signed-in sender's own wallet on Base. Neither the browser nor the model picks the address. Each wallet and period is cached for ten minutes, so hovering again does not spend a credit. If a refresh fails, the last read comes back with its original time. Tokens Nansen cannot price stay visible as Unavailable and are left out of the totals, with a note saying how many.</p>
+<h2>Verification</h2>
+<ul>
+<li>414 backend and 54 frontend tests pass, including a new cache test (one read per wallet and period, shared by concurrent opens, stale fallback, no chat history) and a browser test for <code>#pnl</code>.</li>
+<li>Typecheck, design check and the Worker dry-run builds pass.</li>
+<li>Headless Chrome against a fixture: hover, click, period switch, Escape, Back, keyboard focus, focus return and a 390px phone with no horizontal overflow.</li>
+<li>Production, on your account: the page opened from the address, 30D and 1Y loaded real Nansen data (+$0.32 on Base), and Back returned to the chat. No funds moved.</li>
+</ul>
+<p>Screenshots and the video use fictional fixture data.</p>
+<img src="./10-mobile-table.png" alt="Phone layout of the token table with realized and unrealized under each total" style="max-width:390px">
+<h2>Shipped</h2>
+<p>Commits on <code>main</code>, not pushed:</p>
+<ul>
+<li><code>061e8cfa</code> Aero tile palette and animated mark (another agent's uncommitted work)</li>
+<li><code>d6f2139c</code> Polymarket public reads (another agent's uncommitted work)</li>
+<li><code>5ded96f7</code> wallet P&amp;L</li>
+<li><code>41ae8e88</code> "last year" label for 1Y</li>
+</ul>
+<p>Deployed: <code>basedbot</code>, <code>aero-stocks</code>, <code>pecu-app</code>. The Codex, EVM and Aero workers had no changes.</p>
+<p>The Stocks page still links its address to Basescan. It uses the separate Aero Stocks design, so it was left alone.</p>
+<p><a href="./report.md">Markdown version</a></p>
+</html>
