@@ -1,6 +1,6 @@
 # Pecu Safes profile
 
-`pecu.app/profile` is a new page for Safe wallets with several owners. It is built, tested and pushed to `main`, not deployed.
+`pecu.app/profile` is a new page for Safe wallets with several owners. Live since 23 September 2026. Open it from Profile in the account menu.
 
 ## What is there
 
@@ -29,9 +29,13 @@
 - Design check, both typechecks, the web build, four Worker dry-runs and the docs build pass.
 - Walkthrough on a fixture page with fictional data and a simulated wallet, desktop and phone. No real transaction was sent.
 
+## Shipped
+
+- Commit `decb933c` on `main`. Workers: `basedbot` `10bef29e`, `aero-stocks` `9d2ecd6a`, `pecu-app` `1437fb20`.
+- The avatar menu is now Pecu's own: Profile, My cards, ChatGPT connection, Manage account, Sign out. `/profile` leads with your name and your Pecu wallet.
+
 ## Not done
 
-- Pushed as `727bc2b1` to `a2d20f0b`, not deployed. Deploy order: `pecu` Worker, then `aero-stocks`, then `pecu-app` for the `/profile` route.
 - A connected browser wallet can't spend from its own spending limit yet. Only the Pecu wallet can.
 - Roles, passkey owners and sponsored gas stay in chat and evmSDK.
 - Run one live 2-of-2 on Base with a few cents before telling users.

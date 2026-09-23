@@ -1,6 +1,6 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pecu Safes profile</title><style>body{max-width:760px;margin:48px auto;padding:0 24px;font:17px/1.6 system-ui;color:#302c27;background:#faf9f6}a{color:#986017}img,video{display:block;max-width:100%;margin:16px 0;border-radius:12px}h1{font-size:30px}h2{margin-top:40px}li{margin:8px 0}code{font-size:.9em}*{scrollbar-width:none}*::-webkit-scrollbar{display:none}</style>
 <h1>Pecu Safes profile</h1>
-<p><code>pecu.app/profile</code> is a new page for Safe wallets with several owners. It is built, tested and pushed to <code>main</code>, not deployed.</p>
+<p><code>pecu.app/profile</code> is a new page for Safe wallets with several owners. Live since 23 September 2026. Open it from Profile in the account menu.</p>
 <video controls muted playsinline preload="metadata" src="./pecu-safe-profile.mp4"></video>
 <h2>What is there</h2>
 <ul>
@@ -35,9 +35,14 @@
 <li>Walkthrough on a fixture page with fictional data and a simulated wallet, desktop and phone. No real transaction was sent.</li>
 </ul>
 <img src="./11-mobile-safe.jpg" alt="Safe page on a phone" style="max-width:390px">
+<h2>Shipped</h2>
+<ul>
+<li>Commit <code>decb933c</code> on <code>main</code>. Workers: <code>basedbot</code> <code>10bef29e</code>, <code>aero-stocks</code> <code>9d2ecd6a</code>, <code>pecu-app</code> <code>1437fb20</code>.</li>
+<li>The avatar menu is now Pecu's own: Profile, My cards, ChatGPT connection, Manage account, Sign out. <code>/profile</code> leads with your name and your Pecu wallet.</li>
+</ul>
+<img src="./21-account-menu.jpg" alt="Account menu open over the profile card">
 <h2>Not done</h2>
 <ul>
-<li>Pushed as <code>727bc2b1</code> to <code>a2d20f0b</code>, not deployed. Deploy order: <code>pecu</code> Worker, then <code>aero-stocks</code>, then <code>pecu-app</code> for the <code>/profile</code> route.</li>
 <li>A connected browser wallet can't spend from its own spending limit yet. Only the Pecu wallet can.</li>
 <li>Roles, passkey owners and sponsored gas stay in chat and evmSDK.</li>
 <li>Run one live 2-of-2 on Base with a few cents before telling users.</li>
