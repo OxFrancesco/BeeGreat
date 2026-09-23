@@ -4,7 +4,7 @@ import { Database, type SQLQueryBindings } from "bun:sqlite";
 import type { AgentHarness } from "../src/harness";
 import { PecuAgent } from "../src/agent";
 import { Store } from "../src/store";
-import { WebAgent, type WebSql } from "../src/web";
+import { pnlCacheMs, WebAgent, type WebSql } from "../src/web";
 import { services } from "./fixtures/agent-services";
 import { confirmationCommand, webTurnSchema } from "../src/web-contract";
 const address = "0x1111111111111111111111111111111111111111";
@@ -42,6 +42,42 @@ test("Nansen charts persist with direct and model replies, replay without a new 
     expect(explained?.analyticsOnly).toBe(false);
     expect(explained?.analytics).toHaveLength(1);
     expect(explained?.text).toContain("differ");
+  } finally { f.close(); }
+});
+test("wallet P&L reads the sender's own Base wallet once per period for ten minutes and never touches chat history", async () => {
+  const bodies: Record<string, unknown>[] = [];
+  let fail = false;
+  let open!: () => void;
+  const gate = new Promise<void>((resolve) => { open = resolve; });
+  const fetcher: typeof fetch = Object.assign(async (_input: string | URL | Request, init?: RequestInit) => {
+    bodies.push(JSON.parse(String(init?.body)));
+    await gate;
+    if (fail) return Response.json({ code: "rate_limit_exceeded", retry_after: 30 }, { status: 429 });
+    return Response.json({ pagination: { page: 1, per_page: 1000, is_last_page: true }, data: [{ token_address: "0x2222", token_symbol: "AERO", pnl_usd_realised: 12, pnl_usd_unrealised: -2 }] });
+  }, { preconnect: fetch.preconnect });
+  const f = fixture(undefined, false, undefined, new NansenService("test", "https://nansen.test/api/v1", fetcher));
+  try {
+    expect(await f.web.pnl(identity, 30)).toEqual({ wallet: null, days: 30, snapshot: null });
+    expect(bodies).toHaveLength(0);
+    f.store.saveWallet(identity.senderId, address, address);
+    const reads = [f.web.pnl(identity, 30), f.web.pnl(identity, 30)];
+    open();
+    const [first, second] = await Promise.all(reads);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({ address, chain: "base", pagination: { per_page: 1000 } });
+    expect(first.snapshot?.rows).toEqual([{ chain: "base", address: "0x2222", symbol: "AERO", realizedUsd: 12, unrealizedUsd: -2 }]);
+    expect(second).toEqual(first);
+    expect(await new WebAgent(f.agent, f.store, f.sql).pnl(identity, 30)).toEqual(first);
+    expect(bodies).toHaveLength(1);
+    await f.web.pnl(identity, 90);
+    expect(bodies).toHaveLength(2);
+    const stale = { ...first.snapshot!, observedAt: Date.now() - pnlCacheMs - 1 };
+    f.sql.exec("UPDATE basedbot_web_pnl SET snapshot=? WHERE days=30", JSON.stringify(stale));
+    fail = true;
+    expect((await f.web.pnl(identity, 30)).snapshot).toEqual(stale);
+    expect(bodies).toHaveLength(3);
+    await expect(f.web.pnl(identity, 7)).rejects.toThrow("Nansen is busy. Try again in 30 seconds.");
+    expect(f.web.state(identity).messages).toEqual([]);
   } finally { f.close(); }
 });
 function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService) {

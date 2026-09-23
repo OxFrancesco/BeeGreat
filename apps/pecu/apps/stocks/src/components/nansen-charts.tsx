@@ -17,6 +17,16 @@ const colors: DitherColor[] = ["orange", "blue", "green", "purple", "pink", "gre
 const compact = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
 const barConfig = { value: { label: "USD", color: "orange" } } satisfies ChartConfig;
 
+export function SignedBars({ rows, selectedIndex }: { rows: { label: string; value: number }[]; selectedIndex?: number }) {
+  return <BarChart data={rows} config={barConfig} animate={false} bloom="off" margins={{ left: 60, right: 20, bottom: 30 }} markerIndex={selectedIndex}>
+    <XAxis dataKey="label" maxTicks={4} tickFormatter={(value) => String(value).split(" ")[0]?.slice(0, 9) ?? ""} />
+    <YAxis tickFormatter={(value) => compact.format(value)} />
+    <ReferenceLine y={0} strokeDasharray="" />
+    <Bar dataKey="value" variant="dotted" />
+    <Tooltip labelKey="label" valueFormatter={analyticsUsd} />
+  </BarChart>;
+}
+
 function ValueChart({ rows, allocation = false }: { rows: ChartRow[]; allocation?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -38,13 +48,7 @@ function ValueChart({ rows, allocation = false }: { rows: ChartRow[]; allocation
     {chart.length ? <div className="h-56 w-full min-w-0" aria-hidden="true">
       {validPie ? <PieChart data={pie} config={config} dataKey="value" nameKey="key" animate={false} bloom="off">
         <Pie variant="dotted" /><Tooltip valueFormatter={analyticsUsd} />
-      </PieChart> : <BarChart data={chart} config={barConfig} animate={false} bloom="off" margins={{ left: 60, right: 20, bottom: 30 }} markerIndex={selectedIndex < 0 ? undefined : selectedIndex}>
-        <XAxis dataKey="label" maxTicks={4} tickFormatter={(value) => String(value).split(" ")[0]?.slice(0, 9) ?? ""} />
-        <YAxis tickFormatter={(value) => compact.format(value)} />
-        <ReferenceLine y={0} strokeDasharray="" />
-        <Bar dataKey="value" variant="dotted" />
-        <Tooltip labelKey="label" valueFormatter={analyticsUsd} />
-      </BarChart>}
+      </PieChart> : <SignedBars rows={chart} selectedIndex={selectedIndex < 0 ? undefined : selectedIndex} />}
     </div> : null}
     {rows.length ? <ul className="!m-0 !list-none !p-0 divide-y divide-border">
       {shownRows.map((row) => <li key={row.key} className="!m-0 !p-0">

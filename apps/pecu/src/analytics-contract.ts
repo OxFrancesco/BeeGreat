@@ -4,15 +4,18 @@ const money = z.number().finite().nullable();
 const token = z.object({ chain: z.string(), address: z.string(), symbol: z.string() });
 const base = { key: z.string(), observedAt: z.number().int().nonnegative(), subject: z.string(), chain: z.string(), period: z.string(), partial: z.boolean() };
 
+export const pnlSnapshotSchema = z.object({
+  ...base, kind: z.literal("pnl"),
+  rows: z.array(token.extend({ realizedUsd: money, unrealizedUsd: money })).max(1000),
+});
+export type PnlSnapshot = z.infer<typeof pnlSnapshotSchema>;
+
 export const analyticsSnapshotSchema = z.discriminatedUnion("kind", [
   z.object({
     ...base, kind: z.literal("flows"),
     rows: z.array(z.object({ label: z.string(), netUsd: money, wallets: z.number().int().nonnegative().nullable() })).max(6),
   }),
-  z.object({
-    ...base, kind: z.literal("pnl"),
-    rows: z.array(token.extend({ realizedUsd: money, unrealizedUsd: money })).max(1000),
-  }),
+  pnlSnapshotSchema,
   z.object({
     ...base, kind: z.literal("portfolio"),
     balances: z.array(token.extend({ amount: money, valueUsd: money })).max(1000).nullable(),

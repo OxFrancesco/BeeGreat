@@ -8,15 +8,20 @@ import type { PecuAgent } from "./agent";
 import type { PecuStore } from "./state";
 import { senderKind } from "./web-identity";
 import type { ParagraphSink } from "./web-stream";
+import { pnlSnapshotSchema, type PnlSnapshot } from "./analytics-contract";
 import {
   basketSchema,
   webReplySchema,
   type webIdentitySchema,
   type webScopeSchema,
   type webTurnSchema,
+  type PnlDays,
+  type WebPnl,
   type WebState,
   type WebThread,
 } from "./web-contract";
+
+export const pnlCacheMs = 10 * 60_000;
 
 export interface WebSql {
   exec<Row extends Record<string, SqlStorageValue>>(
@@ -31,6 +36,7 @@ type Turn = z.infer<typeof webTurnSchema>;
 export class WebAgent {
   private readonly history: WebHistory;
   private readonly active = new Set<string>();
+  private readonly pnlReads = new Map<string, Promise<PnlSnapshot>>();
   constructor(
     private readonly agent: PecuAgent,
     private readonly store: PecuStore,
@@ -47,6 +53,9 @@ export class WebAgent {
     );
     sql.exec(
       `CREATE TABLE IF NOT EXISTS basedbot_web_profiles (owner TEXT PRIMARY KEY, stocks TEXT, stocks_at INTEGER, basket TEXT)`,
+    );
+    sql.exec(
+      `CREATE TABLE IF NOT EXISTS basedbot_web_pnl (wallet TEXT NOT NULL, days INTEGER NOT NULL, snapshot TEXT NOT NULL, PRIMARY KEY(wallet, days))`,
     );
     this.history = new WebHistory(sql);
   }
@@ -160,6 +169,47 @@ export class WebAgent {
       this.owner(identity),
       JSON.stringify(basket),
     );
+  }
+  async pnl(identity: Identity, days: PnlDays): Promise<WebPnl> {
+    const wallet = this.store.wallet(identity.senderId)?.address;
+    if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet))
+      return { wallet: null, days, snapshot: null };
+    const key = wallet.toLowerCase();
+    const row = this.sql
+      .exec<{ snapshot: string }>(
+        "SELECT snapshot FROM basedbot_web_pnl WHERE wallet=? AND days=?",
+        key,
+        days,
+      )
+      .toArray()[0];
+    const cached = row
+      ? pnlSnapshotSchema.safeParse(JSON.parse(row.snapshot)).data
+      : undefined;
+    if (cached && Date.now() - cached.observedAt < pnlCacheMs)
+      return { wallet, days, snapshot: cached };
+    const readKey = `${key}:${days}`;
+    let read = this.pnlReads.get(readKey);
+    if (!read) {
+      read = this.agent
+        .walletPnl(wallet as `0x${string}`, days)
+        .then((snapshot) => {
+          this.sql.exec(
+            "INSERT INTO basedbot_web_pnl(wallet,days,snapshot) VALUES(?,?,?) ON CONFLICT(wallet,days) DO UPDATE SET snapshot=excluded.snapshot",
+            key,
+            days,
+            JSON.stringify(snapshot),
+          );
+          return snapshot;
+        })
+        .finally(() => this.pnlReads.delete(readKey));
+      this.pnlReads.set(readKey, read);
+    }
+    try {
+      return { wallet, days, snapshot: await read };
+    } catch (error) {
+      if (cached) return { wallet, days, snapshot: cached };
+      throw error;
+    }
   }
   /** Whether a turn is currently running in this thread, so a caller can refuse before opening a stream. */
   busy(scope: Scope): boolean {

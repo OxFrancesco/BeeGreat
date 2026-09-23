@@ -8,6 +8,12 @@ Pecu renders three saved Nansen snapshots in Agent and Stocks chat:
 
 Natural-language portfolio and P&L requests use the same tools. Explicit stock holdings requests keep the existing stock chart. Tool calls work through shared inference and connected ChatGPT paths. Each result stores a typed snapshot under its originating event and chart key. Saved replies and history retain the original observation; switching chart tabs makes no network request.
 
+## Wallet P&L on the Agent page
+
+Hovering the wallet address on `/agent` previews the last 30 days of Base trading P&L. Clicking it opens the full page at `#pnl` with 7-day, 30-day, 90-day and 1-year periods. Both read `GET /stocks/api/pnl?days=N`, which calls the `pnl` operation on `StocksGateway`. The Durable Object reads `wallet_pnl_breakdown` for the signed-in sender's own stored wallet on Base. Neither the browser nor the agent chooses the address.
+
+Each wallet and period is cached in the `basedbot_web_pnl` table for ten minutes, so one Nansen read serves every hover and reopen in that window, and concurrent opens share one read. If a refresh fails, the last read comes back with its original retrieval time. With no read to fall back on, Nansen's own message is shown with a retry control. The browser reuses a response for one minute. These reads never create chat turns or saved analytics events. X Chat keeps `/nansen pnl` as its equivalent.
+
 ## Data and interpretation
 
 Adapters validate documented Nansen responses before creating snapshots. P&L and balances request up to 1,000 rows and flag incomplete pagination. Missing values stay null. A failed portfolio source leaves the other source visible. Wallet token balances and DeFi positions are never added because receipt tokens can overlap. Cohorts can overlap, and transfers do not establish a buy or sell. Exchange and fresh-wallet counts are suppressed because Nansen does not track those counts in this endpoint.

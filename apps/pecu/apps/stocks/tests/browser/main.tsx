@@ -1,6 +1,7 @@
 import { analyticsFixtures } from "../fixtures/nansen-analytics";
 import { analyticsText } from "../../../../src/analytics-contract";
 import { connectionFixture } from "./connection";
+import { pnlFixture } from "./pnl";
 import { TransactionFixture } from "./transactions";
 import { createRoot } from "react-dom/client";
 import {
@@ -40,6 +41,10 @@ window.fetch = async (input, init) => {
     if (!url.pathname.endsWith("/turn")) throw new Error("This fixture only simulates messages.");
     await new Promise(resolve => setTimeout(resolve, 15000));
     return Response.json({ ok: true });
+  }
+  if (url.pathname.endsWith("/pnl")) {
+    await new Promise((resolve) => setTimeout(resolve, readDelay));
+    return Response.json(pnlFixture("0x1234567890123456789012345678901234567890", Number(url.searchParams.get("days"))));
   }
   const id = url.searchParams.get("t");
   const before = url.searchParams.get("before"),

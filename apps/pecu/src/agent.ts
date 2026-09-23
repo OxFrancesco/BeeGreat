@@ -24,6 +24,7 @@ import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlan
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import type { RequestClassifier, RequestRoute } from "./request-classifier";
 import type { ParagraphSink } from "./web-stream";
+import type { PnlSnapshot } from "./analytics-contract";
 
 async function digest(value: string): Promise<string> {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -497,6 +498,14 @@ export class PecuAgent {
     this.saveDetails(message, result.data);
     if (result.analytics) this.store.saveAnalytics(message.eventId, result.analytics);
     return result.text;
+  }
+
+  async walletPnl(wallet: `0x${string}`, days: number): Promise<PnlSnapshot> {
+    const nansen = this.services.nansen;
+    if (!nansen) throw new Error("Nansen analytics is not configured yet.");
+    const { analytics } = await nansen.call("wallet_pnl_breakdown", { chain: "base", days }, { wallet });
+    if (analytics?.snapshot.kind !== "pnl") throw new Error("Nansen returned analytics in an unsupported format. Try again later.");
+    return analytics.snapshot;
   }
 
   private async depositReply(message: VerifiedMessage, amount?: string): Promise<string> {

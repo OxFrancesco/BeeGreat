@@ -8,6 +8,8 @@ import {
   messagePageQuerySchema,
   threadPageQuerySchema,
   inferenceStatusSchema,
+  pnlDaysSchema,
+  webPnlSchema,
 } from "../../../../src/web-contract";
 const turn = z
   .object({
@@ -32,6 +34,7 @@ export const Route = createFileRoute("/stocks/api/$")({
     handlers: {
       GET: async ({ request, params }) => {
         if (params._splat === "cards") return cardsRequest(false);
+        if (params._splat === "pnl") return pnlRequest(request);
         if (params._splat === "inference") {
           let viewer;
           try {
@@ -166,6 +169,23 @@ export const Route = createFileRoute("/stocks/api/$")({
     },
   },
 });
+
+async function pnlRequest(request: Request) {
+  const days = pnlDaysSchema.safeParse(Number(new URL(request.url).searchParams.get("days") ?? 30));
+  if (!days.success) return json({ error: "Choose 7, 30, 90 or 365 days." }, 400);
+  let viewer;
+  try { viewer = await identity(); }
+  catch { return json({ error: "Sign in to see your P&L." }, 401); }
+  try {
+    const response = await agentRequest("pnl", { ...viewer, days: days.data });
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = z.object({ error: z.string() }).safeParse(body).data?.error;
+      return json({ error: response.status === 502 && error ? error : "Could not load your P&L. Try again." }, 503);
+    }
+    return json(webPnlSchema.parse(body));
+  } catch { return json({ error: "Could not load your P&L. Try again." }, 503); }
+}
 
 async function cardsRequest(claim: boolean) {
   let viewer;

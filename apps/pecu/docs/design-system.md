@@ -136,6 +136,20 @@ The wallet shows one shortened address with a copy control. Copy uses the full
 address. The locally generated QR panel opens on hover or focus after one second,
 or immediately on tap, and closes with Escape, outside interaction or Close.
 
+The address itself is the P&L control. Hover or keyboard focus opens a 296px
+preview card after 400ms: total, realized and unrealized amounts, the three
+largest movers and the Nansen source line. Clicking or tapping the address, or
+the card's expand control, opens the full P&L page at `#pnl`. The page covers
+the viewport with a 940px column: back control, 7D/30D/90D/1Y periods, the
+total, a realized/unrealized split, signed bars for the eight largest movers
+and every token in a table. Below 600px the table keeps Token and Total and
+moves the realized and unrealized amounts under the total. Back, Escape and
+browser Back close it and return focus to the address without reopening the
+card. Basescan moved from the address to the page header. Amounts carry a `+`
+or `-` sign, and losses also use the loss color. Tokens without a Nansen price
+stay visible as Unavailable, and their missing values are left out of the
+totals with a note.
+
 ChatGPT connection opens the same panel from the profile or `/agent#chatgpt`.
 Use the current connection controls only, with a 400px maximum panel width and
 24px side padding. The device code and copy button share an inset field. Continue
@@ -149,6 +163,8 @@ Use 160ms for control feedback, 180ms for mascot state crossfades and 200ms for
 the desktop sidebar. The sidebar uses `cubic-bezier(.77, 0, .175, 1)`; general
 entrances use `cubic-bezier(.23, 1, .32, 1)`. Animate transform and opacity.
 Text must not scale. Thread selection and stock selection stay immediate.
+The P&L card enters in 160ms with a 4px drop. The P&L page enters in 240ms
+with a 12px rise and leaves in 160ms. Both use the entrance curve.
 
 The Aero mark in `pecu-assets/aero-mark.js` is a canvas port of the TUI's
 `AeroMark`. It keeps the half-block grid, 40ms frames, three-frame stagger,

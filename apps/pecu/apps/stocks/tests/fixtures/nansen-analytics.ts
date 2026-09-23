@@ -1,4 +1,4 @@
-import type { AnalyticsSnapshot } from "../../../../../src/analytics-contract";
+import type { AnalyticsSnapshot } from "../../../../src/analytics-contract";
 
 const subject = "0x1111111111111111111111111111111111111111";
 const base = { observedAt: Date.UTC(2026, 8, 21, 8), subject, chain: "base", period: "1d", partial: false };

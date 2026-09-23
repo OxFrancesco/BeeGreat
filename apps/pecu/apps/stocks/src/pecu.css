@@ -35,6 +35,87 @@ html:has(.pecu-app), body:has(.pecu-app) { background: var(--background); }
 .pecu-wallet-full-address { margin-top: 10px; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; user-select: all; }
 .pecu-wallet-qr p { margin: 10px 0 0; font-size: 13px; }
 
+.pecu-wallet-address { border-radius: var(--clay-radius-pill) 0 0 var(--clay-radius-pill); transition: background-color 160ms ease; }
+.pecu.pecu-pnl-card { z-index: 60; width: 296px; max-width: calc(100vw - 24px); padding: 16px 16px 14px; border: 0; border-radius: 18px; background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-pnl-card[data-state="open"] { animation: pecu-pnl-card-in var(--fast) var(--ease-out); }
+.pecu-pnl-card[data-state="closed"] { animation: pecu-pnl-fade-out 120ms var(--ease-out); }
+.pecu-pnl-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -6px -8px 0 0; font-size: 13px; color: var(--muted-foreground); }
+.pecu .pecu-pnl-expand { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--muted-foreground); }
+.pecu .pecu-pnl-card-total { margin: 2px 0 0; color: var(--foreground); font: 650 28px/1.15 var(--font-mono); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pecu-pnl-card-split { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; margin: 12px 0 0; font-size: 13px; }
+.pecu-pnl-card-split dt { color: var(--muted-foreground); }
+.pecu-pnl-card-split dd { margin: 0; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.pecu-pnl-card-movers { display: grid; gap: 8px; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--border); list-style: none; font-size: 13px; }
+.pecu-pnl-card-movers li { display: flex; justify-content: space-between; gap: 12px; min-width: 0; }
+.pecu-pnl-card-movers li > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pecu .pecu-pnl-note { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted-foreground); }
+.pecu .pecu-pnl-source { margin: 12px 0 0; font-size: 12px; color: var(--muted-foreground); }
+.pecu-pnl-error { margin-top: 12px; }
+.pecu-pnl-skeleton { display: grid; gap: 8px; margin-top: 8px; }
+.pecu-pnl-skeleton > span:not(.sr-only) { display: block; width: 70%; height: 14px; border-radius: 7px; background: var(--muted); box-shadow: var(--clay-shadow-inset); }
+.pecu-pnl-skeleton > .is-total { width: 55%; height: 30px; }
+
+.pecu.pecu-pnl-page { position: fixed; inset: 0; z-index: 70; overflow-y: auto; overscroll-behavior: contain; background: var(--background); outline: none; }
+.pecu-pnl-page[data-state="open"] { animation: pecu-pnl-page-in 240ms var(--ease-out); }
+.pecu-pnl-page[data-state="closed"] { animation: pecu-pnl-page-out var(--fast) var(--ease-out); }
+.pecu-pnl-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px max(24px, calc((100% - 940px) / 2 + 24px)) 12px; background: var(--background); }
+.pecu .pecu-pnl-back { justify-content: center; width: 44px; height: 44px; padding: 0; }
+.pecu-pnl-periods { display: inline-flex; gap: 4px; padding: 4px; border-radius: var(--clay-radius-pill); background: var(--secondary); box-shadow: var(--clay-shadow-inset); }
+.pecu .pecu-pnl-periods button { min-width: 52px; min-height: 40px; padding: 0 12px; border: 0; border-radius: var(--clay-radius-pill); background: transparent; color: var(--muted-foreground); font-size: 13px; font-weight: 650; cursor: pointer; transition: color var(--fast) ease, background-color var(--fast) ease; }
+.pecu .pecu-pnl-periods button[aria-pressed="true"] { background: var(--card); color: var(--foreground); box-shadow: var(--clay-shadow-sm); }
+.pecu-pnl-body { display: flex; flex-direction: column; gap: 28px; width: 100%; max-width: 940px; margin: 0 auto; padding: 8px 24px 48px; }
+.pecu-pnl-heading h2 { margin: 0; font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -0.035em; }
+.pecu-pnl-heading p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 14px; color: var(--muted-foreground); }
+.pecu-pnl-heading a { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; }
+.pecu-pnl-hero { display: grid; gap: 6px; }
+.pecu .pecu-pnl-hero-label { margin: 0; font-size: 14px; color: var(--muted-foreground); }
+.pecu .pecu-pnl-total { margin: 0; color: var(--foreground); font: 650 clamp(40px, 7vw, 64px)/1.04 var(--font-mono); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pecu .pecu-pnl-loss { color: color-mix(in oklch, var(--destructive) 78%, var(--foreground)); }
+.pecu-pnl-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 14px 0 0; border-radius: var(--clay-radius-control); background: var(--muted); box-shadow: var(--clay-shadow-inset); }
+.pecu-pnl-split > div { display: grid; gap: 4px; min-width: 0; padding: 14px 16px; }
+.pecu-pnl-split > div + div { border-left: 1px solid var(--border); }
+.pecu-pnl-split dt { font-size: 13px; color: var(--muted-foreground); }
+.pecu-pnl-split dd { margin: 0; font: 600 clamp(16px, 2.4vw, 20px) var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pecu .pecu-pnl-hero .pecu-pnl-note { margin-top: 6px; }
+.pecu-pnl-chart { height: 240px; min-width: 0; padding: 16px 12px 8px 0; border-radius: var(--clay-radius-surface); background: var(--card); box-shadow: var(--clay-shadow-sm); }
+.pecu-pnl-table-wrap { overflow-x: auto; }
+.pecu-pnl-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pecu-pnl-table thead th { padding: 0 12px 10px; font-size: 13px; font-weight: 500; color: var(--muted-foreground); text-align: right; }
+.pecu-pnl-table tbody th, .pecu-pnl-table td { padding: 12px; border-top: 1px solid var(--border); vertical-align: middle; }
+.pecu-pnl-table td { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pecu-pnl-table :is(thead th, tbody th):first-child { padding-left: 0; text-align: left; }
+.pecu-pnl-table :is(thead th, td):last-child { padding-right: 0; }
+.pecu-pnl-table td:last-child > span:first-child { font-weight: 600; }
+.pecu-pnl-parts { display: none; }
+.pecu-pnl-token { display: grid; gap: 2px; font-weight: 400; }
+.pecu-pnl-token strong { font-weight: 600; }
+.pecu-pnl-token .mono { font-size: 12px; color: var(--muted-foreground); }
+.pecu .pecu-pnl-more { align-self: center; }
+.pecu .pecu-pnl-body > .pecu-pnl-source { margin: 0; }
+.pecu-pnl-skeleton.is-page { gap: 12px; margin: 0; }
+.pecu-pnl-skeleton.is-page > span:first-child { width: 200px; }
+.pecu-pnl-skeleton.is-page > .is-total { width: min(360px, 80%); height: 56px; border-radius: 12px; }
+.pecu-pnl-skeleton.is-page > .is-split { width: 100%; height: 72px; border-radius: var(--clay-radius-control); }
+.pecu-pnl-skeleton.is-page > .is-chart { width: 100%; height: 240px; margin-top: 16px; border-radius: var(--clay-radius-surface); }
+@keyframes pecu-pnl-card-in { from { opacity: 0; transform: translateY(-4px); } }
+@keyframes pecu-pnl-page-in { from { opacity: 0; transform: translateY(12px); } }
+@keyframes pecu-pnl-page-out { to { opacity: 0; transform: translateY(8px); } }
+@keyframes pecu-pnl-fade-out { to { opacity: 0; } }
+@media (hover: hover) and (pointer: fine) {
+  .pecu-wallet-address:hover, .pecu .pecu-pnl-expand:hover { background: var(--secondary); }
+  .pecu .pecu-pnl-periods button[aria-pressed="false"]:hover { color: var(--foreground); }
+}
+@media (max-width: 760px) {
+  .pecu-pnl-bar { padding: 14px 16px 10px; }
+  .pecu-pnl-body { gap: 24px; padding: 4px 16px 40px; }
+  .pecu .pecu-pnl-periods button { min-width: 0; padding: 0 10px; }
+  .pecu-pnl-chart { height: 200px; }
+}
+@media (max-width: 600px) {
+  .pecu-pnl-table .is-part { display: none; }
+  .pecu-pnl-parts { display: grid; gap: 2px; margin-top: 4px; font-size: 12px; color: var(--muted-foreground); }
+}
+
 /* Conversation column */
 .pecu-chat { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px 16px; min-height: 0; min-width: 0; }
 .pecu-conversation { flex: 1; min-height: 0; }

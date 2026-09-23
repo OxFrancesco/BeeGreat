@@ -2,6 +2,7 @@ import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Popover } from "radix-ui";
 import { useEffect, useRef, useState } from "react";
+import { WalletPnl } from "./wallet-pnl";
 
 export function WalletChip({ address }: { address: string }) {
   const [open, setOpen] = useState(false);
@@ -42,15 +43,7 @@ export function WalletChip({ address }: { address: string }) {
 
   return (
     <div className="pecu-chip pecu-wallet">
-      <a
-        className="pecu-wallet-address mono"
-        href={`https://basescan.org/address/${address}`}
-        target="_blank"
-        rel="noreferrer"
-        title={address}
-      >
-        {address.slice(0, 6)}…{address.slice(-4)}
-      </a>
+      <WalletPnl address={address} />
       <Popover.Root
         open={open}
         onOpenChange={(value) => {

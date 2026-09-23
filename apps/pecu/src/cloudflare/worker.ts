@@ -25,7 +25,7 @@ import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
 import { PecuCards } from "../cards";
 import { cardViewerSchema } from "../cards-contract";
-import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, basketSchema } from "../web-contract";
+import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, webPnlRequestSchema, basketSchema } from "../web-contract";
 import { sseContentType, turnEventStream } from "../web-stream";
 
 const objectName = "basedbot-main";
@@ -195,6 +195,16 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           const { threadId, ...identity } = webThreadDeleteSchema.parse(raw);
           this.webAgent.deleteThread(identity, threadId);
           return json({ ok: true });
+        }
+        if (url.pathname === "/internal/web/pnl") {
+          const { days, ...identity } = webPnlRequestSchema.parse(raw);
+          try {
+            return json(await this.webAgent.pnl(identity, days));
+          } catch (error) {
+            const message = errorMessage(error);
+            log("warn", "web_pnl_failed", { error: message });
+            return json({ error: /^Nansen /.test(message) ? message : "Could not load your P&L. Try again." }, 502);
+          }
         }
         if (url.pathname === "/internal/web/basket") {
           const identity = webIdentitySchema.parse(typeof raw === 'object' && raw ? Reflect.get(raw, 'identity') : null);
@@ -573,7 +583,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/pnl"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");

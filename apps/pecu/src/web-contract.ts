@@ -1,5 +1,5 @@
 import { stockSnapshotSchema } from "./stock-contract";
-import { analyticsResultsSchema } from "./analytics-contract";
+import { analyticsResultsSchema, pnlSnapshotSchema } from "./analytics-contract";
 import { z } from "zod";
 import { agentQuestionSchema } from "./question-contract";
 import { clerkUserIdSchema, senderIdSchema } from "./web-identity";
@@ -139,6 +139,18 @@ export const webStateSchema = z.object({
 });
 export type WebState = z.infer<typeof webStateSchema>;
 export type WebThread = z.infer<typeof webThreadSchema>;
+
+export const pnlDaysSchema = z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365)]);
+export type PnlDays = z.infer<typeof pnlDaysSchema>;
+export const webPnlRequestSchema = webIdentitySchema
+  .extend({ days: pnlDaysSchema })
+  .strict();
+export const webPnlSchema = z.object({
+  wallet: z.string().nullable(),
+  days: pnlDaysSchema,
+  snapshot: pnlSnapshotSchema.nullable(),
+});
+export type WebPnl = z.infer<typeof webPnlSchema>;
 
 export const messagePageQuerySchema = z
   .object({
