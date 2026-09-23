@@ -1,4 +1,4 @@
-import { NansenChart } from "../components/nansen-charts";
+import { AnalyticsCard } from "../components/analytics-card";
 import { CommandMenu } from "../components/command-menu";
 import { ConnectionRecovery } from "../components/inference-profile";
 import { CopyButton } from "../components/copy-button";
@@ -488,7 +488,7 @@ function AgentWorkspace({
                                     </MessageResponse>
                                   ) : null}
                                   <ConnectionRecovery reply={reply} />
-                                  {reply.analytics?.map((result) => <NansenChart key={result.snapshot.key} snapshot={result.snapshot} />)}
+                                  {reply.analytics?.map((result) => <AnalyticsCard key={result.snapshot.key} snapshot={result.snapshot} />)}
                                   {reply.holdings ? (
                                     <StockHoldings {...reply.holdings} />
                                   ) : null}

@@ -27,6 +27,7 @@
     "src",
     "vite.config.ts",
     "worker-configuration.d.ts",
-    "showcase"
+    "showcase",
+    "polymarket-showcase"
   ]
 }

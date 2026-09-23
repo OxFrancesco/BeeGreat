@@ -1,6 +1,7 @@
 import { polymarketRead } from "./integrations/polymarket/client";
 import { polymarketEndpoints, polymarketEndpointNames, type PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
 import { polymarketText } from "./integrations/polymarket/presentation";
+import { polymarketAnalytics } from "./integrations/polymarket/analytics";
 import { stocksSchema, type StockTrade } from "./stock-contract";
 import type { AgentAnalytics, AgentAnalyticsEvent } from "./analytics";
 import type { AaveService } from "./integrations/aave";
@@ -24,7 +25,7 @@ import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlan
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import type { RequestClassifier, RequestRoute } from "./request-classifier";
 import type { ParagraphSink } from "./web-stream";
-import type { PnlSnapshot } from "./analytics-contract";
+import { analyticsText, type PnlSnapshot } from "./analytics-contract";
 
 async function digest(value: string): Promise<string> {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -481,7 +482,10 @@ export class PecuAgent {
   private async polymarketReadReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: unknown, structured: boolean): Promise<string> {
     const result = await (this.services.polymarketRead ?? polymarketRead)(endpoint, input);
     this.saveDetails(message, result);
-    return structured ? JSON.stringify(result) : polymarketText(result);
+    const snapshot = polymarketAnalytics(typeof input === "object" && input !== null ? Object.fromEntries(Object.entries(input)) : {}, result);
+    const text = snapshot && analyticsText(snapshot);
+    if (snapshot && text) this.store.saveAnalytics(message.eventId, { snapshot, text });
+    return structured ? JSON.stringify(result) : text || polymarketText(result);
   }
 
   private async polymarketReply(message: VerifiedMessage, query?: string): Promise<string> {

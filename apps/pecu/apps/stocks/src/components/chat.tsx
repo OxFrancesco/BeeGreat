@@ -1,4 +1,4 @@
-import { NansenChart } from "./nansen-charts";
+import { AnalyticsCard } from "./analytics-card";
 import { CommandMenu } from "./command-menu";
 import { ConnectionRecovery } from "./inference-profile";
 import { PreviewCard } from "./preview-card";
@@ -114,7 +114,7 @@ export function Chat({
                         </MessageResponse>
                       ) : null}
                       <ConnectionRecovery reply={message.reply} />
-                                  {message.reply.analytics?.map((result) => <NansenChart key={result.snapshot.key} snapshot={result.snapshot} />)}
+                                  {message.reply.analytics?.map((result) => <AnalyticsCard key={result.snapshot.key} snapshot={result.snapshot} />)}
                       {message.reply.holdings ? (
                         <StockHoldings {...message.reply.holdings} />
                       ) : null}

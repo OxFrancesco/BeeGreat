@@ -64,6 +64,49 @@ Missing or null values remain unavailable. Bare size/volume is shares, while
 sources, describe prices as market-implied odds, and must not claim a complete
 portfolio from one page. Commands render text; full data stays in `b/verbose`.
 
+## Cards
+
+Thirteen reads also produce a typed card in the shared analytics contract
+(`apps/pecu/src/analytics-contract.ts`), next to the Nansen charts:
+
+| Card | Reads |
+| --- | --- |
+| Odds | `market`, `market_by_slug`, `event`, `event_by_slug` |
+| Market list | `markets`, `events`, `search` |
+| Price history | `prices_history` |
+| Order book | `book` |
+| Leaderboard | `leaderboard` without `user` |
+| Biggest wins | `biggest_winners` |
+| Trader P&L | `user_pnl` |
+| Positions | `positions` with `user` |
+
+`src/integrations/polymarket/analytics.ts` builds the card from the decoded read.
+Prices outside 0 to 1 and unparseable values stay unavailable. A read with a next
+page is marked partial. The agent saves the card under the turn, so direct
+commands and model tool calls both attach it, and replayed turns keep the saved
+observation. A direct command whose only output is one card shows the card alone.
+
+Pecu Agent and Stocks chat render cards with `PolymarketCard`
+(`apps/pecu/apps/stocks/src/components/polymarket-cards.tsx`) through the shared
+`AnalyticsCard`. Price history and trader P&L use the Dither Kit area chart; odds
+and order books use plain HTML bars. Every card links its source and retrieval
+time. X Chat gets the card's text summary, capped at 12 rows and ending with
+`Data: Polymarket (polymarket.com)`.
+
+## Showcase
+
+[pecu.app/polymarket-showcase](https://pecu.app/polymarket-showcase) shows saved
+cards in four sections: market odds, order books, top traders and trader
+profiles. Each example has a prompt to copy into Pecu for the live version.
+Switching examples makes no Polymarket request.
+
+The page lives in `apps/pecu/apps/stocks/polymarket-showcase` and builds into the
+site with the Nansen showcase. Refresh its data from `apps/pecu` with
+`bun scripts/polymarket/showcase.ts`. The script makes about 50 public reads,
+runs them through the same card builder, validates the result and writes
+`data.json`. Profiles use public wallets from Polymarket's profit leaderboard.
+
+
 ## API coverage
 
 | Tool | API route |
@@ -153,9 +196,9 @@ retry bounds, Retry-After pacing, cancellation, command routing and event replay
 The inference bridge test exercises the capability under both provider selections
 and verifies that explanation-only turns cannot invoke it.
 
-Pecu's web and X Chat entry points share this agent and text presentation. BeeGreat's
-separate Expo, Android, web twin, CLI and iMessage agent are not Pecu clients and
-were not changed. No new UI components, wire contracts in Convex, wallet lifecycle
-or generative-UI contracts were added. A deployment must update the Pecu Worker
-containing both the agent and per-user inference tools. No production agent
-migration or deployment was performed as part of this local implementation.
+Pecu's web and X Chat entry points share this agent. Web renders cards; X Chat
+gets their text. BeeGreat's separate Expo, Android, web twin, CLI and iMessage agent
+are not Pecu clients and were not changed. No wire contracts in Convex, wallet
+lifecycle or generative-UI contracts were added. Cards need the Pecu Worker (agent
+and per-user inference tools), then the Stocks app. The showcase deploys with the
+pecu.app site.

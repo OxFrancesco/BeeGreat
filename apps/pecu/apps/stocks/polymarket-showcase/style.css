@@ -1,0 +1,10 @@
+.showcase .pm-showcase-detail { text-transform: none; }
+.showcase .showcase-example-list button { min-width: 0; overflow-wrap: anywhere; }
+.pm-showcase-cards { display: grid; gap: 20px; min-width: 0; }
+.showcase-example .pm-showcase-cards section { margin: 0; }
+.showcase-workspace { grid-template-columns: 240px minmax(0, 1fr); }
+@media (max-width: 900px) {
+  .pm-showcase-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pm-showcase-cards { gap: 16px; }
+}
+@media (min-width: 600px) and (max-width: 900px) { .pm-showcase-tabs { display: flex; } }

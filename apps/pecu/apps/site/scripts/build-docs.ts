@@ -33,3 +33,5 @@ console.log(`Built CLI docs from Aero SDK ${revision.slice(0, 8)}`);
 await import("./build-design");
 const showcase = Bun.spawn(["bun", "run", "--cwd", resolve(root, "apps/stocks"), "build:showcase"], { stdout: "inherit", stderr: "inherit" });
 if (await showcase.exited) throw new Error("Nansen showcase build failed");
+const polymarketShowcase = Bun.spawn(["bun", "run", "--cwd", resolve(root, "apps/stocks"), "build:polymarket-showcase"], { stdout: "inherit", stderr: "inherit" });
+if (await polymarketShowcase.exited) throw new Error("Polymarket showcase build failed");

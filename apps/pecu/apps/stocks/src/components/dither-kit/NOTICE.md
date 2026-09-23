@@ -9,3 +9,7 @@ when updating. No upstream code changes have been made.
 
 Bar, bar-chart and bar-canvas 0.1.0 added from the codeview reference
 on 2026-09-21. The shared core matches the reference. Bar source is unmodified.
+
+Area, area-chart and cartesian-canvas 0.1.0 added from the codeview reference
+on 2026-09-23 for the Polymarket price history and trader P&L cards. Area
+source is unmodified.

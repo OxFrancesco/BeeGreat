@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Copy, Check, ArrowRight } from "lucide-react";
 import { Button } from "../src/components/ui/button";
-import { NansenChart } from "../src/components/nansen-charts";
+import { AnalyticsCard } from "../src/components/analytics-card";
 import { showcaseSchema } from "./schema";
 import source from "./data.json";
 import "../src/styles.css";
@@ -37,7 +37,7 @@ function Showcase() {
           <div className="showcase-example-list">{examples.map((example) => <button type="button" key={example.id} aria-pressed={active?.id === example.id} onClick={() => choose(example.id)}>{example.name}<span>{example.snapshot.chain === "all" ? "Across chains" : example.snapshot.chain}</span></button>)}</div>
         </nav> : null}
         {active ? <article className="showcase-example" aria-label={active.name}>
-          <NansenChart key={active.id} snapshot={active.snapshot} illustrative={collection.source === "illustrative"} />
+          <AnalyticsCard key={active.id} snapshot={active.snapshot} illustrative={collection.source === "illustrative"} />
           <div className="showcase-context">
           <div className="showcase-question"><p>{active.question}</p><button type="button" onClick={copy} aria-label={copied ? "Prompt copied" : "Copy prompt"}>{copied ? <Check size={18} /> : <Copy size={18} />}</button></div>
           {active.note ? <p className="showcase-note">{active.note}</p> : null}

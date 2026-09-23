@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { analyticsAddress, analyticsTotal, analyticsUsd, type AnalyticsSnapshot } from "../../../../src/analytics-contract";
+import { analyticsAddress, analyticsTotal, analyticsUsd, type AnalyticsSnapshot, type NansenSnapshot } from "../../../../src/analytics-contract";
 import { Button } from "./ui/button";
 import { BarChart } from "./dither-kit/bar-chart";
 import { Bar } from "./dither-kit/bar";
@@ -96,7 +96,7 @@ function PortfolioChart({ snapshot }: { snapshot: Extract<AnalyticsSnapshot, { k
   </>;
 }
 
-export function NansenChart({ snapshot, illustrative = false }: { snapshot: AnalyticsSnapshot; illustrative?: boolean }) {
+export function NansenChart({ snapshot, illustrative = false }: { snapshot: NansenSnapshot; illustrative?: boolean }) {
   const title = snapshot.kind === "flows" ? "Token flows" : snapshot.kind === "pnl" ? "Trading P&L" : "Portfolio exposure";
   return <section className="my-4 min-w-0 w-full max-w-xl rounded-xl border border-border bg-card p-4 text-card-foreground" aria-label={title}>
     <h3 className="!m-0 text-base font-semibold">{title}</h3>

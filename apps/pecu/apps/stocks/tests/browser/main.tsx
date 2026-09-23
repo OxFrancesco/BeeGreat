@@ -1,4 +1,5 @@
 import { analyticsFixtures } from "../fixtures/nansen-analytics";
+import { polymarketFixtures } from "../fixtures/polymarket-analytics";
 import { analyticsText } from "../../../../src/analytics-contract";
 import { connectionFixture } from "./connection";
 import { pnlFixture } from "./pnl";
@@ -106,6 +107,10 @@ window.fetch = async (input, init) => {
             ...(new URLSearchParams(location.search).has("analytics") && start + i === totalMessages ? {
               text: "These charts use fictional data for UI verification.",
               analytics: analyticsFixtures.slice(0, 3).map((snapshot) => ({ snapshot, text: analyticsText(snapshot) })),
+            } : {}),
+            ...(new URLSearchParams(location.search).has("polymarket") && start + i === totalMessages ? {
+              text: "These cards use saved public Polymarket data for UI verification.",
+              analytics: polymarketFixtures.filter((snapshot) => ["pm_history", "pm_book", "pm_leaderboard"].includes(snapshot.kind) || snapshot.key.includes("fed-decision")).map((snapshot) => ({ snapshot, text: analyticsText(snapshot) })),
             } : {}),
           },
         }))

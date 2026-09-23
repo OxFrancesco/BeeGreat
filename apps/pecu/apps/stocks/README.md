@@ -12,6 +12,8 @@ The same app also runs at https://pecu.app/aero/stocks through the `apps/pecu/ap
 
 The wallet address in the top bar previews Base trading P&L on hover and opens the full P&L page at `#pnl` on click. `GET /stocks/api/pnl?days=7|30|90|365` serves both through the gateway's `pnl` operation, with a ten-minute Nansen cache per wallet and period. See `apps/pecu/docs/nansen-charts.md`.
 
+Polymarket reads attach cards to replies through the shared `AnalyticsCard`, alongside the Nansen charts. `bun run build:polymarket-showcase` builds `/polymarket-showcase` from `polymarket-showcase/data.json`; the site build runs it. See `docs/42-pecu-polymarket.md` at the monorepo root.
+
 The thread sidebar keeps page navigation below the thread list. Its toggle button and Cmd+Shift+S collapse or reopen it without changing the conversation. The collapsed state survives thread switches. On narrow screens, the shortcut toggles the Threads dialog. On narrow screens, the Threads dialog provides the same links. All Pecu pages and nested scroll areas hide horizontal and vertical scrollbars while preserving native scrolling and the jump-to-latest button.
 
 Threads are client-chosen ids in the `t` search param. The backend keys each thread as its own conversation (`stocks:USER:SENDER#THREAD`), so previews, confirmations and YOLO are scoped per thread. No `t` means the original conversation the Stocks page uses. `POST /aero/stocks/api/thread-delete` removes a thread's history. The idle and thinking snail clips under `src/assets/mascot/` ship as VP9 WebM with alpha plus HEVC with alpha for Safari.

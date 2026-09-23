@@ -27,9 +27,10 @@ export default {
       url.pathname = cliPath + url.pathname.slice("/aero/cli".length);
       return Response.redirect(url, 308);
     }
-    if (url.pathname === "/nansen-showcase" || url.pathname.startsWith("/nansen-showcase/")) {
-      if (["/nansen-showcase/", "/nansen-showcase/index.html"].includes(url.pathname)) return Response.redirect(new URL("/nansen-showcase", url), 308);
-      if (url.pathname === "/nansen-showcase") url.pathname = "/nansen-showcase/index.html";
+    for (const showcase of ["/nansen-showcase", "/polymarket-showcase"]) {
+      if (url.pathname !== showcase && !url.pathname.startsWith(`${showcase}/`)) continue;
+      if ([`${showcase}/`, `${showcase}/index.html`].includes(url.pathname)) return Response.redirect(new URL(showcase, url), 308);
+      if (url.pathname === showcase) url.pathname = `${showcase}/index.html`;
       return env.ASSETS.fetch(new Request(url, request));
     }
     if (["/design", "/design/", "/design/index.html"].includes(url.pathname)) {
