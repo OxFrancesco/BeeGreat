@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Polymarket showcase and chat cards</title><style>body{max-width:760px;margin:48px auto;padding:0 24px;font:17px/1.6 system-ui;color:#302c27;background:#faf9f6}a{color:#986017}img,video{display:block;max-width:100%;margin:16px 0;border-radius:12px}h1{font-size:30px}h2{margin-top:40px}li{margin:8px 0}code{font-size:.9em}*{scrollbar-width:none}*::-webkit-scrollbar{display:none}</style>
+<h1>Polymarket showcase and chat cards</h1>
+<p>Live at <a href="https://pecu.app/polymarket-showcase">pecu.app/polymarket-showcase</a> since 23 September 2026.</p>
+<video controls muted playsinline preload="metadata" src="./polymarket-showcase.mp4"></video>
+<h2>Showcase</h2>
+<p>The page follows the Nansen showcase: four sections, a list of examples, the cards, and a prompt to copy into Pecu.</p>
+<ul>
+<li>Market odds: 8 markets with every outcome's odds, 24h volume, liquidity and a month of price history for the leading outcome.</li>
+<li>Order books: 6 liquid markets with midpoint, spread, last trade and eight levels of bids and asks.</li>
+<li>Top traders: weekly, monthly and all-time profit boards, weekly volume, and the week's biggest winning positions.</li>
+<li>Trader profiles: 5 public wallets from the profit leaderboard, with cumulative P&amp;L over the month and open positions.</li>
+</ul>
+<p>The data is saved from 48 free public reads. Switching examples makes no request. <code>bun scripts/polymarket/showcase.ts</code> refreshes it.</p>
+<img src="./odds.png" alt="Fed Decision in October odds and price history in the showcase">
+<img src="./books.png" alt="Order book for the Strait of Hormuz market in the showcase">
+<h2>Chat cards</h2>
+<p>The showcase and chat use the same cards and the same card builder. In Agent and Stocks chat, these Polymarket reads now attach a card: markets, events, search, price history, order books, leaderboards, biggest wins, user P&amp;L and user positions. X Chat gets the same content as text. A direct <code>/polymarket read</code> command whose only output is one card shows just the card.</p>
+<p>Odds show as percentages, books in cents per share and sizes in shares. Missing prices stay unavailable, and a read with more pages says so.</p>
+<img src="./chat.png" alt="Polymarket odds card inside a Pecu Agent reply">
+<h2>Verification</h2>
+<ul>
+<li>418 backend and 57 frontend tests pass, including new tests for every card type, sparse and malformed responses, and cards attached by both commands and model tool calls.</li>
+<li>Typecheck, design check, lint and all builds pass.</li>
+<li>Headless Chrome: all four sections at 1440px and 390px with no horizontal overflow, chat cards in the Agent fixture, and the production page after deploy.</li>
+<li>The live chat card was not clicked through in production because your browser was in use.</li>
+</ul>
+<p>Screenshots of chat use saved public data.</p>
+<img src="./mobile-profile.png" alt="Trader profile with P&amp;L chart and positions on a phone" style="max-width:390px">
+<h2>Shipped</h2>
+<p>Commit <code>9e6ed3df</code> on <code>main</code>, not pushed. Deployed <code>basedbot</code>, <code>aero-stocks</code> and <code>pecu-app</code> from that commit.</p>
+<p>Another agent's docs-site work was uncommitted in the same files. It was left out of the commit and the deploys.</p>
+<p><a href="./report.md">Markdown version</a></p>
+</html>
