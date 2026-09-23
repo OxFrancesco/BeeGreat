@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pecu Safes profile</title><style>body{max-width:760px;margin:48px auto;padding:0 24px;font:17px/1.6 system-ui;color:#302c27;background:#faf9f6}a{color:#986017}img,video{display:block;max-width:100%;margin:16px 0;border-radius:12px}h1{font-size:30px}h2{margin-top:40px}li{margin:8px 0}code{font-size:.9em}*{scrollbar-width:none}*::-webkit-scrollbar{display:none}</style>
+<h1>Pecu Safes profile</h1>
+<p><code>pecu.app/profile</code> is a new page for Safe wallets with several owners. It is built and tested, not deployed.</p>
+<video controls muted playsinline preload="metadata" src="./pecu-safe-profile.mp4"></video>
+<h2>What is there</h2>
+<ul>
+<li>Organizations group Safes and keep names for owner addresses.</li>
+<li>Create a Safe with your Pecu wallet, a connected browser wallet and any other address as owners, and pick how many must approve. Or add an existing Safe 1.4.1 by address.</li>
+<li>Each Safe shows balances, a Receive QR, a shared queue, owners and settings.</li>
+<li>The queue shows approval beads, every owner's status and only the actions your wallets can take.</li>
+<li>Browser wallets (Rabby, MetaMask, any EIP-6963 wallet) sign for free and can execute directly.</li>
+<li>Pecu wallet actions (create, approve, execute, spend from a limit) open the existing transaction card. YOLO never applies here.</li>
+<li>Owners tab: add, remove or replace an owner, change required approvals. Settings: spending limits, enabled modules, remove from profile.</li>
+<li>Chat parity: Safe proposals made in chat join the same queue. A new <code>safe_queue</code> tool lets X Chat read it and execute with the collected signatures.</li>
+</ul>
+<img src="./02-safe.jpg" alt="Safe page with balances and a pending transaction with one of two approvals">
+<img src="./06-intent.jpg" alt="Execute with Pecu wallet opens the transaction card">
+<img src="./01-overview.jpg" alt="Profile overview with the Pecu wallet and an organization">
+<img src="./09-add-safe.jpg" alt="Create a Safe with owners and required approvals">
+<img src="./03-owners.jpg" alt="Owners tab with named owners and owner actions">
+<h2>How it works</h2>
+<ul>
+<li>One typed contract, <code>apps/pecu/src/safe-profile-contract.ts</code>, shared by the Durable Object, the web proxy and the page.</li>
+<li><code>SafeProfile</code> in the Durable Object stores organizations, Safes, proposals and signatures in SQLite. Proposals are shared by Safe address.</li>
+<li>Page reads use one Multicall3 call for owners, threshold, nonce, modules, balances, approvals and limits. Every write still goes through evmSDK in the sandbox and Pecu's plan checks.</li>
+<li>A signature is saved only after it recovers to a current owner at the current nonce.</li>
+<li>Pecu wallet execution sends exactly the threshold of signatures: its own approval when it is an owner, then on-chain approvals, then saved signatures.</li>
+<li>History is marked executed only from a receipt with the Safe's <code>ExecutionSuccess</code> event for that transaction.</li>
+</ul>
+<h2>Checks</h2>
+<ul>
+<li>433 Pecu tests pass, 7 of them new for the profile, run against a simulated Base RPC and the real confirmation path.</li>
+<li>60 web tests pass, 3 new for execution signatures, queue actions and input errors.</li>
+<li>Design check, both typechecks, the web build, four Worker dry-runs and the docs build pass.</li>
+<li>Walkthrough on a fixture page with fictional data and a simulated wallet, desktop and phone. No real transaction was sent.</li>
+</ul>
+<img src="./11-mobile-safe.jpg" alt="Safe page on a phone" style="max-width:390px">
+<h2>Not done</h2>
+<ul>
+<li>Not deployed and not committed. Deploy order: <code>pecu</code> Worker, then <code>aero-stocks</code>, then <code>pecu-app</code> for the <code>/profile</code> route.</li>
+<li>A connected browser wallet can't spend from its own spending limit yet. Only the Pecu wallet can.</li>
+<li>Roles, passkey owners and sponsored gas stay in chat and evmSDK.</li>
+<li>Run one live 2-of-2 on Base with a few cents before telling users.</li>
+</ul>
