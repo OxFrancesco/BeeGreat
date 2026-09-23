@@ -27,6 +27,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="stylesheet" href="/pecu-assets/style.css">
     <script defer src="/pecu-assets/bento.js"></script>
+    <script defer src="/pecu-assets/aero-mark.js"></script>
   </head>
   <body>
     <script type="module" src="/pecu-assets/analytics.js"></script>
@@ -88,8 +89,8 @@
 
           <div class="tool-grid">
           <article class="card bento aero" style="--i:1">
-            <div class="tile-visual" aria-hidden="true">
-              <div class="ribbons"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="aero-screen" aria-hidden="true">
+              <div class="aero-mark"><canvas></canvas></div>
               <code class="cmd"><span>$</span>aero swap --from-token ETH
   --to-token USDC --amount 0.01
   --use-decimals --dry-run</code>

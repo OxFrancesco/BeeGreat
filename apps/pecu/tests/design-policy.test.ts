@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { designViolations } from "../scripts/check-design";
+import { aeroPaletteDrift, designViolations } from "../scripts/check-design";
 
 describe("Pecu theme policy", () => {
   test("rejects a local palette and an upstream token override", () => {
@@ -32,5 +32,25 @@ describe("Pecu theme policy", () => {
         "/* color: #fff; */ .snail { mask-image: linear-gradient(#000, transparent); }",
       ),
     ).toEqual([]);
+  });
+  test("keeps the Aero tile palette on the Aero TUI values", () => {
+    const logo =
+      "const COLORS = ['#5b6b9c', '#2f5ee6', '#7fb2ff', '#eef0f5', '#ef4a2f', '#b8352a']";
+    const tui =
+      "primary: '#4f8ef7',\n  text: '#e6e9f0',\n  background: '#0a0c10',";
+    const css = `.pecu-theme { --aero-blue: #2f5ee6; --aero-background: #0a0c10; --aero-foreground: #e6e9f0; --aero-primary: #4f8ef7; ${[
+      "#5b6b9c",
+      "#2f5ee6",
+      "#7fb2ff",
+      "#eef0f5",
+      "#ef4a2f",
+      "#b8352a",
+    ]
+      .map((color, i) => `--aero-ribbon-${i + 1}: ${color};`)
+      .join(" ")} }`;
+    expect(aeroPaletteDrift(css, logo, tui)).toEqual([]);
+    expect(
+      aeroPaletteDrift(css.replace("#ef4a2f", "#ff0000"), logo, tui),
+    ).toEqual(["--aero-ribbon-5 should be #ef4a2f to match the Aero TUI."]);
   });
 });

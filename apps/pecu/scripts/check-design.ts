@@ -68,6 +68,45 @@ export function designViolations(css: string): string[] {
   return problems;
 }
 
+export function aeroPaletteDrift(
+  css: string,
+  logo: string,
+  tui: string,
+): string[] {
+  const tokens = new Map(
+    [...css.matchAll(/--(aero-[\w-]+):\s*([^;]+);/g)].map(([, name, value]) => [
+      name!,
+      value!.trim().toLowerCase(),
+    ]),
+  );
+  const ribbons = [
+    ...(logo.match(/const COLORS = \[([^\]]+)\]/)?.[1] ?? "").matchAll(
+      /#[\da-f]{6}/gi,
+    ),
+  ].map(([color]) => color.toLowerCase());
+  const theme = Object.fromEntries(
+    [...tui.matchAll(/(\w+): '(#[\da-f]{6})'/gi)].map(([, name, color]) => [
+      name!,
+      color!.toLowerCase(),
+    ]),
+  );
+  const expected: Record<string, string | undefined> = {
+    "aero-blue": ribbons[1],
+    "aero-background": theme.background,
+    "aero-foreground": theme.text,
+    "aero-primary": theme.primary,
+    ...Object.fromEntries(
+      Array.from({ length: 6 }, (_, i) => [`aero-ribbon-${i + 1}`, ribbons[i]]),
+    ),
+  };
+  return Object.entries(expected)
+    .filter(([name, color]) => !color || tokens.get(name) !== color)
+    .map(
+      ([name, color]) =>
+        `--${name} should be ${color ?? "defined in the Aero TUI"} to match the Aero TUI.`,
+    );
+}
+
 if (import.meta.main) {
   const sync = Bun.spawn(
     ["bun", resolve(import.meta.dir, "sync-design-theme.ts"), "--check"],
@@ -85,7 +124,7 @@ if (import.meta.main) {
   for (const [file, required] of [
     [
       "apps/site/site/pecu-assets/style.css",
-      ['@import "./theme.css"', '@import "./clay.css"'],
+      ['@import "./theme.css"', '@import "./clay.css"', '@import "./aero.css"'],
     ],
     [
       "apps/stocks/src/styles.css",
@@ -102,6 +141,14 @@ if (import.meta.main) {
       if (!content.includes(value))
         errors.push(`${file}: missing shared theme reference ${value}`);
   }
+  const sugar = import.meta.resolve("@beegreat/sugar");
+  errors.push(
+    ...aeroPaletteDrift(
+      await Bun.file(resolve(root, "theme/aero.css")).text(),
+      await Bun.file(new URL("./tui/logo.tsx", sugar)).text(),
+      await Bun.file(new URL("./tui/theme.ts", sugar)).text(),
+    ).map((message) => `theme/aero.css: ${message}`),
+  );
   if (errors.length) throw new Error(errors.join("\n"));
   console.log(
     "Pecu site, Agent and reference use the shared amber and clay theme.",

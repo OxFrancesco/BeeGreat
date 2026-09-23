@@ -191,6 +191,8 @@ Do not add a second palette or override the upstream tokens in product styleshee
 Read `docs/design-system.md` before UI work and run `bun run design:check` afterwards.
 Update the `/design` specimens with new visual patterns. Charts may retain distinct
 series colors; their data-driven styles have explicit lint exceptions.
+The one exception is the homepage Aero tile: it uses Aero's palette from
+`theme/aero.css`, copied from the pinned Aero TUI and checked by `design:check`.
 
 Portfolio analytics: `/nansen portfolio [ADDRESS]` returns wallet tokens and DeFi positions separately. See `docs/nansen-charts.md`.
 

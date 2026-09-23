@@ -1,0 +1,16 @@
+/* Aero's own palette, used only by the homepage Aero tile. Values match the
+   pinned @beegreat/sugar TUI: ribbons from src/tui/logo.tsx, terminal colors
+   from src/tui/theme.ts. scripts/check-design.ts fails if they drift. */
+.pecu-theme {
+  --aero-blue: #2f5ee6;
+  --aero-blue-foreground: #ffffff;
+  --aero-background: #0a0c10;
+  --aero-foreground: #e6e9f0;
+  --aero-primary: #4f8ef7;
+  --aero-ribbon-1: #5b6b9c;
+  --aero-ribbon-2: #2f5ee6;
+  --aero-ribbon-3: #7fb2ff;
+  --aero-ribbon-4: #eef0f5;
+  --aero-ribbon-5: #ef4a2f;
+  --aero-ribbon-6: #b8352a;
+}

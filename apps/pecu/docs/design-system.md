@@ -12,6 +12,8 @@ highlights and tactile depth. UI colors and type come from amber-minimal.
   `bun run design:sync` from `apps/pecu` after updating the JSON.
 - `theme/clay.css` defines shared clay shadows, radii and focus treatment.
   Derive highlights and shadows from theme colors rather than another palette.
+- `theme/aero.css` holds Aero's own palette for the homepage Aero tile. It is
+  the only second palette and stays inside that tile.
 - The homepage and Agent import these same files. `/design` reads them during
   the site build, along with this guide and the component source catalog.
 
@@ -27,6 +29,13 @@ Use `--background` and `--foreground` for the page, `--card` for raised controls
 
 The snail keeps its original coral shell, butter body and gold coin. These
 colors belong to the artwork. Do not reintroduce them as a second UI theme.
+
+The homepage Aero tile uses Aero's colors, not amber. The tile is Aero blue
+with white text around a recessed terminal screen that shows the Aero mark.
+`theme/aero.css` copies the values from the pinned `@beegreat/sugar` TUI: the
+six ribbon colors from `src/tui/logo.tsx`, and the terminal background, text
+and primary blue from `src/tui/theme.ts`. `design:check` fails when they
+drift. Use the `--aero-*` tokens only inside `.aero`.
 
 Always pair foreground and background tokens. Use readable text to explain
 pending, submitted, completed, cancelled and failed states. Color alone must
@@ -68,7 +77,11 @@ in `--accent-foreground`. Headings use sentence case and tight tracking.
 | Supporting text | 13–14px, muted foreground |
 
 Prefer 8, 12, 16, 24 and 32px spacing. Keep primary actions at least 44px tall.
-Homepage tool cards use equal columns, 24px padding and aligned action rows.
+Homepage tool cards form a bento. On desktop, Aero spans seven of twelve
+columns and both rows; Stocks and evmSDK stack beside it. Below 1000px Aero
+goes full width with its screen beside the copy, and below 760px every tile
+stacks. Tiles use 24px padding with the action row pinned to the bottom. The
+Aero screen sits 12px inside its tile.
 The homepage content is 1120px wide; the Agent conversation is capped at 940px.
 The desktop thread rail is 272px. Mobile uses the thread picker.
 
@@ -137,6 +150,13 @@ the desktop sidebar. The sidebar uses `cubic-bezier(.77, 0, .175, 1)`; general
 entrances use `cubic-bezier(.23, 1, .32, 1)`. Animate transform and opacity.
 Text must not scale. Thread selection and stock selection stay immediate.
 
+The Aero mark in `pecu-assets/aero-mark.js` is a canvas port of the TUI's
+`AeroMark`. It keeps the half-block grid, 40ms frames, three-frame stagger,
+cubic ease-out intro and the sweep every six seconds. The intro starts once
+a third of the screen is visible. Pointer hover plays the sweep early. Playback
+stops outside the viewport and while the document is hidden. Reduced motion
+draws the finished mark with no intro or sweep.
+
 Clay controls lift at most 2px on pointer hover and depress 1px on press.
 Respect reduced motion: remove movement and automatic video playback, use
 posters and immediate state changes. Pause mascot playback outside the viewport
@@ -176,7 +196,8 @@ mention Aerodrome. Preserve third-party licenses and notices.
 
 Run `bun run --cwd apps/pecu design:check`. It checks the generated theme against
 the pinned JSON, confirms that both apps import the shared theme and clay files,
-and runs `@shadcn/lint` through Oxlint on the React source.
+compares `theme/aero.css` with the pinned Aero TUI, and runs `@shadcn/lint`
+through Oxlint on the React source.
 
 The shadcn rules reject raw palette colors and inline color, shadow and font
 changes. The CSS check rejects new literal colors and local theme overrides in

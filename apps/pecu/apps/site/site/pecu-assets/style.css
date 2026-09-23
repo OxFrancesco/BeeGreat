@@ -1,6 +1,7 @@
 @import "./fonts.css";
 @import "./theme.css";
 @import "./clay.css";
+@import "./aero.css";
 /* Pecu tokens. Structure and values follow the shadcn "amber-minimal" theme
    (tweakcn.com/r/themes/amber-minimal.json); see apps/pecu/docs/design-system.md. */
 * { scrollbar-width: none; }
@@ -68,17 +69,18 @@ p:last-child { margin-bottom: 0; }
 .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
 .bento { position: relative; grid-column: span 3; display: flex; flex-direction: column; gap: 22px; min-width: 0; overflow: hidden; }
 .bento.agent { grid-column: span 6; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 28px; background: var(--dark); color: var(--dark-foreground); border-color: var(--dark-border); box-shadow: var(--shadow-lg); }
-/* Tool cards share the amber clay material. */
-.bento.aero, .bento.stocks, .bento.evm { grid-column: span 2; padding: 24px; gap: 22px; min-height: 552px; }
-.bento:is(.aero, .stocks, .evm) .tile-visual { height: 180px; min-height: 180px; flex: none; }
-.bento:is(.aero, .stocks, .evm) .tile-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
-.bento:is(.aero, .stocks, .evm) h3 { font-size: 28px; line-height: 1.2; margin-bottom: 12px; }
-.bento:is(.aero, .stocks, .evm) h3 small { font-size: 16px; line-height: 1.5; font-weight: 400; }
-.bento:is(.aero, .stocks, .evm) .tile-copy > p { line-height: 1.5; }
-.bento:is(.aero, .stocks, .evm) .tile-actions { margin-top: auto; padding-top: 2px; flex-wrap: nowrap; gap: 20px; }
-.bento:is(.aero, .stocks, .evm) .tile-actions .button { width: 184px; height: 48px; flex: none; padding: 10px 8px; white-space: nowrap; }
-.bento:is(.aero, .stocks, .evm) .text-link { white-space: nowrap; }
-.bento.aero { --tint-ink: var(--accent-foreground); background: var(--accent); border-color: var(--border); }
+/* Tool bento: Aero leads across two rows; Stocks and evmSDK stack beside it. */
+.tool-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; min-width: 0; }
+.tool-grid > .bento { grid-column: span 5; padding: 24px; gap: 20px; }
+.tool-grid > .aero { grid-column: 1 / span 7; grid-row: span 2; }
+.tool-grid .tile-visual { height: 140px; min-height: 0; flex: none; }
+.tool-grid .tile-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.tool-grid h3 { font-size: 24px; line-height: 1.2; margin-bottom: 10px; }
+.tool-grid h3 small { font-size: 15px; line-height: 1.5; font-weight: 400; }
+.tool-grid .tile-copy > p { font-size: 15px; line-height: 1.55; }
+.tool-grid .tile-actions { margin-top: auto; padding-top: 20px; flex-wrap: nowrap; gap: 20px; }
+.tool-grid .tile-actions .button { width: 184px; height: 48px; flex: none; padding: 10px 8px; white-space: nowrap; }
+.tool-grid .text-link { white-space: nowrap; }
 .bento.stocks { --tint-ink: var(--accent-foreground); background: var(--accent); border-color: var(--border); }
 .bento.evm { --tint-ink: var(--foreground); background: var(--muted); border-color: var(--border); }
 .bento.stocks .basket .row { color: var(--tint-ink); }
@@ -115,21 +117,19 @@ p:last-child { margin-bottom: 0; }
 .bubble .code { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted-foreground); }
 .bubble .code em { font-style: normal; font-family: var(--font-mono); color: var(--foreground); background: var(--secondary); padding: 1px 5px; border-radius: var(--radius-sm); }
 
-/* Aero tile: the six-ribbon mark, in the theme's amber ramp. */
-.aero .tile-visual { flex-direction: column; gap: 18px; align-items: stretch; }
-.ribbons { position: relative; width: 100%; margin: 0 auto; display: grid; gap: 5px; }
-.ribbons i { --left: 0; --width: 100%; display: block; height: 11px; width: var(--width); margin-left: var(--left); border-radius: 999px; background: var(--c); transform-origin: right center; }
-.ribbons i:nth-child(1) { --left: 29%; --width: 58%; --c: var(--chart-5); }
-.ribbons i:nth-child(2) { --left: 15%; --width: 50%; --c: var(--chart-4); }
-.ribbons i:nth-child(3) { --left: 4%; --width: 46%; --c: var(--chart-3); }
-.ribbons i:nth-child(4) { --left: 4%; --width: 46%; --c: var(--chart-2); }
-.ribbons i:nth-child(5) { --left: 17%; --width: 61%; --c: var(--chart-1); }
-.ribbons i:nth-child(6) { display: none; }
-.cmd { display: flex; gap: 10px; align-items: baseline; width: 100%; padding: 14px 18px; border: 0; border-radius: var(--radius-lg); background: var(--dark); color: var(--dark-foreground); font-size: 12.5px; line-height: 1.5; white-space: pre; overflow: hidden; }
-.cmd span { color: var(--primary); }
+/* Aero tile: Aero blue around a recessed terminal that runs the TUI mark (aero-mark.js). */
+.bento.aero { padding: 12px 12px 24px; gap: 24px; background: var(--aero-blue); color: var(--aero-blue-foreground); border-color: transparent; }
+.aero .tile-copy { flex: none; padding: 0 12px; }
+.aero :is(h3, h3 small, .tile-copy > p, .text-link) { color: var(--aero-blue-foreground); }
+.aero .tile-copy code { background: var(--aero-background); border-color: transparent; color: var(--aero-foreground); }
+.aero-screen { flex: 1; display: flex; flex-direction: column; min-height: 300px; border-radius: var(--radius-lg); background: var(--aero-background); box-shadow: var(--clay-shadow-inset); overflow: hidden; container-type: inline-size; }
+.aero-mark { position: relative; flex: 1; min-height: 180px; }
+.aero-mark canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cmd { display: flex; gap: 10px; align-items: baseline; padding: 0 20px 18px; border: 0; border-radius: 0; background: none; color: var(--aero-foreground); font-size: clamp(10px, 3.2cqw, 13px); line-height: 1.6; white-space: pre; overflow: hidden; }
+.cmd span { color: var(--aero-primary); }
 
 /* Stocks tile */
-.basket { width: 100%; display: grid; gap: 12px; padding-bottom: 24px; }
+.basket { width: 100%; display: grid; gap: 12px; }
 .basket .track { display: block; border-radius: var(--radius); background: var(--secondary); overflow: hidden; }
 .basket .row { display: grid; grid-template-columns: 58px 1fr 42px; align-items: center; gap: 12px; font: 600 13px var(--font-mono); color: var(--accent-foreground); }
 .basket .row b { text-align: right; font-weight: 600; }
@@ -138,7 +138,7 @@ p:last-child { margin-bottom: 0; }
 .basket .row:nth-child(3) i { background: var(--chart-3); }
 
 /* evmSDK tile */
-.inspect { display: grid; gap: 8px; width: calc(100% - 12px); padding: 20px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); box-shadow: var(--shadow-sm); font: 14px var(--font-mono); color: var(--foreground); transform: rotate(-3deg); }
+.inspect { display: grid; gap: 6px; width: calc(100% - 12px); padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--card); box-shadow: var(--shadow-sm); font: 13px var(--font-mono); color: var(--foreground); transform: rotate(-3deg); }
 .inspect .addr { font-weight: 700; color: var(--accent-foreground); padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .inspect .line { display: flex; justify-content: space-between; gap: 12px; }
 .inspect em { font-style: normal; color: var(--muted-foreground); }
@@ -159,9 +159,6 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
   .bento.arriving .bubble { animation: bubble-pop 420ms var(--ease-out) both; }
   .bento.arriving .bubble.you { animation-delay: calc(var(--i, 0) * var(--stagger) + 260ms); }
   .bento.arriving .bubble.bot { animation-delay: calc(var(--i, 0) * var(--stagger) + 720ms); }
-  .bento.arriving .ribbons i { animation: ribbon-streak 560ms var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * var(--stagger) + var(--n) * 70ms); }
-  .ribbons i:nth-child(1) { --n: 0; } .ribbons i:nth-child(2) { --n: 1; } .ribbons i:nth-child(3) { --n: 2; }
-  .ribbons i:nth-child(4) { --n: 3; } .ribbons i:nth-child(5) { --n: 4; } .ribbons i:nth-child(6) { --n: 5; }
   .bento.arriving .basket i { animation: bar-grow 640ms var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * var(--stagger) + var(--n) * 80ms); }
   .basket .row:nth-child(1) i { --n: 0; } .basket .row:nth-child(2) i { --n: 1; } .basket .row:nth-child(3) i { --n: 2; }
   .bento.arriving .inspect > span { animation: line-in 360ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--stagger) + 120ms + var(--n) * 70ms); }
@@ -172,9 +169,6 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
     .bento:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
     .button:hover { transform: translateY(-1px); }
     .button:active { transform: translateY(1px); }
-    .ribbons i { transition: transform 240ms var(--ease-out); }
-    .aero:hover .ribbons i:nth-child(odd) { transform: translateX(6px); }
-    .aero:hover .ribbons i:nth-child(even) { transform: translateX(-6px); }
     .inspect { transition: transform 240ms var(--ease-out); }
     .evm:hover .inspect { transform: rotate(0); }
     .basket i { transition: transform 240ms var(--ease-out); }
@@ -183,7 +177,6 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
 }
 @keyframes tile-arrive { from { opacity: 0; transform: translateY(22px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes bubble-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
-@keyframes ribbon-streak { from { opacity: 0; transform: translateX(48px) scaleX(.3); } to { opacity: 1; transform: none; } }
 @keyframes bar-grow { from { transform: scaleX(.12); } to { transform: scaleX(1); } }
 @keyframes line-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -205,7 +198,6 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
 @media (max-width: 900px) {
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
   .bento, .bento.agent { grid-column: span 2; }
-  .bento.aero, .bento.stocks, .bento.evm { grid-column: span 2; width: min(100%, 440px); justify-self: center; }
   .bento.agent { display: flex; gap: 20px; }
   .agent .tile-visual { display: grid; min-height: 0; gap: 0; }
   .chat { position: relative; top: 0; width: min(100%, 360px); margin-left: auto; }
@@ -223,7 +215,7 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
 }
 @media (max-width: 540px) {
   .grid { grid-template-columns: minmax(0, 1fr); }
-  .bento, .bento.agent, .bento.aero, .bento.stocks, .bento.evm { grid-column: 1; }
+  .bento, .bento.agent { grid-column: 1; }
   .bento { gap: 18px; padding: 24px; }
   .snail { width: 92%; margin: -28px 0 -24px -20%; }
   .statement { font-size: 34px; }
@@ -235,25 +227,30 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
   .topbar { gap: 12px; }
 }
 
+@media (max-width: 999px) {
+  .tool-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .tool-grid > .bento { grid-column: auto; }
+  .tool-grid > .aero { grid-column: 1 / -1; grid-row: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 12px; }
+  .aero .tile-copy { padding: 12px 12px 12px 0; }
+}
+@media (max-width: 759px) {
+  .tool-grid { grid-template-columns: minmax(0, 1fr); }
+  .tool-grid > .aero { display: flex; padding: 12px 12px 24px; }
+  .aero .tile-copy { padding: 0 12px; }
+  .aero-screen { min-height: 280px; }
+}
 @media (max-width: 380px) {
-  .bento:is(.aero, .stocks, .evm) { padding: 20px; }
-  .bento:is(.aero, .stocks, .evm) .tile-actions { gap: 12px; }
-  .bento:is(.aero, .stocks, .evm) .tile-actions .button { width: 148px; font-size: 13px; }
-  .cmd { font-size: 11px; padding: 14px 10px; gap: 6px; }
+  .tool-grid > .bento { padding: 20px; }
+  .tool-grid > .aero { padding: 10px 10px 20px; }
+  .tool-grid .tile-actions { gap: 12px; }
+  .tool-grid .tile-actions .button { width: 148px; font-size: 13px; }
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .bento:is(.aero, .stocks, .evm):hover,
-  .bento:is(.aero, .stocks, .evm) .button:hover { transform: none; }
+  .tool-grid > .bento:hover,
+  .tool-grid .button:hover { transform: none; }
 }
 
-.tool-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 20px; min-width: 0; }
-.tool-grid > .bento { grid-column: auto; width: 100%; }
-.tool-grid .tile-visual { container-type: inline-size; }
-.tool-grid .cmd { font-size: clamp(9px, 4.2cqw, 12.5px); }
-@media (max-width: 1100px) {
-  .tool-grid { grid-template-columns: minmax(0, 1fr); width: min(100%, 440px); justify-self: center; gap: 18px; }
-}
 @media (max-width: 380px) {
   .topbar { flex-wrap: wrap; }
   .topbar nav { width: 100%; justify-content: space-between; gap: 8px; }
