@@ -106,7 +106,9 @@ walk this list and say which entries applied:
   follow the `deploy` skill for order and verification.
 - **Docs.** Behavior changes a user would notice belong in the numbered docs
   under `docs/`; design/UI vocabulary in `docs/design-system.md`; architectural
-  decisions in `docs/adr/`.
+  decisions in `docs/adr/`. Changes to Pecu, `packages/sugar` or `packages/evm`
+  commands, flags, defaults or behavior also update the public pages in
+  `apps/pecu/apps/site/docs/` (rules in its `README.md`).
 
 ## Configuration conventions
 
