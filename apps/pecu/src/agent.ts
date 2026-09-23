@@ -18,6 +18,7 @@ import { requiresExplicitConfirmation, validateIntentPlan } from "./policy";
 import type { DepositRecord, DepositState, FundingAccount, Intent, IntentAction, PecuStore } from "./state";
 import { AerodromeService } from "./aerodrome";
 import type { EvmReadResult, EvmService, EvmTxAction } from "./evm";
+import type { SafeReadCommand } from "./safe";
 import type { UserOperationOutcome, UserOperationReference } from "./receipt";
 import { treasurySenderId, WalletService } from "./wallet";
 import { whopDepositForwardSchema, whopLedgerActivitySchema } from "./whop-webhook";
@@ -127,6 +128,10 @@ export type AgentServices = Readonly<{
   aerodrome: Pick<AerodromeService, "run" | "basket">;
   evm: Pick<EvmService, "tokenBalance" | "allowance" | "read" | "inspect" | "decode" | "propose" | "safeRead">;
   verifyUserOperation: UserOperationVerifier;
+  safeQueue?: Readonly<{
+    share(senderId: string, command: SafeReadCommand, output: unknown): Promise<void>;
+    pending(senderId: string, safe: string): Promise<unknown>;
+  }>;
 }>;
 
 export class PecuAgent {
@@ -349,7 +354,18 @@ export class PecuAgent {
       safeRead: async (command, input) => {
         const result = await this.services.evm.safeRead(command, input);
         this.saveDetails(message, result.output);
+        try {
+          await this.services.safeQueue?.share(message.senderId, command, result.output);
+        } catch (error) {
+          log("warn", "safe_queue_share_failed", { command, error: errorMessage(error) });
+        }
         return JSON.stringify(result.output);
+      },
+      safeQueue: async (safe) => {
+        if (!this.services.safeQueue) throw new Error("The shared Safe queue isn't available.");
+        const view = await this.services.safeQueue.pending(message.senderId, safe);
+        this.saveDetails(message, view);
+        return JSON.stringify(view);
       },
       evmPropose: (action, parameters) => this.runEvm(message, action, parameters),
       depositInstructions: (amount) => this.depositReply(message, amount),
@@ -460,10 +476,15 @@ export class PecuAgent {
   }
 
   private async runEvm(message: VerifiedMessage, action: EvmTxAction, parameters: unknown): Promise<string> {
+    return (await this.proposeAction(message, action, parameters)).text;
+  }
+
+  async proposeAction(message: VerifiedMessage, action: EvmTxAction, parameters: unknown): Promise<{ text: string; context: Readonly<Record<string, unknown>> }> {
     const wallet = await this.walletAddress(message.senderId);
     const result = await this.services.evm.propose(wallet, action, parameters);
     this.saveDetails(message, result);
-    return this.persistProposal(message, wallet, { family: "evm", action: result.action, parameters: result.parameters }, result.calls, evmPlanText(result));
+    const text = await this.persistProposal(message, wallet, { family: "evm", action: result.action, parameters: result.parameters }, result.calls, evmPlanText(result));
+    return { text, context: result.context };
   }
 
   private async runAave(message: VerifiedMessage, name: string, args: Record<string, unknown>): Promise<string> {

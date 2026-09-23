@@ -51,7 +51,7 @@ test("Pecu validates the Safe deployment owners, threshold and initializer", () 
 });
 
 test("Safe tools are shared and sandbox commands remain unsigned", () => {
-  expect(evmTools.filter(tool => tool.name.startsWith("safe_")).map(tool => tool.name)).toHaveLength(25);
+  expect(evmTools.filter(tool => tool.name.startsWith("safe_")).map(tool => tool.name)).toHaveLength(26);
   for (const command of ["safe-info", "safe-propose", "safe-approve", "safe-execute", "safe-deploy"]) expect(evmRequestSchema.safeParse({ command, input: {} }).success).toBe(true);
   for (const command of ["execute", "sign-typed-data", "wallet-connect"]) expect(evmRequestSchema.safeParse({ command, input: {} }).success).toBe(false);
   const create = evmTools.find(tool => tool.name === "safe_create");

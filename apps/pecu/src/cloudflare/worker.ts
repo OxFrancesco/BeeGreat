@@ -26,7 +26,10 @@ import { WebAgent } from "../web";
 import { PecuCards } from "../cards";
 import { cardViewerSchema } from "../cards-contract";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, webPnlRequestSchema, basketSchema } from "../web-contract";
+import { profileActionRequestSchema, profileSafeRequestSchema } from "../safe-profile-contract";
+import type { SafeProfile } from "../safe-profile";
 import { sseContentType, turnEventStream } from "../web-stream";
+import { z } from "zod";
 
 const objectName = "basedbot-main";
 const xOAuthStateKey = "basedbot-x-oauth";
@@ -79,6 +82,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   private readonly cards: PecuCards;
   private agent?: PecuAgent;
   private webAgent?: WebAgent;
+  private safeProfile?: SafeProfile;
   private transport?: XChatTransport;
   private xAccessToken?: string;
   private xRefreshToken?: string;
@@ -98,7 +102,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       await this.restoreXOAuthState();
       const configurationError = runtimeConfigurationError(this.config);
       if (!configurationError) {
-        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }] = await Promise.all([
+        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }, { SafeProfile }, { SafeChain }] = await Promise.all([
           import("../aerodrome"),
           import("../agent"),
           import("../evm"),
@@ -106,12 +110,15 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           import("../wallet"),
           import("../integrations/whop"),
           import("../integrations/nansen"),
+          import("../safe-profile"),
+          import("../safe-chain"),
         ]);
         const wallets = new WalletService({
           crossmintApiKey: this.config.crossmintApiKey!,
           crossmintWalletSecret: this.config.crossmintWalletSecret!,
         }, this.store);
         const rpc = jsonRpcClient(this.config.baseRpcUrl);
+        const evm = new EvmService(evmWorkerExecutor(env.EVM));
         this.agent = new PecuAgent(
           this.config,
           this.store,
@@ -127,8 +134,15 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
               : undefined,
             nansen: new NansenService(this.config.nansenApiKey, this.config.nansenApiUrl),
             aerodrome: new AerodromeService(this.config, aeroWorkerExecutor(env.AERO)),
-            evm: new EvmService(evmWorkerExecutor(env.EVM)),
+            evm,
             verifyUserOperation: (reference) => awaitUserOperation(rpc, reference),
+            safeQueue: {
+              share: async (senderId, command, output) => this.safeProfile?.shareProposal(senderId, command, output),
+              pending: async (senderId, safe) => {
+                if (!this.safeProfile) throw new Error("The shared Safe queue isn't available.");
+                return this.safeProfile.pending(senderId, safe);
+              },
+            },
           },
           { respond: (message, capabilities, mode) => userInference(env, message.senderId).respond(message, capabilities.yoloEnabled(), new InferenceTools(capabilities, mode), mode) },
           this.config.typesafeApiKey ? new TypeSafeRequestClassifier(this.config.typesafeApiKey) : undefined,
@@ -140,6 +154,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) });
         }
         this.webAgent = new WebAgent(this.agent, this.store, ctx.storage.sql);
+        this.safeProfile = new SafeProfile({ agent: this.agent, store: this.store, evm, chain: new SafeChain(rpc), sql: ctx.storage.sql });
         if (this.config.xchatPollingEnabled) {
           try {
             await this.ensureRealtimeSetup();
@@ -205,6 +220,9 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
             log("warn", "web_pnl_failed", { error: message });
             return json({ error: /^Nansen /.test(message) ? message : "Could not load your P&L. Try again." }, 502);
           }
+        }
+        if (["/internal/web/profile", "/internal/web/profile-safe", "/internal/web/profile-action"].includes(url.pathname)) {
+          return await this.profileRequest(url.pathname, raw);
         }
         if (url.pathname === "/internal/web/basket") {
           const identity = webIdentitySchema.parse(typeof raw === 'object' && raw ? Reflect.get(raw, 'identity') : null);
@@ -297,6 +315,26 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     } catch (error) {
       log("error", "durable_object_request_failed", { path: url.pathname, error: errorMessage(error) });
       return json({ error: errorMessage(error) }, 500);
+    }
+  }
+
+  private async profileRequest(path: string, raw: unknown): Promise<Response> {
+    const profile = this.safeProfile;
+    if (!profile) return json({ error: "Agent unavailable" }, 503);
+    const { ProfileError } = await import("../safe-profile");
+    try {
+      if (path === "/internal/web/profile") return json(await profile.overview(webIdentitySchema.parse(raw)));
+      if (path === "/internal/web/profile-safe") {
+        const { safe, ...identity } = profileSafeRequestSchema.parse(raw);
+        return json(await profile.safe(identity, safe));
+      }
+      const { identity, action } = profileActionRequestSchema.parse(raw);
+      return json(await profile.act(identity, action));
+    } catch (error) {
+      if (error instanceof ProfileError) return json({ error: error.message }, 400);
+      if (error instanceof z.ZodError) return json({ error: "Check the details and try again." }, 400);
+      log("error", "profile_request_failed", { path, error: errorMessage(error) });
+      return json({ error: "Pecu couldn't finish this request. Try again." }, 502);
     }
   }
 
@@ -583,7 +621,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/pnl"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/pnl", "/profile", "/profile-safe", "/profile-action"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");

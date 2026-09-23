@@ -137,6 +137,14 @@ export function intentTitle(intent: IntentAction): string {
       case "approve": return `Approve ${parameters.token}`;
       case "revoke": return `Revoke ${parameters.token}`;
       case "contract_call": return "Contract call";
+      case "safe_create": return "Create Safe";
+      case "safe_approve": return "Approve Safe transaction";
+      case "safe_execute":
+      case "safe_execute_signatures": return "Execute Safe transaction";
+      case "safe_budget_spend": return "Spend from Safe limit";
+      case "safe_role_execute": return "Safe role transaction";
+      case "safe_roles_deploy": return "Deploy Safe permissions module";
+      case "safe_passkey_deploy": return "Deploy passkey signer";
     }
   }
   return "Deposit relay";

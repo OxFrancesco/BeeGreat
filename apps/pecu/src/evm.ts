@@ -168,7 +168,7 @@ export class EvmService {
       case "safe_budget_spend": {
         const p = validateEvmRequest("safe_budget_spend", rawParameters);
         const operation = await this.call("safe-budget-spend", { ...p, account: wallet, key }, operationView);
-        const description = await this.safeDescription({ chainId: 8453, safe: p.safe, to: p.token === "0x0000000000000000000000000000000000000000" ? p.to : p.token, value: p.token === "0x0000000000000000000000000000000000000000" ? p.amount : "0", data: p.token === "0x0000000000000000000000000000000000000000" ? "0x" : encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [p.to, BigInt(p.amount)] }), nonce: "0", hash: `0x${"0".repeat(64)}` });
+        const description = await this.describeSafeTransaction({ chainId: 8453, safe: p.safe, to: p.token === "0x0000000000000000000000000000000000000000" ? p.to : p.token, value: p.token === "0x0000000000000000000000000000000000000000" ? p.amount : "0", data: p.token === "0x0000000000000000000000000000000000000000" ? "0x" : encodeFunctionData({ abi: erc20Abi, functionName: "transfer", args: [p.to, BigInt(p.amount)] }), nonce: "0", hash: `0x${"0".repeat(64)}` });
         return this.planResult(wallet, action, p, `Use your organization budget to ${description}. No additional owner approvals are required.`, { safe: p.safe }, operation);
       }
       case "safe_role_execute": {
@@ -177,7 +177,7 @@ export class EvmService {
         let tokenCall = false;
         try { const decoded = decodeFunctionData({ abi: erc20Abi, data: p.data as `0x${string}` }); tokenCall = decoded.functionName === "transfer" || decoded.functionName === "approve"; } catch { tokenCall = false; }
         const description = tokenCall
-          ? await this.safeDescription({ chainId: 8453, safe: p.safe, to: p.to, data: p.data, value: "0", nonce: "0", hash: `0x${"0".repeat(64)}` })
+          ? await this.describeSafeTransaction({ chainId: 8453, safe: p.safe, to: p.to, data: p.data, value: "0", nonce: "0", hash: `0x${"0".repeat(64)}` })
           : await this.roleCallDescription(p.to, p.data);
         return this.planResult(wallet, action, p, `Use the granted organization role to ${description}. No additional owner approvals are required.`, { safe: p.safe }, operation);
       }
@@ -194,7 +194,7 @@ export class EvmService {
       case "safe_execute_signatures": {
         const p = validateEvmRequest("safe_execute_signatures", rawParameters);
         const operation = await this.call("safe-execute-signatures", { ...p, account: wallet, key }, operationView);
-        return this.planResult(wallet, action, p, safeTransactionSummary("Execute with the collected owner signatures from", p.transaction, await this.safeDescription(p.transaction)), { safe: p.transaction.safe }, operation);
+        return this.planResult(wallet, action, p, safeTransactionSummary("Execute with the collected owner signatures from", p.transaction, await this.describeSafeTransaction(p.transaction)), { safe: p.transaction.safe }, operation);
       }
       case "safe_create": {
         const parameters = validateEvmRequest("safe_create", rawParameters);
@@ -206,12 +206,12 @@ export class EvmService {
       case "safe_approve": {
         const parameters = validateEvmRequest("safe_approve", rawParameters);
         const operation = await this.call("safe-approve", { ...parameters, account: wallet, key }, operationView);
-        return this.planResult(wallet, action, parameters, safeTransactionSummary("Approve", parameters.transaction, await this.safeDescription(parameters.transaction)) + "\nThis records your approval on-chain. It does not execute the organization transaction. Approval cannot be individually revoked.", { safe: parameters.transaction.safe }, operation);
+        return this.planResult(wallet, action, parameters, safeTransactionSummary("Approve", parameters.transaction, await this.describeSafeTransaction(parameters.transaction)) + "\nThis records your approval on-chain. It does not execute the organization transaction. Approval cannot be individually revoked.", { safe: parameters.transaction.safe }, operation);
       }
       case "safe_execute": {
         const parameters = validateEvmRequest("safe_execute", rawParameters);
         const operation = await this.call("safe-execute", { ...parameters, account: wallet, key }, operationView);
-        return this.planResult(wallet, action, parameters, safeTransactionSummary("Execute the approved transaction from", parameters.transaction, await this.safeDescription(parameters.transaction)), { safe: parameters.transaction.safe }, operation);
+        return this.planResult(wallet, action, parameters, safeTransactionSummary("Execute the approved transaction from", parameters.transaction, await this.describeSafeTransaction(parameters.transaction)), { safe: parameters.transaction.safe }, operation);
       }
       case "transfer": {
         const parameters = validateEvmRequest("transfer", rawParameters);
@@ -272,12 +272,12 @@ export class EvmService {
     return `call ${call.functionName} on ${to}${args ? ` with ${args}. Numeric arguments use contract base units` : ""}`;
   }
 
-  private async safeDescription(transaction: EvmTxParameters<"safe_approve">["transaction"]): Promise<string> {
+  async describeSafeTransaction(transaction: EvmTxParameters<"safe_approve">["transaction"]): Promise<string> {
     if (transaction.operation !== 1 && transaction.to.toLowerCase() !== transaction.safe.toLowerCase() && isSafeModuleConfiguration(transaction.data as `0x${string}`)) {
       await this.call("safe-module-info", { safe: transaction.safe, module: transaction.to }, z.object({ enabled: z.boolean() }));
     }
     const description = safeCallDescription(transaction);
-    if (description.kind === "batch") return (await Promise.all(description.calls.map(call => this.safeDescription({ ...transaction, ...call, operation: 0 })))).map((text, index) => `${index + 1}. ${text}`).join("\n");
+    if (description.kind === "batch") return (await Promise.all(description.calls.map(call => this.describeSafeTransaction({ ...transaction, ...call, operation: 0 })))).map((text, index) => `${index + 1}. ${text}`).join("\n");
     if (description.kind === "budget") {
       const meta = description.token === "0x0000000000000000000000000000000000000000" ? { decimals: 18, symbol: "ETH" } : await this.call("token", { address: transaction.safe, token: description.token }, tokenView);
       return `allow ${description.delegate} to transfer up to ${formatUnits(description.amount, meta.decimals)} ${meta.symbol} ${description.resetMinutes ? `every ${description.resetMinutes} minutes` : "once"}`;

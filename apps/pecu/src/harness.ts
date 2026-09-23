@@ -26,6 +26,7 @@ export type AgentCapabilities = Readonly<{
   evmInspect(input: EvmReadInput<"inspect">): Promise<string>;
   evmDecode(input: EvmReadInput<"decode">): Promise<string>;
   safeRead(command: SafeReadCommand, input: Record<string, unknown>): Promise<string>;
+  safeQueue(safe: `0x${string}`): Promise<string>;
   evmPropose(action: EvmTxAction, parameters: unknown): Promise<string>;
   depositInstructions(amount?: string): Promise<string>;
   depositSetup(email: string): Promise<string>;
