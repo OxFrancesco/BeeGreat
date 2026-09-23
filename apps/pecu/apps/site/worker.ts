@@ -86,6 +86,8 @@ export default {
       url.pathname.startsWith("/stocks/") ||
       url.pathname === "/agent" ||
       url.pathname.startsWith("/agent/") ||
+      url.pathname === "/profile" ||
+      url.pathname.startsWith("/profile/") ||
       url.pathname.startsWith("/assets/")
     ) {
       return env.STOCKS.fetch(request);

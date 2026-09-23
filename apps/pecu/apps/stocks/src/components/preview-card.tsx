@@ -119,7 +119,7 @@ export function PreviewCard({
         ),
     ),
   }));
-  const approval = /approval|^Approve\b/i.test(preview.title ?? "");
+  const approval = /approval|^Approve\b/i.test(preview.title ?? "") && !/\bSafe\b/.test(preview.title ?? "");
   const expires = new Date(preview.expiresAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",

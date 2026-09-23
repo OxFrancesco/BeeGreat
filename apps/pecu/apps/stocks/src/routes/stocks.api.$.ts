@@ -3,6 +3,12 @@ import { z } from "zod";
 import { agentRequest, cardIdentity, identity, sameOrigin } from "../lib/server";
 import { cardCollectionSchema } from "../../../../src/cards-contract";
 import {
+  profileActionResultSchema,
+  profileActionSchema,
+  profileOverviewSchema,
+  profileSafeDetailSchema,
+} from "../../../../src/safe-profile-contract";
+import {
   basketSchema,
   threadIdSchema,
   messagePageQuerySchema,
@@ -35,6 +41,12 @@ export const Route = createFileRoute("/stocks/api/$")({
       GET: async ({ request, params }) => {
         if (params._splat === "cards") return cardsRequest(false);
         if (params._splat === "pnl") return pnlRequest(request);
+        if (params._splat === "profile") return profileRequest("profile", profileOverviewSchema);
+        if (params._splat === "profile-safe") {
+          const safe = new URL(request.url).searchParams.get("safe") ?? "";
+          if (!/^0x[0-9a-fA-F]{40}$/.test(safe)) return json({ error: "Check the Safe address." }, 400);
+          return profileRequest("profile-safe", profileSafeDetailSchema, { safe });
+        }
         if (params._splat === "inference") {
           let viewer;
           try {
@@ -108,6 +120,17 @@ export const Route = createFileRoute("/stocks/api/$")({
           return json({ error: "Invalid request origin" }, 403);
         const op = params._splat ?? "";
         if (op === "cards-claim") return cardsRequest(true);
+        if (op === "profile") {
+          const body = await request.text();
+          if (body.length > 8192) return json({ error: "Request too large" }, 413);
+          let action;
+          try {
+            action = profileActionSchema.parse(JSON.parse(body));
+          } catch {
+            return json({ error: "Check the details and try again." }, 400);
+          }
+          return profileRequest("profile-action", profileActionResultSchema, { action });
+        }
         if (["inference-connect", "inference-disconnect"].includes(op)) {
           let viewer;
           try {
@@ -185,6 +208,21 @@ async function pnlRequest(request: Request) {
     }
     return json(webPnlSchema.parse(body));
   } catch { return json({ error: "Could not load your P&L. Try again." }, 503); }
+}
+
+async function profileRequest(path: string, schema: z.ZodType, input?: { safe: string } | { action: unknown }) {
+  let viewer;
+  try { viewer = await identity(); }
+  catch { return json({ error: "Sign in to manage your Safes." }, 401); }
+  try {
+    const response = await agentRequest(path, input === undefined ? viewer : "action" in input ? { identity: viewer, action: input.action } : { ...viewer, ...input });
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = z.object({ error: z.string() }).safeParse(body).data?.error;
+      return json({ error: response.status === 400 && error ? error : "Pecu couldn't finish this request. Try again." }, response.status === 400 ? 400 : 503);
+    }
+    return json(schema.parse(body));
+  } catch { return json({ error: "Pecu couldn't finish this request. Try again." }, 503); }
 }
 
 async function cardsRequest(claim: boolean) {

@@ -1,5 +1,5 @@
 import { useState, type PropsWithChildren, type ReactNode } from "react";
-export const useUser = () => ({ user: { id: "thread-test" }, isSignedIn: true });
+export const useUser = () => ({ user: { id: "thread-test" }, isSignedIn: true, isLoaded: true });
 export const useClerk = () => ({ openSignIn() {} });
 export const UserButton = Object.assign(
   ({ children }: PropsWithChildren) => {

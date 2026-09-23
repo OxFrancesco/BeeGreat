@@ -5,6 +5,7 @@
 @import "../../../theme/theme.css";
 @import "../../../theme/clay.css";
 @import "./pecu.css";
+@import "./profile.css";
 @source "../../../../../node_modules/streamdown/dist/*.js";
 @source "./";
 /* Dark mode is opt-in by class. The OS preference must not restyle a light-only app. */

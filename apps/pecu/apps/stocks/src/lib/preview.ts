@@ -124,6 +124,9 @@ export function previewPresentation(text: string) {
 }
 
 export function confirmationLabel(title = "") {
+  if (/^Create Safe\b/i.test(title)) return "Confirm creation";
+  if (/^Execute Safe\b/i.test(title)) return "Confirm execution";
+  if (/^Spend from Safe\b/i.test(title)) return "Confirm payment";
   if (/approval|^Approve\b/i.test(title)) return "Confirm approval";
   if (/^Revoke\b/i.test(title)) return "Confirm revoke";
   if (/^Send\b/i.test(title)) return "Confirm send";

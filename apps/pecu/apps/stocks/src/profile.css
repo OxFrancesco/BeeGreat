@@ -1,0 +1,196 @@
+/* Profile: Pecu wallet, organizations and Safes. Same amber tokens and clay material as the Agent. */
+.pecu-profile { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.pecu-profile-body { display: flex; flex-direction: column; gap: 28px; width: 100%; max-width: 940px; margin: 0 auto; padding: 8px 24px 64px; }
+.pecu-profile-stack { display: flex; flex-direction: column; gap: 32px; padding-top: 8px; }
+.pecu-profile-section { display: grid; gap: 14px; min-width: 0; }
+.pecu-profile-section h2 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
+.pecu-profile-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.pecu .pecu-profile-note { margin: 0; font-size: 13px; line-height: 1.55; color: var(--muted-foreground); }
+.pecu .pecu-profile-empty { margin: 0; padding: 18px 20px; border-radius: var(--clay-radius-control); background: var(--muted); box-shadow: var(--clay-shadow-inset); font-size: 14px; color: var(--muted-foreground); }
+.pecu-profile-notice { margin: 0; padding: 12px 16px; border-radius: var(--clay-radius-control); background: var(--accent); color: var(--accent-foreground); font-size: 14px; }
+.pecu-profile-message { margin: 12px 0 0; font-size: 14px; line-height: 1.5; color: var(--foreground); }
+.pecu-profile-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; padding: 16px 18px; border-radius: var(--clay-radius-surface); background: var(--card); box-shadow: var(--clay-shadow-sm); }
+.pecu-profile-row p { flex: 1 1 280px; margin: 0; font-size: 14px; line-height: 1.55; }
+.pecu-profile-empty-state { display: grid; justify-items: start; gap: 16px; padding: 28px; border-radius: var(--clay-radius-large); background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-profile-empty-state h1 { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -0.035em; }
+.pecu-profile-empty-state p { max-width: 520px; margin: 0; font-size: 15px; line-height: 1.6; color: var(--muted-foreground); }
+
+/* Rail navigation */
+.pecu-profile-nav { display: flex; flex-direction: column; gap: 18px; flex: 1; min-height: 0; margin: 0 -18px; padding: 0 18px 12px; overflow-y: auto; }
+.pecu-profile-group { display: grid; gap: 2px; }
+.pecu-profile-group ul { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.pecu .pecu-profile-group-head { margin: 0; padding: 0 12px 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; color: var(--muted-foreground); }
+.pecu .pecu-profile-link { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 8px 12px; border-radius: var(--clay-radius-control); color: var(--foreground); font-size: 14px; font-weight: 600; text-decoration: none; }
+.pecu .pecu-profile-link[aria-current="page"] { background: var(--card); box-shadow: var(--clay-shadow-sm); }
+.pecu-profile-link svg { flex-shrink: 0; color: var(--muted-foreground); }
+.pecu-profile-link-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pecu-profile-link-meta { margin-left: auto; flex-shrink: 0; font-size: 12px; font-weight: 500; color: var(--muted-foreground); }
+.pecu .pecu-profile-link-empty { margin: 0; padding: 4px 12px; font-size: 13px; color: var(--muted-foreground); }
+.pecu-profile-nav-toggle { display: none; justify-content: center; width: 40px; padding: 0; }
+.pecu.pecu-profile-nav-dialog .pecu-profile-nav { max-height: 60dvh; }
+
+/* Headings, addresses and stats */
+.pecu-safe-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.pecu-safe-title { display: grid; gap: 6px; min-width: 0; }
+.pecu-safe-title h1 { margin: 0; font-size: 30px; font-weight: 700; line-height: 1.1; letter-spacing: -0.035em; overflow-wrap: anywhere; }
+.pecu .pecu-safe-org { width: fit-content; font-size: 14px; font-weight: 600; color: var(--muted-foreground); text-decoration: none; }
+.pecu .pecu-safe-org:hover { color: var(--accent-foreground); }
+.pecu-safe-name { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.pecu .pecu-safe-rename { width: 40px; height: 40px; min-height: 40px; padding: 0; color: var(--muted-foreground); }
+.pecu-safe-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pecu .pecu-safe-new, .pecu .pecu-safe-receive { min-height: 48px; padding-inline: 18px; }
+.pecu .pecu-safe-receive { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.pecu-receive-copy { display: flex; align-items: flex-start; gap: 4px; }
+.pecu-receive-copy .pecu-wallet-full-address { flex: 1; min-width: 0; }
+.pecu-address-line { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; font-size: 14px; color: var(--muted-foreground); }
+.pecu-address-label { font-weight: 600; color: var(--foreground); }
+.pecu-address-value { overflow-wrap: anywhere; }
+.pecu .pecu-address-copy { width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground); box-shadow: none; }
+.pecu .pecu-address-explorer { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--muted-foreground); }
+.pecu-wallet-card { display: grid; gap: 20px; padding: 24px; border-radius: var(--clay-radius-large); background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-profile-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; border-radius: var(--clay-radius-control); background: var(--muted); box-shadow: var(--clay-shadow-inset); overflow: hidden; }
+.pecu-profile-stats > div { display: grid; gap: 4px; min-width: 0; padding: 14px 16px; border-left: 1px solid var(--border); margin-left: -1px; }
+.pecu-profile-stats dt { font-size: 13px; color: var(--muted-foreground); }
+.pecu-profile-stats dd { margin: 0; font: 600 clamp(16px, 2.4vw, 20px) var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+/* Segmented controls and tabs share the recessed pill from the P&L periods. */
+.pecu-segmented { display: inline-flex; flex-wrap: wrap; gap: 4px; width: fit-content; max-width: 100%; padding: 4px; border-radius: var(--clay-radius-pill); background: var(--secondary); box-shadow: var(--clay-shadow-inset); }
+.pecu .pecu-segmented button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border: 0; border-radius: var(--clay-radius-pill); background: transparent; color: var(--muted-foreground); font-size: 14px; font-weight: 650; cursor: pointer; transition: color var(--fast) ease, background-color var(--fast) ease; }
+.pecu .pecu-segmented button:is([aria-pressed="true"], [data-state="active"]) { background: var(--card); color: var(--foreground); box-shadow: var(--clay-shadow-sm); }
+.pecu-safe-tabs { display: grid; gap: 8px; }
+.pecu-tab-count { min-width: 20px; padding: 1px 6px; border-radius: var(--clay-radius-pill); background: var(--primary); color: var(--primary-foreground); font: 700 12px/1.5 var(--font-mono); text-align: center; }
+
+/* Proposals */
+.pecu-proposal { display: grid; gap: 16px; min-width: 0; padding: 22px 24px; border-radius: var(--clay-radius-large); background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-proposal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.pecu-proposal-heading { display: grid; gap: 4px; min-width: 0; }
+.pecu-proposal-heading h3, .pecu .pecu-proposal-title { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.pecu .pecu-proposal-meta { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.pecu .pecu-proposal-summary { margin: 0; white-space: pre-line; overflow-wrap: anywhere; font-size: 14px; line-height: 1.6; color: var(--foreground); }
+.pecu-proposal-summary:empty { display: none; }
+.pecu-proposal-progress { display: grid; justify-items: end; gap: 6px; flex-shrink: 0; font: 600 13px var(--font-mono); color: var(--muted-foreground); }
+.pecu-beads { display: flex; gap: 6px; }
+.pecu-beads > span { width: 16px; height: 16px; border-radius: 50%; background: var(--muted); box-shadow: var(--clay-shadow-inset); transition: background-color var(--fast) ease, box-shadow var(--fast) ease; }
+.pecu-beads > span[data-filled] { background: var(--primary); box-shadow: var(--clay-shadow-primary); }
+.pecu-approvals { display: grid; gap: 10px; margin: 0; padding: 14px 16px; border-radius: var(--clay-radius-control); background: var(--muted); list-style: none; }
+.pecu-approval { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 12px; font-size: 14px; }
+.pecu-approval > svg { color: var(--muted-foreground); }
+.pecu-approval[data-approved] > svg { color: var(--accent-foreground); }
+.pecu-approval-who { display: flex; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
+.pecu-approval-who > span:first-child:not(.mono) { font-weight: 600; }
+.pecu-approval-who .mono { color: var(--muted-foreground); }
+.pecu-approval-state { font-size: 13px; color: var(--muted-foreground); text-align: right; }
+.pecu-approval[data-approved] .pecu-approval-state { color: var(--foreground); }
+.pecu .pecu-proposal-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; font-size: 14px; font-weight: 600; }
+.pecu-proposal-status a { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.pecu-proposal-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.pecu .pecu-proposal-actions .pecu-button { min-height: 44px; padding-inline: 16px; }
+.pecu-proposal-pending { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 16px; border-radius: var(--clay-radius-control); background: var(--accent); color: var(--accent-foreground); font-size: 14px; }
+.pecu-inline-confirm { display: inline-flex; gap: 6px; }
+.pecu .pecu-button-danger { background: var(--destructive); color: var(--primary-foreground); box-shadow: var(--clay-shadow-sm); }
+
+/* History */
+.pecu-history { display: grid; margin: 0; padding: 0; list-style: none; }
+.pecu-history li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding: 12px 0; border-top: 1px solid var(--border); font-size: 14px; }
+.pecu-history li:first-child { border-top: 0; }
+.pecu-history-title { font-weight: 600; overflow-wrap: anywhere; }
+.pecu-history-meta { grid-column: 1; font-size: 13px; color: var(--muted-foreground); }
+.pecu-history-state { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: 13px; color: var(--muted-foreground); text-align: right; }
+.pecu-history-state a { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+
+/* Owners and limits */
+.pecu-owner-list, .pecu-limit-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pecu-owner-list li, .pecu-limit-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 16px; border-radius: var(--clay-radius-surface); background: var(--card); box-shadow: var(--clay-shadow-sm); }
+.pecu-owner-list .pecu-address-line { flex: 1 1 320px; }
+.pecu-owner-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.pecu .pecu-owner-actions .pecu-button { min-height: 40px; padding-inline: 12px; }
+.pecu-limit-main { display: grid; gap: 4px; min-width: 0; flex: 1 1 320px; }
+.pecu .pecu-limit-amount { margin: 0; font-size: 14px; }
+
+/* Organizations */
+.pecu-org-grid { display: grid; gap: 16px; }
+.pecu-org-card { display: grid; gap: 14px; padding: 20px 22px; border-radius: var(--clay-radius-large); background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-org-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pecu-org-head h3 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.pecu-org-safes { display: grid; margin: 0; padding: 0; list-style: none; border-radius: var(--clay-radius-control); background: var(--muted); }
+.pecu-org-safes li + li { border-top: 1px solid var(--border); }
+.pecu .pecu-org-safe { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 16px; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px; color: var(--foreground); text-decoration: none; border-radius: var(--clay-radius-control); }
+.pecu-org-safe-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pecu-org-safe-address, .pecu-org-safe-status { font-size: 13px; color: var(--muted-foreground); }
+.pecu-org-safe:not(:has(.pecu-org-safe-status)) { grid-template-columns: minmax(0, 1fr) auto 16px; }
+.pecu .pecu-org-add { width: fit-content; }
+
+/* Dialogs and forms */
+.pecu.pecu-profile-dialog { width: calc(100vw - 32px); max-width: 480px; max-height: calc(100dvh - 32px); overflow-y: auto; gap: 16px; padding: 28px 24px 24px; border: 0; border-radius: 26px; background: var(--background); box-shadow: var(--clay-shadow); }
+.pecu.pecu-intent-dialog { max-width: 560px; padding: 0; background: transparent; box-shadow: none; }
+.pecu.pecu-intent-dialog .pecu-confirmation { margin: 0; }
+.pecu.pecu-intent-dialog .pecu-confirmation-head { padding-right: 36px; }
+.pecu.pecu-intent-dialog .pecu-profile-message { margin: 0; padding: 12px 16px; border-radius: var(--clay-radius-control); background: var(--card); box-shadow: var(--clay-shadow-sm); }
+.pecu-profile-dialog > [data-slot="dialog-close"] { top: 10px; right: 10px; display: grid; place-items: center; width: 40px; height: 40px; border-radius: var(--clay-radius-pill); }
+.pecu .pecu-profile-dialog-title { padding-right: 36px; font-size: 21px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+.pecu .pecu-profile-dialog-description { font-size: 14px; line-height: 1.55; color: var(--muted-foreground); }
+.pecu-profile-form { display: grid; gap: 16px; }
+.pecu-field { display: grid; gap: 6px; min-width: 0; }
+.pecu-field label, .pecu-owner-fieldset legend { font-size: 13px; font-weight: 650; }
+.pecu .pecu-field-hint { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.pecu .pecu-input { width: 100%; min-width: 0; min-height: 44px; padding: 0 14px; border: 0; border-radius: var(--clay-radius-control); background: var(--muted); color: var(--foreground); font-size: 15px; box-shadow: var(--clay-shadow-inset); }
+.pecu select.pecu-input { appearance: auto; }
+.pecu .pecu-input:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+.pecu .pecu-input::placeholder { color: var(--muted-foreground); }
+.pecu-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.pecu-owner-fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.pecu-owner-fieldset legend { margin-bottom: 6px; padding: 0; }
+.pecu-owner-check { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 0 14px; border-radius: var(--clay-radius-control); background: var(--card); box-shadow: var(--clay-shadow-sm); font-size: 14px; font-weight: 600; cursor: pointer; }
+.pecu-owner-check input { width: 18px; height: 18px; accent-color: var(--primary); }
+.pecu-owner-check .mono { font-size: 13px; font-weight: 500; color: var(--muted-foreground); }
+.pecu-owner-draft { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 40px; gap: 8px; }
+.pecu .pecu-icon-button { display: grid; place-items: center; width: 40px; height: 44px; border: 0; border-radius: var(--clay-radius-control); background: transparent; color: var(--muted-foreground); cursor: pointer; }
+.pecu .pecu-owner-add { width: fit-content; }
+.pecu-profile-form-actions { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px; }
+.pecu .pecu-profile-form-actions .pecu-button { min-height: 48px; }
+
+/* Wallet connection */
+.pecu-connected-wallet { gap: 8px; }
+.pecu-wallet-mark { width: 18px; height: 18px; border-radius: 4px; }
+.pecu-wallet-options { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pecu .pecu-wallet-option { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 0 16px; border: 0; border-radius: var(--clay-radius-control); background: var(--card); color: var(--foreground); font-size: 15px; font-weight: 600; box-shadow: var(--clay-shadow-sm); cursor: pointer; transition: transform var(--fast) ease; }
+.pecu .pecu-wallet-option .pecu-wallet-mark { width: 28px; height: 28px; border-radius: 8px; }
+.pecu-wallet-option-state { margin-left: auto; font-size: 13px; font-weight: 500; color: var(--muted-foreground); }
+.pecu.pecu-profile-popover { z-index: 60; display: grid; gap: 8px; width: 280px; max-width: calc(100vw - 24px); padding: 16px; border-radius: 18px; background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu .pecu-profile-popover-title { margin: 0; font-size: 14px; font-weight: 650; }
+.pecu .pecu-profile-popover-address { margin: 0; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; color: var(--muted-foreground); user-select: all; }
+.pecu .pecu-profile-popover-action { justify-content: flex-start; gap: 8px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .pecu .pecu-profile-link:not([aria-current="page"]):hover, .pecu .pecu-org-safe:hover, .pecu .pecu-icon-button:hover, .pecu .pecu-address-copy:hover, .pecu .pecu-address-explorer:hover { background: var(--secondary); }
+  .pecu .pecu-segmented button:not([aria-pressed="true"]):not([data-state="active"]):hover { color: var(--foreground); }
+  .pecu .pecu-wallet-option:hover:not(:disabled) { transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pecu .pecu-wallet-option, .pecu-beads > span { transition: none; }
+  .pecu .pecu-wallet-option:hover { transform: none; }
+}
+@media (max-width: 900px) {
+  .pecu-profile-nav-toggle { display: inline-flex; }
+}
+@media (max-width: 760px) {
+  .pecu-profile-body { gap: 24px; padding: 4px 16px 48px; }
+  .pecu-safe-title h1, .pecu-profile-empty-state h1 { font-size: 26px; }
+  .pecu-proposal, .pecu-wallet-card, .pecu-org-card { padding: 18px; border-radius: var(--clay-radius-surface); }
+  .pecu-proposal-head { flex-direction: column; }
+  .pecu-proposal-progress { justify-items: start; }
+  .pecu-safe-actions { width: 100%; }
+  .pecu .pecu-safe-new, .pecu .pecu-safe-receive { flex: 1; justify-content: center; }
+  .pecu-approval { grid-template-columns: 16px minmax(0, 1fr); }
+  .pecu-approval-state { grid-column: 2; text-align: left; }
+  .pecu-owner-draft { grid-template-columns: minmax(0, 1fr) 40px; }
+  .pecu-owner-draft input:nth-child(2) { grid-row: 2; }
+  .pecu .pecu-org-safe { grid-template-columns: minmax(0, 1fr) 16px; gap: 2px 12px; }
+  .pecu-org-safe-name { grid-area: 1 / 1; }
+  .pecu-org-safe-address { grid-area: 2 / 1; }
+  .pecu-org-safe-status { grid-area: 2 / 1; justify-self: end; }
+  .pecu-org-safe > svg { grid-column: 2; grid-row: 1 / span 2; }
+  .pecu-profile-form-actions { grid-template-columns: minmax(0, 1fr); }
+  .pecu-segmented-tabs { width: 100%; }
+  .pecu .pecu-segmented-tabs button { flex: 1; justify-content: center; padding: 0 10px; }
+}

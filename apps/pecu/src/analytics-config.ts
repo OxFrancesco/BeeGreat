@@ -9,6 +9,7 @@ export async function analyticsIdentity(senderId: string): Promise<string> {
 export function analyticsPath(path: string): string {
   if (path === "/") return "/";
   if (path === "/agent" || path.startsWith("/agent/")) return "/agent";
+  if (path === "/profile" || path.startsWith("/profile/")) return "/profile";
   if (path === "/aero/stocks" || path.startsWith("/aero/stocks/")) return "/aero/stocks";
   if (path === "/aero/cli/docs" || path.startsWith("/aero/cli/docs/")) return "/aero/cli/docs";
   if (path === "/aero/cli" || path.startsWith("/aero/cli/")) return "/aero/cli";

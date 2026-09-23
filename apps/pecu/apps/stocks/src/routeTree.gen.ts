@@ -10,10 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StocksRouteImport } from './routes/stocks'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as AgentRouteImport } from './routes/agent'
+import { Route as ProfileIndexRouteImport } from './routes/profile.index'
 import { Route as AeroStocksRouteImport } from './routes/aero.stocks'
 import { Route as StocksApiMarketRouteImport } from './routes/stocks.api.market'
 import { Route as StocksApiSplatRouteImport } from './routes/stocks.api.$'
+import { Route as ProfileSafeAddressRouteImport } from './routes/profile.safe.$address'
 import { Route as AeroStocksSplatRouteImport } from './routes/aero.stocks.$'
 
 const StocksRoute = StocksRouteImport.update({
@@ -21,10 +24,20 @@ const StocksRoute = StocksRouteImport.update({
   path: '/stocks',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AgentRoute = AgentRouteImport.update({
   id: '/agent',
   path: '/agent',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileIndexRoute = ProfileIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProfileRoute,
 } as any)
 const AeroStocksRoute = AeroStocksRouteImport.update({
   id: '/aero/stocks',
@@ -41,6 +54,11 @@ const StocksApiSplatRoute = StocksApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => StocksRoute,
 } as any)
+const ProfileSafeAddressRoute = ProfileSafeAddressRouteImport.update({
+  id: '/safe/$address',
+  path: '/safe/$address',
+  getParentRoute: () => ProfileRoute,
+} as any)
 const AeroStocksSplatRoute = AeroStocksSplatRouteImport.update({
   id: '/$',
   path: '/$',
@@ -49,9 +67,12 @@ const AeroStocksSplatRoute = AeroStocksSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/agent': typeof AgentRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
+  '/profile/': typeof ProfileIndexRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
+  '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
   '/stocks/api/market': typeof StocksApiMarketRoute
 }
@@ -59,16 +80,21 @@ export interface FileRoutesByTo {
   '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
+  '/profile': typeof ProfileIndexRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
+  '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
   '/stocks/api/market': typeof StocksApiMarketRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/agent': typeof AgentRoute
+  '/profile': typeof ProfileRouteWithChildren
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
+  '/profile/': typeof ProfileIndexRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
+  '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
   '/stocks/api/market': typeof StocksApiMarketRoute
 }
@@ -76,9 +102,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/agent'
+    | '/profile'
     | '/stocks'
     | '/aero/stocks'
+    | '/profile/'
     | '/aero/stocks/$'
+    | '/profile/safe/$address'
     | '/stocks/api/$'
     | '/stocks/api/market'
   fileRoutesByTo: FileRoutesByTo
@@ -86,21 +115,27 @@ export interface FileRouteTypes {
     | '/agent'
     | '/stocks'
     | '/aero/stocks'
+    | '/profile'
     | '/aero/stocks/$'
+    | '/profile/safe/$address'
     | '/stocks/api/$'
     | '/stocks/api/market'
   id:
     | '__root__'
     | '/agent'
+    | '/profile'
     | '/stocks'
     | '/aero/stocks'
+    | '/profile/'
     | '/aero/stocks/$'
+    | '/profile/safe/$address'
     | '/stocks/api/$'
     | '/stocks/api/market'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AgentRoute: typeof AgentRoute
+  ProfileRoute: typeof ProfileRouteWithChildren
   StocksRoute: typeof StocksRouteWithChildren
   AeroStocksRoute: typeof AeroStocksRouteWithChildren
 }
@@ -114,12 +149,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StocksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/agent': {
       id: '/agent'
       path: '/agent'
       fullPath: '/agent'
       preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/profile/': {
+      id: '/profile/'
+      path: '/'
+      fullPath: '/profile/'
+      preLoaderRoute: typeof ProfileIndexRouteImport
+      parentRoute: typeof ProfileRoute
     }
     '/aero/stocks': {
       id: '/aero/stocks'
@@ -142,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StocksApiSplatRouteImport
       parentRoute: typeof StocksRoute
     }
+    '/profile/safe/$address': {
+      id: '/profile/safe/$address'
+      path: '/safe/$address'
+      fullPath: '/profile/safe/$address'
+      preLoaderRoute: typeof ProfileSafeAddressRouteImport
+      parentRoute: typeof ProfileRoute
+    }
     '/aero/stocks/$': {
       id: '/aero/stocks/$'
       path: '/$'
@@ -151,6 +207,19 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ProfileRouteChildren {
+  ProfileIndexRoute: typeof ProfileIndexRoute
+  ProfileSafeAddressRoute: typeof ProfileSafeAddressRoute
+}
+
+const ProfileRouteChildren: ProfileRouteChildren = {
+  ProfileIndexRoute: ProfileIndexRoute,
+  ProfileSafeAddressRoute: ProfileSafeAddressRoute,
+}
+
+const ProfileRouteWithChildren =
+  ProfileRoute._addFileChildren(ProfileRouteChildren)
 
 interface StocksRouteChildren {
   StocksApiSplatRoute: typeof StocksApiSplatRoute
@@ -179,6 +248,7 @@ const AeroStocksRouteWithChildren = AeroStocksRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AgentRoute: AgentRoute,
+  ProfileRoute: ProfileRouteWithChildren,
   StocksRoute: StocksRouteWithChildren,
   AeroStocksRoute: AeroStocksRouteWithChildren,
 }

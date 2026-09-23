@@ -427,6 +427,16 @@
   background: var(--muted);
   border-radius: var(--clay-radius-surface);
 }
+.safe-specimen {
+  background: transparent;
+}
+.safe-specimen .pecu-profile-section h2 {
+  font-size: 19px;
+}
+.safe-specimen svg.size-4 {
+  width: 16px;
+  height: 16px;
+}
 .design-page .surface-example {
   border-radius: var(--clay-radius-surface);
   box-shadow: var(--clay-shadow-sm);
