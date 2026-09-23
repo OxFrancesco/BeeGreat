@@ -140,7 +140,7 @@ export function PnlPreviewBody({ snapshot, now }: { snapshot: PnlSnapshot; now?:
   if (!summary.rows.length)
     return (
       <>
-        <p className="pecu-pnl-note">No trades on Base in the last {pnlPeriod(previewDays).long}.</p>
+        <p className="pecu-pnl-note">No trades on Base in the last {pnlPeriod(previewDays).last}.</p>
         <PnlSource snapshot={snapshot} now={now} />
       </>
     );
@@ -241,7 +241,7 @@ const pageRows = 10;
 export function PnlReport({ snapshot, days }: { snapshot: PnlSnapshot; days: PnlDays }) {
   const summary = useMemo(() => pnlSummary(snapshot), [snapshot]);
   const [all, setAll] = useState(false);
-  const period = pnlPeriod(days).long;
+  const period = pnlPeriod(days).last;
   if (!summary.rows.length)
     return (
       <>

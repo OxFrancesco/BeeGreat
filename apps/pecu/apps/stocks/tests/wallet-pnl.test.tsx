@@ -51,6 +51,7 @@ test("the full page lists every token with exact values and discloses missing pr
   expect(html).toContain("Data: Nansen");
   expect(html).not.toContain("NaN");
   expect(renderToStaticMarkup(<PnlReport snapshot={{ ...snapshot, rows: [] }} days={7} />)).toContain("No trades on Base in the last 7 days.");
+  expect(renderToStaticMarkup(<PnlReport snapshot={snapshot} days={365} />)).toContain("Total on Base, last year");
 });
 
 let root: Root;

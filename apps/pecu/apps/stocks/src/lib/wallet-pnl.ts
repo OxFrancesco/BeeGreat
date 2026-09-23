@@ -3,11 +3,11 @@ import type { PnlSnapshot } from "../../../../src/analytics-contract";
 import { webPnlSchema, type PnlDays, type WebPnl } from "../../../../src/web-contract";
 import { request } from "./use-account";
 
-export const pnlPeriods: readonly { days: PnlDays; short: string; long: string }[] = [
-  { days: 7, short: "7D", long: "7 days" },
-  { days: 30, short: "30D", long: "30 days" },
-  { days: 90, short: "90D", long: "90 days" },
-  { days: 365, short: "1Y", long: "1 year" },
+export const pnlPeriods: readonly { days: PnlDays; short: string; long: string; last: string }[] = [
+  { days: 7, short: "7D", long: "7 days", last: "7 days" },
+  { days: 30, short: "30D", long: "30 days", last: "30 days" },
+  { days: 90, short: "90D", long: "90 days", last: "90 days" },
+  { days: 365, short: "1Y", long: "1 year", last: "year" },
 ];
 export const pnlPeriod = (days: PnlDays) => pnlPeriods.find((period) => period.days === days)!;
 
