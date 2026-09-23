@@ -4,7 +4,7 @@ description: Create Safe wallets with several owners at pecu.app/profile, collec
 group: Use
 ---
 
-A Safe is a wallet on Base that runs a transaction only after enough of its owners approve it, for example two of three. pecu.app/profile is where you create Safes, group them into organizations and approve their transactions. Open it from Safes in the account menu, or go to the address directly.
+A Safe is a wallet on Base that runs a transaction only after enough of its owners approve it, for example two of three. pecu.app/profile is where you create Safes, group them into organizations and approve their transactions. Open it from Profile in the account menu, or go to the address directly.
 
 ## Organizations
 

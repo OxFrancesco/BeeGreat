@@ -63,9 +63,9 @@ Once you have a wallet, it appears in the top bar.
 
 P&L data comes from Nansen and covers your own wallet on Base only. A result is reused for up to 10 minutes. Tokens Nansen has no price for are left out of the totals, and the page says how many. These reads never add messages to your chat. In X Chat, `/nansen pnl` returns the same data as text.
 
-## Safes
+## Profile
 
-Open Safes from the account menu, or go to pecu.app/profile, to create Safe wallets with several owners and approve their transactions. See [Safes](/docs/pecu/safes).
+Press your avatar in the top bar to open the account menu, then pick Profile, or go to pecu.app/profile. It shows your name, your Pecu wallet with its balances, and your organizations and Safes. Manage account in the same menu opens your sign-in settings. See [Safes](/docs/pecu/safes).
 
 ## ChatGPT connection
 

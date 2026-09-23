@@ -151,7 +151,16 @@ or `-` sign, and losses also use the loss color. Tokens without a Nansen price
 stay visible as Unavailable, and their missing values are left out of the
 totals with a note.
 
-ChatGPT connection opens the same panel from the profile or `/agent#chatgpt`.
+The avatar at the end of the top bar opens the account menu, our own dropdown
+rather than Clerk's: a 296px clay card with the person's photo or initials, name
+and handle on a recessed strip, then Profile, My cards and ChatGPT connection,
+a divider, Manage account and Sign out. Items are 44px rows with Lucide icons;
+the highlighted row uses `--secondary` and the current page uses the accent
+text color. It enters like the P&L card, 160ms with a 4px drop, and only fades
+under reduced motion. Manage account opens Clerk's account settings. No Clerk
+branding appears in the menu.
+
+ChatGPT connection opens the same panel from the account menu or `/agent#chatgpt`.
 Use the current connection controls only, with a 400px maximum panel width and
 24px side padding. The device code and copy button share an inset field. Continue
 uses the amber clay action; Cancel stays quiet. Do not expose credentials, raw
@@ -161,12 +170,14 @@ returns to the conversation, and failures retain a retry action.
 ## Profile and Safes
 
 `/profile` uses the Agent frame: the 272px rail on desktop and a navigation
-dialog below 900px. The rail lists Chat, Overview, then each organization's
+dialog below 900px. The rail lists Chat, Profile, then each organization's
 Safes. The active link is a raised card; organization names are muted 12px
 labels. Content is a 940px column.
 
-The overview leads with the Pecu wallet card: address with copy and Basescan,
-then a recessed stat strip of balances. Organizations follow as clay cards with
+The profile page leads with one card: a 64px avatar, the person's name as the
+heading, their handle and Manage account, then a divider and the Pecu wallet
+with address, copy, Basescan, which sign-in it belongs to and a recessed stat
+strip of balances. Organizations follow as clay cards with
 their Safes in a recessed list. With no organizations, one card explains what an
 organization is and offers New organization.
 
