@@ -10,7 +10,7 @@ document.addEventListener("click", (event) => {
     ["https://pecu.app/agent", "agent"],
     ["https://pecu.app/stocks", "stocks"],
     ["https://pecu.app/un-aerosdk", "aero_cli"],
-    ["https://pecu.app/un-aerosdk/docs", "aero_docs"],
+    ["https://pecu.app/docs/aero", "aero_docs"],
     ["https://x.com/BeeGreatAI", "x_chat"],
     ["https://pecu.app/evmsdk", "evm_sdk"],
   ]);

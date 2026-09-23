@@ -12,7 +12,7 @@ export function analyticsPath(path: string): string {
   if (path === "/aero/stocks" || path.startsWith("/aero/stocks/")) return "/aero/stocks";
   if (path === "/aero/cli/docs" || path.startsWith("/aero/cli/docs/")) return "/aero/cli/docs";
   if (path === "/aero/cli" || path.startsWith("/aero/cli/")) return "/aero/cli";
-  for (const prefix of ["/stocks", "/un-aerosdk/docs", "/un-aerosdk", "/evmsdk"]) {
+  for (const prefix of ["/stocks", "/un-aerosdk/docs", "/un-aerosdk", "/evmsdk", "/docs/pecu", "/docs/aero", "/docs/evm", "/docs"]) {
     if (path === prefix || path.startsWith(`${prefix}/`)) return prefix;
   }
   return "/other";

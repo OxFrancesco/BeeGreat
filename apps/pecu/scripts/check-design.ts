@@ -9,6 +9,7 @@ const styles = [
   "theme/clay.css",
   "apps/site/site/pecu-assets/style.css",
   "apps/site/site/pecu-assets/design.css",
+  "apps/site/site/pecu-assets/docs.css",
   "apps/stocks/src/pecu.css",
   "apps/stocks/showcase/style.css",
   "apps/stocks/polymarket-showcase/style.css",

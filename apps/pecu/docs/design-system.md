@@ -12,8 +12,9 @@ highlights and tactile depth. UI colors and type come from amber-minimal.
   `bun run design:sync` from `apps/pecu` after updating the JSON.
 - `theme/clay.css` defines shared clay shadows, radii and focus treatment.
   Derive highlights and shadows from theme colors rather than another palette.
-- `theme/aero.css` holds Aero's own palette for the homepage Aero tile. It is
-  the only second palette and stays inside that tile.
+- `theme/aero.css` holds Aero's own palette for the Aero tile on the homepage
+  and the docs landing. It is the only second palette and stays inside that
+  tile.
 - The homepage and Agent import these same files. `/design` reads them during
   the site build, along with this guide and the component source catalog.
 
@@ -192,6 +193,29 @@ it with a retry action. Keep settled chat avatars static.
 
 The side-eye snail is the favicon and app icon. UI controls use Lucide icons
 with `currentColor`. Preserve the original artwork and third-party brand marks.
+
+## Docs
+
+`/docs` uses the homepage stylesheet plus `pecu-assets/docs.css`. The header
+holds the wordmark, a recessed product switch for Pecu, Aero and evmSDK, and
+search. Wide screens use three columns: a 248px page rail, a 760px article and
+a 216px outline. Below 1180px the outline becomes an "On this page" disclosure
+in the article. Below 900px the page rail moves into a drawer that also holds
+the product switch.
+
+The current page uses the amber tint with accent text. Outline highlighting
+follows scroll position and changes immediately. Code blocks are recessed
+`--dark` terminal surfaces. Shiki's CSS-variables theme maps tokens to amber
+tints on that surface, so highlighting stays inside the theme. Copy reports
+success only after the clipboard write resolves. Warning callouts use the
+amber tint, like the homepage notice; notes and tips use `--muted`.
+
+The docs landing reuses the homepage tiles: the dark Pecu tile with the still
+snail, the Aero tile with its palette and mark, and the muted evmSDK tile. They
+rise in once with the homepage stagger. Search opens instantly from the header,
+`/` or Cmd/Ctrl+K, with no animation, because keyboard-opened panels must not
+wait. The drawer slides in 200ms on the sidebar curve and fades under reduced
+motion. Previous and next cards lift 2px on pointer hover.
 
 ## Copy and accessibility
 
