@@ -1,6 +1,6 @@
 # Pecu Safes profile
 
-`pecu.app/profile` is a new page for Safe wallets with several owners. It is built and tested, not deployed.
+`pecu.app/profile` is a new page for Safe wallets with several owners. It is built, tested and pushed to `main`, not deployed.
 
 ## What is there
 
@@ -31,7 +31,7 @@
 
 ## Not done
 
-- Not deployed and not committed. Deploy order: `pecu` Worker, then `aero-stocks`, then `pecu-app` for the `/profile` route.
+- Pushed as `727bc2b1` to `a2d20f0b`, not deployed. Deploy order: `pecu` Worker, then `aero-stocks`, then `pecu-app` for the `/profile` route.
 - A connected browser wallet can't spend from its own spending limit yet. Only the Pecu wallet can.
 - Roles, passkey owners and sponsored gas stay in chat and evmSDK.
 - Run one live 2-of-2 on Base with a few cents before telling users.
