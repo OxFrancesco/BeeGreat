@@ -1,0 +1,280 @@
+[
+  {
+    "name": "activity",
+    "family": "data",
+    "path": "/v2/activity",
+    "pagination": "cursor"
+  },
+  {
+    "name": "activity_combos",
+    "family": "data",
+    "path": "/v2/activity/combos",
+    "pagination": "cursor"
+  },
+  {
+    "name": "approvals",
+    "family": "data",
+    "path": "/v2/approvals"
+  },
+  {
+    "name": "biggest_winners",
+    "family": "data",
+    "path": "/v2/biggest-winners",
+    "pagination": "cursor"
+  },
+  {
+    "name": "builders_leaderboard",
+    "family": "data",
+    "path": "/v2/builders/leaderboard",
+    "pagination": "cursor"
+  },
+  {
+    "name": "builders_volume",
+    "family": "data",
+    "path": "/v2/builders/volume"
+  },
+  {
+    "name": "holders",
+    "family": "data",
+    "path": "/v2/holders",
+    "pagination": "cursor"
+  },
+  {
+    "name": "leaderboard",
+    "family": "data",
+    "path": "/v2/leaderboard",
+    "pagination": "cursor"
+  },
+  {
+    "name": "live_volume",
+    "family": "data",
+    "path": "/v2/live-volume"
+  },
+  {
+    "name": "oi",
+    "family": "data",
+    "path": "/v2/oi"
+  },
+  {
+    "name": "positions",
+    "family": "data",
+    "path": "/v2/positions",
+    "pagination": "cursor"
+  },
+  {
+    "name": "positions_combos",
+    "family": "data",
+    "path": "/v2/positions/combos",
+    "pagination": "cursor"
+  },
+  {
+    "name": "prices_history",
+    "family": "data",
+    "path": "/v2/prices-history",
+    "pagination": "cursor"
+  },
+  {
+    "name": "resolutions",
+    "family": "data",
+    "path": "/v2/resolutions"
+  },
+  {
+    "name": "status",
+    "family": "data",
+    "path": "/v2/status"
+  },
+  {
+    "name": "trades",
+    "family": "data",
+    "path": "/v2/trades",
+    "pagination": "cursor"
+  },
+  {
+    "name": "user_pnl",
+    "family": "data",
+    "path": "/v2/user-pnl"
+  },
+  {
+    "name": "user_stats",
+    "family": "data",
+    "path": "/v2/user-stats"
+  },
+  {
+    "name": "user_volume",
+    "family": "data",
+    "path": "/v2/user-volume"
+  },
+  {
+    "name": "value",
+    "family": "data",
+    "path": "/v2/value"
+  },
+  {
+    "name": "search",
+    "family": "gamma",
+    "path": "/public-search",
+    "pagination": "page"
+  },
+  {
+    "name": "events",
+    "family": "gamma",
+    "path": "/events/keyset",
+    "pagination": "after_cursor"
+  },
+  {
+    "name": "markets",
+    "family": "gamma",
+    "path": "/markets/keyset",
+    "pagination": "after_cursor"
+  },
+  {
+    "name": "event",
+    "family": "gamma",
+    "path": "/events/{id}"
+  },
+  {
+    "name": "event_by_slug",
+    "family": "gamma",
+    "path": "/events/slug/{slug}"
+  },
+  {
+    "name": "market",
+    "family": "gamma",
+    "path": "/markets/{id}"
+  },
+  {
+    "name": "market_by_slug",
+    "family": "gamma",
+    "path": "/markets/slug/{slug}"
+  },
+  {
+    "name": "tags",
+    "family": "gamma",
+    "path": "/tags",
+    "pagination": "offset"
+  },
+  {
+    "name": "tag",
+    "family": "gamma",
+    "path": "/tags/{id}"
+  },
+  {
+    "name": "tag_by_slug",
+    "family": "gamma",
+    "path": "/tags/slug/{slug}"
+  },
+  {
+    "name": "event_tags",
+    "family": "gamma",
+    "path": "/events/{id}/tags"
+  },
+  {
+    "name": "market_tags",
+    "family": "gamma",
+    "path": "/markets/{id}/tags"
+  },
+  {
+    "name": "related_tags",
+    "family": "gamma",
+    "path": "/tags/{id}/related-tags/tags"
+  },
+  {
+    "name": "series",
+    "family": "gamma",
+    "path": "/series",
+    "pagination": "offset"
+  },
+  {
+    "name": "series_detail",
+    "family": "gamma",
+    "path": "/series/{id}"
+  },
+  {
+    "name": "sports",
+    "family": "gamma",
+    "path": "/sports"
+  },
+  {
+    "name": "sports_market_types",
+    "family": "gamma",
+    "path": "/sports/market-types"
+  },
+  {
+    "name": "teams",
+    "family": "gamma",
+    "path": "/teams",
+    "pagination": "offset"
+  },
+  {
+    "name": "profile",
+    "family": "gamma",
+    "path": "/public-profile"
+  },
+  {
+    "name": "book",
+    "family": "clob",
+    "path": "/book"
+  },
+  {
+    "name": "price",
+    "family": "clob",
+    "path": "/price"
+  },
+  {
+    "name": "midpoint",
+    "family": "clob",
+    "path": "/midpoint"
+  },
+  {
+    "name": "spread",
+    "family": "clob",
+    "path": "/spread"
+  },
+  {
+    "name": "last_trade_price",
+    "family": "clob",
+    "path": "/last-trade-price"
+  },
+  {
+    "name": "fee_rate",
+    "family": "clob",
+    "path": "/fee-rate"
+  },
+  {
+    "name": "tick_size",
+    "family": "clob",
+    "path": "/tick-size"
+  },
+  {
+    "name": "negative_risk",
+    "family": "clob",
+    "path": "/neg-risk"
+  },
+  {
+    "name": "clob_market",
+    "family": "clob",
+    "path": "/clob-markets/{condition_id}"
+  },
+  {
+    "name": "market_by_token",
+    "family": "clob",
+    "path": "/markets-by-token/{token_id}"
+  },
+  {
+    "name": "rewards",
+    "family": "clob",
+    "path": "/rewards/markets/current",
+    "pagination": "next_cursor"
+  },
+  {
+    "name": "market_rewards",
+    "family": "clob",
+    "path": "/rewards/markets/{condition_id}",
+    "pagination": "next_cursor"
+  },
+  {
+    "name": "server_time",
+    "family": "clob",
+    "path": "/time"
+  }
+]

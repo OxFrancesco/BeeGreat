@@ -12,6 +12,7 @@ const capabilities: AgentCapabilities = {
   askUser: toolsDisabled,
   aaveCall: toolsDisabled,
   polymarketResearch: toolsDisabled,
+  polymarketRead: toolsDisabled,
   walletAddress: toolsDisabled,
   walletBalances: toolsDisabled,
   aeroRead: toolsDisabled,

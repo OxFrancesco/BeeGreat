@@ -17,7 +17,9 @@
     "cloudflare:deploy": "WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.codex.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.evm.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.aero.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy",
     "aero:check-version": "bun scripts/check-aero-version.ts",
     "design:sync": "bun scripts/sync-design-theme.ts",
-    "design:check": "bun scripts/check-design.ts && bun run --cwd apps/stocks lint:design"
+    "design:check": "bun scripts/check-design.ts && bun run --cwd apps/stocks lint:design",
+    "polymarket:generate": "bun scripts/polymarket/generate.mjs",
+    "polymarket:verify": "bun scripts/verify-polymarket.ts"
   },
   "dependencies": {
     "@beegreat/sugar": "github:OxFrancesco/aerodrome-sdk-ts#af1464619f74992d6d41923609297de9788001cf",

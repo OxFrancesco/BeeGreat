@@ -1,3 +1,6 @@
+import { polymarketRead } from "./integrations/polymarket/client";
+import { polymarketEndpoints, polymarketEndpointNames, type PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
+import { polymarketText } from "./integrations/polymarket/presentation";
 import { stocksSchema, type StockTrade } from "./stock-contract";
 import type { AgentAnalytics, AgentAnalyticsEvent } from "./analytics";
 import type { AaveService } from "./integrations/aave";
@@ -116,6 +119,7 @@ export type AgentServices = Readonly<{
   analytics?: AgentAnalytics;
   aave?: Pick<AaveService, "call" | "propose">;
   polymarket?: Pick<PolymarketService, "research">;
+  polymarketRead?: typeof polymarketRead;
   whop?: Pick<WhopService, "createAccount" | "createDeposit">;
   nansen?: Pick<NansenService, "call">;
   aerodrome: Pick<AerodromeService, "run" | "basket">;
@@ -299,6 +303,8 @@ export class PecuAgent {
       case "verbose": return verbosePage(this.store.chatDetails(message.senderId, message.conversationId), command.page);
       case "aave-help": return 'Ask about Aave rates, positions, account history, or reducing debt. For example: "Check my Aave positions" or "Preview supplying 0.000001 ETH to Aave on Base". Supply, borrow, withdraw, and repay use the same confirmation and YOLO settings as other transactions.';
       case "polymarket": return this.polymarketReply(message, command.query);
+      case "polymarket-help": return "Ask about Polymarket in chat, or search with /polymarket QUESTION. Advanced reads: /polymarket read ENDPOINT JSON.\n" + polymarketEndpointNames.map(name => `${name}: ${polymarketEndpoints[name].description.split(". ")[0]}`).join("\n");
+      case "polymarket-read": return this.polymarketReadReply(message, command.endpoint, command.input, false);
       case "aero-help": return aeroHelpText;
       case "wallet": return this.walletReply(message);
       case "balance": return this.balanceReply(message);
@@ -327,6 +333,7 @@ export class PecuAgent {
       yoloEnabled: () => !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId),
       aaveCall: (name, args) => this.runAave(message, name, args),
       polymarketResearch: (query) => this.polymarketReply(message, query),
+      polymarketRead: (endpoint, input) => this.polymarketReadReply(message, endpoint, input, true),
       walletAddress: () => this.walletReply(message),
       walletBalances: () => this.balanceReply(message),
       aeroRead: (action, parameters) => this.runAero(message, action, parameters),
@@ -468,6 +475,12 @@ export class PecuAgent {
     const result = await this.services.aave.call(name, args, wallet);
     this.saveDetails(message, result);
     return JSON.stringify(result);
+  }
+
+  private async polymarketReadReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: unknown, structured: boolean): Promise<string> {
+    const result = await (this.services.polymarketRead ?? polymarketRead)(endpoint, input);
+    this.saveDetails(message, result);
+    return structured ? JSON.stringify(result) : polymarketText(result);
   }
 
   private async polymarketReply(message: VerifiedMessage, query?: string): Promise<string> {

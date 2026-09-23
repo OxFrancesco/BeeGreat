@@ -48,7 +48,7 @@ Source of truth: `src/domain.ts`, `src/agent.ts`, `src/evm.ts`, and the pinned `
 
 ### Shared usage rules
 
-- All commands operate on Base mainnet, chain ID `8453`.
+- Wallet transaction commands operate on Base mainnet, chain ID `8453`. Public Polymarket reads query Polymarket markets and wallets, including Polygon data, without signing.
 - The wallet belongs to the signature-verified X sender. Users do not provide `--wallet`, credentials, private keys, or seed phrases. Transaction wallet overrides are rejected.
 - Replace `0xRECIPIENT`, `0xSPENDER`, `0xTOKEN`, `0xPOOL`, and `0xOWNER` with complete public addresses. These placeholders are not valid addresses themselves.
 - Replace example position ID `123` with a position returned by `/aero positions`.
@@ -81,7 +81,10 @@ Source of truth: `src/domain.ts`, `src/agent.ts`, `src/evm.ts`, and the pinned `
 | `/approve AMOUNT TOKEN for ADDRESS` | Previews setting an exact ERC-20 spending allowance. It does not transfer tokens. | `/approve 1 USDC for 0xSPENDER` |
 | `/revoke TOKEN for ADDRESS` | Previews setting an ERC-20 spending allowance to zero. ETH does not have allowances. | `/revoke USDC for 0xSPENDER` |
 | `/aave help` | Shows Aave lending, borrowing, and position examples. The five official workflows load for natural-language Aave requests. | `/aave help` |
-| `/polymarket QUESTION` | Researches public Polymarket odds, history, liquidity, and trader positions through Exa. Read-only. | `/polymarket What are the odds of a Fed rate cut?` |
+| `/polymarket QUESTION` | Searches public Polymarket markets directly. Read-only, no API key. | `/polymarket What are the odds of a Fed rate cut?` |
+| `/polymarket help` | Lists direct public reads. | `/polymarket help` |
+| `/polymarket read ENDPOINT JSON` | Calls a direct public read with validated arguments. | `/polymarket read leaderboard {"limit":5}` |
+| `/polymarket research QUESTION` | Starts optional deeper research through Exa. | `/polymarket research Compare Fed market probabilities` |
 | `/polymarket status` | Retrieves the latest research without starting another paid run. | `/polymarket status` |
 | `/yolo` | Shows whether YOLO is enabled for you in this chat. Defaults to off. | `/yolo` |
 | `/yolo on` | Executes new transaction requests without a confirmation prompt. Does not execute existing previews. | `/yolo on` |
@@ -176,7 +179,7 @@ The five official Aave skills are vendored under `skills/aave/` and bundled into
 
 Aave reads cover the chains the service reports. Pecu signs only Base v3 supply, borrow, withdraw, and repay plans through `prepare_action`. Discovery, account and reserve inspection, and simulation run before every plan. Error warnings stop the build; other warnings reach the user. Token approval is a separate action and must be identified as such. Once confirmed, the user can ask to continue. Signed orders, liquidations, and other prepared actions are not enabled. Deleveraging, yield analysis, history, and post-transaction position checks use the official workflows.
 
-Polymarket uses Exa Agent API with only the `polymarket` data source and minimal effort. Store `EXA_API_KEY` as a Cloudflare secret, never in code or skills. Persist the run ID per incoming event and the latest run per sender/conversation. Status checks must reuse the saved run. Report sources and observation time, and describe probabilities as market-implied odds. No betting or trading tools are exposed.
+Polymarket defaults to 52 direct public read tools in `src/integrations/polymarket/catalog.generated.ts`, backed by Gamma, CLOB and Data API v2 through the Effect service. Use `/polymarket help` for discovery and `/polymarket read ENDPOINT JSON` for direct calls. Preserve source timestamps and `next.input` filters on pagination. A Polymarket wallet is not implicitly the sender's Base wallet. Exa is optional and only selected explicitly with `/polymarket research QUESTION` or a request for deeper research. It uses the `polymarket` data source and minimal effort. Store `EXA_API_KEY` as a Cloudflare secret, never in code or skills. Persist the run ID per incoming event and the latest run per sender/conversation. Status checks must reuse the saved run. Report sources and observation time, and describe probabilities as market-implied odds. No betting or trading tools are exposed.
 
 Whop deposits give users a fiat on-ramp. `WHOP_API_KEY` and `WHOP_WEBHOOK_SECRET` are Cloudflare secrets, never in code. Each sender gets one connected account keyed by their verified ID; `/deposit` reuses it. Confirmed `deposit.succeeded` webhooks relay the same dollar amount in Base USDC from the treasury wallet automatically, with no confirmation step. Repeat bank and crypto details exactly as the tool returns them; never invent payment details, fees, or timing. Deposits over the automatic caps wait for manual review.
 
@@ -188,11 +191,11 @@ Pecu and Pecu Agent share `theme/amber-minimal.json`, generated `theme/theme.css
 and `theme/clay.css`. Keep the original claymation snail and clay depth in controls.
 Amber-minimal owns UI colors and typography; the clay layer owns material and shape.
 Do not add a second palette or override the upstream tokens in product stylesheets.
+The one exception is the homepage Aero tile: it uses Aero's palette from
+`theme/aero.css`, copied from the pinned Aero TUI and checked by `design:check`.
 Read `docs/design-system.md` before UI work and run `bun run design:check` afterwards.
 Update the `/design` specimens with new visual patterns. Charts may retain distinct
 series colors; their data-driven styles have explicit lint exceptions.
-The one exception is the homepage Aero tile: it uses Aero's palette from
-`theme/aero.css`, copied from the pinned Aero TUI and checked by `design:check`.
 
 Portfolio analytics: `/nansen portfolio [ADDRESS]` returns wallet tokens and DeFi positions separately. See `docs/nansen-charts.md`.
 

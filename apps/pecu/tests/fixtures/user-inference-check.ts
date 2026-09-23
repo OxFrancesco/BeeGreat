@@ -26,14 +26,14 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
     async chatGptLoginStatus() { if (state.loginStatusError) throw state.loginStatusError; if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
-    async respond(_message: unknown, capabilities: { walletAddress(): Promise<string> }, _mode?: unknown, progress?: (paragraph: string) => void, chatGpt = true) {
+    async respond(_message: { text?: string }, capabilities: { walletAddress(): Promise<string>; polymarketRead(endpoint: "status", input: unknown): Promise<string> }, _mode?: unknown, progress?: (paragraph: string) => void, chatGpt = true) {
       state.calls++;
       state.lastChatGpt = chatGpt;
       state.lastStreamed = progress !== undefined;
       if (state.usageLimit && !fallbackConfigured) throw new UsageLimitError({ kind: "usage_limit_reached", planType: "plus", resetsAt: Date.now() + 3_600_000, observedAt: Date.now() });
       if (state.hold) await state.hold;
       progress?.("First paragraph.");
-      return capabilities.walletAddress();
+      return _message.text === "Polymarket freshness" ? capabilities.polymarketRead("status", {}) : capabilities.walletAddress();
     },
   };
 } } }));
@@ -135,4 +135,14 @@ await keyed.instance.disconnect();
 expect(await keyed.instance.respond(message, false, tools)).toBe("wallet-a");
 expect(states.get(keyed.storage)!.lastChatGpt).toBe(false);
 expect((await a.instance.status()).fallback).toEqual({ configured: false, active: false });
+const polymarketTools = new InferenceTools({ polymarketRead: async (endpoint: string, input: unknown) => JSON.stringify({ endpoint, input }) } as never);
+const polymarketMessage = { eventId: "polymarket", senderId: "1", conversationId: "chat", text: "Polymarket freshness" } as never;
+expect(await keyed.instance.respond(polymarketMessage, false, polymarketTools)).toBe('{"endpoint":"status","input":{}}');
+expect(states.get(keyed.storage)!.lastChatGpt).toBe(false);
+states.get(keyed.storage)!.connected = true;
+states.get(keyed.storage)!.usageLimit = false;
+await keyed.storage.delete("disconnected");
+expect(await keyed.instance.respond(polymarketMessage, false, polymarketTools)).toBe('{"endpoint":"status","input":{}}');
+expect(states.get(keyed.storage)!.lastChatGpt).toBe(true);
+await expect(explanationTools.call("polymarketRead", ["status", {}])).rejects.toThrow("explanation-only");
 console.log("isolation, OpenRouter fallback, OAuth reuse, disconnect, failure recovery, restart, turn locks, RPC allowlist passed");

@@ -11,6 +11,7 @@
 <tr><td><code>/help</code></td><td>Shows the short command list.</td><td><code>/help</code></td></tr>
 <tr><td><code>/start</code></td><td>Alias for <code>/help</code>.</td><td><code>/start</code></td></tr>
 <tr><td><code>/wallet</code></td><td>Creates or retrieves your Base smart wallet and shows its address.</td><td><code>/wallet</code></td></tr>
+<tr><td><code>/stocks</code></td><td>Shows stock holdings with a value-weighted chart on web and a text response in X Chat.</td><td>Send <code>/stocks</code> or ask which stocks you own.</td></tr>
 <tr><td><code>/balance</code></td><td>Shows ETH, USDC, and AERO balances.</td><td><code>/balance</code></td></tr>
 <tr><td><code>/deposit</code></td><td>Shows the Whop funding page and bank or crypto deposit details for adding money. Asks for an email on first use.</td><td><code>/deposit</code> or <code>/deposit 50</code></td></tr>
 <tr><td><code>/deposit setup EMAIL</code></td><td>Creates your Whop funding account with the given email. Whop uses it for deposit receipts.</td><td><code>/deposit setup you@example.com</code></td></tr>
@@ -23,7 +24,10 @@
 <tr><td><code>/approve AMOUNT TOKEN for ADDRESS</code></td><td>Previews setting an exact ERC-20 spending allowance. It does not transfer tokens.</td><td><code>/approve 1 USDC for 0xSPENDER</code></td></tr>
 <tr><td><code>/revoke TOKEN for ADDRESS</code></td><td>Previews setting an ERC-20 spending allowance to zero. ETH does not have allowances.</td><td><code>/revoke USDC for 0xSPENDER</code></td></tr>
 <tr><td><code>/aave help</code></td><td>Shows Aave lending, borrowing, and position examples. The five official workflows load for natural-language Aave requests.</td><td><code>/aave help</code></td></tr>
-<tr><td><code>/polymarket QUESTION</code></td><td>Researches public Polymarket odds, history, liquidity, and trader positions through Exa. Read-only.</td><td><code>/polymarket What are the odds of a Fed rate cut?</code></td></tr>
+<tr><td><code>/polymarket QUESTION</code></td><td>Searches public Polymarket markets directly. Read-only, no API key.</td><td><code>/polymarket What are the odds of a Fed rate cut?</code></td></tr>
+<tr><td><code>/polymarket help</code></td><td>Lists direct public reads.</td><td><code>/polymarket help</code></td></tr>
+<tr><td><code>/polymarket read ENDPOINT JSON</code></td><td>Calls a direct public read with validated arguments.</td><td><code>/polymarket read leaderboard {&quot;limit&quot;:5}</code></td></tr>
+<tr><td><code>/polymarket research QUESTION</code></td><td>Starts optional deeper research through Exa.</td><td><code>/polymarket research Compare Fed market probabilities</code></td></tr>
 <tr><td><code>/polymarket status</code></td><td>Retrieves the latest research without starting another paid run.</td><td><code>/polymarket status</code></td></tr>
 <tr><td><code>/yolo</code></td><td>Shows whether YOLO is enabled for you in this chat. Defaults to off.</td><td><code>/yolo</code></td></tr>
 <tr><td><code>/yolo on</code></td><td>Executes new transaction requests without a confirmation prompt. Does not execute existing previews.</td><td><code>/yolo on</code></td></tr>
@@ -35,9 +39,9 @@
 <tr><td><code>/aero help</code></td><td>Shows the advanced Aerodrome command reference.</td><td><code>/aero</code>, <code>/aero help</code>, <code>/aero --help</code>, and <code>/aero -h</code> all show the same help.</td></tr>
 <tr><td><code>/nansen</code> or <code>/nansen help</code></td><td>Shows the Nansen analytics commands.</td><td><code>/nansen</code></td></tr>
 <tr><td><code>/nansen token TOKEN [chain] [timeframe]</code></td><td>Shows a token snapshot: price, market cap, liquidity, volume, holders.</td><td><code>/nansen token 0xTOKEN base 7d</code></td></tr>
-<tr><td><code>/nansen flows TOKEN [chain]</code></td><td>Shows net token inflows and outflows per holder cohort.</td><td><code>/nansen flows 0xTOKEN</code></td></tr>
+<tr><td><code>/nansen flows TOKEN [chain] [timeframe]</code></td><td>Shows net token inflows and outflows per holder cohort.</td><td><code>/nansen flows 0xTOKEN</code></td></tr>
 <tr><td><code>/nansen wallet [ADDRESS] [chain]</code></td><td>Shows token balances for an address, defaulting to your wallet on Base.</td><td><code>/nansen wallet</code> or <code>/nansen wallet 0xADDRESS ethereum</code></td></tr>
-<tr><td><code>/nansen pnl [ADDRESS] [chain]</code></td><td>Shows realized PnL, win rate, and top tokens for an address.</td><td><code>/nansen pnl</code></td></tr>
+<tr><td><code>/nansen pnl [ADDRESS] [chain]</code></td><td>Shows realized and unrealized P&amp;L by token for an address.</td><td><code>/nansen pnl</code></td></tr>
 <tr><td><code>/nansen markets [words]</code></td><td>Lists Polymarket markets ranked by 24h volume, optionally filtered by search words.</td><td><code>/nansen markets fed rate cut</code></td></tr>
 </tbody>
 </table>
@@ -102,6 +106,7 @@
 <li>Slippage is a fraction: <code>--slippage 0.005</code> means 0.5%. The bot currently defaults to 1% and rejects values above its configured maximum. A lower custom value is allowed.</li>
 <li>Flags accept <code>--name value</code> or <code>--name=value</code>. Use hyphenated flag names in documentation. Boolean flags accept <code>--flag</code>, <code>--flag true</code>, <code>--flag=false</code>, or <code>--no-flag</code>. Do not assume a flag supported by one action is supported by another.</li>
 </ul>
+<p>The model also has an <code>aero_stock_trades</code> tool for composite stock orders. When one message asks for several stock buys or sells, it combines them into a single basket preview: one confirmation code, approvals followed by one router action, and one persisted intent. It is not a slash command.</p>
 </details><h2 id="natural">Natural-language requests</h2>
 <p>Users do not need to memorize the command list. Examples:</p>
 <ul>

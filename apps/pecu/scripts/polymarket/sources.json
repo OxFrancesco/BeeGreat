@@ -1,0 +1,28 @@
+{
+  "retrievedAt": "2026-09-23",
+  "referenceSdk": {
+    "repository": "https://github.com/Polymarket/ts-sdk",
+    "commit": "49ece884e9c4c89a9f5dbf54882508c9c91ebe89",
+    "version": "0.10.0",
+    "license": "MIT"
+  },
+  "specs": {
+    "data": {
+      "url": "https://data-api.polymarket.com/v2/openapi.json",
+      "snapshotSha256": "539626e74cb0d17ad647035fa1ba7b9048efc4b6b52011c2366c73a585432d89"
+    },
+    "gamma": {
+      "url": "https://docs.polymarket.com/api-spec/gamma-openapi.yaml",
+      "snapshotSha256": "f407676dce73a4c95762b6fa90c77d65ab1bc99ddc62fc8abd1dedf26c47861d"
+    },
+    "clob": {
+      "url": "https://docs.polymarket.com/api-spec/clob-openapi.yaml",
+      "snapshotSha256": "163fc3f3d4cc7e464a21969799a7ffc34b96d994679e44108de4908dc11a93d4"
+    }
+  },
+  "compatibility": {
+    "clobPrice": "Live GET /price returns a decimal string; accept numeric and numeric-string prices.",
+    "clobMidpoint": "Live GET /midpoint returns mid; also accept documented mid_price.",
+    "gammaIdentity": "Require event/market identities and keyset lists even where the published schemas mark every key optional."
+  }
+}

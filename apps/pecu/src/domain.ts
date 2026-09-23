@@ -1,3 +1,4 @@
+import { polymarketEndpoints, type PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
 import { parseSugarCliArgs } from "@beegreat/sugar/cli-args";
 import { SUGAR_TX_ACTIONS, type SugarAction, type SugarParameters } from "@beegreat/sugar/contracts";
 import { z } from "zod";
@@ -28,6 +29,8 @@ export type Command =
   | Readonly<{ type: "aero-help" }>
   | Readonly<{ type: "aave-help" }>
   | Readonly<{ type: "polymarket"; query?: string }>
+  | Readonly<{ type: "polymarket-help" }>
+  | Readonly<{ type: "polymarket-read"; endpoint: PolymarketEndpointName; input: unknown }>
   | Readonly<{ type: "aero"; action: SugarAction; parameters: SugarParameters }>
   | Readonly<{ type: "evm"; action: "transfer"; parameters: EvmTxParameters<"transfer"> }>
   | Readonly<{ type: "evm"; action: "approve"; parameters: EvmTxParameters<"approve"> }>
@@ -205,7 +208,17 @@ export function parseCommand(input: string): Command {
   if (verb === "aave" && (parts.length === 1 || parts[1] === "help")) return { type: "aave-help" };
   if (verb === "polymarket") {
     const query = parts.slice(1).join(" ").trim();
-    return { type: "polymarket", ...(query && query.toLowerCase() !== "status" ? { query } : {}) };
+    if (!query || query === "help") return { type: "polymarket-help" };
+    if (query === "status") return { type: "polymarket" };
+    if (parts[1] === "research") return { type: "polymarket", query: z.string().min(1).max(2000).parse(parts.slice(2).join(" ")) };
+    if (parts[1] === "read") {
+      const endpoint = parts[2];
+      if (!isPolymarketEndpoint(endpoint)) throw new Error("Unknown Polymarket endpoint. Use /polymarket help.");
+      const raw = input.trim().replace(/^(?:b)?\//i, "");
+      const json = raw.replace(/^polymarket\s+read\s+\S+\s*/i, "");
+      return { type: "polymarket-read", endpoint, input: polymarketEndpoints[endpoint].input.parse(json ? JSON.parse(json) : {}) };
+    }
+    return { type: "polymarket-read", endpoint: "search", input: { q: query, limit_per_type: 5 } };
   }
   if (verb === "yolo") {
     if (!/^(?:b)?\/yolo(?:\s+(?:on|off))?$/i.test(input.trim())) throw new Error("Use /yolo, /yolo on, or /yolo off.");
@@ -366,7 +379,9 @@ export const helpText = [
   "/stocks  Show your stock holdings",
   "/aero help  Explore pools, liquidity, rewards, and more",
   "/aave help  Explore lending, borrowing, and Aave positions",
-  "/polymarket QUESTION  Research market odds and trends",
+  "/polymarket QUESTION  Find markets and odds",
+  "/polymarket help  Explore public market data reads",
+  "/polymarket research QUESTION  Start optional deeper research",
   "/polymarket status  Read your latest research result",
   "/nansen help  On-chain analytics for tokens, wallets, and prediction markets",
   "",
@@ -374,3 +389,7 @@ export const helpText = [
   "",
   "YOLO is off by default. With YOLO off, review the preview before confirming. YOLO only applies to your requests in this chat.",
 ].join("\n");
+
+function isPolymarketEndpoint(name: string | undefined): name is PolymarketEndpointName {
+  return name !== undefined && Object.hasOwn(polymarketEndpoints, name);
+}

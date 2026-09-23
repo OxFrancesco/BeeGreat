@@ -55,6 +55,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 - `resources/safe-modules` — Official Safe allowance, passkey and ERC-4337 module source
 
+- `resources/polymarket` — Official Polymarket TypeScript SDK: public Gamma, CLOB and Data API v2 contracts
+
 <!-- codeview:end -->
 
 ## Design system

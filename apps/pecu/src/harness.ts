@@ -1,3 +1,4 @@
+import type { PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
 import type { SafeReadCommand } from "./safe";
 import type { SugarAction, SugarParameters, SugarTxAction } from "@beegreat/sugar/contracts";
 import type { VerifiedMessage } from "./domain";
@@ -13,6 +14,7 @@ export type AgentCapabilities = Readonly<{
   askUser(question: string, options?: readonly string[]): Promise<string>;
   aaveCall(name: string, args: Record<string, unknown>): Promise<string>;
   polymarketResearch(query?: string): Promise<string>;
+  polymarketRead(endpoint: PolymarketEndpointName, input: unknown): Promise<string>;
   walletAddress(): Promise<string>;
   walletBalances(): Promise<string>;
   aeroRead(action: Exclude<SugarAction, SugarTxAction>, parameters: SugarParameters): Promise<string>;
