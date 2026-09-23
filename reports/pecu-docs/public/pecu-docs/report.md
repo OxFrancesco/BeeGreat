@@ -1,6 +1,6 @@
 # Pecu docs
 
-`pecu.app/docs` covers Pecu, the Aero SDK with its CLI and TUI, and evmSDK in one place. It is built and committed but not deployed. It goes live with the next `pecu-app` deploy.
+`pecu.app/docs` covers Pecu, the Aero SDK with its CLI and TUI, and evmSDK in one place. Live on [pecu.app/docs](https://pecu.app/docs) since 23 September 2026.
 
 ## What is there
 
@@ -32,12 +32,12 @@ Four agents wrote the content in parallel, one each for Pecu, the Aero SDK, the 
 - 425 Pecu tests pass, including 8 new ones for content rules, the build, broken links and routes.
 - Design check, site typecheck and the Worker dry-run pass.
 - Headless Chrome on all 47 pages at 360px found no horizontal overflow. Search, drawer, copy, outline and reduced motion checked by hand.
+- Production: every docs route, the old-path redirects and the SDK landing links respond as expected. Search loads under the site's CSP, with no console errors.
 
 ## Shipped
 
-Commit `31db14f4` on `main`, not pushed.
+Commit `31db14f4` on `main`, not pushed. `pecu-app` version `9a7ef033`.
 
 ## Next
 
-- Deploy `pecu-app`.
 - Decide whether the "Known gaps in live testing" section on the Pecu security page stays. It comes from repository notes I could not check against production.
