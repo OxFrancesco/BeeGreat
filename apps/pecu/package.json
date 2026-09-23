@@ -4,8 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "WRANGLER_WRITE_LOGS=false bunx wrangler dev -c wrangler.jsonc -c wrangler.aero.jsonc -c wrangler.codex.jsonc -c wrangler.evm.jsonc",
-    "start": "bun run dev",
     "x:login": "bun scripts/x-login.ts",
     "xchat:setup": "bun scripts/xchat-setup.ts",
     "aero": "sugar-ts",
@@ -15,7 +13,6 @@
     "test": "bun test ./tests/*.test.ts",
     "check": "bun run design:check && bun run typecheck && bun run test && bun run build",
     "cloudflare:types": "WRANGLER_WRITE_LOGS=false bunx wrangler types",
-    "cloudflare:dev": "bun run dev",
     "cloudflare:build": "bun run build",
     "cloudflare:deploy": "WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.codex.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.evm.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.aero.jsonc && WRANGLER_WRITE_LOGS=false bunx wrangler deploy",
     "aero:check-version": "bun scripts/check-aero-version.ts",

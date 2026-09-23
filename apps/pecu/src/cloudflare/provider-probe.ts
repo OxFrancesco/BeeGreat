@@ -8,7 +8,7 @@ export async function probeChatGptBoundary() {
       "User-Agent": "opencode/0.0.0-beta-18684",
       originator: "opencode",
     },
-    body: JSON.stringify({ model: "gpt-5.6-sol", input: "Reply exactly OK.", stream: true, store: false }),
+    body: JSON.stringify({ model: "gpt-6-sol", input: "Reply exactly OK.", stream: true, store: false }),
     signal: AbortSignal.timeout(15_000),
   });
   return {

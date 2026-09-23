@@ -16,7 +16,6 @@ Run these from the BeeGreat root with Bun 1.4.2 or newer.
 | `bun run pecu:stocks:build` | Regenerate the stock catalog and build Stocks |
 | `bun run pecu:site:build` | Copy the Pecu homepage and generate pinned Aero CLI docs |
 | `bun run pecu:site:check` | Pecu type checks and dry-run bundle |
-| `bun run pecu` | Start the bot's local Worker services |
 | `bun run pecu:deploy` | Deploy Codex, EVM, Aero, then the bot to the configured personal account |
 
 Check existing listeners before starting development. Stocks uses remote service bindings during local development, so it can reach deployed wallet state. Routine migration checks use offline fixtures and dry-run bundles.
@@ -158,3 +157,5 @@ secret disables classification. Deploy the updated Codex transport before the
 Pecu Worker because it must admit Luna as well as Sol. A user's own connected
 ChatGPT subscription remains required for all model responses unless the
 operator-configured OpenRouter fallback is present.
+
+Pecu agent deployments run only on Cloudflare. `bun run pecu:deploy` builds the container images locally and deploys the private services before the bot. Local verification uses isolated test Workers; there is no local bot startup command.

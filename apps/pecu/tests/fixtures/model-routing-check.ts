@@ -28,9 +28,9 @@ const { OpenCodeHarness } = await import("../../src/cloudflare/opencode");
 const store = new Store(":memory:");
 const values = new Map<string, unknown>();
 const storage = { get: async (key: string) => values.get(key), put: async (key: string, value: unknown) => { values.set(key, value); }, delete: async (key: string) => values.delete(key) };
-const openai = { providerID: "openai", id: "gpt-5.6-sol", variant: "medium" };
-const openrouter = { providerID: "openrouter", id: "openai/gpt-5.6-sol", variant: "medium" };
-const openrouterSmall = { providerID: "openrouter", id: "openai/gpt-5.6-luna", variant: "low" };
+const openai = { providerID: "openai", id: "gpt-6-sol", variant: "medium" };
+const openrouter = { providerID: "openrouter", id: "openai/gpt-6-sol", variant: "medium" };
+const openrouterSmall = { providerID: "openrouter", id: "openai/gpt-6-luna", variant: "low" };
 const pluginContext = {
   session: { hook: async (name: string, fn: Hook) => { hooks.set(name, fn); } },
   tool: { transform: async (fn: (draft: unknown) => void) => fn({ list: () => [], remove() {}, add() {} }) },
@@ -39,18 +39,18 @@ const pluginContext = {
 try {
   const capabilities = { yoloEnabled: () => false } as never;
   const harness = await OpenCodeHarness.create(storage as never, store, () => capabilities);
-  expect(creates.at(-1)!.config?.providers).toBeUndefined();
+  expect(creates.at(-1)!.config?.providers?.openrouter).toBeUndefined();
   expect(harness.fallbackConfigured).toBe(false);
   await plugin!.setup(pluginContext);
   const message = { eventId: "1", senderId: "sender", conversationId: "chat", text: "Explain slippage", encodedEvent: "verified" };
   expect(await harness.respond(message, capabilities, "response")).toBe("answer");
   expect(await harness.respond({ ...message, eventId: "2" }, capabilities, "mixed")).toBe("answer");
   expect(await harness.respond({ ...message, eventId: "3" }, capabilities)).toBe("answer");
-  expect(created).toEqual(["gpt-5.6-luna"]);
+  expect(created).toEqual(["gpt-6-luna"]);
   expect(switched.map((entry) => entry.model)).toEqual([
-    { providerID: "openai", id: "gpt-5.6-luna", variant: "low" },
-    { providerID: "openai", id: "gpt-5.6-luna", variant: "low" },
-    { providerID: "openai", id: "gpt-5.6-sol", variant: "medium" },
+    { providerID: "openai", id: "gpt-6-luna", variant: "low" },
+    { providerID: "openai", id: "gpt-6-luna", variant: "low" },
+    { providerID: "openai", id: "gpt-6-sol", variant: "medium" },
   ]);
   expect(new Set(switched.map((entry) => entry.sessionID)).size).toBe(1);
   expect(prompts[0]).toContain("explanation-only");

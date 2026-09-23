@@ -1,6 +1,6 @@
 export const codexEndpoint = "https://chatgpt.com/backend-api/codex/responses";
-export const codexModel = "gpt-5.6-sol";
-export const codexSmallModel = "gpt-5.6-luna";
+export const codexModel = "gpt-6-sol";
+export const codexSmallModel = "gpt-6-luna";
 export const maxCodexRequestBytes = 8 * 1024 * 1024;
 
 const requestHeaders = ["authorization", "chatgpt-account-id", "content-type", "accept", "originator", "session-id", "user-agent", "openai-beta", "x-codex-beta-features"];

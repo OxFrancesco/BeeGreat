@@ -7,7 +7,7 @@ export function connectionFixture() {
     const path = new URL(String(input), location.origin).pathname;
     if (path.endsWith("/inference-connect")) login = { url: "https://auth.openai.com/codex/device", instructions: "Enter code: DEMO-1234", userCode: "DEMO-1234", expiresAt: Date.now() + 600000 };
     if (path.endsWith("/inference-disconnect")) login = null;
-    if (/\/inference(?:-connect|-disconnect)?$/.test(path)) return Response.json({ model: "openai/gpt-5.6-sol", reasoning: "high", connected: false, checkedAt: Date.now(), lastResponse: null, loginState: login ? "pending" : null, login });
+    if (/\/inference(?:-connect|-disconnect)?$/.test(path)) return Response.json({ model: "openai/gpt-6-sol", reasoning: "high", connected: false, checkedAt: Date.now(), lastResponse: null, loginState: login ? "pending" : null, login });
     if (path.endsWith("/threads")) return Response.json({ threads: [], olderCursor: null, newerCursor: null });
     if (path.endsWith("/turn")) {
       const body = JSON.parse(String(init?.body));

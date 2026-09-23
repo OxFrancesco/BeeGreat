@@ -1,3 +1,4 @@
+import { modelCatalog } from "../../src/cloudflare/model-catalog";
 import { UserInference, InferenceTools } from "../../src/cloudflare/user-inference";
 export { UserInference };
 import { ActivityQueue } from "../../src/cloudflare/activity-queue";
@@ -13,11 +14,11 @@ export class ModelTransportProbe extends DurableObject<Env> {
   override async fetch(): Promise<Response> {
     const { OpenCodeWorkerd } = await import("@opencode-ai/sdk/workerd");
     let requests = 0;
-    let fallback: unknown;
+    const fallback: unknown[] = [];
     const options = {
       storage: this.ctx.storage,
       models: { snapshot: true, fetch: false },
-      config: { providers: { openai: { settings: { apiKey: "offline-test-key", baseURL: "https://model.invalid/v1" } }, openrouter: { settings: { apiKey: "offline-test-key", provider: { only: ["openai"] } } } }, share: "disabled" as const, snapshots: false, formatter: false as const, lsp: false as const, websearch: false as const, warming: false },
+      config: { providers: { openai: { models: modelCatalog("openai"), settings: { apiKey: "offline-test-key", baseURL: "https://model.invalid/v1" } }, openrouter: { models: modelCatalog("openrouter"), settings: { apiKey: "offline-test-key", provider: { only: ["openai"] } } } }, share: "disabled" as const, snapshots: false, formatter: false as const, lsp: false as const, websearch: false as const, warming: false },
       fetch: Object.assign(async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = input instanceof Request ? input : new Request(input, init);
         const url = new URL(request.url);
@@ -25,23 +26,25 @@ export class ModelTransportProbe extends DurableObject<Env> {
         if (url.hostname === "openrouter.ai") {
           let body: { model?: string; reasoning?: { effort?: string }; provider?: unknown } = {};
           try { body = await request.json() as typeof body; } catch { /* no readable body */ }
-          fallback = { path: url.pathname, authorized: request.headers.get("authorization") === "Bearer offline-test-key", model: body.model, effort: body.reasoning?.effort, provider: body.provider };
+          fallback.push({ path: url.pathname, authorized: request.headers.get("authorization") === "Bearer offline-test-key", model: body.model, effort: body.reasoning?.effort, provider: body.provider });
         }
         return Response.json({ error: { message: "native-transport-test", type: "authentication_error" } }, { status: 401 });
       }, { preconnect() {} }),
     };
     const client = await OpenCodeWorkerd.create(options);
     try {
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < 4; attempt++) {
         try {
-          await client.generate.text({ model: { providerID: "openai", id: "gpt-5.6-sol" }, prompt: "Reply OK." });
+          await client.generate.text({ model: { providerID: "openai", id: attempt < 2 ? "gpt-6-sol" : "gpt-6-luna" }, prompt: "Reply OK." });
         } catch (error) {
           if (requests !== attempt + 1) throw error;
         }
       }
-      try {
-        await client.generate.text({ model: { providerID: "openrouter", id: "openai/gpt-5.6-sol", variant: "medium" }, prompt: "Reply OK." });
-      } catch { /* the fake transport answers every provider call with 401 */ }
+      for (const [id, variant] of [["openai/gpt-6-sol", "medium"], ["openai/gpt-6-luna", "low"]]) {
+        try {
+          await client.generate.text({ model: { providerID: "openrouter", id, variant }, prompt: "Reply OK." });
+        } catch { /* the fake transport answers every provider call with 401 */ }
+      }
       return Response.json({ requests, fallback });
     } finally {
       await client.close();

@@ -9,7 +9,7 @@ test("per-user inference isolates credentials and fails closed", async () => {
 });
 
 test("profile contract removes internal identifiers and rejects unsafe login URLs", () => {
-  const status = { model: "gpt-5.6-sol", reasoning: "medium", connected: false, checkedAt: 1, lastResponse: null, loginState: "pending", login: { url: "https://auth.openai.com/codex/device", instructions: "Test code", expiresAt: 2, attemptId: "private", accessToken: "must-not-leak" } };
+  const status = { model: "gpt-6-sol", reasoning: "medium", connected: false, checkedAt: 1, lastResponse: null, loginState: "pending", login: { url: "https://auth.openai.com/codex/device", instructions: "Test code", expiresAt: 2, attemptId: "private", accessToken: "must-not-leak" } };
   expect(inferenceStatusSchema.parse(status).login).not.toHaveProperty("attemptId");
   expect(inferenceStatusSchema.parse(status).login).not.toHaveProperty("accessToken");
   expect(inferenceStatusSchema.parse(status).fallback).toBeUndefined();

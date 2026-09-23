@@ -4,7 +4,7 @@ Pecu creates the verified sender's Base smart wallet when processing their first
 
 Production runs at `https://basedbot.oddofrancesco000.workers.dev`. The Cloudflare workers, Durable Object identity, stored table names, model sessions, and Crossmint `userId:basedbot-x-<sender>` owners retain their original identifiers so the Pecu rename preserves existing wallets, authentication, chat history, and transaction recovery. Deploy from this directory with `bun run cloudflare:deploy`; the product remains named Pecu.
 
-Pecu is a minimal encrypted XChat agent hosted in one Cloudflare Durable Object. OpenCode V2 Workerd is the agent harness, ChatGPT OAuth supplies Codex (`openai/gpt-5.6-sol`), Crossmint creates one Base smart wallet per verified X sender, and the complete Aero Sugar SDK/CLI surface is available through typed tools. Generic Base EVM actions (any token balance, contract reads, transfers, allowances, arbitrary contract calls) run through the `evm` CLI from [evmSDK](https://github.com/OxFrancesco/evmSDK) inside a Cloudflare Sandbox.
+Pecu is a minimal encrypted XChat agent hosted in one Cloudflare Durable Object. OpenCode V2 Workerd is the agent harness, ChatGPT OAuth supplies Codex (`openai/gpt-6-sol`), Crossmint creates one Base smart wallet per verified X sender, and the complete Aero Sugar SDK/CLI surface is available through typed tools. Generic Base EVM actions (any token balance, contract reads, transfers, allowances, arbitrary contract calls) run through the `evm` CLI from [evmSDK](https://github.com/OxFrancesco/evmSDK) inside a Cloudflare Sandbox.
 
 Model requests use a private Cloudflare Container with Bun's native HTTP client. The Durable Object retains the OAuth credential, refresh flow, sessions, and tools. The container streams requests to the fixed Codex endpoint, stores no credentials or conversation state, and sleeps after five idle minutes. This avoids the rejected Worker network path without requiring a Mac service or a separately billed OpenAI API key.
 
@@ -78,14 +78,13 @@ bun run aero pools --chain 8453 --token0 USDC --limit 5
 
 ## Local verification
 
-Requirements: Bun, a running Docker-compatible engine for container development and deployment, Wrangler access to the personal Cloudflare account, `xurl`, an X developer app with Chat read/write scopes, and a production Crossmint server key with `wallets.read`, `wallets.create`, `wallets:balance.read`, `wallets:transactions.create`, `wallets:transactions.sign`, and `wallets:transactions.read`. The read scope is required to reconcile prepared and submitted transactions.
+Requirements: Bun, a running Docker-compatible engine to build container images for Cloudflare deployment, Wrangler access to the personal Cloudflare account, `xurl`, an X developer app with Chat read/write scopes, and a production Crossmint server key with `wallets.read`, `wallets.create`, `wallets:balance.read`, `wallets:transactions.create`, `wallets:transactions.sign`, and `wallets:transactions.read`. The read scope is required to reconcile prepared and submitted transactions.
 
 ```sh
 cd ../..
 bun install --frozen-lockfile
 cd apps/pecu
 bun run check
-bun run cloudflare:dev -- --port 8793
 ```
 
 Install from the BeeGreat root with Bun 1.4.2 or newer. Root workspace configuration owns dependency patches and aligns Effect and its platform packages on the latest v4 release candidate. The complete migration notes and root commands are in [Pecu integration](../../docs/31-pecu-monorepo.md).
@@ -131,7 +130,7 @@ bunx wrangler secret put CHAT_PIN
 
 `ALCHEMY_RPC_URL` stores the full dedicated Base Alchemy URL as a Worker secret and takes precedence over `BASE_RPC_URL`. The health endpoint reports only its hostname.
 
-Set the same dedicated RPC secret on `pecu-aero` and `pecu-evm`. Both compute reads and unsigned plans through private service bindings. The bot retains wallet signing, stored plans, and confirmation checks. `pecu-evm` optionally accepts `ETHERSCAN_API_KEY` so `evm_inspect` can discover verified ABIs; without it, callers must supply signatures. Later releases use `bun run cloudflare:deploy`, which deploys both containers and the Aero service before the bot. Local development starts them through `bun run dev`.
+Set the same dedicated RPC secret on `pecu-aero` and `pecu-evm`. Both compute reads and unsigned plans through private service bindings. The bot retains wallet signing, stored plans, and confirmation checks. `pecu-evm` optionally accepts `ETHERSCAN_API_KEY` so `evm_inspect` can discover verified ABIs; without it, callers must supply signatures. Later releases use `bun run cloudflare:deploy`, which deploys both containers and the Aero service before the bot. Pecu runs only on Cloudflare. Local commands build artifacts and run isolated verification tests; they do not start a local Pecu deployment.
 
 The EVM sandbox image pins evmSDK by commit in [containers/evm/Dockerfile](containers/evm/Dockerfile). To move to a newer evmSDK, update `EVM_SDK_COMMIT`, refresh `resources/evm-sdk` with `codeview update`, and redeploy `wrangler.evm.jsonc`. Build the image locally with `docker build --platform linux/amd64 -f containers/evm/Dockerfile .` to check the clone and `bun run build` still succeed.
 
@@ -158,7 +157,7 @@ Keep `ENABLE_MAINNET_EXECUTION=false` while testing wallets, reads, and transact
 
 ## OpenRouter fallback
 
-Each user's AI replies normally run on their own connected ChatGPT subscription. When the operator sets an `OPENROUTER_API_KEY` Worker secret, three cases instead run the same turn on OpenRouter through OpenCode's built-in `openrouter` provider, billed to the operator's OpenRouter credits: the user has no ChatGPT connection, the user's stored usage limit is still active, or the ChatGPT request fails mid-turn with a provider error. The fallback uses the same models (`openai/gpt-5.6-sol` at medium effort, `openai/gpt-5.6-luna` at low effort) on the same conversation session, and the user sees a normal reply with no indication of the route. Requests are pinned to OpenAI's endpoint on OpenRouter (`provider.only = ["openai"]`), so an OpenAI outage fails the fallback instead of routing to Azure or Bedrock. Without the secret, the existing connect-ChatGPT and usage-limit replies are unchanged.
+Each user's AI replies normally run on their own connected ChatGPT subscription. When the operator sets an `OPENROUTER_API_KEY` Worker secret, three cases instead run the same turn on OpenRouter through OpenCode's built-in `openrouter` provider, billed to the operator's OpenRouter credits: the user has no ChatGPT connection, the user's stored usage limit is still active, or the ChatGPT request fails mid-turn with a provider error. The fallback uses the same models (`openai/gpt-6-sol` at medium effort, `openai/gpt-6-luna` at low effort) on the same conversation session, and the user sees a normal reply with no indication of the route. Requests are pinned to OpenAI's endpoint on OpenRouter (`provider.only = ["openai"]`), so an OpenAI outage fails the fallback instead of routing to Azure or Bedrock. Without the secret, the existing connect-ChatGPT and usage-limit replies are unchanged.
 
 ```sh
 bunx wrangler secret put OPENROUTER_API_KEY

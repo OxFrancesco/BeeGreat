@@ -1,3 +1,4 @@
+import { modelCatalog } from "./model-catalog";
 import { generationEvents } from "../inference-analytics";
 import type { AgentAnalytics } from "../analytics";
 import { chatGptConnectionRequired, chatGptUserCode } from "../inference-recovery";
@@ -35,13 +36,13 @@ type TurnModel = Readonly<{ providerID: string; id: string; variant: string }>;
 type InferenceModels = Readonly<{ default: TurnModel; small: TurnModel }>;
 /** The user's ChatGPT subscription through OpenCode's Codex transport. */
 const chatGptModels: InferenceModels = {
-  default: { providerID: "openai", id: "gpt-5.6-sol", variant: "medium" },
-  small: { providerID: "openai", id: "gpt-5.6-luna", variant: "low" },
+  default: { providerID: "openai", id: "gpt-6-sol", variant: "medium" },
+  small: { providerID: "openai", id: "gpt-6-luna", variant: "low" },
 };
 /** The same models through OpenRouter on the operator's key, used only when the user's ChatGPT is unavailable. */
 export const fallbackModels: InferenceModels = {
-  default: { providerID: "openrouter", id: "openai/gpt-5.6-sol", variant: "medium" },
-  small: { providerID: "openrouter", id: "openai/gpt-5.6-luna", variant: "low" },
+  default: { providerID: "openrouter", id: "openai/gpt-6-sol", variant: "medium" },
+  small: { providerID: "openrouter", id: "openai/gpt-6-luna", variant: "low" },
 };
 export type InferenceRoute = "chatgpt" | "fallback";
 
@@ -267,9 +268,12 @@ export class OpenCodeHarness implements AgentHarness {
       },
       config: {
         default_agent: "basedbot",
-        model: "openai/gpt-5.6-sol",
+        model: "openai/gpt-6-sol",
         // OpenRouter also hosts these models on Azure and Bedrock; only OpenAI's endpoint is the same host as the ChatGPT path.
-        ...(openRouterApiKey ? { providers: { openrouter: { settings: { apiKey: openRouterApiKey, provider: { only: ["openai"] } } } } } : {}),
+        providers: {
+          openai: { models: modelCatalog("openai") },
+          ...(openRouterApiKey ? { openrouter: { models: modelCatalog("openrouter"), settings: { apiKey: openRouterApiKey, provider: { only: ["openai"] } } } } : {}),
+        },
         share: "disabled",
         snapshots: false,
         formatter: false,
@@ -291,7 +295,7 @@ export class OpenCodeHarness implements AgentHarness {
         ],
         agents: {
           basedbot: {
-            model: "openai/gpt-5.6-sol",
+            model: "openai/gpt-6-sol",
             system: systemPrompt,
             description: "Verified X Chat smart-wallet agent with the complete Aerodrome SDK and generic Base EVM tools",
             mode: "primary",
