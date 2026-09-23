@@ -12,6 +12,7 @@
 | `/un-aerosdk/docs` and `/un-aerosdk/docs/*` | Permanent 308 redirect to `/docs/aero` |
 | `/stocks` and `/stocks/*` | Existing `aero-stocks` app and API |
 | `/agent` and `/agent/*` | Browser conversation with the Pecu agent, served by the `aero-stocks` Worker |
+| `/profile` and `/profile/*` | Pecu wallet, organizations and Safes, served by the `aero-stocks` Worker |
 | `/chat` and `/chat/*` | Permanent 308 redirect to `/agent` |
 | `/aero/stocks` and `/aero/stocks/*` | Permanent 308 redirect to `/stocks`, preserving suffix, query, and method |
 | `/aero/cli` and `/aero/cli/*` | Permanent 308 redirect to `/un-aerosdk`, preserving suffix, query, and method |

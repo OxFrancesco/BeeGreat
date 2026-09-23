@@ -16,14 +16,17 @@ Chat replies show token amounts, minimum received amounts, recipients, and confi
 
 ## What the agent can do
 
-OpenCode receives two wallet tools, three deposit tools, twenty `nansen_*` analytics tools, one typed tool per Aero SDK action, nine generic EVM tools, and no shell, filesystem, browser, coding, MCP, subagent, or arbitrary-network tools:
+OpenCode receives two wallet tools, three deposit tools, twenty `nansen_*` analytics tools, one typed tool per Aero SDK action, nine generic EVM tools, 26 Safe tools, and no shell, filesystem, browser, coding, MCP, subagent, or arbitrary-network tools:
 
 - `wallet_address` and `wallet_balances` operate on the sender's Crossmint smart wallet.
 - `deposit_instructions`, `deposit_setup`, and `deposit_status` cover adding money through Whop.
 - The `nansen_*` tools answer read-only analytics questions: token info, flows, who bought or sold, transfers, DEX trades, wallet balances, transactions, PnL, counterparties, related wallets, and Polymarket market data. Wallet tools default to the sender's Pecu wallet; the default chain is Base.
 - Each `aero_ACTION` tool derives its argument names and required fields from the SDK validator. Token amounts default to human units.
 - `evm_token_balance`, `evm_allowance`, `evm_read`, `evm_inspect`, and `evm_decode` read any Base token or contract. `evm_transfer`, `evm_approve`, `evm_revoke`, and `evm_contract_call` build simulated plans.
+- The `safe_*` tools create and run Safe organization wallets: proposals, owner changes, spending limits, roles and passkey owners. `safe_queue` reads the shared queue the web profile uses, with web signatures and a ready `executeWith` payload when the sender's wallet completes the threshold.
 - Transaction tools can only persist a confirmation-gated plan.
+
+The web profile at `pecu.app/profile` manages the same Safes: organizations, a shared approval queue, browser-wallet signing and execution, owners and spending limits. See [docs/39-safe-organization-wallets.md](../../docs/39-safe-organization-wallets.md).
 
 Confirmation checks the outcome, not just the submission. After Crossmint approves a step, the Durable Object reads the receipt and requires a `UserOperationEvent` from a known EntryPoint whose `userOpHash` and `sender` match the approved operation and whose inner `success` flag is set. A bundler transaction that succeeds while the wrapped user operation reverts is reported as reverted. A step that is not yet included keeps the intent executing; sending the same `/confirm CODE` again re-checks without resubmitting.
 

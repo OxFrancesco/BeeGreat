@@ -158,6 +158,40 @@ uses the amber clay action; Cancel stays quiet. Do not expose credentials, raw
 provider errors or invented quotas. Sign-in starts only on user action. Closing
 returns to the conversation, and failures retain a retry action.
 
+## Profile and Safes
+
+`/profile` uses the Agent frame: the 272px rail on desktop and a navigation
+dialog below 900px. The rail lists Chat, Overview, then each organization's
+Safes. The active link is a raised card; organization names are muted 12px
+labels. Content is a 940px column.
+
+The overview leads with the Pecu wallet card: address with copy and Basescan,
+then a recessed stat strip of balances. Organizations follow as clay cards with
+their Safes in a recessed list. With no organizations, one card explains what an
+organization is and offers New organization.
+
+A Safe page shows the organization link, the Safe name with a rename control and
+the address. Receive opens the QR popover; New transaction is the amber action.
+The stat strip shows required approvals and balances once. Transactions, Owners
+and Settings use the recessed segmented control from the P&L periods, with the
+pending count on Transactions.
+
+Each pending transaction is a large clay card: title, who proposed it and when,
+the plain-language summary, then approval beads, one per required approval,
+filled amber as owners approve. Below, a recessed list names every owner with
+Approved on Base, Signed or Waiting. The status line says how many approvals are
+missing, and whether executing from an owner wallet completes them. Actions only
+appear when the viewer can take them: Sign with the connected wallet, Approve or
+Execute with the Pecu wallet, Execute with the connected wallet, Reject and
+Remove from queue. A Pecu confirmation waiting on a transaction shows as an amber
+tint row with Review, which opens the transaction card in a dialog. History is a
+plain list with Executed links, Replaced and No longer pending.
+
+Forms live in 480px dialogs: labelled recessed inputs, native selects, hints in
+muted 13px text, the amber submit and a quiet Cancel. Connect wallet lists
+EIP-6963 wallets with their own icons. Never show wallet or Pecu internals such
+as proposal hashes or nonces in normal text.
+
 ## Motion
 
 Use 160ms for control feedback, 180ms for mascot state crossfades and 200ms for
@@ -173,6 +207,8 @@ cubic ease-out intro and the sweep every six seconds. The intro starts once
 a third of the screen is visible. Pointer hover plays the sweep early. Playback
 stops outside the viewport and while the document is hidden. Reduced motion
 draws the finished mark with no intro or sweep.
+
+Approval beads fill in 160ms. Profile tabs and navigation change immediately.
 
 Clay controls lift at most 2px on pointer hover and depress 1px on press.
 Respect reduced motion: remove movement and automatic video playback, use

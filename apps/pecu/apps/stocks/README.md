@@ -18,6 +18,10 @@ The thread sidebar keeps page navigation below the thread list. Its toggle butto
 
 Threads are client-chosen ids in the `t` search param. The backend keys each thread as its own conversation (`stocks:USER:SENDER#THREAD`), so previews, confirmations and YOLO are scoped per thread. No `t` means the original conversation the Stocks page uses. `POST /aero/stocks/api/thread-delete` removes a thread's history. The idle and thinking snail clips under `src/assets/mascot/` ship as VP9 WebM with alpha plus HEVC with alpha for Safari.
 
+## Profile page
+
+`/profile` shows the Pecu wallet and the viewer's organizations and Safes. `/profile/safe/$address` has the shared transaction queue, owners and settings (spending limits, modules, removal). `GET /stocks/api/profile` and `GET /stocks/api/profile-safe?safe=0x…` read through the gateway's `profile` and `profile-safe` operations; `POST /stocks/api/profile` sends one typed action from `apps/pecu/src/safe-profile-contract.ts` through `profile-action`. Actions that sign return the usual preview, confirmed with the same code flow. Browser wallets connect through EIP-6963 (`src/lib/browser-wallet.ts`), sign SafeTx typed data and can execute directly. `bunx vite --config tests/browser/profile.vite.config.ts` serves a fixture at `/profile.html` with fictional data and a simulated wallet; add `?connected`, `?empty`, `&path=/profile/safe/0x…` and `&tab=owners`. See `docs/39-safe-organization-wallets.md` at the monorepo root.
+
 ## Backend and identity
 
 The private `PECU` service binding calls `StocksGateway` in the existing `pecu` Worker. It delegates to the same `PecuAgent` and existing main Durable Object. SQLite stores web messages, stock snapshots, and one named allocation basket per Clerk user and Pecu sender. Market quotes use the existing `pecu-aero` service.

@@ -28,7 +28,7 @@ The AI runs with a fixed list of tools. Everything else is denied.
 | Set up Whop deposits and check their status | Deposit tools |
 | Read Nansen and Polymarket data and start Exa research | Analytics tools |
 | Ask you a question with choices | A question tool that ends the turn |
-| Propose Safe organization wallet actions | Safe tools |
+| Propose Safe organization wallet actions and read a Safe's shared queue | Safe tools |
 
 It has no shell, filesystem, browser, code editing, web search, subagents or general network access.
 
@@ -90,7 +90,9 @@ Normal replies never include JSON, call data, wei amounts or internal plan IDs. 
 
 ## Organization wallets
 
-Pecu can create and use Safe organization wallets when you ask in plain words. Their transactions use the same preview and confirmation flow. A Safe is only as independent as its owners. Several owner wallets that are all held by Pecu are controlled by the same server, so they are not independent signers.
+Pecu can create and use Safe organization wallets when you ask in plain words, or from [Safes](/docs/pecu/safes) at pecu.app/profile. Their transactions use the same preview and confirmation flow. A Safe is only as independent as its owners. Several owner wallets that are all held by Pecu are controlled by the same server, so they are not independent signers.
+
+Browser wallets you connect on pecu.app/profile sign and send on their own. Pecu saves a signature only after checking that it matches the pending transaction and comes from a current owner. Profile confirmations never use YOLO. A transaction reported as sent from a browser wallet counts as executed only after Pecu finds the Safe's execution event in its receipt.
 
 ## Data shared with other services
 

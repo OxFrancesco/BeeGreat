@@ -87,19 +87,29 @@ The test accepts Base Sepolia only and generates ephemeral owners. Pimlico's def
 
 ## Pecu
 
-Pecu exposes 25 Safe tools through the shared web/X Chat tool set, for both OpenRouter and ChatGPT inference paths. Safe configuration proposals, budgets, roles, passkey signer deployment, collected signatures and signer replacement use the same verified sender and persisted confirmation flow as existing transfers. Requests stay on Base mainnet.
+Pecu exposes 26 Safe tools through the shared web/X Chat tool set, for both OpenRouter and ChatGPT inference paths. Safe configuration proposals, budgets, roles, passkey signer deployment, collected signatures and signer replacement use the same verified sender and persisted confirmation flow as existing transfers. Requests stay on Base mainnet.
 
 Pecu independently compares planned calldata to the reviewed request. It checks the sender, zero outer value, module destination, role, inner target, amount, signature bytes and deployment configuration. Budget and token previews use token decimals. Other role calls require a verified contract ABI and describe static arguments explicitly in contract base units. Opaque ordinary Safe contract calls remain SDK-only.
 
 The sandbox reads and prepares. It cannot sign or submit transactions. The Durable Object owns confirmation, execution locks and receipt checks. Pecu relays confirmed transactions through its existing Crossmint wallet path. Dedicated Pimlico ERC-4337 submission is available in evmSDK; its credentials and local journal are not exposed through Pecu's disposable sandbox. No production worker deployment or live Crossmint/Safe relay test is included in this release.
 
-BeeGreat mobile, Android, CLI, iMessage, voice and Hive do not call Pecu's wallet service. They gain no separate Safe UI. No Convex, Bee UI or client wire contracts changed.
+### Profile and shared queue
+
+`pecu.app/profile` is the web page for Safes. Organizations group Safes and hold a name list for owner addresses. They belong to the Pecu sender and live in the main Durable Object's SQLite tables (`basedbot_safe_*`). The page can create a Safe, add an existing Safe after `safe-info` verifies it, propose sends, owner changes, threshold changes, rejections and spending limits, approve with the Pecu wallet, collect browser-wallet signatures, execute, and spend from a Pecu wallet limit. Removing an organization or Safe only removes the local record.
+
+Proposals live in one queue per Safe address, shared by everyone who tracks that Safe. Safe proposals built in chat join it too. A browser wallet discovered through EIP-6963 signs the EIP-712 SafeTx off-chain. The server recovers the signer and stores the signature only when it matches a current owner and the proposal is at the Safe's current nonce. Pecu wallet executions go through `safe_execute_signatures` with exactly the threshold of signatures: the executor's own approved-hash entry when it is an owner, then on-chain `approveHash` approvals, then stored signatures. A browser wallet can execute directly with the same signature set. A reported browser transaction must call `execTransaction` on the Safe; it is marked executed only after its receipt contains `ExecutionSuccess` for the proposal hash, and an unmined unknown hash clears after ten minutes. Closed proposals settle from Pecu execution receipts or an `ExecutionSuccess` log search; when the search fails they stay "no longer pending".
+
+Profile actions that sign use a dedicated `profile:` conversation, so YOLO never applies and each action shows the existing preview card. Page reads use Multicall3 over the Base RPC for owners, threshold, nonce, modules, balances, approvals and Allowance module limits. Every write still goes through evmSDK in the sandbox and Pecu's plan validation. One sender can have 10 pending proposals per Safe.
+
+Chat reads the queue with `safe_queue`. When the sender's wallet completes the threshold, the result includes an `executeWith` payload for `safe_execute_signatures`.
+
+BeeGreat mobile, Android, CLI, iMessage, voice and Hive do not call Pecu's wallet service. They gain no separate Safe UI. No Convex or Bee UI contracts changed. The Pecu web contract gained `profile`, `profile-safe` and `profile-action` gateway operations (`apps/pecu/src/safe-profile-contract.ts`).
 
 ## Verification
 
 `bun run --cwd packages/evm test:e2e` runs isolated Anvil contract tests with official artifacts and ephemeral keys. The Safe tests cover independent 2-of-3 approval, replay rejection, atomic batch rollback, budget enforcement/reset/revocation, role recipient/amount/membership restrictions, lower-threshold secondary Safes, owner replacement, module disabling and real P-256 WebAuthn signature verification. Browser helpers still need a physical authenticator acceptance test; the local contract test constructs a valid WebAuthn assertion using an ephemeral P-256 key.
 
-Pecu tests separately reject changed recipients, delegates, values, roles, call modes, signatures and owner settings. SDK type checks, lint, unit/TUI tests and builds run alongside Pecu regression tests and dry-run worker builds.
+Pecu tests separately reject changed recipients, delegates, values, roles, call modes, signatures and owner settings. `apps/pecu/tests/safe-profile.test.ts` drives the profile service against a simulated Base RPC and the real agent confirmation path: organization ownership, shared queues, signature recovery, execution signature sets, Safe creation, settlement from receipts and logs, and the chat queue view. `apps/pecu/apps/stocks/tests/profile.test.tsx` covers browser execution signatures and queue actions, and `apps/pecu/apps/stocks/tests/browser/profile.html` is a fixture page with a simulated EIP-6963 wallet. No live Safe transaction was sent from the profile. SDK type checks, lint, unit/TUI tests and builds run alongside Pecu regression tests and dry-run worker builds.
 
 On 2026-09-21 a live Pimlico-sponsored 2-of-3 Safe deployment and zero-value call succeeded on Base Sepolia. The test rejected insufficient quorum, an invalid second signature and a changed fingerprint, then confirmed idempotent resubmission. No user funds moved.
 

@@ -19,7 +19,7 @@ Ask in plain words, like "What's my balance?" or "Swap 0.001 ETH to USDC", or us
 | pecu.app/agent | The same agent in the browser, with threads, transaction cards, charts and a wallet P&L view. |
 | pecu.app/stocks | Aero Stocks, a tokenized stock market with holdings, buy and sell previews, saved baskets and the agent in a side panel. |
 
-Sign in to the web app with the X account you use with Pecu and you get the same wallet as on X. You can also sign in with Google, which gives you a separate web wallet. See [Web agent](/docs/pecu/web-agent).
+Sign in to the web app with the X account you use with Pecu and you get the same wallet as on X. You can also sign in with Google, which gives you a separate web wallet. See [Web agent](/docs/pecu/web-agent). Shared Safe wallets with several owners live at pecu.app/profile. See [Safes](/docs/pecu/safes).
 
 ## What Pecu can do
 
