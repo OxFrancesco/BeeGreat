@@ -1,8 +1,11 @@
+import { useClerk } from "@clerk/tanstack-react-start";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronRightIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import type { ProfileIntent, ProfileOrg } from "../../../../../src/safe-profile-contract";
 import { profileAction, shortAddress, useProfile } from "@/lib/profile";
+import { AccountAvatar } from "../account-avatar";
+import { useAccountIdentity } from "../account-menu";
 import { Button } from "../ui/button";
 import { AddressLine } from "./address-line";
 import { IntentDialog } from "./intent-dialog";
@@ -43,6 +46,8 @@ function OrgCard({ org, onAdd, onRename, onDelete }: { org: ProfileOrg; onAdd: (
 
 export function ProfileHome() {
   const { overview, refreshOverview } = useProfile();
+  const account = useAccountIdentity();
+  const clerk = useClerk();
   const navigate = useNavigate();
   const [creatingOrg, setCreatingOrg] = useState(false);
   const [addTo, setAddTo] = useState<ProfileOrg | null>(null);
@@ -67,9 +72,17 @@ export function ProfileHome() {
   };
   return (
     <div className="pecu-profile-body">
-      <section className="pecu-wallet-card" aria-labelledby="pecu-wallet-title">
-        <div className="pecu-safe-title">
-          <h1 id="pecu-wallet-title">Pecu wallet</h1>
+      <section className="pecu-wallet-card" aria-labelledby="pecu-profile-name">
+        <div className="pecu-profile-identity">
+          <AccountAvatar account={account} size="profile" />
+          <div className="pecu-safe-title">
+            <h1 id="pecu-profile-name">{account.name}</h1>
+            {account.handle ? <p className="pecu-profile-handle">{account.handle}</p> : null}
+          </div>
+          <Button className="pecu-button pecu-profile-manage" onClick={() => clerk.openUserProfile()}>Manage account</Button>
+        </div>
+        <div className="pecu-profile-wallet">
+          <h2>Pecu wallet</h2>
           {overview.wallet ? (
             <AddressLine address={overview.wallet} explorer />
           ) : (
@@ -77,17 +90,18 @@ export function ProfileHome() {
               {overview.senderKind === "web" ? "Your Base wallet is created with your first message to Pecu or your first Safe action." : "Your X account has no Pecu wallet yet. Send /wallet to @BeeGreatAI on X, then reload."}
             </p>
           )}
+          {overview.wallet ? <p className="pecu-profile-note">{overview.senderKind === "x" ? "The same wallet Pecu uses in your X chats." : "The wallet for this sign-in. It is separate from any X wallet."}</p> : null}
+          {overview.balances ? (
+            <dl className="pecu-profile-stats">
+              {overview.balances.map((balance) => (
+                <div key={balance.symbol}>
+                  <dt>{balance.symbol}</dt>
+                  <dd>{balance.amount}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
         </div>
-        {overview.balances ? (
-          <dl className="pecu-profile-stats">
-            {overview.balances.map((balance) => (
-              <div key={balance.symbol}>
-                <dt>{balance.symbol}</dt>
-                <dd>{balance.amount}</dd>
-              </div>
-            ))}
-          </dl>
-        ) : null}
       </section>
       <section className="pecu-profile-section" aria-labelledby="pecu-orgs">
         <div className="pecu-profile-section-head">

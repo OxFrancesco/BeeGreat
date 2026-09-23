@@ -116,6 +116,36 @@ html:has(.pecu-app), body:has(.pecu-app) { background: var(--background); }
   .pecu-pnl-parts { display: grid; gap: 2px; margin-top: 4px; font-size: 12px; color: var(--muted-foreground); }
 }
 
+/* Account menu: the signed-in person, Profile and account actions. */
+.pecu-account-trigger { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.pecu-account-trigger:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+.pecu-avatar-circle { display: grid; place-items: center; flex-shrink: 0; overflow: hidden; border-radius: 50%; background: var(--accent); color: var(--accent-foreground); font-weight: 700; box-shadow: var(--clay-shadow-sm); transition: box-shadow var(--fast) ease; }
+.pecu-avatar-circle.is-small { width: 36px; height: 36px; font-size: 13px; }
+.pecu-avatar-circle.is-large { width: 48px; height: 48px; font-size: 16px; }
+.pecu-avatar-circle.is-profile { width: 64px; height: 64px; font-size: 22px; }
+.pecu-avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+.pecu-account-trigger[data-state="open"] .pecu-avatar-circle { box-shadow: var(--clay-shadow-sm), var(--clay-focus); }
+.pecu.pecu-account-menu { z-index: 60; display: grid; gap: 6px; width: 296px; max-width: calc(100vw - 24px); padding: 8px; border-radius: 22px; background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-account-menu[data-state="open"] { animation: pecu-pnl-card-in var(--fast) var(--ease-out); }
+.pecu-account-menu[data-state="closed"] { animation: pecu-pnl-fade-out 120ms var(--ease-out); }
+.pecu-account-head { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: var(--muted); box-shadow: var(--clay-shadow-inset); }
+.pecu-account-who { display: grid; gap: 2px; min-width: 0; }
+.pecu .pecu-account-name, .pecu .pecu-account-handle { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pecu .pecu-account-name { font-size: 15px; font-weight: 650; }
+.pecu .pecu-account-handle { font-size: 13px; color: var(--muted-foreground); }
+.pecu-account-group { display: grid; gap: 2px; }
+.pecu .pecu-account-item { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: var(--clay-radius-control); color: var(--foreground); font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; outline: none; user-select: none; }
+.pecu-account-item > svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--muted-foreground); }
+.pecu .pecu-account-item[data-highlighted] { background: var(--secondary); }
+.pecu .pecu-account-item:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.pecu .pecu-account-item[aria-current="page"], .pecu .pecu-account-item[aria-current="page"] > svg { color: var(--accent-foreground); }
+.pecu-account-separator { height: 1px; margin: 2px 12px; background: var(--border); }
+@keyframes pecu-fade-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .pecu-account-menu[data-state="open"] { animation-name: pecu-fade-in; }
+  .pecu-avatar-circle { transition: none; }
+}
+
 /* Conversation column */
 .pecu-chat { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px 16px; min-height: 0; min-width: 0; }
 .pecu-conversation { flex: 1; min-height: 0; }

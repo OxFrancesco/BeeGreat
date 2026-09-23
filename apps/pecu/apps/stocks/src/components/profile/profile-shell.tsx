@@ -1,10 +1,10 @@
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { Link } from "@tanstack/react-router";
-import { LayoutGridIcon, MenuIcon, MessageSquareIcon, ShieldIcon } from "lucide-react";
+import { MenuIcon, MessageSquareIcon, ShieldIcon, UserRoundIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { ProfileOverview } from "../../../../../src/safe-profile-contract";
 import { ProfileContext, useProfileOverview } from "@/lib/profile";
-import { PecuUserButton } from "../inference-profile";
+import { AccountMenu } from "../account-menu";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog";
 import { ConnectWallet } from "./connect-wallet";
@@ -18,8 +18,8 @@ function ProfileNav({ overview, onNavigate }: { overview: ProfileOverview | null
           Chat
         </Link>
         <Link className="pecu-profile-link" to="/profile" activeOptions={{ exact: true }} activeProps={{ "aria-current": "page" }} onClick={onNavigate}>
-          <LayoutGridIcon className="size-4" aria-hidden="true" />
-          Overview
+          <UserRoundIcon className="size-4" aria-hidden="true" />
+          Profile
         </Link>
       </div>
       {overview?.orgs.map((org) => (
@@ -80,7 +80,7 @@ export function ProfileShell({ children }: { children: ReactNode }) {
               {isSignedIn ? (
                 <>
                   <ConnectWallet />
-                  <PecuUserButton />
+                  <AccountMenu />
                 </>
               ) : isLoaded ? (
                 <Button className="pecu-button" onClick={signIn} variant="outline">Sign in</Button>

@@ -1,7 +1,3 @@
-import { UserButton } from "@clerk/tanstack-react-start";
-import { useNavigate } from "@tanstack/react-router";
-import { ShieldIcon } from "lucide-react";
-import { CardsIcon, openPecuCards, PecuCardsDialog } from "./pecu-cards";
 import { ChatGptLogo } from "./chatgpt-logo";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { inferenceStatusSchema, type InferenceStatus } from "../../../../src/web-contract";
@@ -9,30 +5,6 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTitle } from "./ui/dialog";
 import { closeChatGptConnection, openChatGptConnection, setChatGptConnected, useChatGptConnected } from "../lib/inference-navigation";
 import { chatGptUserCode, needsChatGptConnection } from "../../../../src/inference-recovery";
-
-
-export function PecuUserButton() {
-  const profile = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  return (
-    <div ref={profile}>
-      <UserButton>
-        <UserButton.MenuItems>
-          <UserButton.Action label="Safes" labelIcon={<ShieldIcon size={16} />} onClick={() => void navigate({ to: "/profile" })} />
-          <UserButton.Action label="My cards" labelIcon={<CardsIcon />} onClick={openPecuCards} />
-          <UserButton.Action label="ChatGPT connection" labelIcon={<ChatGptLogo size={20} />} onClick={openChatGptConnection} />
-          <UserButton.Action label="manageAccount" />
-          <UserButton.Action label="signOut" />
-        </UserButton.MenuItems>
-        <UserButton.UserProfilePage label="ChatGPT connection" labelIcon={<ChatGptLogo size={20} />} url="ai-connection">
-          <InferenceProfile />
-        </UserButton.UserProfilePage>
-      </UserButton>
-      <ChatGptConnectionDialog onCloseFocus={() => profile.current?.querySelector("button")?.focus()} />
-      <PecuCardsDialog />
-    </div>
-  );
-}
 
 export function ChatGptConnectionDialog({ onCloseFocus }: { onCloseFocus?: () => void }) {
   const [open, setOpen] = useState(false);

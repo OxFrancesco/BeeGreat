@@ -6,7 +6,7 @@ import { PreviewCard } from "../components/preview-card";
 import { StockHoldings } from "../components/stock-holdings";
 import { ConversationHistory } from "@/components/history-window";
 import { HistoryNavigation } from "@/components/history-navigation";
-import { PecuUserButton } from "../components/inference-profile";
+import { AccountMenu } from "../components/account-menu";
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
@@ -351,7 +351,7 @@ function AgentWorkspace({
                     YOLO on · turn off
                   </button>
                 ) : null}
-                <PecuUserButton />
+                <AccountMenu />
               </>
             ) : (
               <Button

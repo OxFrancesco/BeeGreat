@@ -48,6 +48,13 @@
 .pecu .pecu-address-copy { width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--muted-foreground); box-shadow: none; }
 .pecu .pecu-address-explorer { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: var(--muted-foreground); }
 .pecu-wallet-card { display: grid; gap: 20px; padding: 24px; border-radius: var(--clay-radius-large); background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-profile-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.pecu-profile-identity .pecu-safe-title { flex: 1 1 200px; gap: 4px; }
+.pecu .pecu-profile-handle { margin: 0; font-size: 15px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.pecu .pecu-profile-manage { min-height: 44px; padding-inline: 16px; }
+.pecu-profile-wallet { display: grid; gap: 8px; padding-top: 20px; border-top: 1px solid var(--border); }
+.pecu-profile-wallet h2 { margin: 0; font-size: 15px; font-weight: 650; }
+.pecu-profile-wallet .pecu-profile-stats { margin-top: 8px; }
 .pecu-profile-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0; border-radius: var(--clay-radius-control); background: var(--muted); box-shadow: var(--clay-shadow-inset); overflow: hidden; }
 .pecu-profile-stats > div { display: grid; gap: 4px; min-width: 0; padding: 14px 16px; border-left: 1px solid var(--border); margin-left: -1px; }
 .pecu-profile-stats dt { font-size: 13px; color: var(--muted-foreground); }
@@ -181,6 +188,7 @@
   .pecu-proposal-progress { justify-items: start; }
   .pecu-safe-actions { width: 100%; }
   .pecu .pecu-safe-new, .pecu .pecu-safe-receive { flex: 1; justify-content: center; }
+  .pecu .pecu-profile-manage { width: 100%; }
   .pecu-approval { grid-template-columns: 16px minmax(0, 1fr); }
   .pecu-approval-state { grid-column: 2; text-align: left; }
   .pecu-owner-draft { grid-template-columns: minmax(0, 1fr) 40px; }

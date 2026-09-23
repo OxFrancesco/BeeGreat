@@ -1,5 +1,5 @@
 import { StockHoldings } from "../components/stock-holdings";
-import { PecuUserButton } from "../components/inference-profile";
+import { AccountMenu } from "../components/account-menu";
 import { createFileRoute } from "@tanstack/react-router";
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { useEffect, useState } from "react";
@@ -102,7 +102,7 @@ function StockWorkspace() {
         </nav>
         <div className="auth">
           {isSignedIn ? (
-            <PecuUserButton />
+            <AccountMenu />
           ) : (
             <Button variant="outline" onClick={signIn}>
               Sign in
