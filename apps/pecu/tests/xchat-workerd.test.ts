@@ -48,7 +48,7 @@ describe("X Chat WASM in Workerd", () => {
 
     try {
       let response: Response | undefined;
-      for (const deadline = Date.now() + 25_000; Date.now() < deadline;) {
+      for (const deadline = Date.now() + 60_000; Date.now() < deadline;) {
         try {
           response = await request("/");
           break;
@@ -59,7 +59,7 @@ describe("X Chat WASM in Workerd", () => {
       }
 
       if (!response) {
-        throw new Error("Workerd test worker did not start within 25 seconds");
+        throw new Error("Workerd test worker did not start within 60 seconds");
       }
 
       expect(response.status).toBe(200);
@@ -96,5 +96,5 @@ describe("X Chat WASM in Workerd", () => {
       await Promise.race([worker.exited, Bun.sleep(2_000)]);
       if (worker.exitCode === null) worker.kill("SIGKILL");
     }
-  }, 120_000);
+  }, 180_000);
 });

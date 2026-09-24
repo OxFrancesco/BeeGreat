@@ -36,7 +36,8 @@ test("lists, history, books, boards and traders keep units, nulls and pages hone
   expect(markets.rows[0]?.leader).toBe("Conventus Stellarum");
   const search = snapshot("pm_markets", { q: "bitcoin" }, read("search"));
   expect(search.subject).toBe("bitcoin");
-  expect(search.rows[0]?.leader).toBe("↑ 92,500");
+  expect(search.rows[0]?.leader).toBe("No");
+  expect(search.rows[0]?.title).not.toBe("What price will Bitcoin hit in September?");
   const history = snapshot("pm_history", { token_id: "123", interval: "1m" }, read("prices_history"));
   expect(history.points[0]).toEqual({ t: 1787571000, p: 0.165 });
   expect(history.period).toBe("Past month");
@@ -100,5 +101,22 @@ test("Polymarket reads attach saved cards to commands and model tool calls", asy
     const model = { eventId: "event-model", senderId: "sender", conversationId: "chat", text: "How deep is the order book?", encodedEvent: "verified" };
     expect(await agent.handle(model)).toBe("The book is thin near the midpoint.");
     expect(store.analytics("event-model").map((result) => result.snapshot.kind)).toEqual(["pm_book"]);
+  } finally { store.close(); }
+});
+
+test.each([true, false])("selected midpoint and market detail share one card regardless of completion order (%s)", (midpointFirst) => {
+  const store = new Store(":memory:");
+  const detail = snapshot("pm_odds", {}, read("market_by_slug"));
+  const midpoint = polymarketAnalytics({token_id:"yes"}, {...read("market_by_slug"), endpoint:"midpoint", data:{mid:"0.37"}}, {
+    tokenId:"yes", marketId:"market", slug:detail.subject, title:detail.title, outcome:"Yes", endDate:detail.endDate, url:detail.url,
+  });
+  if (!midpoint) throw new Error("Expected a midpoint card");
+  try {
+    for (const value of midpointFirst ? [midpoint,detail] : [detail,midpoint]) store.saveAnalytics("turn", {snapshot:value,text:analyticsText(value)});
+    const saved = store.analytics("turn");
+    expect(saved).toHaveLength(1);
+    expect(saved[0]?.snapshot).toMatchObject({rows:[{label:"Yes",probability:0.37}],liquidityUsd:detail.liquidityUsd,volume24hUsd:detail.volume24hUsd});
+    expect(saved[0]?.text).toContain("37.0%");
+    expect(store.analytics("another-turn")).toEqual([]);
   } finally { store.close(); }
 });

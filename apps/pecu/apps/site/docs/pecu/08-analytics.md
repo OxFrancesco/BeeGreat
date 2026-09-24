@@ -21,6 +21,7 @@ Nansen answers on-chain questions about tokens, wallets and prediction markets. 
 - The chain defaults to `base`. Others include `ethereum`, `arbitrum`, `optimism`, `polygon`, `bnb` and `solana`.
 - `token` and `flows` take a timeframe of `5m`, `1h`, `6h`, `12h`, `1d` or `7d`. The default is `1d`.
 - The chain and timeframe can come in either order after the token.
+- Token tools and commands resolve AERO and USDC on Base, and USDC, VELO and oUSDT on Optimism, without checking your wallet. Other EVM tokens require their contract address on the selected chain. Native ETH is not silently replaced with wrapped ETH.
 
 Plain words work for more, such as "Who is buying AERO on Base today?" or "Show my wallet PnL for the last 30 days". The agent can also look up who bought or sold a token, transfers, DEX trades, a token screener, price candles, wallet transactions, counterparties and related wallets, plus Polymarket order books, trades, holders and P&L through Nansen.
 
@@ -51,6 +52,12 @@ Pecu reads public Polymarket data directly. No account or API key is needed, and
 - Wallet reads need your Polymarket wallet address. Pecu does not assume your Base wallet holds Polymarket positions.
 
 Ask in plain words about markets, prices, order books, price history, positions, activity, holders, rankings, sports or rewards.
+
+For a market probability, Pecu selects the exact question and deadline before fetching
+the price. Its card shows the selected outcome. Exploratory searches do not add cards
+for unrelated years or thresholds. Search commands list individual market questions.
+Independent reads run together when their inputs are known; reads that need a newly
+found market wait for discovery. Order books are fetched when spread or depth matters.
 
 ### Deeper research
 

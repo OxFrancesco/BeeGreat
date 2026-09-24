@@ -1,3 +1,4 @@
+import { projectPolymarket, polymarketModelOutput, polymarketDiscovery } from "./integrations/polymarket/model-output";
 import { polymarketRead } from "./integrations/polymarket/client";
 import { polymarketEndpoints, polymarketEndpointNames, type PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
 import { polymarketText } from "./integrations/polymarket/presentation";
@@ -135,6 +136,7 @@ export type AgentServices = Readonly<{
 }>;
 
 export class PecuAgent {
+  private readonly pendingPolymarketReads = new Map<string, Promise<string>>();
   private readonly previewOnly = new Set<string>();
   private readonly executing = new Set<string>();
   private readonly relayingDeposits = new Set<string>();
@@ -501,12 +503,26 @@ export class PecuAgent {
   }
 
   private async polymarketReadReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: unknown, structured: boolean): Promise<string> {
+    const key = JSON.stringify([message.senderId, message.conversationId, message.eventId, endpoint, input, structured]);
+    const pending = this.pendingPolymarketReads.get(key);
+    if (pending) return pending;
+    const read = this.fetchPolymarketReply(message, endpoint, input, structured);
+    this.pendingPolymarketReads.set(key, read);
+    try { return await read; }
+    finally { this.pendingPolymarketReads.delete(key); }
+  }
+
+  private async fetchPolymarketReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: unknown, structured: boolean): Promise<string> {
     const result = await (this.services.polymarketRead ?? polymarketRead)(endpoint, input);
     this.saveDetails(message, result);
-    const snapshot = polymarketAnalytics(typeof input === "object" && input !== null ? Object.fromEntries(Object.entries(input)) : {}, result);
+    const projected = projectPolymarket(result, input);
+    this.store.savePolymarketTokens(message.eventId, projected.tokens);
+    const args = typeof input === "object" && input !== null ? Object.fromEntries(Object.entries(input)) : {};
+    const selected = typeof args.token_id === "string" ? this.store.polymarketToken(message.eventId, args.token_id) : undefined;
+    const snapshot = structured && polymarketDiscovery(endpoint) ? undefined : polymarketAnalytics(args, result, selected);
     const text = snapshot && analyticsText(snapshot);
     if (snapshot && text) this.store.saveAnalytics(message.eventId, { snapshot, text });
-    return structured ? JSON.stringify(result) : text || polymarketText(result);
+    return structured ? polymarketModelOutput(result, projected.data) : text || polymarketText(result);
   }
 
   private async polymarketReply(message: VerifiedMessage, query?: string): Promise<string> {

@@ -38,6 +38,9 @@ export class HistoryProbe extends DurableObject {
     store.initialize();
     const snapshot: AnalyticsSnapshot = { kind: "flows", key: "test-flow", observedAt: 1, subject: "test-token", chain: "base", period: "1d", partial: false, rows: [{ label: "Whales", netUsd: -50, wallets: 2 }] };
     store.saveAnalytics("analytics-event", { snapshot, text: analyticsText(snapshot) });
+    const token = {tokenId:"yes-2026",marketId:"2026",slug:"btc-2026",title:"BTC by Dec 31 2026",outcome:"Yes",endDate:"2027-01-01",url:"https://polymarket.com/event/btc"};
+    store.savePolymarketTokens("analytics-event", [token]);
+    store.savePolymarketTokens("other-event", [{...token,title:"Other event"}]);
     const reopened = new DurableStore(this.ctx.storage);
     return Response.json({
       initial: initial?.count,
@@ -46,6 +49,8 @@ export class HistoryProbe extends DurableObject {
       roundtrip: JSON.stringify(latest.rows) === JSON.stringify(back.rows),
       count,
       deleted: history.threads(scope).threads.length === 0,
+      marketRestored: reopened.polymarketToken("analytics-event", "yes-2026")?.title === token.title,
+      marketIsolated: reopened.polymarketToken("other-event", "yes-2026")?.title === "Other event" && reopened.polymarketToken("missing", "yes-2026") === undefined,
       analyticsRestored: JSON.stringify(reopened.analytics("analytics-event")[0]?.snapshot) === JSON.stringify(analyticsSnapshotSchema.parse(snapshot)),
       analyticsIsolated: reopened.analytics("different-event").length === 0,
     });

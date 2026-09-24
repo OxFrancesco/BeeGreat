@@ -16,6 +16,29 @@ function fakeFetch(status: number, body: unknown, headers: Record<string, string
 const service = (request: typeof fetch, apiKey = "nansen_key") => new NansenService(apiKey, "https://nansen.test/api/v1", request);
 
 describe("NansenService", () => {
+  test("resolves the incident's parallel AERO requests before reaching Nansen", async () => {
+    const { calls, request } = fakeFetch(200, { data: {} });
+    const nansen = service(request);
+    await Promise.all([
+      nansen.call("token_info", { token: "AERO" }, { wallet }),
+      nansen.call("token_flow_intelligence", { token: "aero", timeframe: "7d" }, { wallet }),
+      nansen.call("token_flow_intelligence", { token: "AERO", timeframe: "1d" }, { wallet }),
+    ]);
+    expect(calls).toHaveLength(3);
+    for (const call of calls) expect(JSON.parse(String(call.init.body)).token_address.toLowerCase()).toBe("0x940181a94a35a4569e4529a3cdfb74e38fd98631");
+  });
+
+  test("resolves symbols only on their chain and rejects unknown EVM references before HTTP", async () => {
+    const { calls, request } = fakeFetch(200, { data: {} });
+    const nansen = service(request);
+    await nansen.call("token_info", { token: "USDC", chain: "optimism" }, { wallet });
+    expect(JSON.parse(String(calls[0]?.init.body)).token_address.toLowerCase()).toBe("0x0b2c639c533813f4aa9d7837caf62653d097ff85");
+    for (const input of [{ token: "AERO", chain: "ethereum" }, { token: "UNKNOWN" }, { token: "0x123" }, { token: "ETH" }]) {
+      await expect(nansen.call("token_info", input, { wallet })).rejects.toThrow("contract address");
+    }
+    expect(calls).toHaveLength(1);
+  });
+
   test("token_info posts the apikey header, exact body, and ends with attribution", async () => {
     const { calls, request } = fakeFetch(200, { data: { name: "Aerodrome", symbol: "AERO", contract_address: token, logo: null, token_details: null, spot_metrics: null } });
     const result = await service(request).call("token_info", { token }, { wallet });

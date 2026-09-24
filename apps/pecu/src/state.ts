@@ -1,3 +1,4 @@
+import type { PolymarketToken } from "./integrations/polymarket/model-output";
 import type { StockSnapshot } from "./stock-contract";
 import type { AnalyticsResult } from "./analytics-contract";
 import { stockBasketParameters, type StockBasketParameters } from "./stock-contract";
@@ -64,6 +65,8 @@ export const eventProcessingLeaseMs = 2 * 60 * 1_000;
 export interface AgentStateStore {
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void;
   stockSnapshot(eventId: string): StockSnapshot | undefined;
+  savePolymarketTokens(eventId: string, tokens: readonly PolymarketToken[]): void;
+  polymarketToken(eventId: string, tokenId: string): PolymarketToken | undefined;
   saveAnalytics(eventId: string, result: AnalyticsResult): void;
   analytics(eventId: string): AnalyticsResult[];
   saveQuestion(message: VerifiedMessage, question: AgentQuestion): void;

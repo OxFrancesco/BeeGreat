@@ -1,4 +1,6 @@
 import { expect, mock } from "bun:test";
+import { Database } from "bun:sqlite";
+import type { TimingSql } from "../../src/inference-timings";
 import { usageStep } from "./inference-usage";
 import type { AgentAnalyticsEvent } from "../../src/analytics";
 
@@ -7,7 +9,12 @@ let readAfter: number | undefined;
 let failLog = false;
 let failWait = false;
 const values = new Map<string, unknown>();
-const storage = { get: async (key: string) => values.get(key), put: async (key: string, value: unknown) => { values.set(key, value); }, sql: {} };
+const db = new Database(":memory:");
+const sql: TimingSql = { exec: <R extends Record<string, SqlStorageValue>>(query: string, ...params: SqlStorageValue[]) => {
+  const rows = db.query<R, (string | number | null | Uint8Array)[]>(query).all(...params.map((value) => value instanceof ArrayBuffer ? new Uint8Array(value) : value));
+  return { toArray: () => rows };
+} };
+const storage = { get: async (key: string) => values.get(key), put: async (key: string, value: unknown) => { values.set(key, value); }, delete: async (key: string) => values.delete(key), sql };
 const client = {
   sessions: {
     get: async () => ({}),

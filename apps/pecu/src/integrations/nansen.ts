@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { KNOWN_TOKENS } from "@beegreat/sugar";
+import { isAddress } from "viem";
 import { log } from "../logger";
 import { analyticsText, type AnalyticsResult } from "../analytics-contract";
 import { nansenAnalytics } from "./nansen-analytics";
@@ -13,6 +15,19 @@ const chain = z.enum(nansenChains).default("base");
 const walletChain = z.enum(["all", ...nansenChains]).default("base");
 const pnlChain = z.enum(["all", "arbitrum", "avalanche", "base", "bnb", "ethereum", "linea", "mantle", "monad", "optimism", "plasma", "polygon", "robinhood", "sei", "solana", "sonic", "sui"]).default("base");
 const address = z.string().regex(/^[A-Za-z0-9._:-]{1,128}$/);
+const tokenReference = address.describe("Token contract address on the selected chain, or a supported symbol such as AERO or USDC on Base. Symbols resolve locally; do not look up wallet balances to resolve a token. For unknown symbols, ask for the contract address.");
+const evmChains = new Set(["arbitrum", "avalanche", "base", "bnb", "ethereum", "hyperevm", "linea", "mantle", "monad", "optimism", "plasma", "polygon", "robinhood", "sei", "sonic"]);
+
+function resolveToken(reference: string, selectedChain: string): string {
+  const catalog = selectedChain === "base" ? Object.values(KNOWN_TOKENS[8453])
+    : selectedChain === "optimism" ? Object.values(KNOWN_TOKENS[10]) : [];
+  const known = catalog.find((token) => token.symbol.toLowerCase() === reference.toLowerCase());
+  const resolved = known?.tokenAddress ?? reference;
+  if (evmChains.has(selectedChain) && !isAddress(resolved, { strict: false })) {
+    throw new Error(`Provide the token contract address on ${selectedChain}. This symbol is not supported there; a wallet balance lookup cannot resolve it.`);
+  }
+  return resolved;
+}
 const days = z.number().int().min(1).max(365);
 const limit = z.number().int().min(1).max(25).default(10);
 const marketId = z.string().min(1).max(128);
@@ -219,21 +234,21 @@ export const nansenEndpoints = {
   token_info: entry({
     path: "tgm/token-information",
     description: "Token God Mode snapshot for a token: price, market cap, FDV, liquidity, volume with buy/sell split, trades, unique traders, holders, and links. Default chain is Base.",
-    input: z.object({ chain, token: address, timeframe: tgmTimeframe }),
+    input: z.object({ chain, token: tokenReference, timeframe: tgmTimeframe }),
     body: (i) => ({ chain: i.chain, token_address: i.token, timeframe: i.timeframe }),
     summarize: summarizeTokenInfo,
   }),
   token_flow_intelligence: entry({
     path: "tgm/flow-intelligence",
     description: "Net token inflows and outflows per holder cohort (whales, smart traders, exchanges, fresh wallets) over a timeframe. Default chain is Base.",
-    input: z.object({ chain, token: address, timeframe: tgmTimeframe }),
+    input: z.object({ chain, token: tokenReference, timeframe: tgmTimeframe }),
     body: (i) => ({ chain: i.chain, token_address: i.token, timeframe: i.timeframe }),
     summarize: summarizeFlowIntelligence,
   }),
   token_flows: entry({
     path: "tgm/flows",
     description: "Daily token flow buckets: net value, DEX and CEX inflows/outflows, price, and holder count. Optionally filter to one holder label.",
-    input: z.object({ chain, token: address, days: days.default(7), label: z.enum(["whale", "public_figure", "smart_money", "top_100_holders", "exchange"]).optional(), limit }),
+    input: z.object({ chain, token: tokenReference, days: days.default(7), label: z.enum(["whale", "public_figure", "smart_money", "top_100_holders", "exchange"]).optional(), limit }),
     body: (i) => ({ chain: i.chain, token_address: i.token, date: range(i.days), pagination: { page: 1, per_page: i.limit }, ...(i.label ? { label: i.label } : {}) }),
     summarize: (body) => list(body, (row) =>
       `${day(field(row, "date"))}: net ${usd((Number(field(row, "total_inflows_dex")) + Number(field(row, "total_inflows_cex"))) - (Number(field(row, "total_outflows_dex")) + Number(field(row, "total_outflows_cex"))))}, in ${usd(Number(field(row, "total_inflows_dex")) + Number(field(row, "total_inflows_cex")))}, out ${usd(Number(field(row, "total_outflows_dex")) + Number(field(row, "total_outflows_cex")))}, price ${usd(field(row, "price_usd"))}, ${num(field(row, "holders_count"))} holders`),
@@ -241,7 +256,7 @@ export const nansenEndpoints = {
   token_who_bought_sold: entry({
     path: "tgm/who-bought-sold",
     description: "Wallets that bought or sold a token with USD volumes. Use side to keep only buyers or sellers.",
-    input: z.object({ chain, token: address, side: z.enum(["BUY", "SELL"]).optional(), days: days.default(1), limit }),
+    input: z.object({ chain, token: tokenReference, side: z.enum(["BUY", "SELL"]).optional(), days: days.default(1), limit }),
     body: (i) => ({ chain: i.chain, token_address: i.token, date: range(i.days), pagination: { page: 1, per_page: i.limit }, ...(i.side ? { buy_or_sell: i.side } : {}) }),
     summarize: (body) => list(body, (row) =>
       `${short(field(row, "address"))}${field(row, "address_label") ? ` (${String(field(row, "address_label"))})` : ""}: bought ${usd(field(row, "bought_volume_usd"))}, sold ${usd(field(row, "sold_volume_usd"))}`),
@@ -249,7 +264,7 @@ export const nansenEndpoints = {
   token_transfers: entry({
     path: "tgm/transfers",
     description: "Recent large token transfers between wallets with USD values.",
-    input: z.object({ chain, token: address, days: days.default(7), limit }),
+    input: z.object({ chain, token: tokenReference, days: days.default(7), limit }),
     body: (i) => ({ chain: i.chain, token_address: i.token, date: range(i.days), pagination: { page: 1, per_page: i.limit } }),
     summarize: (body) => list(body, (row) =>
       `${timestamp(field(row, "block_timestamp"))}  ${short(field(row, "from_address"))} -> ${short(field(row, "to_address"))}  ${num(field(row, "transfer_amount"))} (${usd(field(row, "transfer_value_usd"))})`),
@@ -257,7 +272,7 @@ export const nansenEndpoints = {
   token_dex_trades: entry({
     path: "tgm/dex-trades",
     description: "Recent DEX trades for a token with trader, side, size, and USD value.",
-    input: z.object({ chain, token: address, days: days.default(1), limit }),
+    input: z.object({ chain, token: tokenReference, days: days.default(1), limit }),
     body: (i) => ({ chain: i.chain, token_address: i.token, only_smart_money: false, date: range(i.days), pagination: { page: 1, per_page: i.limit } }),
     summarize: (body) => list(body, (row) =>
       `${timestamp(field(row, "block_timestamp"))}  ${String(field(row, "action") ?? "?")} ${num(field(row, "token_amount"))} ${String(field(row, "token_name") ?? "")} for ${usd(field(row, "estimated_value_usd"))} by ${short(field(row, "trader_address"))}`),
@@ -273,7 +288,7 @@ export const nansenEndpoints = {
   token_price: entry({
     path: "tgm/token-ohlcv",
     description: "OHLCV price candles for a token: open, high, low, close, and volume per interval.",
-    input: z.object({ chain, token: address, timeframe: z.enum(["1h", "4h", "1d", "1w"]).default("1d"), days: days.default(30) }),
+    input: z.object({ chain, token: tokenReference, timeframe: z.enum(["1h", "4h", "1d", "1w"]).default("1d"), days: days.default(30) }),
     body: (i) => ({ chain: i.chain, token_address: i.token, timeframe: i.timeframe, date: range(i.days) }),
     summarize: summarizeCandles,
   }),
@@ -442,6 +457,9 @@ export class NansenService {
     if (!this.apiKey) throw new Error("Nansen analytics is not configured yet.");
     const spec = nansenEndpoints[endpointName];
     const requestBody = spec.buildBody(input, context);
+    if (typeof requestBody.token_address === "string" && typeof requestBody.chain === "string") {
+      requestBody.token_address = resolveToken(requestBody.token_address, requestBody.chain);
+    }
     let result: { body: unknown; credits: NansenResult["credits"] };
     if (endpointName === "wallet_portfolio") {
       const [balances, defi] = await Promise.allSettled([

@@ -1,5 +1,6 @@
+import type { PolymarketToken } from "./model-output";
 import { z } from "zod";
-import { analyticsAddress, analyticsSnapshotSchema, type PolymarketSnapshot } from "../../analytics-contract";
+import { analyticsAddress, analyticsSnapshotSchema, analyticsText, type AnalyticsResult, type PolymarketSnapshot } from "../../analytics-contract";
 import type { PolymarketRead } from "./client";
 
 const number = z.unknown().optional().transform((value) => {
@@ -55,7 +56,7 @@ const windows: Record<string, string> = { "1h": "Past hour", "6h": "Past 6 hours
 const windowLabel = (value: unknown, fallback: string) => typeof value === "string" && windows[value] ? windows[value] : fallback;
 const nameOf = (name: string | null, wallet: string) => name && !/^0x[0-9a-f]{40}/i.test(name) ? name : analyticsAddress(wallet);
 
-export function polymarketAnalytics(input: Record<string, unknown>, result: PolymarketRead): PolymarketSnapshot | undefined {
+export function polymarketAnalytics(input: Record<string, unknown>, result: PolymarketRead, selected?: PolymarketToken): PolymarketSnapshot | undefined {
   const observedAt = Date.parse(result.observedAt);
   const context = (subject: string, period: string, partial = false) => ({
     key: JSON.stringify(["polymarket", result.endpoint, subject, period]),
@@ -68,6 +69,13 @@ export function polymarketAnalytics(input: Record<string, unknown>, result: Poly
   };
   const data = result.data;
   switch (result.endpoint) {
+    case "midpoint": {
+      if (!selected) return undefined;
+      const value = z.object({mid:probability}).safeParse(data);
+      if (!value.success) return undefined;
+      return build({ ...context(selected.slug ?? selected.tokenId, "Current"), kind:"pm_odds", title:selected.title, url:selected.url,
+        endDate:selected.endDate, volume24hUsd:null, liquidityUsd:null, rows:[{label:selected.outcome,probability:value.data.mid}] });
+    }
     case "market":
     case "market_by_slug": {
       const market = marketSchema.safeParse(data);
@@ -96,17 +104,18 @@ export function polymarketAnalytics(input: Record<string, unknown>, result: Poly
     case "search": {
       const list = z.object({ events: z.array(eventSchema) }).safeParse(data);
       if (!list.success) return undefined;
-      const rows = list.data.events.slice(0, 25).map((event) => {
-        const top = leader(eventRows(event));
-        return { title: event.title ?? "Polymarket event", url: eventUrl(event.slug), leader: top?.label ?? null, probability: top?.probability ?? null, volume24hUsd: event.volume24hr, endDate: event.endDate };
-      });
-      return build({ ...context(String(input.q ?? "events"), "Current"), kind: "pm_markets", rows });
+      const all = list.data.events.flatMap((event) => event.markets.length ? event.markets.filter(m => !m.closed).map(m => {
+        const top = leader(outcomes(m));
+        return { title:m.question ?? m.groupItemTitle ?? event.title ?? "Polymarket market", url:eventUrl(event.slug), leader:top?.label ?? null,
+          probability:top?.probability ?? null, volume24hUsd:m.volume24hr, endDate:m.endDate };
+      }) : [{title:event.title ?? "Polymarket event",url:eventUrl(event.slug),leader:null,probability:null,volume24hUsd:event.volume24hr,endDate:event.endDate}]);
+      return build({ ...context(String(input.q ?? "events"), "Current", all.length > 25 || result.next !== null), kind: "pm_markets", rows:all.slice(0,25) });
     }
     case "prices_history": {
       const series = envelope(z.object({ price: z.number().finite(), timestamp: z.number().int().nonnegative() })).safeParse(data);
       if (!series.success) return undefined;
       const points = series.data.data.filter((point) => point.price >= 0 && point.price <= 1).slice(-1000).map((point) => ({ t: point.timestamp, p: point.price }));
-      return build({ ...context(String(input.token_id ?? "token"), windowLabel(input.interval, "Custom window"), result.next !== null), kind: "pm_history", title: null, outcome: null, points });
+      return build({ ...context(String(input.token_id ?? "token"), windowLabel(input.interval, "Custom window"), result.next !== null), kind: "pm_history", title: selected?.title ?? null, outcome: selected?.outcome ?? null, points });
     }
     case "book": {
       const level = z.object({ price: number, size: number });
@@ -118,7 +127,7 @@ export function polymarketAnalytics(input: Record<string, unknown>, result: Poly
         .slice(0, 15);
       const bids = side(book.data.bids, "high"), asks = side(book.data.asks, "low");
       const bid = bids[0]?.price, ask = asks[0]?.price;
-      return build({ ...context(book.data.asset_id ?? String(input.token_id ?? "token"), "Current"), kind: "pm_book", title: null, outcome: null, midpoint: bid !== undefined && ask !== undefined ? (bid + ask) / 2 : null, spread: bid !== undefined && ask !== undefined ? ask - bid : null, lastTrade: book.data.last_trade_price, bids, asks });
+      return build({ ...context(book.data.asset_id ?? String(input.token_id ?? "token"), "Current"), kind: "pm_book", title: selected?.title ?? null, outcome: selected?.outcome ?? null, midpoint: bid !== undefined && ask !== undefined ? (bid + ask) / 2 : null, spread: bid !== undefined && ask !== undefined ? ask - bid : null, lastTrade: book.data.last_trade_price, bids, asks });
     }
     case "leaderboard": {
       if (input.user !== undefined) return undefined;
@@ -149,4 +158,22 @@ export function polymarketAnalytics(input: Record<string, unknown>, result: Poly
     default:
       return undefined;
   }
+}
+
+export function coalescePolymarketAnalytics(results: AnalyticsResult[]): AnalyticsResult[] {
+  const merged: AnalyticsResult[] = [];
+  for (const result of results) {
+    const current = result.snapshot;
+    if (current.kind !== "pm_odds") { merged.push(result); continue; }
+    const index = merged.findIndex(({snapshot}) => snapshot.kind === "pm_odds" && snapshot.subject === current.subject && snapshot.title === current.title && snapshot.endDate === current.endDate);
+    const previous = merged[index]?.snapshot;
+    if (previous?.kind !== "pm_odds") { merged.push(result); continue; }
+    const midpointKey = JSON.stringify(["polymarket", "midpoint", current.subject, current.period]);
+    const selected = previous.key === midpointKey ? previous : current;
+    const other = selected === previous ? current : previous;
+    const snapshot = { ...selected, url:selected.url ?? other.url,
+      volume24hUsd:selected.volume24hUsd ?? other.volume24hUsd, liquidityUsd:selected.liquidityUsd ?? other.liquidityUsd };
+    merged[index] = { snapshot, text:analyticsText(snapshot) };
+  }
+  return merged;
 }

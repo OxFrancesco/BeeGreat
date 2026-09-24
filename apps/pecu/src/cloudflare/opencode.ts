@@ -1,6 +1,7 @@
 import { polymarketEndpoints, polymarketEndpointNames } from "../integrations/polymarket/catalog.generated";
 import { modelCatalog } from "./model-catalog";
-import { generationEvents } from "../inference-analytics";
+import { generationEvents, toolEvents } from "../inference-analytics";
+import { InferenceTimings } from "../inference-timings";
 import type { AgentAnalytics } from "../analytics";
 import { chatGptConnectionRequired, chatGptUserCode } from "../inference-recovery";
 import { aaveSkill, aaveSkillNames, aaveSchema } from "../integrations/aave";
@@ -27,11 +28,19 @@ Use the transaction tool result as the source of truth. Normally it returns a pr
 Create at most one proposal per user message. When one message asks for several stock trades, combine them into a single aero_stock_trades proposal instead of refusing or picking one. When a message needs several unrelated transactions, prepare the first now and say you will prepare the next one after it is confirmed. If an ambiguity would change a transaction, call ask_user with a short question and useful options, then stop and wait for the next user message. Never answer your own question. A funding-token choice is not permission to choose an arbitrary swap amount. Quote the required funding swap, preserve ETH for fees, and prepare its preview before a stock purchase. If stock_buy reports insufficient USDC and asks about other holdings, repeat that question and wait. After the funding swap is confirmed, recheck USDC and prepare the stock purchase separately. Never treat a choice as confirmation or infer that a held token has sufficient value or liquidity.
 Wallet transactions use Base mainnet (8453), and the smart wallet is bound to the verified X sender. Never request or accept private keys, seed phrases, auth tokens, transaction wallet overrides, or another execution chain. Public Polymarket reads concern Polymarket accounts and markets, including Polygon data, and do not execute wallet transactions.
 For Aave requests, first load the matching official workflow with aave_skill: safe-transactions, yield-analysis, deleverage, account-activity, or tx-confirmation. Inspect aave_schema for exact arguments, then use aave_call. Its prepare_action tool runs fresh discovery, inspection and simulation before creating a Base transaction preview. If the result is an approval-only preview, explain that it does not supply or repay yet. Other prepare_* actions and signed orders are not available. Reads may compare chains but all wallet transactions stay on Base.
-Use the direct polymarket_* read tools for Polymarket facts. Start with polymarket_search, polymarket_events or polymarket_markets to discover exact event, market, condition and outcome token identifiers; never substitute one identifier type for another. Use polymarket_book, polymarket_price, polymarket_midpoint and polymarket_spread for current prices; polymarket_prices_history for history; Data API v2 tools for positions, activity, trades, holders, PnL, volume, rankings and resolution. These public reads require no API key and cannot trade. Ask for the user's Polymarket proxy/deposit wallet before portfolio reads; never assume their Base Pecu wallet owns their Polygon positions. All time-window arguments are epoch seconds. Preserve returned source URLs and observation timestamps; retrievedAt/observedAt is retrieval time, not a guarantee of source freshness. Use polymarket_status to inspect ingestion lag. Probabilities are market-implied odds, not forecasts. Bare size/volume are shares; *_usdc fields are USD. Null means unavailable, never zero; outcome_index 999 means unknown. For another page, use the returned next.endpoint and next.input unchanged, preserving filters and cursor. Do not claim a whole portfolio or history from one page. An empty/short page can still have a continuation. Prefer small limits, and report an API error as unavailable data. Market, event, market list, event list, search, price history, order book, leaderboard, biggest winners, user PnL and user positions reads attach verified cards automatically; explain the main finding without repeating every row. For a price history chart, pass interval with bucket_seconds sized for about 60 points and limit up to 100. No orders, signing, approvals, or bridge writes are exposed by Polymarket tools. Use polymarket_research through Exa only when the user explicitly asks for deeper research/synthesis; omit its query to check a saved research run without creating another paid run.
+Use the direct polymarket_* read tools for Polymarket facts. Start with polymarket_search, polymarket_events or polymarket_markets to discover exact event, market, condition and outcome token identifiers; never substitute one identifier type for another. Use polymarket_book, polymarket_price, polymarket_midpoint and polymarket_spread for current prices; polymarket_prices_history for history; Data API v2 tools for positions, activity, trades, holders, PnL, volume, rankings and resolution. These public reads require no API key and cannot trade. Ask for the user's Polymarket proxy/deposit wallet before portfolio reads; never assume their Base Pecu wallet owns their Polygon positions. All time-window arguments are epoch seconds. Preserve returned source URLs and observation timestamps; retrievedAt/observedAt is retrieval time, not a guarantee of source freshness. Use polymarket_status to inspect ingestion lag. Probabilities are market-implied odds, not forecasts. Bare size/volume are shares; *_usdc fields are USD. Null means unavailable, never zero; outcome_index 999 means unknown. For another page, use the returned next.endpoint and next.input unchanged, preserving filters and cursor. Do not claim a whole portfolio or history from one page. An empty/short page can still have a continuation. Prefer small limits, and report an API error as unavailable data. Selected market, event, midpoint, price history, order book, leaderboard, biggest winners, user PnL and user positions reads attach verified cards automatically; exploratory searches and listings do not attach cards to model replies; explain the main finding without repeating every row. For a price history chart, pass interval with bucket_seconds sized for about 60 points and limit up to 100. No orders, signing, approvals, or bridge writes are exposed by Polymarket tools. Use polymarket_research through Exa only when the user explicitly asks for deeper research/synthesis; omit its query to check a saved research run without creating another paid run.
 When the user wants to add money, fund, deposit, or top up their wallet, call deposit_instructions. If it says a funding account is needed, ask for their email and then call deposit_setup. Repeat bank and crypto details exactly as the tool returns them; never invent payment details, fees, or timing.
-For on-chain analytics such as token flows, who is buying or selling, wallet holdings, PnL, counterparties, related wallets, use the nansen_* tools. For Polymarket, prefer direct polymarket_* tools; use Nansen prediction tools when the user requests Nansen enrichment. The default chain is Base; pass another chain only when the user names it. Wallet tools default to the user's own Pecu wallet when no address is given. Use nansen_wallet_portfolio for portfolio exposure and nansen_wallet_pnl_breakdown for charts of trading gains and losses. Flow intelligence, detailed P&L and portfolio tools attach verified charts automatically. Explain the main finding without repeating every chart row or inventing chart data. Flow groups can overlap, deposits are not proof of sales, and wallet tokens must not be added to DeFi positions because receipt tokens can overlap. Keep the closing 'Data: Nansen' line in your reply. Report what the data shows; it is not financial advice and not a prediction.
+For on-chain analytics such as token flows, who is buying or selling, wallet holdings, PnL, counterparties, related wallets, use the nansen_* tools. For Polymarket, prefer direct polymarket_* tools; use Nansen prediction tools when the user requests Nansen enrichment. The default chain is Base; pass another chain only when the user names it. Nansen token tools resolve supported symbols such as AERO and USDC locally. Call them directly with the symbol or a verified contract address. Never query a wallet balance to resolve a token for public market research. For an unsupported symbol, ask for its contract address. Run independent analytics reads together. Wallet tools default to the user's own Pecu wallet when no address is given. Use nansen_wallet_portfolio for portfolio exposure and nansen_wallet_pnl_breakdown for charts of trading gains and losses. Flow intelligence, detailed P&L and portfolio tools attach verified charts automatically. Explain the main finding without repeating every chart row or inventing chart data. Flow groups can overlap, deposits are not proof of sales, and wallet tokens must not be added to DeFi positions because receipt tokens can overlap. Keep the closing 'Data: Nansen' line in your reply. Report what the data shows; it is not financial advice and not a prediction.
+For independent read-only questions, issue all useful reads whose required inputs are already known together in the same tool round, including separate market lookups or independent analytics. Wait only for genuine dependencies such as discovering an exact token id before fetching its price. Do not add redundant reads to increase parallelism. Transaction preparation, confirmations and execution must retain their existing ordering and checks.
+For a simple Polymarket odds question, use a short topic search such as "Bitcoin 100k" with active markets and limit_per_type 3; match the exact deadline in the returned markets rather than adding a full question to the search query. Select the exact threshold and deadline, then fetch its midpoint. The midpoint attaches the selected market and outcome card. Search results are compact discovery data and do not attach cards to model replies. Fetch market details in parallel with the midpoint only when resolution rules or other missing details matter. Request order books only for spread, depth or liquidity questions. Never treat a different year or threshold as the requested outcome. If presentation.partial is true, use the returned id or slug to retrieve a focused result or reduce the page limit; upstream next does not recover fields omitted on this page.
+For explicit Polymarket questions, the initial tool catalog contains market discovery, details, prices, books, history and clarification. These tools are sufficient for comparing odds and resolution rules across several markets; do not expand the catalog for those questions. For other Polymarket data, research, wallets, Aave, Aerodrome, Nansen or another capability, call enable_all_tools to expose the full catalog. This changes tool visibility only and never grants transaction approval. Reuse one discovery search for multiple deadlines; never issue identical searches in parallel.
 You have no shell, filesystem, browser, code-editing, subagent, or arbitrary network tools.`;
 
+const initialPolymarketTools = new Set([
+  "ask_user", "enable_all_tools", "polymarket_search", "polymarket_market", "polymarket_market_by_slug",
+  "polymarket_event", "polymarket_event_by_slug", "polymarket_midpoint", "polymarket_price", "polymarket_spread",
+  "polymarket_book", "polymarket_prices_history",
+]);
 const location = { directory: "/" } as const;
 type TurnModel = Readonly<{ providerID: string; id: string; variant: string }>;
 type InferenceModels = Readonly<{ default: TurnModel; small: TurnModel }>;
@@ -93,6 +102,7 @@ export class OpenCodeHarness implements AgentHarness {
     private readonly storage: DurableObjectStorage,
     readonly fallbackConfigured: boolean,
     private readonly analytics?: AgentAnalytics,
+    private readonly timings?: InferenceTimings,
   ) {}
 
   static async create(
@@ -109,10 +119,30 @@ export class OpenCodeHarness implements AgentHarness {
       import("@opencode-ai/sdk/workerd"),
       import("@opencode-ai/plugin"),
     ]);
+    let timings: InferenceTimings | undefined;
+    const pendingRequests = new WeakMap<Request, string>();
     const plugin = Plugin.define({
       id: "basedbot-tools",
       setup: async (context) => {
+        await context.session.hook("context", async (event) => {
+          const turn = store.agentTurn(event.sessionID);
+          if (turn) resolveCapabilities(turn);
+          if (!turn || !/\bpolymarket\b/i.test(turn.text) || await storage.get<boolean>(`tools:full:${turn.eventId}`)) return;
+          event.tools = Object.fromEntries(Object.entries(event.tools).filter(([name]) =>
+            initialPolymarketTools.has(name)));
+        });
+        await context.session.hook("http.request", async (event) => {
+          if (event.agent !== "basedbot" || !timings) return;
+          try { pendingRequests.set(event.request, timings.begin(event.sessionID, event.model.providerID, event.model.id)); }
+          catch { log("warn", "inference_timing_unavailable", {}); }
+        });
         await context.session.hook("http.response", async (event) => {
+          const requestId = pendingRequests.get(event.request);
+          if (requestId && timings) {
+            try { timings.response(requestId, event.response.status); }
+            catch { log("warn", "inference_timing_unavailable", {}); }
+            pendingRequests.delete(event.request);
+          }
           const chatGpt = event.model.providerID === chatGptModels.default.providerID;
           const url = new URL(event.request.url);
           let errorKind: string | undefined;
@@ -134,6 +164,21 @@ export class OpenCodeHarness implements AgentHarness {
           if (exhausted || event.attempt > maxRetryAttempt) event.decision = { retry: false };
           log("info", "model_retry_decision", { sessionId: event.sessionID, provider: event.model.providerID, attempt: event.attempt, status: event.error.status, exhausted, retry: event.decision.retry });
         });
+        await context.tool.hook("execute.after", async (event) => {
+          if (event.status !== "completed") return;
+          const content = event.result.content;
+          const text = typeof content === "string" ? content : content?.flatMap(item => item.type === "text" ? [item.text] : []).join("\n") ?? "";
+          let sourceBytes: number | undefined;
+          let partial = false;
+          if (event.tool.startsWith("polymarket_")) {
+            try {
+              const parsed = z.object({presentation:z.object({source_bytes:z.number().int().nonnegative(),partial:z.boolean()})}).safeParse(JSON.parse(text));
+              if (parsed.success) { sourceBytes = parsed.data.presentation.source_bytes; partial = parsed.data.presentation.partial; }
+            } catch { /* Non-JSON tool replies have no source size. */ }
+          }
+          event.result = { ...event.result, metadata: { ...event.result.metadata, pecu_output_bytes: new TextEncoder().encode(text).length,
+            ...(sourceBytes !== undefined ? {pecu_source_bytes:sourceBytes,pecu_output_partial:partial} : {}) } };
+        });
         await context.tool.transform((draft) => {
           for (const tool of draft.list()) draft.remove(tool.id);
 
@@ -143,6 +188,18 @@ export class OpenCodeHarness implements AgentHarness {
             return resolveCapabilities(turn);
           };
 
+          draft.add({
+            name: "enable_all_tools",
+            options: {codemode:false},
+            description: "Expose the remaining Polymarket, research, wallet, Aave, Aerodrome and Nansen tools. Market odds, comparisons and resolution rules already have the necessary tools. Does not approve or execute anything.",
+            input: z.object({}),
+            execute: async (_input, toolContext) => {
+              const turn = store.agentTurn(toolContext.sessionID);
+              if (!turn) throw new Error("This turn has ended");
+              await storage.put(`tools:full:${turn.eventId}`, true);
+              return {content:"The full tool catalog is available for the next step. All transaction confirmation rules still apply."};
+            },
+          });
           draft.add({
             name: "ask_user",
             options: { codemode: false },
@@ -293,7 +350,7 @@ export class OpenCodeHarness implements AgentHarness {
         warming: false,
         permissions: [
           { action: "*", resource: "*", effect: "deny" },
-          ...["ask_user", "aave_skill", "aave_schema", "aave_call", "polymarket_research"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
+          ...["ask_user", "enable_all_tools", "aave_skill", "aave_schema", "aave_call", "polymarket_research"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
           { action: "wallet_address", resource: "*", effect: "allow" },
           { action: "wallet_balances", resource: "*", effect: "allow" },
           { action: "deposit_instructions", resource: "*", effect: "allow" },
@@ -317,7 +374,11 @@ export class OpenCodeHarness implements AgentHarness {
       },
       plugins: [plugin],
     });
-    return new OpenCodeHarness(client, store, storage, Boolean(openRouterApiKey), analytics);
+    if (analytics) {
+      try { timings = new InferenceTimings(storage.sql); }
+      catch { log("warn", "inference_timing_unavailable", {}); }
+    }
+    return new OpenCodeHarness(client, store, storage, Boolean(openRouterApiKey), analytics, timings);
   }
 
   async usageLimit(): Promise<UsageLimit | undefined> {
@@ -391,13 +452,19 @@ export class OpenCodeHarness implements AgentHarness {
             const cursorKey = `analytics:inference:${sessionId}`;
             const after = await this.storage.get<number>(cursorKey);
             const entries = await Array.fromAsync(this.client.sessions.log({ sessionID: sessionId, after, follow: false }));
-            const events = await generationEvents(entries, {
+            const turn = {
               senderId: metadata.senderId, eventId: metadata.eventId,
               conversationId: metadata.conversationId, startedAt: inbox.timeCreated,
-            });
+            };
+            const requests = this.timings?.read(sessionId, inbox.timeCreated) ?? [];
+            const events = [
+              ...await generationEvents(entries, turn, requests),
+              ...await toolEvents(entries, turn),
+            ];
             const cursor = entries.reduce((seq, entry) => Math.max(seq, entry.type === "log.synced" ? entry.seq ?? 0 : entry.durable.seq), after ?? 0);
             await this.storage.put(cursorKey, cursor);
             for (const event of events) this.analytics(metadata.senderId, event);
+            this.timings?.clear(sessionId, Date.now());
           } catch {
             log("warn", "inference_analytics_failed", {});
           }
@@ -409,6 +476,8 @@ export class OpenCodeHarness implements AgentHarness {
       return assistant;
     } finally {
       observer?.stop();
+      try { await this.storage.delete(`tools:full:${metadata.eventId}`); }
+      catch { log("warn", "tool_catalog_cleanup_failed", {}); }
     }
   }
 

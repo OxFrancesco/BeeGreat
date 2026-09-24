@@ -19,6 +19,7 @@ const client = {
 };
 type Hook = (event: Record<string, unknown>) => Promise<void>;
 const hooks = new Map<string, Hook>();
+const registered = new Map<string, {execute(input: unknown, context: {sessionID:string}): Promise<unknown>}>();
 type CreateOptions = { config?: { providers?: Record<string, { settings?: Record<string, unknown> }> }; plugins: { setup(context: unknown): Promise<void> }[] };
 const creates: CreateOptions[] = [];
 let plugin: CreateOptions["plugins"][number] | undefined;
@@ -33,16 +34,40 @@ const openrouter = { providerID: "openrouter", id: "openai/gpt-6-sol", variant: 
 const openrouterSmall = { providerID: "openrouter", id: "openai/gpt-6-luna", variant: "low" };
 const pluginContext = {
   session: { hook: async (name: string, fn: Hook) => { hooks.set(name, fn); } },
-  tool: { transform: async (fn: (draft: unknown) => void) => fn({ list: () => [], remove() {}, add() {} }) },
+  tool: { hook: async (name: string, fn: Hook) => { hooks.set(name, fn); }, transform: async (fn: (draft: unknown) => void) => fn({ list: () => [], remove() {}, add(tool: {name:string;execute(input: unknown, context:{sessionID:string}):Promise<unknown>}) {registered.set(tool.name,tool);} }) },
   agent: { transform: async (fn: (draft: unknown) => void) => fn({ default() {}, list: () => [] }) },
 };
 try {
   const capabilities = { yoloEnabled: () => false } as never;
-  const harness = await OpenCodeHarness.create(storage as never, store, () => capabilities);
+  let bound = true;
+  const harness = await OpenCodeHarness.create(storage as never, store, () => { if (!bound) throw new Error("Turn is no longer bound"); return capabilities; });
   expect(creates.at(-1)!.config?.providers?.openrouter).toBeUndefined();
   expect(harness.fallbackConfigured).toBe(false);
   await plugin!.setup(pluginContext);
+  const toolReply = {tool:"polymarket_search",status:"completed",result:{content:JSON.stringify({data:{private:"not telemetry"},presentation:{source_bytes:155870,partial:false}})}};
+  await hooks.get("execute.after")!(toolReply);
+  expect(toolReply.result).toMatchObject({metadata:{pecu_source_bytes:155870,pecu_output_partial:false,pecu_output_bytes:Buffer.byteLength(toolReply.result.content)}});
   const message = { eventId: "1", senderId: "sender", conversationId: "chat", text: "Explain slippage", encodedEvent: "verified" };
+  store.saveAgentSession("sender","catalog-chat","catalog");
+  const catalog = () => ({sessionID:"catalog",tools:{polymarket_search:{},polymarket_midpoint:{},polymarket_positions:{},ask_user:{},enable_all_tools:{},evm_transfer:{},nansen_token_flows:{}}});
+  store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"catalog-turn",text:"Compare Polymarket odds, then check my wallet"});
+  const scoped=catalog(); const originalTools=scoped.tools; await hooks.get("context")!(scoped);
+  expect(originalTools).toHaveProperty("evm_transfer");
+  expect(Object.keys(scoped.tools)).toEqual(["polymarket_search","polymarket_midpoint","ask_user","enable_all_tools"]);
+  await registered.get("enable_all_tools")!.execute({}, {sessionID:"catalog"});
+  const expanded=catalog(); await hooks.get("context")!(expanded);
+  expect(expanded.tools).toHaveProperty("evm_transfer");
+  expect(expanded.tools).toHaveProperty("polymarket_positions");
+  store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"next-turn",text:"Check Polymarket odds"});
+  const isolated=catalog(); await hooks.get("context")!(isolated);
+  expect(isolated.tools).not.toHaveProperty("evm_transfer");
+  store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"wallet-turn",text:"Check my wallet"});
+  const wallet=catalog(); await hooks.get("context")!(wallet);
+  expect(wallet.tools).toHaveProperty("evm_transfer");
+  bound = false;
+  await expect(hooks.get("context")!(catalog())).rejects.toThrow("no longer bound");
+  bound = true;
+
   expect(await harness.respond(message, capabilities, "response")).toBe("answer");
   expect(await harness.respond({ ...message, eventId: "2" }, capabilities, "mixed")).toBe("answer");
   expect(await harness.respond({ ...message, eventId: "3" }, capabilities)).toBe("answer");

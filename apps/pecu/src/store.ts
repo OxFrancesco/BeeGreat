@@ -1,3 +1,5 @@
+import { coalescePolymarketAnalytics } from "./integrations/polymarket/analytics";
+import { polymarketTokenSchema, type PolymarketToken } from "./integrations/polymarket/model-output";
 import { analyticsResultSchema, type AnalyticsResult } from "./analytics-contract";
 import { stockSnapshotSchema, type StockSnapshot } from "./stock-contract";
 import { Database } from "bun:sqlite";
@@ -65,6 +67,7 @@ export class Store implements PecuStore {
 
   private migrate(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS polymarket_tokens (event_id TEXT NOT NULL, token_id TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,token_id));
       CREATE TABLE IF NOT EXISTS analytics (event_id TEXT NOT NULL, chart_key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,chart_key));
       CREATE TABLE IF NOT EXISTS stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS questions (
@@ -218,13 +221,25 @@ export class Store implements PecuStore {
     `);
   }
 
+  savePolymarketTokens(eventId: string, tokens: readonly PolymarketToken[]): void {
+    for (const token of tokens) {
+      const value = polymarketTokenSchema.parse(token);
+      this.db.query("INSERT OR REPLACE INTO polymarket_tokens VALUES(?,?,?)").run(eventId, value.tokenId, JSON.stringify(value));
+    }
+  }
+
+  polymarketToken(eventId: string, tokenId: string): PolymarketToken | undefined {
+    const row = this.db.query<{json:string}, [string,string]>("SELECT json FROM polymarket_tokens WHERE event_id=? AND token_id=?").get(eventId,tokenId);
+    return row ? polymarketTokenSchema.parse(JSON.parse(row.json)) : undefined;
+  }
+
   saveAnalytics(eventId: string, result: AnalyticsResult): void {
     const value = analyticsResultSchema.parse(result);
     this.db.query("INSERT OR REPLACE INTO analytics(event_id,chart_key,json) VALUES(?,?,?)").run(eventId, value.snapshot.key, JSON.stringify(value));
   }
 
   analytics(eventId: string): AnalyticsResult[] {
-    return this.db.query<{ json: string }, [string]>("SELECT json FROM analytics WHERE event_id=? ORDER BY rowid DESC LIMIT 12").all(eventId).reverse().map((row) => analyticsResultSchema.parse(JSON.parse(row.json)));
+    return coalescePolymarketAnalytics(this.db.query<{ json: string }, [string]>("SELECT json FROM analytics WHERE event_id=? ORDER BY rowid DESC LIMIT 12").all(eventId).reverse().map((row) => analyticsResultSchema.parse(JSON.parse(row.json))));
   }
 
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void {

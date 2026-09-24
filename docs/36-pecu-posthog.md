@@ -32,7 +32,7 @@ References: [Cloudflare Workers integration](https://posthog.com/docs/libraries/
 
 ## LLM usage and estimated costs
 
-The per-user inference Worker emits `$ai_generation` for each primary model step on ChatGPT and OpenRouter, including tool-loop steps and failed attempts that reach a terminal runtime event. The durable session log survives compaction; a per-session sequence cursor avoids replaying earlier telemetry. Fallback attempts share a trace. Conversation, trace, span, and sender identifiers are hashed before capture. Provider response-body duration excludes tool execution when that boundary is available.
+The per-user inference Worker emits `$ai_generation` for each primary model step on ChatGPT and OpenRouter, including tool-loop steps and failed attempts that reach a terminal runtime event. The durable session log survives compaction; a per-session sequence cursor avoids replaying earlier telemetry. Fallback attempts share a trace. Conversation, trace, span, and sender identifiers are hashed before capture. Model latency runs from the outbound HTTP request through response streaming, excluding tool execution. The HTTP start is persisted in the inference Durable Object and matched to its session, provider, model and step. Retries in the step include their waits. `latency_source=http_request` identifies these measurements; `stream_only` identifies records with no matching request timing and must not be treated as full request latency. `stream_duration_ms` reports streaming separately. `$ai_time_to_first_token` measures the first runtime stream event. Original start timestamps are preserved rather than replaced by the end-of-turn delivery time. Tool calls emit `$ai_span` with duration, tool name and error status under the same hashed trace and generation parent. Arguments, output and error text remain excluded.
 
 Input totals include cache reads/writes. Output totals include reasoning. Cache and reasoning breakdowns are also sent, without counting them twice. Usage absent from a failed event stays absent. The runtime can normalize missing provider usage to zero on successful events; these are runtime-reported counts, not a billing ledger.
 
@@ -43,3 +43,11 @@ No prompts, generated text, tool arguments/results, or provider error strings ar
 Run package tests with `bun run --cwd apps/pecu test`. `bun run --cwd apps/pecu scripts/verify-inference-analytics.ts` submits two synthetic events labeled `environment=verification`; exclude that environment from production reports. It makes no model request or transaction.
 
 Reference: [Manual AI capture](https://posthog.com/docs/ai-observability/installation/manual-capture), [cost calculation](https://posthog.com/docs/ai-observability/calculating-costs).
+
+
+Tool spans also report `output_bytes` before runtime truncation,
+`returned_output_bytes`, and `output_truncated`. Polymarket spans include
+`source_output_bytes` before compact presentation and `output_partial` for explicitly
+omitted model-facing fields. These booleans distinguish a successful API call from a
+complete usable tool response. Only sizes and flags are captured, never output text
+or omitted field paths.

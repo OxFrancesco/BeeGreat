@@ -202,3 +202,40 @@ are not Pecu clients and were not changed. No wire contracts in Convex, wallet
 lifecycle or generative-UI contracts were added. Cards need the Pecu Worker (agent
 and per-user inference tools), then the Stocks app. The showcase deploys with the
 pecu.app site.
+
+
+## Bounded model results and selected markets
+
+Model discovery uses compact event and market records, including the exact question,
+deadline, outcome/price/token mapping, source and continuation. Nested arrays share a
+36,000-byte response budget. Active searches exclude closed child markets, reporting
+the filtered count. Missing optional upstream fields stay compact, and oversized
+event arrays reserve space for later event identifiers instead of letting the first
+event consume the entire budget. Omitted fields are marked in `presentation.partial` and
+`omitted_paths`; the model can use a returned id/slug for a focused read. Upstream
+`next` retains its original meaning and does not recover local omissions. Full raw
+results remain available through the existing verbose path.
+
+Model search and listing calls do not attach exploratory cards. Selecting a discovered
+token with `midpoint` attaches that market's title, deadline and selected outcome.
+When market details and midpoint are read together, they produce one card: fresh
+midpoint odds with the available volume and liquidity, regardless of completion order.
+Book and history reads use the same event-scoped, persisted token metadata. Explicit
+search commands list individual market questions instead of an event's highest-priced
+alternative. Unknown tokens are never assigned a guessed title or outcome.
+
+Independent reads with known inputs run in the same tool round. Market discovery
+must precede reads needing its token ids. Simple probability questions use midpoint;
+books are requested for depth/spread questions. This does not change transaction
+preparation, confirmation or execution ordering.
+
+
+Explicit Polymarket requests initially expose market discovery, details, prices, books,
+history and clarification. The model can call `enable_all_tools` for other Polymarket data or when a mixed request also needs
+wallet, Nansen, Aave or other capabilities. Expansion is scoped to the current turn
+and changes visibility only; authorization and transaction confirmations are unchanged.
+Requests without an explicit Polymarket mention retain the full catalog.
+
+Identical Polymarket reads already in flight within one turn share their result.
+Different reads remain concurrent. Completed reads and failures are not cached, and
+requests from different turns never share results.
