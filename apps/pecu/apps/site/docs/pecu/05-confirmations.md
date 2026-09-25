@@ -17,6 +17,16 @@ When Aave needs a token approval, Pecu prepares that approval separately and lim
 - Some previews include token approvals that run before the main action. One confirmation covers every step, in order.
 - In the web app a preview is a card with buttons. In X Chat it is a text message.
 
+### Route and transactions
+
+Pecu reads the exact calls it saved for a preview and lists every transaction in the order it signs them. Each one names the contract it calls, with a copy button for the full address. Approvals are marked `Permission only` because they let a contract spend a token and move nothing themselves.
+
+On the web, the card also draws where your tokens go. Tokens and pools are connected in order, each connection carries the number of the transaction that makes it, and swaps name the pool type they trade through, such as `CL100` or `Volatile`. A plan that creates a pool shows the new pool with a dashed outline. Pointing at a transaction highlights its part of the route.
+
+After you confirm, each transaction shows `Waiting`, `Submitted`, `Confirmed on Base` or `Failed`, with its own Basescan link once it has a hash. Transactions after a failed one show `Not sent`.
+
+In X Chat the same list appears as numbered text lines under `Transactions:` when a preview has more than one transaction or trades through another token. A swap that goes through an intermediate token says so, for example `via AERO`.
+
 ## Confirmation codes
 
 Each preview has its own code, like `ABC123`. Codes are six letters and digits, leaving out `I`, `O`, `0` and `1` so they are hard to misread. Lower case works too.
@@ -40,7 +50,7 @@ Press the confirm button on the preview card. It sends `/confirm ABC123` for you
 | --- | --- |
 | Review before confirming | Waiting for you. The expiry time is shown next to it. |
 | Submitted, waiting for the receipt | Sent. Press Check transaction to check it again. |
-| Executed and verified on Base | The receipt was verified. The links open Basescan. |
+| Executed and verified on Base | The receipt was verified. The Basescan links open each transaction. |
 | Failed | Pecu recorded a failure. The first line of the error is shown. |
 | Cancelled, nothing was sent | You cancelled it. |
 | Expired without confirmation | The expiry passed before you confirmed. |

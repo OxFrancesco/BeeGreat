@@ -3,6 +3,7 @@ import { coalescePolymarketAnalytics } from "./integrations/polymarket/analytics
 import { polymarketTokenSchema, type PolymarketToken } from "./integrations/polymarket/model-output";
 import { analyticsResultSchema, type AnalyticsResult } from "./analytics-contract";
 import { stockSnapshotSchema, type StockSnapshot } from "./stock-contract";
+import { transactionPlanSchema, type TransactionPlan } from "./transaction-plan-contract";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -71,6 +72,7 @@ export class Store implements PecuStore {
       CREATE TABLE IF NOT EXISTS polymarket_tokens (event_id TEXT NOT NULL, token_id TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,token_id));
       CREATE TABLE IF NOT EXISTS analytics (event_id TEXT NOT NULL, chart_key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,chart_key));
       CREATE TABLE IF NOT EXISTS stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS transaction_plans (intent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS questions (
         event_id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
         json TEXT NOT NULL, answered_event_id TEXT
@@ -250,6 +252,16 @@ export class Store implements PecuStore {
   stockSnapshot(eventId: string): StockSnapshot | undefined {
     const row = this.db.query<{ json: string }, [string]>("SELECT json FROM stock_snapshots WHERE event_id=?").get(eventId);
     return row ? stockSnapshotSchema.parse(JSON.parse(row.json)) : undefined;
+  }
+
+  saveTransactionPlan(intentId: string, plan: TransactionPlan): void {
+    this.db.query("INSERT OR REPLACE INTO transaction_plans(intent_id,json) VALUES(?,?)").run(intentId, JSON.stringify(transactionPlanSchema.parse(plan)));
+  }
+
+  /** A plan stored by an older release that no longer parses is treated as missing. */
+  transactionPlan(intentId: string): TransactionPlan | undefined {
+    const row = this.db.query<{ json: string }, [string]>("SELECT json FROM transaction_plans WHERE intent_id=?").get(intentId);
+    return row ? transactionPlanSchema.safeParse(JSON.parse(row.json)).data : undefined;
   }
 
   saveQuestion(message: VerifiedMessage, question: AgentQuestion): void {

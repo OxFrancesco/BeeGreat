@@ -3,6 +3,7 @@ import { coalescePolymarketAnalytics } from "../integrations/polymarket/analytic
 import { polymarketTokenSchema, type PolymarketToken } from "../integrations/polymarket/model-output";
 import { analyticsResultSchema, type AnalyticsResult } from "../analytics-contract";
 import { stockSnapshotSchema, type StockSnapshot } from "../stock-contract";
+import { transactionPlanSchema, type TransactionPlan } from "../transaction-plan-contract";
 import { agentQuestionSchema, type AgentQuestion, type PlannedCall, type VerifiedMessage } from "../domain";
 import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "../state";
 
@@ -64,6 +65,7 @@ export class DurableStore implements PecuStore {
       CREATE TABLE IF NOT EXISTS basedbot_polymarket_tokens (event_id TEXT NOT NULL, token_id TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,token_id));
       CREATE TABLE IF NOT EXISTS basedbot_analytics (event_id TEXT NOT NULL, chart_key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,chart_key));
       CREATE TABLE IF NOT EXISTS basedbot_stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS basedbot_transaction_plans (intent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS basedbot_questions (
         event_id TEXT PRIMARY KEY, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL,
         json TEXT NOT NULL, answered_event_id TEXT
@@ -212,6 +214,16 @@ export class DurableStore implements PecuStore {
   stockSnapshot(eventId: string): StockSnapshot | undefined {
     const row = this.first<{ json: string }>("SELECT json FROM basedbot_stock_snapshots WHERE event_id=?", eventId);
     return row ? stockSnapshotSchema.parse(JSON.parse(row.json)) : undefined;
+  }
+
+  saveTransactionPlan(intentId: string, plan: TransactionPlan): void {
+    this.sql.exec("INSERT OR REPLACE INTO basedbot_transaction_plans(intent_id,json) VALUES(?,?)", intentId, JSON.stringify(transactionPlanSchema.parse(plan)));
+  }
+
+  /** A plan stored by an older release that no longer parses is treated as missing. */
+  transactionPlan(intentId: string): TransactionPlan | undefined {
+    const row = this.first<{ json: string }>("SELECT json FROM basedbot_transaction_plans WHERE intent_id=?", intentId);
+    return row ? transactionPlanSchema.safeParse(JSON.parse(row.json)).data : undefined;
   }
 
   saveQuestion(message: VerifiedMessage, question: AgentQuestion): void {

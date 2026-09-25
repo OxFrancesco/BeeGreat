@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { previewSchema } from "../../../../src/web-contract";
+import { transactionPlans } from "./transaction-plans";
 
 const address = "0x1234567890123456789012345678901234567890";
 const fee = "Network fee: not estimated yet.";
@@ -7,6 +8,7 @@ export const transactionPreviews: Array<z.infer<typeof previewSchema>> = [
   {
     title: "Swap",
     text: `Swap 0.05 ETH for about 120.00 USDC on Base.\nMinimum received: 119.40 USDC\n${fee}`,
+    plan: transactionPlans.swap,
   },
   { title: "Send 250 USDC", text: `Send 250.00 USDC to ${address}\n${fee}` },
   {
@@ -20,6 +22,7 @@ export const transactionPreviews: Array<z.infer<typeof previewSchema>> = [
   {
     title: "Buy NVDAc · Buy AAPLc",
     text: `100 USDC → about 0.452492 NVDAc\nMinimum received: 0.447967 NVDAc\n\n100 USDC → about 0.297571 AAPLc\nMinimum received: 0.294595 AAPLc\n${fee}`,
+    plan: transactionPlans.basket,
   },
   {
     title: "Add liquidity",
@@ -46,6 +49,16 @@ export const transactionPreviews: Array<z.infer<typeof previewSchema>> = [
   {
     title: "Aave supply",
     text: `Aave supply on Base. Amount: 150 USDC.\nToken: ${address}\nHealth factor after: 1.85\nWarning: Your position can be liquidated if collateral falls.\n${fee}`,
+  },
+  {
+    title: "Add liquidity",
+    text: `Add 0.0098 WETH and 25 USDC to a new CL100 WETH/USDC pool on Base.\nBudget: 50 USDC\nPrice range: 2,040 to 3,060 USDC per WETH\n${fee}`,
+    plan: transactionPlans.pool,
+  },
+  {
+    title: "Swap",
+    text: `Swap 50 USDC for about 0.00042 cbBTC on Base.\nMinimum received: 0.0004179 cbBTC\n${fee}`,
+    plan: transactionPlans.multihop,
   },
 ].map((preview, index) => ({
   ...preview,

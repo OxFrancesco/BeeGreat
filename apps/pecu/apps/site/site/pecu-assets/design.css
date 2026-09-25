@@ -437,6 +437,19 @@
   width: 16px;
   height: 16px;
 }
+/* The reference page has no Tailwind, so the two utility classes the preview card uses are defined here. */
+.agent-specimen svg.size-3\.5 {
+  width: 14px;
+  height: 14px;
+}
+.agent-specimen .animate-spin {
+  animation: design-spin 1s linear infinite;
+}
+@keyframes design-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .design-page .surface-example {
   border-radius: var(--clay-radius-surface);
   box-shadow: var(--clay-shadow-sm);

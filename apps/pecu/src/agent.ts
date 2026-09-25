@@ -27,6 +27,7 @@ import type { UserOperationOutcome, UserOperationReference } from "./receipt";
 import { treasurySenderId, WalletService } from "./wallet";
 import { whopDepositForwardSchema, whopLedgerActivitySchema } from "./whop-webhook";
 import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlanText, evmReadText, verbosePage } from "./chat";
+import { planSummary, tokenHints, transactionPlan } from "./transaction-plan";
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import type { RequestClassifier, RequestRoute } from "./request-classifier";
 import type { ParagraphSink } from "./web-stream";
@@ -457,7 +458,7 @@ export class PecuAgent {
     if (result.kind === "unchanged") {
       return "Your index already matches these allocations. No transaction plan was created.";
     }
-    return this.persistProposal(message, wallet, { family: "aero", action: result.action, parameters: result.parameters }, result.calls, aeroPlanText(result));
+    return this.persistProposal(message, wallet, { family: "aero", action: result.action, parameters: result.parameters }, result.calls, aeroPlanText(result), result.context);
   }
 
   private async insufficientUsdcReply(message: VerifiedMessage): Promise<string> {
@@ -483,7 +484,7 @@ export class PecuAgent {
       return this.insufficientUsdcReply(message);
     }
     this.saveDetails(message, { ...result });
-    return this.persistProposal(message, wallet, { family: "stocks", action: "stock_basket", parameters: result.parameters }, result.calls, aeroPlanText(result));
+    return this.persistProposal(message, wallet, { family: "stocks", action: "stock_basket", parameters: result.parameters }, result.calls, aeroPlanText(result), result.context);
   }
 
   private async runEvm(message: VerifiedMessage, action: EvmTxAction, parameters: JsonInput): Promise<string> {
@@ -494,7 +495,7 @@ export class PecuAgent {
     const wallet = await this.walletAddress(message.senderId);
     const result = await this.services.evm.propose(wallet, action, parameters);
     this.saveDetails(message, { ...result });
-    const text = await this.persistProposal(message, wallet, { family: "evm", action: result.action, parameters: result.parameters }, result.calls, evmPlanText(result));
+    const text = await this.persistProposal(message, wallet, { family: "evm", action: result.action, parameters: result.parameters }, result.calls, evmPlanText(result), result.context);
     return { text, context: result.context };
   }
 
@@ -504,7 +505,7 @@ export class PecuAgent {
     if (name === "prepare_action") {
       const plan = await this.services.aave.propose(args, wallet);
       this.saveDetails(message, plan.details);
-      return this.persistProposal(message, wallet, { family: "aave", action: "aave_action", parameters: plan.parameters }, plan.calls, plan.preview);
+      return this.persistProposal(message, wallet, { family: "aave", action: "aave_action", parameters: plan.parameters }, plan.calls, plan.preview, plan.details);
     }
     const result = await this.services.aave.call(name, args, wallet);
     this.saveDetails(message, result);
@@ -840,7 +841,7 @@ export class PecuAgent {
     this.store.enqueueReply(`deposit:${deposit.id}:${deposit.state}:${deposit.holdReason ?? ""}`, account.conversationId, account.encodedEvent, text);
   }
 
-  private async persistProposal(message: VerifiedMessage, wallet: `0x${string}`, intent: IntentAction, calls: readonly PlannedCall[], preview: string): Promise<string> {
+  private async persistProposal(message: VerifiedMessage, wallet: `0x${string}`, intent: IntentAction, calls: readonly PlannedCall[], preview: string, context?: JsonInput): Promise<string> {
     this.requireAnswer(message);
     validateIntentPlan(intent, wallet, calls);
     const previous = this.store.intentForSource(message.eventId);
@@ -848,8 +849,9 @@ export class PecuAgent {
     const code = confirmationCode();
     const expiresAt = Date.now() + this.config.quoteTtlSeconds * 1_000;
     const fingerprint = await planDigest(calls);
+    const id = crypto.randomUUID();
     this.store.createIntent({
-      id: crypto.randomUUID(),
+      id,
       codeHash: await digest(code),
       senderId: message.senderId,
       conversationId: message.conversationId,
@@ -860,15 +862,19 @@ export class PecuAgent {
       planDigest: fingerprint,
       expiresAt,
     }, calls);
+    const plan = transactionPlan(calls, { intent, tokens: tokenHints(context) });
+    if (plan) this.store.saveTransactionPlan(id, plan);
+    const steps = planSummary(plan);
+    const shown = steps ? `${preview}\n\n${steps}` : preview;
 
     const yolo = this.config.enableMainnetExecution && !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId);
     if (yolo && !requiresExplicitConfirmation(intent)) {
-      return `${preview}\n\nYOLO is on.\n${await this.confirm(message, await digest(code))}\nCheck this request: /confirm ${code}`;
+      return `${shown}\n\nYOLO is on.\n${await this.confirm(message, await digest(code))}\nCheck this request: /confirm ${code}`;
     }
     const execution = this.config.enableMainnetExecution
       ? `${yolo ? "YOLO is on, but a contract call always needs your confirmation.\n" : ""}Reply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${Math.floor(this.config.quoteTtlSeconds / 60)} minutes.`
       : `Transactions are currently disabled. Nothing has been sent.\nCancel: /cancel ${code}`;
-    return `${preview}\n\n${execution}`;
+    return `${shown}\n\n${execution}`;
   }
 
   private async confirm(message: VerifiedMessage, codeHash: string): Promise<string> {

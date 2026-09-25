@@ -1,6 +1,7 @@
 import { type Portfolio, portfolioBalanceSchema, portfolioQuerySchema } from "./portfolio-contract";
 import { needsChatGptConnection } from "./inference-recovery";
 import { aeroReadText, intentTitle } from "./chat";
+import { intentPlan } from "./transaction-plan";
 import { WebHistory, type HistoryRow } from "./web-history";
 import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
@@ -89,6 +90,8 @@ export class WebAgent {
       if (intent.result !== undefined && (reply.preview.state === "succeeded" || reply.preview.state === "failed")) {
         reply.preview.result = intent.result;
       }
+      const plan = intentPlan(this.store, intent, reply.preview.state);
+      if (plan) reply.preview.plan = plan;
     }
     return {
       id: row.id,

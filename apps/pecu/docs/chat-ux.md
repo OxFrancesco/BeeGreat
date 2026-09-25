@@ -6,7 +6,7 @@ Normal replies show human token amounts and useful controls. Swap previews inclu
 
 ## Web confirmation flow
 
-The web preview card's confirm and cancel buttons send the same `/confirm CODE` and `/cancel CODE` turns the X chat uses. The web hides those command bubbles and shows the outcome in the card: status, receipt links, and failure detail all live on the original preview. Replies that carry information the card does not, like an unknown code or a duplicate confirmation, stay visible. X chat is unchanged.
+The web preview card's confirm and cancel buttons send the same `/confirm CODE` and `/cancel CODE` turns the X chat uses. The web hides those command bubbles and shows the outcome in the card: status, receipt links, and failure detail all live on the original preview. Replies that carry information the card does not, like an unknown code or a duplicate confirmation, stay visible. X chat keeps its text replies; a preview with several transactions, or a swap through another token, adds a numbered `Transactions:` list where the web card draws the route.
 
 ## Web streaming
 

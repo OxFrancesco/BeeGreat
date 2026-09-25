@@ -15,6 +15,7 @@ import {
   type PreviewRow,
 } from "../lib/preview";
 import { CopyButton } from "./copy-button";
+import { TransactionPlan } from "./transaction-plan";
 import {
   Confirmation,
   ConfirmationAccepted,
@@ -137,7 +138,10 @@ export function PreviewCard({
       ? "Checking…"
       : "Confirming…"
     : labels[preview.state];
-  const links = (preview.result ?? "").match(TX_LINK) ?? [];
+  // Steps with a hash already link to Basescan inside the plan.
+  const links = preview.plan?.steps.some((step) => step.hash)
+    ? []
+    : (preview.result ?? "").match(TX_LINK) ?? [];
   const StateIcon =
     preview.state === "succeeded"
       ? CheckIcon
@@ -189,6 +193,7 @@ export function PreviewCard({
           </div>
         ))}
         {metadata.length ? <DetailRows rows={metadata} /> : null}
+        {preview.plan ? <TransactionPlan plan={preview.plan} state={preview.state} /> : null}
         {approval &&
         !preview.text.includes("This only approves token spending.") ? (
           <p className="pecu-preview-approval-note">

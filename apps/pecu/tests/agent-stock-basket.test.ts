@@ -95,6 +95,8 @@ describe("stock basket proposals", () => {
     expect(intent?.action).toBe("stock_basket");
     expect(intent?.parameters).toEqual({ trades: [...trades], slippage: 0.01 });
     expect(intent?.sourceEventId).toBe(request.eventId);
+    expect(reply).toContain("Transactions:\n1. Revoke 0x0000…0000's permission to spend USDC\n2. Call 0x5555…5555\n\nReply to this message");
+    expect(store.transactionPlan(intent!.id)?.steps.map((step) => step.kind)).toEqual(["approval", "call"]);
 
     const confirmed = await agent.handle(message(`/confirm ${code}`));
     expect(confirmed).toContain("Stock trades confirmed on Base mainnet.");

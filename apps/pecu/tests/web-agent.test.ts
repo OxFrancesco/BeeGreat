@@ -507,6 +507,44 @@ test("a completed intent exposes its stored result on the preview", async () => 
   } finally { f.close(); }
 });
 
+test("previews carry the decoded transaction plan and its live step progress", async () => {
+  const f = fixture();
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const conversationId = `stocks:${identity.userId}:${identity.senderId}`;
+    const requestId = crypto.randomUUID();
+    const eventId = `${conversationId}:${requestId}`;
+    const usdc = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const permit2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
+    const approve = `0x095ea7b3${permit2.slice(2).toLowerCase().padStart(64, "0")}${(25_000_000).toString(16).padStart(64, "0")}` as const;
+    f.store.createIntent({
+      id: requestId,
+      codeHash: new Bun.CryptoHasher("sha256").update("ABC123").digest("hex"),
+      senderId: identity.senderId, conversationId, sourceEventId: eventId,
+      state: "pending", family: "aero", action: "stake",
+      parameters: { chain: 8453, wallet: address, pool: address },
+      preview: "Stored preview", planDigest: "test", expiresAt: Date.now() + 60_000,
+    }, [
+      { role: "approval", from: address, to: usdc, data: approve, value: "0" },
+      { role: "action", from: address, to: address, data: "0x12345678", value: "0" },
+    ]);
+    f.store.claimEvent(eventId, conversationId, identity.senderId);
+    f.store.completeEvent(eventId, "Preview /confirm ABC123");
+    await f.web.handle({ ...identity, requestId, text: "preview" });
+    const preview = () => f.web.state(identity).messages.find((m) => m.id === eventId)?.reply?.preview;
+    expect(preview()?.plan?.steps.map((step) => [step.title, step.status])).toEqual([
+      ["Allow Permit2 to spend 25 USDC", undefined],
+      ["Call 0x1111…1111", undefined],
+    ]);
+    const hash = `0x${"cd".repeat(32)}`;
+    f.store.transitionIntent(requestId, "pending", "executing");
+    f.store.markStepPrepared(requestId, 0, "tx-1");
+    f.store.markStepSubmitted(requestId, 0, hash);
+    f.store.markStepSucceeded(requestId, 0, hash);
+    expect(preview()?.plan?.steps.map((step) => [step.status, step.hash])).toEqual([["confirmed", hash], ["waiting", undefined]]);
+  } finally { f.close(); }
+});
+
 test("confirmationCommand parses only exact confirm and cancel commands", () => {
   expect(confirmationCommand("/confirm 39d685")).toEqual({ kind: "confirm", code: "39D685" });
   expect(confirmationCommand("/cancel 39d685")).toEqual({ kind: "cancel", code: "39D685" });

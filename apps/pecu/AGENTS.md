@@ -38,6 +38,8 @@ The first verified message provisions the sender's Base smart wallet before comm
 
 Write for ordinary users. Show human token amounts, recipients when relevant, minimum received amounts, network fees when available, and confirmation controls. Do not put JSON, calldata, raw wei amounts, internal plan IDs, or framework names in normal replies. Do not invent fee estimates. Keep technical output behind `b/verbose`.
 
+Transaction previews list every transaction and draw the route from `src/transaction-plan.ts`, which decodes the exact persisted calls. Plan context may only supply token symbols and decimals. When a new call shape is added, extend the decoder with SDK-generated calldata tests in `tests/transaction-plan.test.ts`; never hand-write a step the calls do not contain. X Chat gets the same titles as a `Transactions:` list.
+
 Prefer natural-language requests and the short commands below. Keep the advanced Aerodrome commands in `/aero help` rather than putting their full syntax into every reply.
 
 ## Command reference

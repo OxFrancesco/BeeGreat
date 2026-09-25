@@ -3,6 +3,7 @@ import { analyticsResultsSchema, pnlSnapshotSchema } from "./analytics-contract"
 import { z } from "zod";
 import { agentQuestionSchema } from "./question-contract";
 import { clerkUserIdSchema, senderIdSchema } from "./web-identity";
+import { transactionPlanSchema } from "./transaction-plan-contract";
 export const inferenceStatusSchema = z.object({
   model: z.string(),
   reasoning: z.string(),
@@ -75,6 +76,8 @@ export const previewSchema = z.object({
   ]),
   result: z.string().optional(),
   expiresAt: z.number(),
+  /** Optional so a client can read previews from a backend deployed before plans existed. */
+  plan: transactionPlanSchema.optional(),
 });
 
 export function confirmationCommand(text: string): { kind: "confirm" | "cancel"; code: string } | undefined {

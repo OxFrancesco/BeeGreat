@@ -2,6 +2,7 @@ import { z } from "zod";
 import { useState } from "react";
 import { PreviewCard } from "../../src/components/preview-card";
 import type { ConfirmationState } from "../../src/components/ai-elements/confirmation";
+import { planAt } from "../fixtures/transaction-plans";
 import { transactionPreviews } from "../fixtures/transaction-previews";
 
 export function TransactionFixture() {
@@ -62,6 +63,7 @@ export function TransactionFixture() {
             state === "failed"
               ? "Sample error. Check transaction status before retrying."
               : undefined,
+          ...(preview.plan ? { plan: planAt(preview.plan, state) } : {}),
         }}
         busy={confirming}
         confirming={confirming}

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import { transactionSpecimens } from "../../site/scripts/transaction-specimens";
+import { planSpecimens, transactionSpecimens } from "../../site/scripts/transaction-specimens";
 
 const script = await Bun.file(new URL("../../site/site/pecu-assets/design.js", import.meta.url)).text();
 let window: Window;
@@ -12,6 +12,7 @@ beforeEach(() => {
     <input id="component-search"><p id="empty-search"></p>
     <select id="preview-state">${["pending", "executing", "succeeded", "failed", "cancelled", "expired"].map((state) => `<option>${state}</option>`).join("")}</select>
     ${transactionSpecimens}
+    ${planSpecimens}
     <form id="sample-composer"><textarea id="sample-message"></textarea></form><p id="sample-reply"></p>`;
   window.eval(script);
 });
@@ -46,8 +47,27 @@ test("design state selector shows real submitted and terminal content", () => {
   expect(card().querySelector(".pecu-confirmation-actions")!.textContent).toBe("Confirm swapCancel");
 });
 
+test("the plan state selector shows step progress, and pointing at a step highlights its edges", async () => {
+  const select = window.document.querySelector<HTMLSelectElement>("#plan-state")!;
+  const statuses = () => [...card("pool").querySelectorAll(".pecu-plan-step")].map((step) => step.getAttribute("data-status"));
+  expect(statuses()).toEqual([null, null, null, null, null, null]);
+  select.value = "failed";
+  select.dispatchEvent(new window.Event("change"));
+  expect(statuses()).toEqual(["confirmed", "confirmed", "failed", "skipped", "skipped", "skipped"]);
+  const swap = card("pool").querySelector('.pecu-plan-step[data-step="2"]')!;
+  swap.dispatchEvent(new window.Event("pointerover", { bubbles: true }));
+  expect([...card("pool").querySelectorAll(".is-across [data-active]")].map((item) => item.getAttribute("data-step"))).toEqual(["2", "2"]);
+  swap.dispatchEvent(new window.Event("pointerout", { bubbles: true }));
+  expect(card("pool").querySelector("[data-active]")).toBeNull();
+  const copied: string[] = [];
+  Object.defineProperty(window.navigator, "clipboard", { value: { writeText: async (text: string) => { copied.push(text); } }, configurable: true });
+  card("pool").querySelector<HTMLButtonElement>(".pecu-plan-step-meta button")!.click();
+  await Promise.resolve();
+  expect(copied).toEqual(["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"]);
+});
+
 test("all sample cards can confirm, check and cancel locally", () => {
-  for (const name of ["swap", "approval", "basket"]) {
+  for (const name of ["swap", "approval", "basket", "pool", "multihop"]) {
     card(name).querySelector<HTMLButtonElement>(".pecu-confirmation-actions button")!.click();
     expect(card(name).querySelector(".pecu-confirmation-actions")!.textContent).toBe("Check transaction");
     card(name).querySelector<HTMLButtonElement>(".pecu-confirmation-actions button")!.click();

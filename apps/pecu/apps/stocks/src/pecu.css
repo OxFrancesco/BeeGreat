@@ -246,6 +246,92 @@ html:has(.pecu-app), body:has(.pecu-app) { background: var(--background); }
 .pecu-confirmation-links { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
 .pecu-confirmation-note { font-size: 13px; color: var(--muted-foreground); }
 
+/* Transaction plan: the route value takes, then every transaction in signing order.
+   Nodes are HTML on the same coordinates as the SVG edges, so text never scales. */
+.pecu-plan { display: grid; gap: 20px; min-width: 0; container: plan / inline-size; }
+.pecu-plan-route { padding: 12px; border-radius: var(--clay-radius-control); background: var(--muted); box-shadow: var(--clay-shadow-inset); }
+.pecu-plan-map { position: relative; width: 100%; margin-inline: auto; }
+.pecu-plan-map.is-down { display: none; }
+.pecu-plan-edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.pecu-plan-edge { transition: opacity var(--fast) ease; }
+.pecu-plan-track { fill: none; stroke: var(--muted-foreground); stroke-opacity: .4; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 100; transition: stroke var(--fast) ease, stroke-opacity var(--fast) ease; }
+.pecu-plan-flow { fill: none; stroke: var(--primary); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 9 91; stroke-dashoffset: 9; opacity: 0; }
+.pecu-plan-edge[data-done] .pecu-plan-track, .pecu-plan[data-state="succeeded"] .pecu-plan-track { stroke: var(--primary); stroke-opacity: 1; }
+.pecu-plan-node, .pecu-plan-chip { position: absolute; width: max-content; transform: translate(-50%, -50%); white-space: nowrap; }
+.pecu-plan-node { display: grid; justify-items: center; gap: 1px; min-width: 64px; max-width: 168px; padding: 8px 14px; border-radius: var(--clay-radius-pill); background: var(--card); color: var(--foreground); box-shadow: var(--clay-shadow-sm); text-align: center; line-height: 1.3; }
+.pecu-plan-node strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 14px; font-weight: 650; }
+.pecu-plan-node small { font-size: 12px; color: var(--muted-foreground); }
+.pecu-plan-node:is(.is-pool, .is-protocol, .is-account) { border-radius: var(--clay-radius-control); padding: 8px 12px; }
+.pecu-plan-node.is-created { background: var(--accent); color: var(--accent-foreground); outline: 2px dashed var(--primary); outline-offset: 3px; }
+.pecu-plan-node.is-created small { color: var(--accent-foreground); }
+.pecu-plan-chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px; border-radius: var(--clay-radius-pill); background: var(--card); color: var(--muted-foreground); font-size: 12px; font-weight: 600; box-shadow: var(--clay-shadow-sm); transition: background-color var(--fast) ease, color var(--fast) ease; }
+.pecu-plan-chip:has(> :nth-child(2)) { padding-right: 9px; }
+.pecu-plan-chip-step { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--secondary); color: var(--foreground); font-size: 11px; font-weight: 650; }
+.pecu-plan:has([data-active]) .pecu-plan-edge:not([data-active]) { opacity: .3; }
+.pecu-plan-chip[data-active] { background: var(--primary); color: var(--primary-foreground); }
+.pecu-plan:is([data-state="cancelled"], [data-state="expired"]) .pecu-plan-map { opacity: .6; }
+
+.pecu-plan-steps { display: grid; margin: 0; padding: 0; list-style: none; }
+.pecu-plan-step { position: relative; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding-bottom: 14px; border-radius: var(--clay-radius-control); }
+.pecu-plan-step:last-child { padding-bottom: 0; }
+.pecu-plan-step:not(:last-child)::before { content: ""; position: absolute; top: 32px; bottom: 4px; left: 13px; width: 2px; border-radius: 1px; background: var(--border); transition: background-color var(--fast) ease; }
+.pecu-plan-step[data-status="confirmed"]:not(:last-child)::before { background: var(--primary); }
+.pecu-plan-bead { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--card); color: var(--foreground); font-size: 12px; font-weight: 650; box-shadow: var(--clay-shadow-sm); transition: background-color var(--fast) ease, color var(--fast) ease, box-shadow var(--fast) ease; }
+.pecu-plan-step[data-kind="approval"]:not([data-status]) .pecu-plan-bead { background: var(--muted); box-shadow: var(--clay-shadow-inset); }
+.pecu-plan-step[data-status="confirmed"] .pecu-plan-bead { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--clay-shadow-primary); }
+.pecu-plan-step[data-status="failed"] .pecu-plan-bead { color: color-mix(in oklch, var(--destructive) 78%, var(--foreground)); }
+.pecu-plan-step[data-status="skipped"] { color: var(--muted-foreground); }
+.pecu-plan-step-body { display: grid; gap: 2px; min-width: 0; padding-top: 4px; }
+.pecu-plan-step-title { font-size: 14.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.pecu-plan-step-meta { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; min-height: 24px; font-size: 13px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.pecu-plan-contract { display: inline-flex; flex-wrap: wrap; align-items: center; column-gap: 5px; min-width: 0; }
+.pecu-plan-address { display: inline-flex; align-items: center; white-space: nowrap; }
+.pecu .pecu-plan-step-meta .pecu-preview-copy { margin-inline: -8px -12px; }
+.pecu-plan-step-status { font-size: 13px; color: var(--foreground); }
+.pecu-plan-step[data-status="skipped"] .pecu-plan-step-status { color: var(--muted-foreground); }
+.pecu-plan-step[data-status="failed"] .pecu-plan-step-status { color: color-mix(in oklch, var(--destructive) 78%, var(--foreground)); }
+
+/* One map at a time. Across stays while it fits at 85% scale or more; each layer adds 220 units. */
+@container plan (max-width: 344px) { .pecu-plan-route[data-layers="2"] .is-across { display: none; } .pecu-plan-route[data-layers="2"] .is-down { display: block; } }
+@container plan (max-width: 531px) { .pecu-plan-route[data-layers="3"] .is-across { display: none; } .pecu-plan-route[data-layers="3"] .is-down { display: block; } }
+@container plan (max-width: 718px) { .pecu-plan-route[data-layers="4"] .is-across { display: none; } .pecu-plan-route[data-layers="4"] .is-down { display: block; } }
+@container plan (max-width: 905px) { .pecu-plan-route[data-layers="5"] .is-across { display: none; } .pecu-plan-route[data-layers="5"] .is-down { display: block; } }
+.pecu-plan-route[data-layers="6"] .is-across { display: none; }
+.pecu-plan-route[data-layers="6"] .is-down { display: block; }
+
+/* Motion: the route draws in layer by layer while the plan still needs the user,
+   then a comet walks each unconfirmed edge. Settled plans stay still. */
+.pecu-plan [data-layer] { --plan-layer: 0; }
+.pecu-plan [data-layer="1"] { --plan-layer: 1; }
+.pecu-plan [data-layer="2"] { --plan-layer: 2; }
+.pecu-plan [data-layer="3"] { --plan-layer: 3; }
+.pecu-plan [data-layer="4"] { --plan-layer: 4; }
+.pecu-plan [data-layer="5"] { --plan-layer: 5; }
+.pecu-plan [data-layer="6"] { --plan-layer: 6; }
+.pecu-plan [data-layer="7"] { --plan-layer: 7; }
+.pecu-plan:is([data-state="pending"], [data-state="executing"]) .pecu-plan-node { animation: pecu-plan-node-in 240ms var(--ease-out) both; animation-delay: calc(var(--plan-layer) * 140ms); }
+.pecu-plan:is([data-state="pending"], [data-state="executing"]) .pecu-plan-track { animation: pecu-plan-draw 420ms var(--ease-in-out) both; animation-delay: calc(var(--plan-layer) * 140ms + 120ms); }
+.pecu-plan:is([data-state="pending"], [data-state="executing"]) .pecu-plan-chip { animation: pecu-fade-in 200ms var(--ease-out) both; animation-delay: calc(var(--plan-layer) * 140ms + 380ms); }
+.pecu-plan[data-state="pending"] .pecu-plan-flow,
+.pecu-plan[data-state="executing"] .pecu-plan-edge:not([data-done]) .pecu-plan-flow { animation: pecu-plan-flow 2800ms linear infinite; animation-delay: calc(var(--plan-layer) * 560ms + 900ms); }
+.pecu-plan[data-offscreen] .pecu-plan-flow { animation-play-state: paused; }
+@keyframes pecu-plan-node-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.94); } }
+@keyframes pecu-plan-draw { from { stroke-dashoffset: 100; } }
+@keyframes pecu-plan-flow {
+  0% { stroke-dashoffset: 9; opacity: 0; }
+  6%, 58% { opacity: 1; }
+  66%, 100% { stroke-dashoffset: -91; opacity: 0; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .pecu-plan-step:hover .pecu-plan-bead { box-shadow: var(--clay-shadow-sm), var(--clay-focus); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pecu-plan[data-state] :is(.pecu-plan-node, .pecu-plan-chip, .pecu-plan-track) { animation: none; }
+  .pecu-plan[data-state] .pecu-plan-flow { display: none; }
+  .pecu-plan-bead, .pecu-plan-step::before, .pecu-plan-edge, .pecu-plan-chip { transition: none; }
+  .pecu-plan .animate-spin { animation: none; }
+}
+
 /* Buttons that carry the clay look */
 .pecu .pecu-button { min-height: 40px; border-radius: var(--clay-radius-control); border: 0; background: var(--card); color: var(--foreground); font-weight: 650; box-shadow: var(--clay-shadow-sm); transition: transform 160ms ease; }
 .pecu .pecu-button-primary { background: var(--primary); color: var(--primary-foreground); box-shadow: var(--clay-shadow-primary); }

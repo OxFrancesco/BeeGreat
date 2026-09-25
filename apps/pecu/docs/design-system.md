@@ -114,6 +114,24 @@ amount and explain the spending permission. Aave's supplied continuation instruc
 remains visible; concept 07 does not authorize inventing or automatically executing
 a second step. The existing backend owns confirmation and execution.
 
+Every preview with a decoded plan ends its body with the route and the
+transactions (`TransactionPlan`). The backend decodes the persisted calls, so
+the card cannot show a step that will not run. The route sits on a recessed
+`--muted` panel: tokens are clay pills, pools and protocols are 14px clay
+tiles, and a pool the plan creates uses the amber tint with a dashed
+`--primary` outline. Edges carry a chip with the transaction number and, for
+swaps, the pool type (`CL100`, `Volatile`, `Stable`). An edge that skips a layer
+arcs over the node between. The route flows left to right while it fits at 85%
+scale or more and top to bottom below that, except wide fans such as baskets,
+which stay across. Node text is HTML over the SVG, so it never scales. Below
+the route, transactions form an ordered list: a numbered bead on a thin rail,
+the decoded title, then the contract name, short address and copy control.
+Approvals say Permission only and use a recessed bead. After confirmation each
+step shows Waiting, Submitted, Confirmed on Base, Failed or Not sent, with its
+own Basescan link; confirmed beads and rails fill amber and the card drops its
+duplicate receipt links. Pointing at a transaction highlights its edges and dims
+the rest. X Chat gets the same titles as a numbered `Transactions:` list.
+
 Cards adapt to their container, including a narrow desktop chat pane. Below 380px
 of card content width, metadata and actions stack. On mobile the mascot sits above
 transaction cards so their content can use the conversation width. Primary actions
@@ -124,8 +142,9 @@ Pending cards offer an action-specific Confirm and Cancel. Submission disables
 both; submitted cards offer only Check transaction. Completed cards link to verified
 receipts and distinguish original estimates from actual receipt data. Failed cards
 retain the status-check warning. Expired/cancelled cards never expose Confirm.
-The `/design` swap, approval and basket examples render the actual React component
-at build time with fictional fixtures; their controls only change local page state.
+The `/design` swap, approval, basket, new-pool and multi-hop examples render the
+actual React component at build time with fictional fixtures; their controls only
+change local page state.
 
 Typing a slash opens command completion above the composer. Arrow keys move
 through options, Enter or Tab accepts, and Escape dismisses. Preserve listbox
@@ -220,6 +239,14 @@ stops outside the viewport and while the document is hidden. Reduced motion
 draws the finished mark with no intro or sweep.
 
 Approval beads fill in 160ms. Profile tabs and navigation change immediately.
+
+The transaction route draws in only while the plan is pending or executing.
+Nodes rise from 94% scale in 240ms on the entrance curve, edges draw in 420ms
+on the sidebar curve and chips fade in 200ms, each layer 140ms after the last.
+Then a short amber comet walks each unconfirmed edge on a linear 2.8s loop,
+offset 560ms per layer so value appears to travel through the route. Confirmed
+edges turn solid and stop. Settled cards stay still, comets pause off screen,
+and reduced motion shows the finished route with no motion.
 
 Clay controls lift at most 2px on pointer hover and depress 1px on press.
 Respect reduced motion: remove movement and automatic video playback, use

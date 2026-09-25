@@ -4,6 +4,7 @@ import { concatHex, decodeFunctionData, encodeFunctionData, erc20Abi, getAddress
 import { z } from "zod";
 import type { PecuAgent } from "./agent";
 import { chatError, intentTitle } from "./chat";
+import { intentPlan } from "./transaction-plan";
 import type { VerifiedMessage } from "./domain";
 import { formatUnits, parseUnits, type EvmService } from "./evm";
 import { decodeSafeBatch, safeExtensionAbi, safeTransactionSchema, type SafeReadCommand } from "./safe";
@@ -121,7 +122,7 @@ function titleFor(kind: ProposalKind, summary: string): string {
 
 export type SafeProfileDeps = Readonly<{
   agent: Pick<PecuAgent, "proposeAction" | "handle">;
-  store: Pick<PecuStore, "wallet" | "intentForSource">;
+  store: Pick<PecuStore, "wallet" | "intentForSource" | "steps" | "transactionPlan">;
   evm: Pick<EvmService, "safeRead" | "describeSafeTransaction">;
   chain: Pick<SafeChain, "blockNumber" | "safeState" | "approvals" | "tokens" | "balances" | "budgets" | "execution" | "findExecution" | "transaction">;
   sql: WebSql;
@@ -193,7 +194,7 @@ export class SafeProfile {
     const kind = intentKindSchema.safeParse(row.kind);
     if (!intent || !kind.success) return null;
     const state = intent.state === "pending" && intent.expiresAt < Date.now() ? "expired" : intent.state;
-    return {
+    const view: ProfileIntent = {
       requestId: row.request_id,
       kind: kind.data,
       preview: {
@@ -205,6 +206,9 @@ export class SafeProfile {
         result: state === "succeeded" || state === "failed" ? intent.result : undefined,
       },
     };
+    const plan = intentPlan(this.deps.store, intent, state);
+    if (plan) view.preview.plan = plan;
+    return view;
   }
 
   private visibleIntents(rows: readonly IntentRow[]): ProfileIntent[] {
