@@ -1,6 +1,6 @@
 # Pecu portfolio
 
-Implemented locally. Production deployment awaits approval.
+Deployed to pecu.app on September 25, 2026 from commit 8181bd34.
 
 - ETH and USDC balances appear above P&L in the Agent wallet panel.
 - The + beside Balances opens token entry. The input stays hidden otherwise.
@@ -18,6 +18,6 @@ The authenticated read endpoint selects the sender's stored wallet. It does not 
 
 ## Release
 
-Automatic approval review rejected the production Worker deployment because the request did not explicitly authorize a release. The release order is Pecu Worker, Stocks web app, then site documentation. Production balances and stock loading remain unverified for this change.
+After explicit release approval, the Pecu Worker, Stocks web app and documentation were deployed in order. Signed-in production verification passed for ETH and USDC balances, the stock list and graph, AERO ticker addition, WETH contract-address addition, and removal of both test entries. No funds moved. Public screenshots and the linked recording remain synthetic fixtures; the live recording was sent privately.
 
 The UI applies to desktop and mobile browsers. Other BeeGreat clients have no profile changes; X Chat keeps its text commands. Both inference providers share the read endpoint.
