@@ -1,3 +1,5 @@
+import type { Endpoint } from "../src/integrations/polymarket/endpoint";
+import type { JsonInput, JsonFields } from "../src/json-contract";
 import { Effect, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { polymarketEndpoints, polymarketEndpointNames } from "../src/integrations/polymarket/catalog.generated";
@@ -17,9 +19,9 @@ let failures = 0;
 const selected = process.argv.slice(3);
 const names = selected.length ? polymarketEndpointNames.filter(name => selected.includes(name)) : polymarketEndpointNames;
 for (const name of names) {
- const endpoint = polymarketEndpoints[name];
- const input: Record<string, unknown> = {};
- const accepts = (key: string, value: unknown) => endpoint.input.safeParse({ ...input, [key]: value }).success;
+ const endpoint: Endpoint<unknown> = polymarketEndpoints[name];
+ const input: JsonFields = {};
+ const accepts = (key: string, value: JsonInput) => endpoint.input.safeParse({ ...input, [key]: value }).success;
  if (endpoint.path.includes("{id}")) input.id = name.startsWith("event") ? event.id : name.startsWith("market") ? market.id : name === "series_detail" ? "1" : "2";
  if (endpoint.path.includes("{slug}")) input.slug = name.startsWith("event") ? event.slug : name.startsWith("market") ? market.slug : "politics";
  if (endpoint.path.includes("{condition_id}")) input.condition_id = market.conditionId;
@@ -42,7 +44,7 @@ for (const name of names) {
      const next = await Effect.runPromise(readEndpoint<unknown>(endpoint, result.success.next.input).pipe(Effect.provide(FetchHttpClient.layer), Effect.result));
      const ok = next._tag === "Success";
      if (!ok) failures++;
-     report.push({ name: `${name}:next`, ok, ...(!ok ? { error: String(next.failure) } : {}) });
+     report.push(next._tag === "Failure" ? { name: `${name}:next`, ok, error: String(next.failure) } : { name: `${name}:next`, ok });
      console.log(`${ok ? "PASS" : "FAIL"} ${name}:next`);
    }
  } else {

@@ -1,3 +1,5 @@
+import { unusedCapabilities } from "./agent-services";
+import type { JsonFields } from "../../src/json-contract";
 import { expect, mock } from "bun:test";
 import { Store } from "../../src/store";
 
@@ -5,7 +7,7 @@ const created: string[] = [];
 const switched: { sessionID: string; model: { providerID: string; id: string; variant: string } }[] = [];
 const prompts: string[] = [];
 const toolCatalogs: string[][] = [];
-const contextQueue: Record<string, unknown>[] = [];
+const contextQueue: JsonFields[] = [];
 const answer = { type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "answer" }] };
 const client = {
   sessions: {
@@ -28,31 +30,53 @@ const client = {
   } },
   integration: { list: async () => ({ data: [{ id: "openai", connections: [{ type: "credential", id: "cred" }], methods: [] }] }) },
 };
-type Hook = (event: Record<string, unknown>) => Promise<void>;
-const hooks = new Map<string, Hook>();
-const registered = new Map<string, {execute(input: unknown, context: {sessionID:string}): Promise<unknown>}>();
-type CreateOptions = { config?: { providers?: Record<string, { settings?: Record<string, unknown> }> }; plugins: { setup(context: unknown): Promise<void> }[] };
+type Model = { providerID: string; id: string; variant: string };
+type Decision = { retry: false } | { retry: true; delay: number };
+type Tool = { execute(input: JsonFields, context: { sessionID: string }): Promise<{ content: string }> };
+type HookEvents = {
+  "context": { sessionID: string; tools: Record<string, Partial<Tool>> };
+  "model.request": { model: Model; headers: Record<string, string> };
+  "http.request": { agent: string; sessionID: string; model: Model; request: Request };
+  "http.response": { model: Model; request: Request; response: Response };
+  "retry": { sessionID: string; model: Model; attempt: number; error: { type: string; message: string; status: number }; decision: Decision };
+  "execute.after": { tool: string; status: string; result: { content: string; metadata?: JsonFields } };
+};
+type HookRegistry = { [K in keyof HookEvents]?: (event: HookEvents[K]) => Promise<void> };
+class Hooks {
+  private readonly entries: HookRegistry = {};
+  set<K extends keyof HookEvents>(name: K, fn: (event: HookEvents[K]) => Promise<void>) {
+    // SAFETY: the same generic key selects the event input and registry slot; TypeScript loses that correlation in a mapped-type write.
+    this.entries[name] = fn as HookRegistry[K];
+  }
+  get<K extends keyof HookEvents>(name: K) { return this.entries[name]; }
+}
+const hooks = new Hooks();
+const registered = new Map<string, Tool>();
+type ToolDraft = { list(): { id: string }[]; remove(id: string): void; add(tool: Tool & { name: string }): void };
+type AgentDraft = { default(name: string): void; list(): { id: string }[] };
+type CreateOptions = { config?: { providers?: Record<string, { settings?: JsonFields }> }; plugins: { setup(context: typeof pluginContext): Promise<void> }[] };
 const creates: CreateOptions[] = [];
 let plugin: CreateOptions["plugins"][number] | undefined;
 mock.module("@opencode-ai/sdk/workerd", () => ({ OpenCodeWorkerd: { create: async (options: CreateOptions) => { creates.push(options); plugin = options.plugins[0]; return client; } } }));
-mock.module("@opencode-ai/plugin", () => ({ Plugin: { define: (value: unknown) => value } }));
+mock.module("@opencode-ai/plugin", () => ({ Plugin: { define: <T>(value: T) => value } }));
 const { OpenCodeHarness } = await import("../../src/cloudflare/opencode");
 const store = new Store(":memory:");
 const values = new Map<string, unknown>();
-const storage = { get: async (key: string) => values.get(key), put: async (key: string, value: unknown) => { values.set(key, value); }, delete: async (key: string) => values.delete(key) };
+const storage = { get: async (key: string) => values.get(key), put: async <T>(key: string, value: T) => { values.set(key, value); }, delete: async (key: string) => values.delete(key) };
 const openai = { providerID: "openai", id: "gpt-6-sol", variant: "medium" };
 const openrouter = { providerID: "openrouter", id: "openai/gpt-6-sol", variant: "medium" };
 const openrouterSmall = { providerID: "openrouter", id: "openai/gpt-6-luna", variant: "low" };
 const pluginContext = {
   integration: { connection: { active: async () => ({ id: "connection" }), resolve: async () => ({ type: "oauth", methodID: "chatgpt-headless", metadata: { accountID: "account-test" } }) } },
-  session: { hook: async (name: string, fn: Hook) => { hooks.set(name, fn); } },
-  tool: { hook: async (name: string, fn: Hook) => { hooks.set(name, fn); }, transform: async (fn: (draft: unknown) => void) => fn({ list: () => [], remove() {}, add(tool: {name:string;execute(input: unknown, context:{sessionID:string}):Promise<unknown>}) {registered.set(tool.name,tool);} }) },
-  agent: { transform: async (fn: (draft: unknown) => void) => fn({ default() {}, list: () => [] }) },
+  session: { hook: async <K extends keyof HookEvents>(name: K, fn: (event: HookEvents[K]) => Promise<void>) => { hooks.set(name, fn); } },
+  tool: { hook: async <K extends keyof HookEvents>(name: K, fn: (event: HookEvents[K]) => Promise<void>) => { hooks.set(name, fn); }, transform: async (fn: (draft: ToolDraft) => void) => fn({ list: () => [], remove() {}, add(tool: Tool & { name: string }) {registered.set(tool.name,tool);} }) },
+  agent: { transform: async (fn: (draft: AgentDraft) => void) => fn({ default() {}, list: () => [] }) },
 };
 try {
-  const capabilities = { yoloEnabled: () => false } as never;
+  const capabilities = unusedCapabilities;
   let bound = true;
-  const harness = await OpenCodeHarness.create(storage as never, store, () => { if (!bound) throw new Error("Turn is no longer bound"); return capabilities; });
+  // SAFETY: the mocked SDK never accesses storage; the harness only uses this fixture’s get/put/delete methods without analytics.
+  const harness = await OpenCodeHarness.create(storage as DurableObjectStorage, store, () => { if (!bound) throw new Error("Turn is no longer bound"); return capabilities; });
   expect(creates.at(-1)!.config?.providers?.openrouter).toBeUndefined();
   expect(harness.fallbackConfigured).toBe(false);
   await plugin!.setup(pluginContext);
@@ -123,23 +147,24 @@ try {
   const openRouterRequest = new Request("https://openrouter.ai/api/v1/chat/completions");
   const limitBody = JSON.stringify({ error: { type: "usage_limit_reached", plan_type: "plus", resets_at: Math.floor(Date.now() / 1000) + 7200, message: "The usage limit has been reached" } });
   await hooks.get("http.response")!({ model: openai, request, response: new Response(limitBody, { status: 429, headers: { "content-type": "application/json" } }) });
-  type Decision = { retry: false } | { retry: true; delay: number };
-  const retry = { sessionID: "session", model: openai, attempt: 2, error: { type: "RateLimit", message: "The usage limit has been reached", status: 429 }, decision: { retry: true, delay: 2000 } as Decision };
+  const decision = (delay: number): Decision => ({ retry: true, delay });
+  const retry = { sessionID: "session", model: openai, attempt: 2, error: { type: "RateLimit", message: "The usage limit has been reached", status: 429 }, decision: decision(2000) };
   await hooks.get("retry")!(retry);
   expect(retry.decision).toEqual({ retry: false });
-  const transient = { sessionID: "session", model: openai, attempt: 2, error: { type: "ProviderInternal", message: "server_error", status: 500 }, decision: { retry: true, delay: 2000 } as Decision };
+  const transient = { sessionID: "session", model: openai, attempt: 2, error: { type: "ProviderInternal", message: "server_error", status: 500 }, decision: decision(2000) };
   values.clear();
   await hooks.get("retry")!(transient);
   expect(transient.decision).toEqual({ retry: true, delay: 2000 });
-  const third = { ...transient, attempt: 3, decision: { retry: true, delay: 4000 } as Decision };
+  const third = { ...transient, attempt: 3, decision: decision(4000) };
   await hooks.get("retry")!(third);
   expect(third.decision).toEqual({ retry: false });
   await hooks.get("http.response")!({ model: openai, request, response: new Response(limitBody, { status: 429, headers: { "content-type": "application/json" } }) });
   const before = prompts.length;
   const limited = await harness.respond({ ...message, eventId: "4" }, capabilities).catch((error: Error) => error);
   expect(limited).toBeInstanceOf(Error);
-  expect((limited as Error).message).toContain("usage limit on your ChatGPT plus plan has been reached");
-  expect((limited as Error).message).toContain("in about 2 hours");
+  if (!(limited instanceof Error)) throw new Error("Expected usage-limit error");
+  expect(limited.message).toContain("usage limit on your ChatGPT plus plan has been reached");
+  expect(limited.message).toContain("in about 2 hours");
   expect(prompts.length).toBe(before);
   expect((await harness.inferenceStatus()).usageLimit?.kind).toBe("usage_limit_reached");
   await hooks.get("http.response")!({ model: openai, request, response: new Response("{}", { status: 200 }) });
@@ -147,7 +172,8 @@ try {
   expect((await harness.inferenceStatus()).usageLimit).toBeNull();
 
   // An operator OpenRouter key routes missing connections and spent plans to the fallback models.
-  const keyed = await OpenCodeHarness.create(storage as never, store, () => capabilities, undefined, "sk-or-test");
+  // SAFETY: the same SDK mock and disabled analytics use only get/put/delete on this fixture.
+  const keyed = await OpenCodeHarness.create(storage as DurableObjectStorage, store, () => capabilities, undefined, "sk-or-test");
   expect(creates.at(-1)!.config?.providers?.openrouter?.settings?.apiKey).toBe("sk-or-test");
   expect(creates.at(-1)!.config?.providers?.openrouter?.settings?.provider).toEqual({ only: ["openai"] });
   expect(keyed.fallbackConfigured).toBe(true);
@@ -198,10 +224,10 @@ try {
   expect(await storage.get("basedbot-usage-limit")).toBeDefined();
   await hooks.get("http.response")!({ model: openrouter, request: openRouterRequest, response: new Response("{}", { status: 200 }) });
   expect(await storage.get("basedbot-usage-limit")).toBeDefined();
-  const openRouterRetry = { sessionID: "session", model: openrouter, attempt: 2, error: { type: "RateLimit", message: "The usage limit has been reached", status: 429 }, decision: { retry: true, delay: 2000 } as Decision };
+  const openRouterRetry = { sessionID: "session", model: openrouter, attempt: 2, error: { type: "RateLimit", message: "The usage limit has been reached", status: 429 }, decision: decision(2000) };
   await hooks.get("retry")!(openRouterRetry);
   expect(openRouterRetry.decision).toEqual({ retry: true, delay: 2000 });
-  const openRouterThird = { ...openRouterRetry, attempt: 3, decision: { retry: true, delay: 4000 } as Decision };
+  const openRouterThird = { ...openRouterRetry, attempt: 3, decision: decision(4000) };
   await hooks.get("retry")!(openRouterThird);
   expect(openRouterThird.decision).toEqual({ retry: false });
 
@@ -209,6 +235,7 @@ try {
   await expect(harness.respond({ ...message, eventId: "11" }, capabilities, undefined, undefined, false)).rejects.toThrow("Connect your ChatGPT");
   const stillLimited = await harness.respond({ ...message, eventId: "12" }, capabilities, undefined, undefined, true).catch((error: Error) => error);
   expect(stillLimited).toBeInstanceOf(Error);
-  expect((stillLimited as Error).message).toContain("usage limit on your ChatGPT plus plan has been reached");
+  if (!(stillLimited instanceof Error)) throw new Error("Expected usage-limit error");
+  expect(stillLimited.message).toContain("usage limit on your ChatGPT plus plan has been reached");
   console.log("Luna selection, retained session, Sol fallback, response instructions, usage-limit short-circuit, OpenRouter fallback passed");
 } finally { store.close(); }

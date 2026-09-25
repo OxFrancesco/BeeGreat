@@ -10,7 +10,7 @@ test('non-financial fixture passes claim, rendering, send and acknowledgement wi
   const actions: string[] = []
   const sent: unknown[] = []
   let claimed = false
-  fetchSpy.mockImplementation(Object.assign(async (_url: unknown, init?: RequestInit) => {
+  fetchSpy.mockImplementation(Object.assign(async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = JSON.parse(String(init?.body))
     actions.push(body.action)
     expect(new Headers(init?.headers).get('x-bridge-secret')).toBe('test-only')
@@ -36,7 +36,7 @@ test('non-financial fixture passes claim, rendering, send and acknowledgement wi
 test('send failure releases the same lease through retry and never acknowledges completion', async () => {
   const actions: string[] = []
   let leaseId: string | undefined
-  fetchSpy.mockImplementation(Object.assign(async (_url: unknown, init?: RequestInit) => {
+  fetchSpy.mockImplementation(Object.assign(async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = JSON.parse(String(init?.body))
     actions.push(body.action)
     if (body.action === 'claim_delivery') {

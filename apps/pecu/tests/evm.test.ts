@@ -1,3 +1,4 @@
+import type { JsonValue, JsonFields } from "../src/json-contract";
 import { describe, expect, test } from "bun:test";
 import type { EvmCommand } from "../src/cloudflare/evm-protocol";
 import { EvmService, formatUnits, parseUnits, resolveToken, validateEvmRequest, type EvmExecutor } from "../src/evm";
@@ -18,11 +19,11 @@ function operation(overrides: Partial<{ account: string; to: string; data: strin
   };
 }
 
-function executor(responses: Partial<Record<EvmCommand, unknown>>) {
-  const calls: Array<{ command: EvmCommand; input: Record<string, unknown> }> = [];
+function executor(responses: Partial<Record<EvmCommand, JsonValue>>) {
+  const calls: Array<{ command: EvmCommand; input: JsonFields }> = [];
   const run: EvmExecutor = async (command, input) => {
     calls.push({ command, input });
-    if (!(command in responses)) throw new Error(`unexpected command ${command}`);
+    if (responses[command] === undefined) throw new Error(`unexpected command ${command}`);
     return responses[command];
   };
   return { service: new EvmService(run), calls };

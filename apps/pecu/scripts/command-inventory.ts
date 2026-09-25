@@ -40,7 +40,7 @@ console.log(JSON.stringify({
   aeroActions: SUGAR_ACTIONS.map(action => ({ action, onchain: isSugarTxAction(action), parameters: ACTION_SPECS[action].allowed, required: ACTION_SPECS[action].required })),
   modelTools: modelTools.map(name => ({ name, onchain: writes.has(name), status: "not-run" })),
   aaveCalls: aaveTools.map(tool => ({ name: tool.name, parameters: tool.inputSchema, status: "not-run" })),
-  aaveSigningActions: aaveParameters.shape.action.options,
+  aaveSigningActions: aaveParameters["shape"].action.options,
   manualAudit: [
     "Reconcile the listed subcommands and natural-language shortcuts against src/domain.ts after parser changes.",
     "aave_call.prepare_action dispatches to a separate signing flow. Test each supported signing action and approval continuation.",

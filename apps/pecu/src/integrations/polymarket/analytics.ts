@@ -1,26 +1,20 @@
+import { jsonValueSchema, type JsonInput, type JsonFields } from "../../json-contract";
 import type { PolymarketToken } from "./model-output";
 import { z } from "zod";
 import { analyticsAddress, analyticsSnapshotSchema, analyticsText, type AnalyticsResult, type PolymarketSnapshot } from "../../analytics-contract";
 import type { PolymarketRead } from "./client";
 
-const number = z.unknown().optional().transform((value) => {
-  const parsed = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
-  return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
-});
+const number = z.union([z.number(), z.string().trim().min(1).transform(Number)]).pipe(z.number().finite()).nullable().catch(null);
 const probability = number.transform((value) => value !== null && value >= 0 && value <= 1 ? value : null);
-const text = z.unknown().optional().transform((value) => typeof value === "string" && value ? value : null);
-const flag = z.unknown().optional().transform((value) => value === true);
-const jsonList = z.unknown().optional().transform((value): unknown[] => {
-  if (typeof value !== "string" || !value) return [];
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-});
-const list = <T extends z.ZodType>(row: T) => z.unknown().optional().transform((value) => Array.isArray(value) ? value.flatMap((item) => {
+const text = z.string().min(1).nullable().catch(null);
+const flag = z.boolean().catch(false);
+const jsonList = z.string().min(1).transform((value) => {
+  try { return JSON.parse(value); } catch { return []; }
+}).pipe(z.array(jsonValueSchema)).catch([]);
+const list = <T>(row: z.ZodType<T>) => z.array(z.unknown()).catch([]).transform((value) => value.flatMap((item) => {
   const parsed = row.safeParse(item);
-  return parsed.success ? [parsed.data as z.output<T>] : [];
-}) : []);
+  return parsed.success ? [parsed.data] : [];
+}));
 
 const marketSchema = z.object({
   question: text, slug: text, groupItemTitle: text, outcomes: jsonList, outcomePrices: jsonList,
@@ -52,20 +46,25 @@ function leader(rows: { label: string; probability: number | null }[]) {
   return rows.reduce<{ label: string; probability: number | null } | undefined>((best, row) => (row.probability ?? -1) > (best?.probability ?? -1) ? row : best, undefined);
 }
 
-const windows: Record<string, string> = { "1h": "Past hour", "6h": "Past 6 hours", "12h": "Past 12 hours", "1d": "Past day", day: "Past day", "1w": "Past week", week: "Past week", "1m": "Past month", month: "Past month", max: "All time", all: "All time" };
-const windowLabel = (value: unknown, fallback: string) => typeof value === "string" && windows[value] ? windows[value] : fallback;
+const windows = new Map(Object.entries({ "1h": "Past hour", "6h": "Past 6 hours", "12h": "Past 12 hours", "1d": "Past day", day: "Past day", "1w": "Past week", week: "Past week", "1m": "Past month", month: "Past month", max: "All time", all: "All time" }));
+const windowLabel = (value: JsonInput, fallback: string) => windows.get(z.string().catch("").parse(value)) ?? fallback;
 const nameOf = (name: string | null, wallet: string) => name && !/^0x[0-9a-f]{40}/i.test(name) ? name : analyticsAddress(wallet);
 
-export function polymarketAnalytics(input: Record<string, unknown>, result: PolymarketRead, selected?: PolymarketToken): PolymarketSnapshot | undefined {
+export function polymarketAnalytics(input: JsonFields, result: PolymarketRead, selected?: PolymarketToken): PolymarketSnapshot | undefined {
   const observedAt = Date.parse(result.observedAt);
   const context = (subject: string, period: string, partial = false) => ({
     key: JSON.stringify(["polymarket", result.endpoint, subject, period]),
     observedAt: Number.isFinite(observedAt) ? observedAt : Date.now(),
     subject, chain: "polygon", period, partial,
   });
-  const build = (value: unknown) => {
+  const build = (value: PolymarketSnapshot) => {
     const parsed = analyticsSnapshotSchema.safeParse(value);
-    return parsed.success && parsed.data.kind.startsWith("pm_") ? parsed.data as PolymarketSnapshot : undefined;
+    if (!parsed.success) return undefined;
+    switch (parsed.data.kind) {
+      case "pm_odds": case "pm_markets": case "pm_history": case "pm_book":
+      case "pm_leaderboard": case "pm_wins": case "pm_trader": case "pm_positions": return parsed.data;
+      default: return undefined;
+    }
   };
   const data = result.data;
   switch (result.endpoint) {
@@ -144,16 +143,18 @@ export function polymarketAnalytics(input: Record<string, unknown>, result: Poly
     }
     case "user_pnl": {
       const series = z.object({ data: z.object({ points: z.array(z.object({ timestamp: z.number().int().nonnegative(), economic_pnl: number })) }) }).safeParse(data);
-      if (!series.success || typeof input.user !== "string") return undefined;
+      const user = z.string().safeParse(input.user);
+      if (!series.success || !user.success) return undefined;
       const points = series.data.data.points.flatMap((point) => point.economic_pnl === null ? [] : [{ t: point.timestamp, pnlUsd: point.economic_pnl }]).slice(-1000);
-      return build({ ...context(input.user, windowLabel(input.interval ?? "1d", "Past day"), points.length < series.data.data.points.length), kind: "pm_trader", name: null, points });
+      return build({ ...context(user.data, windowLabel(input.interval ?? "1d", "Past day"), points.length < series.data.data.points.length), kind: "pm_trader", name: null, points });
     }
     case "positions": {
-      if (typeof input.user !== "string") return undefined;
+      const user = z.string().safeParse(input.user);
+      if (!user.success) return undefined;
       const page = envelope(z.object({ title: text, outcome: text, event_slug: text, current_size: number, avg_price: probability, current_price: probability, current_value: number, total_pnl: number })).safeParse(data);
       if (!page.success) return undefined;
       const rows = page.data.data.slice(0, 100).map((row) => ({ title: row.title ?? "Polymarket market", outcome: row.outcome ?? "Outcome", url: eventUrl(row.event_slug), size: row.current_size, avgPrice: row.avg_price, currentPrice: row.current_price, valueUsd: row.current_value, pnlUsd: row.total_pnl }));
-      return build({ ...context(input.user, String(input.status ?? "OPEN"), result.next !== null), kind: "pm_positions", rows });
+      return build({ ...context(user.data, String(input.status ?? "OPEN"), result.next !== null), kind: "pm_positions", rows });
     }
     default:
       return undefined;

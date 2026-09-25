@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 /**
  * ChatGPT's Codex backend answers an exhausted subscription with HTTP 429 and
  * `{"error":{"type":"usage_limit_reached","resets_at":<unix seconds>}}`.
@@ -20,27 +22,36 @@ const maxTrustedResetMs = 24 * 60 * 60 * 1_000;
 
 export const usageLimitTypes = new Set(["usage_limit_reached", "usage_not_included"]);
 
+const usageLimitResponse = z.object({
+  error: z.object({
+    type: z.enum(["usage_limit_reached", "usage_not_included"]),
+    plan_type: z.string().optional().catch(undefined),
+    resets_at: z.number().optional().catch(undefined),
+    resets_in_seconds: z.number().nullish().catch(undefined),
+  }),
+});
+
 export function parseUsageLimit(status: number, body: string, headers?: Headers, now = Date.now()): UsageLimit | undefined {
   if (status !== 429) return undefined;
   let parsed: unknown;
   try { parsed = JSON.parse(body); } catch { return undefined; }
-  const error = parsed && typeof parsed === "object" ? Reflect.get(parsed, "error") : undefined;
-  const type = error && typeof error === "object" ? Reflect.get(error, "type") : undefined;
-  if (typeof type !== "string" || !usageLimitTypes.has(type)) return undefined;
-  const planType = Reflect.get(error as object, "plan_type");
-  const resetsAtSeconds = Reflect.get(error as object, "resets_at");
-  const resetsInSeconds = Reflect.get(error as object, "resets_in_seconds") ?? Number(headers?.get("retry-after") ?? NaN);
-  const resetsAt = typeof resetsAtSeconds === "number" && Number.isFinite(resetsAtSeconds)
+  const response = usageLimitResponse.safeParse(parsed);
+  if (!response.success) return undefined;
+  const error = response.data.error;
+  const resetsAtSeconds = error.resets_at;
+  const resetsInSeconds = error.resets_in_seconds ?? Number(headers?.get("retry-after") ?? NaN);
+  const resetsAt = resetsAtSeconds !== undefined
     ? resetsAtSeconds * 1000
-    : typeof resetsInSeconds === "number" && Number.isFinite(resetsInSeconds) && resetsInSeconds > 0
+    : Number.isFinite(resetsInSeconds) && resetsInSeconds > 0
       ? now + resetsInSeconds * 1000
       : undefined;
-  return {
-    kind: type as UsageLimit["kind"],
-    ...(typeof planType === "string" ? { planType } : {}),
-    ...(resetsAt !== undefined && resetsAt > now ? { resetsAt } : {}),
+  let limit: UsageLimit = {
+    kind: error.type,
     observedAt: now,
   };
+  if (error.plan_type !== undefined) limit = { ...limit, planType: error.plan_type };
+  if (resetsAt !== undefined && resetsAt > now) limit = { ...limit, resetsAt };
+  return limit;
 }
 
 export function usageLimitActive(limit: UsageLimit, now = Date.now()): boolean {

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 import { act } from "react";
-import { useState, type KeyboardEvent } from "react";
+import { useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useCommandMenu } from "../src/lib/use-command-menu";
 
@@ -24,7 +24,7 @@ function key(name: string) {
       preventDefault: () => {
         prevented = true;
       },
-    } as unknown as KeyboardEvent),
+    }),
   );
   return prevented;
 }

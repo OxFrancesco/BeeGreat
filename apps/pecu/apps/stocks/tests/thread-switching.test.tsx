@@ -1,3 +1,4 @@
+import type { JsonInput } from "../../../src/json-contract";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 import { act } from "react";
@@ -47,7 +48,7 @@ const render = async (threadId: string | null, signedIn = true) => {
     root.render(<Probe threadId={threadId} signedIn={signedIn} />),
   );
 };
-const respond = async (index: number, data: unknown) => {
+const respond = async (index: number, data: JsonInput) => {
   await act(async () => requests[index]!.resolve(Response.json(data)));
 };
 beforeEach(() => {
@@ -59,7 +60,8 @@ beforeEach(() => {
   });
   window.document.write("<!doctype html><html><body></body></html>");
   requests = [];
-  globalThis.fetch = ((url: string, init?: RequestInit) => {
+  globalThis.fetch = Object.assign((input: string | URL | Request, init?: RequestInit) => {
+    const url = input instanceof Request ? input.url : String(input);
     if (url.includes("/threads"))
       return Promise.resolve(
         Response.json({
@@ -69,7 +71,7 @@ beforeEach(() => {
         }),
       );
     return new Promise<Response>((resolve, reject) => requests.push({ url, body: init?.body, resolve, reject }));
-  }) as typeof fetch;
+  }, { preconnect: originalFetch.preconnect });
   root = createRoot(document.createElement("div"));
 });
 afterEach(async () => {

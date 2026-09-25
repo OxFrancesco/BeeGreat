@@ -43,7 +43,7 @@ Built-in model requests are pinned to OpenAI's own endpoint on OpenRouter, so th
 
 ## Usage limits
 
-When your ChatGPT plan reaches its usage limit, Pecu stops sending requests to ChatGPT until the reset time, for at most 24 hours. If ChatGPT gives no reset time, Pecu waits one minute before trying again.
+When your ChatGPT plan reaches its usage limit, Pecu stops sending requests to ChatGPT until the reset time, for at most 24 hours. If the reset value is missing or malformed, Pecu uses the retry delay supplied by ChatGPT. If neither is available, Pecu waits one minute before trying again.
 
 - Without the built-in model, the reply says when the limit resets, for example `It resets in about 3 hours (14:00 UTC).`, and notes that `/balance`, `/stocks` and `/quote` still work.
 - With the built-in model, replies use it until your limit resets.

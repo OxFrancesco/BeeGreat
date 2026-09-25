@@ -1,4 +1,6 @@
-export function isInvalidXChatPinError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+import { z } from "zod";
+
+export function isInvalidXChatPinError(cause: unknown): boolean {
+  const message = cause instanceof Error ? cause.message : z.string().catch("").parse(cause);
   return /\breason=InvalidPin\b/.test(message);
 }

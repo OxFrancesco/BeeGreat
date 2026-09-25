@@ -80,7 +80,7 @@ export const previewSchema = z.object({
 export function confirmationCommand(text: string): { kind: "confirm" | "cancel"; code: string } | undefined {
   const match = /^\/(confirm|cancel)\s+([A-Za-z0-9]{6})$/i.exec(text.trim());
   if (!match?.[1] || !match[2]) return undefined;
-  return { kind: match[1].toLowerCase() as "confirm" | "cancel", code: match[2].toUpperCase() };
+  return { kind: match[1].toLowerCase() === "confirm" ? "confirm" : "cancel", code: match[2].toUpperCase() };
 }
 export const webReplySchema = z.object({
   analytics: analyticsResultsSchema.optional(),

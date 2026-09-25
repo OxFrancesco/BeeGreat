@@ -57,7 +57,7 @@ export async function walletForUser(
 
 /** Resolve the smart wallet and refresh the DB cache in one step. */
 export async function cachedWalletForUser(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runMutation">,
   userId: string,
   chain: CrossmintWalletChain = walletChain(),
 ) {

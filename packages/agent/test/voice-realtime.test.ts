@@ -23,7 +23,7 @@ describe('metered realtime voice admission', () => {
       expect(JSON.parse(String(init?.body))).toMatchObject({ action: 'reserve', userId: 'user_owner', operation: 'voice_realtime', units: 1 })
       return Response.json({ leaseId: 'lease', expiresAt: Date.now() + 360_000 })
     })
-    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(fetcher as typeof fetch)
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(Object.assign(fetcher, { preconnect: fetch.preconnect }))
     try {
       const response = await app.request(request(), undefined, env('long-lived-xai-key\n'))
       expect(response.status).toBe(200)
@@ -38,7 +38,7 @@ describe('metered realtime voice admission', () => {
 
   test('quota rejection returns no ticket and cannot contact xAI', async () => {
     const fetcher = mock(async () => Response.json({ error: 'Daily limit reached' }, { status: 429 }))
-    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(fetcher as typeof fetch)
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(Object.assign(fetcher, { preconnect: fetch.preconnect }))
     try {
       const response = await app.request(request(), undefined, env('key'))
       expect(response.status).toBe(429)
@@ -49,7 +49,7 @@ describe('metered realtime voice admission', () => {
 
   test('missing configuration and invalid websocket tickets fail before provider access', async () => {
     const fetcher = mock(async () => Response.json({}))
-    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(fetcher as typeof fetch)
+    const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(Object.assign(fetcher, { preconnect: fetch.preconnect }))
     try {
       expect((await app.request(request(), undefined, env())).status).toBe(503)
       expect((await app.request(new Request('https://agent.example.test/voice/realtime', { headers: { upgrade: 'websocket' } }), undefined, env('key'))).status).toBe(401)
@@ -80,7 +80,7 @@ test('oversize admitted uploads release their slot without contacting the provid
     return Response.json({ leaseId: 'lease', expiresAt: Date.now() + 120_000 })
   })
   try {
-    const response = await app.request(new Request('https://agent.example.test/voice/transcribe', { method: 'POST', headers: { 'x-bridge-secret': 'bridge-secret', 'x-bridge-user': 'user_owner' }, body: new Uint8Array(5 * 1024 * 1024 + 1) }), undefined, env('key'), { waitUntil(task: Promise<unknown>) { pending.push(task) }, passThroughOnException() {} } as ExecutionContext)
+    const response = await app.request(new Request('https://agent.example.test/voice/transcribe', { method: 'POST', headers: { 'x-bridge-secret': 'bridge-secret', 'x-bridge-user': 'user_owner' }, body: new Uint8Array(5 * 1024 * 1024 + 1) }), undefined, env('key'), { waitUntil(task: Promise<unknown>) { pending.push(task) }, passThroughOnException() {} })
     await Promise.all(pending)
     expect(response.status).toBe(413)
     expect(actions).toEqual(['reserve', 'release'])
@@ -96,7 +96,7 @@ test('long replies preserve speech truncation and charge only submitted characte
     return String(input).startsWith('https://api.elevenlabs.io/') ? new Response(new Uint8Array([1, 2])) : Response.json({ leaseId: 'lease', expiresAt: Date.now() + 60_000 })
   })
   try {
-    const response = await app.request(new Request('https://agent.example.test/voice/speak', { method: 'POST', headers: { 'x-bridge-secret': 'bridge-secret', 'x-bridge-user': 'user_owner', 'content-type': 'application/json' }, body: JSON.stringify({ text: 'a'.repeat(2001) }) }), undefined, env('key'), { waitUntil(task: Promise<unknown>) { pending.push(task) }, passThroughOnException() {} } as ExecutionContext)
+    const response = await app.request(new Request('https://agent.example.test/voice/speak', { method: 'POST', headers: { 'x-bridge-secret': 'bridge-secret', 'x-bridge-user': 'user_owner', 'content-type': 'application/json' }, body: JSON.stringify({ text: 'a'.repeat(2001) }) }), undefined, env('key'), { waitUntil(task: Promise<unknown>) { pending.push(task) }, passThroughOnException() {} })
     await Promise.all(pending)
     expect(response.status).toBe(200)
     expect(calls[0]).toMatchObject({ action: 'reserve', units: 2000 })

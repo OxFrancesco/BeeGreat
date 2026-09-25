@@ -1,3 +1,4 @@
+import { jsonObjectSchema, type JsonInput, type JsonFields } from "./json-contract";
 import { KNOWN_TOKENS } from "@beegreat/sugar";
 import { concatHex, decodeFunctionData, encodeFunctionData, erc20Abi, getAddress, padHex, zeroAddress } from "viem";
 import { z } from "zod";
@@ -51,8 +52,8 @@ const proposalCommands = new Set<SafeReadCommand>([
   "safe-propose", "safe-cancel-propose", "safe-owner-propose", "safe-batch-propose", "safe-module-propose", "safe-budget-propose",
   "safe-budget-revoke-propose", "safe-role-grant-propose", "safe-role-revoke-propose", "safe-passkey-owner-propose", "safe-sponsored-enable-propose",
 ]);
-const proposalKinds = new Set<string>(["send", "owner-add", "owner-remove", "owner-replace", "threshold", "reject", "budget-set", "budget-revoke", "other"]);
-const intentKinds = new Set<string>(["create", "approve", "execute", "spend"]);
+const proposalKindSchema = z.enum(["send", "owner-add", "owner-remove", "owner-replace", "threshold", "reject", "budget-set", "budget-revoke", "other"]);
+const intentKindSchema = z.enum(["create", "approve", "execute", "spend"]);
 const codePattern = /\/(?:confirm|cancel) ([A-Z0-9]{6})\b/;
 const txLinks = /https:\/\/basescan\.org\/tx\/(0x[0-9a-fA-F]{64})/g;
 
@@ -73,7 +74,7 @@ function balanceView(token: TokenInfo & { amount: bigint }): ProfileBalance {
 }
 
 function classify(transaction: SafeTransaction): ProposalKind {
-  const data = transaction.data as Address;
+  const data = transaction.data;
   const self = same(transaction.to, transaction.safe);
   if (transaction.operation === 1) {
     try {
@@ -189,18 +190,19 @@ export class SafeProfile {
 
   private intentView(row: IntentRow): ProfileIntent | null {
     const intent = this.deps.store.intentForSource(row.event_id);
-    if (!intent || !intentKinds.has(row.kind)) return null;
+    const kind = intentKindSchema.safeParse(row.kind);
+    if (!intent || !kind.success) return null;
     const state = intent.state === "pending" && intent.expiresAt < Date.now() ? "expired" : intent.state;
     return {
       requestId: row.request_id,
-      kind: row.kind as IntentKind,
+      kind: kind.data,
       preview: {
         code: row.code,
         title: intentTitle(intent),
         text: intent.preview,
         state,
         expiresAt: intent.expiresAt,
-        ...(intent.result !== undefined && (state === "succeeded" || state === "failed") ? { result: intent.result } : {}),
+        result: state === "succeeded" || state === "failed" ? intent.result : undefined,
       },
     };
   }
@@ -326,7 +328,7 @@ export class SafeProfile {
         nonce: proposal.nonce,
         title: proposal.title,
         summary: proposal.summary,
-        kind: proposalKinds.has(proposal.kind) ? proposal.kind as ProposalKind : "other",
+        kind: proposalKindSchema.catch("other").parse(proposal.kind),
         createdAt: proposal.created_at,
         proposer: proposal.sender === identity.senderId ? "you" : owners.has(this.wallet(proposal.sender)?.toLowerCase() ?? "") ? "owner" : "other",
         transaction: safeTransactionSchema.parse(JSON.parse(proposal.tx)),
@@ -530,7 +532,7 @@ export class SafeProfile {
         const message = this.message(identity, action.requestId, `/${action.op === "intent-confirm" ? "confirm" : "cancel"} ${action.code}`);
         const reply = await this.deps.agent.handle(message);
         const intent = this.intentView(row) ?? undefined;
-        return { ok: true, ...(intent ? { intent } : {}), message: reply ?? "Pecu is still working on the previous request. Try again in a moment." };
+        return { ok: true, intent: intent ?? undefined, message: reply ?? "Pecu is still working on the previous request. Try again in a moment." };
       }
       default: {
         const _exhaustive: never = action;
@@ -539,7 +541,7 @@ export class SafeProfile {
     }
   }
 
-  async shareProposal(senderId: string, command: SafeReadCommand, output: unknown): Promise<void> {
+  async shareProposal(senderId: string, command: SafeReadCommand, output: JsonInput): Promise<void> {
     if (!proposalCommands.has(command)) return;
     const parsed = safeTransactionSchema.safeParse(output);
     if (!parsed.success) return;
@@ -607,21 +609,21 @@ export class SafeProfile {
     safe: Address | null,
     hash: Address | null,
     action: "safe_create" | "safe_approve" | "safe_execute_signatures" | "safe_budget_spend",
-    parameters: Record<string, unknown>,
-    onPlanned?: (context: Readonly<Record<string, unknown>>, eventId: string) => Address,
+    parameters: JsonFields,
+    onPlanned?: (context: Readonly<JsonFields>, eventId: string) => Address,
   ): Promise<ProfileActionResult> {
     const message = this.message(identity, requestId);
     const existing = this.rows<IntentRow>("SELECT * FROM basedbot_safe_intents WHERE event_id=?", message.eventId)[0];
     if (existing) {
       const intent = this.intentView(existing);
-      return { ok: true, safe: checksum(existing.safe), ...(intent ? { intent } : {}) };
+      return { ok: true, safe: checksum(existing.safe), intent: intent ?? undefined };
     }
     if (this.active.has(message.eventId)) throw new ProfileError("This request is already being prepared.");
     this.active.add(message.eventId);
     try {
       let planned;
       try {
-        planned = await this.deps.agent.proposeAction(message, action, parameters);
+        planned = await this.deps.agent.proposeAction(message, action, jsonObjectSchema.parse(parameters));
       } catch (error) {
         throw new ProfileError(chatError(error).replace(/^Could not process that command: /, ""));
       }
@@ -635,7 +637,7 @@ export class SafeProfile {
       );
       const row = this.rows<IntentRow>("SELECT * FROM basedbot_safe_intents WHERE event_id=?", message.eventId)[0]!;
       const intent = this.intentView(row);
-      return { ok: true, safe: target, ...(hash ? { proposal: hash } : {}), ...(intent ? { intent } : {}), message: planned.text };
+      return { ok: true, safe: target, proposal: hash ?? undefined, intent: intent ?? undefined, message: planned.text };
     } finally {
       this.active.delete(message.eventId);
     }
@@ -704,7 +706,7 @@ export class SafeProfile {
     const queued = this.rows<{ sender: string }>("SELECT sender FROM basedbot_safe_proposals WHERE safe=? AND CAST(nonce AS INTEGER) >= ?", safe, Number(state.nonce));
     if (queued.length >= limits.queued) throw new ProfileError("This Safe's queue is full. Execute or remove a pending transaction first.");
     if (queued.filter((row) => row.sender === identity.senderId).length >= limits.queuedPerProposer) throw new ProfileError(`You can have up to ${limits.queuedPerProposer} pending transactions on one Safe. Remove one first.`);
-    const read = async (command: SafeReadCommand, input: Record<string, unknown>) => {
+    const read = async (command: SafeReadCommand, input: JsonFields) => {
       try {
         return safeTransactionSchema.parse((await this.deps.evm.safeRead(command, { safe, ...input })).output);
       } catch (error) {

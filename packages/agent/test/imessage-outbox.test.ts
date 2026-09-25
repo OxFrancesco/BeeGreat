@@ -10,9 +10,11 @@ const env = {
 }
 
 function request(path: string, secret?: string) {
+  const headers = new Headers({ "content-type": "application/json" });
+  if (secret) headers.set("x-bridge-secret", secret);
   return new Request(`https://agent.example.test${path}`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', ...(secret ? { 'x-bridge-secret': secret } : {}) },
+    headers,
     body: JSON.stringify({ action: 'claim_delivery', leaseId: 'test-lease' }),
   })
 }

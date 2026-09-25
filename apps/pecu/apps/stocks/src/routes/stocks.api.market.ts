@@ -6,14 +6,8 @@ let cached:
   | undefined;
 let pending: Promise<NonNullable<typeof cached>> | undefined;
 async function readMarket() {
-  const binding: unknown = Reflect.get(env, "AERO");
-  if (
-    !binding ||
-    typeof binding !== "object" ||
-    !("fetch" in binding) ||
-    typeof binding.fetch !== "function"
-  )
-    throw new Error("Market connection unavailable");
+  const binding = env.AERO;
+  if (!binding) throw new Error("Market connection unavailable");
   const response: Response = await binding.fetch("https://aero.internal/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -2,7 +2,7 @@ import { Cause, Effect, Exit, Option, Result, Schema } from "effect";
 import type { PlannedCall } from "./domain";
 import type { UserOperationOutcome, UserOperationReference } from "./receipt";
 import type { AgentStateStore } from "./state";
-import type { WalletTransaction } from "./wallet";
+import type { WalletApproval, WalletTransaction } from "./wallet";
 
 /**
  * Step execution against Crossmint, with the failure taxonomy made explicit.
@@ -66,7 +66,7 @@ export type StepsResult =
 export type StepWallets = Readonly<{
   prepare(senderId: string, call: PlannedCall): Promise<{ transactionId: string }>;
   transaction(senderId: string, transactionId: string): Promise<WalletTransaction>;
-  approve(senderId: string, transactionId: string): Promise<unknown>;
+  approve(senderId: string, transactionId: string): Promise<WalletApproval>;
 }>;
 
 export type StepExecutionDeps = Readonly<{
@@ -82,8 +82,8 @@ export type StepExecutionRequest = Readonly<{
   expiresAt: number;
 }>;
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 const executeStep = Effect.fn("Pecu.executeStep")(function* (
@@ -108,8 +108,8 @@ const executeStep = Effect.fn("Pecu.executeStep")(function* (
   }
 
   const id = transactionId;
-  const unknown = (error: unknown, hash?: string) => new OutcomeUnknown({ position, transactionId: id, ...(hash ? { hash } : {}), reason: errorMessage(error) });
-  const readRecord = Effect.tryPromise({ try: () => deps.wallets.transaction(senderId, id), catch: (error) => unknown(error) });
+  const unsettled = (cause: unknown, hash?: string) => new OutcomeUnknown({ position, transactionId: id, hash: hash || undefined, reason: errorMessage(cause) });
+  const readRecord = Effect.tryPromise({ try: () => deps.wallets.transaction(senderId, id), catch: (error) => unsettled(error) });
 
   let record = yield* readRecord;
   if (record.sender.toLowerCase() !== wallet.toLowerCase()) {
@@ -134,7 +134,7 @@ const executeStep = Effect.fn("Pecu.executeStep")(function* (
 
   const outcome = yield* Effect.tryPromise({
     try: () => deps.verifyUserOperation({ hash, sender: record.sender, userOperationHash: record.userOperationHash }),
-    catch: (error) => unknown(error, hash),
+    catch: (error) => unsettled(error, hash),
   });
   if (outcome.status === "pending") return yield* new InclusionPending({ position, hash });
   if (outcome.status === "reverted") return yield* new Reverted({ position, hash: outcome.hash });

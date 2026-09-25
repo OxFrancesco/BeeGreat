@@ -17,7 +17,7 @@ export function previewRows(text: string): PreviewRow[][] {
         );
         continue;
       }
-      const transfer = /^Send (.+?) to (0x[\da-fA-F…\.]+)\.?$/.exec(line);
+      const transfer = /^Send (.+?) to (0x[\da-fA-F….]+)\.?$/.exec(line);
       if (transfer) {
         rows.push(
           { label: "Amount", value: transfer[1]! },

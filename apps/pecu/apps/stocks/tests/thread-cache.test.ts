@@ -9,7 +9,7 @@ const entry = (bytes = 100) => ({
   state: { messages: [] },
   bytes,
   pending: false,
-  retry: null as unknown,
+  retry: null,
 });
 test("retains recent histories and evicts oldest at the count and byte budgets", () => {
   const cache = new Map<string, ReturnType<typeof entry>>();

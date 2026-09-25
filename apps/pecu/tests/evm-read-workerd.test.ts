@@ -19,7 +19,7 @@ test("direct EVM HTTP reads work in Cloudflare's runtime", async () => {
       catch { if (child.exitCode !== null) break; await Bun.sleep(100); }
     }
     if (!response) throw new Error("Cloudflare read fixture did not start");
-    const result = await response.json() as { result: unknown; requests: string[] };
+    const result = await response.json();
     expect(result).toEqual({ result: { ok: true, result: { chainId: 8453, address: "0x1111111111111111111111111111111111111111", balanceWei: "16", block: "100" } }, requests: ["eth_chainId", "eth_blockNumber", "eth_getBalance"] });
   } catch (error) {
     child.kill(); await child.exited;

@@ -25,7 +25,8 @@ describe("shared beeui fixtures", () => {
 
   test("getToolCopy", () => {
     for (const entry of fixtures.toolCopy) {
-      expect(getToolCopy(entry.name, entry.state as "running" | "done" | "error", entry.input)).toEqual(entry.output);
+      if (entry.state !== "running" && entry.state !== "done" && entry.state !== "error") throw new Error("Invalid tool fixture state");
+      expect(getToolCopy(entry.name, entry.state, entry.input)).toEqual(entry.output);
     }
   });
 });

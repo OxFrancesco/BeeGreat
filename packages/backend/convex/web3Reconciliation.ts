@@ -70,7 +70,7 @@ export const watchdog = internalMutation({
           await ctx.db.patch(action._id, {
             status: 'in_progress', error: undefined, settledAt: undefined, recoveryObservationOnly: true,
             crossmintExecution: execution.map((step) => step.status === 'failed' ? { ...step, status: 'prepared' as const } : step),
-            ...(expiredDestination ? { socketProgress: { ...action.socketProgress!, status: 'IN_PROGRESS' as const, detail: 'Checking the existing transfer after interrupted monitoring.', updatedAt: Date.now() } } : {}),
+            socketProgress: expiredDestination ? { ...action.socketProgress!, status: 'IN_PROGRESS' as const, detail: 'Checking the existing transfer after interrupted monitoring.', updatedAt: Date.now() } : action.socketProgress,
           })
           action = (await ctx.db.get(action._id))!
         }

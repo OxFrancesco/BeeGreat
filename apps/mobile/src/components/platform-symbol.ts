@@ -1,9 +1,10 @@
+import { z } from 'zod';
 import type { SymbolViewProps } from 'expo-symbols';
 
 type PlatformNames = Exclude<SymbolViewProps['name'], string>;
 type AndroidSymbol = NonNullable<PlatformNames['android']>;
 
-const androidSymbols: Record<string, AndroidSymbol> = {
+const androidSymbols = new Map(Object.entries({
   magnifyingglass: 'search',
   paperplane: 'send',
   'paperplane.fill': 'send',
@@ -67,12 +68,14 @@ const androidSymbols: Record<string, AndroidSymbol> = {
   'bubble.left.and.bubble.right.fill': 'forum',
   'play.fill': 'play_arrow',
   sparkles: 'auto_awesome',
-};
+} satisfies Record<string, AndroidSymbol>));
+
+const isSymbolName = (name: SymbolViewProps["name"]): name is Extract<SymbolViewProps["name"], string> => z.string().safeParse(name).success;
 
 export function platformSymbol(
   name: SymbolViewProps['name'],
 ): SymbolViewProps['name'] {
-  if (typeof name !== 'string') return name;
-  const android = androidSymbols[name] ?? 'build';
+  if (!isSymbolName(name)) return name;
+  const android = androidSymbols.get(name) ?? 'build';
   return { ios: name, android, web: android };
 }

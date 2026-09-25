@@ -1,7 +1,8 @@
+import { type JsonFields } from "../../../../../src/json-contract"
 // Polar geometry for pie + radar dither charts. Angles start at the top
 // (−90°) and run clockwise, matching how the slices/axes read on screen.
 
-type Row = Record<string, unknown>
+type Row = JsonFields
 
 const TOP = -Math.PI / 2
 const TAU = Math.PI * 2

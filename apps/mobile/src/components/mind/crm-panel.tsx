@@ -135,7 +135,7 @@ function Action({
       accessibilityRole="button"
       accessibilityState={{
         disabled,
-        ...(selected !== undefined ? { selected } : {}),
+        selected,
       }}
       disabled={disabled}
       onPress={onPress}
@@ -224,6 +224,7 @@ export function CrmChatCard({
 }
 
 function LiveContact({ id }: { id: string }) {
+  // SAFETY: IDs come from the shared CRM tool contract; Convex validates their table and signed-in owner.
   const contact = useQuery(api.crm.get, { contactId: id as Id<"crmContacts"> });
   if (contact === undefined)
     return <ActivityIndicator accessibilityLabel="Loading contact" />;
@@ -261,7 +262,7 @@ function ContactEditor({
   const [error, setError] = useState("");
   const save = useMutation(api.crm.save);
   const archive = useMutation(api.crm.archive);
-  async function run(action: () => Promise<unknown>) {
+  async function run<Result>(action: () => Promise<Result>) {
     setPending(true);
     setError("");
     try {
@@ -297,7 +298,7 @@ function ContactEditor({
             <ThemedText type="smallBold">
               {contact ? "Edit contact" : "Add contact"}
             </ThemedText>
-            {(Object.keys(empty) as Array<keyof typeof empty>).map((field) => (
+            {(['name', 'context', 'email', 'phone', 'note', 'followUpOn', 'lastContactedOn'] as const).map((field) => (
               <View key={field} style={{ gap: 6 }}>
                 <ThemedText type="small">{labels[field]}</ThemedText>
                 <TextInput

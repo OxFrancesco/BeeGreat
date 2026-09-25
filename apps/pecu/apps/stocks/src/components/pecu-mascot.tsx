@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils";
 
 export type MascotState = "idle" | "thinking" | "loading";
 
-const clips: Record<MascotState, { hevc: string; webm: string; still: string }> = {
+const clips = {
   idle: { hevc: idleHevc, webm: idleWebm, still: idleStill },
   thinking: { hevc: thinkingHevc, webm: thinkingWebm, still: thinkingStill },
   loading: { hevc: loadingHevc, webm: loadingWebm, still: loadingStill },
-};
+} satisfies Record<MascotState, { hevc: string; webm: string; still: string }>;
 
 // Safari drops the alpha channel from VP9 WebM, so it gets HEVC with alpha.
 // Chrome on macOS also claims hvc1 support but renders the alpha layer black,

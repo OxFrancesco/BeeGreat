@@ -13,7 +13,7 @@ import { SafeOwners, SafeSettings } from "./safe-sections";
 import { SafeTransactions } from "./safe-transactions";
 import { TransactionDialog, type TransactionMode } from "./transaction-dialog";
 
-const tabLabels: Record<SafeTab, string> = { transactions: "Transactions", owners: "Owners", settings: "Settings" };
+const tabLabels = { transactions: "Transactions", owners: "Owners", settings: "Settings" } satisfies Record<SafeTab, string>;
 
 export function SafeView({ address, tab, onTab }: { address: string; tab: SafeTab; onTab: (tab: SafeTab) => void }) {
   const { refreshOverview } = useProfile();

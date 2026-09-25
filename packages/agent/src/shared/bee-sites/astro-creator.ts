@@ -65,12 +65,20 @@ export interface BeeSitesBucket {
   delete(keys: string[]): Promise<void>
 }
 
+export interface AstroBuildSandbox {
+  destroy(): Promise<void>
+  exec(...args: Parameters<ISandbox['exec']>): Promise<Pick<Awaited<ReturnType<ISandbox['exec']>>, 'success' | 'stdout' | 'stderr' | 'exitCode'>>
+  readFile(...args: Parameters<ISandbox['readFile']>): Promise<Pick<Awaited<ReturnType<ISandbox['readFile']>>, 'success' | 'content'>>
+  writeFile(...args: Parameters<ISandbox['writeFile']>): Promise<Pick<Awaited<ReturnType<ISandbox['writeFile']>>, 'success'>>
+  mkdir(...args: Parameters<ISandbox['mkdir']>): Promise<Pick<Awaited<ReturnType<ISandbox['mkdir']>>, 'success'>>
+}
+
 export interface AstroCreatorOptions {
   userId: string
   model: string
   convexUrl: string
   brokerSecret?: string
-  createBuildSandbox: () => ISandbox & { destroy(): Promise<void> }
+  createBuildSandbox: () => AstroBuildSandbox
   bucket: BeeSitesBucket
 }
 

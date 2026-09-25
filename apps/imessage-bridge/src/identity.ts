@@ -123,7 +123,7 @@ export function createIdentityClient(options: IdentityClientOptions) {
     /** Removes the sender's link (`/unlink`) and forgets the cached user. */
     async unlink(address: string, signal?: AbortSignal): Promise<boolean> {
       const { status, body } = await identityAction('unlink', address, signal)
-      if (status !== 200 || typeof body?.disconnected !== 'boolean') {
+      if (status !== 200 || (body?.disconnected !== true && body?.disconnected !== false)) {
         throw new Error('Could not disconnect iMessage. Try again.')
       }
       cache.delete(address)

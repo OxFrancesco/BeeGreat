@@ -94,7 +94,7 @@ export function JournalEntryEditorScreen() {
   const saveState = editor.status;
   const setTitle = (title: string) => session.edit({ title });
   const setBody = (body: string) => session.edit({ body });
-  const setTags = useCallback((value: string[] | ((tags: string[]) => string[])) => session.edit({ tags: typeof value === 'function' ? value(session.getSnapshot().draft.tags) : value }), [session]);
+  const setTags = useCallback((value: string[] | ((tags: string[]) => string[])) => session.edit({ tags: Array.isArray(value) ? value : value(session.getSnapshot().draft.tags) }), [session]);
   const save = useCallback(() => session.save(), [session]);
   const [tagInput, setTagInput] = useState('');
   const [photoUploading, setPhotoUploading] = useState(false);

@@ -1,25 +1,26 @@
 import { convexTest } from 'convex-test'
 import { afterEach, expect, test, vi } from 'vitest'
 import { api, internal } from './_generated/api'
-import type { ActionCtx } from './_generated/server'
-import type { Id } from './_generated/dataModel'
 import schema from './schema'
 import { modules } from './test.setup'
 
-const encrypted = { version: 1 as const, iv: 'iv', ciphertext: 'encrypted', tag: 'tag' }
-vi.mock('./beennectorAuthActions', () => ({ resolveBeennectorCredential: async () => ({ accessToken: 'provider-test-token', encryptedAccess: encrypted }) }))
+import { encryptBeennectorSecret } from './beennectorCrypto'
 import { executeApprovedCommentForId, prepareCommentForAgent } from './beennectorOperations'
-function context(t: ReturnType<typeof convexTest>) { return { runMutation: t.mutation } as unknown as ActionCtx }
 async function seed(t: ReturnType<typeof convexTest>, provider: 'github' | 'linear' = 'github') {
+  vi.stubEnv('BEENNECTOR_CREDENTIALS_KEY', Buffer.alloc(32, 7).toString('base64'))
+  const encrypted = encryptBeennectorSecret('provider-test-token', `beennector-credential:user_comment:${provider}:access`)
   const connectionId = await t.run(ctx => ctx.db.insert('beennectorCredentials', { userId: 'user_comment', provider, status: 'connected', scopes: [], externalAccountId: 'account-original', externalAccountName: 'Francesco', encryptedAccess: encrypted, updatedAt: Date.now() }))
   const proposal = await t.mutation(internal.beennectorComments.createPending, { userId: 'user_comment', provider, targetId: 'immutable-issue-id', targetLabel: 'Issue title', targetUrl: provider === 'github' ? 'https://github.com/example/repo/issues/1' : 'https://linear.app/team/issue/TEAM-1', body: '  Exact comment\nSecond line  ', expectedEncryptedAccess: encrypted })
-  const actionId = new URL(proposal.reviewUrl).searchParams.get('comment') as Id<'beennectorCommentActions'>
+  const row = await t.run(ctx => ctx.db.query('beennectorCommentActions').order('desc').first())
+  if (!row) throw new Error('Missing comment proposal')
+  const actionId = row._id
+  expect(new URL(proposal.reviewUrl).searchParams.get('comment')).toBe(actionId)
   const owner = t.withIdentity({ subject: 'user_comment' })
   const review = (await owner.query(api.beennectorComments.status, { actionId }))!
   const approval = { actionId, expectedProvider: review.provider, expectedTargetId: review.targetId, expectedBody: review.body, expectedAccountId: review.externalAccountId, expectedTargetUrl: review.targetUrl }
   return { actionId, connectionId, owner, review, approval }
 }
-afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.useRealTimers() })
 
 test('a broker comment request only prepares a canonical proposal and ordinary reads remain available', async () => {
   const t = convexTest(schema, modules)
@@ -31,7 +32,7 @@ test('a broker comment request only prepares a canonical proposal and ordinary r
   const row = await t.run(ctx => ctx.db.query('beennectorCommentActions').order('desc').first())
   expect(row).toMatchObject({ targetId: 'github-node', body: 'User message', state: 'pending' })
   expect(await t.action(internal.beennectorOperations.execute, { userId: 'user_comment', provider: 'github', operation: 'get', ref: 'example/repo#2' })).toHaveProperty('issue')
-  await expect(prepareCommentForAgent(context(t), { userId: 'user_comment', provider: 'notion', ref: 'page', body: 'x' })).rejects.toThrow('read-only')
+  await expect(t.action(ctx => prepareCommentForAgent(ctx, { userId: 'user_comment', provider: 'notion', ref: 'page', body: 'x' }))).rejects.toThrow('read-only')
 })
 
 test('only the signed-in owner can approve the exact stored body, destination and account', async () => {
@@ -52,7 +53,7 @@ for (const provider of ['github', 'linear'] as const) test(`${provider} posts th
     return Response.json(provider === 'github' ? { data: { addComment: { commentEdge: { node: { url: 'https://github.com/example/repo/issues/1#issuecomment-7' } } } } } : { data: { commentCreate: { success: true, comment: { id: 'comment-id', url: 'https://linear.app/team/issue/TEAM-1#comment-7' } } } })
   }); vi.stubGlobal('fetch', fetcher)
   await Promise.all([owner.mutation(api.beennectorComments.confirm, approval), owner.mutation(api.beennectorComments.confirm, approval)])
-  await Promise.all([executeApprovedCommentForId(context(t), actionId), executeApprovedCommentForId(context(t), actionId)])
+  await Promise.all([t.action(ctx => executeApprovedCommentForId(ctx, actionId)), t.action(ctx => executeApprovedCommentForId(ctx, actionId))])
   expect(fetcher).toHaveBeenCalledOnce(); expect(await owner.query(api.beennectorComments.status, { actionId })).toMatchObject({ state: 'posted' })
 })
 
@@ -64,7 +65,7 @@ test('reconnecting to another account after review or after confirmation cannot 
   await t.run(ctx => ctx.db.patch(connectionId, { externalAccountId: 'account-original' }))
   await owner.mutation(api.beennectorComments.confirm, approval)
   await t.run(ctx => ctx.db.delete(connectionId))
-  await executeApprovedCommentForId(context(t), actionId)
+  await t.action(ctx => executeApprovedCommentForId(ctx, actionId))
   expect(fetcher).not.toHaveBeenCalled(); expect(await owner.query(api.beennectorComments.status, { actionId })).toMatchObject({ state: 'failed' })
 })
 
@@ -72,8 +73,8 @@ test('lost provider response is unknown and never retried as another comment', a
   const t = convexTest(schema, modules); const { owner, approval, actionId } = await seed(t)
   const fetcher = vi.fn(async () => { throw new Error('response lost after posting') }); vi.stubGlobal('fetch', fetcher)
   await owner.mutation(api.beennectorComments.confirm, approval)
-  await executeApprovedCommentForId(context(t), actionId)
-  await executeApprovedCommentForId(context(t), actionId)
+  await t.action(ctx => executeApprovedCommentForId(ctx, actionId))
+  await t.action(ctx => executeApprovedCommentForId(ctx, actionId))
   await owner.mutation(api.beennectorComments.confirm, approval)
   expect(fetcher).toHaveBeenCalledOnce(); expect(await owner.query(api.beennectorComments.status, { actionId })).toMatchObject({ state: 'unknown' })
 })

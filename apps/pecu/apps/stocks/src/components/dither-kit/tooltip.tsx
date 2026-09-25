@@ -8,10 +8,10 @@ import { rgb } from "./palette"
 
 export type TooltipVariant = "default" | "frosted-glass"
 
-const VARIANT: Record<TooltipVariant, string> = {
+const VARIANT = {
   default: "bg-popover",
   "frosted-glass": "bg-popover/70 backdrop-blur-sm",
-}
+} satisfies Record<TooltipVariant, string>
 
 /**
  * Floating hover tooltip. Reads the shared common context so it works in every

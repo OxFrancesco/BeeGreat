@@ -353,6 +353,7 @@ export const JOURNAL_MONTH_DAYS: JournalMonthDay[] = [
 ];
 
 export const JOURNAL_ENTRY: JournalTimelineEntry = {
+  // SAFETY: playground-only journalEntries identifier; the fixture is displayed locally and never persisted.
   id: 'playground-entry' as Id<'journalEntries'>,
   localDate: localDateKey(today),
   timeZone: 'Europe/Rome',
@@ -364,6 +365,7 @@ export const JOURNAL_ENTRY: JournalTimelineEntry = {
   isFavorite: false,
   coverPhoto: {
     kind: 'photo',
+    // SAFETY: playground-only journalAttachments identifier; the fixture is displayed locally and never persisted.
     id: 'playground-photo' as Id<'journalAttachments'>,
     url: 'https://beedocs.pages.dev/assets/bee.png',
     mimeType: 'image/png',
@@ -397,6 +399,7 @@ function bookmark(
 
 export const BOOKMARKS: BookmarkItem[] = [
   bookmark({
+    // SAFETY: playground-only bookmarks identifier; the fixture is displayed locally and never persisted.
     _id: 'playground-bookmark-1' as Id<'bookmarks'>,
     url: 'https://docs.expo.dev',
     kind: 'website',
@@ -406,6 +409,7 @@ export const BOOKMARKS: BookmarkItem[] = [
     labels: ['docs'],
   }),
   bookmark({
+    // SAFETY: playground-only bookmarks identifier; the fixture is displayed locally and never persisted.
     _id: 'playground-bookmark-2' as Id<'bookmarks'>,
     url: 'https://x.com/expo',
     kind: 'tweet',
@@ -414,6 +418,7 @@ export const BOOKMARKS: BookmarkItem[] = [
     meta: { handle: '@expo' },
   }),
   bookmark({
+    // SAFETY: playground-only bookmarks identifier; the fixture is displayed locally and never persisted.
     _id: 'playground-bookmark-3' as Id<'bookmarks'>,
     url: 'https://www.youtube.com/watch?v=example',
     kind: 'youtube',

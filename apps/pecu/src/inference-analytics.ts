@@ -1,4 +1,5 @@
 import type { OpenCodeWorkerd } from "@opencode-ai/sdk/workerd";
+import { z } from "zod";
 import { analyticsIdentity } from "./analytics-config";
 import type { InferenceRequest } from "./inference-timings";
 
@@ -70,7 +71,7 @@ export async function generationEvents(entries: readonly InferenceLogEntry[], tu
     const firstToken = firstOutput.get(entry.data.assistantMessageID);
     const finishedAt = streamed.get(entry.data.assistantMessageID) ?? entry.created;
     previousEnd = entry.created;
-    events.push({
+    const event: GenerationAnalyticsEvent = {
       event: "$ai_generation",
       timestamp: requestStart ?? start.created,
       $ai_trace_id: trace,
@@ -79,27 +80,28 @@ export async function generationEvents(entries: readonly InferenceLogEntry[], tu
       $ai_model: start.data.model.id,
       $ai_provider: start.data.model.providerID,
       $ai_latency: Math.max(0, (finishedAt - (requestStart ?? start.created)) / 1000),
-      ...(requestStart !== undefined && firstToken !== undefined ? { $ai_time_to_first_token: Math.max(0, (firstToken - requestStart) / 1000) } : {}),
-      ...(lastRequest?.response_at != null ? { http_response_ms: Math.max(0, lastRequest.response_at - lastRequest.started_at) } : {}),
       stream_duration_ms: Math.max(0, finishedAt - start.created),
       latency_source: requestStart !== undefined ? "http_request" : "stream_only",
       request_count: attempts.length,
       $ai_cache_reporting_exclusive: false,
       $ai_stream: true,
       $ai_is_error: entry.type === "session.step.failed",
-      ...(tokens ? {
-        $ai_input_tokens: tokens.input + tokens.cache.read + tokens.cache.write,
-        $ai_output_tokens: tokens.output + tokens.reasoning,
-        $ai_cache_read_input_tokens: tokens.cache.read,
-        $ai_cache_creation_input_tokens: tokens.cache.write,
-        $ai_reasoning_tokens: tokens.reasoning,
-      } : {}),
-      ...(priced ? { $ai_total_cost_usd: cost } : {}),
       billing: start.data.model.providerID === "openrouter" ? "openrouter_api" : "chatgpt_subscription",
       cost_source: priced ? "runtime_model_estimate" : "posthog_model_estimate",
       cost_is_estimate: true,
       usage_available: tokens !== undefined,
-    });
+    };
+    if (requestStart !== undefined && firstToken !== undefined) event.$ai_time_to_first_token = Math.max(0, (firstToken - requestStart) / 1000);
+    if (lastRequest?.response_at != null) event.http_response_ms = Math.max(0, lastRequest.response_at - lastRequest.started_at);
+    if (tokens) {
+      event.$ai_input_tokens = tokens.input + tokens.cache.read + tokens.cache.write;
+      event.$ai_output_tokens = tokens.output + tokens.reasoning;
+      event.$ai_cache_read_input_tokens = tokens.cache.read;
+      event.$ai_cache_creation_input_tokens = tokens.cache.write;
+      event.$ai_reasoning_tokens = tokens.reasoning;
+    }
+    if (priced) event.$ai_total_cost_usd = cost;
+    events.push(event);
   }
   return events;
 }
@@ -122,6 +124,8 @@ export type ToolAnalyticsEvent = {
   output_partial?: boolean;
 };
 
+const outputSize = z.number().int().nonnegative().optional().catch(undefined);
+
 export async function toolEvents(entries: readonly InferenceLogEntry[], turn: Parameters<typeof generationEvents>[1]): Promise<ToolAnalyticsEvent[]> {
   const trace = await analyticsIdentity(JSON.stringify(["trace", turn.senderId, turn.eventId]));
   const session = await analyticsIdentity(JSON.stringify(["session", turn.senderId, turn.conversationId]));
@@ -139,14 +143,10 @@ export async function toolEvents(entries: readonly InferenceLogEntry[], turn: Pa
     if (!call || !name) continue;
     calls.delete(entry.data.id);
     const metadata = entry.type === "session.tool.success" ? entry.data.metadata : undefined;
-    const size = (value: unknown) => typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : undefined;
-    const outputBytes = size(metadata?.pecu_output_bytes);
-    const sourceBytes = size(metadata?.pecu_source_bytes);
+    const outputBytes = outputSize.parse(metadata?.pecu_output_bytes);
+    const sourceBytes = outputSize.parse(metadata?.pecu_source_bytes);
     const returned = entry.type === "session.tool.success" ? entry.data.content.flatMap(item => item.type === "text" ? [item.text] : []).join("\n") : undefined;
-    events.push({
-      ...(returned !== undefined ? {returned_output_bytes:new TextEncoder().encode(returned).length,output_truncated:metadata?.truncated === true,output_partial:metadata?.pecu_output_partial === true} : {}),
-      ...(outputBytes !== undefined ? {output_bytes:outputBytes} : {}),
-      ...(sourceBytes !== undefined ? {source_output_bytes:sourceBytes} : {}),
+    const event: ToolAnalyticsEvent = {
       event: "$ai_span", timestamp: call.created,
       $ai_trace_id: trace, $ai_session_id: session,
       $ai_span_id: await analyticsIdentity(JSON.stringify(["tool", turn.senderId, entry.data.id])),
@@ -154,7 +154,15 @@ export async function toolEvents(entries: readonly InferenceLogEntry[], turn: Pa
       $ai_span_name: name, tool_name: name,
       $ai_latency: Math.max(0, (entry.created - call.created) / 1000),
       $ai_is_error: entry.type === "session.tool.failed",
-    });
+    };
+    if (returned !== undefined) {
+      event.returned_output_bytes = new TextEncoder().encode(returned).length;
+      event.output_truncated = metadata?.truncated === true;
+      event.output_partial = metadata?.pecu_output_partial === true;
+    }
+    if (outputBytes !== undefined) event.output_bytes = outputBytes;
+    if (sourceBytes !== undefined) event.source_output_bytes = sourceBytes;
+    events.push(event);
   }
   return events;
 }

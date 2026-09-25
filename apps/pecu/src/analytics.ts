@@ -28,12 +28,13 @@ export async function captureAgentEvent({ senderId, event, environment = "produc
       disableGeoip: true,
     });
     const { event: name, timestamp, ...properties } = { timestamp: undefined, ...event };
-    client.capture({
+    const capture: Parameters<PostHog["capture"]>[0] = {
       distinctId: await analyticsIdentity(senderId),
       event: name,
-      ...(timestamp !== undefined ? { timestamp: new Date(timestamp) } : {}),
       properties: { ...properties, product: "pecu", environment },
-    });
+    };
+    if (timestamp !== undefined) capture.timestamp = new Date(timestamp);
+    client.capture(capture);
     await client.shutdown();
   } catch {
     log("warn", "analytics_delivery_failed", {});

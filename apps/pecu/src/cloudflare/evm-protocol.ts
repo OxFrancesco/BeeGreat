@@ -1,3 +1,4 @@
+import { jsonValueSchema, jsonObjectSchema } from "../json-contract";
 import { z } from "zod";
 
 export const EVM_CHAIN_ID = 8453 as const;
@@ -15,7 +16,7 @@ export type EvmCommand = (typeof EVM_COMMANDS)[number];
 
 export const evmRequestSchema = z.object({
   command: z.enum(EVM_COMMANDS),
-  input: z.record(z.string(), z.unknown()),
+  input: jsonObjectSchema,
 });
 export type EvmRequest = z.infer<typeof evmRequestSchema>;
 
@@ -28,12 +29,12 @@ export type EvmError = z.infer<typeof evmErrorSchema>;
 
 /** The JSON line the evm CLI prints on stdout. */
 export const evmCliEnvelopeSchema = z.discriminatedUnion("ok", [
-  z.object({ version: z.literal(1), ok: z.literal(true), command: z.string(), result: z.unknown() }),
+  z.object({ version: z.literal(1), ok: z.literal(true), command: z.string(), result: jsonValueSchema }),
   z.object({ version: z.literal(1), ok: z.literal(false), error: evmErrorSchema }),
 ]);
 
 export const evmResponseSchema = z.discriminatedUnion("ok", [
-  z.object({ ok: z.literal(true), result: z.unknown() }),
+  z.object({ ok: z.literal(true), result: jsonValueSchema }),
   z.object({ ok: z.literal(false), error: evmErrorSchema }),
 ]);
 export type EvmResponse = z.infer<typeof evmResponseSchema>;

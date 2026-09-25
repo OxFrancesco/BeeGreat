@@ -21,7 +21,12 @@ export async function issueRealtimeTicket(c: AppContext) {
   return c.json({ token: ticket, expiresAt: Math.floor(Date.now() / 1000) + 60, websocketUrl: websocketUrl.toString() })
 }
 
-export function connectVoiceSockets(client: WebSocket, provider: WebSocket, expiresAt: number, onClose: () => void, now = Date.now) {
+type VoiceSocket = Pick<EventTarget, 'addEventListener'> & {
+  send(data: string | ArrayBuffer): void
+  close(code?: number, reason?: string): void
+}
+
+export function connectVoiceSockets(client: VoiceSocket, provider: VoiceSocket, expiresAt: number, onClose: () => void, now = Date.now) {
   let closed = false
   let sentBytes = 0
   let receivedBytes = 0
@@ -37,9 +42,10 @@ export function connectVoiceSockets(client: WebSocket, provider: WebSocket, expi
   }
   const timer = setTimeout(() => close(1000, 'Voice time limit reached'), Math.max(0, expiresAt - now()))
   client.addEventListener('message', event => {
+    if (!(event instanceof MessageEvent)) return
     if (closed) return
     if (now() >= expiresAt) { close(1000, 'Voice time limit reached'); return }
-    if (typeof event.data !== 'string' || event.data.length > 256 * 1024) { close(1009, 'Voice message is too large'); return }
+    if (!v.is(v.string(), event.data) || event.data.length > 256 * 1024) { close(1009, 'Voice message is too large'); return }
     let parsed: unknown
     try { parsed = JSON.parse(event.data) } catch { close(1008, 'Invalid voice message'); return }
     if (!v.is(v.object({ type: v.string() }), parsed)) { close(1008, 'Invalid voice message'); return }
@@ -55,11 +61,15 @@ export function connectVoiceSockets(client: WebSocket, provider: WebSocket, expi
     try { provider.send(event.data) } catch { close(1011, 'Voice connection failed') }
   })
   provider.addEventListener('message', event => {
+    if (!(event instanceof MessageEvent)) return
     if (closed) return
-    const size = typeof event.data === 'string' ? event.data.length : event.data.byteLength
+    const frame = v.safeParse(v.union([v.string(), v.instance(ArrayBuffer)]), event.data)
+    if (!frame.success) { close(1008, 'Invalid voice response'); return }
+    const data = frame.output
+    const size = v.is(v.string(), data) ? data.length : data.byteLength
     receivedBytes += size
     if (size > 2 * 1024 * 1024 || receivedBytes > 64 * 1024 * 1024) { close(1009, 'Voice response limit reached'); return }
-    try { client.send(event.data) } catch { close(1011, 'Voice connection failed') }
+    try { client.send(data) } catch { close(1011, 'Voice connection failed') }
   })
   for (const socket of [client, provider]) {
     socket.addEventListener('close', () => close())

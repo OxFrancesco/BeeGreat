@@ -101,18 +101,21 @@ window.fetch = async (input, init) => {
           id: `${id ?? "first"}:${start + i}`,
           text: `${thread.title}, message ${start + i}`,
           createdAt: start + i,
-          reply: {
+          reply: (() => {
+            const reply: NonNullable<import("../../../../src/web-contract").WebState["messages"][number]["reply"]> = {
             text: `Response ${start + i}. **Wallet analysis**\n\n${"The balances and activity are available for review. ".repeat(1 + (i % 5))}\n\n- USDC balance reviewed\n- No transaction submitted`,
             preview: null,
-            ...(new URLSearchParams(location.search).has("analytics") && start + i === totalMessages ? {
-              text: "These charts use fictional data for UI verification.",
-              analytics: analyticsFixtures.slice(0, 3).map((snapshot) => ({ snapshot, text: analyticsText(snapshot) })),
-            } : {}),
-            ...(new URLSearchParams(location.search).has("polymarket") && start + i === totalMessages ? {
-              text: "These cards use saved public Polymarket data for UI verification.",
-              analytics: polymarketFixtures.filter((snapshot) => ["pm_history", "pm_book", "pm_leaderboard"].includes(snapshot.kind) || snapshot.key.includes("fed-decision")).map((snapshot) => ({ snapshot, text: analyticsText(snapshot) })),
-            } : {}),
-          },
+            };
+            if (new URLSearchParams(location.search).has("analytics") && start + i === totalMessages) {
+              reply.text = "These charts use fictional data for UI verification.";
+              reply.analytics = analyticsFixtures.slice(0, 3).map((snapshot) => ({ snapshot, text: analyticsText(snapshot) }));
+            }
+            if (new URLSearchParams(location.search).has("polymarket") && start + i === totalMessages) {
+              reply.text = "These cards use saved public Polymarket data for UI verification.";
+              reply.analytics = polymarketFixtures.filter((snapshot) => ["pm_history", "pm_book", "pm_leaderboard"].includes(snapshot.kind) || snapshot.key.includes("fed-decision")).map((snapshot) => ({ snapshot, text: analyticsText(snapshot) }));
+            }
+            return reply;
+          })(),
         }))
       : [],
     stocks: null,
@@ -257,6 +260,7 @@ function previewFixture() {
 connectionFixture();
 previewFixture();
 const rootRoute = createRootRoute({ component: Outlet });
+// SAFETY: this isolated fixture mounts the generated /agent route under its own local root with the same id and path.
 const agentRoute = Route.update({
   id: "/agent",
   path: "/agent",

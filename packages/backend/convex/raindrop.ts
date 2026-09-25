@@ -97,7 +97,7 @@ export const finishRefresh = internalMutation({
   handler: async (ctx, args) => {
     const row = await ctx.db.get('raindropConnections', args.connectionId)
     if (!row || row.refreshClaim !== args.claim) throw new Error('Raindrop connection changed')
-    const { connectionId, claim, ...tokens } = args
+    const { connectionId, claim: _claim, ...tokens } = args
     await ctx.db.patch('raindropConnections', connectionId, { ...tokens, refreshClaim: undefined })
     return null
   },
@@ -139,9 +139,8 @@ export const syncPage = internalMutation({
       else await ctx.db.insert('raindropImports', { ownerKey: row.ownerKey, raindropId: item.id, bookmarkId: bookmark._id, updatedAt: item.updatedAt, managed })
     }
     if (args.done && row.syncAgain) await ctx.scheduler.runAfter(0, internal.raindropActions.startSync, { connectionId: row._id })
-    await ctx.db.patch('raindropConnections', row._id, {
-      syncTouchedAt: Date.now(), ...(args.done ? { syncRun: undefined, lastSyncedAt: Date.now(), message: undefined } : {}),
-    })
+    const progress = { syncTouchedAt: Date.now() }
+    await ctx.db.patch('raindropConnections', row._id, args.done ? { ...progress, syncRun: undefined, lastSyncedAt: Date.now(), message: undefined } : progress)
     return true
   },
 })

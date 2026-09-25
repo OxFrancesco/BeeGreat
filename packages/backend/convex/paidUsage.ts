@@ -10,7 +10,7 @@ export const paidOperation = v.union(
 export type PaidOperation = typeof paidOperation.type
 
 // Units are requests except voice_speak (characters) and devin (reserved ACUs).
-const LIMITS: Record<PaidOperation, { daily: number; global: number; concurrent: number; globalConcurrent: number; leaseMs: number; maxUnits: number }> = {
+const LIMITS = {
   voice_transcribe: { daily: 30, global: 1000, concurrent: 2, globalConcurrent: 4, leaseMs: 120_000, maxUnits: 1 },
   voice_speak: { daily: 20_000, global: 1_000_000, concurrent: 2, globalConcurrent: 40, leaseMs: 60_000, maxUnits: 2000 },
   voice_realtime: { daily: 12, global: 500, concurrent: 1, globalConcurrent: 30, leaseMs: 360_000, maxUnits: 1 },
@@ -19,7 +19,7 @@ const LIMITS: Record<PaidOperation, { daily: number; global: number; concurrent:
   media_video: { daily: 4, global: 100, concurrent: 1, globalConcurrent: 10, leaseMs: 900_000, maxUnits: 1 },
   devin: { daily: 10, global: 100, concurrent: 1, globalConcurrent: 5, leaseMs: 86_400_000, maxUnits: 5 },
   bookmark: { daily: 50, global: 2000, concurrent: 2, globalConcurrent: 40, leaseMs: 600_000, maxUnits: 1 },
-}
+} satisfies Record<PaidOperation, { daily: number; global: number; concurrent: number; globalConcurrent: number; leaseMs: number; maxUnits: number }>
 
 export async function reservePaidUsage(ctx: MutationCtx, input: { userId: string; operation: PaidOperation; units: number; ticketHash?: string }) {
   if (!/^user_[A-Za-z0-9]+$/.test(input.userId)) throw new Error('Invalid paid service user')

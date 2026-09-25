@@ -39,13 +39,13 @@ export type TokenBalance = TokenInfo & Readonly<{ amount: bigint }>;
 export type Budget = Readonly<{ delegate: Address; token: Address; amount: bigint; spent: bigint; resetMinutes: number }>;
 export type ExecutionCheck = "pending" | "executed" | "failed" | "unrelated";
 
-const hexData = z.string().regex(/^0x(?:[0-9a-fA-F]{2})*$/);
+const hexData = z.templateLiteral(["0x", z.string().regex(/^(?:[0-9a-fA-F]{2})*$/)]);
 const receiptSchema = z.object({
   status: z.enum(["0x0", "0x1"]),
   logs: z.array(z.object({ address: z.string(), topics: z.array(z.string()) })),
 }).nullable();
 const transactionSchema = z.object({ to: z.string().nullable(), input: z.string() }).nullable();
-const logsSchema = z.array(z.object({ transactionHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/) }));
+const logsSchema = z.array(z.object({ transactionHash: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{64}$/)]) }));
 
 export function moduleName(address: string): string {
   return knownModules.get(address.toLowerCase()) ?? "Module";
@@ -68,7 +68,7 @@ export class SafeChain {
       args: [calls.map((call) => ({ target: call.target, allowFailure: true, callData: encodeFunctionData({ abi: call.abi, functionName: call.functionName, args: call.args ?? [] }) }))],
     });
     const raw = hexData.parse(await this.rpc("eth_call", [{ to: multicall, data }, "latest"]));
-    const results = decodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", data: raw as Address });
+    const results = decodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", data: raw });
     return results.map((result, index) => {
       const call = calls[index]!;
       if (!result.success || result.returnData === "0x") return { ok: false };
@@ -177,14 +177,14 @@ export class SafeChain {
   async findExecution(safe: Address, safeTxHash: Address, fromBlock: string): Promise<Address | null> {
     const logs = logsSchema.parse(await this.rpc("eth_getLogs", [{ address: safe, topics: [executionSuccess, safeTxHash], fromBlock: `0x${BigInt(fromBlock).toString(16)}`, toBlock: "latest" }]));
     const found = logs.at(-1)?.transactionHash;
-    return found ? (found as Address) : null;
+    return found ?? null;
   }
 }
 
 /** Recover the signer of an EIP-712 SafeTx signature, normalizing v from 0/1 to 27/28. */
 export async function safeSigner(hash: Address, signature: string): Promise<{ signer: Address; signature: Address }> {
   const v = Number.parseInt(signature.slice(-2), 16);
-  const normalized = (v < 27 ? `${signature.slice(0, -2)}${(v + 27).toString(16)}` : signature) as Address;
+  const normalized = hexData.parse(v < 27 ? `${signature.slice(0, -2)}${(v + 27).toString(16)}` : signature);
   if (![27, 28].includes(Number.parseInt(normalized.slice(-2), 16))) throw new Error("This signature format isn't supported. Sign with an ordinary wallet account.");
   return { signer: getAddress(await recoverAddress({ hash, signature: normalized })), signature: normalized };
 }

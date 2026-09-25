@@ -31,7 +31,8 @@ export function validateSafePlan(action: EvmTxAction, parameters: EvmTxParameter
   }
   if (action === "safe_role_execute") {
     const p = safeParameterSchemas.safe_role_execute.parse(parameters);
-    const expected = encodeFunctionData({ abi, functionName: "execTransactionWithRole", args: [p.to, 0n, p.data as `0x${string}`, 0, p.role as `0x${string}`, true] });
+    // SAFETY: safe_role_execute.parse above validates role as a 32-byte hex string.
+    const expected = encodeFunctionData({ abi, functionName: "execTransactionWithRole", args: [p.to, 0n, p.data, 0, p.role as `0x${string}`, true] });
     if (!same(p.module, call.to) || !same(expected, call.data)) fail();
     return;
   }
@@ -63,7 +64,7 @@ export function validateSafePlan(action: EvmTxAction, parameters: EvmTxParameter
   const tx = safeTransactionSchema.parse("transaction" in parameters ? parameters.transaction : undefined);
   if (!same(call.to, tx.safe)) fail();
   safeCallDescription(tx);
-  const fields = { to: tx.to, value: BigInt(tx.value), data: tx.data as `0x${string}`, operation: tx.operation ?? 0, safeTxGas: 0n, baseGas: 0n, gasPrice: 0n, gasToken: zeroAddress, refundReceiver: zeroAddress };
+  const fields = { to: tx.to, value: BigInt(tx.value), data: tx.data, operation: tx.operation ?? 0, safeTxGas: 0n, baseGas: 0n, gasPrice: 0n, gasToken: zeroAddress, refundReceiver: zeroAddress };
   const hash = hashTypedData({ domain: { chainId: 8453, verifyingContract: tx.safe }, types: transactionTypes, primaryType: "SafeTx", message: { ...fields, nonce: BigInt(tx.nonce) } });
   if (!same(hash, tx.hash)) fail();
   if (action === "safe_approve") {
@@ -80,7 +81,7 @@ export function validateSafePlan(action: EvmTxAction, parameters: EvmTxParameter
     let offset = sorted.length * 65;
     const tails: `0x${string}`[] = [];
     const heads = sorted.map(s => {
-      const data = s.data as `0x${string}`;
+      const data = s.data;
       if (!s.contract) { if (size(data) !== 65) fail(); return data; }
       const head = concatHex([padHex(s.owner, { size: 32 }), numberToHex(offset, { size: 32 }), "0x00"]);
       const tail = concatHex([numberToHex(size(data), { size: 32 }), data]); tails.push(tail); offset += size(tail);

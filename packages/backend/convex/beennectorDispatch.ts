@@ -1,3 +1,5 @@
+import * as Schema from 'effect/Schema'
+import * as Result from 'effect/Result'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
@@ -35,7 +37,7 @@ export const finish = internalMutation({
   },
 })
 
-export async function deliverBeennectorForId(ctx: ActionCtx, id: Id<'beennectorDeliveries'>) {
+export async function deliverBeennectorForId(ctx: Pick<ActionCtx, "runMutation" | "runAction">, id: Id<'beennectorDeliveries'>) {
     const leaseId = crypto.randomUUID()
     const row = await ctx.runMutation(internal.beennectorDispatch.claim, { id, leaseId })
     if (!row) return null
@@ -49,9 +51,9 @@ export async function deliverBeennectorForId(ctx: ActionCtx, id: Id<'beennectorD
         body: JSON.stringify({ userId: row.userId, provider: row.provider, deliveryKey: `beennector:${row._id}`, message: row.message }),
         signal: AbortSignal.timeout(20_000),
       })
-      const body: unknown = await response.json()
-      if (!response.ok || !body || typeof body !== 'object' || !('submissionId' in body) || typeof body.submissionId !== 'string' || !body.submissionId) throw new Error('Agent admission was not acknowledged')
-      submissionId = body.submissionId
+      const body = Schema.decodeUnknownResult(Schema.Struct({ submissionId: Schema.String.check(Schema.isMinLength(1)) }))(await response.json())
+      if (!response.ok || Result.isFailure(body)) throw new Error('Agent admission was not acknowledged')
+      submissionId = body.success.submissionId
     } catch { /* Keep the exact payload and admission key for a later attempt. */ }
     await ctx.runMutation(internal.beennectorDispatch.finish, { id, leaseId, submissionId })
     return null

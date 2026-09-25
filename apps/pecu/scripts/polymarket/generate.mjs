@@ -1,3 +1,4 @@
+import { Predicate } from "effect";
 import { readFile, writeFile } from 'node:fs/promises';
 const root = new URL('../../src/integrations/polymarket/', import.meta.url);
 const specs = Object.fromEntries(await Promise.all(['data','gamma','clob'].map(async name => [name, JSON.parse(await readFile(new URL(`specs/${name}.json`, import.meta.url), 'utf8'))])));
@@ -57,7 +58,7 @@ for (const [family, entries] of Object.entries(selections)) {
    case 'boolean': return mode==='type'?'boolean':'Schema.Boolean';
    case 'array': return mode==='type'?`ReadonlyArray<${model(s.items,mode)}>`:`Schema.Array(${model(s.items,mode)})`;
    case 'object': {
-    if(!s.properties) return mode==='type'?`Readonly<Record<string, ${s.additionalProperties && typeof s.additionalProperties==='object'?model(s.additionalProperties,mode):'Schema.Json'}>>`:`Schema.Record(Schema.String, ${s.additionalProperties && typeof s.additionalProperties==='object'?model(s.additionalProperties,mode):'Schema.Json'})`;
+    if(!s.properties) return mode==='type'?`Readonly<Record<string, ${s.additionalProperties && Predicate.isRecord(s.additionalProperties)?model(s.additionalProperties,mode):'Schema.Json'}>>`:`Schema.Record(Schema.String, ${s.additionalProperties && Predicate.isRecord(s.additionalProperties)?model(s.additionalProperties,mode):'Schema.Json'})`;
     const fields=Object.entries(s.properties).map(([k,v])=>{const optional=!s.required?.includes(k);const value=model(v,mode);return mode==='type'?`readonly ${q(k)}${optional?'?':''}: ${value};`:`${q(k)}: ${optional?`Schema.optionalKey(${value})`:value},`;});
     return mode==='type'?`{\n${fields.join('\n')}\n}`:`Schema.Struct({\n${fields.join('\n')}\n})`;
    }

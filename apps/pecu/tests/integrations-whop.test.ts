@@ -1,14 +1,15 @@
+import type { JsonInput } from "../src/json-contract";
 import { describe, expect, test } from "bun:test";
 import { WhopService } from "../src/integrations/whop";
 
 const config = { apiKey: "whop_key", apiUrl: "https://api.whop.test/api/v1", apiVersionDate: "2026-09-13" };
 
-function fakeFetch(status: number, body: unknown) {
+function fakeFetch(status: number, body: JsonInput) {
   const calls: { url: string; init: RequestInit }[] = [];
-  const request = (async (url: string | URL | Request, init?: RequestInit) => {
+  const request: typeof fetch = Object.assign(async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(url), init: init ?? {} });
     return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
-  }) as typeof fetch;
+  }, { preconnect() {} });
   return { calls, request };
 }
 
@@ -17,10 +18,10 @@ describe("WhopService", () => {
     const url = "https://pecu.test/whop/webhook";
     const hook = { id: "hook_test", url, api_version_date: null, enabled: true, child_resource_events: true, events: ["deposit.succeeded"], secret: "private-signing-value" };
     const calls: RequestInit[] = [];
-    const request = (async (_url: unknown, init: RequestInit) => {
-      calls.push(init);
+    const request: typeof fetch = Object.assign(async (_url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(init ?? {});
       return Response.json(calls.length === 1 ? { data: [hook], page_info: { has_next_page: false } } : { ...hook, api_version_date: config.apiVersionDate });
-    }) as typeof fetch;
+    }, { preconnect() {} });
     const result = await new WhopService(config, request).configureWebhook("biz_test", url);
     expect(calls.map((call) => call.method)).toEqual(["GET", "PATCH"]);
     expect(JSON.parse(String(calls[1]?.body))).toEqual({ api_version_date: config.apiVersionDate, child_resource_events: true, enabled: true, events: ["deposit.succeeded"] });

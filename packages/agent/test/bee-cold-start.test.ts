@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { C as renderAgentFunctionWithStructure } from '../node_modules/@flue/runtime/dist/conversation-stream-store-CXwRWonS.mjs'
+// The pinned runtime exports this renderer only from its build chunk. Resolve relative to the package, independent of Bun’s hoisting layout.
+const { C: renderAgentFunctionWithStructure } = await import(new URL('./conversation-stream-store-CXwRWonS.mjs', import.meta.resolve('@flue/runtime')).href)
 import { Bee, prepareBeeForRequest } from '../src/agents/bee.ts'
 
 const originalFetch = globalThis.fetch

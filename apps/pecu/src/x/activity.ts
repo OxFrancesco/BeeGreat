@@ -1,5 +1,24 @@
+import { z } from "zod";
+
 type Fetcher = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
-type JsonObject = Record<string, unknown>;
+const textSchema = z.string().min(1).optional().catch(undefined);
+const itemSchema = z.object({
+  id: textSchema, url: textSchema, subscription_id: textSchema,
+  event_type: textSchema, webhook_id: textSchema,
+  valid: z.boolean().optional().catch(undefined),
+  deleted: z.boolean().optional().catch(undefined),
+  filter: z.object({ user_id: textSchema }).optional().catch(undefined),
+}).catchall(z.json());
+const itemsSchema = z.array(itemSchema.catch({}));
+const nestedSchema = itemSchema.extend({
+  webhooks: itemsSchema.optional().catch(undefined),
+  webhook: itemSchema.optional().catch(undefined),
+  subscription: itemSchema.optional().catch(undefined),
+});
+const responseSchema = z.union([itemsSchema, itemSchema.extend({ data: z.union([itemsSchema, nestedSchema]).optional().catch(undefined) })]);
+const payloadSchema = z.json();
+type ActivityPayload = z.infer<typeof payloadSchema>;
+type ActivityItem = z.infer<typeof itemSchema>;
 
 export type RealtimeSetup = Readonly<{
   webhookId: string;
@@ -9,36 +28,28 @@ export type RealtimeSetup = Readonly<{
 
 const chatEvents = ["chat.received"] as const;
 
-function objects(value: unknown): JsonObject[] {
-  if (Array.isArray(value)) return value.filter((item): item is JsonObject => Boolean(item) && typeof item === "object");
-  if (!value || typeof value !== "object") return [];
-  const record = value as JsonObject;
-  if (Array.isArray(record.data)) return objects(record.data);
-  if (record.data && typeof record.data === "object") {
-    const data = record.data as JsonObject;
-    if (Array.isArray(data.webhooks)) return objects(data.webhooks);
-    if (data.webhook && typeof data.webhook === "object") return [data.webhook as JsonObject];
-    if (data.subscription && typeof data.subscription === "object") return [data.subscription as JsonObject];
-    return [data];
-  }
-  return [record];
+function objects(value: ActivityPayload): ActivityItem[] {
+  const parsed = responseSchema.safeParse(value);
+  if (!parsed.success) return [];
+  const response = parsed.data;
+  if (Array.isArray(response)) return response;
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (!data) return [response];
+  return data.webhooks ?? [data.webhook ?? data.subscription ?? data];
 }
 
-function text(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
+const text = textSchema.parse;
 
-function errorDetail(value: unknown): string | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const payload = value as JsonObject;
-  const errors = Array.isArray(payload.errors) ? payload.errors : [];
-  const details = [payload, ...errors].flatMap((error) => {
-    if (!error || typeof error !== "object") return [];
-    return ["detail", "message", "reason", "parameter", "title"].flatMap((key) => {
-      const detail = text(Reflect.get(error, key));
-      return detail ? [detail] : [];
-    });
-  });
+const errorFields = z.object({ detail: textSchema, message: textSchema, reason: textSchema, parameter: textSchema, title: textSchema });
+const errorSchema = errorFields.extend({ errors: z.array(errorFields.catch({})).catch([]) });
+
+function errorDetail(value: ActivityPayload): string | undefined {
+  const parsed = errorSchema.safeParse(value);
+  if (!parsed.success) return undefined;
+  const payload = parsed.data;
+  const details = [payload, ...payload.errors].flatMap((error) =>
+    [error.detail, error.message, error.reason, error.parameter, error.title].filter((detail) => detail !== undefined));
   return [...new Set(details)].join("; ").slice(0, 1_500) || undefined;
 }
 
@@ -58,8 +69,7 @@ export class XActivityAdmin {
       .filter((item) => item.url === webhookUrl);
     const subscriptions = objects(await this.call("/2/activity/subscriptions", {}, "app"))
       .filter((item) => {
-        const filter = item.filter;
-        return filter && typeof filter === "object" && "user_id" in filter && filter.user_id === botUserId;
+        return item.filter?.user_id === botUserId;
       });
     return { webhooks, subscriptions };
   }
@@ -82,7 +92,7 @@ export class XActivityAdmin {
         }),
       }, "user"));
     const removed = new Set<string>();
-    let created: JsonObject[];
+    let created: ActivityItem[];
     try {
       created = await create();
     } catch (error) {
@@ -142,8 +152,7 @@ export class XActivityAdmin {
     const subscriptions = objects(await this.call("/2/activity/subscriptions", {}, "app"));
     for (const eventType of chatEvents) {
       const existing = subscriptions.find((item) => {
-        const filter = item.filter && typeof item.filter === "object" ? item.filter as JsonObject : {};
-        return item.event_type === eventType && filter.user_id === botUserId;
+        return item.event_type === eventType && item.filter?.user_id === botUserId;
       });
       const subscriptionId = text(existing?.subscription_id);
       if (subscriptionId && existing?.webhook_id !== webhookId) {
@@ -166,7 +175,7 @@ export class XActivityAdmin {
     return { webhookId, webhookUrl, subscriptions: chatEvents };
   }
 
-  private async ensureWebhook(webhookUrl: string): Promise<JsonObject> {
+  private async ensureWebhook(webhookUrl: string): Promise<ActivityItem> {
     const existing = objects(await this.call("/2/webhooks?webhook_config.fields=url,valid"))
       .find((item) => item.url === webhookUrl);
     if (existing) {
@@ -183,15 +192,15 @@ export class XActivityAdmin {
     return created;
   }
 
-  private async call(path: string, init: RequestInit = {}, authentication: "app" | "user" = "app"): Promise<unknown> {
+  private async call(path: string, init: RequestInit = {}, authentication: "app" | "user" = "app"): Promise<ActivityPayload> {
     const headers = new Headers(init.headers);
     headers.set("Authorization", `Bearer ${authentication === "app" ? this.bearerToken : this.userAccessToken}`);
     headers.set("Content-Type", "application/json");
     const response = await this.request(`https://api.x.com${path}`, { ...init, headers });
     const raw = await response.text();
-    let payload: unknown = {};
+    let payload: ActivityPayload = {};
     if (raw) {
-      try { payload = JSON.parse(raw); }
+      try { payload = payloadSchema.parse(JSON.parse(raw)); }
       catch { payload = { detail: raw.slice(0, 500) }; }
     }
     if (!response.ok) {

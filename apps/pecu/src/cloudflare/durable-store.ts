@@ -1,8 +1,9 @@
+import { executionStepFromRow, type ExecutionStepRow } from "../execution-step-row";
 import { coalescePolymarketAnalytics } from "../integrations/polymarket/analytics";
 import { polymarketTokenSchema, type PolymarketToken } from "../integrations/polymarket/model-output";
 import { analyticsResultSchema, type AnalyticsResult } from "../analytics-contract";
 import { stockSnapshotSchema, type StockSnapshot } from "../stock-contract";
-import { agentQuestionSchema, type AgentQuestion, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "../domain";
+import { agentQuestionSchema, type AgentQuestion, type PlannedCall, type VerifiedMessage } from "../domain";
 import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "../state";
 
 type SqlValue = ArrayBuffer | string | number | null;
@@ -392,23 +393,7 @@ export class DurableStore implements PecuStore {
   }
 
   steps(intentId: string): ExecutionStep[] {
-    return this.sql.exec<Row>(
-      "SELECT * FROM basedbot_aero_execution_steps WHERE intent_id=? ORDER BY position",
-      intentId,
-    ).toArray().map((row) => ({
-      intentId: String(row.intent_id),
-      position: Number(row.position),
-      state: String(row.state) as ExecutionStep["state"],
-      call: plannedCallSchema.parse({
-        role: row.role,
-        from: row.from_address,
-        to: row.to_address,
-        data: row.data,
-        value: row.value,
-      }),
-      ...(row.transaction_id === null ? {} : { transactionId: String(row.transaction_id) }),
-      ...(row.hash === null ? {} : { hash: String(row.hash) }),
-    }));
+    return this.sql.exec<ExecutionStepRow>("SELECT * FROM basedbot_aero_execution_steps WHERE intent_id=? ORDER BY position", intentId).toArray().map(executionStepFromRow);
   }
 
   markStepPrepared(intentId: string, position: number, transactionId: string): void {
@@ -467,13 +452,10 @@ export class DurableStore implements PecuStore {
     return this.sql.exec<Row>(
       `SELECT id,conversation_id,reply_to_event,text,payload_json FROM basedbot_outbox
        WHERE state IN ('pending','prepared','failed') ORDER BY created_at LIMIT 50`,
-    ).toArray().map((row) => ({
-      id: String(row.id),
-      conversationId: String(row.conversation_id),
-      replyToEvent: String(row.reply_to_event),
-      text: String(row.text),
-      ...(row.payload_json === null ? {} : { payloadJson: String(row.payload_json) }),
-    }));
+    ).toArray().map((row) => {
+      const reply = { id: String(row.id), conversationId: String(row.conversation_id), replyToEvent: String(row.reply_to_event), text: String(row.text) };
+      return row.payload_json === null ? reply : { ...reply, payloadJson: String(row.payload_json) };
+    });
   }
 
   prepareReply(id: string, payloadJson: string): void {
@@ -694,33 +676,27 @@ export class DurableStore implements PecuStore {
   }
 
   private toDeposit(row: DepositRow): DepositRecord {
-    return {
-      id: row.id,
-      webhookId: row.webhook_id,
-      whopAccountId: row.whop_account_id,
-      ...(row.sender_id === null ? {} : { senderId: row.sender_id }),
-      amount: row.amount,
-      currency: row.currency,
-      precision: row.precision,
-      ...(row.usd_amount === null ? {} : { usdAmount: row.usd_amount }),
-      ...(row.available_at === null ? {} : { availableAt: row.available_at }),
-      ...(row.relay_usdc_units === null ? {} : { relayUsdcUnits: row.relay_usdc_units }),
-      state: row.state,
-      ...(row.hold_reason === null ? {} : { holdReason: row.hold_reason }),
-      ...(row.intent_id === null ? {} : { intentId: row.intent_id }),
-      ...(row.result === null ? {} : { result: row.result }),
-      postedAt: row.posted_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+    let deposit: DepositRecord = {
+      id: row.id, webhookId: row.webhook_id, whopAccountId: row.whop_account_id,
+      amount: row.amount, currency: row.currency, precision: row.precision, state: row.state,
+      postedAt: row.posted_at, createdAt: row.created_at, updatedAt: row.updated_at,
     };
+    if (row.sender_id !== null) deposit = { ...deposit, senderId: row.sender_id };
+    if (row.usd_amount !== null) deposit = { ...deposit, usdAmount: row.usd_amount };
+    if (row.available_at !== null) deposit = { ...deposit, availableAt: row.available_at };
+    if (row.relay_usdc_units !== null) deposit = { ...deposit, relayUsdcUnits: row.relay_usdc_units };
+    if (row.hold_reason !== null) deposit = { ...deposit, holdReason: row.hold_reason };
+    if (row.intent_id !== null) deposit = { ...deposit, intentId: row.intent_id };
+    if (row.result !== null) deposit = { ...deposit, result: row.result };
+    return deposit;
   }
 
-  private first<T extends Row>(query: string, ...bindings: unknown[]): T | undefined {
+  private first<T extends Row>(query: string, ...bindings: SqlValue[]): T | undefined {
     return this.sql.exec<T>(query, ...bindings).toArray()[0];
   }
 
   private toIntent(row: IntentRow): Intent {
-    return {
+    const intent: Intent = {
       id: row.id,
       codeHash: row.code_hash,
       senderId: row.sender_id,
@@ -731,7 +707,7 @@ export class DurableStore implements PecuStore {
       preview: row.preview,
       planDigest: row.plan_digest,
       expiresAt: row.expires_at,
-      ...(row.result === null ? {} : { result: row.result }),
     };
+    return row.result === null ? intent : { ...intent, result: row.result };
   }
 }

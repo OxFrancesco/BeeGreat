@@ -8,12 +8,16 @@
     ".continue/**",
     ".cursor/**",
     ".devin/**",
+    ".deepsec/**",
     ".gemini/**",
+    ".impeccable/**",
     ".opencode/**",
     ".pi/**",
     ".roo/**",
     ".windsurf/**",
     "resources/**",
+    "packages/sugar/site/public/scene.js",
+    "apps/pecu/apps/stocks/public/assets/pecu-cards/draco/**",
     "tools/oxlint/anti-slop/**"
   ],
   "jsPlugins": [

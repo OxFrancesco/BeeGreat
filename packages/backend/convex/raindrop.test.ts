@@ -4,12 +4,13 @@ import { api, internal } from './_generated/api'
 import schema from './schema'
 import { modules } from './test.setup'
 import { parseItem, request, safeUrl } from './raindropApi'
+import { hashBeennectorValue } from './beennectorCrypto'
 
 const identity = { subject: 'raindrop-owner', tokenIdentifier: 'https://issuer.test|raindrop-owner' }
 const secret = { version: 1 as const, iv: 'fixture', ciphertext: 'fixture', tag: 'fixture' }
 const item = { id: 100, url: 'https://example.com/raindrop', title: 'Saved research', excerpt: '', note: 'Read later', tags: ['research'], collectionId: -1, important: false, cover: '', updatedAt: '2026-09-14T10:00:00Z' }
 
-afterEach(() => { vi.unstubAllGlobals() })
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
 describe('Raindrop authentication and Mind sync', () => {
   test('rejects signed-out access and scopes credentials by issuer', async () => {
@@ -88,4 +89,13 @@ test('uses bearer auth and reports rate limiting without leaking provider respon
   vi.stubGlobal('fetch', fetch)
   await expect(request('test-only-token', 'raindrops/0')).rejects.toThrow('Try again in a minute')
   expect(fetch).toHaveBeenCalledWith('https://api.raindrop.io/rest/v1/raindrops/0', expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer test-only-token' }) }))
+})
+
+test('malformed OAuth replies never expose provider credentials in validation errors', async () => {
+  const t = convexTest(schema, modules)
+  vi.stubEnv('RAINDROP_CLIENT_ID', 'fixture-client')
+  vi.stubEnv('RAINDROP_CLIENT_SECRET', 'fixture-secret')
+  await t.mutation(internal.raindrop.createSession, { ownerKey: identity.tokenIdentifier, userId: identity.subject, stateHash: hashBeennectorValue('fixture-state') })
+  vi.stubGlobal('fetch', async () => Response.json({ access_token: 'private-access-token', refresh_token: 'private-refresh-token', expires_in: 'invalid' }))
+  await expect(t.withIdentity(identity).action(api.raindropActions.completeAuthorization, { code: 'fixture-code', state: 'fixture-state' })).rejects.toThrow(/^Invalid Raindrop token response$/)
 })

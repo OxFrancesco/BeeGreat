@@ -93,7 +93,7 @@ export function aeroPaletteDrift(
       color!.toLowerCase(),
     ]),
   );
-  const expected: Record<string, string | undefined> = {
+  const expected = {
     "aero-blue": ribbons[1],
     "aero-background": theme.background,
     "aero-foreground": theme.text,

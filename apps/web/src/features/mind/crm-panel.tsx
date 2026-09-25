@@ -159,6 +159,7 @@ export function CrmChatCard({
 }
 
 function LiveContact({ id }: { id: string }) {
+  // SAFETY: contact IDs come from the shared CRM tool contract; the Convex query validates the table and signed-in owner before returning data.
   const contact = useQuery(api.crm.get, { contactId: id as Id<'crmContacts'> })
   if (contact === undefined) return <p role="status">Loading contact…</p>
   if (contact === null) return <p>Contact unavailable.</p>
@@ -191,7 +192,7 @@ function ContactEditor({
   const [error, setError] = useState('')
   const save = useMutation(api.crm.save)
   const archive = useMutation(api.crm.archive)
-  async function run(action: () => Promise<unknown>) {
+  async function run<Result>(action: () => Promise<Result>) {
     setPending(true)
     setError('')
     try {

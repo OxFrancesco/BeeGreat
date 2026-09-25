@@ -1,3 +1,5 @@
+import { z } from "zod";
+import type { JsonValue, JsonFields } from "../src/json-contract";
 import { buildSignatureBytes, EthSafeSignature } from "@safe-global/protocol-kit";
 import { allowanceAbi, rolesAbi } from "../../../packages/evm/src/safe/module-contracts";
 import { decodeSafeBatch as sdkDecodeSafeBatch } from "../../../packages/evm/src/safe/batch";
@@ -59,7 +61,7 @@ test("Safe tools are shared and sandbox commands remain unsigned", () => {
 });
 
 test("Safe service always uses the verified wallet and Base when preparing an approval", async () => {
-  const seen: Array<{ command: string; input: Record<string, unknown> }> = [];
+  const seen: Array<{ command: string; input: JsonFields }> = [];
   const service = new EvmService(async (command, input) => {
     seen.push({ command, input });
     return { plan: { chainId: 8453, account: wallet, to: safe, value: "0", data: approveCall.data, fingerprint: transaction.hash, expiresAt: Date.now() + 60_000, simulationBlock: "100", gas: "90000", gasPrice: "1" }, state: { _tag: "prepared" } };
@@ -85,9 +87,9 @@ test("Budget payments bind the delegate, recipient, amount and zero fee", () => 
 });
 
 test("Role execution cannot change its role, target, ETH value or call mode", () => {
-  const parameters = { safe, module: recipient, role: `0x${"01".repeat(32)}`, to: wallet, data: "0x12345678" };
+  const parameters = { safe, module: recipient, role: `0x${"01".repeat(32)}` as const, to: wallet, data: "0x12345678" as const };
   const intent = { family: "evm", action: "safe_role_execute", parameters } as const;
-  const encode = (value = 0n, mode = 0, role = parameters.role, revert = true) => encodeFunctionData({ abi: rolesAbi, functionName: "execTransactionWithRole", args: [wallet, value, "0x12345678", mode, role as `0x${string}`, revert] });
+  const encode = (value = 0n, mode = 0, role: `0x${string}` = parameters.role, revert = true) => encodeFunctionData({ abi: rolesAbi, functionName: "execTransactionWithRole", args: [wallet, value, "0x12345678", mode, role, revert] });
   const call = { ...approveCall, to: recipient, data: encode() };
   expect(() => validateIntentPlan(intent, wallet, [call])).not.toThrow();
   for (const data of [encode(1n), encode(0n, 1), encode(0n, 0, `0x${"02".repeat(32)}`), encode(0n, 0, parameters.role, false)]) {
@@ -107,9 +109,9 @@ test("Safe batches decode identically across SDK and Pecu and refuse inner deleg
 });
 
 test("Collected contract signatures bind exact bytes and reject duplicate owners", () => {
-  const signatures = [{ owner: wallet, data: "0x123456", contract: true }];
+  const signatures = [{ owner: wallet, data: "0x123456" as const, contract: true }];
   const intent = { family: "evm", action: "safe_execute_signatures", parameters: { transaction, signatures } } as const;
-  const bytes = buildSignatureBytes([new EthSafeSignature(wallet, "0x123456", true)]) as `0x${string}`;
+  const bytes = z.templateLiteral(["0x", z.string().regex(/^(?:[a-fA-F0-9]{2})*$/)]).parse(buildSignatureBytes([new EthSafeSignature(wallet, "0x123456", true)]));
   const data = encodeFunctionData({ abi: safeAbi, functionName: "execTransaction", args: [transaction.to, 1n, "0x", 0, 0n, 0n, 0n, zeroAddress, zeroAddress, bytes] });
   const call = { ...approveCall, data };
   expect(() => validateIntentPlan(intent, wallet, [call])).not.toThrow();
@@ -118,10 +120,10 @@ test("Collected contract signatures bind exact bytes and reject duplicate owners
 });
 
 test("Role previews describe verified static contract calls without proposal JSON", async () => {
-  const service = new EvmService(async (command) => command === "decode"
+  const service = new EvmService(async (command): Promise<JsonValue> => command === "decode"
     ? { source: "etherscan", result: { functionName: "supply", args: [recipient, "1000000", safe, 0] } }
     : { plan: { chainId: 8453, account: wallet, to: recipient, value: "0", data: "0x12345678", fingerprint: transaction.hash, expiresAt: Date.now() + 60_000, simulationBlock: "100", gas: "90000", gasPrice: "1" }, state: { _tag: "prepared" } });
-  const result = await service.propose(wallet, "safe_role_execute", { safe, module: recipient, role: `0x${"01".repeat(32)}`, to: recipient, data: "0x12345678" });
+  const result = await service.propose(wallet, "safe_role_execute", { safe, module: recipient, role: `0x${"01".repeat(32)}` as const, to: recipient, data: "0x12345678" });
   expect(result.summary).toContain("call supply");
   expect(result.summary).toContain("argument 2: 1000000");
   expect(result.summary).not.toContain('"functionName"');

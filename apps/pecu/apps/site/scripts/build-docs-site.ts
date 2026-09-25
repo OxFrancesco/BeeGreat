@@ -87,19 +87,20 @@ export function lintMarkdown(body: string): string[] {
   return [...new Set(problems)];
 }
 
-const languages: Record<string, string> = {
+const languages = new Map<string, string>(Object.entries({
   sh: "bash", bash: "bash", shell: "bash", zsh: "bash", console: "bash",
   ts: "typescript", typescript: "typescript", tsx: "tsx", js: "javascript", javascript: "javascript",
   json: "json", jsonc: "jsonc", yaml: "yaml", yml: "yaml", toml: "toml", diff: "diff",
   text: "text", txt: "text", plain: "text",
-};
+}));
 const highlighter = await createHighlighter({
   themes: [createCssVariablesTheme({ name: "pecu", variablePrefix: "--shiki-", fontStyle: true })],
   langs: ["bash", "typescript", "tsx", "javascript", "json", "jsonc", "yaml", "toml", "diff"],
 });
 const highlight = (code: string, lang: string) =>
-  highlighter.codeToHtml(code, { lang: languages[lang] ?? "text", theme: "pecu" }).replace(/^<pre class="shiki pecu"[^>]*>/, '<pre tabindex="0">');
+  highlighter.codeToHtml(code, { lang: languages.get(lang) ?? "text", theme: "pecu" }).replace(/^<pre class="shiki pecu"[^>]*>/, '<pre tabindex="0">');
 
+const calloutIcons = { NOTE: icons.note, TIP: icons.tip, WARNING: icons.warning };
 const calloutLabels = { NOTE: "Note", TIP: "Tip", WARNING: "Warning" } as const;
 
 function renderMarkdown(body: string) {
@@ -111,7 +112,7 @@ function renderMarkdown(body: string) {
       `<div class="code-block">${highlight(decode(code).replace(/\n$/, ""), lang)}<button class="copy-code" type="button" aria-label="Copy code">${icons.copy}${icons.check}</button></div>`,
     )
     .replace(/<blockquote>\s*<p>\[!(NOTE|TIP|WARNING)\]\s*([\s\S]*?)<\/blockquote>/g, (_, kind: keyof typeof calloutLabels, inner: string) =>
-      `<aside class="callout callout-${kind.toLowerCase()}"><p class="callout-title">${icons[kind.toLowerCase() as "note"]}${calloutLabels[kind]}</p><p>${inner}</aside>`.replace(/<p>\s*<\/p>/g, ""),
+      `<aside class="callout callout-${kind.toLowerCase()}"><p class="callout-title">${calloutIcons[kind]}${calloutLabels[kind]}</p><p>${inner}</aside>`.replace(/<p>\s*<\/p>/g, ""),
     )
     .replace(/<h([23])>([\s\S]*?)<\/h\1>/g, (_, level: string, inner: string) => {
       const text = stripTags(inner).trim();
@@ -119,7 +120,7 @@ function renderMarkdown(body: string) {
       const count = seen.get(base) ?? 0;
       seen.set(base, count + 1);
       const id = count ? `${base}-${count + 1}` : base;
-      headings.push({ level: Number(level) as 2 | 3, id, text });
+      headings.push({ level: level === "2" ? 2 : 3, id, text });
       return `<h${level} id="${id}">${inner}<a class="anchor" href="#${id}" aria-label="Link to ${escape(text)}">#</a></h${level}>`;
     })
     .replace(/<code>([^<]{1,40})<\/code>/g, '<code class="nowrap">$1</code>')
@@ -132,7 +133,7 @@ async function loadPages(sourceDir: string): Promise<Page[]> {
   const pages: Page[] = [];
   const problems: string[] = [];
   for (const product of products) {
-    const files = (await readdir(resolve(sourceDir, product.id)).catch(() => [] as string[]))
+    const files = (await readdir(resolve(sourceDir, product.id)).catch((): string[] => []))
       .filter((file) => /^\d{2}-[a-z0-9-]+\.md$/.test(file))
       .sort();
     for (const file of files) {

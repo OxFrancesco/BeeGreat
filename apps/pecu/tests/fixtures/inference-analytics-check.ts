@@ -1,3 +1,5 @@
+import { unusedCapabilities } from "./agent-services";
+import { Store } from "../../src/store";
 import { expect, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import type { TimingSql } from "../../src/inference-timings";
@@ -15,7 +17,7 @@ const sql: TimingSql = { exec: <R extends Record<string, SqlStorageValue>>(query
   const rows = db.query<R, (string | number | null | Uint8Array)[]>(query).all(...params.map((value) => value instanceof ArrayBuffer ? new Uint8Array(value) : value));
   return { toArray: () => rows };
 } };
-const storage = { get: async (key: string) => values.get(key), put: async (key: string, value: unknown) => { values.set(key, value); }, delete: async (key: string) => values.delete(key), sql };
+const storage = { get: async (key: string) => values.get(key), put: async <T>(key: string, value: T) => { values.set(key, value); }, delete: async (key: string) => values.delete(key), sql };
 const client = {
   sessions: {
     get: async () => ({}),
@@ -34,13 +36,15 @@ const client = {
   message: { list: async () => ({ data: [{ type: "assistant", time: { created: calls * 1000 }, content: [{ type: "text", text: "safe answer" }] }] }) },
 };
 mock.module("@opencode-ai/sdk/workerd", () => ({ OpenCodeWorkerd: { create: async () => client } }));
-mock.module("@opencode-ai/plugin", () => ({ Plugin: { define: (plugin: unknown) => plugin } }));
+mock.module("@opencode-ai/plugin", () => ({ Plugin: { define: <T>(plugin: T) => plugin } }));
 const { OpenCodeHarness } = await import("../../src/cloudflare/opencode");
 const events: AgentAnalyticsEvent[] = [];
-const store = { agentSession: () => "session-test", saveAgentTurn() {} };
-const harness = await OpenCodeHarness.create(storage as never, store as never, () => { throw new Error("tools not called"); }, undefined, undefined, (_sender, event) => { events.push(event); });
-const message = { eventId: "turn", senderId: "sender", conversationId: "conversation", text: "hello" } as never;
-const capabilities = { yoloEnabled: () => false } as never;
+const store = new Store(":memory:");
+store.saveAgentSession("sender", "conversation", "session-test");
+// SAFETY: the SDK is mocked; all harness storage operations are implemented by this fixture, including the real SQLite adapter.
+const harness = await OpenCodeHarness.create(storage as DurableObjectStorage, store, () => { throw new Error("tools not called"); }, undefined, undefined, (_sender, event) => { events.push(event); });
+const message = { eventId: "turn", senderId: "sender", conversationId: "conversation", text: "hello", encodedEvent: "verified" };
+const capabilities = unusedCapabilities;
 expect(await harness.respond(message, capabilities)).toBe("safe answer");
 expect(events).toHaveLength(1);
 expect(readAfter).toBeUndefined();
@@ -58,7 +62,8 @@ failWait = false;
 let release!: () => void;
 logGate = new Promise<void>((resolve) => { release = resolve; });
 const scheduled: Promise<void>[] = [];
-const asynchronous = await OpenCodeHarness.create(storage as never, store as never, () => capabilities, undefined, undefined, (_sender, event) => { events.push(event); }, (work) => { scheduled.push(work); });
+// SAFETY: this fixture implements the storage subset used by telemetry and the mocked SDK.
+const asynchronous = await OpenCodeHarness.create(storage as DurableObjectStorage, store, () => capabilities, undefined, undefined, (_sender, event) => { events.push(event); }, (work) => { scheduled.push(work); });
 expect(await asynchronous.respond(message, capabilities)).toBe("safe answer");
 expect(events).toHaveLength(3);
 const callsBefore = calls;
@@ -70,3 +75,6 @@ await next;
 await Promise.all(scheduled);
 expect(events).toHaveLength(5);
 console.log("inference telemetry cursor, response isolation, and failed-wait capture passed");
+
+store.close();
+db.close();

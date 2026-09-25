@@ -305,7 +305,7 @@ export const disconnectForAgent = internalMutation({
     if (revocation) await ctx.db.patch(revocation._id, { revokedBefore: revokedAt })
     else await ctx.db.insert('imessageRevocations', { userId: args.userId, revokedBefore: revokedAt })
     const removed = await removeRevokedConnections(ctx, args.userId, revokedAt)
-    return { disconnected: removed, ...(removed === 100 ? { all: true } : {}) }
+    return removed === 100 ? { disconnected: removed, all: true } : { disconnected: removed }
   },
 })
 

@@ -53,7 +53,7 @@ function DetailRows({ rows }: { rows: readonly PreviewRow[] }) {
           )}
           <dd
             className={
-              isAmount(row.value) || /^0x/.test(row.value) ? "mono" : undefined
+              isAmount(row.value) || row.value.startsWith("0x") ? "mono" : undefined
             }
           >
             <span>{row.value}</span>
@@ -124,14 +124,14 @@ export function PreviewCard({
     hour: "2-digit",
     minute: "2-digit",
   });
-  const labels: Record<Preview["state"], string> = {
+  const labels = {
     pending: `Review before confirming · expires ${expires}`,
     executing: "Submitted, waiting for the receipt",
     succeeded: "Executed and verified on Base",
     failed: "Failed",
     cancelled: "Cancelled, nothing was sent",
     expired: "Expired without confirmation",
-  };
+  } satisfies Record<Preview["state"], string>;
   const status = confirming
     ? preview.state === "executing"
       ? "Checking…"

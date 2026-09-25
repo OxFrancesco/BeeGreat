@@ -1,10 +1,11 @@
+import { Predicate } from "effect";
 import aeroWorker from '../../src/cloudflare/aero-worker.ts';
 
 const token = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 const expectedDecimals = `0x${'6'.padStart(64, '0')}`;
 const pause = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 const hex = (value) => `0x${value.toString(16)}`;
-const canonical = (value) => JSON.stringify(value, (_, item) => item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+const canonical = (value) => JSON.stringify(value, (_, item) => Predicate.isRecord(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
 
 async function benchmarkAero(providers) {
   const rows = [];

@@ -1,6 +1,8 @@
 import { stripVTControlCharacters } from 'node:util';
 
+const displayControls = new RegExp(`[${String.fromCodePoint(0)}-${String.fromCodePoint(8)}${String.fromCodePoint(11)}-${String.fromCodePoint(31)}${String.fromCodePoint(127)}-${String.fromCodePoint(159)}]`, 'g');
+
 /** Strip terminal commands and rewriting controls from untrusted display text. */
 export function terminalText(text: string): string {
-  return stripVTControlCharacters(text).replace(/[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/g, '');
+  return stripVTControlCharacters(text).replace(displayControls, '');
 }

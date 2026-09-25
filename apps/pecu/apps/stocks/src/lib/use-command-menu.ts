@@ -39,7 +39,7 @@ export function useCommandMenu(
     );
   const select = (item: ChatCommand) =>
     setDraft(item.command + (item.args ? " " : ""));
-  const onKeyDown = (event: KeyboardEvent) => {
+  const onKeyDown = (event: Pick<KeyboardEvent, "key" | "preventDefault">) => {
     if (!open) return;
     if (event.key === "ArrowDown") {
       event.preventDefault();

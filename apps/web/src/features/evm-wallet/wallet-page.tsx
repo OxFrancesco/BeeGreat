@@ -60,7 +60,7 @@ function AuthenticatedWallet() {
 export default function WalletPage() {
   const { isLoaded, isSignedIn, user } = useUser()
   useState(() => {
-    if (typeof window !== 'undefined') readPairing()
+    if ('window' in globalThis) readPairing()
     return null
   })
   const key = import.meta.env.VITE_CROSSMINT_CLIENT_API_KEY
@@ -76,7 +76,7 @@ export default function WalletPage() {
         <SignIn
           routing="hash"
           forceRedirectUrl={
-            typeof window === 'undefined' ? '/evm-wallet' : window.location.href
+            !('window' in globalThis) ? '/evm-wallet' : window.location.href
           }
         />
       ) : !key ? (

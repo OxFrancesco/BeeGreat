@@ -10,7 +10,7 @@ export const sugarRequestSchema = z.object({
 export const stockBasketRequestSchema = z.strictObject({
   action: z.literal("stock_basket"),
   chain: z.literal(8453),
-  wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as `0x${string}`),
+  wallet: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]),
   trades: z.array(stockTradeSchema).min(1).max(8),
   slippage: z.number().gt(0).lt(1),
 });

@@ -1,5 +1,7 @@
+import { z } from "zod";
+import type { JsonValue } from "../json-contract";
 import { ApiError } from "@xdevplatform/xdk";
-import type { ChatWithJuicebox, DecryptedMessage, Event, SendPayload, SigningKeyEntry } from "@xdevplatform/chat-xdk";
+import type { ChatWithJuicebox, DecryptedMessage, Event, SigningKeyEntry } from "@xdevplatform/chat-xdk";
 import type { PecuAgent } from "../agent";
 import type { Config } from "../config";
 import { log } from "../logger";
@@ -14,8 +16,8 @@ function comparableConversation(value: string): string {
   return value.replaceAll(":", "-");
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 const bootstrapLookbackMs = 48 * 60 * 60 * 1_000;
@@ -51,18 +53,26 @@ export type ConversationDiscoveryStore = {
   put(value: ConversationDiscovery): Promise<void>;
 };
 
+export type ChatTransportApi = Pick<XApi, "conversationId" | "conversations" | "publicKeys" | "events" | "send">;
+export type ChatTransportCrypto = Pick<ChatWithJuicebox, "decryptEvents" | "setSigningKeys" | "encryptReply">;
+const sendPayloadSchema = z.object({
+  messageId: z.string(), encryptedContent: z.string(), signature: z.string(), encodedEventSignature: z.string(),
+  signatureInfo: z.object({ publicKeyVersion: z.string(), signatureVersion: z.string() }),
+  conversationKeyVersion: z.string(), shouldNotify: z.boolean(),
+});
+
 export class XChatTransport {
   private readonly knownKeys = new Map<string, SigningKeyEntry[]>();
   private readonly resolvedPeerConversations = new Map<string, string>();
   private discovery: ConversationDiscovery | undefined;
 
   constructor(
-    private readonly api: XApi,
-    private readonly chat: ChatWithJuicebox,
+    private readonly api: ChatTransportApi,
+    private readonly chat: ChatTransportCrypto,
     private readonly botUserId: string,
     private readonly config: Pick<Config, "chatPeerUserIds" | "pollIntervalMs">,
     private readonly store: TransportStateStore,
-    private readonly agent: PecuAgent,
+    private readonly agent: Pick<PecuAgent, "handle">,
     private readonly discoveryStore?: ConversationDiscoveryStore,
   ) {}
 
@@ -121,7 +131,7 @@ export class XChatTransport {
     return discovery.ids;
   }
 
-  async ingestActivity(body: unknown, requireCompletion = false): Promise<boolean> {
+  async ingestActivity(body: JsonValue, requireCompletion = false): Promise<boolean> {
     const activity = activityConversation(body);
     if (!activity) return false;
     log("info", "activity_received", { eventType: activity.eventType, hasEncodedEvent: Boolean(activity.encodedEvent), hasKeyChangeEvent: Boolean(activity.keyChangeEvent) });
@@ -221,7 +231,7 @@ export class XChatTransport {
         const startedAt = Date.now();
         log("info", "reply_send_started", { outboxId: reply.id });
         const payload = reply.payloadJson
-          ? JSON.parse(reply.payloadJson) as SendPayload
+          ? sendPayloadSchema.parse(JSON.parse(reply.payloadJson))
           : this.chat.encryptReply({ conversationId: reply.conversationId, text: reply.text, replyToEvent: reply.replyToEvent });
         if (!reply.payloadJson) this.store.prepareReply(reply.id, JSON.stringify(payload));
         await this.api.send(reply.conversationId, payload);

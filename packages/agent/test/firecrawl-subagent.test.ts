@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from 'bun:test'
-import { defineTool, type ToolDefinition, type McpConnectionDefinition } from '@flue/runtime'
+import { defineTool, type McpConnectionDefinition } from '@flue/runtime'
 import * as v from 'valibot'
 import {
   FIRECRAWL_MCP_TIMEOUT_MS,
@@ -79,10 +79,10 @@ test('shared provider tools reject persisted-resource operations and unbounded a
   const fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json({ error: 'Daily limit' }, { status: 429 }))
   try {
     for (const data of [{ query: 'test', limit: 999 }, { query: 'test', crawlId: 'foreign' }]) {
-      await expect(tools[0]!.run({ data } as Parameters<ToolDefinition['run']>[0])).rejects.toThrow()
+      await expect(tools[0]!.run({ data, toolCallId: "test", log: { info() {}, warn() {}, error() {} } })).rejects.toThrow()
     }
     expect(fetchSpy).not.toHaveBeenCalled()
-    await expect(tools[0]!.run({ data: { query: 'test' } } as Parameters<ToolDefinition['run']>[0])).rejects.toThrow(/Daily limit/)
+    await expect(tools[0]!.run({ data: { query: 'test' }, toolCallId: 'test', log: { info() {}, warn() {}, error() {} } })).rejects.toThrow(/Daily limit/)
     expect(providerCalls).toBe(0)
   } finally { fetchSpy.mockRestore() }
 })

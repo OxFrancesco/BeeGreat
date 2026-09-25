@@ -1,3 +1,6 @@
+import { jsonFieldsSchema } from "../src/json-contract";
+import { z } from "zod";
+import type { JsonFields } from "../src/json-contract";
 import { expect, test } from "bun:test";
 import { analyticsResultsSchema, analyticsText, type PolymarketSnapshot } from "../src/analytics-contract";
 import { polymarketAnalytics } from "../src/integrations/polymarket/analytics";
@@ -7,10 +10,11 @@ import { Store } from "../src/store";
 import { services } from "./fixtures/agent-services";
 import { polymarketReads } from "./fixtures/polymarket-reads";
 
-const read = (name: keyof typeof polymarketReads, next: PolymarketRead["next"] = null): PolymarketRead => ({ ...structuredClone(polymarketReads[name]) as PolymarketRead, next });
-function snapshot<K extends PolymarketSnapshot["kind"]>(kind: K, input: Record<string, unknown>, result: PolymarketRead) {
+const read = (name: keyof typeof polymarketReads, next: PolymarketRead["next"] = null): PolymarketRead => ({ ...structuredClone(polymarketReads[name]), next });
+function snapshot<K extends PolymarketSnapshot["kind"]>(kind: K, input: JsonFields, result: PolymarketRead) {
   const value = polymarketAnalytics(input, result);
   if (value?.kind !== kind) throw new Error(`Expected ${kind}, got ${value?.kind}`);
+  // SAFETY: the runtime discriminant check above narrows to the caller’s requested snapshot kind.
   return value as Extract<PolymarketSnapshot, { kind: K }>;
 }
 
@@ -22,7 +26,7 @@ test("markets and events become market-implied odds with Polymarket links", () =
   const event = snapshot("pm_odds", {}, read("event_by_slug"));
   expect(event.title).toBe("Fed Decision in October?");
   expect(event.rows[0]).toEqual({ label: "25 bps increase", probability: 0.535 });
-  expect(event.rows.map((row) => row.probability)).toEqual([...event.rows.map((row) => row.probability)].sort((a, b) => (b ?? 0) - (a ?? 0)));
+  expect(event.rows.map((row) => row.probability)).toEqual(event.rows.map((row) => row.probability).sort((a, b) => (b ?? 0) - (a ?? 0)));
   const text = analyticsText(event);
   expect(text).toContain("25 bps increase: 53.5%");
   expect(text).toContain("market-implied odds");
@@ -44,7 +48,7 @@ test("lists, history, books, boards and traders keep units, nulls and pages hone
   const book = snapshot("pm_book", { token_id: "123" }, read("book"));
   expect(book.bids[0]?.price).toBe(0.14);
   expect(book.asks[0]?.price).toBe(0.15);
-  expect(book.bids.map((level) => level.price)).toEqual([...book.bids.map((level) => level.price)].sort((a, b) => b - a));
+  expect(book.bids.map((level) => level.price)).toEqual(book.bids.map((level) => level.price).sort((a, b) => b - a));
   expect(book.midpoint).toBeCloseTo(0.145, 5);
   expect(book.spread).toBeCloseTo(0.01, 5);
   expect(book.lastTrade).toBe(0.14);
@@ -69,12 +73,12 @@ test("unexpected shapes and out-of-range prices never become cards", () => {
   expect(polymarketAnalytics({}, { ...read("book"), data: { bids: "nope" } })).toBeUndefined();
   expect(polymarketAnalytics({}, { ...read("markets"), endpoint: "status" })).toBeUndefined();
   const market = read("market_by_slug");
-  const broken: PolymarketRead = { ...market, data: { ...(market.data as object), outcomePrices: "[\"1.7\", \"oops\"]" } };
+  const broken: PolymarketRead = { ...market, data: { ...jsonFieldsSchema.parse(market.data), outcomePrices: "[\"1.7\", \"oops\"]" } };
   expect(snapshot("pm_odds", {}, broken).rows.map((row) => row.probability)).toEqual([null, null]);
   const sparse = read("event_by_slug");
-  const event = sparse.data as { markets: Record<string, unknown>[] };
+  const event = z.object({ markets: z.array(jsonFieldsSchema) }).passthrough().parse(sparse.data);
   event.markets = event.markets.map(({ liquidityNum: _l, liquidity: _q, volume24hr: _v, ...market }, index) => index === 0 ? { ...market, closed: true } : market);
-  const odds = snapshot("pm_odds", {}, sparse);
+  const odds = snapshot("pm_odds", {}, { ...sparse, data: jsonFieldsSchema.parse(event) });
   expect(odds.rows).toHaveLength(event.markets.length - 1);
 });
 

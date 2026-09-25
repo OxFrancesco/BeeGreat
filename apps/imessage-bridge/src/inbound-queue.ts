@@ -18,7 +18,7 @@ export function createInboundQueue(options: {
   perSenderLimit?: number
   totalLimit?: number
   timeoutMs?: number
-  onError: (error: unknown) => void
+  onError: (cause: unknown) => void
 }) {
   const queues = new Map<string, Array<(signal: AbortSignal) => Promise<void>>>()
   const active = new Set<string>()

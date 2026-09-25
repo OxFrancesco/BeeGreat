@@ -1,3 +1,4 @@
+import type { JsonInput } from "../../../../src/json-contract";
 import { auth, clerkClient } from "@clerk/tanstack-react-start/server";
 import { env } from "cloudflare:workers";
 import { webSenderId } from "../../../../src/web-identity";
@@ -14,20 +15,16 @@ export async function cardIdentity() {
 }
 export async function agentRequest(
   path: string,
-  body: unknown,
+  body: JsonInput,
   accept?: string | null,
 ): Promise<Response> {
-  const binding: unknown = Reflect.get(env, "PECU");
-  if (
-    !binding ||
-    typeof binding !== "object" ||
-    !("fetch" in binding) ||
-    typeof binding.fetch !== "function"
-  )
-    throw new Error("Agent connection is unavailable.");
+  const binding = env.PECU;
+  if (!binding) throw new Error("Agent connection is unavailable.");
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (accept) headers.set("Accept", accept);
   return binding.fetch(`https://pecu.internal/${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(accept ? { Accept: accept } : {}) },
+    headers,
     body: JSON.stringify(body),
   });
 }

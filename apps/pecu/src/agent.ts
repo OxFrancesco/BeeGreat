@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { jsonFieldsSchema, type JsonInput, type JsonFields } from "./json-contract";
 import { projectPolymarket, polymarketModelOutput, polymarketDiscovery } from "./integrations/polymarket/model-output";
 import { polymarketRead } from "./integrations/polymarket/client";
 import { polymarketEndpoints, polymarketEndpointNames, type PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
@@ -8,7 +10,7 @@ import type { AgentAnalytics, AgentAnalyticsEvent } from "./analytics";
 import type { AaveService } from "./integrations/aave";
 import type { PolymarketService } from "./integrations/polymarket";
 import type { WhopService } from "./integrations/whop";
-import type { NansenEndpointName, NansenService } from "./integrations/nansen";
+import { nansenQuerySchema, type NansenQuery, type NansenEndpointName, type NansenService } from "./integrations/nansen";
 import type { SugarAction, SugarParameters } from "@beegreat/sugar/contracts";
 import type { Config } from "./config";
 import { aeroHelpText, BASE_USDC_ADDRESS, depositAmountPattern, helpText, nansenHelpText, parseCommand, parseNaturalWalletCommand, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "./domain";
@@ -45,8 +47,8 @@ function confirmationCode(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(6)), (byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]!).join("");
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 function actionLabel(action: string): string {
@@ -82,7 +84,7 @@ function usdcUnitsText(units: bigint): string {
   return fraction ? `${whole}.${fraction}` : `${whole}`;
 }
 
-const depositHoldText: Record<string, string> = {
+const depositHoldText = new Map(Object.entries({
   over_limit: "above the automatic limit",
   daily_limit: "daily limit reached, retrying tomorrow",
   insufficient_treasury: "waiting for treasury funds",
@@ -91,7 +93,7 @@ const depositHoldText: Record<string, string> = {
   risk_review: "under review at Whop",
   unsupported_currency: "currency not supported",
   unknown_account: "no matching wallet",
-};
+}));
 
 const terminalDepositHolds = new Set(["unknown_account", "unsupported_currency", "risk_review"]);
 
@@ -104,7 +106,7 @@ function depositStateText(deposit: DepositRecord): string {
       const sent = deposit.relayUsdcUnits ? usdcUnitsText(BigInt(deposit.relayUsdcUnits)) : "?";
       return `sent ${sent} USDC${link ? ` ${link}` : ""}`;
     }
-    case "held": return `on hold (${depositHoldText[deposit.holdReason ?? ""] ?? deposit.holdReason ?? "under review"})`;
+    case "held": return `on hold (${depositHoldText.get(deposit.holdReason ?? "") ?? deposit.holdReason ?? "under review"})`;
     case "failed": return "failed; the team has been notified";
   }
 }
@@ -113,7 +115,7 @@ function explorerLink(hash: string): string {
   return `https://basescan.org/tx/${hash}`;
 }
 
-type AgentWallets = Pick<WalletService, "balances" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits"> & {
+export type AgentWallets = Pick<WalletService, "balances" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits"> & {
   getOrCreate(senderId: string): Promise<{ address: string }>;
 };
 
@@ -130,8 +132,8 @@ export type AgentServices = Readonly<{
   evm: Pick<EvmService, "tokenBalance" | "allowance" | "read" | "inspect" | "decode" | "propose" | "safeRead">;
   verifyUserOperation: UserOperationVerifier;
   safeQueue?: Readonly<{
-    share(senderId: string, command: SafeReadCommand, output: unknown): Promise<void>;
-    pending(senderId: string, safe: string): Promise<unknown>;
+    share(senderId: string, command: SafeReadCommand, output: JsonInput): Promise<void>;
+    pending(senderId: string, safe: string): Promise<JsonInput>;
   }>;
 }>;
 
@@ -204,7 +206,7 @@ export class PecuAgent {
           return;
         }
         case "unsettled":
-          log("warn", "intent_recovery_unsettled", { intentId: intent.id, action: intent.action, failure: run.failure._tag, ...(run.failure.hash ? { hash: run.failure.hash } : {}) });
+          log("warn", "intent_recovery_unsettled", { intentId: intent.id, action: intent.action, failure: run.failure._tag, hash: run.failure.hash || undefined });
           return;
         case "failed":
           this.failIntent(intent.id, run.failure);
@@ -284,7 +286,7 @@ export class PecuAgent {
         const route: RequestRoute = this.previewOnly.has(message.eventId)
           ? { kind: "fallback" }
           : await this.classifier?.classify(message.text) ?? { kind: "fallback" };
-        log("info", "request_routed", { eventId: message.eventId, route: route.kind, ...(route.kind === "command" ? { command: route.command } : {}) });
+        log("info", "request_routed", { eventId: message.eventId, route: route.kind, command: route.kind === "command" ? route.command : undefined });
         if (route.kind === "command") {
           switch (route.command) {
             case "wallet": return this.walletReply(message);
@@ -401,10 +403,12 @@ export class PecuAgent {
 
   private async walletAddress(senderId: string): Promise<`0x${string}`> {
     const stored = this.store.wallet(senderId)?.address;
-    if (stored !== undefined && /^0x[0-9a-fA-F]{40}$/.test(stored)) return stored as `0x${string}`;
+    const address = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
+    const cached = address.safeParse(stored);
+    if (cached.success) return cached.data;
     const wallet = await this.wallets.getOrCreate(senderId);
     if (!/^0x[0-9a-fA-F]{40}$/.test(wallet.address)) throw new Error("Wallet address is not a valid Base address");
-    return wallet.address as `0x${string}`;
+    return address.parse(wallet.address);
   }
 
   private async walletReply(message: VerifiedMessage): Promise<string> {
@@ -427,7 +431,7 @@ export class PecuAgent {
     return evmReadText(result);
   }
 
-  private saveDetails(message: VerifiedMessage, value: unknown): void {
+  private saveDetails(message: VerifiedMessage, value: JsonInput): void {
     this.store.saveChatDetails(message.senderId, message.conversationId, JSON.stringify(value, null, 2) ?? "null");
   }
 
@@ -477,23 +481,23 @@ export class PecuAgent {
       if (!/insufficient USDC\b/i.test(errorMessage(error))) throw error;
       return this.insufficientUsdcReply(message);
     }
-    this.saveDetails(message, result);
+    this.saveDetails(message, { ...result });
     return this.persistProposal(message, wallet, { family: "stocks", action: "stock_basket", parameters: result.parameters }, result.calls, aeroPlanText(result));
   }
 
-  private async runEvm(message: VerifiedMessage, action: EvmTxAction, parameters: unknown): Promise<string> {
+  private async runEvm(message: VerifiedMessage, action: EvmTxAction, parameters: JsonInput): Promise<string> {
     return (await this.proposeAction(message, action, parameters)).text;
   }
 
-  async proposeAction(message: VerifiedMessage, action: EvmTxAction, parameters: unknown): Promise<{ text: string; context: Readonly<Record<string, unknown>> }> {
+  async proposeAction(message: VerifiedMessage, action: EvmTxAction, parameters: JsonInput): Promise<{ text: string; context: Readonly<JsonFields> }> {
     const wallet = await this.walletAddress(message.senderId);
     const result = await this.services.evm.propose(wallet, action, parameters);
-    this.saveDetails(message, result);
+    this.saveDetails(message, { ...result });
     const text = await this.persistProposal(message, wallet, { family: "evm", action: result.action, parameters: result.parameters }, result.calls, evmPlanText(result));
     return { text, context: result.context };
   }
 
-  private async runAave(message: VerifiedMessage, name: string, args: Record<string, unknown>): Promise<string> {
+  private async runAave(message: VerifiedMessage, name: string, args: JsonFields): Promise<string> {
     if (!this.services.aave) throw new Error("Aave is not configured yet.");
     const wallet = await this.walletAddress(message.senderId);
     if (name === "prepare_action") {
@@ -506,7 +510,7 @@ export class PecuAgent {
     return JSON.stringify(result);
   }
 
-  private async polymarketReadReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: unknown, structured: boolean): Promise<string> {
+  private async polymarketReadReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: JsonInput, structured: boolean): Promise<string> {
     const key = JSON.stringify([message.senderId, message.conversationId, message.eventId, endpoint, input, structured]);
     const pending = this.pendingPolymarketReads.get(key);
     if (pending) return pending;
@@ -516,13 +520,14 @@ export class PecuAgent {
     finally { this.pendingPolymarketReads.delete(key); }
   }
 
-  private async fetchPolymarketReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: unknown, structured: boolean): Promise<string> {
+  private async fetchPolymarketReply(message: VerifiedMessage, endpoint: PolymarketEndpointName, input: JsonInput, structured: boolean): Promise<string> {
     const result = await (this.services.polymarketRead ?? polymarketRead)(endpoint, input);
-    this.saveDetails(message, result);
+    this.saveDetails(message, { ...result });
     const projected = projectPolymarket(result, input);
     this.store.savePolymarketTokens(message.eventId, projected.tokens);
-    const args = typeof input === "object" && input !== null ? Object.fromEntries(Object.entries(input)) : {};
-    const selected = typeof args.token_id === "string" ? this.store.polymarketToken(message.eventId, args.token_id) : undefined;
+    const args = jsonFieldsSchema.safeParse(input).data ?? {};
+    const tokenId = z.string().safeParse(args.token_id);
+    const selected = tokenId.success ? this.store.polymarketToken(message.eventId, tokenId.data) : undefined;
     const snapshot = structured && polymarketDiscovery(endpoint) ? undefined : polymarketAnalytics(args, result, selected);
     const text = snapshot && analyticsText(snapshot);
     if (snapshot && text) this.store.saveAnalytics(message.eventId, { snapshot, text });
@@ -536,10 +541,10 @@ export class PecuAgent {
     return result.text;
   }
 
-  private async nansenReply(message: VerifiedMessage, endpoint: NansenEndpointName, input: unknown): Promise<string> {
+  private async nansenReply(message: VerifiedMessage, endpoint: NansenEndpointName, input: NansenQuery): Promise<string> {
     const nansen = this.services.nansen;
     if (!nansen) return "Nansen analytics is not configured yet.";
-    const result = await nansen.call(endpoint, input, { wallet: await this.walletAddress(message.senderId) });
+    const result = await nansen.call(endpoint, nansenQuerySchema.parse(input), { wallet: await this.walletAddress(message.senderId) });
     this.saveDetails(message, result.data);
     if (result.analytics) this.store.saveAnalytics(message.eventId, result.analytics);
     return result.text;
@@ -593,7 +598,7 @@ export class PecuAgent {
     this.store.touchFundingAccount(message.senderId, message.conversationId, message.encodedEvent);
     const deposit = await whop.createDeposit({
       destination: account.whopAccountId,
-      ...(amount !== undefined ? { amount: Number(amount) } : {}),
+      amount: amount === undefined ? undefined : Number(amount),
       idempotencyKey: `pecu-deposit-${message.eventId}`,
     });
     this.saveDetails(message, deposit);
@@ -606,12 +611,12 @@ export class PecuAgent {
     return deposits.map((deposit) => `${new Date(deposit.createdAt).toISOString().slice(0, 10)} $${deposit.usdAmount ?? "?"} ${deposit.currency.toUpperCase()} · ${depositStateText(deposit)}`).join("\n");
   }
 
-  recordWhopDeposit(input: unknown): { status: "recorded" | "duplicate" | "ignored"; depositId?: string } {
+  recordWhopDeposit(input: JsonInput) {
     const forwarded = whopDepositForwardSchema.parse(input);
     const activity = whopLedgerActivitySchema.parse(forwarded.data);
     const usd = activity.usd_amount;
     const usdUnits = usd !== null && /^-?\d+(?:\.\d+)?$/.test(usd) ? usdToUsdcUnits(usd) : undefined;
-    if (usdUnits !== undefined && usdUnits <= 0n) return { status: "ignored" };
+    if (usdUnits !== undefined && usdUnits <= 0n) return { status: "ignored" as const };
     const account = forwarded.accountId ? this.store.fundingAccountByWhopId(forwarded.accountId) : undefined;
     let state: DepositState = "received";
     let holdReason: string | undefined;
@@ -624,18 +629,18 @@ export class PecuAgent {
       id: activity.id,
       webhookId: forwarded.webhookId,
       whopAccountId: forwarded.accountId ?? "",
-      ...(account ? { senderId: account.senderId } : {}),
+      senderId: account?.senderId,
       amount: activity.amount,
       currency: activity.currency.code.toLowerCase(),
       precision: activity.currency.precision,
-      ...(usd === null ? {} : { usdAmount: usd }),
-      ...(availableAt !== undefined && !Number.isNaN(availableAt) ? { availableAt } : {}),
+      usdAmount: usd ?? undefined,
+      availableAt: availableAt !== undefined && !Number.isNaN(availableAt) ? availableAt : undefined,
       state,
-      ...(holdReason ? { holdReason } : {}),
+      holdReason: holdReason || undefined,
       postedAt: Number.isNaN(postedAt) ? Date.now() : postedAt,
     });
-    if (!inserted) return { status: "duplicate" };
-    return { status: "recorded", depositId: activity.id };
+    if (!inserted) return { status: "duplicate" as const };
+    return { status: "recorded" as const, depositId: activity.id };
   }
 
   async relayDeposit(depositId: string): Promise<void> {
@@ -794,7 +799,7 @@ export class PecuAgent {
     const usd = deposit.usdAmount ?? "?";
     if (reason === "pending_settlement") return `Your deposit of $${usd} was received. Pecu will send USDC to your wallet once Whop releases the funds.`;
     if (reason === "over_limit") return `Your deposit of $${usd} arrived and is above the automatic limit of $${this.config.depositRelayMaxUsd}. It is waiting for a manual review.`;
-    return `Your deposit of $${usd} arrived and is on hold (${depositHoldText[reason] ?? reason}). It will be retried automatically.`;
+    return `Your deposit of $${usd} arrived and is on hold (${depositHoldText.get(reason) ?? reason}). It will be retried automatically.`;
   }
 
   private depositRelaySucceeded(intentId: string, result: string): void {

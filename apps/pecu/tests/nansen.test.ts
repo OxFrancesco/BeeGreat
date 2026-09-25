@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { PecuAgent } from "../src/agent";
 import type { AgentHarness } from "../src/harness";
 import { Store } from "../src/store";
-import type { NansenEndpointName } from "../src/integrations/nansen";
+import type { NansenEndpointName, NansenQuery } from "../src/integrations/nansen";
 import { services } from "./fixtures/agent-services";
 
 const stores: Store[] = [];
@@ -18,7 +18,7 @@ const message = (text: string) => ({
   encodedEvent: "signed-event",
 });
 
-function agentFor(nansen?: { calls: { endpoint: string; input: unknown; wallet: string }[] }) {
+function agentFor(nansen?: { calls: { endpoint: string; input: NansenQuery; wallet: string }[] }) {
   const store = new Store(":memory:");
   stores.push(store);
   const harness = {
@@ -37,17 +37,14 @@ function agentFor(nansen?: { calls: { endpoint: string; input: unknown; wallet: 
       approve: async () => { throw new Error("unexpected approve"); },
       transaction: async () => { throw new Error("unexpected transaction"); },
     },
-    {
-      ...services({}),
-      ...(nansen ? {
+    services(nansen ? {
         nansen: {
-          call: async (endpoint: NansenEndpointName, input: unknown, context: { wallet: `0x${string}` }) => {
+          call: async (endpoint: NansenEndpointName, input: NansenQuery, context: { wallet: `0x${string}` }) => {
             nansen.calls.push({ endpoint, input, wallet: context.wallet });
             return { endpoint, text: "balances text\nData: Nansen (nansen.ai)", data: { sample: true }, credits: {} };
           },
         },
       } : {}),
-    },
     harness,
   );
   return { agent, store };
@@ -55,7 +52,7 @@ function agentFor(nansen?: { calls: { endpoint: string; input: unknown; wallet: 
 
 describe("nansen commands", () => {
   test("/nansen wallet passes the sender wallet as context and saves details", async () => {
-    const calls: { endpoint: string; input: unknown; wallet: string }[] = [];
+    const calls: { endpoint: string; input: NansenQuery; wallet: string }[] = [];
     const { agent, store } = agentFor({ calls });
     const reply = await agent.handle(message("/nansen wallet"));
     expect(reply).toContain("balances text");

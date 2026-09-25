@@ -3,7 +3,7 @@ import { aeroReadText, intentTitle } from "./chat";
 import { WebHistory, type HistoryRow } from "./web-history";
 import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
-import type { z } from "zod";
+import { z } from "zod";
 import type { PecuAgent } from "./agent";
 import type { PecuStore } from "./state";
 import { senderKind } from "./web-identity";
@@ -151,7 +151,7 @@ export class WebAgent {
       senderKind: senderKind(identity.senderId),
       yolo: this.store.yoloEnabled(identity.senderId, owner),
       threadId: scope.threadId ?? null,
-      ...(paged ? {} : { threads: this.threads(identity) }),
+      threads: paged ? undefined : this.threads(identity),
       thread: this.history.threadFor(scope),
       ...cursors,
       messages,
@@ -191,7 +191,7 @@ export class WebAgent {
     let read = this.pnlReads.get(readKey);
     if (!read) {
       read = this.agent
-        .walletPnl(wallet as `0x${string}`, days)
+        .walletPnl(z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]).parse(wallet), days)
         .then((snapshot) => {
           this.sql.exec(
             "INSERT INTO basedbot_web_pnl(wallet,days,snapshot) VALUES(?,?,?) ON CONFLICT(wallet,days) DO UPDATE SET snapshot=excluded.snapshot",
@@ -282,9 +282,11 @@ export class WebAgent {
       const holdings = this.store.stockSnapshot(eventId);
       const analytics = this.store.analytics(eventId);
       const response = {
-        ...(analytics.length ? { analytics, analyticsOnly: analytics.length === 1 && reply === analytics[0]?.text } : {}),
-        ...(needsChatGptConnection({ text: reply }) ? { recovery: "connect_chatgpt" as const } : {}),
-        ...(holdings ? { holdings, holdingsOnly: reply === aeroReadText("stocks", holdings.stocks) } : {}),
+        analytics: analytics.length ? analytics : undefined,
+        analyticsOnly: analytics.length ? analytics.length === 1 && reply === analytics[0]?.text : undefined,
+        recovery: needsChatGptConnection({ text: reply }) ? "connect_chatgpt" as const : undefined,
+        holdings,
+        holdingsOnly: holdings ? reply === aeroReadText("stocks", holdings.stocks) : undefined,
         question: this.store.questionForEvent(eventId),
         text: reply,
         preview:

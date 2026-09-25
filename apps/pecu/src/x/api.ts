@@ -37,10 +37,10 @@ export class XApi {
       publicKeyFields: ["public_key", "public_key_version", "signing_public_key", "identity_public_key_signature", "juicebox_config"],
     });
     const data = response.data ?? [];
-    return (Array.isArray(data) ? data : [data]) as PublicKeyRecord[];
+    return Array.isArray(data) ? data : [data];
   }
 
-  async addPublicKey(userId: string, body: Parameters<Client["chat"]["addUserPublicKey"]>[1]): Promise<unknown> {
+  async addPublicKey(userId: string, body: Parameters<Client["chat"]["addUserPublicKey"]>[1]) {
     return this.client.chat.addUserPublicKey(userId, body);
   }
 

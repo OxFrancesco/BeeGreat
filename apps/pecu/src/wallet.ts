@@ -26,6 +26,8 @@ export type WalletTransaction = Readonly<{
   sender: string;
 }>;
 
+export type WalletApproval = { hash?: string; explorerLink?: string };
+
 export const treasurySenderId = "treasury";
 
 export class WalletService {
@@ -80,16 +82,17 @@ export class WalletService {
     const parsed = crossmintTransactionSchema.safeParse(await wallet.transaction(transactionId));
     if (!parsed.success) throw new Error("Crossmint returned an unexpected transaction record");
     const { id, status, onChain } = parsed.data;
-    return { id, status, ...(onChain.txId ? { hash: onChain.txId } : {}), userOperationHash: onChain.userOperationHash, sender: onChain.userOperation.sender };
+    const transaction = { id, status, userOperationHash: onChain.userOperationHash, sender: onChain.userOperation.sender };
+    return onChain.txId ? { ...transaction, hash: onChain.txId } : transaction;
   }
 
-  async approve(senderId: string, transactionId: string): Promise<{ hash?: string; explorerLink?: string }> {
+  async approve(senderId: string, transactionId: string): Promise<WalletApproval> {
     const wallet = await this.getOrCreate(senderId);
     const result = await wallet.approve({ transactionId });
-    const value = result as unknown as Record<string, unknown>;
-    return {
-      ...(typeof value.hash === "string" ? { hash: value.hash } : {}),
-      ...(typeof value.explorerLink === "string" ? { explorerLink: value.explorerLink } : {}),
-    };
+    const parsed = z.object({ hash: z.string().optional().catch(undefined), explorerLink: z.string().optional().catch(undefined) }).parse(result);
+    const approval: WalletApproval = {};
+    if (parsed.hash !== undefined) approval.hash = parsed.hash;
+    if (parsed.explorerLink !== undefined) approval.explorerLink = parsed.explorerLink;
+    return approval;
   }
 }

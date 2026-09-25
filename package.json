@@ -7,6 +7,7 @@
     "apps/pecu/apps/*"
   ],
   "scripts": {
+    "lint": "oxlint --config .oxlintrc.json apps packages scripts tools",
     "mobile": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run agent\" \"bun run --cwd apps/mobile ios\"",
     "mobile:chatgpt": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run agent\" \"EXPO_PUBLIC_AGENT_URL=http://localhost:3583 bun run --cwd apps/mobile ios\"",
     "mobile:chatgpt:pi": "concurrently -k -n convex,agent,expo -c cyan,magenta,yellow --handle-input \"bun run backend\" \"bun run --cwd packages/agent dev:chatgpt\" \"EXPO_PUBLIC_AGENT_URL=http://localhost:3583 bun run --cwd apps/mobile ios\"",
@@ -35,10 +36,10 @@
     "pecu:site:check": "bun run --cwd apps/pecu/apps/site typecheck && bun run --cwd apps/pecu/apps/site build:check"
   },
   "devDependencies": {
-    "@oxlint/plugins": "1.82.0",
+    "@oxlint/plugins": "1.85.0",
     "concurrently": "^10.0.3",
-    "oxlint": "1.82.0",
-    "effect": "4.0.0-rc.115"
+    "effect": "4.0.0-rc.115",
+    "oxlint": "1.85.0"
   },
   "trustedDependencies": [
     "@sentry/cli",

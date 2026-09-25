@@ -306,7 +306,7 @@ type CredentialClaim =
     }
 
 export async function resolveBeennectorCredential(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runMutation">,
   userId: string,
   provider: BeennectorProvider,
 ): Promise<{ accessToken: string; encryptedAccess: ReturnType<typeof encryptBeennectorSecret> }> {

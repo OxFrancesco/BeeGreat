@@ -1,9 +1,10 @@
+import type { JsonInput } from "./json-contract";
 import { polymarketEndpoints, type PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
 import { parseSugarCliArgs } from "@beegreat/sugar/cli-args";
 import { SUGAR_TX_ACTIONS, type SugarAction, type SugarParameters } from "@beegreat/sugar/contracts";
 import { z } from "zod";
 import type { EvmTxParameters } from "./evm";
-import { nansenChains, type NansenEndpointName } from "./integrations/nansen";
+import { nansenChains, type NansenEndpointName, type NansenQuery } from "./integrations/nansen";
 
 export const BASE_CHAIN_ID = 8453 as const;
 export const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -30,7 +31,7 @@ export type Command =
   | Readonly<{ type: "aave-help" }>
   | Readonly<{ type: "polymarket"; query?: string }>
   | Readonly<{ type: "polymarket-help" }>
-  | Readonly<{ type: "polymarket-read"; endpoint: PolymarketEndpointName; input: unknown }>
+  | Readonly<{ type: "polymarket-read"; endpoint: PolymarketEndpointName; input: JsonInput }>
   | Readonly<{ type: "aero"; action: SugarAction; parameters: SugarParameters }>
   | Readonly<{ type: "evm"; action: "transfer"; parameters: EvmTxParameters<"transfer"> }>
   | Readonly<{ type: "evm"; action: "approve"; parameters: EvmTxParameters<"approve"> }>
@@ -43,13 +44,13 @@ export type Command =
   | Readonly<{ type: "deposit-setup"; email: string }>
   | Readonly<{ type: "deposit-status" }>
   | Readonly<{ type: "nansen-help" }>
-  | Readonly<{ type: "nansen"; endpoint: NansenEndpointName; input: Record<string, unknown> }>;
+  | Readonly<{ type: "nansen"; endpoint: NansenEndpointName; input: NansenQuery }>;
 
 export type EvmCommand = Extract<Command, { type: "evm" }>;
 
 const decimalAmount = /^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/;
 const tokenReference = /^[A-Za-z0-9._:-]{1,256}$/;
-const addressReference = /^0x[0-9a-fA-F]{40}$/;
+const publicAddress = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
 
 function parseAmount(value: string | undefined, usage: string): string {
   if (!value || !decimalAmount.test(value) || Number(value) <= 0) throw new Error(`Amount must be a positive decimal number. ${usage}`);
@@ -62,8 +63,9 @@ function parseToken(value: string | undefined, usage: string): string {
 }
 
 function parseAddress(value: string | undefined, usage: string): `0x${string}` {
-  if (!value || !addressReference.test(value)) throw new Error(`Expected a public 0x address. ${usage}`);
-  return value as `0x${string}`;
+  const parsed = publicAddress.safeParse(value);
+  if (!parsed.success) throw new Error(`Expected a public 0x address. ${usage}`);
+  return parsed.data;
 }
 
 function parseEvmCommand(verb: "send" | "approve" | "revoke" | "token" | "allowance", parts: string[]): Command {
@@ -144,8 +146,10 @@ const nansenChainSet = new Set<string>(nansenChains);
 const nansenTimeframes = new Set(["5m", "1h", "6h", "12h", "1d", "7d"]);
 const nansenAddress = /^[A-Za-z0-9._:-]{1,128}$/;
 
-function nansenPositional(args: string[], usage: string): { chain?: string; timeframe?: string } {
-  const parsed: { chain?: string; timeframe?: string } = {};
+type NansenOptions = Pick<NansenQuery, "chain" | "timeframe">;
+
+function nansenPositional(args: string[], usage: string): NansenOptions {
+  const parsed: NansenOptions = {};
   for (const arg of args) {
     const value = arg.toLowerCase();
     if (nansenChainSet.has(value) && parsed.chain === undefined) parsed.chain = value;
@@ -180,7 +184,7 @@ function parseNansenCommand(parts: string[]): Command {
     case "wallet":
     case "pnl": {
       const usage = `Usage: /nansen ${sub} [0xADDRESS] [chain]`;
-      const input: Record<string, unknown> = {};
+      const input: NansenQuery = {};
       for (const arg of parts.slice(2)) {
         const value = arg.toLowerCase();
         if (nansenChainSet.has(value) && input.chain === undefined) input.chain = value;
@@ -222,7 +226,7 @@ export function parseCommand(input: string): Command {
   }
   if (verb === "yolo") {
     if (!/^(?:b)?\/yolo(?:\s+(?:on|off))?$/i.test(input.trim())) throw new Error("Use /yolo, /yolo on, or /yolo off.");
-    return { type: "yolo", ...(parts[1] ? { enabled: parts[1].toLowerCase() === "on" } : {}) };
+    return parts[1] ? { type: "yolo", enabled: parts[1].toLowerCase() === "on" } : { type: "yolo" };
   }
   if (verb === "verbose") {
     if (parts.length > 2 || (parts[1] !== undefined && !/^[1-9]\d*$/.test(parts[1]))) throw new Error("Use b/verbose or b/verbose 2 for the next page.");
@@ -308,9 +312,9 @@ export function parseNaturalWalletCommand(input: string): Extract<Command, { typ
 
 export const plannedCallSchema = z.object({
   role: z.enum(["approval", "action"]),
-  from: z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as `0x${string}`),
-  to: z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as `0x${string}`),
-  data: z.string().regex(/^0x(?:[0-9a-fA-F]{2})*$/).transform((value) => value as `0x${string}`),
+  from: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]),
+  to: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]),
+  data: z.templateLiteral(["0x", z.string().regex(/^(?:[0-9a-fA-F]{2})*$/)]),
   value: z.string().regex(/^\d+$/),
 });
 

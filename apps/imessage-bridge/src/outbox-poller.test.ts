@@ -34,7 +34,7 @@ function manualClock(random = 1) {
   }
 }
 
-const fail = (error: unknown) => { throw error }
+const fail = (cause: unknown) => { throw cause }
 
 describe('outbox request scheduling', () => {
   test('empty queue uses 9 claims over the first five minutes, then at most one per minute without jitter', async () => {

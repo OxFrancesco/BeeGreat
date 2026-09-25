@@ -16,7 +16,7 @@ const clock: PollClock = {
 // requests never overlap, and a stopped instance cannot restart its timer.
 export function startOutboxPoller(
   poll: () => Promise<boolean>,
-  onError: (error: unknown) => void,
+  onError: (cause: unknown) => void,
   timing: PollClock = clock,
 ) {
   let stopped = false

@@ -26,7 +26,7 @@ for (let round = 0; round < 3; round++) {
 }
 const rows = runs.flatMap(run => run.rows);
 const summary = [];
-for (const operation of [...new Set(rows.map(row => row.operation))]) {
+for (const operation of new Set(rows.map(row => row.operation))) {
   for (const provider of ['alchemy', 'chainstack']) {
     const group = rows.filter(row => row.operation === operation && row.provider === provider);
     const times = group.filter(row => row.ok).map(row => row.ms).sort((a, b) => a - b);

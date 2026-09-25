@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { NansenService, nansenEndpoints } from "../src/integrations/nansen";
+import { NansenService, nansenEndpoints, type NansenPayload } from "../src/integrations/nansen";
 
 const wallet = "0x1111111111111111111111111111111111111111" as const;
 const token = "0x2222222222222222222222222222222222222222";
 
-function fakeFetch(status: number, body: unknown, headers: Record<string, string> = {}) {
+function fakeFetch(status: number, body: NansenPayload, headers: Record<string, string> = {}) {
   const calls: { url: string; init: RequestInit }[] = [];
-  const request = (async (url: string | URL | Request, init?: RequestInit) => {
+  const request = Object.assign(async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({ url: String(url), init: init ?? {} });
     return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
-  }) as typeof fetch;
+  }, { preconnect: fetch.preconnect });
   return { calls, request };
 }
 

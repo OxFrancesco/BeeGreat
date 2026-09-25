@@ -3,7 +3,7 @@ import { clearConnectionCallback, readConnectionCallback } from './connection-ca
 
 function storage() {
   const data = new Map<string, string>()
-  return { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value) }, removeItem: (key: string) => { data.delete(key) } } as Storage
+  return { getItem: (key: string) => data.get(key) ?? null, setItem: (key: string, value: string) => { data.set(key, value) }, removeItem: (key: string) => { data.delete(key) } }
 }
 test('callback survives sign-in navigation and expires or clears after completion', () => {
   const tab = storage()

@@ -92,6 +92,10 @@ OpenRouter for users without a connection or past their usage limit. Wallet
 commands remain available without a subscription. Other Bee clients and
 providers are separate products and are not changed by this Pecu feature.
 
+Usage-limit responses use a numeric `Retry-After` delay when the relative reset
+field is missing or malformed. A valid reset field takes precedence. Without
+either value, Pecu waits one minute before retrying the subscription provider.
+
 The profile shows the configured model and reasoning, connection status, and the
 last provider response time. It does not claim a subscription tier, remaining
 quota, or that a successful HTTP response proves a completed answer. Connect

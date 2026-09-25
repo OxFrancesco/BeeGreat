@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { NansenPayload, NansenRequest } from "./nansen";
 import { analyticsSnapshotSchema, type AnalyticsSnapshot } from "../analytics-contract";
 
 const amount = z.number().finite().nullish().transform((value) => value ?? null);
@@ -17,7 +18,7 @@ const cohorts = [
 const flowSchema = z.object({ data: z.array(z.record(z.string(), z.unknown())).max(1) });
 const contextSchema = z.object({ chain: z.string().default("all"), address: z.string().optional(), token_address: z.string().optional(), timeframe: z.string().optional(), date: z.object({ from: z.string(), to: z.string() }).optional() });
 
-export function nansenAnalytics(endpoint: string, request: unknown, body: unknown, observedAt: number): AnalyticsSnapshot | undefined {
+export function nansenAnalytics(endpoint: string, request: NansenRequest, body: NansenPayload, observedAt: number): AnalyticsSnapshot | undefined {
   if (!["token_flow_intelligence", "wallet_pnl_breakdown", "wallet_portfolio"].includes(endpoint)) return undefined;
   const context = contextSchema.parse(request);
   const subject = context.token_address ?? context.address ?? "";

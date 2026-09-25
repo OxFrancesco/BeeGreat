@@ -4,7 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-type Button = { text: string; style?: 'cancel' | 'default' | 'destructive'; onPress?: (text?: string) => unknown };
+type Button = { text: string; style?: 'cancel' | 'default' | 'destructive'; onPress?: (text?: string) => void };
 type Dialog = { title: string; message?: string; buttons: Button[]; initialValue?: string };
 type DialogApi = {
   alert: (title: string, message?: string, buttons?: Button[]) => void;

@@ -35,7 +35,7 @@ function formatDueDate(dueDate: number) {
 }
 
 /** One row of the project to-do list; subtasks render indented and smaller. */
-export function TaskRow({
+export function TaskRow<ToggleResult>({
   task,
   isSubtask,
   highlighted,
@@ -46,7 +46,7 @@ export function TaskRow({
   task: TaskItem;
   isSubtask?: boolean;
   highlighted?: boolean;
-  onToggle: () => unknown | Promise<unknown>;
+  onToggle: () => ToggleResult;
   onLongPress: () => void;
   onAddSubtask?: () => void;
 }) {

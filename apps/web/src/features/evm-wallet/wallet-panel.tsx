@@ -112,7 +112,7 @@ export function WalletPanel() {
       }
       if (seen.has(message.id)) return
       seen.add(message.id)
-      const respond = (value: object) => {
+      const respond = (value: { kind: "result"; result: SmartTransaction | { transactionId: string } | null } | { kind: "error"; rejected: boolean; message: string }) => {
         if (ws.readyState === WebSocket.OPEN)
           ws.send(JSON.stringify({ ...value, id: message.id }))
       }
@@ -129,7 +129,7 @@ export function WalletPanel() {
         )
           throw new Error('Wallet or network differs from the toolkit request.')
         const adapter = crossmintAdapter(active, message.chainId)
-        let result: unknown
+        let result: Awaited<ReturnType<typeof adapter.prepare>> | SmartTransaction | null
         if (message.method === 'evm_crossmintPrepare') {
           const plan = decodePlan(message.params[0])
           if (plan.expiresAt <= Date.now())

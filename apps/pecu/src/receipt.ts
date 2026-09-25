@@ -1,3 +1,4 @@
+import { jsonValueSchema, type JsonValue } from "./json-contract";
 import { z } from "zod";
 
 /**
@@ -32,7 +33,7 @@ const receiptSchema = z.object({
 }).nullable();
 const blockSchema = z.object({ hash: hash32 }).nullable();
 
-export type JsonRpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
+export type JsonRpc = (method: string, params: readonly JsonValue[]) => Promise<JsonValue>;
 
 type FetchLike = (input: string, init: RequestInit) => Promise<Response>;
 
@@ -44,7 +45,7 @@ export function jsonRpcClient(url: string, fetchImpl: FetchLike = fetch): JsonRp
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     });
     if (!response.ok) throw new Error(`RPC ${method} failed with HTTP ${response.status}`);
-    const payload = z.object({ result: z.unknown().optional(), error: z.object({ message: z.string() }).optional() }).parse(await response.json());
+    const payload = z.object({ result: jsonValueSchema.optional(), error: z.object({ message: z.string() }).optional() }).parse(await response.json());
     if (payload.error) throw new Error(`RPC ${method} failed: ${payload.error.message}`);
     return payload.result ?? null;
   };

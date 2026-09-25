@@ -15,7 +15,7 @@ export function journalEditorStorage(userId: string, entryId: string): JournalDr
   const current = () => generationKeys.every((item, index) => localStorage.getItem(item) === generations[index])
   return {
     read: () => {
-      if (typeof window === 'undefined') return []
+      if (!('window' in globalThis)) return []
       generations = generationKeys.map(item => localStorage.getItem(item))
       return entryKeys(key).flatMap(candidate => { const value = localStorage.getItem(candidate); return value ? [value] : [] })
     },

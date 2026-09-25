@@ -77,7 +77,7 @@ describe("docs routes on pecu.app", () => {
     CLI: unavailable,
     EVM: unavailable,
     STOCKS: unavailable,
-  } as never;
+  };
   const get = (path: string) => gateway.fetch(new Request(`https://pecu.app${path}`), env);
 
   test("serves clean docs paths from static assets", async () => {
@@ -98,10 +98,10 @@ describe("docs routes on pecu.app", () => {
   test("points the SDK landing pages' README links at the docs", async () => {
     const landing = (href: string) => ({ fetch: async () => new Response(`<a href="${href}">Docs</a>`, { headers: { "Content-Type": "text/html" } }) });
     const withLandings = {
-      ...(env as object),
+      ...env,
       CLI: landing("https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK#readme"),
       EVM: landing("https://github.com/OxFrancesco/evmSDK#readme"),
-    } as never;
+    };
     expect(await (await gateway.fetch(new Request("https://pecu.app/un-aerosdk"), withLandings)).text()).toContain('href="/docs/aero"');
     expect(await (await gateway.fetch(new Request("https://pecu.app/evmsdk"), withLandings)).text()).toContain('href="/docs/evm"');
   });

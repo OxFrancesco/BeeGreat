@@ -1,4 +1,4 @@
-export function isTransactionReadPermissionError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
+export function isTransactionReadPermissionError(cause: unknown): boolean {
+  const message = cause instanceof Error ? cause.message : String(cause);
   return /required scopes/i.test(message) && /wallets:transactions\.read/.test(message);
 }

@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { unusedCapabilities } from "./agent-services";
+import type { JsonInput } from "../../src/json-contract";
 import { modelCatalog } from "../../src/cloudflare/model-catalog";
 import { UserInference, InferenceTools } from "../../src/cloudflare/user-inference";
 export { UserInference };
@@ -14,7 +17,7 @@ export class ModelTransportProbe extends DurableObject<Env> {
   override async fetch(): Promise<Response> {
     const { OpenCodeWorkerd } = await import("@opencode-ai/sdk/workerd");
     let requests = 0;
-    const fallback: unknown[] = [];
+    const fallback: JsonInput[] = [];
     const options = {
       storage: this.ctx.storage,
       models: { snapshot: true, fetch: false },
@@ -24,8 +27,7 @@ export class ModelTransportProbe extends DurableObject<Env> {
         const url = new URL(request.url);
         if (url.hostname === "model.invalid") requests++;
         if (url.hostname === "openrouter.ai") {
-          let body: { model?: string; reasoning?: { effort?: string }; provider?: unknown } = {};
-          try { body = await request.json() as typeof body; } catch { /* no readable body */ }
+          const body = z.object({ model: z.string().optional(), reasoning: z.object({ effort: z.string().optional() }).optional(), provider: z.json().optional() }).catch({}).parse(await request.json().catch(() => ({})));
           fallback.push({ path: url.pathname, authorized: request.headers.get("authorization") === "Bearer offline-test-key", model: body.model, effort: body.reasoning?.effort, provider: body.provider });
         }
         return Response.json({ error: { message: "native-transport-test", type: "authentication_error" } }, { status: 401 });
@@ -125,8 +127,8 @@ export default {
       const second = env.INFERENCE.getByName(`x:222:${crypto.randomUUID()}`);
       const a = await first.status();
       const b = await second.status();
-      const bridge = new InferenceTools({ walletAddress: async () => { throw new Error("Must not call tools without a subscription"); } } as never);
-      const reply = await first.respond({ senderId: "111", eventId: "offline-test", conversationId: "test", text: "Hello" } as never, false, bridge);
+      const bridge = new InferenceTools(unusedCapabilities);
+      const reply = await first.respond({ senderId: "111", eventId: "offline-test", conversationId: "test", text: "Hello", encodedEvent: "verified" }, false, bridge);
       return Response.json({ disconnected: !a.connected && !b.connected, separate: first.id.toString() !== second.id.toString(), blocked: reply.includes("Connect your ChatGPT") });
     }
     if (["/store", "/queue"].includes(new URL(request.url).pathname)) return env.STORE.get(env.STORE.idFromName("test")).fetch(request);

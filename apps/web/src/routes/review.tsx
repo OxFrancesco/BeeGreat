@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { SignInButton, SignedIn, SignedOut } from '@clerk/tanstack-react-start'
 import { createFileRoute } from '@tanstack/react-router'
 import { useConvexAuth, useMutation, useQuery } from 'convex/react'
@@ -7,9 +8,12 @@ import type { ReactNode } from 'react'
 import type { Id } from '@beegreat/backend/convex/_generated/dataModel'
 
 export const Route = createFileRoute('/review')({
-  validateSearch: (search: Record<string, unknown>) => ({
-    site: typeof search.site === 'string' && /^[a-zA-Z0-9_-]{8,80}$/.test(search.site) ? search.site : undefined,
-    comment: typeof search.comment === 'string' && /^[a-z0-9]{16,64}$/.test(search.comment) ? search.comment : undefined,
+  validateSearch: z.object({
+    site: z.string().regex(/^[a-zA-Z0-9_-]{8,80}$/).optional().catch(undefined),
+    comment: z.string().regex(/^[a-z0-9]{16,64}$/).transform(value => {
+      // SAFETY: the URL ID syntax is checked here; Convex validates its table and the authenticated owner's access before reading or mutating it.
+      return value as Id<'beennectorCommentActions'>
+    }).optional().catch(undefined),
   }),
   component: ReviewPage,
 })
@@ -29,7 +33,7 @@ function ReviewPage() {
       <h1>{site ? 'Publish site' : comment ? 'Post comment' : 'Review unavailable'}</h1>
       {!valid ? <p>This review link is invalid.</p> : <>
         <SignedOut><SignInButton mode="modal" forceRedirectUrl={returnUrl}><button className="button button--primary" type="button">Sign in to review</button></SignInButton></SignedOut>
-        <SignedIn><ReviewBoundary key={returnUrl}>{site ? <SiteReview version={site} /> : <CommentReview actionId={comment as Id<'beennectorCommentActions'>} />}</ReviewBoundary></SignedIn>
+        <SignedIn><ReviewBoundary key={returnUrl}>{site ? <SiteReview version={site} /> : <CommentReview actionId={comment!} />}</ReviewBoundary></SignedIn>
       </>}
     </main>
   )
@@ -38,7 +42,7 @@ function ReviewPage() {
 function useReviewAction() {
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string>()
-  async function run(action: () => Promise<unknown>) {
+  async function run<Result>(action: () => Promise<Result>) {
     if (working) return
     setWorking(true); setError(undefined)
     try { await action() } catch { setError('Could not complete this decision. Refresh to check its status before trying again.') }

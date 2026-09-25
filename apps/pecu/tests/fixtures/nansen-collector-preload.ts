@@ -1,3 +1,4 @@
+import type { JsonInput } from "../../src/json-contract";
 let requests = 0;
 const address = (id: number) => `0x${id.toString(16).padStart(40, "0")}`;
 Bun.sleep = Object.assign(async () => {}, Bun.sleep);
@@ -8,7 +9,7 @@ globalThis.fetch = Object.assign(async (input: string | URL | Request, init?: Re
   if (process.env.NANSEN_TEST_FAILURE === "auth") return Response.json({ message: "Unauthorized" }, { status: 401, headers: { "X-Nansen-Credits-Cost": "0" } });
   if (process.env.NANSEN_TEST_FAILURE === "cost") return Response.json({ data: [] }, { headers: { "X-Nansen-Credits-Cost": "2" } });
   const body = JSON.parse(String(init?.body ?? "{}"));
-  let data: unknown;
+  let data: JsonInput;
   if (url.pathname.endsWith("token-screener")) data = { data: Array.from({ length: 35 }, (_, index) => ({ token_address: address(index + 1), token_symbol: `TOKEN${index}` })) };
   else if (url.pathname.endsWith("dex-trades")) data = { data: Array.from({ length: 3 }, (_, index) => ({ trader_address: address(Number.parseInt(body.token_address.slice(-6), 16) * 3 + index + 1000) })) };
   else if (url.pathname.endsWith("flow-intelligence")) data = { data: [{ smart_trader_net_flow_usd: 1 }] };

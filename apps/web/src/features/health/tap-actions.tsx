@@ -262,8 +262,8 @@ function TapActionCard({
                 setSaving(true)
                 void onUpdate({
                   expectedUpdatedAt: baseline.updatedAt,
-                  ...(label.trim() !== baseline.label ? { label: label.trim() } : {}),
-                  ...(amount !== baseline.definition.amountMl ? { definition: { type: 'hydration', amountMl: amount } as const } : {}),
+                  label: label.trim() !== baseline.label ? label.trim() : undefined,
+                  definition: amount !== baseline.definition.amountMl ? { type: 'hydration', amountMl: amount } : undefined,
                 })
                   .then(() => setEditing(false))
                   .catch(() => undefined)

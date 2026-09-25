@@ -1,22 +1,14 @@
-import { describe, expect, test } from "bun:test";
-import type { Quote, Token, UnsignedTransaction } from "@beegreat/sugar";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { createSugarClient, type Quote, type Token, type UnsignedTransaction } from "@beegreat/sugar";
 import { STOCK_USDC, STOCKS } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import { stockBasketPlan, stockSnapshot, type StockClient } from "../src/stocks";
 
 const wallet = "0x1111111111111111111111111111111111111111" as const;
 const router = "0x5555555555555555555555555555555555555555" as const;
-const settings = { chainId: 8453, chainName: "base", sugarContractAddress: "0x0000000000000000000000000000000000000001" } as never;
+afterEach(() => mock.restore());
 
 function row(address: string, symbol: string, decimals: number, balance: bigint, listed = true, emerging = false): unknown[] {
   return [address, symbol, decimals, balance, listed, emerging];
-}
-
-function usdc(): Token {
-  return { chainId: 8453, chainName: "base", tokenAddress: STOCK_USDC, symbol: "USDC", decimals: 6, listed: true, emerging: false };
-}
-
-function stockToken(stock: (typeof STOCKS)[number]): Token {
-  return { chainId: 8453, chainName: "base", tokenAddress: stock.address, symbol: stock.symbol, decimals: 18, listed: true, emerging: false };
 }
 
 function catalogRows(usdcBalance = 1_000_000_000n, stockBalance = 1_500_000_000_000_000_000n): unknown[][] {
@@ -25,14 +17,16 @@ function catalogRows(usdcBalance = 1_000_000_000n, stockBalance = 1_500_000_000_
 
 function client(overrides: Partial<StockClient> & { rows?: unknown[][] } = {}): StockClient {
   const { rows = catalogRows(), ...rest } = overrides;
+  const base = createSugarClient(8453);
+  spyOn(base.publicClient, "readContract").mockResolvedValue(rows);
   return {
-    settings,
-    publicClient: { readContract: async () => rows },
+    settings: base.settings,
+    publicClient: base.publicClient,
     getPrices: async () => [],
     getQuote: async () => undefined,
     swapBasketFromQuotes: async () => [],
     ...rest,
-  } as unknown as StockClient;
+  };
 }
 
 function prices(entries: Array<{ address: string; price: number }>): StockClient["getPrices"] {

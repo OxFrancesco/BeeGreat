@@ -2,7 +2,7 @@ import { ACTION_SPECS } from "@beegreat/sugar";
 import { isSugarTxAction, SUGAR_ACTIONS, type SugarAction } from "@beegreat/sugar/contracts";
 import { z } from "zod";
 
-const descriptions: Record<SugarAction, string> = {
+const descriptions = {
   stocks: "Read the SDK's supported tokenized stocks, live USDC prices, and verified wallet holdings. Report any unavailable prices as errors, never as zero.",
   stock_buy: "Propose buying a tokenized stock with USDC. amount is the USDC spend in human units. Requires sufficient wallet funds and explicit user confirmation. For more than one stock trade in one message use aero_stock_trades.",
   stock_sell: "Propose selling a tokenized stock for USDC. amount is in human stock token units. Requires sufficient wallet holdings and explicit user confirmation. For more than one stock trade in one message use aero_stock_trades.",
@@ -20,9 +20,9 @@ const descriptions: Record<SugarAction, string> = {
   claim_emissions: "Propose claiming emissions for pool or position.",
   claim_fees: "Propose claiming fees for pool or position.",
   create_venft: "Propose locking AERO for lock_duration_seconds to create a veNFT.",
-};
+} satisfies Record<SugarAction, string>;
 
-const fieldDescriptions: Record<string, string> = {
+const fieldDescriptions = new Map(Object.entries({
   stock: "Supported stock symbol or public address. Use stocks to discover the current catalog, for example NVDAc or AAPLc.",
   allocations: "Comma-separated SYMBOL=percent pairs totaling 100 percent, for example NVDAc=50,AAPLc=50. No repeated stocks.",
   cash: "Additional USDC contribution in human units, for example 10. Defaults to zero, using existing stock holdings only.",
@@ -40,22 +40,22 @@ const fieldDescriptions: Record<string, string> = {
   owner: "Public address to inspect. Omit for the verified sender's wallet.",
   fraction: "Fraction of the position to withdraw, greater than zero and at most 1.",
   lock_duration_seconds: "Positive integer lock duration in seconds.",
-};
+}));
 
 function inputSchema(action: SugarAction) {
   const spec = ACTION_SPECS[action];
   const fields: Record<string, z.ZodType<string | number | boolean | undefined>> = {};
   for (const [name, kind] of Object.entries(spec.allowed)) {
     if (name === "chain" || name === "wallet") continue;
-    let field: z.ZodType<string | number | boolean | undefined> = kind === "boolean" ? z.boolean()
+    const base = kind === "boolean" ? z.boolean()
       : kind === "number" ? z.number()
       : kind === "address" ? z.string().regex(/^0x[0-9a-fA-F]{40}$/)
       : kind === "integer_string" ? z.string().regex(/^\d+$/)
       : z.string().min(1).max(256);
-    if (name === "pool_type") field = z.enum(["cl", "stable", "volatile"]);
-    if (!spec.required.includes(name)) field = field.optional();
-    if (name === "use_decimals") field = z.boolean().default(true);
-    fields[name] = field.describe(fieldDescriptions[name] ?? name.replaceAll("_", " "));
+    const constrained = name === "pool_type" ? z.enum(["cl", "stable", "volatile"]) : base;
+    const presence = spec.required.includes(name) ? constrained : constrained.optional();
+    const field = name === "use_decimals" ? z.boolean().default(true) : presence;
+    fields[name] = field.describe(fieldDescriptions.get(name) ?? name.replaceAll("_", " "));
   }
   return z.strictObject(fields);
 }

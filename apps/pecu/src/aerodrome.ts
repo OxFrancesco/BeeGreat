@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { jsonObjectSchema } from "./json-contract";
 import { createSugarCacheStore, createSugarClient, executeSugarAction, KNOWN_TOKENS, toSugarJson, validateSugarRequest } from "@beegreat/sugar";
 import {
   isSugarTxAction,
@@ -50,10 +52,11 @@ export type StockBasketPlanResult = Readonly<{
 }>;
 
 function object(value: SugarJson, label: string): JsonObject {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  const parsed = jsonObjectSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error(`Aerodrome returned an invalid ${label}`);
   }
-  return value;
+  return parsed.data;
 }
 
 function withoutTransactions(value: JsonObject): JsonObject {
@@ -178,7 +181,8 @@ export class AerodromeService {
     const parameters: SugarParameters = { ...rawParameters, chain: BASE_CHAIN_ID };
     for (const name of ["from_token", "to_token", "token0", "token1"]) {
       const reference = parameters[name];
-      if (typeof reference === "string") parameters[name] = baseTokenReferences.get(reference.toLowerCase()) ?? reference;
+      const parsed = z.string().safeParse(reference);
+      if (parsed.success) parameters[name] = baseTokenReferences.get(parsed.data.toLowerCase()) ?? parsed.data;
     }
     if (isSugarTxAction(action)) {
       parameters.wallet = wallet;
@@ -191,7 +195,7 @@ export class AerodromeService {
 
     const validated = validateSugarRequest(action, parameters);
     const slippage = validated.slippage;
-    if (typeof slippage === "number" && slippage * 10_000 > this.config.maxSlippageBps) {
+    if (z.number().safeParse(slippage).success && Number(slippage) * 10_000 > this.config.maxSlippageBps) {
       throw new Error(`Slippage exceeds the configured maximum of ${this.config.maxSlippageBps / 100}%`);
     }
     return validated;

@@ -1,3 +1,4 @@
+import type { Id } from '@beegreat/backend/convex/_generated/dataModel';
 import { platformSymbol } from '@/components/platform-symbol';
 import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
@@ -336,11 +337,16 @@ export function DomainsSection() {
             confirmPlan={async ({ confirmed }) => confirmed ? ({
               status: 'created' as const,
               bundle: {
-                goalId: 'playground-goal' as never,
-                projectId: 'playground-project' as never,
-                taskId: 'playground-task' as never,
-                highlightId: 'playground-highlight' as never,
-                golieBeeId: 'playground-golie' as never,
+                // SAFETY: this preview callback fabricates a goals ID for local rendering and never persists it.
+                goalId: 'playground-goal' as Id<'goals'>,
+                // SAFETY: this preview callback fabricates a projects ID for local rendering and never persists it.
+                projectId: 'playground-project' as Id<'projects'>,
+                // SAFETY: this preview callback fabricates a tasks ID for local rendering and never persists it.
+                taskId: 'playground-task' as Id<'tasks'>,
+                // SAFETY: this preview callback fabricates a highlights ID for local rendering and never persists it.
+                highlightId: 'playground-highlight' as Id<'highlights'>,
+                // SAFETY: this preview callback fabricates a golieBees ID for local rendering and never persists it.
+                golieBeeId: 'playground-golie' as Id<'golieBees'>,
               },
             }) : ({ status: 'cancelled', bundle: null })}
           />

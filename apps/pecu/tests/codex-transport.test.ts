@@ -1,8 +1,9 @@
+import type { JsonFields } from "../src/json-contract";
 import { describe, expect, test } from "bun:test";
 import { codexEndpoint, codexModel, handleCodexRequest, maxCodexRequestBytes } from "../src/cloudflare/codex-protocol";
 import { codexContainerFetch } from "../src/cloudflare/codex-fetch";
 
-function request(patch: Record<string, unknown> = {}, path = "/responses") {
+function request(patch: JsonFields = {}, path = "/responses") {
   return new Request(`https://codex.internal${path}`, {
     method: "POST",
     headers: { authorization: "Bearer test-token", "chatgpt-account-id": "test-account", "content-type": "application/json", "x-unrelated-secret": "must-not-forward" },

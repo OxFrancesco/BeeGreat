@@ -61,7 +61,7 @@ export async function identifyAnalytics(senderId: string | null): Promise<void> 
 }
 
 export function initAnalytics(): boolean {
-  if (typeof window === "undefined" || window.location.hostname !== "pecu.app") return false;
+  if (!("window" in globalThis) || window.location.hostname !== "pecu.app") return false;
   if (!initialized) {
     posthog.init(posthogProjectToken, analyticsOptions);
     initialized = true;

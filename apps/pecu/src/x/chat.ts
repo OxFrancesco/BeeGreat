@@ -1,10 +1,12 @@
+import { z } from "zod";
+import { jsonValueSchema, type JsonValue } from "../json-contract";
 import { createChat, type ChatWithJuicebox, type SigningKeyEntry } from "@xdevplatform/chat-xdk";
 import type { Config } from "../config";
 import type { PublicKeyRecord, XApi } from "./api";
 
-function snakeCaseKeys(value: unknown): unknown {
+function snakeCaseKeys(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(snakeCaseKeys);
-  if (!value || typeof value !== "object") return value;
+  if (!value || Object(value) !== value) return value;
   return Object.fromEntries(
     Object.entries(value).map(([key, nested]) => [
       key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`),
@@ -13,21 +15,19 @@ function snakeCaseKeys(value: unknown): unknown {
   );
 }
 
-export function normalizeJuiceboxConfig(config: string | unknown): string {
-  const parsed = typeof config === "string" ? JSON.parse(config) : config;
+export function normalizeJuiceboxConfig(config: JsonValue): string {
+  const text = z.string().safeParse(config);
+  const parsed = text.success ? jsonValueSchema.parse(JSON.parse(text.data)) : config;
   return JSON.stringify(snakeCaseKeys(parsed));
 }
 
 export function realmTokens(configJson: string): Map<string, string> {
-  const parsed = JSON.parse(configJson) as Record<string, unknown>;
-  let entries: unknown[] = [];
-  if (Array.isArray(parsed.token_map)) entries = parsed.token_map;
-  else if (Array.isArray(parsed.tokenMap)) entries = parsed.tokenMap;
+  const entry = z.object({ key: z.string(), value: z.object({ token: z.string() }) });
+  const config = z.object({ token_map: z.array(jsonValueSchema).optional().catch(undefined), tokenMap: z.array(jsonValueSchema).optional().catch(undefined) }).parse(JSON.parse(configJson));
   const tokens = new Map<string, string>();
-  for (const raw of entries) {
-    if (!raw || typeof raw !== "object") continue;
-    const entry = raw as { key?: unknown; value?: { token?: unknown } };
-    if (typeof entry.key === "string" && typeof entry.value?.token === "string") tokens.set(entry.key.toLowerCase(), entry.value.token);
+  for (const raw of config.token_map ?? config.tokenMap ?? []) {
+    const parsed = entry.safeParse(raw);
+    if (parsed.success) tokens.set(parsed.data.key.toLowerCase(), parsed.data.value.token);
   }
   return tokens;
 }

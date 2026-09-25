@@ -2,15 +2,15 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { PecuAgent } from "../src/agent";
 import type { AgentHarness } from "../src/harness";
 import { Store } from "../src/store";
-import type { WalletService } from "../src/wallet";
-import { services } from "./fixtures/agent-services";
+import type { AgentWallets } from "../src/agent";
+import { services, unusedWalletActions } from "./fixtures/agent-services";
 
 const stores: Store[] = [];
 afterEach(() => { for (const store of stores.splice(0)) store.close(); });
 
 const address = "0x1111111111111111111111111111111111111111";
 
-function agentFor(wallets: Pick<WalletService, "getOrCreate" | "balances">) {
+function agentFor(wallets: Pick<AgentWallets, "getOrCreate" | "balances">) {
   const store = new Store(":memory:");
   stores.push(store);
   const harness = {
@@ -21,7 +21,7 @@ function agentFor(wallets: Pick<WalletService, "getOrCreate" | "balances">) {
   return new PecuAgent(
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
     store,
-    wallets as WalletService,
+    { ...unusedWalletActions, ...wallets },
     services({}),
     harness,
   );
@@ -40,7 +40,7 @@ describe("natural wallet handling", () => {
     const agent = agentFor({
       getOrCreate: async (senderId) => {
         expect(senderId).toBe("verified-x-user");
-        return { address } as Awaited<ReturnType<WalletService["getOrCreate"]>>;
+        return { address };
       },
       balances: async () => "unused",
     });
@@ -50,7 +50,7 @@ describe("natural wallet handling", () => {
 
   test("returns the verified sender's balances without model mediation", async () => {
     const agent = agentFor({
-      getOrCreate: async () => ({ address }) as Awaited<ReturnType<WalletService["getOrCreate"]>>,
+      getOrCreate: async () => ({ address }),
       balances: async (senderId) => {
         expect(senderId).toBe("verified-x-user");
         return `Address: ${address}\nETH: 0`;

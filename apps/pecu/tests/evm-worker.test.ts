@@ -1,9 +1,14 @@
+import type { JsonValue } from "../src/json-contract";
 import { describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { tmpdir } from "node:os";
 import { runEvmCommand, type SandboxExec } from "../src/cloudflare/evm-sandbox";
 import { EVM_COMMANDS, evmRequestSchema, parseEvmCliOutput } from "../src/cloudflare/evm-protocol";
 
 const settings = { rpcUrl: "https://rpc.example/base", etherscanApiKey: "etherscan-key" };
-const ok = (result: unknown) => `${JSON.stringify({ version: 1, ok: true, command: "token", result })}\n`;
+const ok = (result: JsonValue) => `${JSON.stringify({ version: 1, ok: true, command: "token", result })}\n`;
 
 function recordingExec(stdout: string, exitCode = 0) {
   const calls: Array<{ command: string; options: Parameters<SandboxExec>[1] }> = [];
@@ -24,18 +29,57 @@ describe("evm sandbox worker", () => {
     const failed: SandboxExec = async () => { throw new Error(message); };
     expect(await runEvmCommand(failed, settings, { command: "safe-info", input: { chainId: 8453 } })).toMatchObject({ ok: false, error: { code: "SandboxUnavailable", retryable: true } });
   });
-  test("the command does not exit the persistent sandbox shell", async () => {
+  test.each([0, 7])("CLI exit %i preserves literal input, removes its journal and keeps the shell alive", async (cliExit) => {
+    const directory = await mkdtemp(join(tmpdir(), "pecu-shell-test-"));
+    const input = { chainId: 8453, note: 'it\'s "quoted"; $(printf expanded > "$PECU_TEST_INJECTION")\nsecond line' };
+    let journal: string | undefined;
+    const executions: { options: Parameters<SandboxExec>[1]; stdout: string; exitCode: number }[] = [];
     const exec: SandboxExec = async (command, options) => {
-      const child = Bun.spawn(["bash"], { stdin: "pipe", stdout: "pipe", stderr: "pipe", env: { ...Bun.env, ...Object.fromEntries(Object.entries(options.env).filter((entry): entry is [string, string] => entry[1] !== undefined)) } });
-      child.stdin.write(`bun() { printf '%s\\n' '${JSON.stringify({ version: 1, ok: true, command: "token", result: {} })}'; }\n${command}\nprintf 'SHELL_STILL_RUNNING\\n'\n`);
+      const database = options.env.EVM_DATABASE;
+      if (!database || !/^\/tmp\/evm\/[0-9a-f-]{36}\/operations\.sqlite$/.test(database)) throw new Error("Unsafe test journal path");
+      journal = dirname(database);
+      const child = Bun.spawn(["bash"], { stdin: "pipe", stdout: "pipe", stderr: "pipe", env: {
+        ...Bun.env, ...options.env,
+        PECU_TEST_DIRECTORY: directory,
+        PECU_TEST_INJECTION: join(directory, "injected"),
+        PECU_TEST_EXIT: String(cliExit),
+        PECU_TEST_REPLY: ok({ symbol: "USDC" }),
+      } });
+      child.stdin.write(`bun() {
+  mkdir -p "$(dirname "$EVM_DATABASE")"
+  printf journal > "$EVM_DATABASE"
+  cat > "$PECU_TEST_DIRECTORY/input"
+  printf '%s\\n' "$@" > "$PECU_TEST_DIRECTORY/args"
+  if [ "$PECU_TEST_EXIT" = 0 ]; then printf '%s' "$PECU_TEST_REPLY"; else printf 'fixture CLI failed\\n' >&2; fi
+  return "$PECU_TEST_EXIT"
+}
+${command}
+printf 'SHELL_STATUS=%s\\n' "$?"
+`);
       child.stdin.end();
-      const stdout = await new Response(child.stdout).text();
-      const stderr = await new Response(child.stderr).text();
-      const exitCode = await child.exited;
-      expect(stdout).toContain("SHELL_STILL_RUNNING");
-      return { success: exitCode === 0, exitCode, stdout: stdout.replace("SHELL_STILL_RUNNING\n", ""), stderr };
+      const [stdout, stderr, exitCode] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+      executions.push({ options, stdout, exitCode });
+      return { success: cliExit === 0, exitCode: cliExit, stdout: stdout.replace(`SHELL_STATUS=${cliExit}\n`, ""), stderr };
     };
-    expect(await runEvmCommand(exec, settings, { command: "token", input: { chainId: 8453 } })).toEqual({ ok: true, result: {} });
+    try {
+      const response = await runEvmCommand(exec, settings, { command: "token", input });
+      expect(executions).toHaveLength(1);
+      const execution = executions[0]!;
+      expect(execution.options.cwd).toBe("/opt/evm");
+      expect(execution.options.env.EVM_RPC_URL).toBe(settings.rpcUrl);
+      expect(execution.options.env.EVM_ETHERSCAN_API_KEY).toBe(settings.etherscanApiKey);
+      expect(execution.exitCode).toBe(0);
+      expect(execution.stdout).toContain(`SHELL_STATUS=${cliExit}\n`);
+      expect(await Bun.file(join(directory, "input")).text()).toBe(JSON.stringify(input));
+      expect(await Bun.file(join(directory, "args")).text()).toBe("dist/cli.js\ntoken\n--stdin\n");
+      expect(existsSync(join(directory, "injected"))).toBe(false);
+      expect(journal && existsSync(journal)).toBe(false);
+      if (cliExit === 0) expect(response).toEqual({ ok: true, result: { symbol: "USDC" } });
+      else expect(response).toMatchObject({ ok: false, error: { code: "SandboxFailure", message: "evm CLI produced no output: fixture CLI failed" } });
+    } finally {
+      if (journal) await rm(journal, { recursive: true, force: true });
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   test("the request schema only admits allow-listed read and plan commands", () => {
@@ -44,22 +88,6 @@ describe("evm sandbox worker", () => {
     expect(EVM_COMMANDS).not.toContain("prepare");
     expect(evmRequestSchema.safeParse({ command: "execute", input: {} }).success).toBe(false);
     expect(evmRequestSchema.safeParse({ command: "token", input: { chainId: 8453 } }).success).toBe(true);
-  });
-
-  test("passes JSON input through the environment and cleans up the throwaway journal", async () => {
-    const { exec, calls } = recordingExec(ok({ symbol: "USDC" }));
-    const input = { chainId: 8453, address: "0x1111111111111111111111111111111111111111", token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", note: "it's \"quoted\"; $(rm -rf /)" };
-    const response = await runEvmCommand(exec, settings, { command: "token", input });
-    expect(response).toEqual({ ok: true, result: { symbol: "USDC" } });
-    expect(calls).toHaveLength(1);
-    const [call] = calls;
-    expect(call?.command).toBe(`( printf '%s' "$EVM_INPUT" | bun dist/cli.js token --stdin; status=$?; rm -rf "${call?.options.env.EVM_DATABASE?.replace("/operations.sqlite", "")}"; exit $status )`);
-    expect(call?.command).not.toContain("rm -rf /)");
-    expect(call?.options.cwd).toBe("/opt/evm");
-    expect(call?.options.env.EVM_INPUT).toBe(JSON.stringify(input));
-    expect(call?.options.env.EVM_RPC_URL).toBe(settings.rpcUrl);
-    expect(call?.options.env.EVM_ETHERSCAN_API_KEY).toBe("etherscan-key");
-    expect(call?.options.env.EVM_DATABASE).toMatch(/^\/tmp\/evm\/[0-9a-f-]{36}\/operations\.sqlite$/);
   });
 
   test("refuses any chain other than Base without touching the sandbox", async () => {

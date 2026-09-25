@@ -1,3 +1,4 @@
+import { isJsonObject, type JsonInput, type JsonFields } from "./json-contract";
 import { z } from "zod";
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import { UsageLimitError } from "./usage-limit";
@@ -18,11 +19,11 @@ const quoteSchema = z.object({
   min_amount_out: units.optional(),
 });
 
-function record(value: unknown): Record<string, unknown> {
-  return z.record(z.string(), z.unknown()).safeParse(value).data ?? {};
+function record(value: JsonInput): JsonFields {
+  return isJsonObject(value) ? value : {};
 }
 
-export function quoteText(value: unknown, proposal = false): string | undefined {
+export function quoteText(value: JsonInput, proposal = false): string | undefined {
   const data = record(value);
   const parsed = quoteSchema.safeParse(data.quote ?? value);
   if (!parsed.success) return undefined;
@@ -49,12 +50,13 @@ function label(key: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function readableResult(value: unknown): string {
+export function readableResult(value: JsonInput): string {
   const lines: string[] = [];
-  function visit(item: unknown, name: string, depth: number): void {
+  function visit(item: JsonInput, name: string, depth: number): void {
     if (lines.length >= 12 || depth > 3 || item === null || item === undefined) return;
-    if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
-      const text = typeof item === "boolean" ? item ? "Yes" : "No" : String(item);
+    const scalar = z.union([z.string(), z.number(), z.boolean()]).safeParse(item);
+    if (scalar.success) {
+      const text = scalar.data === true ? "Yes" : scalar.data === false ? "No" : String(scalar.data);
       lines.push(`${name ? `${name}: ` : ""}${text.slice(0, 300)}`);
       return;
     }
@@ -73,12 +75,12 @@ export function readableResult(value: unknown): string {
   return lines.join("\n") || "No summary is available. Send b/verbose to see the details.";
 }
 
-export function aeroReadText(action: string, output: unknown): string {
+export function aeroReadText(action: string, output: JsonInput): string {
   if (action === "stocks" && Array.isArray(output)) {
     if (!output.length) return "No stock tokens are available right now.";
     return output.map((item) => {
       const stock = record(item);
-      return `${stock.name ?? stock.symbol}, ${stock.symbol}\n${typeof stock.price_usdc === "string" ? `${stock.price_usdc} USDC` : "Price unavailable"}${typeof stock.balance === "string" ? ` · You hold ${stock.balance}` : ""}`;
+      return `${stock.name ?? stock.symbol}, ${stock.symbol}\n${z.string().safeParse(stock.price_usdc).success ? `${stock.price_usdc} USDC` : "Price unavailable"}${z.string().safeParse(stock.balance).success ? ` · You hold ${stock.balance}` : ""}`;
     }).join("\n\n");
   }
   return quoteText(output) ?? (action === "positions" && Array.isArray(output) && output.length === 0
@@ -146,7 +148,7 @@ export function intentTitle(intent: IntentAction): string {
   }
   if (intent.family === "aave") return intent.parameters.stage === "approval" ? "Aave token approval" : `Aave ${intent.parameters.action}`;
   if (intent.family === "evm") {
-    const parameters = intent.parameters as { amount?: string; token?: string };
+    const parameters = z.object({ amount: z.string().optional(), token: z.string().optional() }).parse(intent.parameters);
     switch (intent.action) {
       case "transfer": return `Send ${parameters.amount} ${parameters.token ?? "ETH"}`;
       case "approve": return `Approve ${parameters.token}`;
@@ -167,8 +169,8 @@ export function intentTitle(intent: IntentAction): string {
 
 export function evmReadText(result: EvmReadResult): string {
   const data = record(result.output);
-  if (typeof data.token === "string" && typeof data.amount === "string") {
-    if (result.command === "allowance" && typeof data.spender === "string") {
+  if (z.string().safeParse(data.token).success && z.string().safeParse(data.amount).success) {
+    if (result.command === "allowance" && z.string().safeParse(data.spender).success) {
       return `${data.spender} can spend ${data.amount} ${data.token}.`;
     }
     return `${data.token}: ${data.amount}`;
@@ -180,7 +182,7 @@ export function evmPlanText(plan: EvmPlanResult): string {
   if (plan.action === "contract_call" && "signature" in plan.parameters) {
     const params = plan.parameters;
     return [
-      `Call ${typeof plan.context.function === "string" ? plan.context.function : "contract"} on Base`,
+      `Call ${z.string().catch("contract").parse(plan.context.function)} on Base`,
       `Contract: ${params.address}`,
       ...(params.args?.length ? [readableResult({ arguments: params.args })] : []),
       ...(params.value ? [`Send: ${params.value} ETH`] : []),
@@ -223,15 +225,15 @@ export function verbosePage(json: string | undefined, page: number): string {
   return pages === 1 ? part : `${part}\n\nPage ${page} of ${pages}.${page < pages ? ` Next: b/verbose ${page + 1}` : ""}`;
 }
 
-export function chatError(error: unknown): string {
-  if (error instanceof UsageLimitError) return error.message;
-  if (isTransactionReadPermissionError(error)) return "A wallet permission is missing. The bot administrator needs to fix it before I can check transaction status. Don't repeat the transaction request.";
-  if (error instanceof z.ZodError) {
-    return `Please check your request: ${error.issues.map((issue) => `${issue.path.join(" ") || "input"}: ${issue.message}`).slice(0, 3).join("; ")}`;
+export function chatError(cause: unknown): string {
+  if (cause instanceof UsageLimitError) return cause.message;
+  if (isTransactionReadPermissionError(cause)) return "A wallet permission is missing. The bot administrator needs to fix it before I can check transaction status. Don't repeat the transaction request.";
+  if (cause instanceof z.ZodError) {
+    return `Please check your request: ${cause.issues.map((issue) => `${issue.path.join(" ") || "input"}: ${issue.message}`).slice(0, 3).join("; ")}`;
   }
-  const message = error instanceof Error ? error.message : String(error);
+  const message = cause instanceof Error ? cause.message : String(cause);
   if (/illegal invocation/i.test(message)) return "The service is temporarily unavailable. Please try again shortly.";
   if (/sandbox|shell exited/i.test(message)) return "The wallet service is temporarily unavailable. Please try again shortly.";
-  if (/[\{\}\[\]\n]/.test(message) || message.length > 350) return "I couldn't complete that request. Please try again.";
+  if (/[{}[\]\n]/.test(message) || message.length > 350) return "I couldn't complete that request. Please try again.";
   return `Could not process that command: ${message}`;
 }

@@ -26,8 +26,12 @@ export async function usageRequest(runtime: PaidUsageRuntime, body: Record<strin
   return result
 }
 
+type ReserveUsageRequest = { action: 'reserve'; userId: string; operation: PaidService; units: number; ticketHash?: string }
+
 export async function reserveUsage(userId: string, operation: PaidService, units: number, runtime: PaidUsageRuntime, signal?: AbortSignal, ticketHash?: string) {
-  const result = await usageRequest(runtime, { action: 'reserve', userId, operation, units, ...(ticketHash ? { ticketHash } : {}) }, signal)
+  const body: ReserveUsageRequest = { action: 'reserve', userId, operation, units }
+  if (ticketHash) body.ticketHash = ticketHash
+  const result = await usageRequest(runtime, body, signal)
   return v.parse(leaseSchema, result)
 }
 

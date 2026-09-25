@@ -1,9 +1,10 @@
+import type { JsonInput, JsonFields } from "./json-contract";
 import type { PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
 import type { SafeReadCommand } from "./safe";
 import type { SugarAction, SugarParameters, SugarTxAction } from "@beegreat/sugar/contracts";
 import type { VerifiedMessage } from "./domain";
 import type { EvmService, EvmTxAction } from "./evm";
-import type { NansenEndpointName } from "./integrations/nansen";
+import type { NansenEndpointName, NansenQuery } from "./integrations/nansen";
 import type { StockTrade } from "./stock-contract";
 import type { ParagraphSink } from "./web-stream";
 import type { ToolFamily } from "./tool-families";
@@ -13,9 +14,9 @@ type EvmReadInput<K extends "read" | "inspect" | "decode"> = Parameters<EvmServi
 export type AgentCapabilities = Readonly<{
   yoloEnabled(): boolean;
   askUser(question: string, options?: readonly string[]): Promise<string>;
-  aaveCall(name: string, args: Record<string, unknown>): Promise<string>;
+  aaveCall(name: string, args: JsonFields): Promise<string>;
   polymarketResearch(query?: string): Promise<string>;
-  polymarketRead(endpoint: PolymarketEndpointName, input: unknown): Promise<string>;
+  polymarketRead(endpoint: PolymarketEndpointName, input: JsonInput): Promise<string>;
   walletAddress(): Promise<string>;
   walletBalances(): Promise<string>;
   aeroRead(action: Exclude<SugarAction, SugarTxAction>, parameters: SugarParameters): Promise<string>;
@@ -26,13 +27,13 @@ export type AgentCapabilities = Readonly<{
   evmRead(input: EvmReadInput<"read">): Promise<string>;
   evmInspect(input: EvmReadInput<"inspect">): Promise<string>;
   evmDecode(input: EvmReadInput<"decode">): Promise<string>;
-  safeRead(command: SafeReadCommand, input: Record<string, unknown>): Promise<string>;
+  safeRead(command: SafeReadCommand, input: JsonFields): Promise<string>;
   safeQueue(safe: `0x${string}`): Promise<string>;
-  evmPropose(action: EvmTxAction, parameters: unknown): Promise<string>;
+  evmPropose(action: EvmTxAction, parameters: JsonInput): Promise<string>;
   depositInstructions(amount?: string): Promise<string>;
   depositSetup(email: string): Promise<string>;
   depositStatus(): Promise<string>;
-  nansenCall(endpoint: NansenEndpointName, input: unknown): Promise<string>;
+  nansenCall(endpoint: NansenEndpointName, input: NansenQuery): Promise<string>;
 }>;
 
 export type ResponseMode = "response" | "mixed" | Readonly<{ kind: "mixed"; family: ToolFamily }>;

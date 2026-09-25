@@ -1,3 +1,4 @@
+import { jsonFieldsSchema } from "../src/json-contract";
 import { describe, expect, test } from "bun:test";
 import { normalizeJuiceboxConfig } from "../src/x/chat";
 
@@ -15,7 +16,7 @@ describe("X SDK Juicebox configuration boundary", () => {
       recover_threshold: 1,
       pin_hashing_mode: "Standard2019",
     });
-    const normalized = JSON.parse(normalizeJuiceboxConfig({
+    const normalized = jsonFieldsSchema.parse(JSON.parse(normalizeJuiceboxConfig({
       keyStoreTokenMapJson: embedded,
       maxGuessCount: 20,
       tokenMap: [
@@ -27,7 +28,7 @@ describe("X SDK Juicebox configuration boundary", () => {
           },
         },
       ],
-    })) as Record<string, unknown>;
+    })));
 
     expect(normalized.key_store_token_map_json).toBe(embedded);
     expect(normalized.max_guess_count).toBe(20);

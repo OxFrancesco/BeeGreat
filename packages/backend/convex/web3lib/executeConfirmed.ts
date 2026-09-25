@@ -5,8 +5,6 @@
 // spans the Crossmint, Sugar, and Socket subsystems. Plain TypeScript helpers
 // only — the Convex function definition lives in web3.ts.
 
-import { EVMWallet } from '@crossmint/wallets-sdk'
-import { executeSugarAction } from '@beegreat/sugar'
 import type { FunctionArgs } from 'convex/server'
 import { encodeFunctionData } from 'viem'
 import { internal } from '../_generated/api'
@@ -25,13 +23,14 @@ import {
   SOCKET_QUOTE_REFRESH_BUFFER_MS,
   requireWeb3,
 } from './shared'
-import { walletForUser } from './crossmintWallet'
+import { web3ExecutionServices, type Web3ExecutionServices } from './executionServices'
 import { sugarOptions } from './sugarExecution'
 import { quoteSocketSwapForUser } from './socketOrchestration'
 
 export async function executeConfirmedActionForId(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   actionId: Id<'web3Actions'>,
+  services: Web3ExecutionServices = web3ExecutionServices,
 ) {
   const action: Doc<'web3Actions'> | null = await ctx.runQuery(
     internal.web3Actions.get,
@@ -46,7 +45,7 @@ export async function executeConfirmedActionForId(
   try {
     await requireWeb3(ctx, action.userId)
     if (action.payload.kind === 'send_tokens') {
-      const wallet = await walletForUser(action.userId)
+      const wallet = await services.wallet(action.userId)
       const transaction = await wallet.send(
         action.payload.recipient,
         action.payload.token,
@@ -66,14 +65,14 @@ export async function executeConfirmedActionForId(
             : null
       if (!chain)
         throw new Error('The confirmed plan targets an unsupported chain.')
-      const wallet = await walletForUser(action.userId, chain)
-      const evmWallet = EVMWallet.from(wallet)
+      const wallet = await services.wallet(action.userId, chain)
+      const evmWallet = wallet
       if (action.payload.intent) {
         const intent = action.payload.intent
         try {
           const settled = await executeSmartWalletIntent({
             buildPlan: () =>
-              executeSugarAction(
+              services.buildPlan(
                 intent.sugarAction,
                 {
                   ...intent.parameters,
@@ -110,7 +109,7 @@ export async function executeConfirmedActionForId(
           if (error instanceof CrossmintTransactionPendingError) return null
           await ctx.runMutation(internal.web3Actions.recordCrossmintFailure, {
             actionId,
-            ...(error instanceof CrossmintTransactionFailedError ? { transactionId: error.transactionId } : {}),
+            transactionId: error instanceof CrossmintTransactionFailedError ? error.transactionId : undefined,
             error:
               error instanceof Error ? error.message : 'Execution failed',
           })
@@ -176,11 +175,11 @@ export async function executeConfirmedActionForId(
         })
         payload = { ...payload, approval: undefined, ...route }
       }
-      const wallet = await walletForUser(
+      const wallet = await services.wallet(
         action.userId,
         SOCKET_CHAINS[payload.originChain].crossmintChain,
       )
-      const evmWallet = EVMWallet.from(wallet)
+      const evmWallet = wallet
       const steps: SugarTransactionStep[] = []
       if (payload.approval) {
         steps.push({
@@ -240,7 +239,7 @@ export async function executeConfirmedActionForId(
           internal.web3Actions.recordSocketOriginFailure,
           {
             actionId,
-            ...(error instanceof CrossmintTransactionFailedError ? { transactionId: error.transactionId } : {}),
+            transactionId: error instanceof CrossmintTransactionFailedError ? error.transactionId : undefined,
             error:
               error instanceof Error ? error.message : 'Execution failed',
           },

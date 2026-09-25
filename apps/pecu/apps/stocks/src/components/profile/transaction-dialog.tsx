@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import type { z } from "zod";
-import type { ProfileIntent, ProfileSafeDetail, safeProposalActionSchema } from "../../../../../src/safe-profile-contract";
+import type { JsonFields } from "../../../../../src/json-contract";
+import type { ProfileIntent, ProfileSafeDetail } from "../../../../../src/safe-profile-contract";
 import { useBrowserWallets } from "@/lib/browser-wallet";
 import { addressLabel, newRequestId, profileAction, sameAddress, shortAddress, type Address } from "@/lib/profile";
 import { Field, FormActions, ProfileDialog, useSubmit } from "./profile-dialogs";
@@ -23,7 +23,7 @@ const resets = [
   { minutes: 43200, label: "Every 30 days" },
 ];
 
-const titles: Record<TransactionMode["kind"], string> = {
+const titles = {
   send: "Send from this Safe",
   "owner-add": "Add an owner",
   "owner-remove": "Remove an owner",
@@ -33,7 +33,7 @@ const titles: Record<TransactionMode["kind"], string> = {
   "budget-set": "New spending limit",
   "budget-revoke": "Remove spending limit",
   spend: "Spend from your limit",
-};
+} satisfies Record<TransactionMode["kind"], string>;
 
 function ApprovalsSelect({ id, max, value, onChange }: { id: string; max: number; value: number; onChange: (value: number) => void }) {
   return (
@@ -115,7 +115,7 @@ export function TransactionDialog({ detail, mode, onClose, onQueued, onIntent }:
       if (!result.intent) throw new Error(result.message ?? "Pecu couldn't prepare this payment.");
       return { intent: result.intent };
     }
-    let action: z.input<typeof safeProposalActionSchema>;
+    let action: JsonFields;
     switch (mode.kind) {
       case "send": action = { kind: "send", token: selectedToken, to: address.trim(), amount: amount.trim() }; break;
       case "owner-add": action = { kind: "owner-add", owner: address.trim(), threshold }; break;

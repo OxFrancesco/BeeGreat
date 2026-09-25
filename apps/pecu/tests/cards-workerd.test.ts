@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { test, expect } from "bun:test";
 import { fileURLToPath } from "node:url";
 test("concurrent card claims obey uniqueness and the global cap in Durable Object SQLite", async () => {
@@ -60,7 +61,7 @@ test("concurrent card claims obey uniqueness and the global cap in Durable Objec
         body: JSON.stringify({ userId: `user_${id}`, xId: String(id) }),
       });
       expect(response.ok).toBe(true);
-      return await response.json() as { created: boolean; status: string; remaining: number; cards: { id: number }[] };
+      return z.object({ created: z.boolean(), status: z.string(), remaining: z.number(), cards: z.array(z.object({ id: z.number() })) }).parse(await response.json());
     };
     const repeated = await Promise.all(Array.from({ length: 30 }, () => claim(1)));
     expect(repeated.filter(r => r.created)).toHaveLength(1);

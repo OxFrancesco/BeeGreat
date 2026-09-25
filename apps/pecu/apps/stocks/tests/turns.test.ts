@@ -1,3 +1,4 @@
+import type { JsonFields } from "../../../src/json-contract";
 import { expect, test } from "bun:test";
 import { turnPresentation, type TurnMessage } from "../src/lib/turns";
 
@@ -8,7 +9,7 @@ function message(text: string, reply: TurnMessage["reply"] = null): TurnMessage 
   return { id: `m:${text}`, text, createdAt: 1, reply };
 }
 
-const preview = (over: Record<string, unknown> = {}) => ({
+const preview = (over: JsonFields = {}) => ({
   code: "A1B2C3",
   title: "Swap",
   text: "Swap 0.001 ETH for about 3.9 USDC on Base.",

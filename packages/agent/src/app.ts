@@ -69,9 +69,9 @@ app.use('/agents/bee/:id', async (c, next) => {
   await next()
 })
 app.route('/agents/bee', createAgentRouter(Bee))
-app.route('/channels/github', githubChannel.route())
-app.route('/channels/linear', linearChannel.route())
-app.route('/channels/notion', notionChannel.route())
+app.mount('/channels/github', githubChannel.route().fetch)
+app.mount('/channels/linear', linearChannel.route().fetch)
+app.mount('/channels/notion', notionChannel.route().fetch)
 
 export default Sentry.withSentry<Bindings>((env) => {
   const dsn = binding(env, 'SENTRY_DSN')?.trim()

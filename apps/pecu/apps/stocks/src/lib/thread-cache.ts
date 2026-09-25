@@ -1,3 +1,4 @@
+import type { JsonInput } from "../../../../src/json-contract";
 export const THREAD_CACHE_LIMIT = 12;
 export const THREAD_CACHE_BYTES = 4 * 1024 * 1024;
 
@@ -33,6 +34,6 @@ export function trimThreadCache<K, T extends Entry>(
   }
   return cache;
 }
-export function historyBytes(state: unknown) {
+export function historyBytes(state: JsonInput) {
   return state ? new TextEncoder().encode(JSON.stringify(state)).byteLength : 0;
 }

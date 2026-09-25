@@ -1,20 +1,28 @@
+import { unusedCapabilities } from "./agent-services";
+import type { AgentCapabilities, ResponseMode } from "../../src/harness";
+import type { OpenCodeHarness, OAuthStart } from "../../src/cloudflare/opencode";
+import type { VerifiedMessage } from "../../src/domain";
 import { mock, expect } from "bun:test";
 
 class Memory {
   values = new Map<string, unknown>();
-  async get<T>(key: string) { return this.values.get(key) as T | undefined; }
-  async put(key: string, value: unknown) { this.values.set(key, value); }
+  // SAFETY: this in-memory adapter implements the same caller-selected generic contract as DurableObjectStorage.get.
+  async get<T>(key: string) {
+    // SAFETY: the test mirrors DurableObjectStorage’s caller-selected value type for each key.
+    return this.values.get(key) as T | undefined;
+  }
+  async put<T>(key: string, value: T) { this.values.set(key, value); }
   async delete(key: string) { return this.values.delete(key); }
 }
 import { UsageLimitError } from "../../src/usage-limit";
 const states = new Map<Memory, { connected: boolean; starts: number; calls: number; failDisconnect: boolean; loginStatusError?: Error; hold?: Promise<void>; complete: boolean; usageLimit?: boolean; lastChatGpt?: boolean; lastStreamed?: boolean }>();
 mock.module("cloudflare:workers", () => ({
   RpcTarget: class {},
-  DurableObject: class { constructor(public ctx: unknown, public env: unknown) {} },
+  DurableObject: class { constructor(public ctx: DurableObjectState, public env: Cloudflare.Env) {} },
 }));
 mock.module("../../src/cloudflare/durable-store", () => ({ DurableStore: class { initialize() {} } }));
 mock.module("../../src/cloudflare/codex-fetch", () => ({ codexContainerFetch() {} }));
-mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async create(storage: Memory, _store: unknown, _resolve: unknown, _fetch: unknown, openRouterApiKey?: string) {
+mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async create(storage: Memory, _store: Parameters<typeof OpenCodeHarness.create>[1], _resolve: Parameters<typeof OpenCodeHarness.create>[2], _fetch: Parameters<typeof OpenCodeHarness.create>[3], openRouterApiKey?: string) {
   const state = states.get(storage) ?? { connected: false, starts: 0, calls: 0, failDisconnect: false, complete: false };
   states.set(storage, state);
   const fallbackConfigured = Boolean(openRouterApiKey);
@@ -26,7 +34,7 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
     async chatGptLoginStatus() { if (state.loginStatusError) throw state.loginStatusError; if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
-    async respond(_message: { text?: string }, capabilities: { walletAddress(): Promise<string>; polymarketRead(endpoint: "status", input: unknown): Promise<string> }, _mode?: unknown, progress?: (paragraph: string) => void, chatGpt = true) {
+    async respond(_message: VerifiedMessage, capabilities: AgentCapabilities, _mode?: ResponseMode, progress?: (paragraph: string) => void, chatGpt = true) {
       state.calls++;
       state.lastChatGpt = chatGpt;
       state.lastStreamed = progress !== undefined;
@@ -38,14 +46,17 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
   };
 } } }));
 const { UserInference, userInference, InferenceTools } = await import("../../src/cloudflare/user-inference");
-const make = (storage = new Memory(), env: Record<string, string> = {}) => {
-  const ctx = { storage, blockConcurrencyWhile: (fn: () => Promise<void>) => fn() };
-  return { storage, instance: new UserInference(ctx as never, env as never) };
+const make = (storage = new Memory(), env: Partial<Cloudflare.Env> & { OPENROUTER_API_KEY?: string } = {}) => {
+  const storagePort: Pick<Memory, "get" | "put" | "delete"> = storage;
+  // SAFETY: the SDK and DurableStore are replaced above; only these get, put and delete storage operations are reachable.
+  const ctx = { storage: storagePort as DurableObjectStorage, blockConcurrencyWhile: <T>(fn: () => Promise<T>) => fn() };
+  // SAFETY: DurableObject, DurableStore and the harness are mocked above. The constructor only uses storage and blockConcurrencyWhile; config accepts the supplied string bindings.
+  return { storage, instance: new UserInference(ctx as DurableObjectState, env as Cloudflare.Env) };
 };
 const a = make(); const b = make();
 await a.instance.status(); await b.instance.status();
-const message = { eventId: "event", senderId: "1", conversationId: "chat", text: "balance" } as never;
-const tools = new InferenceTools({ walletAddress: async () => "wallet-a" } as never);
+const message = { eventId: "event", senderId: "1", conversationId: "chat", text: "balance", encodedEvent: "verified" };
+const tools = new InferenceTools({ ...unusedCapabilities, walletAddress: async () => "wallet-a" });
 expect(await a.instance.respond(message, false, tools)).toContain("Connect your ChatGPT");
 expect(states.get(a.storage)!.calls).toBe(0);
 await a.instance.startLogin(); await a.instance.startLogin();
@@ -58,7 +69,7 @@ expect(await a.instance.respond(message, false, tools)).toBe("wallet-a");
 // Without a sink the harness is told not to stream; with one, paragraphs arrive through the RPC bridge before the reply.
 expect(states.get(a.storage)!.lastStreamed).toBe(false);
 const paragraphs: string[] = [];
-const streamingTools = new InferenceTools({ walletAddress: async () => "wallet-a" } as never, undefined, (text) => paragraphs.push(text));
+const streamingTools = new InferenceTools({ ...unusedCapabilities, walletAddress: async () => "wallet-a" }, undefined, (text) => paragraphs.push(text));
 expect(await a.instance.respond(message, false, streamingTools)).toBe("wallet-a");
 expect(states.get(a.storage)!.lastStreamed).toBe(true);
 await new Promise((resolve) => setTimeout(resolve, 0));
@@ -90,7 +101,7 @@ expect((await restarted.instance.status()).loginState).toBe("expired");
 expect((await restarted.instance.status()).login).toBeNull();
 const expired = make();
 await expired.instance.startLogin();
-const oldLogin = await expired.storage.get<Record<string, unknown>>("login");
+const oldLogin = await expired.storage.get<OAuthStart>("login");
 await expired.storage.put("login", { ...oldLogin, expiresAt: Date.now() - 900000 });
 states.get(expired.storage)!.loginStatusError = new Error("UnexpectedStatus", { cause: { status: 500 } });
 const recovered = await expired.instance.status();
@@ -107,16 +118,19 @@ states.get(expired.storage)!.connected = true;
 await expired.storage.put("login", { ...oldLogin, expiresAt: Date.now() - 1 });
 expect((await expired.instance.status()).connected).toBe(true);
 const names: string[] = [];
+// SAFETY: userInference only forwards idFromName/get; the sentinel strings test namespace isolation without invoking an RPC method.
 const env = { INFERENCE: { idFromName(name: string) { names.push(name); return name; }, get(id: string) { return id; } } } as never;
 expect(userInference(env, "123")).toBe(userInference(env, "123"));
 expect(userInference(env, "456")).not.toBe(userInference(env, "123"));
-await expect(tools.call("constructor" as never, [])).rejects.toThrow("Tool unavailable");
+// SAFETY: deliberately bypass the static allowlist to verify the RPC runtime rejects an untrusted method name.
+await expect(tools.call("constructor" as "walletAddress", [])).rejects.toThrow("Tool unavailable");
 const explanationTools = new InferenceTools({
+  ...unusedCapabilities,
   walletAddress: async () => { throw new Error("wallet must not run"); },
   askUser: async () => "Which account?",
-} as never, "response");
+}, "response");
 await expect(explanationTools.call("walletAddress", [])).rejects.toThrow("explanation-only");
-await expect(explanationTools.call("evmPropose", [])).rejects.toThrow("explanation-only");
+await expect(explanationTools.call("evmPropose", ["contract_call", {}])).rejects.toThrow("explanation-only");
 expect(await explanationTools.call("askUser", ["Which account?"])).toBe("Which account?");
 // With OPENROUTER_API_KEY a missing connection, an active limit, and a disconnect all still answer.
 const keyed = make(new Memory(), { OPENROUTER_API_KEY: "sk-or-test" });
@@ -135,8 +149,8 @@ await keyed.instance.disconnect();
 expect(await keyed.instance.respond(message, false, tools)).toBe("wallet-a");
 expect(states.get(keyed.storage)!.lastChatGpt).toBe(false);
 expect((await a.instance.status()).fallback).toEqual({ configured: false, active: false });
-const polymarketTools = new InferenceTools({ polymarketRead: async (endpoint: string, input: unknown) => JSON.stringify({ endpoint, input }) } as never);
-const polymarketMessage = { eventId: "polymarket", senderId: "1", conversationId: "chat", text: "Polymarket freshness" } as never;
+const polymarketTools = new InferenceTools({ ...unusedCapabilities, polymarketRead: async (endpoint, input) => JSON.stringify({ endpoint, input }) });
+const polymarketMessage = { eventId: "polymarket", senderId: "1", conversationId: "chat", text: "Polymarket freshness", encodedEvent: "verified" };
 expect(await keyed.instance.respond(polymarketMessage, false, polymarketTools)).toBe('{"endpoint":"status","input":{}}');
 expect(states.get(keyed.storage)!.lastChatGpt).toBe(false);
 states.get(keyed.storage)!.connected = true;

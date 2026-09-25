@@ -70,7 +70,7 @@ export function socketApiConfig(): SocketApiConfig {
   return createSocketApiConfig(env.SOCKET_API_KEY)
 }
 
-export async function requireWeb3(ctx: ActionCtx, userId: string) {
+export async function requireWeb3(ctx: Pick<ActionCtx, "runQuery">, userId: string) {
   const enabled = await ctx.runQuery(internal.powerups.checkEnabled, {
     userId,
     powerupId: 'web3',

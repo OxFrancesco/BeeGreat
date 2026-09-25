@@ -1,9 +1,40 @@
 import { z } from "zod";
 
-function envString(env: object, name: string): string | undefined {
-  const value = Reflect.get(env, name);
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
+const environmentSchema = z.object({
+  ALCHEMY_RPC_URL: z.string().optional().catch(undefined),
+  BASE_RPC_URL: z.string().optional().catch(undefined),
+  ENABLE_MAINNET_EXECUTION: z.string().optional().catch(undefined),
+  XCHAT_POLLING_ENABLED: z.string().optional().catch(undefined),
+  POLL_INTERVAL_MS: z.string().optional().catch(undefined),
+  QUOTE_TTL_SECONDS: z.string().optional().catch(undefined),
+  MAX_SLIPPAGE_BPS: z.string().optional().catch(undefined),
+  CHAT_PEER_USER_IDS: z.string().optional().catch(undefined),
+  X_WEBHOOK_URL: z.string().optional().catch(undefined),
+  WHOP_API_URL: z.string().optional().catch(undefined),
+  WHOP_API_VERSION_DATE: z.string().optional().catch(undefined),
+  DEPOSIT_RELAY_MAX_USD: z.string().optional().catch(undefined),
+  DEPOSIT_RELAY_DAILY_MAX_USD: z.string().optional().catch(undefined),
+  NANSEN_API_URL: z.string().optional().catch(undefined),
+  CROSSMINT_API_KEY: z.string().optional().catch(undefined),
+  CROSSMINT_WALLET_SECRET: z.string().optional().catch(undefined),
+  CHAT_PIN: z.string().optional().catch(undefined),
+  X_ACCESS_TOKEN: z.string().optional().catch(undefined),
+  X_OAUTH_CLIENT_ID: z.string().optional().catch(undefined),
+  X_OAUTH_CLIENT_SECRET: z.string().optional().catch(undefined),
+  X_OAUTH_REFRESH_TOKEN: z.string().optional().catch(undefined),
+  X_BEARER_TOKEN: z.string().optional().catch(undefined),
+  X_CONSUMER_SECRET: z.string().optional().catch(undefined),
+  CHAT_BOT_USER_ID: z.string().optional().catch(undefined),
+  ADMIN_TOKEN: z.string().optional().catch(undefined),
+  EXA_API_KEY: z.string().optional().catch(undefined),
+  WHOP_API_KEY: z.string().optional().catch(undefined),
+  WHOP_WEBHOOK_SECRET: z.string().optional().catch(undefined),
+  NANSEN_API_KEY: z.string().optional().catch(undefined),
+  TYPESAFE_API_KEY: z.string().optional().catch(undefined),
+  OPENROUTER_API_KEY: z.string().optional().catch(undefined),
+  POSTHOG_ENABLED: z.string().optional().catch(undefined),
+});
+type WorkerEnvironment = Partial<Record<keyof z.output<typeof environmentSchema>, string>>;
 
 function optionalConfig(name: keyof WorkerConfig, value: string | undefined): Partial<WorkerConfig> {
   return value ? { [name]: value } : {};
@@ -29,6 +60,7 @@ export type WorkerConfig = Readonly<{
   baseRpcUrl: string;
   enableMainnetExecution: boolean;
   xchatPollingEnabled: boolean;
+  analyticsEnabled: boolean;
   pollIntervalMs: number;
   quoteTtlSeconds: number;
   maxSlippageBps: number;
@@ -58,37 +90,39 @@ export type WorkerConfig = Readonly<{
   openRouterApiKey?: string;
 }>;
 
-export function loadWorkerConfig(env: object): WorkerConfig {
+export function loadWorkerConfig(env: WorkerEnvironment): WorkerConfig {
+  const environment = environmentSchema.parse(env);
   const value = publicConfigSchema.parse({
-    BASE_RPC_URL: envString(env, "ALCHEMY_RPC_URL") ?? envString(env, "BASE_RPC_URL"),
-    ENABLE_MAINNET_EXECUTION: envString(env, "ENABLE_MAINNET_EXECUTION"),
-    XCHAT_POLLING_ENABLED: envString(env, "XCHAT_POLLING_ENABLED"),
-    POLL_INTERVAL_MS: envString(env, "POLL_INTERVAL_MS"),
-    QUOTE_TTL_SECONDS: envString(env, "QUOTE_TTL_SECONDS"),
-    MAX_SLIPPAGE_BPS: envString(env, "MAX_SLIPPAGE_BPS"),
-    CHAT_PEER_USER_IDS: envString(env, "CHAT_PEER_USER_IDS"),
-    X_WEBHOOK_URL: envString(env, "X_WEBHOOK_URL"),
-    WHOP_API_URL: envString(env, "WHOP_API_URL"),
-    WHOP_API_VERSION_DATE: envString(env, "WHOP_API_VERSION_DATE"),
-    DEPOSIT_RELAY_MAX_USD: envString(env, "DEPOSIT_RELAY_MAX_USD"),
-    DEPOSIT_RELAY_DAILY_MAX_USD: envString(env, "DEPOSIT_RELAY_DAILY_MAX_USD"),
-    NANSEN_API_URL: envString(env, "NANSEN_API_URL"),
+    BASE_RPC_URL: (environment.ALCHEMY_RPC_URL || undefined) ?? (environment.BASE_RPC_URL || undefined),
+    ENABLE_MAINNET_EXECUTION: (environment.ENABLE_MAINNET_EXECUTION || undefined),
+    XCHAT_POLLING_ENABLED: (environment.XCHAT_POLLING_ENABLED || undefined),
+    POLL_INTERVAL_MS: (environment.POLL_INTERVAL_MS || undefined),
+    QUOTE_TTL_SECONDS: (environment.QUOTE_TTL_SECONDS || undefined),
+    MAX_SLIPPAGE_BPS: (environment.MAX_SLIPPAGE_BPS || undefined),
+    CHAT_PEER_USER_IDS: (environment.CHAT_PEER_USER_IDS || undefined),
+    X_WEBHOOK_URL: (environment.X_WEBHOOK_URL || undefined),
+    WHOP_API_URL: (environment.WHOP_API_URL || undefined),
+    WHOP_API_VERSION_DATE: (environment.WHOP_API_VERSION_DATE || undefined),
+    DEPOSIT_RELAY_MAX_USD: (environment.DEPOSIT_RELAY_MAX_USD || undefined),
+    DEPOSIT_RELAY_DAILY_MAX_USD: (environment.DEPOSIT_RELAY_DAILY_MAX_USD || undefined),
+    NANSEN_API_URL: (environment.NANSEN_API_URL || undefined),
   });
-  const crossmintApiKey = envString(env, "CROSSMINT_API_KEY");
-  const crossmintWalletSecret = envString(env, "CROSSMINT_WALLET_SECRET");
-  const chatPin = envString(env, "CHAT_PIN");
-  const xAccessToken = envString(env, "X_ACCESS_TOKEN");
-  const xOAuthClientId = envString(env, "X_OAUTH_CLIENT_ID");
-  const xOAuthClientSecret = envString(env, "X_OAUTH_CLIENT_SECRET");
-  const xOAuthRefreshToken = envString(env, "X_OAUTH_REFRESH_TOKEN");
-  const xBearerToken = envString(env, "X_BEARER_TOKEN");
-  const xConsumerSecret = envString(env, "X_CONSUMER_SECRET");
-  const chatBotUserId = envString(env, "CHAT_BOT_USER_ID");
-  const adminToken = envString(env, "ADMIN_TOKEN");
+  const crossmintApiKey = (environment.CROSSMINT_API_KEY || undefined);
+  const crossmintWalletSecret = (environment.CROSSMINT_WALLET_SECRET || undefined);
+  const chatPin = (environment.CHAT_PIN || undefined);
+  const xAccessToken = (environment.X_ACCESS_TOKEN || undefined);
+  const xOAuthClientId = (environment.X_OAUTH_CLIENT_ID || undefined);
+  const xOAuthClientSecret = (environment.X_OAUTH_CLIENT_SECRET || undefined);
+  const xOAuthRefreshToken = (environment.X_OAUTH_REFRESH_TOKEN || undefined);
+  const xBearerToken = (environment.X_BEARER_TOKEN || undefined);
+  const xConsumerSecret = (environment.X_CONSUMER_SECRET || undefined);
+  const chatBotUserId = (environment.CHAT_BOT_USER_ID || undefined);
+  const adminToken = (environment.ADMIN_TOKEN || undefined);
   return {
     baseRpcUrl: value.BASE_RPC_URL,
     enableMainnetExecution: value.ENABLE_MAINNET_EXECUTION === "true",
     xchatPollingEnabled: value.XCHAT_POLLING_ENABLED === "true",
+    analyticsEnabled: environment.POSTHOG_ENABLED === "true",
     pollIntervalMs: value.POLL_INTERVAL_MS,
     quoteTtlSeconds: value.QUOTE_TTL_SECONDS,
     maxSlippageBps: value.MAX_SLIPPAGE_BPS,
@@ -105,12 +139,12 @@ export function loadWorkerConfig(env: object): WorkerConfig {
     ...optionalConfig("xWebhookUrl", value.X_WEBHOOK_URL),
     ...optionalConfig("chatBotUserId", chatBotUserId),
     ...optionalConfig("adminToken", adminToken),
-    ...optionalConfig("exaApiKey", envString(env, "EXA_API_KEY")),
-    ...optionalConfig("whopApiKey", envString(env, "WHOP_API_KEY")),
-    ...optionalConfig("whopWebhookSecret", envString(env, "WHOP_WEBHOOK_SECRET")),
-    ...optionalConfig("nansenApiKey", envString(env, "NANSEN_API_KEY")),
-    ...optionalConfig("typesafeApiKey", envString(env, "TYPESAFE_API_KEY")),
-    ...optionalConfig("openRouterApiKey", envString(env, "OPENROUTER_API_KEY")),
+    ...optionalConfig("exaApiKey", (environment.EXA_API_KEY || undefined)),
+    ...optionalConfig("whopApiKey", (environment.WHOP_API_KEY || undefined)),
+    ...optionalConfig("whopWebhookSecret", (environment.WHOP_WEBHOOK_SECRET || undefined)),
+    ...optionalConfig("nansenApiKey", (environment.NANSEN_API_KEY || undefined)),
+    ...optionalConfig("typesafeApiKey", (environment.TYPESAFE_API_KEY || undefined)),
+    ...optionalConfig("openRouterApiKey", (environment.OPENROUTER_API_KEY || undefined)),
     whopApiUrl: value.WHOP_API_URL,
     whopApiVersionDate: value.WHOP_API_VERSION_DATE,
     depositRelayMaxUsd: value.DEPOSIT_RELAY_MAX_USD,

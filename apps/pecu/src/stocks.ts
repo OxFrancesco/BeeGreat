@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   abis,
   applySlippage,
@@ -77,14 +78,14 @@ export async function stockTokens(client: StockClient, wallet: `0x${string}`): P
   if (!usdcRow) throw new Error(`Token unavailable: ${STOCK_USDC}`);
   return {
     usdc: tokenFromTuple(usdcRow, client.settings),
-    usdcBalance: BigInt(tupleValues(usdcRow)[3] as bigint),
+    usdcBalance: z.coerce.bigint().parse(tupleValues(usdcRow)[3]),
     stocks: STOCKS.map((stock) => {
       const row = byAddress.get(stock.address.toLowerCase());
       if (!row) return { stock };
       return {
         stock,
         token: tokenFromTuple(row, client.settings),
-        balance: BigInt(tupleValues(row)[3] as bigint),
+        balance: z.coerce.bigint().parse(tupleValues(row)[3]),
       };
     }),
   };

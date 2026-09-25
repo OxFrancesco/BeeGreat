@@ -1,9 +1,10 @@
+import type { JsonInput } from "../src/json-contract";
 import { expect, test } from "bun:test";
 import { polymarketModelOutput, projectPolymarket, polymarketOutputBytes } from "../src/integrations/polymarket/model-output";
 import type { PolymarketRead } from "../src/integrations/polymarket/client";
 
 const market = (id: number) => ({id:String(id),slug:`market-${id}`,question:`Will BTC reach $100k by December 31, ${2026+id}?`,endDate:`${2027+id}-01-01`,outcomes:'["Yes","No"]',outcomePrices:'["0.37","0.63"]',clobTokenIds:JSON.stringify([`yes-${id}`,`no-${id}`]),description:"長".repeat(100_000)});
-const read = (data: unknown): PolymarketRead => ({endpoint:"search",source:"https://gamma-api.polymarket.com/public-search?q=BTC",observedAt:"2026-09-24T07:13:40Z",data,next:{endpoint:"search",input:{q:"BTC",page:2}}});
+const read = (data: JsonInput): PolymarketRead => ({endpoint:"search",source:"https://gamma-api.polymarket.com/public-search?q=BTC",observedAt:"2026-09-24T07:13:40Z",data,next:{endpoint:"search",input:{q:"BTC",page:2}}});
 
 test("discovery retains exact market pairs and paging without repeated descriptions", () => {
   const result=read({events:[{id:"event",slug:"btc",title:"Bitcoin",markets:[market(0),market(1)]}]});

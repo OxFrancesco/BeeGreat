@@ -65,9 +65,9 @@ export function sseFrame(event: WebTurnEvent): string {
  */
 export function turnEventStream(
   run: (progress: ParagraphSink) => Promise<{ status: "complete" | "busy" }>,
-  onError?: (error: unknown) => void,
+  onError?: (cause: unknown) => void,
   heartbeatMs = 15_000,
-): { response: Response; done: Promise<void> } {
+) {
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
@@ -98,7 +98,7 @@ export function turnEventStream(
 }
 
 /** Yields the parsed `data:` payload of each server-sent event as it arrives. */
-export async function* readSseEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<unknown> {
+export async function* readSseEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<WebTurnEvent> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffered = "";
@@ -115,7 +115,7 @@ export async function* readSseEvents(body: ReadableStream<Uint8Array>): AsyncGen
           .filter((line) => line.startsWith("data:"))
           .map((line) => line.slice(5).trimStart())
           .join("\n");
-        if (data) yield JSON.parse(data) as unknown;
+        if (data) yield webTurnEventSchema.parse(JSON.parse(data));
       }
       if (done) return;
     }

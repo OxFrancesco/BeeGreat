@@ -1,3 +1,4 @@
+import { jsonValueSchema, type JsonInput } from "../../../../src/json-contract";
 import { needsChatGptConnection } from "../../../../src/inference-recovery";
 import { openChatGptConnection } from "./inference-navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,21 +30,18 @@ async function failed(response: Response) {
 }
 export async function request(
   path: string,
-  body?: unknown,
+  body?: JsonInput,
   signal?: AbortSignal,
 ) {
-  const response = await fetch(`/stocks/api/${path}`, {
-    signal,
-    ...(body === undefined
-      ? {}
-      : {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }),
-  });
+  const init: RequestInit = { signal };
+  if (body !== undefined) {
+    init.method = "POST";
+    init.headers = { "Content-Type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  const response = await fetch(`/stocks/api/${path}`, init);
   if (!response.ok) throw await failed(response);
-  return (await response.json()) as unknown;
+  return jsonValueSchema.parse(await response.json());
 }
 /**
  * Sends a turn and reports each finished paragraph as the agent writes it.
@@ -51,7 +49,7 @@ export async function request(
  * command) resolves the same way with no paragraphs.
  */
 export async function streamTurn(
-  body: unknown,
+  body: JsonInput,
   onParagraph: (text: string) => void,
 ): Promise<void> {
   const response = await fetch("/stocks/api/turn", {
@@ -390,9 +388,9 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
           {
             requestId,
             text,
-            ...(retryOf ? { retryOf } : {}),
-            ...(answerTo ? { answerTo } : {}),
-            ...(threadId ? { threadId } : {}),
+            retryOf: retryOf || undefined,
+            answerTo: answerTo || undefined,
+            threadId: threadId || undefined,
           },
           (paragraph) => {
             if (generation.current !== epoch) return;

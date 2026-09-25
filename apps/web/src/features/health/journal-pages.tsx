@@ -200,7 +200,7 @@ export function JournalPage() {
         <div className="journal-timeline">
           {visible.map((entry) => (
             <article className="journal-card" key={entry.id}>
-              {entry.attachmentCount > 0 ? (
+              {entry.coverPhoto ? (
                 <img
                   className="journal-card__cover"
                   src={entry.coverPhoto.url}

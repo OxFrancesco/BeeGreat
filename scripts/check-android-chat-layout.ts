@@ -29,7 +29,8 @@ const nodes = [...xml.matchAll(/<node\s+([^>]+)>/g)].map((match) =>
 function bounds(node: Record<string, string>) {
   const values = node.bounds?.match(/\d+/g)?.map(Number);
   assert(values?.length === 4, "Missing view bounds");
-  const [left, top, right, bottom] = values as [number, number, number, number];
+  const [left, top, right, bottom] = values;
+  assert(left !== undefined && top !== undefined && right !== undefined && bottom !== undefined, "Incomplete view bounds");
   return { left, top, right, bottom, width: right - left, height: bottom - top, centerX: (left + right) / 2 };
 }
 

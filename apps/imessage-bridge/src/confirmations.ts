@@ -1,3 +1,4 @@
+import type { MessageSink } from './message-sink'
 import { getDisplayedWeb3, recordDisplayedWeb3 } from './displayed-confirmations'
 // Interprets an incoming prompt against Bee's pending interactive state — the
 // first-focus preview / web3 confirmation / highlight-completion decision
@@ -6,7 +7,6 @@ import { getDisplayedWeb3, recordDisplayedWeb3 } from './displayed-confirmations
 // completion, then a plain prompt to Bee.
 
 import type { DeliveredAttachment } from '@flue/sdk'
-import type { Space } from 'spectrum-ts'
 import type { AgentTransport, FirstFocusActionInput } from './agent-transport'
 import {
   isFirstFocusCancellation,
@@ -51,7 +51,7 @@ function firstFocusActionInput(preview: FirstFocusPreview) {
 
 export async function resolvePromptReply(input: {
   transport: AgentTransport
-  space: Space
+  space: MessageSink
   userId: string
   context: ChannelContext
   prompt: string

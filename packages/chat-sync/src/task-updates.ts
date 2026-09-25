@@ -20,7 +20,7 @@ export class TaskUpdates {
     this.listeners.forEach((listener) => listener());
   }
 
-  async run(id: string, update: () => unknown | Promise<unknown>) {
+  async run<Result>(id: string, update: () => Result | Promise<Result>) {
     if (this.states[id] === 'pending') return;
     this.set(id, 'pending');
     try {

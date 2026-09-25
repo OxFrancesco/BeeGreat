@@ -279,14 +279,14 @@ export const execute = internalAction({
 })
 
 
-function providerUrl(value: unknown, provider: 'github' | 'linear') {
-  if (typeof value !== 'string') throw new Error('The provider did not return the comment destination.')
+function providerUrl(value: JsonValue | undefined, provider: 'github' | 'linear') {
+  if (!Predicate.isString(value)) throw new Error('The provider did not return the comment destination.')
   const url = new URL(value)
   if (url.protocol !== 'https:' || url.hostname !== (provider === 'github' ? 'github.com' : 'linear.app')) throw new Error('The provider returned an invalid comment destination.')
   return url.toString()
 }
 
-export async function prepareCommentForAgent(ctx: ActionCtx, args: { userId: string; provider: string; ref?: string; body?: string }) {
+export async function prepareCommentForAgent(ctx: Pick<ActionCtx, "runMutation">, args: { userId: string; provider: string; ref?: string; body?: string }) {
   if (args.provider !== 'github' && args.provider !== 'linear') throw new Error('This provider is read-only.')
   const provider = args.provider
   const body = args.body?.trim()
@@ -304,12 +304,12 @@ export async function prepareCommentForAgent(ctx: ActionCtx, args: { userId: str
   const issue = jsonRecord(jsonRecord(result)?.issue)
   const targetId = issue?.[provider === 'github' ? 'node_id' : 'id']
   const title = issue?.title
-  if (typeof targetId !== 'string' || !targetId || typeof title !== 'string') throw new Error('The provider did not resolve this comment destination.')
+  if (!Predicate.isString(targetId) || !targetId || !Predicate.isString(title)) throw new Error('The provider did not resolve this comment destination.')
   const targetUrl = providerUrl(issue?.[provider === 'github' ? 'html_url' : 'url'], provider)
   return await ctx.runMutation(internal.beennectorComments.createPending, { userId: args.userId, provider, targetId, targetLabel: title, targetUrl, body, expectedEncryptedAccess: credential.encryptedAccess })
 }
 
-export async function executeApprovedCommentForId(ctx: ActionCtx, actionId: Id<'beennectorCommentActions'>) {
+export async function executeApprovedCommentForId(ctx: Pick<ActionCtx, "runMutation">, actionId: Id<'beennectorCommentActions'>) {
   const row = await ctx.runMutation(internal.beennectorComments.claim, { actionId })
   if (!row) return null
   let resultUrl: string

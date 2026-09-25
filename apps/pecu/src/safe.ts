@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { decodeFunctionData, erc20Abi, formatEther, parseAbi, sliceHex, size, encodeFunctionData, zeroAddress } from "viem";
 
-const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as `0x${string}`);
+const address = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
 const uint = z.string().regex(/^(0|[1-9]\d*)$/).max(78).refine((value) => BigInt(value) < 2n ** 256n, "Value exceeds uint256");
-const hex = z.string().regex(/^0x(?:[0-9a-fA-F]{2})*$/);
+const hex = z.templateLiteral(["0x", z.string().regex(/^(?:[0-9a-fA-F]{2})*$/)]);
 const hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
 export const safeTransactionSchema = z.strictObject({ chainId: z.literal(8453), safe: address, to: address, value: uint, data: hex, nonce: uint, hash, operation: z.union([z.literal(0), z.literal(1)]).optional() });
 export const safeOwnerChangeSchema = z.discriminatedUnion("kind", [
@@ -35,7 +35,7 @@ export const safeReadSchemas = {
   "safe-budget": z.strictObject(budgetTarget),
   "safe-budget-propose": z.strictObject({ ...budgetTarget, amount: uint, resetMinutes: z.number().int().min(0).max(65535) }),
   "safe-budget-revoke-propose": z.strictObject(budgetTarget),
-  "safe-role-grant-propose": z.strictObject({ ...roleTarget, permissions: z.array(z.strictObject({ to: address, selector: hex.length(10), parameters: z.array(z.discriminatedUnion("kind", [z.strictObject({ kind: z.literal("equal"), value: hash }), z.strictObject({ kind: z.literal("max"), value: uint })])).max(32) })).min(1).max(16) }),
+  "safe-role-grant-propose": z.strictObject({ ...roleTarget, permissions: z.array(z.strictObject({ to: address, selector: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{8}$/)]), parameters: z.array(z.discriminatedUnion("kind", [z.strictObject({ kind: z.literal("equal"), value: hash }), z.strictObject({ kind: z.literal("max"), value: uint })])).max(32) })).min(1).max(16) }),
   "safe-role-revoke-propose": z.strictObject(roleTarget),
   "safe-role-check": z.strictObject({ ...roleCall, account: address }),
   "safe-passkey-address": z.strictObject({ safe: address, passkey }),
@@ -68,13 +68,13 @@ export const safeExtensionAbi = parseAbi([
 export function safeCallDescription(transaction: z.infer<typeof safeTransactionSchema>) {
   if (transaction.operation === 1) {
     if (transaction.to.toLowerCase() !== "0x9641d764fc13c8b624c04430c7356c1c7c8102e2" || transaction.value !== "0") throw new Error("Unsupported Safe batch target");
-    const calls = decodeSafeBatch(hex.transform(v => v as `0x${string}`).parse(transaction.data));
+    const calls = decodeSafeBatch(hex.parse(transaction.data));
     return { kind: "batch", calls } as const;
   }
   if (transaction.data === "0x") return { kind: "plain", text: transaction.to.toLowerCase() === transaction.safe.toLowerCase() && transaction.value === "0"
     ? "cancel other transactions at the current wallet nonce"
     : `send ${formatEther(BigInt(transaction.value))} ETH to ${transaction.to}` } as const;
-  const data = hex.transform((value) => value as `0x${string}`).parse(transaction.data);
+  const data = hex.parse(transaction.data);
   if (transaction.to.toLowerCase() === transaction.safe.toLowerCase()) {
     if (transaction.value !== "0") throw new Error("Owner changes must not send ETH");
     const call = decodeFunctionData({ abi: safeExtensionAbi, data });

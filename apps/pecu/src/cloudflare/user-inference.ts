@@ -16,10 +16,11 @@ const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "p
 
 export class InferenceTools extends RpcTarget {
   constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode, private readonly onParagraph?: ParagraphSink) { super(); }
-  async call(name: Capability, args: unknown[]): Promise<string> {
+  async call<K extends Capability>(name: K, args: Parameters<AgentCapabilities[K]>): Promise<string> {
     if (!allowed.has(name)) throw new Error("Tool unavailable");
     if (this.mode === "response" && name !== "askUser") throw new Error("This turn is explanation-only. Ask the user to clarify if live data or an action is needed.");
-    const invoke = this.capabilities[name] as (...args: unknown[]) => Promise<string>;
+    // SAFETY: the same capability key selects both the function and its parameter tuple; the allowlist above excludes non-callable fields.
+    const invoke = this.capabilities[name] as (...args: Parameters<AgentCapabilities[K]>) => Promise<string>;
     return invoke(...args);
   }
   /** Whether the caller wants partial replies; lets the inference object skip the event subscription otherwise. */
@@ -53,7 +54,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
         if (!this.active || this.active.eventId !== message.eventId) throw new Error("This turn has ended. Send your request again.");
         return this.active.capabilities;
       }, codexContainerFetch(env.CODEX), loadWorkerConfig(env).openRouterApiKey,
-        Reflect.get(env, "POSTHOG_ENABLED") === "true"
+        loadWorkerConfig(env).analyticsEnabled
           ? (senderId, event) => { ctx.waitUntil(captureAgentEvent({ senderId, event })); }
           : undefined, (work) => ctx.waitUntil(work));
       store.initialize();

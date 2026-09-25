@@ -414,7 +414,7 @@ export const saveMine = mutation({
 
     await ctx.db.patch('publicProfiles', profile._id, {
       handle: requestedHandle,
-      ...(profile.handle !== requestedHandle ? { handleChangedAt: now } : {}),
+      handleChangedAt: profile.handle !== requestedHandle ? now : profile.handleChangedAt,
       displayName,
       bio,
       avatarUrl,

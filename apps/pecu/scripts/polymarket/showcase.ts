@@ -1,3 +1,4 @@
+import type { JsonFields } from "../../src/json-contract";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { analyticsCents, analyticsOdds, type PolymarketSnapshot } from "../../src/analytics-contract";
@@ -7,13 +8,13 @@ import { polymarketRead } from "../../src/integrations/polymarket/client";
 import { polymarketShowcaseSchema, type PolymarketShowcase } from "../../apps/stocks/polymarket-showcase/schema";
 
 let requests = 0;
-async function card(endpoint: PolymarketEndpointName, input: Record<string, unknown>) {
+async function card(endpoint: PolymarketEndpointName, input: JsonFields) {
   requests++;
   await Bun.sleep(150);
   const result = await polymarketRead(endpoint, input);
   return { data: result.data, snapshot: polymarketAnalytics(input, result) };
 }
-const tryCard = (endpoint: PolymarketEndpointName, input: Record<string, unknown>) => card(endpoint, input).catch((error: unknown) => {
+const tryCard = (endpoint: PolymarketEndpointName, input: JsonFields) => card(endpoint, input).catch((error: Error) => {
   console.warn(`Skipped ${endpoint}: ${error instanceof Error ? error.message : String(error)}`);
   return undefined;
 });
@@ -33,6 +34,7 @@ const later = (date: string | null | undefined) => !date || Date.parse(date) > s
 const topic = (title: string) => title.toLowerCase().replace(/[^a-z0-9 ]/g, "").split(" ").slice(0, 3).join(" ");
 const expectCard = <T extends PolymarketSnapshot["kind"]>(snapshot: PolymarketSnapshot | undefined, kind: T) => {
   if (snapshot?.kind !== kind) throw new Error(`Expected a ${kind} card`);
+  // SAFETY: the discriminant was checked against the requested kind immediately above.
   return snapshot as Extract<PolymarketSnapshot, { kind: T }>;
 };
 

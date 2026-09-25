@@ -1,3 +1,4 @@
+import { type JsonInput } from "../../../../src/json-contract";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { agentRequest, cardIdentity, identity, sameOrigin } from "../lib/server";
@@ -27,7 +28,7 @@ const turn = z
   })
   .strict();
 const threadDelete = z.object({ threadId: threadIdSchema.nullable() }).strict();
-const json = (body: unknown, status = 200) =>
+const json = (body: JsonInput, status = 200) =>
   Response.json(body, {
     status,
     headers: {
@@ -79,12 +80,8 @@ export const Route = createFileRoute("/stocks/api/$")({
           const threadId = thread ? threadIdSchema.parse(thread) : undefined;
           const query = new URL(request.url).searchParams;
           const page = {
-            ...(query.has("before")
-              ? { before: JSON.parse(query.get("before")!) }
-              : {}),
-            ...(query.has("after")
-              ? { after: JSON.parse(query.get("after")!) }
-              : {}),
+            before: query.has("before") ? JSON.parse(query.get("before")!) : undefined,
+            after: query.has("after") ? JSON.parse(query.get("after")!) : undefined,
           };
           const viewer = await identity();
           if (params._splat === "threads")
@@ -210,7 +207,7 @@ async function pnlRequest(request: Request) {
   } catch { return json({ error: "Could not load your P&L. Try again." }, 503); }
 }
 
-async function profileRequest(path: string, schema: z.ZodType, input?: { safe: string } | { action: unknown }) {
+async function profileRequest<Output extends JsonInput>(path: string, schema: z.ZodType<Output>, input?: { safe: string } | { action: JsonInput }) {
   let viewer;
   try { viewer = await identity(); }
   catch { return json({ error: "Sign in to manage your Safes." }, 401); }

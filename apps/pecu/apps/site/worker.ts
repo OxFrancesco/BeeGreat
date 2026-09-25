@@ -1,8 +1,8 @@
 interface Env {
-  CLI: Fetcher;
-  EVM: Fetcher;
-  STOCKS: Fetcher;
-  ASSETS: Fetcher;
+  CLI: Pick<Fetcher, "fetch">;
+  EVM: Pick<Fetcher, "fetch">;
+  STOCKS: Pick<Fetcher, "fetch">;
+  ASSETS: Pick<Fetcher, "fetch">;
 }
 
 const cliPath = "/un-aerosdk";

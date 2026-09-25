@@ -1,7 +1,11 @@
 "use client"
 
+import { jsonFieldsSchema } from "../../../../../src/json-contract"
+import { z } from "zod"
+
 import {
   Children,
+  useMemo,
   type ComponentType,
   isValidElement,
   type ReactNode,
@@ -27,8 +31,8 @@ const DEFAULT_POLAR_MARGINS: Margins = {
 }
 
 function layerOf(node: ReactNode): "back" | "dom" | "svg" {
-  if (!isValidElement(node) || typeof node.type === "string") return "svg"
-  return (node.type as { chartLayer?: "back" | "dom" }).chartLayer ?? "svg"
+  if (!isValidElement(node)) return "svg"
+  return z.enum(["back", "dom", "svg"]).catch("svg").parse(Object.getOwnPropertyDescriptor(node.type, "chartLayer")?.value)
 }
 
 export type PolarRootProps<TData extends Row> = {
@@ -80,7 +84,7 @@ export function PolarRoot<TData extends Row>({
   const ctx = usePolarController({
     chartType,
     // Safe: the controller only reads row[key] for the configured keys.
-    data: data as Record<string, unknown>[],
+    data: useMemo(() => jsonFieldsSchema.array().parse(data), [data]),
     config,
     dataKey,
     nameKey,

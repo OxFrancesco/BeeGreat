@@ -57,6 +57,10 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 - `resources/polymarket` — Official Polymarket TypeScript SDK: public Gamma, CLOB and Data API v2 contracts
 
+
+- `resources/xdk-typescript` — Official TypeScript X API SDK and error contracts
+- `resources/cloudflare-sandbox-sdk` — Official Cloudflare Sandbox SDK session and execution contracts
+
 <!-- codeview:end -->
 
 ## Design system

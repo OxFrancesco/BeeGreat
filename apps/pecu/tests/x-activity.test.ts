@@ -7,7 +7,7 @@ describe("X Activity realtime setup", () => {
     const admin = new XActivityAdmin("app-bearer", "user-token", async (input, init) => {
       const url = String(input);
       const method = init?.method ?? "GET";
-      calls.push({ url, method, ...(typeof init?.body === "string" ? { body: init.body } : {}) });
+      calls.push(init?.body == null ? { url, method } : { url, method, body: String(init.body) });
       expect(new Headers(init?.headers).get("Authorization")).toBe(
         url.includes("/activity/subscriptions") && method === "POST" ? "Bearer user-token" : "Bearer app-bearer",
       );

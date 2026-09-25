@@ -1,3 +1,4 @@
+import type { JsonFields, JsonInput } from "../src/json-contract";
 import { expect, test } from "bun:test";
 import { encodeFunctionData, decodeFunctionData, erc20Abi, maxUint256 } from "viem";
 import { AaveService, aaveSkill, aaveSchema } from "../src/integrations/aave";
@@ -8,16 +9,16 @@ const market = "0x2222222222222222222222222222222222222222";
 const token = "0x3333333333333333333333333333333333333333";
 const tx = { __typename: "TransactionRequest", from: wallet, to: market, value: "1000000000000", data: "0x12345678", chainId: 8453 };
 const params = { action: "supply", amount: "0.000001", native: true, market, token };
-function aaveFixture(options: { warning?: string; transaction?: unknown; inspect?: (name: string) => Promise<void> } = {}) {
-  const calls: Array<{ name: string; arguments: Record<string, unknown> }> = [];
-  const request: typeof fetch = Object.assign(async function (this: unknown, _input: RequestInfo | URL, init?: RequestInit) {
+function aaveFixture(options: { warning?: string; transaction?: JsonInput; inspect?: (name: string) => Promise<void> } = {}) {
+  const calls: Array<{ name: string; arguments: JsonFields }> = [];
+  const request: typeof fetch = Object.assign(async function (this: typeof globalThis, _input: RequestInfo | URL, init?: RequestInit) {
     expect(this).toBe(globalThis);
     const { params } = JSON.parse(String(init?.body)); calls.push(params);
     if (params.name === "get_user_summary" || params.name === "get_reserve_details") await options.inspect?.(params.name);
     const data = params.name === "get_markets" ? { v3: { markets: [{ market, chainId: 8453, reserves: [{ underlyingToken: token, symbol: "WETH" }] }] } }
       : params.name === "preview_action" ? { healthFactorAfter: "1.8" }
       : params.name === "prepare_action" ? options.transaction ?? tx : {};
-    return Response.json({ result: { structuredContent: { data, ...(params.name === "preview_action" && options.warning ? { warnings: [{ level: options.warning, message: "Position warning" }] } : {}) } } });
+    return Response.json({ result: { structuredContent: { data, warnings: params.name === "preview_action" && options.warning ? [{ level: options.warning, message: "Position warning" }] : undefined } } });
   }, { preconnect() {} });
   return { service: new AaveService(request), calls };
 }
@@ -78,11 +79,11 @@ test("official skills and supported schema tools are available", () => {
   expect(() => aaveSchema("cancel_order")).toThrow();
 });
 function researchFixture() {
-  const data = new Map<string, unknown>();
-  const store: ResearchStore = { async get<T>(key: string) { return data.get(key) as T | undefined; }, async put<T>(key: string, value: T) { data.set(key, value); } };
+  const data = new Map<string, string>();
+  const store: ResearchStore = { async get(key) { return data.get(key); }, async put(key, value) { data.set(key, value); } };
   const calls: Array<{ path: string; init?: RequestInit }> = [];
   let done = false;
-  const request: typeof fetch = Object.assign(async function (this: unknown, url: RequestInfo | URL, init?: RequestInit) {
+  const request: typeof fetch = Object.assign(async function (this: typeof globalThis, url: RequestInfo | URL, init?: RequestInit) {
     expect(this).toBe(globalThis);
     calls.push({ path: String(url), init });
     return Response.json({ id: "agent_run_example", status: done ? "completed" : "running", output: { text: done ? "Market-implied odds: 42%. https://polymarket.com/event/example" : "" } });

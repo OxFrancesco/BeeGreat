@@ -24,8 +24,7 @@ test('server deadline closes both sockets and oversized input never reaches the 
   const client = new Socket()
   const upstream = new Socket()
   let released = 0
-  // Only the event, send, and close methods are exercised by the transport helper.
-  const stop = connectVoiceSockets(client as unknown as WebSocket, upstream as unknown as WebSocket, Date.now() + 15, () => { released++ })
+  const stop = connectVoiceSockets(client, upstream, Date.now() + 15, () => { released++ })
   client.dispatchEvent(new MessageEvent('message', { data: 'a'.repeat(256 * 1024 + 1) }))
   expect(upstream.sent).toEqual([])
   expect(client.closed && upstream.closed).toBe(true)
@@ -33,7 +32,7 @@ test('server deadline closes both sockets and oversized input never reaches the 
   expect(released).toBe(1)
   const secondClient = new Socket()
   const secondUpstream = new Socket()
-  connectVoiceSockets(secondClient as unknown as WebSocket, secondUpstream as unknown as WebSocket, Date.now() + 10, () => {})
+  connectVoiceSockets(secondClient, secondUpstream, Date.now() + 10, () => {})
   await new Promise(resolve => setTimeout(resolve, 20))
   expect(secondClient.closed && secondUpstream.closed).toBe(true)
 })

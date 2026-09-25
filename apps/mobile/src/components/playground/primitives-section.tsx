@@ -86,19 +86,19 @@ export function PrimitivesSection() {
 
       <Specimen name="Colors (active scheme)">
         <View style={{ gap: Spacing.two, alignSelf: 'stretch' }}>
-          {(Object.keys(palette) as ThemeColor[]).map((name) => (
+          {Object.entries(palette).map(([name, color]) => (
             <View key={name} style={styles.swatchRow}>
               <View
                 style={[
                   styles.swatch,
-                  { backgroundColor: palette[name], borderColor: theme.border },
+                  { backgroundColor: color, borderColor: theme.border },
                 ]}
               />
               <ThemedText type="small" style={{ flex: 1 }}>
                 {name}
               </ThemedText>
               <ThemedText selectable type="code" themeColor="textSecondary">
-                {String(palette[name])}
+                {String(color)}
               </ThemedText>
             </View>
           ))}
@@ -107,18 +107,18 @@ export function PrimitivesSection() {
 
       <Specimen name="Spacing">
         <View style={{ gap: Spacing.two, alignSelf: 'stretch' }}>
-          {(Object.keys(Spacing) as (keyof typeof Spacing)[]).map((name) => (
+          {Object.entries(Spacing).map(([name, size]) => (
             <View key={name} style={styles.swatchRow}>
               <View
                 style={{
-                  width: Math.max(Spacing[name], 2),
+                  width: Math.max(size, 2),
                   height: 10,
                   borderRadius: 5,
                   backgroundColor: theme.primary,
                 }}
               />
               <ThemedText type="code" themeColor="textSecondary">
-                {name} = {Spacing[name]}
+                {name} = {size}
               </ThemedText>
             </View>
           ))}

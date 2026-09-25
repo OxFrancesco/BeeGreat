@@ -1,3 +1,4 @@
+import { jsonFieldsSchema, type JsonFields } from "../src/json-contract";
 import { NansenService } from "../src/integrations/nansen";
 import { test, expect } from "bun:test";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
@@ -45,12 +46,12 @@ test("Nansen charts persist with direct and model replies, replay without a new 
   } finally { f.close(); }
 });
 test("wallet P&L reads the sender's own Base wallet once per period for ten minutes and never touches chat history", async () => {
-  const bodies: Record<string, unknown>[] = [];
+  const bodies: JsonFields[] = [];
   let fail = false;
   let open!: () => void;
   const gate = new Promise<void>((resolve) => { open = resolve; });
   const fetcher: typeof fetch = Object.assign(async (_input: string | URL | Request, init?: RequestInit) => {
-    bodies.push(JSON.parse(String(init?.body)));
+    bodies.push(jsonFieldsSchema.parse(JSON.parse(String(init?.body))));
     await gate;
     if (fail) return Response.json({ code: "rate_limit_exceeded", retry_after: 30 }, { status: 429 });
     return Response.json({ pagination: { page: 1, per_page: 1000, is_last_page: true }, data: [{ token_address: "0x2222", token_symbol: "AERO", pnl_usd_realised: 12, pnl_usd_unrealised: -2 }] });
@@ -114,7 +115,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
         if (!provision) throw new Error("Must reuse existing wallet");
         created++;
         store.saveWallet(senderId, address, address);
-        return { address } as never;
+        return { address };
       },
       balances: async () => "",
       usdcBalanceUnits: async () => 0n,
@@ -128,7 +129,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
         throw new Error("No signing");
       },
     },
-    { ...services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), ...(nansen ? { nansen } : {}) },
+    { ...services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), nansen },
     {
       respond: async (message, capabilities, mode, progress) => {
         calls++;

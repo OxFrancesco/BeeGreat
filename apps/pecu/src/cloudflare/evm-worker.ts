@@ -36,7 +36,7 @@ export default {
       const session = await sandbox.createSession({ id: sessionId });
       const response = await runEvmCommand(
         (command, options) => session.exec(command, options),
-        { rpcUrl, ...(env.ETHERSCAN_API_KEY ? { etherscanApiKey: env.ETHERSCAN_API_KEY } : {}) },
+        { rpcUrl, etherscanApiKey: env.ETHERSCAN_API_KEY || undefined },
         parsed,
       );
       const status = response.ok ? 200 : response.error.code === "InvalidInput" || response.error.code === "ChainMismatch" ? 400 : 502;

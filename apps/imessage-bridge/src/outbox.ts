@@ -23,10 +23,10 @@ export type ClaimedDelivery = {
   }
 }
 
-export function startTerminalDeliveryPolling(
+export function startTerminalDeliveryPolling<SendResult>(
   transport: Pick<AgentTransport, 'outboxAction'>,
   openDm: (address: string) => Promise<{
-    send: (content: ReturnType<typeof markdown> | ReturnType<typeof richlink>) => Promise<unknown>
+    send: (content: ReturnType<typeof markdown> | ReturnType<typeof richlink>) => Promise<SendResult>
   }>,
   timing?: PollClock,
 ) {

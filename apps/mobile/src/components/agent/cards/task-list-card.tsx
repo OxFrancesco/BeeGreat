@@ -49,7 +49,7 @@ export function TaskListCard({
   );
 }
 
-export function TaskListCardView({
+export function TaskListCardView<ToggleResult>({
   title,
   items,
   onToggle,
@@ -58,7 +58,7 @@ export function TaskListCardView({
 }: {
   title: string;
   items: { id: string; title: string; done: boolean; due?: string }[];
-  onToggle: (id: string) => unknown | Promise<unknown>;
+  onToggle: (id: string) => ToggleResult;
   loading?: boolean;
   interactiveIds?: Set<string>;
 }) {

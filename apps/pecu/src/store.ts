@@ -1,11 +1,12 @@
+import { executionStepFromRow, type ExecutionStepRow } from "./execution-step-row";
 import { coalescePolymarketAnalytics } from "./integrations/polymarket/analytics";
 import { polymarketTokenSchema, type PolymarketToken } from "./integrations/polymarket/model-output";
 import { analyticsResultSchema, type AnalyticsResult } from "./analytics-contract";
 import { stockSnapshotSchema, type StockSnapshot } from "./stock-contract";
-import { Database } from "bun:sqlite";
+import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { agentQuestionSchema, type AgentQuestion, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "./domain";
+import { agentQuestionSchema, type AgentQuestion, type PlannedCall, type VerifiedMessage } from "./domain";
 import { eventProcessingLeaseMs, parseIntentAction, type PecuStore, type DepositRecord, type DepositState, type ExecutionStep, type FundingAccount, type Intent, type IntentState } from "./state";
 
 export type { ExecutionStep, Intent, IntentState } from "./state";
@@ -257,12 +258,12 @@ export class Store implements PecuStore {
   }
 
   questionForEvent(eventId: string): AgentQuestion | undefined {
-    const row = (this.db.query("SELECT json FROM questions WHERE event_id=?").get(eventId) as { json: string } | null);
+    const row = (this.db.query<{ json: string }, SQLQueryBindings[]>("SELECT json FROM questions WHERE event_id=?").get(eventId));
     return row ? agentQuestionSchema.parse(JSON.parse(row.json)) : undefined;
   }
 
   answerPendingQuestion(message: VerifiedMessage): boolean {
-    const row = (this.db.query("SELECT event_id FROM questions WHERE sender_id=? AND conversation_id=? AND event_id<>? AND (answered_event_id IS NULL OR answered_event_id=?) ORDER BY rowid DESC LIMIT 1").get(message.senderId, message.conversationId, message.eventId, message.eventId) as { event_id: string } | null);
+    const row = (this.db.query<{ event_id: string }, SQLQueryBindings[]>("SELECT event_id FROM questions WHERE sender_id=? AND conversation_id=? AND event_id<>? AND (answered_event_id IS NULL OR answered_event_id=?) ORDER BY rowid DESC LIMIT 1").get(message.senderId, message.conversationId, message.eventId, message.eventId));
     if (!row) return false;
     this.db.query("UPDATE questions SET answered_event_id=? WHERE event_id=?").run(message.eventId, row.event_id);
     return true;
@@ -297,8 +298,8 @@ export class Store implements PecuStore {
     if (reclaimed.changes === 1) return "claimed";
     const result = this.db.query("INSERT OR IGNORE INTO inbox_events VALUES (?, ?, ?, 'processing', NULL, ?, ?)").run(eventId, conversationId, senderId, now, now);
     if (result.changes === 1) return "claimed";
-    const row = this.db.query("SELECT status FROM inbox_events WHERE event_id = ?").get(eventId) as { status: string };
-    return row.status === "completed" ? "completed" : "busy";
+    const row = this.db.query<{ status: string }, SQLQueryBindings[]>("SELECT status FROM inbox_events WHERE event_id = ?").get(eventId);
+    return row?.status === "completed" ? "completed" : "busy";
   }
 
   completeEvent(eventId: string, replyText: string): void {
@@ -315,11 +316,11 @@ export class Store implements PecuStore {
   }
 
   eventReply(eventId: string): string | undefined {
-    return (this.db.query("SELECT reply_text FROM inbox_events WHERE event_id = ?").get(eventId) as { reply_text: string | null } | null)?.reply_text ?? undefined;
+    return (this.db.query<{ reply_text: string | null }, SQLQueryBindings[]>("SELECT reply_text FROM inbox_events WHERE event_id = ?").get(eventId))?.reply_text ?? undefined;
   }
 
   wallet(senderId: string): { locator: string; address: string } | undefined {
-    return this.db.query("SELECT locator, address FROM wallets WHERE sender_id = ?").get(senderId) as { locator: string; address: string } | null ?? undefined;
+    return this.db.query<{ locator: string; address: string }, SQLQueryBindings[]>("SELECT locator, address FROM wallets WHERE sender_id = ?").get(senderId) ?? undefined;
   }
 
   saveWallet(senderId: string, locator: string, address: string): void {
@@ -345,17 +346,17 @@ export class Store implements PecuStore {
   }
 
   intentForSource(eventId: string): Intent | undefined {
-    const row = this.db.query("SELECT * FROM aero_intents WHERE source_event_id = ?").get(eventId) as IntentRow | null;
+    const row = this.db.query<IntentRow, SQLQueryBindings[]>("SELECT * FROM aero_intents WHERE source_event_id = ?").get(eventId);
     return row ? this.toIntent(row) : undefined;
   }
 
   intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined {
-    const row = this.db.query("SELECT * FROM aero_intents WHERE code_hash = ? AND sender_id = ? AND conversation_id = ?").get(codeHash, senderId, conversationId) as IntentRow | null;
+    const row = this.db.query<IntentRow, SQLQueryBindings[]>("SELECT * FROM aero_intents WHERE code_hash = ? AND sender_id = ? AND conversation_id = ?").get(codeHash, senderId, conversationId);
     return row ? this.toIntent(row) : undefined;
   }
 
   executingIntents(): Intent[] {
-    return (this.db.query("SELECT * FROM aero_intents WHERE state='executing' ORDER BY created_at").all() as IntentRow[]).map((row) => this.toIntent(row));
+    return (this.db.query<IntentRow, SQLQueryBindings[]>("SELECT * FROM aero_intents WHERE state='executing' ORDER BY created_at").all()).map((row) => this.toIntent(row));
   }
 
   transitionIntent(id: string, from: IntentState, to: IntentState, result?: string): boolean {
@@ -364,13 +365,7 @@ export class Store implements PecuStore {
   }
 
   steps(intentId: string): ExecutionStep[] {
-    const rows = this.db.query("SELECT * FROM aero_execution_steps WHERE intent_id=? ORDER BY position").all(intentId) as Array<Record<string, string | number | null>>;
-    return rows.map((row) => ({
-      intentId: String(row.intent_id), position: Number(row.position), state: String(row.state) as ExecutionStep["state"],
-      call: plannedCallSchema.parse({ role: row.role, from: row.from_address, to: row.to_address, data: row.data, value: row.value }),
-      ...(row.transaction_id === null ? {} : { transactionId: String(row.transaction_id) }),
-      ...(row.hash === null ? {} : { hash: String(row.hash) }),
-    }));
+    return this.db.query<ExecutionStepRow, [string]>("SELECT * FROM aero_execution_steps WHERE intent_id=? ORDER BY position").all(intentId).map(executionStepFromRow);
   }
 
   markStepPrepared(intentId: string, position: number, transactionId: string): void {
@@ -395,8 +390,11 @@ export class Store implements PecuStore {
   }
 
   pendingReplies(): Array<{ id: string; conversationId: string; replyToEvent: string; text: string; payloadJson?: string }> {
-    const rows = this.db.query("SELECT id,conversation_id,reply_to_event,text,payload_json FROM outbox WHERE state IN ('pending','prepared','failed') ORDER BY created_at LIMIT 50").all() as Array<{ id: string; conversation_id: string; reply_to_event: string; text: string; payload_json: string | null }>;
-    return rows.map((row) => ({ id: row.id, conversationId: row.conversation_id, replyToEvent: row.reply_to_event, text: row.text, ...(row.payload_json ? { payloadJson: row.payload_json } : {}) }));
+    const rows = this.db.query<{ id: string; conversation_id: string; reply_to_event: string; text: string; payload_json: string | null }, SQLQueryBindings[]>("SELECT id,conversation_id,reply_to_event,text,payload_json FROM outbox WHERE state IN ('pending','prepared','failed') ORDER BY created_at LIMIT 50").all();
+    return rows.map((row) => {
+      const reply = { id: row.id, conversationId: row.conversation_id, replyToEvent: row.reply_to_event, text: row.text };
+      return row.payload_json ? { ...reply, payloadJson: row.payload_json } : reply;
+    });
   }
 
   prepareReply(id: string, payloadJson: string): void { this.db.query("UPDATE outbox SET state='prepared',payload_json=?,updated_at=? WHERE id=?").run(payloadJson, Date.now(), id); }
@@ -404,10 +402,10 @@ export class Store implements PecuStore {
   failReply(id: string, error: string): void { this.db.query("UPDATE outbox SET state='failed',attempts=attempts+1,last_error=?,updated_at=? WHERE id=?").run(error, Date.now(), id); }
 
   paginationToken(conversationId: string): string | undefined {
-    return (this.db.query("SELECT pagination_token FROM transport_state WHERE conversation_id=?").get(conversationId) as { pagination_token: string | null } | null)?.pagination_token ?? undefined;
+    return (this.db.query<{ pagination_token: string | null }, SQLQueryBindings[]>("SELECT pagination_token FROM transport_state WHERE conversation_id=?").get(conversationId))?.pagination_token ?? undefined;
   }
   transportInitialized(conversationId: string, bootstrapVersion?: string): boolean {
-    const row = this.db.query("SELECT pagination_token FROM transport_state WHERE conversation_id=?").get(conversationId) as { pagination_token: string | null } | null;
+    const row = this.db.query<{ pagination_token: string | null }, SQLQueryBindings[]>("SELECT pagination_token FROM transport_state WHERE conversation_id=?").get(conversationId);
     return row !== null && (bootstrapVersion === undefined || row.pagination_token === bootstrapVersion);
   }
   savePaginationToken(conversationId: string, token?: string): void {
@@ -415,9 +413,9 @@ export class Store implements PecuStore {
   }
 
   agentSession(senderId: string, conversationId: string): string | undefined {
-    const row = this.db.query(
+    const row = this.db.query<{ session_id: string }, SQLQueryBindings[]>(
       "SELECT session_id FROM agent_sessions WHERE sender_id=? AND conversation_id=?",
-    ).get(senderId, conversationId) as { session_id: string } | null;
+    ).get(senderId, conversationId);
     return row?.session_id;
   }
 
@@ -438,14 +436,14 @@ export class Store implements PecuStore {
   }
 
   agentTurn(sessionId: string): VerifiedMessage | undefined {
-    const row = this.db.query(`SELECT sender_id,conversation_id,event_id,message_text,encoded_event
-      FROM agent_sessions WHERE session_id=?`).get(sessionId) as {
+    const row = this.db.query<{
         sender_id: string;
         conversation_id: string;
         event_id: string | null;
         message_text: string | null;
         encoded_event: string | null;
-      } | null;
+      }, SQLQueryBindings[]>(`SELECT sender_id,conversation_id,event_id,message_text,encoded_event
+      FROM agent_sessions WHERE session_id=?`).get(sessionId);
     if (!row?.event_id || row.message_text === null || row.encoded_event === null) return undefined;
     return {
       senderId: row.sender_id,
@@ -457,12 +455,12 @@ export class Store implements PecuStore {
   }
 
   fundingAccount(senderId: string): FundingAccount | undefined {
-    const row = this.db.query("SELECT * FROM funding_accounts WHERE sender_id=?").get(senderId) as FundingAccountRow | null;
+    const row = this.db.query<FundingAccountRow, SQLQueryBindings[]>("SELECT * FROM funding_accounts WHERE sender_id=?").get(senderId);
     return row ? this.toFundingAccount(row) : undefined;
   }
 
   fundingAccountByWhopId(whopAccountId: string): FundingAccount | undefined {
-    const row = this.db.query("SELECT * FROM funding_accounts WHERE whop_account_id=?").get(whopAccountId) as FundingAccountRow | null;
+    const row = this.db.query<FundingAccountRow, SQLQueryBindings[]>("SELECT * FROM funding_accounts WHERE whop_account_id=?").get(whopAccountId);
     return row ? this.toFundingAccount(row) : undefined;
   }
 
@@ -496,25 +494,25 @@ export class Store implements PecuStore {
   }
 
   deposit(id: string): DepositRecord | undefined {
-    const row = this.db.query("SELECT * FROM deposits WHERE id=?").get(id) as DepositRow | null;
+    const row = this.db.query<DepositRow, SQLQueryBindings[]>("SELECT * FROM deposits WHERE id=?").get(id);
     return row ? this.toDeposit(row) : undefined;
   }
 
   depositForIntent(intentId: string): DepositRecord | undefined {
-    const row = this.db.query("SELECT * FROM deposits WHERE intent_id=?").get(intentId) as DepositRow | null;
+    const row = this.db.query<DepositRow, SQLQueryBindings[]>("SELECT * FROM deposits WHERE intent_id=?").get(intentId);
     return row ? this.toDeposit(row) : undefined;
   }
 
   depositsForSender(senderId: string, limit: number): DepositRecord[] {
-    return (this.db.query("SELECT * FROM deposits WHERE sender_id=? ORDER BY created_at DESC LIMIT ?").all(senderId, limit) as DepositRow[]).map((row) => this.toDeposit(row));
+    return (this.db.query<DepositRow, SQLQueryBindings[]>("SELECT * FROM deposits WHERE sender_id=? ORDER BY created_at DESC LIMIT ?").all(senderId, limit)).map((row) => this.toDeposit(row));
   }
 
   recentDeposits(limit: number): DepositRecord[] {
-    return (this.db.query("SELECT * FROM deposits ORDER BY created_at DESC LIMIT ?").all(limit) as DepositRow[]).map((row) => this.toDeposit(row));
+    return (this.db.query<DepositRow, SQLQueryBindings[]>("SELECT * FROM deposits ORDER BY created_at DESC LIMIT ?").all(limit)).map((row) => this.toDeposit(row));
   }
 
   pendingDeposits(): DepositRecord[] {
-    return (this.db.query("SELECT * FROM deposits WHERE state IN ('received','held') ORDER BY created_at").all() as DepositRow[]).map((row) => this.toDeposit(row));
+    return (this.db.query<DepositRow, SQLQueryBindings[]>("SELECT * FROM deposits WHERE state IN ('received','held') ORDER BY created_at").all()).map((row) => this.toDeposit(row));
   }
 
   transitionDeposit(id: string, from: DepositState, to: DepositState, patch: Partial<Pick<DepositRecord, "holdReason" | "intentId" | "relayUsdcUnits" | "result" | "senderId">> = {}): boolean {
@@ -530,7 +528,7 @@ export class Store implements PecuStore {
   }
 
   relayedUsdcUnitsSince(sinceMs: number): bigint {
-    const rows = this.db.query("SELECT relay_usdc_units FROM deposits WHERE state IN ('relaying','relayed') AND relay_usdc_units IS NOT NULL AND updated_at >= ?").all(sinceMs) as Array<{ relay_usdc_units: string }>;
+    const rows = this.db.query<{ relay_usdc_units: string }, SQLQueryBindings[]>("SELECT relay_usdc_units FROM deposits WHERE state IN ('relaying','relayed') AND relay_usdc_units IS NOT NULL AND updated_at >= ?").all(sinceMs);
     return rows.reduce((sum, row) => sum + BigInt(row.relay_usdc_units), 0n);
   }
 
@@ -545,33 +543,28 @@ export class Store implements PecuStore {
   }
 
   private toDeposit(row: DepositRow): DepositRecord {
-    return {
-      id: row.id,
-      webhookId: row.webhook_id,
-      whopAccountId: row.whop_account_id,
-      ...(row.sender_id === null ? {} : { senderId: row.sender_id }),
-      amount: row.amount,
-      currency: row.currency,
-      precision: row.precision,
-      ...(row.usd_amount === null ? {} : { usdAmount: row.usd_amount }),
-      ...(row.available_at === null ? {} : { availableAt: row.available_at }),
-      ...(row.relay_usdc_units === null ? {} : { relayUsdcUnits: row.relay_usdc_units }),
-      state: row.state,
-      ...(row.hold_reason === null ? {} : { holdReason: row.hold_reason }),
-      ...(row.intent_id === null ? {} : { intentId: row.intent_id }),
-      ...(row.result === null ? {} : { result: row.result }),
-      postedAt: row.posted_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
+    let deposit: DepositRecord = {
+      id: row.id, webhookId: row.webhook_id, whopAccountId: row.whop_account_id,
+      amount: row.amount, currency: row.currency, precision: row.precision, state: row.state,
+      postedAt: row.posted_at, createdAt: row.created_at, updatedAt: row.updated_at,
     };
+    if (row.sender_id !== null) deposit = { ...deposit, senderId: row.sender_id };
+    if (row.usd_amount !== null) deposit = { ...deposit, usdAmount: row.usd_amount };
+    if (row.available_at !== null) deposit = { ...deposit, availableAt: row.available_at };
+    if (row.relay_usdc_units !== null) deposit = { ...deposit, relayUsdcUnits: row.relay_usdc_units };
+    if (row.hold_reason !== null) deposit = { ...deposit, holdReason: row.hold_reason };
+    if (row.intent_id !== null) deposit = { ...deposit, intentId: row.intent_id };
+    if (row.result !== null) deposit = { ...deposit, result: row.result };
+    return deposit;
   }
 
   private toIntent(row: IntentRow): Intent {
-    return {
+    const intent: Intent = {
       id: row.id, codeHash: row.code_hash, senderId: row.sender_id, conversationId: row.conversation_id,
       sourceEventId: row.source_event_id, state: row.state, ...parseIntentAction(row.action, row.parameters_json),
       preview: row.preview, planDigest: row.plan_digest,
-      expiresAt: row.expires_at, ...(row.result === null ? {} : { result: row.result }),
+      expiresAt: row.expires_at,
     };
+    return row.result === null ? intent : { ...intent, result: row.result };
   }
 }

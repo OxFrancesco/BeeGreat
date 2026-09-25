@@ -1,3 +1,4 @@
+import { jsonValueSchema, type JsonInput, type JsonValue } from "../json-contract";
 import { z } from "zod";
 import { log } from "../logger";
 
@@ -11,28 +12,28 @@ const whopBankCurrencySchema = z.object({
   deposit_reference: z.string().nullable(),
   swift_bic: z.string().nullable(),
   rails: z.array(z.string()),
-}).passthrough();
+}).catchall(jsonValueSchema);
 
 const whopCryptoSchema = z.object({
   name: z.string(),
   deposit_address: z.string().nullable(),
   icon_url: z.string().nullable(),
-  supported_currencies: z.array(z.object({ name: z.string(), icon_url: z.string().nullable() }).passthrough()),
-}).passthrough();
+  supported_currencies: z.array(z.object({ name: z.string(), icon_url: z.string().nullable() }).catchall(jsonValueSchema)),
+}).catchall(jsonValueSchema);
 
 const whopDepositSchema = z.object({
   account_id: z.string().nullable(),
   amount: z.string().optional(),
   hosted_url: z.string().nullable(),
   methods: z.object({
-    bank: z.object({ currencies: z.array(whopBankCurrencySchema) }).passthrough().nullable(),
+    bank: z.object({ currencies: z.array(whopBankCurrencySchema) }).catchall(jsonValueSchema).nullable(),
     crypto: z.array(whopCryptoSchema).nullable(),
-  }).passthrough(),
-}).passthrough();
+  }).catchall(jsonValueSchema),
+}).catchall(jsonValueSchema);
 
 export type WhopDeposit = z.output<typeof whopDepositSchema>;
 
-const whopAccountSchema = z.object({ id: z.string().regex(/^biz_[A-Za-z0-9]+$/) }).passthrough();
+const whopAccountSchema = z.object({ id: z.string().regex(/^biz_[A-Za-z0-9]+$/) }).catchall(jsonValueSchema);
 export const whopWebhookSetupSchema = z.object({ accountId: z.string().regex(/^biz_[A-Za-z0-9]+$/) });
 const webhookSchema = z.object({
   id: z.string().regex(/^hook_[A-Za-z0-9]+$/),
@@ -62,7 +63,7 @@ export class WhopService {
   async createDeposit(input: { destination: string; amount?: number; idempotencyKey: string }): Promise<WhopDeposit> {
     const body = await this.call("/deposits", {
       destination: input.destination,
-      ...(input.amount !== undefined ? { amount: input.amount } : {}),
+      amount: input.amount,
     }, input.idempotencyKey);
     return whopDepositSchema.parse(body);
   }
@@ -87,15 +88,16 @@ export class WhopService {
     return result;
   }
 
-  private async call(path: string, payload: unknown, idempotencyKey?: string, method = "POST"): Promise<unknown> {
+  private async call(path: string, payload: JsonInput, idempotencyKey?: string, method = "POST"): Promise<JsonValue> {
+    const headers = new Headers({
+      Authorization: `Bearer ${this.config.apiKey}`,
+      "Api-Version-Date": this.config.apiVersionDate,
+      "Content-Type": "application/json",
+    });
+    if (idempotencyKey) headers.set("Idempotency-Key", idempotencyKey);
     const response = await this.request.call(globalThis, `${this.config.apiUrl}${path}`, {
       method,
-      headers: {
-        Authorization: `Bearer ${this.config.apiKey}`,
-        "Api-Version-Date": this.config.apiVersionDate,
-        "Content-Type": "application/json",
-        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
-      },
+      headers,
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(20_000),
     });
@@ -103,6 +105,6 @@ export class WhopService {
       log("warn", "whop_request_failed", { path, status: response.status });
       throw new Error(`Whop is unavailable right now (${response.status}).`);
     }
-    return response.json();
+    return jsonValueSchema.parse(await response.json());
   }
 }

@@ -1,3 +1,4 @@
+import type { MessageSink } from './message-sink'
 import * as Sentry from '@sentry/bun'
 import { richlink, type Space, Spectrum, text } from 'spectrum-ts'
 import { imessage } from 'spectrum-ts/providers/imessage'
@@ -61,7 +62,8 @@ const app = await Spectrum({
 
 const outbox = startTerminalDeliveryPolling(transport, async (address) => {
   const im = imessage(app)
-  return await im.space.create(await im.user(address))
+  const space = await im.space.create(await im.user(address))
+  return { send: async (content) => { await space.send(content) } }
 })
 
 let shuttingDown = false
@@ -106,7 +108,7 @@ if (greetFlagIndex !== -1) {
 }
 
 /** One magic link (or a gentle throttle) for a sender Bee doesn't know yet. */
-async function welcomeUnknownSender(space: Space, address: string, signal: AbortSignal) {
+async function welcomeUnknownSender(space: MessageSink, address: string, signal: AbortSignal) {
   const link = await identity.beginLink(address, signal)
   if (link.status === 'throttled') return
   if (link.status === 'rate_limited') {
@@ -136,15 +138,14 @@ async function welcomeUnknownSender(space: Space, address: string, signal: Abort
 type IncomingMessage = typeof app.messages extends AsyncIterable<infer T> ? T : never
 
 function messageSpace(originalSpace: Space, signal: AbortSignal) {
-  return new Proxy(originalSpace, {
-    get(target, key, receiver) {
-      if (key === 'send') return (...args: Parameters<Space['send']>) => {
-        signal.throwIfAborted()
-        return untilAborted(target.send(...args), signal)
-      }
-      return Reflect.get(target, key, receiver)
+  return {
+    async send(content: Parameters<Space['send']>[0]) {
+      signal.throwIfAborted()
+      await untilAborted(originalSpace.send(content), signal)
     },
-  })
+    startTyping: () => originalSpace.startTyping(),
+    stopTyping: () => originalSpace.stopTyping(),
+  }
 }
 
 async function handleMessage([originalSpace, message]: IncomingMessage, signal: AbortSignal, userId: string) {

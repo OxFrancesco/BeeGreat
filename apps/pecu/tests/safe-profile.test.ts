@@ -1,7 +1,11 @@
+import { z } from "zod";
+import { safeParameterSchemas, type SafeReadCommand } from "../src/safe";
+import { validateEvmRequest, type EvmTxAction } from "../src/evm";
+import type { JsonValue, JsonInput, JsonFields } from "../src/json-contract";
 import { buildSignatureBytes, EthSafeSignature } from "@safe-global/protocol-kit";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
 import { afterEach, expect, test } from "bun:test";
-import { concatHex, decodeFunctionData, encodeFunctionData, encodeFunctionResult, erc20Abi, getAddress, keccak256, multicall3Abi, padHex, parseAbi, toBytes, zeroAddress, type Abi } from "viem";
+import { concatHex, decodeFunctionData, encodeFunctionData, encodeFunctionResult, erc20Abi, getAddress, keccak256, multicall3Abi, padHex, parseAbi, toBytes, zeroAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { safeTransactionHash } from "../../../packages/evm/src/safe/transactions";
 import { PecuAgent } from "../src/agent";
@@ -14,6 +18,8 @@ import { profileActionSchema, profileOverviewSchema, profileSafeDetailSchema } f
 import { Store } from "../src/store";
 import type { WebSql } from "../src/web";
 import { services } from "./fixtures/agent-services";
+
+const hex = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]*$/)]);
 
 const alice = { userId: "user_alice", senderId: "111" };
 const bob = { userId: "user_bob", senderId: "web-user_bob" };
@@ -43,8 +49,8 @@ class FakeBase {
   threshold = 2;
   nonce = 4n;
   approved = new Set<string>();
-  receipts = new Map<string, unknown>();
-  transactions = new Map<string, unknown>();
+  receipts = new Map<string, JsonValue>();
+  transactions = new Map<string, JsonValue>();
   logs: Array<{ transactionHash: string }> = [];
   logSearchFails = false;
 
@@ -58,7 +64,7 @@ class FakeBase {
       return this.logs;
     }
     if (method !== "eth_call") throw new Error(`unexpected ${method}`);
-    const { data } = params[0] as { data: `0x${string}` };
+    const { data } = z.object({ data: hex }).parse(params[0]);
     const call = decodeFunctionData({ abi: multicall3Abi, data });
     if (call.functionName !== "aggregate3") throw new Error("expected aggregate3");
     return encodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", result: call.args[0].map((inner) => this.answer(inner.target, inner.callData)) });
@@ -66,17 +72,17 @@ class FakeBase {
 
   private answer(target: `0x${string}`, callData: `0x${string}`): { success: boolean; returnData: `0x${string}` } {
     const call = decodeFunctionData({ abi: chainAbi, data: callData });
-    const ok = (value: unknown) => ({ success: true, returnData: encodeFunctionResult({ abi: chainAbi as Abi, functionName: call.functionName, result: value } as never) });
+    const ok = (returnData: `0x${string}`) => ({ success: true, returnData });
     switch (call.functionName) {
-      case "getOwners": return ok(this.owners);
-      case "getThreshold": return ok(BigInt(this.threshold));
-      case "nonce": return ok(this.nonce);
-      case "getModulesPaginated": return ok([[], "0x0000000000000000000000000000000000000001"]);
-      case "approvedHashes": return ok(this.approved.has(`${String(call.args[0]).toLowerCase()}:${String(call.args[1]).toLowerCase()}`) ? 1n : 0n);
-      case "getEthBalance": return ok(10n ** 16n);
-      case "balanceOf": return ok(target.toLowerCase() === usdc.toLowerCase() ? 25_500_000n : 0n);
-      case "symbol": return ok(target.toLowerCase() === usdc.toLowerCase() ? "USDC" : "AERO");
-      case "decimals": return ok(target.toLowerCase() === usdc.toLowerCase() ? 6 : 18);
+      case "getOwners": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: this.owners }));
+      case "getThreshold": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: BigInt(this.threshold) }));
+      case "nonce": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: this.nonce }));
+      case "getModulesPaginated": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: [[], "0x0000000000000000000000000000000000000001"] }));
+      case "approvedHashes": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: this.approved.has(`${String(call.args[0]).toLowerCase()}:${String(call.args[1]).toLowerCase()}`) ? 1n : 0n }));
+      case "getEthBalance": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: 10n ** 16n }));
+      case "balanceOf": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: target.toLowerCase() === usdc.toLowerCase() ? 25_500_000n : 0n }));
+      case "symbol": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: target.toLowerCase() === usdc.toLowerCase() ? "USDC" : "AERO" }));
+      case "decimals": return ok(encodeFunctionResult({ abi: chainAbi, functionName: call.functionName, result: target.toLowerCase() === usdc.toLowerCase() ? 6 : 18 }));
     }
   }
 }
@@ -96,25 +102,26 @@ function harness() {
       return { toArray: () => rows };
     },
   };
-  const safeReads: Array<{ command: string; input: Record<string, unknown> }> = [];
-  const proposals: Array<{ action: string; parameters: unknown }> = [];
-  const propose = async (wallet: `0x${string}`, action: string, raw: unknown): Promise<EvmPlanResult> => {
+  const safeReads: Array<{ command: string; input: JsonFields }> = [];
+  const proposals: Array<{ action: string; parameters: JsonInput }> = [];
+  const propose = async (wallet: `0x${string}`, action: EvmTxAction, raw: JsonInput): Promise<EvmPlanResult> => {
     proposals.push({ action, parameters: raw });
-    const parameters = raw as Record<string, never>;
+    const parameters = validateEvmRequest(action, raw);
     let call: PlannedCall;
     if (action === "safe_execute_signatures") {
-      const tx = parameters.transaction as { to: `0x${string}`; value: string; data: `0x${string}`; safe: `0x${string}` };
-      const bytes = buildSignatureBytes((parameters.signatures as Array<{ owner: string; data: string; contract: boolean }>).map((s) => new EthSafeSignature(s.owner, s.data, s.contract))) as `0x${string}`;
+      const p = safeParameterSchemas.safe_execute_signatures.parse(parameters);
+      const tx = p.transaction;
+      const bytes = hex.parse(buildSignatureBytes(p.signatures.map((s) => new EthSafeSignature(s.owner, s.data, s.contract))));
       call = { from: wallet, to: tx.safe, value: "0", role: "action", data: encodeFunctionData({ abi: parseAbi(["function execTransaction(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,bytes signatures) payable returns (bool)"]), functionName: "execTransaction", args: [tx.to, BigInt(tx.value), tx.data, 0, 0n, 0n, 0n, zeroAddress, zeroAddress, bytes] }) };
     } else if (action === "safe_approve") {
-      const tx = parameters.transaction as { hash: `0x${string}`; safe: `0x${string}` };
-      call = { from: wallet, to: tx.safe, value: "0", role: "action", data: encodeFunctionData({ abi: parseAbi(["function approveHash(bytes32 hash)"]), functionName: "approveHash", args: [tx.hash] }) };
+      const tx = safeParameterSchemas.safe_approve.parse(parameters).transaction;
+      call = { from: wallet, to: tx.safe, value: "0", role: "action", data: encodeFunctionData({ abi: parseAbi(["function approveHash(bytes32 hash)"]), functionName: "approveHash", args: [hex.parse(tx.hash)] }) };
     } else if (action === "safe_create") {
-      const p = parameters as unknown as { owners: `0x${string}`[]; threshold: number; saltNonce: string };
+      const p = safeParameterSchemas.safe_create.parse(parameters);
       const initializer = encodeFunctionData({ abi: parseAbi(["function setup(address[] owners,uint256 threshold,address to,bytes data,address fallbackHandler,address paymentToken,uint256 payment,address paymentReceiver)"]), functionName: "setup", args: [p.owners, BigInt(p.threshold), zeroAddress, "0x", zeroAddress, zeroAddress, 0n, zeroAddress] });
       call = { from: wallet, to: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67", value: "0", role: "action", data: encodeFunctionData({ abi: parseAbi(["function createProxyWithNonce(address singleton,bytes initializer,uint256 saltNonce) returns (address)"]), functionName: "createProxyWithNonce", args: ["0x29fcB43b46531BcA003ddC8FCB67FFE91900C762", initializer, BigInt(p.saltNonce)] }) };
     } else throw new Error(`unexpected ${action}`);
-    return { kind: "transaction", action: action as EvmPlanResult["action"], parameters: raw as EvmPlanResult["parameters"], summary: `Prepared ${action}`, context: action === "safe_create" ? { safe: "0x5afe000000000000000000000000000000000002" } : { safe }, calls: [call] };
+    return { kind: "transaction", action, parameters, summary: `Prepared ${action}`, context: action === "safe_create" ? { safe: "0x5afe000000000000000000000000000000000002" } : { safe }, calls: [call] };
   };
   const agent = new PecuAgent(
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 600, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
@@ -131,7 +138,7 @@ function harness() {
     { respond: async () => "unused" },
   );
   const evm = {
-    safeRead: async (command: string, input: Record<string, unknown>) => {
+    safeRead: async (command: SafeReadCommand, input: JsonFields) => {
       safeReads.push({ command, input });
       if (command === "safe-info") {
         if (input.safe !== safe) throw new Error("Unrecognized Safe contract code.");
@@ -142,8 +149,8 @@ function harness() {
         ? { chainId: 8453 as const, safe, to: safe, value: "0", data: "0x" as const, nonce }
         : command === "safe-owner-propose"
           ? { chainId: 8453 as const, safe, to: safe, value: "0", data: encodeFunctionData({ abi: parseAbi(["function changeThreshold(uint256 threshold)"]), functionName: "changeThreshold", args: [1n] }), nonce }
-          : { chainId: 8453 as const, safe, to: input.to as `0x${string}`, value: String(input.value), data: input.data as `0x${string}`, nonce };
-      return { kind: "read" as const, command: command as never, output: { ...tx, hash: safeTransactionHash(tx) } };
+          : { chainId: 8453 as const, safe, to: hex.parse(input.to), value: String(input.value), data: hex.parse(input.data), nonce };
+      return { kind: "read" as const, command, output: { ...tx, hash: safeTransactionHash(tx) } };
     },
     describeSafeTransaction: async (tx: { data: string }) => tx.data === "0x" ? "cancel other transactions at the current wallet nonce" : "change the required approvals to 1",
   };
@@ -160,7 +167,7 @@ function setup(): Harness {
   return h;
 }
 
-const act = (h: Harness, identity: typeof alice, raw: unknown) => h.profile.act(identity, profileActionSchema.parse(raw));
+const act = (h: Harness, identity: typeof alice, raw: JsonInput) => h.profile.act(identity, profileActionSchema.parse(raw));
 
 async function trackedSafe(h: Harness, identity = alice) {
   const { orgId } = await act(h, identity, { op: "org-create", name: "Treasury" });
@@ -174,7 +181,7 @@ async function sendProposal(h: Harness, identity = alice) {
 }
 
 async function signAs(account: typeof external, hash: string) {
-  return account.sign({ hash: hash as `0x${string}` });
+  return account.sign({ hash: hex.parse(hash) });
 }
 
 test("organizations, names and Safes belong to the signed-in sender and survive a restart", async () => {
@@ -232,7 +239,7 @@ test("executing with the Pecu wallet counts its own approval, adds collected sig
   const result = await act(h, alice, { op: "proposal-execute", requestId, hash });
   expect(result.intent).toMatchObject({ requestId, kind: "execute", preview: { title: "Execute Safe transaction", state: "pending" } });
   expect(result.intent?.preview.code).toMatch(/^[A-Z0-9]{6}$/);
-  const sent = h.proposals.at(-1)?.parameters as { signatures: Array<{ owner: string; data: string; contract: boolean }> };
+  const sent = safeParameterSchemas.safe_execute_signatures.parse(h.proposals.at(-1)?.parameters);
   expect(sent.signatures).toEqual([
     { owner: aliceWallet, data: concatHex([padHex(aliceWallet, { size: 32 }), padHex("0x", { size: 32 }), "0x01"]), contract: false },
     { owner: getAddress(external.address), data: signature, contract: false },

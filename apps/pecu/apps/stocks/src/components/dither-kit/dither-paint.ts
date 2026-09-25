@@ -100,7 +100,7 @@ export function paintColumn(
 
 /** Linear-resample a per-index fraction array to `cols` columns. */
 export function resample(src: number[], cols: number): number[] {
-  const out = new Array<number>(cols)
+  const out = Array.from({ length: cols }, () => 0)
   const last = Math.max(src.length - 1, 1)
   for (let c = 0; c < cols; c++) {
     const t = (c / Math.max(cols - 1, 1)) * last
@@ -139,11 +139,11 @@ export type BloomConfig = {
 /** A preset name, a full config, or "off". */
 export type BloomInput = BloomLevel | BloomConfig
 
-const PRESET: Record<Exclude<BloomLevel, "off">, BloomConfig> = {
+const PRESET = {
   low: { blur: 3, brightness: 1.35, opacity: 0.7, saturate: 1.4 },
   high: { blur: 5, brightness: 1.5, opacity: 0.78, saturate: 1.5 },
   aura: { blur: 15, brightness: 2.9, opacity: 0.1, saturate: 3 },
-}
+} satisfies Record<Exclude<BloomLevel, "off">, BloomConfig>
 
 export type BloomStyle = {
   filter: string
@@ -158,7 +158,7 @@ export function bloomLayerStyle(
   active: boolean
 ): BloomStyle | null {
   if (!active || input === "off") return null
-  const cfg = typeof input === "string" ? PRESET[input] : input
+  const cfg: BloomConfig = input === "low" || input === "high" || input === "aura" ? PRESET[input] : input
   return {
     filter: `blur(${cfg.blur}px) brightness(${cfg.brightness}) saturate(${cfg.saturate ?? 1})`,
     opacity: cfg.opacity,

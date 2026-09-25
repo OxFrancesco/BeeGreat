@@ -1,6 +1,6 @@
 import { createRootRoute, createRouter, Outlet, RouterProvider } from "@tanstack/react-router";
 import { createRoot } from "react-dom/client";
-import type { ProfileAction, ProfileProposal, ProfileSafeDetail } from "../../../../src/safe-profile-contract";
+import { profileActionSchema, type ProfileProposal, type ProfileSafeDetail } from "../../../../src/safe-profile-contract";
 import { Route as ProfileRoute } from "../../src/routes/profile";
 import { Route as ProfileIndexRoute } from "../../src/routes/profile.index";
 import { Route as SafeRoute } from "../../src/routes/profile.safe.$address";
@@ -22,7 +22,7 @@ window.fetch = async (input, init) => {
     return detail ? Response.json({ ...detail, observedAt: Date.now() }) : Response.json({ error: "Add this Safe to one of your organizations first." }, { status: 400 });
   }
   if (url.pathname.endsWith("/profile") && init?.method === "POST") {
-    const action = JSON.parse(String(init.body)) as ProfileAction;
+    const action = profileActionSchema.parse(JSON.parse(String(init.body)));
     const safe = safes.get(treasury.toLowerCase())!;
     switch (action.op) {
       case "org-create":
@@ -94,8 +94,11 @@ const announce = () => window.dispatchEvent(new CustomEvent("eip6963:announcePro
 window.addEventListener("eip6963:requestProvider", announce);
 
 const rootRoute = createRootRoute({ component: Outlet });
+// SAFETY: the isolated fixture replaces generated file-route parents with this local root; route ids and paths stay unchanged.
 const profileRoute = ProfileRoute.update({ id: "/profile", path: "/profile", getParentRoute: () => rootRoute } as never);
+// SAFETY: this index route is mounted under the fixture’s /profile parent, matching the generated route.
 const indexRoute = ProfileIndexRoute.update({ id: "/profile/", path: "/", getParentRoute: () => profileRoute } as never);
+// SAFETY: this fixture uses the same Safe route path and address parameter under its local /profile parent.
 const safeRoute = SafeRoute.update({ id: "/profile/safe/$address", path: "/safe/$address", getParentRoute: () => profileRoute } as never);
 const router = createRouter({ routeTree: rootRoute.addChildren([profileRoute.addChildren([indexRoute, safeRoute])]) });
 if (location.pathname === "/" || location.pathname.endsWith(".html")) history.replaceState(null, "", `${params.get("path") ?? "/profile"}${params.get("tab") ? `?tab=${params.get("tab")}` : ""}`);

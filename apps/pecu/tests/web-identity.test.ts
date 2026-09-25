@@ -13,11 +13,8 @@ test("links only a single verified provider user ID, ignoring editable metadata"
   expect(() =>
     verifiedXAccount([{ ...account, provider: "oauth_google" }]),
   ).toThrow();
-  expect(() =>
-    verifiedXAccount([
-      { ...account, providerUserId: "", publicMetadata: { xId: "123" } },
-    ]),
-  ).toThrow();
+  const spoofedAccount = { ...account, providerUserId: "", publicMetadata: { xId: "123" } };
+  expect(() => verifiedXAccount([spoofedAccount])).toThrow();
   expect(() =>
     verifiedXAccount([account, { ...account, providerUserId: "456" }]),
   ).toThrow();

@@ -104,8 +104,8 @@ function NfcActionCard({
     try {
       await onUpdate({
         expectedUpdatedAt: baseline.updatedAt,
-        ...(label !== baseline.label ? { label } : {}),
-        ...(JSON.stringify(definition) !== JSON.stringify(baseline.definition) ? { definition } : {}),
+        label: label !== baseline.label ? label : undefined,
+        definition: JSON.stringify(definition) !== JSON.stringify(baseline.definition) ? definition : undefined,
       });
       setEditing(false);
     } catch {

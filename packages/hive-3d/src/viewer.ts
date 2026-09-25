@@ -36,7 +36,7 @@ function applyState() {
 
 window.hive = {
   setState(state) {
-    if (typeof state?.balance !== 'number') return;
+    if (!Number.isFinite(state?.balance)) return;
     balance = state.balance;
     applyState();
   },
@@ -164,8 +164,8 @@ async function start() {
   });
 }
 
-start().catch((error: unknown) => {
+start().catch((cause: unknown) => {
   fallback.hidden = false;
   host.dataset.ready = 'false';
-  console.error('Hive 3D:', error);
+  console.error('Hive 3D:', cause);
 });

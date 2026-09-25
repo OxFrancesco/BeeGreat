@@ -1,6 +1,9 @@
 'use node'
 
 import { v } from 'convex/values'
+import * as Schema from 'effect/Schema'
+import * as Result from 'effect/Result'
+import * as Predicate from 'effect/Predicate'
 import { internal } from './_generated/api'
 import { env, action, internalAction, type ActionCtx } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
@@ -28,18 +31,19 @@ async function exchange(body: Record<string, string>) {
     body: JSON.stringify({ ...oauthConfig(), ...body }), signal: AbortSignal.timeout(25_000),
   })
   if (!response.ok) throw new Error('Raindrop sign-in expired. Connect again.')
-  const result = object(await response.json())
-  if (typeof result.access_token !== 'string' || typeof result.refresh_token !== 'string' || typeof result.expires_in !== 'number' || result.expires_in <= 0) throw new Error('Invalid Raindrop token response')
+  const decoded = Schema.decodeUnknownResult(Schema.Struct({ access_token: Schema.String, refresh_token: Schema.String, expires_in: Schema.Number.check(Schema.isGreaterThan(0)) }))(await response.json())
+  if (Result.isFailure(decoded)) throw new Error("Invalid Raindrop token response")
+  const result = decoded.success
   return { access: result.access_token, refresh: result.refresh_token, expiresAt: Date.now() + result.expires_in * 1000 }
 }
 async function saveConnection(ctx: ActionCtx, sessionId: Id<'raindropSessions'>, ownerKey: string, tokens: { access: string; refresh?: string; expiresAt?: number }) {
   const account = object((await request(tokens.access, 'user')).user)
   integer(account._id)
   await ctx.runMutation(internal.raindrop.storeConnection, {
-    sessionId, accountName: typeof account.fullName === 'string' ? account.fullName : 'Raindrop',
+    sessionId, accountName: Predicate.isString(account.fullName) ? account.fullName : 'Raindrop',
     encryptedAccess: encryptBeennectorSecret(tokens.access, aad(ownerKey, 'access')),
-    ...(tokens.refresh ? { encryptedRefresh: encryptBeennectorSecret(tokens.refresh, aad(ownerKey, 'refresh')) } : {}),
-    ...(tokens.expiresAt ? { expiresAt: tokens.expiresAt } : {}),
+    encryptedRefresh: tokens.refresh ? encryptBeennectorSecret(tokens.refresh, aad(ownerKey, 'refresh')) : undefined,
+    expiresAt: tokens.expiresAt || undefined,
   })
 }
 export const beginAuthorization = action({

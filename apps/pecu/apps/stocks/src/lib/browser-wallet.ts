@@ -1,13 +1,17 @@
+import { z } from "zod";
+import type { EIP1193Provider } from "viem";
 import { useSyncExternalStore } from "react";
 import { concatHex, encodeFunctionData, getAddress, padHex, parseAbi, zeroAddress } from "viem";
 import type { ProfileProposal } from "../../../../src/safe-profile-contract";
 
 type Address = `0x${string}`;
-export type Eip1193Provider = {
-  request(args: { method: string; params?: readonly unknown[] }): Promise<unknown>;
-  on?(event: string, listener: (...args: unknown[]) => void): void;
-  removeListener?(event: string, listener: (...args: unknown[]) => void): void;
-};
+export type Eip1193Provider = Pick<EIP1193Provider, "request"> & Partial<Pick<EIP1193Provider, "on" | "removeListener">>;
+const providerContract = z.object({ request: z.function(), on: z.function().optional(), removeListener: z.function().optional() });
+const providerSchema = z.custom<Eip1193Provider>(value => providerContract.safeParse(value).success);
+const walletInfoSchema = z.object({ uuid: z.string(), name: z.string().catch("Browser wallet"), icon: z.string().catch(""), rdns: z.string().catch("") });
+const addressSchema = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
+const bytesSchema = z.templateLiteral(["0x", z.string().regex(/^(?:[0-9a-fA-F]{2})*$/)]);
+const providerErrorSchema = z.object({ code: z.number().optional().catch(undefined), message: z.string().optional().catch(undefined) });
 export type BrowserWalletInfo = Readonly<{ uuid: string; name: string; icon: string; rdns: string }>;
 export type BrowserWallet = Readonly<{ info: BrowserWalletInfo; provider: Eip1193Provider }>;
 type Snapshot = Readonly<{ wallets: readonly BrowserWallet[]; connected: Readonly<{ wallet: BrowserWallet; address: Address }> | null }>;
@@ -28,44 +32,42 @@ function publish(next: Partial<Snapshot>) {
   for (const listener of listeners) listener();
 }
 
-function isProvider(value: unknown): value is Eip1193Provider {
-  return typeof value === "object" && value !== null && "request" in value && typeof value.request === "function";
-}
-
 function announce(event: Event) {
-  const detail: unknown = "detail" in event ? event.detail : undefined;
-  if (typeof detail !== "object" || detail === null || !("info" in detail) || !("provider" in detail)) return;
-  const { info, provider } = detail;
-  if (!isProvider(provider) || typeof info !== "object" || info === null) return;
-  const read = (key: string) => (key in info && typeof Reflect.get(info, key) === "string" ? String(Reflect.get(info, key)) : "");
-  const wallet: BrowserWallet = { info: { uuid: read("uuid"), name: read("name") || "Browser wallet", icon: read("icon"), rdns: read("rdns") }, provider };
+  if (!(event instanceof CustomEvent)) return;
+  const detail = z.object({ info: walletInfoSchema, provider: providerSchema }).safeParse(event.detail);
+  if (!detail.success) return;
+  const wallet = detail.data;
+  if (!wallet.info.name) wallet.info.name = "Browser wallet";
   if (!wallet.info.uuid || snapshot.wallets.some((known) => known.info.uuid === wallet.info.uuid)) return;
   publish({ wallets: [...snapshot.wallets, wallet] });
   void restore(wallet);
 }
 
 function start() {
-  if (started || typeof window === "undefined") return;
+  if (started || !("window" in globalThis)) return;
   started = true;
   window.addEventListener("eip6963:announceProvider", announce);
   window.dispatchEvent(new Event("eip6963:requestProvider"));
   window.setTimeout(() => {
-    const injected: unknown = Reflect.get(window, "ethereum");
-    if (!snapshot.wallets.length && isProvider(injected)) {
-      const wallet: BrowserWallet = { info: { uuid: "injected", name: "Browser wallet", icon: "", rdns: "injected" }, provider: injected };
+    const injected = z.object({ ethereum: providerSchema }).safeParse(window);
+    if (!snapshot.wallets.length && injected.success) {
+      const wallet: BrowserWallet = { info: { uuid: "injected", name: "Browser wallet", icon: "", rdns: "injected" }, provider: injected.data.ethereum };
       publish({ wallets: [wallet] });
       void restore(wallet);
     }
   }, 400);
 }
 
-function accounts(value: unknown): Address[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && /^0x[0-9a-fA-F]{40}$/.test(item)).map((item) => getAddress(item)) : [];
+function accounts(value: readonly string[]): Address[] {
+  return z.array(z.string()).catch([]).parse(value).flatMap(item => {
+    const address = addressSchema.safeParse(item);
+    return address.success ? [getAddress(address.data)] : [];
+  });
 }
 
 function watch(wallet: BrowserWallet) {
   detach?.();
-  const changed = (value: unknown) => {
+  const changed = (value: string[]) => {
     const [address] = accounts(value);
     if (!address) return disconnectBrowserWallet();
     publish({ connected: { wallet, address } });
@@ -77,9 +79,9 @@ function watch(wallet: BrowserWallet) {
 
 async function restore(wallet: BrowserWallet) {
   if (snapshot.connected) return;
-  const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "null");
-  if (typeof saved !== "object" || saved === null || Reflect.get(saved, "rdns") !== wallet.info.rdns) return;
   try {
+    const saved = z.object({ rdns: z.string() }).safeParse(JSON.parse(localStorage.getItem(storageKey) ?? "null"));
+    if (!saved.success || saved.data.rdns !== wallet.info.rdns) return;
     const [address] = accounts(await wallet.provider.request({ method: "eth_accounts" }));
     if (!address) return;
     publish({ connected: { wallet, address } });
@@ -117,11 +119,11 @@ export function useBrowserWallets(): Snapshot {
   );
 }
 
-function walletError(error: unknown): Error {
-  const code = typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
-  if (code === 4001) return new Error("You declined the request in your wallet.");
-  const message = typeof error === "object" && error !== null ? Reflect.get(error, "message") : undefined;
-  return new Error(typeof message === "string" && message.length < 200 ? message : "Your wallet couldn't complete the request.");
+function walletError(cause: unknown): Error {
+  const details = providerErrorSchema.safeParse(cause).data;
+  if (details?.code === 4001) return new Error("You declined the request in your wallet.");
+  const message = details?.message;
+  return new Error(message !== undefined && message.length < 200 ? message : "Your wallet couldn't complete the request.");
 }
 
 async function ensureBase(provider: Eip1193Provider) {
@@ -129,7 +131,7 @@ async function ensureBase(provider: Eip1193Provider) {
   try {
     await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: baseChainId }] });
   } catch (error) {
-    if (typeof error !== "object" || error === null || Reflect.get(error, "code") !== 4902) throw error;
+    if (providerErrorSchema.safeParse(error).data?.code !== 4902) throw error;
     await provider.request({
       method: "wallet_addEthereumChain",
       params: [{ chainId: baseChainId, chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.base.org"], blockExplorerUrls: ["https://basescan.org"] }],
@@ -156,9 +158,10 @@ export async function signSafeTransaction(wallet: BrowserWallet, address: Addres
         safeTxGas: "0", baseGas: "0", gasPrice: "0", gasToken: zeroAddress, refundReceiver: zeroAddress, nonce: transaction.nonce,
       },
     };
-    const signature: unknown = await wallet.provider.request({ method: "eth_signTypedData_v4", params: [address, JSON.stringify(typedData)] });
-    if (typeof signature !== "string" || !/^0x[0-9a-fA-F]{130}$/.test(signature)) throw new Error("The wallet returned an unsupported signature.");
-    return signature as Address;
+    const signature = await wallet.provider.request({ method: "eth_signTypedData_v4", params: [address, JSON.stringify(typedData)] });
+    const parsed = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{130}$/)]).safeParse(signature);
+    if (!parsed.success) throw new Error("The wallet returned an unsupported signature.");
+    return parsed.data;
   } catch (error) {
     throw walletError(error);
   }
@@ -173,7 +176,7 @@ export function executionSignatures(proposal: ProfileProposal, owners: readonly 
   };
   if (executor) add(executor, approvedHash(executor));
   for (const approval of proposal.approvals) if (approval.via === "chain") add(approval.owner, approvedHash(approval.owner));
-  for (const signature of proposal.signatures) add(signature.owner, signature.data as Address);
+  for (const signature of proposal.signatures) add(signature.owner, bytesSchema.parse(signature.data));
   if (chosen.size < threshold) return null;
   return concatHex([...chosen.values()].sort((a, b) => (BigInt(a.owner) < BigInt(b.owner) ? -1 : 1)).map((entry) => entry.data));
 }
@@ -184,11 +187,12 @@ export async function executeSafeTransaction(wallet: BrowserWallet, address: Add
     const data = encodeFunctionData({
       abi: executeAbi,
       functionName: "execTransaction",
-      args: [transaction.to, BigInt(transaction.value), transaction.data as Address, transaction.operation ?? 0, 0n, 0n, 0n, zeroAddress, zeroAddress, signatures],
+      args: [transaction.to, BigInt(transaction.value), bytesSchema.parse(transaction.data), transaction.operation ?? 0, 0n, 0n, 0n, zeroAddress, zeroAddress, signatures],
     });
-    const hash: unknown = await wallet.provider.request({ method: "eth_sendTransaction", params: [{ from: address, to: transaction.safe, data, value: "0x0" }] });
-    if (typeof hash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(hash)) throw new Error("The wallet didn't return a transaction hash.");
-    return hash as Address;
+    const hash = await wallet.provider.request({ method: "eth_sendTransaction", params: [{ from: address, to: transaction.safe, data, value: "0x0" }] });
+    const parsed = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{64}$/)]).safeParse(hash);
+    if (!parsed.success) throw new Error("The wallet didn't return a transaction hash.");
+    return parsed.data;
   } catch (error) {
     throw walletError(error);
   }

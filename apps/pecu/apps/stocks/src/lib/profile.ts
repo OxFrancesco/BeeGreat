@@ -1,5 +1,5 @@
+import type { JsonValue, JsonInput } from "../../../../src/json-contract";
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import type { z } from "zod";
 import {
   profileActionResultSchema,
   profileActionSchema,
@@ -14,28 +14,28 @@ import { request } from "./use-account";
 
 type Address = `0x${string}`;
 
-export async function profileAction(raw: z.input<typeof profileActionSchema>): Promise<ProfileActionResult> {
+export async function profileAction(raw: JsonInput): Promise<ProfileActionResult> {
   const action = profileActionSchema.safeParse(raw);
   if (!action.success) {
     const issue = action.error.issues[0];
     const field = issue?.path.at(-1);
-    throw new Error(issue?.message.startsWith("Enter") || issue?.message.startsWith("Use") ? issue.message : `Check the ${typeof field === "string" && labels[field] ? labels[field] : "details"} and try again.`);
+    throw new Error(issue?.message.startsWith("Enter") || issue?.message.startsWith("Use") ? issue.message : `Check the ${labels.get(String(field)) ?? "details"} and try again.`);
   }
   return profileActionResultSchema.parse(await request("profile", action.data satisfies ProfileAction));
 }
 
-const labels: Record<string, string> = {
+const labels = new Map(Object.entries({
   safe: "Safe address", to: "recipient address", owner: "owner address", replacement: "new owner address",
   delegate: "spender address", token: "token", amount: "amount", name: "name", owners: "owner addresses",
-};
+}));
 
 export const shortAddress = (value: string) => `${value.slice(0, 6)}…${value.slice(-4)}`;
 export const sameAddress = (a: string | null | undefined, b: string | null | undefined) => Boolean(a && b && a.toLowerCase() === b.toLowerCase());
-export const errorText = (error: unknown) => (error instanceof Error ? error.message : "Something went wrong. Try again.");
+export const errorText = (cause: unknown) => (cause instanceof Error ? cause.message : "Something went wrong. Try again.");
 
 type Loaded<T> = { value: T | null; error: string | null; loading: boolean; refresh: () => Promise<void> };
 
-function useResource<T>(path: string | null, parse: (raw: unknown) => T, pollMs: (value: T | null) => number | null): Loaded<T> {
+function useResource<T>(path: string | null, parse: (raw: JsonValue) => T, pollMs: (value: T | null) => number | null): Loaded<T> {
   const [value, setValue] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,8 +76,8 @@ function useResource<T>(path: string | null, parse: (raw: unknown) => T, pollMs:
   return { value, error, loading, refresh };
 }
 
-const parseOverview = (raw: unknown) => profileOverviewSchema.parse(raw);
-const parseSafe = (raw: unknown) => profileSafeDetailSchema.parse(raw);
+const parseOverview = (raw: JsonValue) => profileOverviewSchema.parse(raw);
+const parseSafe = (raw: JsonValue) => profileSafeDetailSchema.parse(raw);
 
 export function useProfileOverview(signedIn: boolean) {
   return useResource<ProfileOverview>(signedIn ? "profile" : null, parseOverview, (value) =>

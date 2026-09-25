@@ -29,9 +29,15 @@ test("a limit without a reset time blocks briefly and reads retry-after when pre
   expect(usageLimitActive(limit, now + 30_000)).toBe(true);
   expect(usageLimitActive(limit, now + 61_000)).toBe(false);
   expect(usageLimitText(limit, now)).toContain("Try again later.");
-  const withHeader = parseUsageLimit(429, JSON.stringify({ error: { type: "usage_limit_reached" } }), new Headers({ "retry-after": "900" }), now)!;
-  expect(withHeader.resetsAt).toBe(now + 900_000);
-  expect(usageLimitText(withHeader, now)).toContain("in 15 minutes");
+  for (const reset of [undefined, null, "invalid", "30", false, {}, []]) {
+    const withHeader = parseUsageLimit(429, JSON.stringify({ error: { type: "usage_limit_reached", resets_in_seconds: reset } }), new Headers({ "retry-after": "900" }), now)!;
+    expect(withHeader.resetsAt).toBe(now + 900_000);
+    expect(usageLimitActive(withHeader, now + 61_000)).toBe(true);
+    expect(usageLimitActive(withHeader, now + 900_000)).toBe(false);
+    expect(usageLimitText(withHeader, now)).toContain("in 15 minutes");
+  }
+  const withReset = parseUsageLimit(429, JSON.stringify({ error: { type: "usage_limit_reached", resets_in_seconds: 30 } }), new Headers({ "retry-after": "900" }), now)!;
+  expect(withReset.resetsAt).toBe(now + 30_000);
 });
 
 test("a plan without Codex usage is terminal for the day", () => {

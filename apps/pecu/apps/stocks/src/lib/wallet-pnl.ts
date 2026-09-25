@@ -93,8 +93,8 @@ export function useWalletPnl(wallet: string, days: PnlDays, active: boolean) {
     setState((current) => (current.key === key ? { key, value: current.value } : { key, value: results.get(key)?.value }));
     loadPnl(wallet, days).then(
       (value) => live && setState({ key, value }),
-      (error: unknown) =>
-        live && setState({ key, value: results.get(key)?.value, error: error instanceof Error ? error.message : "Could not load your P&L. Try again." }),
+      (cause: unknown) =>
+        live && setState({ key, value: results.get(key)?.value, error: cause instanceof Error ? cause.message : "Could not load your P&L. Try again." }),
     );
     return () => {
       live = false;

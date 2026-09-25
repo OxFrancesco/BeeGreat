@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { api } from '@beegreat/backend/convex/_generated/api'
 import { SignInButton, SignedIn, SignedOut, useUser } from '@clerk/tanstack-react-start'
 import { Link, createFileRoute } from '@tanstack/react-router'
@@ -70,8 +71,9 @@ function CompleteConnection({ callback }: { callback: Callback }) {
       let returnUrl: string | undefined
       if (result.client === 'mobile') {
         const url = new URL('beegreat://profile')
-        if (callback.kind === 'beennector' && 'provider' in result && typeof result.provider === 'string') {
-          url.searchParams.set('beennector', result.provider)
+        const provider = z.object({ provider: z.string() }).safeParse(result).data?.provider
+        if (callback.kind === 'beennector' && provider !== undefined) {
+          url.searchParams.set('beennector', provider)
           url.searchParams.set('status', 'connected')
         } else url.searchParams.set(callback.kind === 'google-health' ? 'googleHealth' : 'telegram', 'connected')
         returnUrl = url.toString()

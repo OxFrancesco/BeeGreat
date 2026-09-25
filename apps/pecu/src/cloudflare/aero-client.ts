@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { SugarJson } from "@beegreat/sugar";
 import type { AeroRequest } from "./aero-protocol";
 
@@ -11,9 +12,8 @@ export function aeroWorkerExecutor(service: Pick<Fetcher, "fetch">): AeroExecuto
       body: JSON.stringify(request),
     });
     if (!response.ok) {
-      const payload: unknown = await response.json();
-      const detail = payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
-        ? payload.error : `Aero Worker returned HTTP ${response.status}`;
+      const payload = z.object({ error: z.string() }).safeParse(await response.json());
+      const detail = payload.success ? payload.data.error : `Aero Worker returned HTTP ${response.status}`;
       throw new Error(detail);
     }
     return response.json();

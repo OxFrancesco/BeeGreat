@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "lint": "oxlint --config ../../.oxlintrc.json src scripts tests",
     "x:login": "bun scripts/x-login.ts",
     "xchat:setup": "bun scripts/xchat-setup.ts",
     "aero": "sugar-ts",

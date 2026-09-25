@@ -6,7 +6,7 @@
 // smart-wallet plans. Plain TypeScript helpers only — the Convex function
 // definitions live in web3.ts.
 
-import { EVMWallet } from '@crossmint/wallets-sdk'
+import { web3ExecutionServices, type Web3ExecutionServices } from './executionServices'
 import * as Predicate from 'effect/Predicate'
 import type { FunctionArgs } from 'convex/server'
 import {
@@ -48,7 +48,7 @@ import {
   preparedNote,
   requireWeb3,
 } from './shared'
-import { cachedWalletForUser, walletForUser } from './crossmintWallet'
+import { cachedWalletForUser } from './crossmintWallet'
 
 export function sugarEnvironment() {
   return sugarRuntimeEnvironment(env)
@@ -72,7 +72,7 @@ const reportSugarRpcEvent: SugarRpcObserver = (event) => {
   console.info('Sugar RPC', event)
 }
 
-export function sugarOptions(ctx: ActionCtx): SugarExecutionOptions {
+export function sugarOptions(ctx: Pick<ActionCtx, "runQuery" | "runMutation">): SugarExecutionOptions {
   const environment = sugarEnvironment()
   const baseRpcUrl = environment.SUGAR_RPC_URI_8453
   const executionOptions: SugarExecutionOptions = {
@@ -195,10 +195,10 @@ export function describeSugarPlanOutcome(plan: SugarJson): string {
   }
   const veNft = planRecord(record.ve_nft)
   if (veNft) {
-    const amount = typeof veNft.amount_formatted === 'string' ? veNft.amount_formatted : String(veNft.amount_decimal)
+    const amount = Predicate.isString(veNft.amount_formatted) ? veNft.amount_formatted : String(veNft.amount_decimal)
     const symbol = veNft.governance_symbol
     const duration = veNft.lock_duration_seconds
-    if (!amount || typeof symbol !== 'string' || typeof duration !== 'number' || !Number.isSafeInteger(duration) || duration <= 0) {
+    if (!amount || !Predicate.isString(symbol) || !Predicate.isNumber(duration) || !Number.isSafeInteger(duration) || duration <= 0) {
       throw new Error('The veNFT plan is missing its lock terms.')
     }
     const days = duration / 86_400
@@ -460,8 +460,9 @@ export async function refreshEoaSugarExecutionForUser(
 }
 
 export async function reconcileCrossmintActionForId(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   actionId: Id<'web3Actions'>,
+  services: Pick<Web3ExecutionServices, "wallet"> = web3ExecutionServices,
 ) {
   const action: Doc<'web3Actions'> | null = await ctx.runQuery(
     internal.web3Actions.get,
@@ -489,7 +490,7 @@ export async function reconcileCrossmintActionForId(
     return null
   }
   try {
-    const wallet = EVMWallet.from(await walletForUser(action.userId, chain))
+    const wallet = await services.wallet(action.userId, chain)
     const response = await wallet.transaction(pending.transactionId)
     if (response.id === pending.transactionId && response.status === 'awaiting-approval') await ctx.runMutation(internal.web3Reconciliation.noteAwaitingApproval, { actionId, transactionId: pending.transactionId })
     const status = reconcileCrossmintTransaction(response, pending.transactionId)

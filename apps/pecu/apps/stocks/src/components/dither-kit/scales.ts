@@ -1,15 +1,16 @@
+import { type JsonFields, type JsonInput } from "../../../../../src/json-contract"
+import { z } from "zod"
 // Pure geometry helpers for the dither chart engine. Kept framework-free so the
 // context (and, later, bar/line/pie/radar roots) can share the same math.
 
 import { scaleBand, scaleLinear, scalePoint } from "d3-scale"
-import { stack as d3Stack, stackOffsetExpand } from "d3-shape"
+import { stack as d3Stack, stackOffsetExpand, stackOffsetNone } from "d3-shape"
 
 export type StackType = "default" | "stacked" | "percent"
 
-type Row = Record<string, unknown>
+type Row = JsonFields
 
-const num = (v: unknown) =>
-  typeof v === "number" && Number.isFinite(v) ? v : 0
+const num = (v: JsonInput) => z.number().catch(0).parse(v)
 
 /**
  * Per-series [y0, y1] bands for every row. For `default` every series sits on
@@ -24,7 +25,7 @@ export function computeBands(
   data: Row[],
   keys: string[],
   stackType: StackType
-): { bands: Record<string, [number, number][]>; max: number; min: number } {
+) {
   if (stackType === "default") {
     const bands: Record<string, [number, number][]> = {}
     let max = 0
@@ -47,7 +48,7 @@ export function computeBands(
   const series = d3Stack<Row>()
     .keys(keys)
     .value((row, key) => num(row[key]))
-    .offset(stackType === "percent" ? stackOffsetExpand : (undefined as never))(
+    .offset(stackType === "percent" ? stackOffsetExpand : stackOffsetNone)(
     data
   )
 

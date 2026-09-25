@@ -50,7 +50,7 @@ export class TypeSafeRequestClassifier implements RequestClassifier {
       if (answer.confidence < 0.9) return { kind: "fallback" };
       if (answer.choice === "mixed") {
         const family = z.object({ choice: z.enum(["wallet", "defi", "markets", "analytics", "funding", "all"]), confidence: z.number().min(0).max(1) }).safeParse(result.answers.family);
-        return { kind: "mixed", ...(family.success && family.data.confidence >= 0.9 ? { family: family.data.choice } : {}) };
+        return family.success && family.data.confidence >= 0.9 ? { kind: "mixed", family: family.data.choice } : { kind: "mixed" };
       }
       if (answer.choice === "response") return { kind: answer.choice };
       return { kind: "command", command: answer.choice };

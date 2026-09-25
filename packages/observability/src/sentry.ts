@@ -92,11 +92,11 @@ function isAttachedRecord<Value>(value: Value): value is Value & SanitizedPayloa
 
 /** True only for primitive strings; boxing avoids invoking value `toString`s. */
 function isStringValue<Value>(value: Value): value is Value & string {
-  return Object(value) instanceof String
+  return Object(value) !== value && Object(value) instanceof String
 }
 
 function isSensitiveKey(key: string) {
-  const normalized = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[.\-]/g, '_')
+  const normalized = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[.-]/g, '_')
   return SENSITIVE_KEY.test(normalized)
 }
 
@@ -153,7 +153,7 @@ function sanitizeAttached<Value extends SanitizedValue>(
 ): SanitizedValue {
   if (isSensitiveKey(key)) return FILTERED
   if (depth >= 5) return '[Truncated]'
-  if (typeof value === 'string') {
+  if (isStringValue(value)) {
     if (/(?:^|[_.-])(?:url|uri|from|to|target)(?:$|[_.-])/i.test(key)) return sanitizeUrl(value)
     return sanitizeDiagnosticText(value)
   }

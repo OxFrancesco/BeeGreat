@@ -1,7 +1,11 @@
 "use client"
 
+import { jsonFieldsSchema } from "../../../../../src/json-contract"
+import { z } from "zod"
+
 import {
   Children,
+  useMemo,
   type ComponentType,
   isValidElement,
   type ReactNode,
@@ -61,8 +65,8 @@ export type CartesianChartProps<TData extends Row> = {
 
 /** Which render layer a composed part targets — defaults to the front SVG. */
 function layerOf(node: ReactNode): "back" | "dom" | "svg" {
-  if (!isValidElement(node) || typeof node.type === "string") return "svg"
-  return (node.type as { chartLayer?: "back" | "dom" }).chartLayer ?? "svg"
+  if (!isValidElement(node)) return "svg"
+  return z.enum(["back", "dom", "svg"]).catch("svg").parse(Object.getOwnPropertyDescriptor(node.type, "chartLayer")?.value)
 }
 
 /**
@@ -104,7 +108,7 @@ export function CartesianRoot<TData extends Row>({
   const ctx = useChartController({
     chartType,
     // Safe: the controller only reads row[key] for the configured series keys.
-    data: data as Record<string, unknown>[],
+    data: useMemo(() => jsonFieldsSchema.array().parse(data), [data]),
     config,
     stackType,
     dimensions: size,

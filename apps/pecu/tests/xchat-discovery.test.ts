@@ -1,10 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { ApiError } from "@xdevplatform/xdk";
-import type { ChatWithJuicebox } from "@xdevplatform/chat-xdk";
-import type { PecuAgent } from "../src/agent";
 import { Store } from "../src/store";
-import type { XApi } from "../src/x/api";
-import { XChatTransport, type ConversationDiscovery } from "../src/x/transport";
+import { type ChatTransportApi, type ChatTransportCrypto, XChatTransport, type ConversationDiscovery } from "../src/x/transport";
 
 const stores: Store[] = [];
 afterEach(() => { for (const store of stores.splice(0)) store.close(); });
@@ -14,14 +11,15 @@ function fixture(list: () => Promise<Array<{ id: string; participantIds: string[
   const store = new Store(":memory:"); stores.push(store);
   const eventReads: string[] = [];
   let persisted = initial;
-  const api = {
+  const api: ChatTransportApi = {
     conversations: list,
     conversationId: async () => "1-2",
     events: async (id: string) => { eventReads.push(id); return { data: [], meta: {} }; },
     publicKeys: async () => [],
-  } as unknown as XApi;
-  const chat = { setSigningKeys() {}, decryptEvents: () => ({ messages: [], errors: {}, conversationKeys: { keys: {}, latestVersion: null } }) } as unknown as ChatWithJuicebox;
-  const create = () => new XChatTransport(api, chat, "1", { chatPeerUserIds: peers, pollIntervalMs: 60_000 }, store, {} as PecuAgent, {
+    send: async () => { throw new Error("Unexpected send during discovery"); },
+  };
+  const chat: ChatTransportCrypto = { encryptReply: () => { throw new Error("Unexpected encryption during discovery"); }, setSigningKeys() {}, decryptEvents: () => ({ messages: [], errors: {}, conversationKeys: { keys: {}, latestVersion: null } }) };
+  const create = () => new XChatTransport(api, chat, "1", { chatPeerUserIds: peers, pollIntervalMs: 60_000 }, store, { handle: async () => { throw new Error("Unexpected message during discovery"); } }, {
     get: async () => persisted,
     put: async (value) => { persisted = value; },
   });

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createChat } from "@xdevplatform/chat-xdk";
 import { loadConfig } from "../src/config";
@@ -8,7 +9,7 @@ import { realmTokens } from "../src/x/chat";
 const markerPath = ".data/xchat-registration.json";
 
 async function marker(): Promise<{ registered?: boolean } | undefined> {
-  try { return JSON.parse(await readFile(markerPath, "utf8")) as { registered?: boolean }; }
+  try { return z.object({ registered: z.boolean().optional() }).parse(JSON.parse(await readFile(markerPath, "utf8"))); }
   catch { return undefined; }
 }
 

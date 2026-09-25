@@ -1,3 +1,4 @@
+import { jsonValueSchema, type JsonValue, type JsonInput } from "../json-contract";
 import { InferenceTools, userInference } from "./user-inference";
 import { captureAgentEvent } from "../analytics";
 import { fallbackModels } from "./opencode";
@@ -52,15 +53,15 @@ type StoredRealtimeSetup = Readonly<{
   checkedAt: number;
 }>;
 
-function json(value: unknown, status = 200): Response {
+function json(value: JsonInput, status = 200): Response {
   return Response.json(value, {
     status,
     headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },
   });
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 async function digest(value: string): Promise<string> {
@@ -124,7 +125,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           this.store,
           wallets,
           {
-            analytics: Reflect.get(env, "POSTHOG_ENABLED") === "true"
+            analytics: this.config.analyticsEnabled
               ? (senderId, event) => ctx.waitUntil(captureAgentEvent({ senderId, event }))
               : undefined,
             aave: new AaveService(),
@@ -189,11 +190,12 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       }
       if (url.pathname.startsWith("/internal/web/") && request.method === "POST") {
         if (!this.webAgent) return json({ error: "Agent unavailable" }, 503);
-        const raw: unknown = await request.json();
+        const raw = jsonValueSchema.parse(await request.json());
         if (["/internal/web/inference", "/internal/web/inference-connect", "/internal/web/inference-disconnect"].includes(url.pathname)) {
           const viewer = webIdentitySchema.parse(raw);
           const inference = userInference(this.env, viewer.senderId);
-          return json(await (url.pathname.endsWith("-connect") ? inference.startLogin() : url.pathname.endsWith("-disconnect") ? inference.disconnect() : inference.status()));
+          const status = await (url.pathname.endsWith("-connect") ? inference.startLogin() : url.pathname.endsWith("-disconnect") ? inference.disconnect() : inference.status());
+          return json({ ...status });
         }
         if (url.pathname === "/internal/web/state") {
           const input = webStateRequestSchema.parse(raw);
@@ -219,15 +221,14 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           } catch (error) {
             const message = errorMessage(error);
             log("warn", "web_pnl_failed", { error: message });
-            return json({ error: /^Nansen /.test(message) ? message : "Could not load your P&L. Try again." }, 502);
+            return json({ error: message.startsWith("Nansen ") ? message : "Could not load your P&L. Try again." }, 502);
           }
         }
         if (["/internal/web/profile", "/internal/web/profile-safe", "/internal/web/profile-action"].includes(url.pathname)) {
           return await this.profileRequest(url.pathname, raw);
         }
         if (url.pathname === "/internal/web/basket") {
-          const identity = webIdentitySchema.parse(typeof raw === 'object' && raw ? Reflect.get(raw, 'identity') : null);
-          const basket = basketSchema.parse(typeof raw === 'object' && raw ? Reflect.get(raw, 'basket') : null);
+          const { identity, basket } = z.object({ identity: webIdentitySchema, basket: basketSchema }).parse(raw);
           this.webAgent.saveBasket(identity, basket);
           return json({ ok: true });
         }
@@ -261,12 +262,12 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         });
       }
       if (url.pathname === "/internal/activity" && request.method === "POST") {
-        await new ActivityQueue(this.ctx.storage).enqueue(await request.json());
+        await new ActivityQueue(this.ctx.storage).enqueue(jsonValueSchema.parse(await request.json()));
         return json({ ok: true, queued: true });
       }
       if (url.pathname === "/internal/whop/deposit" && request.method === "POST") {
         if (!this.agent) return json({ error: "Agent unavailable" }, 503);
-        const result = this.agent.recordWhopDeposit(await request.json());
+        const result = this.agent.recordWhopDeposit(jsonValueSchema.parse(await request.json()));
         if (result.depositId) this.ctx.waitUntil(this.agent.relayDeposit(result.depositId));
         return json({ status: result.status });
       }
@@ -319,7 +320,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     }
   }
 
-  private async profileRequest(path: string, raw: unknown): Promise<Response> {
+  private async profileRequest(path: string, raw: JsonValue): Promise<Response> {
     const profile = this.safeProfile;
     if (!profile) return json({ error: "Agent unavailable" }, 503);
     const { ProfileError } = await import("../safe-profile");
@@ -482,7 +483,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     await (await this.ensureTransport()).poll();
   }
 
-  private async ingestActivity(body: unknown): Promise<boolean> {
+  private async ingestActivity(body: JsonValue): Promise<boolean> {
     try {
       return await this.ingestActivityWithCurrentToken(body);
     } catch (error) {
@@ -492,7 +493,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     }
   }
 
-  private async ingestActivityWithCurrentToken(body: unknown): Promise<boolean> {
+  private async ingestActivityWithCurrentToken(body: JsonValue): Promise<boolean> {
     const handled = await (await this.ensureTransport()).ingestActivity(body, true);
     if (handled) await this.ctx.storage.put(lastActivityAtKey, Date.now());
     return handled;
@@ -610,7 +611,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     }
     const tokens = await refreshXOAuthToken({
       clientId: this.config.xOAuthClientId,
-      ...(this.config.xOAuthClientSecret ? { clientSecret: this.config.xOAuthClientSecret } : {}),
+      clientSecret: this.config.xOAuthClientSecret || undefined,
       refreshToken: this.xRefreshToken,
     });
     this.xAccessToken = tokens.accessToken;
@@ -632,14 +633,16 @@ export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (accept) headers.set("Accept", accept);
     return durableObject(this.env).fetch(new Request(`https://pecu.internal/internal/web${path}`, {
-      method:"POST",headers:{"Content-Type":"application/json",...(accept ? { Accept: accept } : {})},body,
+      method:"POST",headers,body,
     }));
   }
 }
 
 export default {
-  async fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Cloudflare.Env, _ctx: ExecutionContext): Promise<Response> {
     const config = loadWorkerConfig(env);
     const url = new URL(request.url);
     if (url.pathname === "/x/webhook") {

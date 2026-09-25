@@ -1,10 +1,11 @@
+import type { MessageSink } from './message-sink'
 import { recordDisplayedWeb3 } from './displayed-confirmations'
 // Formats Bee replies for iMessage and sends them: markdown body (optionally
 // with a confetti celebration effect) followed by rich links, re-projecting
 // any pending web3 confirmation against its current server-side status.
 
 import { projectTextWeb3Action } from '@beegreat/tool-presentation'
-import { markdown, richlink, type Space } from 'spectrum-ts'
+import { markdown, richlink } from 'spectrum-ts'
 import { effect, imessage } from 'spectrum-ts/providers/imessage'
 import {
   projectWeb3Action,
@@ -17,17 +18,20 @@ export type BeeReply = BeeResponseProjection
 
 export function replyForWeb3Action(action: Web3ActionProjection & { id?: string }): BeeReply {
   const projected = projectTextWeb3Action(action)
-  return {
+  const reply: BeeReply = {
     spoken: '',
     markdown: projected.text,
     links: projected.links,
-    ...(projected.requiresTextConfirmation && action.id ? { web3Confirmation: { actionId: action.id, summary: action.summary } } : {}),
   }
+  if (projected.requiresTextConfirmation && action.id) {
+    reply.web3Confirmation = { actionId: action.id, summary: action.summary }
+  }
+  return reply
 }
 
 export async function sendReply(
   transport: AgentTransport,
-  space: Space,
+  space: MessageSink,
   reply: BeeReply,
   userId: string,
   celebrate = false,

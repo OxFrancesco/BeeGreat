@@ -9,7 +9,8 @@ import { pnlSummary, signedUsd } from "../src/lib/wallet-pnl";
 import { analyticsFixtures } from "./fixtures/nansen-analytics";
 
 const wallet = "0x1111111111111111111111111111111111111111";
-const snapshot = analyticsFixtures.find((fixture) => fixture.key === "pnl") as PnlSnapshot;
+const snapshot = analyticsFixtures.find((fixture) => fixture.kind === "pnl");
+if (!snapshot) throw new Error("Missing P&L fixture");
 const missing: PnlSnapshot = {
   ...snapshot,
   partial: true,
@@ -58,7 +59,7 @@ let root: Root;
 let host: HTMLDivElement;
 let requests: string[];
 let restore: [string, PropertyDescriptor | undefined][] = [];
-function setGlobal(key: string, value: unknown) {
+function setGlobal<T>(key: string, value: T) {
   restore.push([key, Object.getOwnPropertyDescriptor(globalThis, key)]);
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
 }
@@ -67,7 +68,8 @@ beforeEach(() => {
   Object.assign(globalThis, { window, document: window.document, IS_REACT_ACT_ENVIRONMENT: true });
   for (const key of Object.getOwnPropertyNames(window)) {
     if (!/^[A-Z]/.test(key) || (key in globalThis && !/Event$|^HTML|^SVG|^Node|^Element$|^Document|^Mutation|^Resize/.test(key))) continue;
-    setGlobal(key, Reflect.get(window, key));
+    const descriptor = Object.getOwnPropertyDescriptor(window, key);
+    if (descriptor) setGlobal(key, descriptor.get ? descriptor.get.call(window) : descriptor.value);
   }
   setGlobal("getComputedStyle", window.getComputedStyle.bind(window));
   setGlobal("requestAnimationFrame", window.requestAnimationFrame.bind(window));

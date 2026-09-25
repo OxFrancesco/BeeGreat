@@ -39,7 +39,7 @@ export async function runEvmRead(client: Pick<ReturnType<typeof evmReadClient>, 
         metadata?.symbol ?? client.readContract({ address: token.token, abi: erc20Abi, functionName: "symbol", blockNumber }),
         metadata?.decimals ?? client.readContract({ address: token.token, abi: erc20Abi, functionName: "decimals", blockNumber }),
       ]);
-      return { ok: true, result: { chainId: 8453, address: input.address, token: input.token, amount: amount.toString(), symbol, decimals, block } };
+      return { ok: true, result: { chainId: 8453, address: token.address, token: token.token, amount: amount.toString(), symbol, decimals, block } };
     }
     throw new Error("Invalid read");
   } catch (error) {

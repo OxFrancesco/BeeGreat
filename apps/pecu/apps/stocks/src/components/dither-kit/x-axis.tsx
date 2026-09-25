@@ -1,5 +1,7 @@
 "use client"
 
+import type { JsonInput } from "../../../../../src/json-contract"
+
 import { useChartPart } from "./chart-context"
 
 export function XAxis({
@@ -9,7 +11,7 @@ export function XAxis({
   maxTicks = 8,
 }: {
   dataKey?: string
-  tickFormatter?: (value: unknown, index: number) => string
+  tickFormatter?: (value: JsonInput, index: number) => string
   tickMargin?: number
   maxTicks?: number
 }) {

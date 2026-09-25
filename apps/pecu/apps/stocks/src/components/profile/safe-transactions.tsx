@@ -2,10 +2,10 @@ import { CheckIcon, CircleIcon, ExternalLinkIcon, PenLineIcon } from "lucide-rea
 import { useState } from "react";
 import type { ProfileIntent, ProfileProposal, ProfileSafeDetail } from "../../../../../src/safe-profile-contract";
 import { executeSafeTransaction, executionSignatures, signSafeTransaction, useBrowserWallets } from "@/lib/browser-wallet";
-import { addressLabel, errorText, newRequestId, profileAction, sameAddress, shortAddress, type Address } from "@/lib/profile";
+import { addressLabel, errorText, newRequestId, profileAction, sameAddress, shortAddress } from "@/lib/profile";
 import { Button } from "../ui/button";
 
-const proposerText: Record<ProfileProposal["proposer"], string> = { you: "Proposed by you", owner: "Proposed by an owner", other: "Proposed by someone who isn't a known owner" };
+const proposerText = { you: "Proposed by you", owner: "Proposed by an owner", other: "Proposed by someone who isn't a known owner" } satisfies Record<ProfileProposal["proposer"], string>;
 const dateTime = (value: number) => new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 function ApprovalBeads({ approvals, threshold }: { approvals: number; threshold: number }) {
@@ -153,13 +153,13 @@ function ProposalCard({ proposal, detail, onChanged, onIntent, onReject }: {
   );
 }
 
-const historyState: Record<ProfileProposal["state"], string> = {
+const historyState = {
   queued: "Pending",
   submitted: "Submitted",
   executed: "Executed",
   replaced: "Replaced by another transaction",
   closed: "No longer pending",
-};
+} satisfies Record<ProfileProposal["state"], string>;
 
 export function SafeTransactions({ detail, onChanged, onIntent, onReject }: {
   detail: ProfileSafeDetail; onChanged: (message?: string) => void; onIntent: (intent: ProfileIntent) => void; onReject: () => void;

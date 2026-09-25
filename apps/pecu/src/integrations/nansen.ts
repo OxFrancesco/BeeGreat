@@ -5,6 +5,28 @@ import { log } from "../logger";
 import { analyticsText, type AnalyticsResult } from "../analytics-contract";
 import { nansenAnalytics } from "./nansen-analytics";
 
+// Nansen returns JSON with endpoint-specific columns. Validate the wire domain
+// before the presentation helpers inspect those columns.
+const jsonSchema = z.json();
+export type NansenPayload = z.infer<typeof jsonSchema>;
+const rowSchema = z.record(z.string(), jsonSchema);
+type NansenRow = z.infer<typeof rowSchema>;
+export const nansenQuerySchema = z.object({
+  address: z.string().optional(), chain: z.string().optional(), token: z.string().optional(),
+  timeframe: z.string().optional(), days: z.number().optional(), limit: z.number().optional(),
+  label: z.string().optional(), side: z.string().optional(), group_by: z.string().optional(),
+  query: z.string().optional(), status: z.string().optional(), sort_by: z.string().optional(),
+  market_id: z.string().optional(),
+});
+export type NansenQuery = z.infer<typeof nansenQuerySchema>;
+export type NansenRequest = {
+  address?: string; wallet_address?: string; chain?: string; chains?: string[];
+  token_address?: string; timeframe?: string; date?: { from: string; to: string };
+  pagination?: { page: number; per_page: number }; filters?: { show_realized: boolean };
+  hide_spam_token?: boolean; only_smart_money?: boolean; label?: string; buy_or_sell?: string;
+  group_by?: string; query?: string; status?: string; sort_by?: string; market_id?: string;
+};
+
 export const nansenChains = [
   "arbitrum", "avalanche", "base", "bitcoin", "bnb", "ethereum", "hyperevm", "hyperliquid",
   "injective", "iotaevm", "linea", "mantle", "mantra", "monad", "near", "optimism", "plasma",
@@ -41,7 +63,7 @@ const range = (count: number) => ({
 const attribution = "Data: Nansen (nansen.ai)";
 const empty = `No results from Nansen for that query.\n${attribution}`;
 
-const usd = (value: unknown): string => {
+const usd = (value: NansenPayload | undefined): string => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   const sign = n < 0 ? "-" : "";
@@ -52,7 +74,7 @@ const usd = (value: unknown): string => {
   return `${sign}$${abs.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-const num = (value: unknown): string => {
+const num = (value: NansenPayload | undefined): string => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "-";
   const abs = Math.abs(n);
@@ -62,29 +84,32 @@ const num = (value: unknown): string => {
   return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
 };
 
-const short = (value: unknown): string => {
+const short = (value: NansenPayload | undefined): string => {
   const s = String(value ?? "");
   if (/^0x[0-9a-fA-F]{20,}$/.test(s)) return `${s.slice(0, 6)}…${s.slice(-4)}`;
   return s.length > 24 ? `${s.slice(0, 12)}…${s.slice(-6)}` : s;
 };
 
-const timestamp = (value: unknown): string => {
+const timestamp = (value: NansenPayload | undefined): string => {
   const ms = Date.parse(String(value));
   return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 16).replace("T", " ") : String(value ?? "-");
 };
 
-const day = (value: unknown): string => {
+const day = (value: NansenPayload | undefined): string => {
   const ms = Date.parse(String(value));
   return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : String(value ?? "-");
 };
 
-const rows = (body: unknown): Record<string, unknown>[] => {
-  const source = typeof body === "object" && body !== null ? Reflect.get(body, "data") : undefined;
-  const list = Array.isArray(source) ? source : [];
-  return list.filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null);
+const rows = (body: NansenPayload): NansenRow[] => {
+  const source = record(body).data;
+  if (!Array.isArray(source)) return [];
+  return source.flatMap((value) => {
+    const parsed = rowSchema.safeParse(value);
+    return parsed.success ? [parsed.data] : [];
+  });
 };
 
-const field = (row: Record<string, unknown>, ...names: string[]): unknown => {
+const field = (row: NansenRow, ...names: string[]): NansenPayload | undefined => {
   for (const name of names) {
     const value = row[name];
     if (value !== undefined && value !== null && value !== "") return value;
@@ -92,7 +117,7 @@ const field = (row: Record<string, unknown>, ...names: string[]): unknown => {
   return undefined;
 };
 
-const list = (body: unknown, line: (row: Record<string, unknown>) => string): string => {
+const list = (body: NansenPayload, line: (row: NansenRow) => string): string => {
   const items = rows(body);
   if (items.length === 0) return empty;
   return `${items.map(line).join("\n")}\n${attribution}`;
@@ -107,7 +132,7 @@ const flowCohorts: ReadonlyArray<readonly [string, string]> = [
   ["fresh_wallets", "Fresh wallets"],
 ];
 
-const summarizeFlowIntelligence = (body: unknown): string => {
+const summarizeFlowIntelligence = (body: NansenPayload): string => {
   const row = rows(body)[0];
   if (!row) return empty;
   const lines = flowCohorts
@@ -122,10 +147,10 @@ const summarizeFlowIntelligence = (body: unknown): string => {
   return `${["Token flow intelligence", ...lines].join("\n")}\n${attribution}`;
 };
 
-const record = (value: unknown): Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value) ? Object.fromEntries(Object.entries(value)) : {};
+const record = (value: NansenPayload | undefined): NansenRow =>
+  rowSchema.catch({}).parse(value);
 
-const summarizeTokenInfo = (body: unknown): string => {
+const summarizeTokenInfo = (body: NansenPayload): string => {
   const data = record(record(body).data);
   if (Object.keys(data).length === 0) return empty;
   const details = record(data.token_details);
@@ -136,7 +161,7 @@ const summarizeTokenInfo = (body: unknown): string => {
     ? (symbol !== undefined ? `${name} (${symbol})` : String(name))
     : symbol !== undefined ? String(symbol) : "Token";
   const lines: string[] = [];
-  const push = (label: string, value: unknown, format: (v: unknown) => string) => {
+  const push = (label: string, value: NansenPayload | undefined, format: (v: NansenPayload | undefined) => string) => {
     if (value !== undefined) lines.push(`${label}: ${format(value)}`);
   };
   push("Market cap", field(details, "market_cap_usd"), usd);
@@ -163,9 +188,8 @@ const summarizeTokenInfo = (body: unknown): string => {
   return `${[title, ...lines].join("\n")}\n${attribution}`;
 };
 
-const summarizeWalletPnl = (body: unknown): string => {
-  if (typeof body !== "object" || body === null) return empty;
-  const row = body as Record<string, unknown>;
+const summarizeWalletPnl = (body: NansenPayload): string => {
+  const row = record(body);
   if (field(row, "realized_pnl_usd") === undefined && field(row, "traded_token_count") === undefined) return empty;
   const pnl = usd(field(row, "realized_pnl_usd"));
   const pct = Number(field(row, "realized_pnl_percent"));
@@ -177,14 +201,13 @@ const summarizeWalletPnl = (body: unknown): string => {
   ];
   const top = Array.isArray(row.top5_tokens) ? row.top5_tokens : [];
   for (const entry of top) {
-    if (typeof entry !== "object" || entry === null) continue;
-    const t = entry as Record<string, unknown>;
+    const t = record(entry);
     lines.push(`${String(field(t, "token_symbol") ?? short(field(t, "token_address")))}: ${usd(field(t, "realized_pnl"))} (${num(field(t, "realized_roi"))}% ROI)`);
   }
   return `${lines.join("\n")}\n${attribution}`;
 };
 
-const summarizeCandles = (body: unknown): string => {
+const summarizeCandles = (body: NansenPayload): string => {
   const items = rows(body).slice(-10).toReversed();
   if (items.length === 0) return empty;
   return `${items.map((row) => `${day(field(row, "interval_start", "period_start", "date"))}  O ${num(field(row, "open"))}  H ${num(field(row, "high"))}  L ${num(field(row, "low"))}  C ${num(field(row, "close"))}  vol ${usd(field(row, "volume_usd", "volume"))}`).join("\n")}\n${attribution}`;
@@ -196,16 +219,16 @@ type NansenEntry<S extends z.ZodType> = Readonly<{
   path: string;
   description: string;
   input: S;
-  summarize(body: unknown): string;
-  buildBody(input: unknown, context: NansenContext): Record<string, unknown>;
+  summarize(body: NansenPayload): string;
+  buildBody(input: NansenQuery, context: NansenContext): NansenRequest;
 }>;
 
 const entry = <S extends z.ZodType>(definition: Readonly<{
   path: string;
   description: string;
   input: S;
-  body(input: z.output<S>, context: NansenContext): Record<string, unknown>;
-  summarize(body: unknown): string;
+  body(input: z.output<S>, context: NansenContext): NansenRequest;
+  summarize(body: NansenPayload): string;
 }>): NansenEntry<S> => ({
   path: definition.path,
   description: definition.description,
@@ -249,7 +272,7 @@ export const nansenEndpoints = {
     path: "tgm/flows",
     description: "Daily token flow buckets: net value, DEX and CEX inflows/outflows, price, and holder count. Optionally filter to one holder label.",
     input: z.object({ chain, token: tokenReference, days: days.default(7), label: z.enum(["whale", "public_figure", "smart_money", "top_100_holders", "exchange"]).optional(), limit }),
-    body: (i) => ({ chain: i.chain, token_address: i.token, date: range(i.days), pagination: { page: 1, per_page: i.limit }, ...(i.label ? { label: i.label } : {}) }),
+    body: (i) => ({ chain: i.chain, token_address: i.token, date: range(i.days), pagination: { page: 1, per_page: i.limit }, label: i.label }),
     summarize: (body) => list(body, (row) =>
       `${day(field(row, "date"))}: net ${usd((Number(field(row, "total_inflows_dex")) + Number(field(row, "total_inflows_cex"))) - (Number(field(row, "total_outflows_dex")) + Number(field(row, "total_outflows_cex"))))}, in ${usd(Number(field(row, "total_inflows_dex")) + Number(field(row, "total_inflows_cex")))}, out ${usd(Number(field(row, "total_outflows_dex")) + Number(field(row, "total_outflows_cex")))}, price ${usd(field(row, "price_usd"))}, ${num(field(row, "holders_count"))} holders`),
   }),
@@ -257,7 +280,7 @@ export const nansenEndpoints = {
     path: "tgm/who-bought-sold",
     description: "Wallets that bought or sold a token with USD volumes. Use side to keep only buyers or sellers.",
     input: z.object({ chain, token: tokenReference, side: z.enum(["BUY", "SELL"]).optional(), days: days.default(1), limit }),
-    body: (i) => ({ chain: i.chain, token_address: i.token, date: range(i.days), pagination: { page: 1, per_page: i.limit }, ...(i.side ? { buy_or_sell: i.side } : {}) }),
+    body: (i) => ({ chain: i.chain, token_address: i.token, date: range(i.days), pagination: { page: 1, per_page: i.limit }, buy_or_sell: i.side }),
     summarize: (body) => list(body, (row) =>
       `${short(field(row, "address"))}${field(row, "address_label") ? ` (${String(field(row, "address_label"))})` : ""}: bought ${usd(field(row, "bought_volume_usd"))}, sold ${usd(field(row, "sold_volume_usd"))}`),
   }),
@@ -338,7 +361,7 @@ export const nansenEndpoints = {
     path: "prediction-market/market-screener",
     description: "Polymarket markets ranked by volume, liquidity, or traders. Use query to search by words in the question.",
     input: z.object({ query: z.string().trim().min(1).max(200).optional(), status: z.enum(["active", "closed"]).default("active"), sort_by: z.enum(["volume_24hr", "volume", "volume_1wk", "volume_1mo", "liquidity", "open_interest", "unique_traders_24h", "age_hours"]).default("volume_24hr"), limit }),
-    body: (i) => ({ status: i.status, sort_by: i.sort_by, pagination: { page: 1, per_page: i.limit }, ...(i.query ? { query: i.query } : {}) }),
+    body: (i) => ({ status: i.status, sort_by: i.sort_by, pagination: { page: 1, per_page: i.limit }, query: i.query }),
     summarize: (body) => list(body, (row) =>
       `${String(field(row, "question") ?? field(row, "market_id"))} | 24h ${usd(field(row, "volume_24hr"))}, OI ${usd(field(row, "open_interest"))}, last ${num(field(row, "last_trade_price"))}, ends ${day(field(row, "end_date"))} | id ${String(field(row, "market_id") ?? "")}`),
   }),
@@ -346,7 +369,7 @@ export const nansenEndpoints = {
     path: "prediction-market/event-screener",
     description: "Polymarket events (groups of related markets) ranked by volume or open interest.",
     input: z.object({ query: z.string().trim().min(1).max(200).optional(), status: z.enum(["active", "closed"]).default("active"), sort_by: z.enum(["volume_24hr", "volume", "volume_1wk", "volume_1mo", "liquidity", "open_interest", "unique_traders_24h", "age_hours"]).default("volume_24hr"), limit }),
-    body: (i) => ({ status: i.status, sort_by: i.sort_by, pagination: { page: 1, per_page: i.limit }, ...(i.query ? { query: i.query } : {}) }),
+    body: (i) => ({ status: i.status, sort_by: i.sort_by, pagination: { page: 1, per_page: i.limit }, query: i.query }),
     summarize: (body) => list(body, (row) =>
       `${String(field(row, "event_title") ?? field(row, "event_id"))} | ${num(field(row, "market_count"))} markets, 24h ${usd(field(row, "total_volume_24hr"))}, OI ${usd(field(row, "total_open_interest"))} | id ${String(field(row, "event_id") ?? "")}`),
   }),
@@ -393,12 +416,15 @@ export const nansenEndpoints = {
 };
 
 export type NansenEndpointName = keyof typeof nansenEndpoints;
-export const nansenEndpointNames = Object.keys(nansenEndpoints) as NansenEndpointName[];
+export function isNansenEndpoint(name: string): name is NansenEndpointName {
+  return Object.hasOwn(nansenEndpoints, name);
+}
+export const nansenEndpointNames = Object.keys(nansenEndpoints).filter(isNansenEndpoint);
 
 export type NansenResult = Readonly<{
   endpoint: NansenEndpointName;
   text: string;
-  data: unknown;
+  data: NansenPayload;
   credits: { cost?: string; remaining?: string };
   analytics?: AnalyticsResult;
 }>;
@@ -409,6 +435,9 @@ const errorSchema = z.object({
   retry_after: z.number().optional(),
 }).loose();
 
+type NansenError = z.infer<typeof errorSchema>;
+type NansenHttpResult = { body: NansenPayload; credits: NansenResult["credits"] };
+
 const invalidCodes = new Set([
   "missing_field", "unknown_field", "invalid_field_value", "invalid_address_format",
   "invalid_date_format", "invalid_date_range", "mutually_exclusive_fields",
@@ -416,7 +445,7 @@ const invalidCodes = new Set([
 ]);
 
 function nansenError(body: string, status: number, retryAfterHeader: string | null): string {
-  let detail: { code?: string; message?: string; retry_after?: number } = {};
+  let detail: NansenError = {};
   try {
     const parsed = errorSchema.safeParse(JSON.parse(body));
     if (parsed.success) detail = parsed.data;
@@ -444,7 +473,7 @@ function nansenError(body: string, status: number, retryAfterHeader: string | nu
   }
 }
 
-const envelope = z.object({ data: z.unknown().optional() }).loose();
+const envelope = z.record(z.string(), jsonSchema);
 
 export class NansenService {
   constructor(
@@ -453,14 +482,14 @@ export class NansenService {
     private readonly request: typeof fetch = fetch,
   ) {}
 
-  async call(endpointName: NansenEndpointName, input: unknown, context: NansenContext): Promise<NansenResult> {
+  async call(endpointName: NansenEndpointName, input: NansenQuery, context: NansenContext): Promise<NansenResult> {
     if (!this.apiKey) throw new Error("Nansen analytics is not configured yet.");
     const spec = nansenEndpoints[endpointName];
     const requestBody = spec.buildBody(input, context);
-    if (typeof requestBody.token_address === "string" && typeof requestBody.chain === "string") {
+    if (requestBody.token_address !== undefined && requestBody.chain !== undefined) {
       requestBody.token_address = resolveToken(requestBody.token_address, requestBody.chain);
     }
-    let result: { body: unknown; credits: NansenResult["credits"] };
+    let result: NansenHttpResult;
     if (endpointName === "wallet_portfolio") {
       const [balances, defi] = await Promise.allSettled([
         this.read(spec.path, requestBody),
@@ -472,10 +501,11 @@ export class NansenService {
     const snapshot = nansenAnalytics(endpointName, requestBody, result.body, Date.now());
     if (!snapshot && (endpointName === "wallet_portfolio" || endpointName === "wallet_pnl_breakdown")) throw new Error("Nansen returned analytics in an unsupported format. Try again later.");
     const text = snapshot ? analyticsText(snapshot) : spec.summarize(result.body);
-    return { endpoint: endpointName, text, data: result.body, credits: result.credits, ...(snapshot ? { analytics: { snapshot, text } } : {}) };
+    const response: NansenResult = { endpoint: endpointName, text, data: result.body, credits: result.credits };
+    return snapshot ? { ...response, analytics: { snapshot, text } } : response;
   }
 
-  private async read(path: string, body: Record<string, unknown>) {
+  private async read(path: string, body: NansenRequest) {
     const response = await this.request.call(globalThis, `${this.apiUrl}/${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", apikey: this.apiKey ?? "" },

@@ -2,7 +2,6 @@ import { DurableObject } from "cloudflare:workers";
 import { DurableStore } from "../../src/cloudflare/durable-store";
 import { OpenCodeHarness } from "../../src/cloudflare/opencode";
 import type { AgentCapabilities } from "../../src/harness";
-import type { VerifiedMessage } from "../../src/domain";
 import { z } from "zod";
 
 type Env = { FALLBACK: DurableObjectNamespace<FallbackProbe>; OPENROUTER_API_KEY?: string };
@@ -69,7 +68,7 @@ export class FallbackProbe extends DurableObject<Env> {
       const harness = await this.harness;
       const mode = new URL(request.url).searchParams.get("mode");
       const text = await harness.respond(
-        { eventId: crypto.randomUUID(), senderId: "probe", conversationId: "probe", text: "Reply with exactly the word OK and nothing else.", encodedEvent: "probe" } as VerifiedMessage,
+        { eventId: crypto.randomUUID(), senderId: "probe", conversationId: "probe", text: "Reply with exactly the word OK and nothing else.", encodedEvent: "probe" },
         capabilities,
         mode === "response" ? "response" : mode && ["wallet", "defi", "markets", "analytics", "funding"].includes(mode) ? { kind: "mixed", family: z.enum(["wallet", "defi", "markets", "analytics", "funding"]).parse(mode) } : undefined,
         undefined,

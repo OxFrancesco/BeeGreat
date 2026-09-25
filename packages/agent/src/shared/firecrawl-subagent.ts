@@ -37,8 +37,11 @@ const schemas = {
   }),
 }
 
+const toolNameSchema = v.keyof(v.object(schemas))
+
 function safeSchema(name: string) {
-  return Object.prototype.hasOwnProperty.call(schemas, name) ? schemas[name as keyof typeof schemas] : undefined
+  const key = v.safeParse(toolNameSchema, name)
+  return key.success ? schemas[key.output] : undefined
 }
 
 export function meterFirecrawlTools(tools: ToolDefinition[], userId: string, runtime: PaidUsageRuntime): ToolDefinition[] {

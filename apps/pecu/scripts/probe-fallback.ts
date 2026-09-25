@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { heapProbe } from "./heap-probe";
@@ -71,7 +72,7 @@ try {
       clearInterval(timer);
       const heapAfter = await heap.read();
       console.log(JSON.stringify({ mode, sample, state: sample === 0 ? "cold" : "warm", status: response.status, heapBefore, heapAfter, heapPeak: Math.max(heapPeak, heapAfter), result }));
-      if (!response.ok || typeof result !== "object" || result === null || !("text" in result) || result.text !== "OK") throw new Error("Probe did not return the expected successful answer");
+      if (!response.ok || !z.object({ text: z.literal("OK") }).safeParse(result).success) throw new Error("Probe did not return the expected successful answer");
     }
   }
 } finally {

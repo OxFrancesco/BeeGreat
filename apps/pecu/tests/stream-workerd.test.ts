@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { test, expect } from "bun:test";
 import { fileURLToPath } from "node:url";
 import { readSseEvents, webTurnEventSchema, type WebTurnEvent } from "../src/web-stream";
@@ -47,7 +48,7 @@ test("paragraphs stream incrementally through a Durable Object stub and a servic
     let finished = false;
     for (const deadline = Date.now() + 5000; Date.now() < deadline && !finished;) {
       await Bun.sleep(100);
-      finished = ((await (await fetch(`http://127.0.0.1:${port}/finished`)).json()) as { finished: boolean }).finished;
+      finished = z.object({ finished: z.boolean() }).parse(await (await fetch(`http://127.0.0.1:${port}/finished`)).json()).finished;
     }
     expect(finished).toBe(true);
   } catch (error) {

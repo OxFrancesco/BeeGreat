@@ -5,7 +5,7 @@
 // Crossmint batches, and polling destination settlement. Plain TypeScript
 // helpers only — the Convex function definitions live in web3.ts.
 
-import { EVMWallet } from '@crossmint/wallets-sdk'
+import { web3ExecutionServices, type Web3ExecutionServices } from './executionServices'
 import type { FunctionArgs } from 'convex/server'
 import { internal } from '../_generated/api'
 import type { ActionCtx } from '../_generated/server'
@@ -14,7 +14,6 @@ import {
   SOCKET_CHAINS,
   explorerTransactionUrl,
   getSocketQuote,
-  getSocketStatus,
   type SocketChain,
   type SocketRouteStatus,
   type SocketToken,
@@ -26,10 +25,10 @@ import {
   requireWeb3,
   socketApiConfig,
 } from './shared'
-import { cachedWalletForUser, walletForUser } from './crossmintWallet'
+import { cachedWalletForUser } from './crossmintWallet'
 
 export async function socketWalletsForUser(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   userId: string,
   originChain: SocketChain,
   destinationChain: SocketChain,
@@ -59,7 +58,7 @@ export async function socketWalletsForUser(
 }
 
 export async function quoteSocketSwapForUser(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   input: {
     userId: string
     originChain: SocketChain
@@ -92,7 +91,7 @@ export async function quoteSocketSwapForUser(
 }
 
 export async function quoteSocketSwapPreview(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     userId: string
     originChain: SocketChain
@@ -124,7 +123,7 @@ export async function quoteSocketSwapPreview(
 }
 
 export async function prepareSocketSwapForUser(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     userId: string
     conversationId?: string
@@ -198,8 +197,9 @@ export async function prepareSocketSwapForUser(
 }
 
 export async function reconcileSocketCrossmintActionForId(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   actionId: Id<'web3Actions'>,
+  services: Pick<Web3ExecutionServices, "wallet"> = web3ExecutionServices,
 ) {
   const action: Doc<'web3Actions'> | null = await ctx.runQuery(
     internal.web3Actions.get,
@@ -217,9 +217,7 @@ export async function reconcileSocketCrossmintActionForId(
   if (!pending) return null
   if (!await ctx.runMutation(internal.web3Reconciliation.claim, { actionId })) return null
   try {
-    const wallet = EVMWallet.from(
-      await walletForUser(action.userId, action.payload.originChain),
-    )
+    const wallet = await services.wallet(action.userId, action.payload.originChain)
     const response = await wallet.transaction(pending.transactionId)
     if (response.id === pending.transactionId && response.status === 'awaiting-approval') await ctx.runMutation(internal.web3Reconciliation.noteAwaitingApproval, { actionId, transactionId: pending.transactionId })
     const status = reconcileCrossmintTransaction(response, pending.transactionId)
@@ -267,8 +265,9 @@ export function socketStatusDetail(
 }
 
 export async function pollSocketSwapStatusForId(
-  ctx: ActionCtx,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   actionId: Id<'web3Actions'>,
+  services: Pick<Web3ExecutionServices, "socketStatus"> = web3ExecutionServices,
 ) {
   const action: Doc<'web3Actions'> | null = await ctx.runQuery(
     internal.web3Actions.get,
@@ -287,7 +286,7 @@ export async function pollSocketSwapStatusForId(
   if (!await ctx.runMutation(internal.web3Reconciliation.claim, { actionId })) return null
 
   try {
-    const status = await getSocketStatus(
+    const status = await services.socketStatus(
       action.payload.quoteId,
       socketApiConfig(),
     )

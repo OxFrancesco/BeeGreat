@@ -1,10 +1,11 @@
+import type { MessageSink } from './message-sink'
 // Conversation layer over the Flue agent: sends prompts with live progress,
 // mirrors transcripts to Convex, and reads back the latest interactive state
 // (first-focus previews, web3 confirmations, questions) from history.
 
 import { changedMessagesForConvexSync } from '@beegreat/chat-sync'
 import { FlueApiError, type DeliveredAttachment, type FlueClient } from '@flue/sdk'
-import { text, type Space } from 'spectrum-ts'
+import { text } from 'spectrum-ts'
 import type { AgentTransport } from './agent-transport'
 import {
   extractBeeResponse,
@@ -19,7 +20,7 @@ import type { BeeReply } from './reply'
 /** Sends one prompt to Bee and returns both spoken copy and projected UI. */
 export async function askBee(
   transport: AgentTransport,
-  space: Space,
+  space: MessageSink,
   userId: string,
   threadId: number,
   body: string,

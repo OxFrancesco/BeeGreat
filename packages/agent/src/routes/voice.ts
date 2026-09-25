@@ -126,9 +126,11 @@ export function registerVoiceRoutes(app: Hono<AppEnvironment>) {
   app.post('/voice/speak', async (c) => {
     const bytes = await readVoiceBody(c, 16 * 1024)
     if (bytes instanceof Response) return bytes
-    let rawBody: unknown
-    try { rawBody = JSON.parse(new TextDecoder().decode(bytes)) } catch { rawBody = null }
-    const body = v.is(speakBodySchema, rawBody) ? rawBody : null
+    let body: v.InferOutput<typeof speakBodySchema> | null = null
+    try {
+      const parsed = v.safeParse(speakBodySchema, JSON.parse(new TextDecoder().decode(bytes)))
+      if (parsed.success) body = parsed.output
+    } catch { /* Invalid JSON follows the same empty-body rejection below. */ }
     const text = body?.text?.trim().slice(0, MAX_SPOKEN_CHARS)
     if (!text) {
       return c.json({ error: 'Send text of up to 2,000 characters to speak.' }, 400)

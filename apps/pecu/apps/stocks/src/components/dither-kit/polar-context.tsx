@@ -1,10 +1,12 @@
 "use client"
 
+import { type JsonFields } from "../../../../../src/json-contract"
+import { z } from "zod"
+
 import { createContext, use, useCallback, useMemo, useState } from "react"
 import {
   type AreaVariant,
   type ChartConfig,
-  type ChartType,
   type Margins,
   useRevision,
 } from "./chart-context"
@@ -15,15 +17,15 @@ import { seedOfColor } from "./palette"
 import { type PieSlice, pieSlices, type RadarAxis, radarAxes } from "./polar"
 import type { Dimensions } from "./use-chart-dimensions"
 
-type Row = Record<string, unknown>
+type Row = JsonFields
 
-const ROOT_OF: Record<string, string> = {
+const ROOT_OF = {
   pie: "<PieChart />",
   radar: "<RadarChart />",
-}
+} satisfies Record<string, string>
 
 export type PolarChartContextValue = {
-  chartType: ChartType
+  chartType: "pie" | "radar"
   config: ChartConfig
   configKeys: string[]
   data: Row[]
@@ -277,7 +279,7 @@ export function usePolarController({
           return {
             name,
             label: config[name]?.label ?? name,
-            value: typeof raw === "number" ? raw : 0,
+            value: z.number().catch(0).parse(raw),
             seed: seedOf(name),
             dimmed: emphasis !== null && emphasis !== name,
           }

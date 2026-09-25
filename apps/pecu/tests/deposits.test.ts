@@ -1,3 +1,5 @@
+import type { JsonFields } from "../src/json-contract";
+import type { AgentServices } from "../src/agent";
 import { afterEach, describe, expect, test } from "bun:test";
 import { PecuAgent } from "../src/agent";
 import { BASE_USDC_ADDRESS, plannedCallSchema } from "../src/domain";
@@ -49,16 +51,16 @@ function fixture(options: FixtureOptions = {}) {
   const prepared: { senderId: string; call: PlannedCall }[] = [];
   const approved: string[] = [];
   const records = new Map<string, WalletTransaction>();
-  const accountCalls: unknown[] = [];
-  const depositCalls: unknown[] = [];
+  const accountCalls: Parameters<NonNullable<AgentServices["whop"]>["createAccount"]>[0][] = [];
+  const depositCalls: Parameters<NonNullable<AgentServices["whop"]>["createDeposit"]>[0][] = [];
   const outcomes = [...(options.outcomes ?? [])];
   let balanceChecks = 0;
-  const whop = {
-    createAccount: async (input: unknown) => {
+  const whop: NonNullable<AgentServices["whop"]> = {
+    createAccount: async (input) => {
       accountCalls.push(input);
-      return { id: `biz_${(input as { metadata: { pecu_sender_id: string } }).metadata.pecu_sender_id}` };
+      return { id: `biz_${input.metadata.pecu_sender_id}` };
     },
-    createDeposit: async (input: unknown) => {
+    createDeposit: async (input) => {
       depositCalls.push(input);
       return whopDepositResponse;
     },
@@ -98,7 +100,7 @@ function fixture(options: FixtureOptions = {}) {
     },
     {
       ...services({ verifyUserOperation: async (reference) => outcomes.shift() ?? confirmedOutcome(reference.hash) }),
-      ...(options.whop === false ? {} : { whop }),
+      whop: options.whop === false ? undefined : whop,
     },
     { respond: async () => { throw new Error("unexpected model call"); } },
   );
@@ -108,7 +110,7 @@ function fixture(options: FixtureOptions = {}) {
     await send("/deposit setup owner@example.com");
     return store.fundingAccount("owner")!;
   };
-  const ledger = (id: string, overrides: Record<string, unknown> = {}) => ({
+  const ledger = (id: string, overrides: JsonFields = {}) => ({
     id,
     object: "ledger_activity",
     line_type: "deposit",
@@ -120,7 +122,7 @@ function fixture(options: FixtureOptions = {}) {
     source: null,
     ...overrides,
   });
-  const ingest = async (id: string, overrides: Record<string, unknown> = {}, accountId: string | null = "biz_owner") => {
+  const ingest = async (id: string, overrides: JsonFields = {}, accountId: string | null = "biz_owner") => {
     const result = agent.recordWhopDeposit({ webhookId: `wh_${id}`, accountId, data: ledger(id, overrides) });
     if (result.depositId) await agent.relayDeposit(result.depositId);
     return result;
@@ -152,8 +154,8 @@ describe("deposit commands", () => {
     const { send, accountCalls, depositCalls, store } = fixture();
     const first = await send("/deposit setup owner@example.com");
     expect(accountCalls).toHaveLength(1);
-    expect((accountCalls[0] as { email: string }).email).toBe("owner@example.com");
-    expect((accountCalls[0] as { metadata: { pecu_sender_id: string } }).metadata.pecu_sender_id).toBe("owner");
+    expect(accountCalls[0]!.email).toBe("owner@example.com");
+    expect(accountCalls[0]!.metadata.pecu_sender_id).toBe("owner");
     expect(store.fundingAccount("owner")?.whopAccountId).toBe("biz_owner");
     expect(first).toContain("Add funds to your Pecu wallet");
     await send("/deposit setup other@example.com");

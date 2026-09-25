@@ -22,20 +22,21 @@ if (apply && !admin) {
 if (apply && !admin) throw new Error("ADMIN_TOKEN is required for --apply");
 const origin = process.env.PECU_CARDS_AGENT_URL ?? "https://basedbot.oddofrancesco000.workers.dev";
 if (new URL(origin).origin !== origin) throw new Error("Use an origin without a path");
-async function clerk(args: string[]): Promise<unknown> {
+async function clerk<T>(args: string[], schema: z.ZodType<T>): Promise<T> {
   const child = Bun.spawn(["clerk", ...args, "--json"], { stdout: "pipe", stderr: "pipe" });
   const [output] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text()]);
   if (await child.exited !== 0) throw new Error("Clerk CLI request failed");
-  return JSON.parse(output);
+  return schema.parse(JSON.parse(output));
 }
-const applications = z.array(z.object({ application_id: z.string(), instances: z.array(z.object({ instance_id: z.string(), publishable_key: z.string() })) })).parse(await clerk(["apps", "list"]));
+const applicationsSchema = z.array(z.object({ application_id: z.string(), instances: z.array(z.object({ instance_id: z.string(), publishable_key: z.string() })) }));
+const applications = await clerk(["apps", "list"], applicationsSchema);
 const matched = applications.find(a => a.application_id === appId)?.instances.find(i => i.instance_id === instanceId);
 if (matched?.publishable_key !== publishableKey) throw new Error("Clerk instance does not match the frontend publishable key");
 const eligible: { userId: string; xId: string }[] = [];
 let scanned = 0;
 let ambiguous = 0;
 for (let offset = 0; ; offset += 100) {
-  const page = z.object({ data: userSchema.array() }).parse(await clerk(["users", "list", "--app", appId, "--instance", instanceId, "--limit", "100", "--offset", String(offset), "--order-by", "+created_at"]));
+  const page = await clerk(["users", "list", "--app", appId, "--instance", instanceId, "--limit", "100", "--offset", String(offset), "--order-by", "+created_at"], z.object({ data: userSchema.array() }));
   const users = page.data;
   scanned += users.length;
   for (const user of users) {

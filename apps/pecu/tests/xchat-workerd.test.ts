@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "bun:test";
 
@@ -82,7 +83,7 @@ describe("X Chat WASM in Workerd", () => {
       let completed = false;
       for (let attempt = 0; attempt < 45; attempt++) {
         const status = await request("/queue");
-        completed = ((await status.json()) as { completed: boolean }).completed;
+        completed = z.object({ completed: z.boolean() }).parse(await status.json()).completed;
         if (completed) break;
         await Bun.sleep(1000);
       }

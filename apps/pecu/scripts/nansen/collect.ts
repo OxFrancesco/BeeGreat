@@ -1,7 +1,8 @@
+import { jsonValueSchema, type JsonValue } from "../../src/json-contract";
 import { mkdir, appendFile, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
-import { NansenService, type NansenEndpointName } from "../../src/integrations/nansen";
+import { NansenService, type NansenQuery, type NansenEndpointName } from "../../src/integrations/nansen";
 
 const directory = resolve(process.argv[2] ?? "output/nansen-showcase");
 const key = process.env.NANSEN_API_KEY;
@@ -39,8 +40,8 @@ const request: typeof fetch = Object.assign(async (input: string | URL | Request
 }, { preconnect: fetch.preconnect });
 const service = new NansenService(key, undefined, request);
 const context: Parameters<NansenService["call"]>[2] = { wallet: "0x0000000000000000000000000000000000000000" };
-const savedSchema = z.object({ endpoint: z.string(), input: z.record(z.string(), z.unknown()), result: z.object({ data: z.unknown() }).passthrough() });
-async function collect(id: string, endpoint: NansenEndpointName, input: Record<string, unknown>) {
+const savedSchema = z.object({ endpoint: z.string(), input: z.record(z.string(), jsonValueSchema), result: z.object({ data: jsonValueSchema }).passthrough() });
+async function collect(id: string, endpoint: NansenEndpointName, input: NansenQuery) {
   const file = resolve(directory, `${id}.json`);
   const existing = await Bun.file(file).exists();
   if (existing) return savedSchema.parse(await Bun.file(file).json()).result;
@@ -50,7 +51,7 @@ async function collect(id: string, endpoint: NansenEndpointName, input: Record<s
     if (endpoint === "token_screener") {
       const response = await request("https://api.nansen.ai/api/v1/token-screener", { method: "POST", headers: { apikey: key ?? "", "content-type": "application/json" }, body: JSON.stringify({ chains: [input.chain], timeframe: input.timeframe, pagination: { page: 1, per_page: 100 } }), signal: AbortSignal.timeout(25000) });
       if (!response.ok) throw new Error(`Screener HTTP ${response.status}`);
-      result = { data: await response.json() };
+      result = { data: jsonValueSchema.parse(await response.json()) };
     } else result = await service.call(endpoint, input, context);
   } catch (error) {
     if (stopped) throw error;
@@ -62,8 +63,8 @@ async function collect(id: string, endpoint: NansenEndpointName, input: Record<s
 }
 const chains = ["base", "ethereum", "arbitrum", "optimism", "polygon"];
 const tokenSchema = z.object({ token_address: z.string().regex(/^0x[0-9a-fA-F]{40}$/), token_symbol: z.string().default("Token") });
-const rows = (data: unknown): unknown[] => {
-  const parsed = z.object({ data: z.array(z.unknown()) }).safeParse(data);
+const rows = (data: JsonValue): JsonValue[] => {
+  const parsed = z.object({ data: z.array(jsonValueSchema) }).safeParse(data);
   return parsed.success ? parsed.data.data : [];
 };
 const tokens: { chain: string; address: string; symbol: string }[] = [];
@@ -89,8 +90,8 @@ const jobs = tokens.flatMap((token, index) => [
   { id: `token-${index}-trades`, endpoint: "token_dex_trades", input: { chain: token.chain, token: token.address, days: 1, limit: 25 } },
   { id: `token-${index}-transfers`, endpoint: "token_transfers", input: { chain: token.chain, token: token.address, days: 1, limit: 25 } },
   { id: `token-${index}-price`, endpoint: "token_price", input: { chain: token.chain, token: token.address, days: 7, timeframe: "1h" } },
-] satisfies { id: string; endpoint: NansenEndpointName; input: Record<string, unknown> }[]);
-async function workers(tasks: { id: string; endpoint: NansenEndpointName; input: Record<string, unknown> }[]) {
+] satisfies { id: string; endpoint: NansenEndpointName; input: NansenQuery }[]);
+async function workers(tasks: { id: string; endpoint: NansenEndpointName; input: NansenQuery }[]) {
   let cursor = 0;
   await Promise.all(Array.from({ length: 3 }, async () => {
     while (!stopped) {

@@ -24,7 +24,7 @@ function fixture() {
       queries.push(query);
       const rows = db
         .query<R, SQLQueryBindings[]>(query)
-        .all(...(params as SQLQueryBindings[]));
+        .all(...params.map(value => value instanceof ArrayBuffer ? new Uint8Array(value) : value));
       return { toArray: () => rows };
     },
   };

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { useState } from "react";
 import { PreviewCard } from "../../src/components/preview-card";
 import type { ConfirmationState } from "../../src/components/ai-elements/confirmation";
@@ -38,7 +39,7 @@ export function TransactionFixture() {
           <select
             disabled={confirming}
             value={state}
-            onChange={(e) => setState(e.target.value as ConfirmationState)}
+            onChange={(e) => setState(z.enum(["pending", "executing", "succeeded", "failed", "cancelled", "expired"]).parse(e.target.value))}
           >
             {[
               "pending",

@@ -2,8 +2,9 @@ import { z } from "zod";
 const linkedAccountSchema = z.object({
   provider: z.string(),
   providerUserId: z.string(),
-  verification: z.object({ status: z.string() }).nullable(),
+  verification: z.object({ status: z.string().nullable() }).nullable(),
 });
+type LinkedAccount = z.infer<typeof linkedAccountSchema>;
 const xProviders = ["oauth_x", "oauth_twitter", "twitter", "x"];
 export const clerkUserIdSchema = z.string().regex(/^user_[A-Za-z0-9]+$/);
 /** Numeric X user ID; the sender identity shared with X DMs. */
@@ -15,13 +16,13 @@ export type SenderKind = "x" | "web";
 export function senderKind(senderId: string): SenderKind {
   return senderId.startsWith("web-") ? "web" : "x";
 }
-export function verifiedXAccount(accounts: unknown): string {
+export function verifiedXAccount(accounts: readonly LinkedAccount[]): string {
   const verified = verifiedXAccounts(accounts);
   if (verified.length !== 1)
     throw new Error("Sign in with the X account you use with Pecu.");
   return verified[0];
 }
-function verifiedXAccounts(accounts: unknown): string[] {
+function verifiedXAccounts(accounts: readonly LinkedAccount[]): string[] {
   return z
     .array(linkedAccountSchema)
     .parse(accounts)
@@ -40,7 +41,7 @@ function verifiedXAccounts(accounts: unknown): string[] {
  * sender keyed by the server-verified Clerk user ID. Two verified X accounts
  * are ambiguous and rejected.
  */
-export function webSenderId(userId: string, accounts: unknown): string {
+export function webSenderId(userId: string, accounts: readonly LinkedAccount[]): string {
   const verified = verifiedXAccounts(accounts);
   if (verified.length > 1)
     throw new Error("Sign in with the X account you use with Pecu.");

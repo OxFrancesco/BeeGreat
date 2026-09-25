@@ -176,6 +176,7 @@ export function Specimen({
  * wrap the same boundary so a crash during a section's own render still
  * leaves the rest of the page usable.
  */
+type CrashState = { error: Error | null };
 class CrashBoundary extends Component<
   PropsWithChildren<{
     label: string;
@@ -183,7 +184,7 @@ class CrashBoundary extends Component<
   }>,
   { error: Error | null }
 > {
-  state = { error: null as Error | null };
+  state: CrashState = { error: null };
 
   static getDerivedStateFromError(error: Error) {
     return { error };

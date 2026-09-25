@@ -1,3 +1,5 @@
+import type { PostHog } from "posthog-js";
+import type * as Analytics from "../../../src/browser-analytics";
 import { strict as assert } from "node:assert";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -25,11 +27,12 @@ try {
     return new window.Response("{}", { status: 200 });
   };
   window.eval(await built.outputs[0].text());
-  const analytics = Reflect.get(window, "analytics");
-  const posthog = Reflect.get(window, "posthog");
+  type Probe = { analytics: Pick<typeof Analytics, "initAnalytics" | "trackPage" | "identifyAnalytics" | "trackNavigation">; posthog: PostHog };
+  // SAFETY: the bundle just evaluated above assigns exactly these real module exports to this isolated Window.
+  const { analytics, posthog } = window as Window & Probe;
   analytics.initAnalytics();
   posthog.set_config({ opt_out_useragent_filter: true, request_batching: false, disable_compression: true, api_transport: "fetch" });
-  posthog.on("eventCaptured", (event: unknown) => events.push(eventSchema.parse(event)));
+  posthog.on("eventCaptured", (event) => events.push(eventSchema.parse(event)));
   posthog.identify("pecu_previous_account");
   const previousDevice = posthog.get_property("$device_id");
   analytics.trackPage("/agent/private-thread");

@@ -1,3 +1,5 @@
+import type { JsonValue } from '@flue/runtime'
+import * as v from 'valibot'
 import { afterEach, expect, test } from 'bun:test'
 import { astroCreatorTools, type AstroCreatorOptions } from '../src/shared/bee-sites/astro-creator'
 
@@ -8,13 +10,13 @@ function fixture(failBuild = false) {
   const builtSources: string[] = []; const machines: Array<{ destroyed: boolean }> = []
   const objects = new Map<string, string>()
   const puts: Array<{ key: string; value: unknown }> = []
-  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+  globalThis.fetch = Object.assign(async (_url: string | URL | Request, init?: RequestInit) => {
     const args = JSON.parse(String(init?.body))
     if (args.operation === 'prepare') return Response.json({ siteId: 'site-one', slug: 'my-site', title: 'My site', status: 'draft', publicUrl: 'https://sites.buddytools.org/my-site/', limits: { tier: 'free', sites: 1, pagesPerSite: 5, generationsPerMonth: 15, publishesPerMonth: 20 }, generationRemaining: 14 })
     if (args.operation === 'begin_deployment') { expect(args.kind).toBe('preview'); return Response.json({ deploymentId: 'deployment-one', version: args.version, slug: 'my-site', publicUrl: 'https://sites.buddytools.org/my-site/' }) }
     if (args.operation === 'complete_deployment') { expect(args.contentDigest).toMatch(/^[a-f0-9]{64}$/); return Response.json({ reviewUrl: 'https://beegreat.app/review?site=immutable-version' }) }
     return Response.json({})
-  }) as typeof fetch
+  }, { preconnect: originalFetch.preconnect })
   const options: AstroCreatorOptions = {
     userId: 'user_site', model: 'test', convexUrl: 'https://example.convex.cloud', brokerSecret: 'broker-only-in-worker',
     createBuildSandbox: () => {
@@ -41,7 +43,7 @@ function fixture(failBuild = false) {
           if (command.startsWith('find dist')) return { success: true, stdout: `index.html\t${'<h1>Built</h1>'.length}\n`, stderr: '', exitCode: 0 }
           return { success: true, stdout: '', stderr: '', exitCode: 0 }
         },
-      } as unknown as ReturnType<AstroCreatorOptions['createBuildSandbox']>
+      }
     },
     bucket: {
       list: async ({ prefix }) => ({ objects: [...objects.keys()].filter(key => key.startsWith(prefix)).map(key => ({ key })) }),
@@ -51,7 +53,10 @@ function fixture(failBuild = false) {
     },
   }
   const tools = astroCreatorTools(options)
-  const call = async (name: string, data: Record<string, unknown> = {}) => tools.find(tool => tool.name === name)!.run!({ data } as never)
+  const call = async (name: string, data: JsonValue = {}) => {
+    const tool = tools.find(tool => tool.name === name)!
+    return tool.run!({ data: v.parse(tool.input, data), toolCallId: `test:${name}`, log: { info() {}, warn() {}, error() {} } })
+  }
   return { call, machines, builtSources, puts, objects }
 }
 

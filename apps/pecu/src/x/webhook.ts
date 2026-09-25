@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 const encoder = new TextEncoder();
 
 async function signature(secret: string, value: string): Promise<string> {
@@ -36,22 +38,35 @@ export async function verifyWebhookSignature(
   return constantTimeEqual(await signature(consumerSecret, rawBody), receivedSignature);
 }
 
-export function activityConversation(body: unknown): { eventType: string; conversationId?: string; senderId?: string; encodedEvent?: string; keyChangeEvent?: string } | undefined {
-  if (!body || typeof body !== "object") return undefined;
-  const root = body as Record<string, unknown>;
-  const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : root;
-  const payload = data.payload && typeof data.payload === "object" ? data.payload as Record<string, unknown> : data;
+type ChatActivity = { eventType: string; conversationId?: string; senderId?: string; encodedEvent?: string; keyChangeEvent?: string };
+const routingText = z.string().nullish().catch("");
+const routingFields = {
+  conversation_id: routingText, conversationId: routingText,
+  sender_id: routingText, senderId: routingText,
+  encoded_event: routingText, encodedEvent: routingText,
+  conversation_key_change_event: routingText, conversationKeyChangeEvent: routingText,
+};
+const eventSchema = z.object({
+  ...routingFields,
+  event_type: z.coerce.string().nullish().catch(""),
+  eventType: z.coerce.string().nullish().catch(""),
+  payload: z.object(routingFields).optional().catch(undefined),
+});
+const activitySchema = eventSchema.extend({ data: eventSchema.optional().catch(undefined) }).transform((root): ChatActivity | undefined => {
+  const data = root.data ?? root;
+  const payload = data.payload ?? data;
   const eventType = String(data.event_type ?? data.eventType ?? "");
   if (!eventType.startsWith("chat.")) return undefined;
   const conversationId = payload.conversation_id ?? payload.conversationId;
   const senderId = payload.sender_id ?? payload.senderId;
   const encodedEvent = payload.encoded_event ?? payload.encodedEvent;
   const keyChangeEvent = payload.conversation_key_change_event ?? payload.conversationKeyChangeEvent;
-  return {
-    eventType,
-    ...(typeof conversationId === "string" && conversationId ? { conversationId } : {}),
-    ...(typeof senderId === "string" && senderId ? { senderId } : {}),
-    ...(typeof encodedEvent === "string" && encodedEvent ? { encodedEvent } : {}),
-    ...(typeof keyChangeEvent === "string" && keyChangeEvent ? { keyChangeEvent } : {}),
-  };
-}
+  const activity: ChatActivity = { eventType };
+  if (conversationId) activity.conversationId = conversationId;
+  if (senderId) activity.senderId = senderId;
+  if (encodedEvent) activity.encodedEvent = encodedEvent;
+  if (keyChangeEvent) activity.keyChangeEvent = keyChangeEvent;
+  return activity;
+}).catch(undefined);
+
+export const activityConversation = activitySchema.parse;

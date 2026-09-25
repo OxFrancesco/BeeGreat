@@ -1,3 +1,4 @@
+import { jsonValueSchema, type JsonValue, type JsonInput, type JsonFields } from "./json-contract";
 import { decodeFunctionData, encodeFunctionData, erc20Abi } from "viem";
 import { safeParameterSchemas, safeReadSchemas, safeCallDescription, isSafeModuleConfiguration, safeTransactionSummary, type SafeReadCommand } from "./safe";
 import { KNOWN_TOKENS } from "@beegreat/sugar";
@@ -7,7 +8,7 @@ import { BASE_CHAIN_ID, type PlannedCall } from "./domain";
 import { log } from "./logger";
 import { knownTokenMetadata } from "./token-metadata";
 
-export type EvmExecutor = (command: EvmCommand, input: Record<string, unknown>) => Promise<unknown>;
+export type EvmExecutor = (command: EvmCommand, input: JsonFields) => Promise<JsonValue>;
 
 export const EVM_TX_ACTIONS = ["transfer", "approve", "revoke", "contract_call", "safe_create", "safe_approve", "safe_execute", "safe_execute_signatures", "safe_budget_spend", "safe_role_execute", "safe_roles_deploy", "safe_passkey_deploy"] as const;
 export type EvmTxAction = (typeof EVM_TX_ACTIONS)[number];
@@ -16,9 +17,8 @@ export function isEvmTxAction(value: string): value is EvmTxAction {
 }
 
 type Address = `0x${string}`;
-const addressPattern = /^0x[0-9a-fA-F]{40}$/;
-const address = z.string().regex(addressPattern).transform((value) => value as Address);
-const hex = z.string().regex(/^0x(?:[0-9a-fA-F]{2})*$/).transform((value) => value as Address);
+const address = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
+const hex = z.templateLiteral(["0x", z.string().regex(/^(?:[0-9a-fA-F]{2})*$/)]);
 const uint = z.string().regex(/^(0|[1-9]\d*)$/);
 const decimalAmount = z.string().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/, "amount must be a decimal number");
 const tokenReference = z.string().min(1).max(256);
@@ -32,24 +32,25 @@ export const evmTxParameterSchemas = {
   contract_call: z.strictObject({
     address,
     signature: functionSignature,
-    args: z.array(z.unknown()).max(32).optional(),
+    args: z.array(jsonValueSchema).max(32).optional(),
     value: decimalAmount.optional(),
   }),
 } as const;
 export type EvmTxParameters<A extends EvmTxAction = EvmTxAction> = z.infer<(typeof evmTxParameterSchemas)[A]>;
 
-export function validateEvmRequest<A extends EvmTxAction>(action: A, raw: unknown): EvmTxParameters<A> {
+export function validateEvmRequest<A extends EvmTxAction>(action: A, raw: JsonInput): EvmTxParameters<A> {
   const parsed = evmTxParameterSchemas[action].safeParse(raw);
   if (!parsed.success) throw new Error(parsed.error.issues.map((issue) => `${issue.path.join(".") || action}: ${issue.message}`).join("; "));
+  // SAFETY: the schema is selected by the same A key; safeParse succeeded above.
   return parsed.data as EvmTxParameters<A>;
 }
 
 const tokenView = z.object({ token: address, symbol: z.string(), decimals: z.number().int().min(0).max(255), amount: uint, block: uint });
 const balanceView = z.object({ balanceWei: uint, block: uint });
 const allowanceView = z.object({ amount: uint, block: uint });
-const readView = z.object({ block: uint, value: z.unknown() });
-const inspectView = z.object({ address, implementation: address.nullable(), abi: z.array(z.unknown()), source: z.string(), block: uint });
-const decodeView = z.object({ source: z.string(), result: z.unknown() });
+const readView = z.object({ block: uint, value: jsonValueSchema });
+const inspectView = z.object({ address, implementation: address.nullable(), abi: z.array(jsonValueSchema), source: z.string(), block: uint });
+const decodeView = z.object({ source: z.string(), result: jsonValueSchema });
 const operationView = z.object({
   plan: z.object({
     chainId: z.literal(BASE_CHAIN_ID),
@@ -67,13 +68,13 @@ const operationView = z.object({
   state: z.object({ _tag: z.literal("prepared") }),
 });
 
-export type EvmReadResult = Readonly<{ kind: "read"; command: EvmCommand; output: unknown }>;
+export type EvmReadResult = Readonly<{ kind: "read"; command: EvmCommand; output: JsonValue }>;
 export type EvmPlanResult = Readonly<{
   kind: "transaction";
   action: EvmTxAction;
   parameters: EvmTxParameters;
   summary: string;
-  context: Readonly<Record<string, unknown>>;
+  context: Readonly<JsonFields>;
   calls: readonly PlannedCall[];
 }>;
 
@@ -82,7 +83,7 @@ type ResolvedToken = Readonly<{ kind: "native"; symbol: "ETH"; decimals: 18 }> |
 const knownTokens = new Map<string, ResolvedToken>(
   Object.values(KNOWN_TOKENS[BASE_CHAIN_ID]).map((token) => [
     token.symbol.toLowerCase(),
-    token.tokenAddress === "ETH" ? { kind: "native", symbol: "ETH", decimals: 18 } : { kind: "erc20", address: token.tokenAddress as Address },
+    token.tokenAddress === "ETH" ? { kind: "native", symbol: "ETH", decimals: 18 } : { kind: "erc20", address: address.parse(token.tokenAddress) },
   ]),
 );
 
@@ -90,7 +91,8 @@ export function resolveToken(reference: string | undefined): ResolvedToken {
   if (reference === undefined) return { kind: "native", symbol: "ETH", decimals: 18 };
   const known = knownTokens.get(reference.toLowerCase());
   if (known) return known;
-  if (addressPattern.test(reference)) return { kind: "erc20", address: reference as Address };
+  const parsed = address.safeParse(reference);
+  if (parsed.success) return { kind: "erc20", address: parsed.data };
   throw new Error(`Unknown token "${reference}". Use ETH, USDC, AERO, or a public 0x token address.`);
 }
 
@@ -113,7 +115,7 @@ export function formatUnits(value: bigint | string, decimals: number): string {
 export class EvmService {
   constructor(private readonly executor: EvmExecutor) {}
 
-  private async call<T>(command: EvmCommand, input: Record<string, unknown>, schema: z.ZodType<T>): Promise<T> {
+  private async call<T>(command: EvmCommand, input: JsonFields, schema: z.ZodType<T>): Promise<T> {
     const startedAt = Date.now();
     log("info", "evm_command_started", { command });
     const output = await this.executor(command, { ...input, chainId: BASE_CHAIN_ID });
@@ -143,7 +145,7 @@ export class EvmService {
     return { kind: "read", command: "allowance", output: { token: meta.symbol, token_address: token.address, owner: wallet, spender, amount: formatUnits(view.amount, meta.decimals), amount_base_units: view.amount, block: view.block } };
   }
 
-  async read(input: { address: Address; signatures?: readonly string[]; abi?: readonly unknown[]; functionName: string; args?: readonly unknown[]; block?: string }): Promise<EvmReadResult> {
+  async read(input: { address: Address; signatures?: readonly string[]; abi?: readonly JsonInput[]; functionName: string; args?: readonly JsonInput[]; block?: string }): Promise<EvmReadResult> {
     const view = await this.call("read", { ...input }, readView);
     return { kind: "read", command: "read", output: { address: input.address, function: input.functionName, block: view.block, value: view.value } };
   }
@@ -158,12 +160,12 @@ export class EvmService {
     return { kind: "read", command: "decode", output: { address: input.address, kind: input.kind, ...view } };
   }
 
-  async safeRead(command: SafeReadCommand, input: Record<string, unknown>): Promise<EvmReadResult> {
+  async safeRead(command: SafeReadCommand, input: JsonFields): Promise<EvmReadResult> {
     const parameters = safeReadSchemas[command].parse(input);
     return { kind: "read", command, output: await this.executor(command, { ...parameters, chainId: BASE_CHAIN_ID }) };
   }
 
-  async propose(wallet: Address, action: EvmTxAction, rawParameters: unknown): Promise<EvmPlanResult> {
+  async propose(wallet: Address, action: EvmTxAction, rawParameters: JsonInput): Promise<EvmPlanResult> {
     const key = `pecu-${crypto.randomUUID()}`;
     switch (action) {
       case "safe_budget_spend": {
@@ -176,7 +178,7 @@ export class EvmService {
         const p = validateEvmRequest("safe_role_execute", rawParameters);
         const operation = await this.call("safe-role-execute", { ...p, account: wallet, key }, operationView);
         let tokenCall = false;
-        try { const decoded = decodeFunctionData({ abi: erc20Abi, data: p.data as `0x${string}` }); tokenCall = decoded.functionName === "transfer" || decoded.functionName === "approve"; } catch { tokenCall = false; }
+        try { const decoded = decodeFunctionData({ abi: erc20Abi, data: hex.parse(p.data) }); tokenCall = decoded.functionName === "transfer" || decoded.functionName === "approve"; } catch { tokenCall = false; }
         const description = tokenCall
           ? await this.describeSafeTransaction({ chainId: 8453, safe: p.safe, to: p.to, data: p.data, value: "0", nonce: "0", hash: `0x${"0".repeat(64)}` })
           : await this.roleCallDescription(p.to, p.data);
@@ -274,7 +276,7 @@ export class EvmService {
   }
 
   async describeSafeTransaction(transaction: EvmTxParameters<"safe_approve">["transaction"]): Promise<string> {
-    if (transaction.operation !== 1 && transaction.to.toLowerCase() !== transaction.safe.toLowerCase() && isSafeModuleConfiguration(transaction.data as `0x${string}`)) {
+    if (transaction.operation !== 1 && transaction.to.toLowerCase() !== transaction.safe.toLowerCase() && isSafeModuleConfiguration(hex.parse(transaction.data))) {
       await this.call("safe-module-info", { safe: transaction.safe, module: transaction.to }, z.object({ enabled: z.boolean() }));
     }
     const description = safeCallDescription(transaction);
@@ -311,7 +313,7 @@ export class EvmService {
     return this.planResult(wallet, action, parameters, summary, { token: meta.symbol, token_address: token.address, decimals: meta.decimals }, operation);
   }
 
-  private planResult(wallet: Address, action: EvmTxAction, parameters: EvmTxParameters, summary: string, context: Record<string, unknown>, operation: z.infer<typeof operationView>): EvmPlanResult {
+  private planResult(wallet: Address, action: EvmTxAction, parameters: EvmTxParameters, summary: string, context: JsonFields, operation: z.infer<typeof operationView>): EvmPlanResult {
     const plan = operation.plan;
     if (plan.account.toLowerCase() !== wallet.toLowerCase()) throw new Error("The sandbox returned a plan for a different account");
     return {
@@ -324,7 +326,7 @@ export class EvmService {
         simulation_block: plan.simulationBlock,
         gas_limit: plan.gas,
         gas_price_wei: plan.gasPrice,
-        ...(plan.l1FeeEstimate ? { l1_fee_estimate_wei: plan.l1FeeEstimate } : {}),
+        l1_fee_estimate_wei: plan.l1FeeEstimate || undefined,
       },
       calls: [{ role: "action", from: plan.account, to: plan.to, data: plan.data, value: plan.value }],
     };

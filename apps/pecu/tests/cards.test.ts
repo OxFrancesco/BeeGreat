@@ -8,8 +8,8 @@ function fixture() {
   const db = new Database(":memory:");
   db.exec("PRAGMA foreign_keys=ON");
   const sql: WebSql = { exec: <R extends Record<string, SqlStorageValue>>(query: string, ...params: SqlStorageValue[]) => {
-    if (query.startsWith("CREATE")) { db.exec(query); return { toArray: () => [] as R[] }; }
-    const rows = db.query<R, SQLQueryBindings[]>(query).all(...params as SQLQueryBindings[]);
+    if (query.startsWith("CREATE")) { db.exec(query); return { toArray: () => [] }; }
+    const rows = db.query<R, SQLQueryBindings[]>(query).all(...params.map(value => value instanceof ArrayBuffer ? new Uint8Array(value) : value));
     return { toArray: () => rows };
   } };
   return { db, sql, cards: new PecuCards(sql) };

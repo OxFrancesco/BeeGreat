@@ -1,3 +1,4 @@
+import { jsonValueSchema } from "./json-contract";
 import type { PolymarketToken } from "./integrations/polymarket/model-output";
 import type { StockSnapshot } from "./stock-contract";
 import type { AnalyticsResult } from "./analytics-contract";
@@ -14,7 +15,7 @@ export type IntentState = "pending" | "executing" | "succeeded" | "failed" | "ca
 
 export const depositRelayParameters = z.strictObject({
   depositId: z.string().min(1),
-  recipient: z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as `0x${string}`),
+  recipient: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]),
   usdcUnits: z.string().regex(/^[1-9]\d*$/),
   whopAccountId: z.string().min(1),
 });
@@ -47,7 +48,7 @@ export function parseIntentAction(action: string, parametersJson: string): Inten
   if (action === "deposit_relay") return { family: "deposit", action, parameters: depositRelayParameters.parse(raw) };
   if (action === "stock_basket") return { family: "stocks", action, parameters: stockBasketParameters.parse(raw) };
   if (isSugarTxAction(action)) return { family: "aero", action, parameters: validateSugarRequest(action, raw) };
-  if (isEvmTxAction(action)) return { family: "evm", action, parameters: validateEvmRequest(action, raw) };
+  if (isEvmTxAction(action)) return { family: "evm", action, parameters: validateEvmRequest(action, jsonValueSchema.parse(raw)) };
   throw new Error(`Stored intent has invalid action: ${action}`);
 }
 

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { previewSchema, webIdentitySchema } from "./web-contract";
 
-const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as `0x${string}`);
-const hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/).transform((value) => value as `0x${string}`);
+const address = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
+const hash = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{64}$/)]);
 const hashText = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
 const uint = z.string().regex(/^(0|[1-9]\d*)$/).max(78);
 const decimalAmount = z.string().trim().regex(/^(?:0|[1-9]\d*)(?:\.\d+)?$/, "Enter an amount such as 12.5");

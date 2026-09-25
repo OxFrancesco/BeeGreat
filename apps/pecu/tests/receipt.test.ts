@@ -1,3 +1,4 @@
+import type { JsonValue } from "../src/json-contract";
 import { describe, expect, test } from "bun:test";
 import { awaitUserOperation, jsonRpcClient, UserOperationMismatchError, verifyUserOperation, type JsonRpc } from "../src/receipt";
 
@@ -19,11 +20,11 @@ function eventLog(success: boolean, address = entryPoint, hash = userOpHash, fro
   };
 }
 
-function rpcWith(receipt: unknown, block: unknown = { hash: blockHash }): { rpc: JsonRpc; calls: string[] } {
+function rpcWith(receipt: JsonValue, block: JsonValue = { hash: blockHash }) {
   const calls: string[] = [];
   return {
     calls,
-    rpc: async (method) => {
+    rpc: async (method: string) => {
       calls.push(method);
       if (method === "eth_getTransactionReceipt") return receipt;
       if (method === "eth_getBlockByNumber") return block;
@@ -32,7 +33,7 @@ function rpcWith(receipt: unknown, block: unknown = { hash: blockHash }): { rpc:
   };
 }
 
-const receipt = (logs: unknown[], status = "0x1") => ({ transactionHash: txHash, blockNumber: "0x10", blockHash, status, gasUsed: "0x5208", logs });
+const receipt = (logs: JsonValue[], status = "0x1") => ({ transactionHash: txHash, blockNumber: "0x10", blockHash, status, gasUsed: "0x5208", logs });
 const reference = { hash: txHash, sender, userOperationHash: userOpHash };
 
 describe("user operation receipt verification", () => {

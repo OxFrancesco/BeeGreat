@@ -1,7 +1,10 @@
-import { expect, test } from 'bun:test'
-import type { Space } from 'spectrum-ts'
+import { afterEach, expect, spyOn, test } from 'bun:test'
 import { resolvePromptReply } from './confirmations'
-import type { AgentTransport } from './agent-transport'
+import { createAgentTransport } from './agent-transport'
+import type { Web3ActionProjection } from './bee-response'
+
+afterEach(() => { fetchSpy?.mockRestore() })
+let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, 'fetch'>> | undefined
 import { extractBeeResponse, projectWeb3Action } from './bee-response'
 import { getDisplayedWeb3 } from './displayed-confirmations'
 import { sendReply } from './reply'
@@ -12,17 +15,28 @@ test('mixed cards require successful display of the exact owned wallet details b
     { type: 'first_focus', requestId: 'hidden', goalTitle: 'Goal', projectTitle: 'Project', taskTitle: 'Task' },
     { type: 'confirm', action: 'web3', summary: 'Model text', payload: { web3ActionId: 'action-1' } },
   ] }) + '\n```'
-  const canonical = { id: 'action-1', summary: 'Send 10 USDC to 0x' + '12'.repeat(20), status: 'pending' as 'pending' | 'confirmed', autoConfirmed: false, kind: 'send_tokens' as const }
-  const actions: unknown[] = []
-  const transport = {
-    clientFor: () => ({ history: async () => ({ messages: [{ role: 'assistant', parts: [{ type: 'text', text: raw }] }] }) }),
-    web3ActionFor: async () => ({ ...canonical }),
-    channelAction: async (_user: string, body: { action: string }) => { actions.push(body); canonical.status = 'confirmed'; return null },
-  } as unknown as AgentTransport
+  const canonical: Web3ActionProjection & { id: string } = { id: 'action-1', summary: 'Send 10 USDC to 0x' + '12'.repeat(20), status: 'pending', autoConfirmed: false, kind: 'send_tokens' as const }
+  const actions: string[] = []
+  fetchSpy = spyOn(globalThis, 'fetch').mockImplementation(Object.assign(async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const url = new URL(String(input))
+    if (url.pathname === '/agents/bee/display-fixture~71' && url.searchParams.get('view') === 'history') {
+      return Response.json({ messages: [{ role: 'assistant', parts: [{ type: 'text', text: raw }] }] })
+    }
+    if (url.pathname === '/bridge/channel') {
+      const serialized = String(init?.body)
+      const body = JSON.parse(serialized)
+      if (body.action === 'get_web3_action') return Response.json(canonical)
+      actions.push(serialized)
+      canonical.status = 'confirmed'
+      return Response.json(null)
+    }
+    throw new Error(`Unexpected request: ${url.pathname}`)
+  }, { preconnect: fetch.preconnect }))
+  const transport = createAgentTransport({ agentUrl: 'https://bridge.test', bridgeSecret: 'fixture' })
   const userId = 'display-fixture'
   const context = { threadId: 71, activeHighlight: null }
   let failSend = false
-  const space = { send: async () => { if (failSend) throw new Error('delivery failed') } } as unknown as Space
+  const space = { send: async () => { if (failSend) throw new Error('delivery failed') } }
   const resolve = () => resolvePromptReply({ transport, space, userId, context, prompt: 'yes', images: [] })
   const initial = await resolve()
   expect(actions).toEqual([])
@@ -38,6 +52,6 @@ test('mixed cards require successful display of the exact owned wallet details b
   expect(actions).toEqual([])
   await sendReply(transport, space, changed.reply, userId, false, context.threadId)
   await resolve()
-  expect(actions).toEqual([{ action: 'confirm_web3', actionId: 'action-1', summary: canonical.summary }])
+  expect(actions.map(value => JSON.parse(value))).toEqual([{ action: 'confirm_web3', actionId: 'action-1', summary: canonical.summary }])
   expect(getDisplayedWeb3(userId, context.threadId)).toBeNull()
 })
