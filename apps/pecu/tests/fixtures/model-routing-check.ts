@@ -150,6 +150,8 @@ try {
   expect(toolCatalogs.at(-1)).toContain("enable_all_tools");
   expect(await harness.respond({ ...message, eventId: "aave-family", text: "Supply to Aave" }, capabilities, { kind: "mixed", family: "defi" })).toBe("answer");
   expect(toolCatalogs.at(-1)).toContain("aave_call");
+  expect(toolCatalogs.at(-1)).toContain("evm_read");
+  expect(toolCatalogs.at(-1)).toContain("evm_inspect");
   expect(toolCatalogs.at(-1)).toContain("aero_stock_trades");
   expect(toolCatalogs.at(-1)).not.toContain("nansen_token_flows");
   expect(await harness.respond({ ...message, eventId: "after-family" }, capabilities)).toBe("answer");

@@ -8,6 +8,14 @@ group: Use
 
 `/aero`, `/aero help`, `/aero --help` and `/aero -h` all show the built-in help.
 
+## Suggested liquidity plans
+
+Ask "Create a USDC/WETH pool on Aerodrome" and Pecu checks your relevant balances and matching pools before recommending amounts and settings. For concentrated liquidity, the suggestion includes a price range, the selected pool's tick spacing and an explanation of the range. Pecu distinguishes adding a position in an existing pool from creating a new pool.
+
+Choose Use this plan, Adjust amounts or Cancel. Accepting a suggestion lets Pecu prepare it after checking current balances and prices. With YOLO off, the transaction preview still needs confirmation. With YOLO on, accepting the plan can execute it. A recommendation by itself never spends funds.
+
+If balances or market data are unavailable, Pecu explains what is missing. Estimated deposit amounts can change in the preview. Concentrated liquidity earns no trading fees while the market price is outside the chosen range.
+
 ## Flag syntax
 
 - Write flags as `--name value` or `--name=value`, with hyphens, as in `--pool-type`.
