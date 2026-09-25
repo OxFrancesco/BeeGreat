@@ -9,19 +9,32 @@ const prompts: string[] = [];
 const toolCatalogs: string[][] = [];
 const contextQueue: JsonFields[] = [];
 const answer = { type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "answer" }] };
+let streamGate: Promise<void> | undefined;
+let streamReady: (() => void) | undefined;
+let streamObserved: (() => void) | undefined;
+let streamDone: Promise<void> | undefined;
 const client = {
+  events: { async *subscribe({ signal }: { signal: AbortSignal }) {
+    yield { type: "server.connected" };
+    await streamGate;
+    if (signal.aborted) return;
+    yield { type: "session.text.delta", data: { sessionID: "session", assistantMessageID: "stream-answer", ordinal: 0, delta: "First paragraph.\n\nLast para" } };
+    streamObserved?.();
+    await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+  } },
   sessions: {
     get: async () => ({ id: "session" }),
     create: async (input: { model: { id: string } }) => { created.push(input.model.id); return { id: "session" }; },
     switchModel: async (input: (typeof switched)[number]) => { switched.push(input); },
     prompt: async (input: { sessionID: string; text: string }) => {
       prompts.push(input.text);
+      streamReady?.();
       const event = { sessionID: input.sessionID, tools: Object.fromEntries(registered) };
       await hooks.get("context")!(event);
       toolCatalogs.push(Object.keys(event.tools));
       return { timeCreated: 1 };
     },
-    wait: async () => {},
+    wait: async () => { await streamDone; },
     context: async () => { throw new Error("Reply extraction must not load the conversation"); },
   },
   message: { list: async (input: { limit: number; order: string }) => {
@@ -237,5 +250,19 @@ try {
   expect(stillLimited).toBeInstanceOf(Error);
   if (!(stillLimited instanceof Error)) throw new Error("Expected usage-limit error");
   expect(stillLimited.message).toContain("usage limit on your ChatGPT plus plan has been reached");
+  // The SDK wait/message path can finish before text.ended reaches the live subscription.
+  // The stored answer is authoritative and must flush even deltas that have not arrived.
+  streamGate = new Promise<void>((resolve) => { streamReady = resolve; });
+  streamDone = new Promise<void>((resolve) => { streamObserved = resolve; });
+  contextQueue.push({ id: "stream-answer", type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "First paragraph.\n\nLast paragraph." }] });
+  const streamed: string[] = [];
+  expect(await keyed.respond({ ...message, eventId: "stream-final" }, capabilities, "response", (text) => { streamed.push(text); }, false)).toBe("First paragraph.\n\nLast paragraph.");
+  expect(streamed).toEqual(["First paragraph.", "Last paragraph."]);
+  contextQueue.push({ id: "stream-answer", type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "First paragraph.\n\nLast paragraph." }] });
+  const live: string[] = [];
+  const liveSink = Object.assign((text: string) => { live.push(text); }, { live: true });
+  await keyed.respond({ ...message, eventId: "stream-live" }, capabilities, "response", liveSink, false);
+  expect(live).toEqual(["First paragraph.\n\nLast para", "First paragraph.\n\nLast paragraph."]);
+
   console.log("Luna selection, retained session, Sol fallback, response instructions, usage-limit short-circuit, OpenRouter fallback passed");
 } finally { store.close(); }

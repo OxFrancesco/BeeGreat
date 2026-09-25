@@ -108,3 +108,18 @@ test("the turn event contract rejects unknown shapes", () => {
   expect(webTurnEventSchema.safeParse({ type: "complete", status: "done" }).success).toBe(false);
   expect(webTurnEventSchema.safeParse({ type: "error", error: "x" }).success).toBe(true);
 });
+
+test("live text snapshots arrive before completion with an explicit replacement marker", async () => {
+  const { response, done } = turnEventStream(async (progress) => {
+    expect(progress.live).toBe(true);
+    progress("First");
+    progress("First sentence.\n\nLast paragraph.");
+    return { status: "complete" };
+  }, undefined, 15_000, true);
+  expect(await collect(response.body!)).toEqual([
+    { type: "paragraph", text: "First", replace: true },
+    { type: "paragraph", text: "First sentence.\n\nLast paragraph.", replace: true },
+    { type: "complete", status: "complete" },
+  ]);
+  await done;
+});

@@ -18,7 +18,8 @@ import type { AgentCapabilities, AgentHarness, ResponseMode } from "../harness";
 import type { HarnessStateStore } from "../state";
 import { log } from "../logger";
 import { isUsageLimitError, parseUsageLimit, usageLimitActive, UsageLimitError, type UsageLimit } from "../usage-limit";
-import { ParagraphBuffer, type ParagraphSink } from "../web-stream";
+import type { ParagraphSink } from "../web-stream";
+import { ReplyStream } from "../reply-stream";
 import { toolInFamily, type ToolFamily } from "../tool-families";
 
 const systemPrompt = `You are Pecu, an X Chat assistant for Base wallets, deposits, Aerodrome, Aave, Nansen analytics, and Polymarket data.
@@ -516,6 +517,7 @@ export class OpenCodeHarness implements AgentHarness {
       const messages = await this.client.message.list({ sessionID: sessionId, order: "desc", limit: 1 });
       const assistant = messages.data.find((entry) => entry.type === "assistant" && entry.time.created >= inbox.timeCreated);
       if (!assistant || assistant.type !== "assistant") throw new Error("OpenCode completed without an assistant response");
+      if (!assistant.error) observer?.finish(assistant);
       return assistant;
     } finally {
       observer?.stop();
@@ -524,20 +526,14 @@ export class OpenCodeHarness implements AgentHarness {
     }
   }
 
-  /**
-   * Follows the live event stream for one session and hands finished paragraphs
-   * to the sink. Text deltas are buffered per assistant text part; `text.ended`
-   * flushes the remainder. Resolves once the stream is attached (or after a
-   * short grace period) so no delta from the prompt is missed.
-   */
+  /** Attach before prompting; the stored answer reconciles any live events still in transit. */
   private async observeText(sessionId: string, progress: ParagraphSink) {
     const controller = new AbortController();
-    const buffers = new Map<string, ParagraphBuffer>();
-    const emit = (paragraphs: string[]) => {
-      for (const paragraph of paragraphs) {
-        try { progress(paragraph); } catch (error) { log("warn", "inference_progress_failed", { error: error instanceof Error ? error.message : String(error) }); }
-      }
+    const sink: ParagraphSink = (text) => {
+      try { progress(text); } catch { log("warn", "inference_progress_failed", {}); }
     };
+    sink.live = progress.live;
+    const reply = new ReplyStream(sink);
     let attached = () => {};
     const ready = new Promise<void>((resolve) => { attached = resolve; });
     void (async () => {
@@ -547,15 +543,9 @@ export class OpenCodeHarness implements AgentHarness {
           else if ((event.type === "session.text.delta" || event.type === "session.text.ended") && event.data.sessionID === sessionId) {
             const key = `${event.data.assistantMessageID}:${event.data.ordinal}`;
             if (event.type === "session.text.delta") {
-              let buffer = buffers.get(key);
-              if (!buffer) buffers.set(key, buffer = new ParagraphBuffer());
-              emit(buffer.push(event.data.delta));
+              reply.push(key, event.data.delta);
             } else {
-              // A part that ended with no deltas seen (late attach) is flushed from its final text instead of being lost.
-              const buffer = buffers.get(key) ?? new ParagraphBuffer();
-              if (!buffers.has(key)) emit(buffer.push(event.data.text));
-              emit(buffer.end());
-              buffers.delete(key);
+              reply.end(key, event.data.text);
             }
           }
         }
@@ -566,7 +556,10 @@ export class OpenCodeHarness implements AgentHarness {
       }
     })();
     await Promise.race([ready, new Promise<void>((resolve) => setTimeout(resolve, 1_000))]);
-    return { stop: () => controller.abort() };
+    return {
+      finish: (message: Parameters<ReplyStream["finish"]>[0]) => reply.finish(message),
+      stop: () => { reply.stop(); controller.abort(); },
+    };
   }
 
   async authStatus(): Promise<Readonly<{ connected: boolean; methods: readonly string[]; lastResponse?: ProviderResponse }>> {

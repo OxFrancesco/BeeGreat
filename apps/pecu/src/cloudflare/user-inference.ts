@@ -24,8 +24,8 @@ export class InferenceTools extends RpcTarget {
     return invoke(...args);
   }
   /** Whether the caller wants partial replies; lets the inference object skip the event subscription otherwise. */
-  streams(): boolean {
-    return this.onParagraph !== undefined;
+  streams(): false | "paragraph" | "text" {
+    return this.onParagraph ? this.onParagraph.live ? "text" : "paragraph" : false;
   }
   paragraph(text: string): void {
     this.onParagraph?.(text);
@@ -147,19 +147,21 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       nansenCall: (...args) => bridge.call("nansenCall", args),
     };
     this.active = { eventId: message.eventId, capabilities };
+    let delivery = Promise.resolve();
     try {
       const chatGpt = !await this.ctx.storage.get<boolean>("disconnected") && (await this.harness.authStatus()).connected;
       if (!chatGpt && !this.harness.fallbackConfigured) return chatGptConnectionRequired;
-      // The bridge is an RPC stub: `paragraph` resolves remotely, so it is fired without waiting and a dropped caller never stalls the turn.
-      const progress: ParagraphSink | undefined = await bridge.streams()
-        ? (text) => { void Promise.resolve(bridge.paragraph(text)).catch(() => {}); }
+      const streamMode = await bridge.streams();
+      const progress: ParagraphSink | undefined = streamMode
+        ? (text) => { delivery = delivery.then(() => bridge.paragraph(text)).catch(() => {}); }
         : undefined;
+      if (progress) progress.live = streamMode === "text";
       return await this.harness.respond(message, capabilities, mode, progress, chatGpt);
     } catch (error) {
       // Returned as a reply, not thrown: RPC would flatten the subclass and the caller would wrap it as a command failure.
       if (!(error instanceof UsageLimitError)) throw error;
       log("info", "usage_limit_reply", { eventId: message.eventId, kind: error.limit.kind, resetsAt: error.limit.resetsAt });
       return error.message;
-    } finally { this.active = undefined; }
+    } finally { await delivery; this.active = undefined; }
   }
 }

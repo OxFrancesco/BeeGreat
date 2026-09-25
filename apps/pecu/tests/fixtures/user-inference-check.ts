@@ -74,6 +74,19 @@ expect(await a.instance.respond(message, false, streamingTools)).toBe("wallet-a"
 expect(states.get(a.storage)!.lastStreamed).toBe(true);
 await new Promise((resolve) => setTimeout(resolve, 0));
 expect(paragraphs).toEqual(["First paragraph."]);
+class DelayedBridge extends InferenceTools {
+  override async paragraph(text: string) {
+    await new Promise((resolve) => setTimeout(resolve, 15));
+    super.paragraph(text);
+  }
+}
+const delivered: string[] = [];
+const liveSink = Object.assign((text: string) => { delivered.push(text); }, { live: true });
+const delayed = new DelayedBridge({ ...unusedCapabilities, walletAddress: async () => "wallet-a" }, undefined, liveSink);
+expect(delayed.streams()).toBe("text");
+await a.instance.respond(message, false, delayed);
+expect(delivered).toEqual(["First paragraph."]);
+
 expect(await b.instance.respond(message, false, tools)).toContain("Connect your ChatGPT");
 let release!: () => void;
 states.get(a.storage)!.hold = new Promise<void>((resolve) => { release = resolve; });

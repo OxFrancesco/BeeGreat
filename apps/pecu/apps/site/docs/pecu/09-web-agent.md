@@ -4,7 +4,7 @@ description: Use Pecu in the browser at pecu.app/agent, with threads, transactio
 group: Use
 ---
 
-pecu.app/agent runs the same agent as X Chat. Replies stream in a paragraph at a time, previews become cards with buttons, and analytics come with charts.
+pecu.app/agent runs the same agent as X Chat. Replies appear as Pecu writes, with formatting preserved, previews become cards with buttons, and analytics come with charts.
 
 ## Signing in
 
@@ -80,3 +80,5 @@ A signed-in account with a verified X connection receives one randomly assigned 
 - Each sign-in account and each X account can receive it once.
 - The card stays in your collection if you later disconnect X.
 - Without a connected X account, My cards offers to connect one in your account settings.
+
+Model replies start displaying as soon as text is available. The final reply includes the complete answer, even if the last streaming update arrives late. Commands such as `/balance` return in one piece. Tool lookups and model processing can still take time before any reply text is available.

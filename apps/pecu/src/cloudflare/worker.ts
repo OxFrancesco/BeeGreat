@@ -29,7 +29,7 @@ import { cardViewerSchema } from "../cards-contract";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, webPnlRequestSchema, basketSchema } from "../web-contract";
 import { profileActionRequestSchema, profileSafeRequestSchema } from "../safe-profile-contract";
 import type { SafeProfile } from "../safe-profile";
-import { sseContentType, turnEventStream } from "../web-stream";
+import { liveTextContentType, sseContentType, turnEventStream } from "../web-stream";
 import { z } from "zod";
 
 const objectName = "basedbot-main";
@@ -237,7 +237,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         if (!input.success) return json({ error: "Invalid web request" }, 400);
         if (request.headers.get("Accept")?.includes(sseContentType)) {
           if (this.webAgent.busy(input.data)) return json({ status: "busy" }, 409);
-          return this.streamTurn(this.webAgent, input.data);
+          return this.streamTurn(this.webAgent, input.data, request.headers.get("Accept")?.includes(liveTextContentType));
         }
         const result = await this.webAgent.handle(input.data);
         return json(result, result.status === "busy" ? 409 : 200);
@@ -345,10 +345,12 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
    * `waitUntil`, so a tab that closes mid-reply never aborts the model or
    * leaves the thread locked; the reply lands in history as usual.
    */
-  private streamTurn(webAgent: WebAgent, input: Parameters<WebAgent["handle"]>[0]): Response {
+  private streamTurn(webAgent: WebAgent, input: Parameters<WebAgent["handle"]>[0], live = false): Response {
     const { response, done } = turnEventStream(
       (progress) => webAgent.handle(input, progress),
       (error) => log("error", "durable_object_request_failed", { path: "/internal/web/turn", error: errorMessage(error) }),
+      15_000,
+      live,
     );
     this.ctx.waitUntil(done);
     return response;

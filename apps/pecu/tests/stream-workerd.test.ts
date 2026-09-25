@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { test, expect } from "bun:test";
 import { fileURLToPath } from "node:url";
-import { readSseEvents, webTurnEventSchema, type WebTurnEvent } from "../src/web-stream";
+import { liveTextContentType, readSseEvents, webTurnEventSchema, type WebTurnEvent } from "../src/web-stream";
 
 test("paragraphs stream incrementally through a Durable Object stub and a service-binding entrypoint in workerd", async () => {
   const listener = Bun.listen({ hostname: "127.0.0.1", port: 0, socket: { data() {} } });
@@ -41,6 +41,16 @@ test("paragraphs stream incrementally through a Durable Object stub and a servic
     ]);
     // Buffered delivery would collapse every arrival into the same instant; the probe spaces paragraphs 250ms apart.
     expect(arrivals[2]!.at - arrivals[0]!.at).toBeGreaterThanOrEqual(400);
+
+    const live = await fetch(`http://127.0.0.1:${port}/turn`, { headers: { Accept: liveTextContentType } });
+    const snapshots: typeof arrivals = [];
+    for await (const event of readSseEvents(live.body!)) snapshots.push({ event, at: Date.now() });
+    expect(snapshots.map(({ event }) => event)).toEqual([
+      { type: "paragraph", text: "First", replace: true },
+      { type: "paragraph", text: "First sentence.\n\nLast paragraph.", replace: true },
+      { type: "complete", status: "complete" },
+    ]);
+    expect(snapshots[1]!.at - snapshots[0]!.at).toBeGreaterThanOrEqual(200);
 
     // A client that leaves mid-reply must not abort the turn running in the object.
     const cancelled = await fetch(`http://127.0.0.1:${port}/turn?cancel=1`, { headers: { Accept: "text/event-stream" } });

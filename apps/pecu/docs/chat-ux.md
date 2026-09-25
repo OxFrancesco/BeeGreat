@@ -10,9 +10,13 @@ The web preview card's confirm and cancel buttons send the same `/confirm CODE` 
 
 ## Web streaming
 
-Model replies on `/agent` and `/stocks` arrive paragraph by paragraph. The turn request sends `Accept: text/event-stream`; the Durable Object answers with server-sent events (`paragraph`, then `complete` or `error`) and keeps the turn alive with `waitUntil`, so closing the tab does not abort the model or lock the thread. Inside the object, `OpenCodeHarness` follows OpenCode's live `session.text.delta` and `session.text.ended` events for the turn's session, splits text at blank lines (never inside a code fence), and forwards each finished paragraph through the `InferenceTools` RPC bridge. The client shows those paragraphs under the thinking mascot and replaces them with the stored reply once `/state` reloads, because the final text can differ from the model's words: an `ask_user` question, a preview card, or an error message wins.
+Model replies on `/agent` and `/stocks` grow as text arrives. The first non-empty text fragment is sent immediately; subsequent updates are coalesced over 50 ms. One streaming Markdown block preserves paragraphs, lists, links, tables and code fences as they develop. Its entrance animation runs once, and reduced-motion preferences remain respected. There is no artificial typing delay.
 
-Paragraphs, not tokens, so the provisional block is stable markdown and the swap to the stored reply does not flicker. Deterministic commands (`/balance`, `/wallet`, `/help`) never touch the model and still arrive in one piece. X chat is one message per reply and is unchanged. A backend or client from before this change still works: without the `Accept` header the object answers with JSON as before, and a client that receives JSON simply shows nothing until the reload.
+The client opts in with `Accept: text/event-stream; mode=live`. The server sends whole-reply `paragraph` snapshots with `replace: true`, then `complete` or `error`. Without that opt-in it retains the original complete-paragraph protocol. Without an SSE Accept header it returns JSON. This allows the frontend and Worker to roll out independently and keeps already-open tabs working.
+
+`OpenCodeHarness` follows `session.text.delta` and `session.text.ended` events. Model completion can precede delivery of the last event, so the final stored assistant message reconciles the stream before it closes. The per-user inference object drains pending RPC updates before returning. Timers and subscriptions stop when the turn ends. Closing the browser does not abort the turn; the Durable Object retains it with `waitUntil` and saves the final reply.
+
+The final saved reply still takes precedence over draft text, including an `ask_user` question, transaction preview or error. Deterministic commands and natural-language requests routed to wallet, balance or similar commands return in one piece. X Chat remains one message per reply. Provider wait and tool execution can still delay the first text fragment; live rendering does not invent text while they run.
 
 ## Validation
 

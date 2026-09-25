@@ -15,6 +15,7 @@ import { historyBytes, trimThreadCache } from "./thread-cache";
 import {
   readSseEvents,
   sseContentType,
+  liveTextContentType,
   webTurnEventSchema,
 } from "../../../../src/web-stream";
 import { z } from "zod";
@@ -44,19 +45,19 @@ export async function request(
   return jsonValueSchema.parse(await response.json());
 }
 /**
- * Sends a turn and reports each finished paragraph as the agent writes it.
+ * Sends a turn and reports live Markdown snapshots, or legacy finished paragraphs.
  * A backend that answers with plain JSON (older deploy, deterministic
  * command) resolves the same way with no paragraphs.
  */
 export async function streamTurn(
   body: JsonInput,
-  onParagraph: (text: string) => void,
+  onParagraph: (text: string, replace: boolean) => void,
 ): Promise<void> {
   const response = await fetch("/stocks/api/turn", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Accept: `${sseContentType}, application/json`,
+      Accept: `${liveTextContentType}, application/json`,
     },
     body: JSON.stringify(body),
   }).catch(() => { throw new Error("The connection to Pecu dropped. Check for a reply below, or retry this same request."); });
@@ -67,7 +68,7 @@ export async function streamTurn(
   }
   for await (const raw of readSseEvents(response.body)) {
     const event = webTurnEventSchema.parse(raw);
-    if (event.type === "paragraph") onParagraph(event.text);
+    if (event.type === "paragraph") onParagraph(event.text, event.replace === true);
     else if (event.type === "error") throw new Error(event.error);
     else if (event.status === "busy") throw new Error(busyMessage);
     else return;
@@ -392,14 +393,14 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
             answerTo: answerTo || undefined,
             threadId: threadId || undefined,
           },
-          (paragraph) => {
+          (paragraph, replace) => {
             if (generation.current !== epoch) return;
             setCache((current) => {
               const entry = current.get(threadId);
               if (!entry?.pending) return current;
               return new Map(current).set(threadId, {
                 ...entry,
-                partial: [...entry.partial, paragraph],
+                partial: replace ? [paragraph] : [...entry.partial, paragraph],
               });
             });
           },

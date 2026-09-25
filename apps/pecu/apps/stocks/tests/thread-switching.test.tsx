@@ -5,6 +5,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { useAccount } from "../src/lib/use-account";
 import type { WebState } from "../../../src/web-contract";
+import { sseFrame } from "../../../src/web-stream";
 
 let root: Root;
 let account: ReturnType<typeof useAccount>;
@@ -77,6 +78,30 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   globalThis.fetch = originalFetch;
+});
+
+test.each([true, false])("partial replies update before completion and survive until history loads, live=%s", async (live) => {
+  await render(null);
+  await respond(0, state(null));
+  let sending!: Promise<void>;
+  await act(async () => { sending = account.send("Explain pools", "stream-request"); });
+  const turn = requests.findIndex((r) => r.url.endsWith("/turn"));
+  const stream = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = stream.writable.getWriter();
+  const encoder = new TextEncoder();
+  await act(async () => { requests[turn]!.resolve(new Response(stream.readable, { headers: { "Content-Type": "text/event-stream" } })); });
+  const marker = live ? { replace: true as const } : {};
+  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "paragraph", text: "First", ...marker }))); });
+  expect(account.pending).toBe(true);
+  expect(account.partial).toEqual(["First"]);
+  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "paragraph", text: live ? "First sentence.\n\nLast paragraph." : "Last paragraph.", ...marker }))); });
+  expect(account.partial).toEqual(live ? ["First sentence.\n\nLast paragraph."] : ["First", "Last paragraph."]);
+  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "complete", status: "complete" }))); await writer.close(); });
+  expect(account.partial.length).toBeGreaterThan(0);
+  await respond(requests.findLastIndex((r) => r.url.includes("/state")), state(null));
+  await act(async () => { await sending; });
+  expect(account.pending).toBe(false);
+  expect(account.partial).toEqual([]);
 });
 
 test("a disconnected submission keeps its text and reuses its request ID", async () => {

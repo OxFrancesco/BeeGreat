@@ -73,15 +73,17 @@ const markdownPlugins = { math: createMathPlugin({ singleDollarTextMath: false }
 
 export type MessageResponseProps = HTMLAttributes<HTMLDivElement> & {
   children: string;
+  streaming?: boolean;
 };
 
 export const MessageResponse = ({
   children,
+  streaming = false,
   className,
   ...props
 }: MessageResponseProps) => (
   <div className={cn("msg-response break-words", className)} {...props}>
-    <Streamdown mode="static" plugins={markdownPlugins} skipHtml controls={false}>
+    <Streamdown mode={streaming ? "streaming" : "static"} isAnimating={streaming} plugins={markdownPlugins} skipHtml controls={false}>
       {children}
     </Streamdown>
   </div>
