@@ -1,3 +1,4 @@
+import { portfolioQuerySchema, portfolioSchema } from "../../../../src/portfolio-contract";
 import { type JsonInput } from "../../../../src/json-contract";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
@@ -41,6 +42,12 @@ export const Route = createFileRoute("/stocks/api/$")({
     handlers: {
       GET: async ({ request, params }) => {
         if (params._splat === "cards") return cardsRequest(false);
+        if (params._splat === "portfolio") {
+          const params = new URL(request.url).searchParams;
+          const query = portfolioQuerySchema.safeParse({ tokens: params.getAll("token"), stocks: params.get("stocks") === "1" });
+          if (!query.success) return json({ error: "Enter a token ticker or Base contract address." }, 400);
+          return profileRequest("portfolio", portfolioSchema, query.data);
+        }
         if (params._splat === "pnl") return pnlRequest(request);
         if (params._splat === "profile") return profileRequest("profile", profileOverviewSchema);
         if (params._splat === "profile-safe") {
@@ -207,7 +214,7 @@ async function pnlRequest(request: Request) {
   } catch { return json({ error: "Could not load your P&L. Try again." }, 503); }
 }
 
-async function profileRequest<Output extends JsonInput>(path: string, schema: z.ZodType<Output>, input?: { safe: string } | { action: JsonInput }) {
+async function profileRequest<Output extends JsonInput>(path: string, schema: z.ZodType<Output>, input?: { safe: string } | { action: JsonInput } | { tokens: string[]; stocks: boolean }) {
   let viewer;
   try { viewer = await identity(); }
   catch { return json({ error: "Sign in to manage your Safes." }, 401); }

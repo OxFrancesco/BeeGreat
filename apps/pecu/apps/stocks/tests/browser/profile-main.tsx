@@ -1,3 +1,4 @@
+import { portfolioFixture } from "./portfolio";
 import { createRootRoute, createRouter, Outlet, RouterProvider } from "@tanstack/react-router";
 import { createRoot } from "react-dom/client";
 import { profileActionSchema, type ProfileProposal, type ProfileSafeDetail } from "../../../../src/safe-profile-contract";
@@ -15,6 +16,7 @@ const wait = (ms = 350) => new Promise((resolve) => setTimeout(resolve, ms));
 
 window.fetch = async (input, init) => {
   const url = new URL(String(input), location.origin);
+  if (url.pathname.endsWith("/portfolio")) return Response.json(portfolioFixture(url));
   await wait();
   if (url.pathname.endsWith("/profile") && init?.method !== "POST") return Response.json(overview);
   if (url.pathname.endsWith("/profile-safe")) {

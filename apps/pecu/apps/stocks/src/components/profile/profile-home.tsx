@@ -1,3 +1,4 @@
+import { WalletPortfolio } from "../wallet-portfolio";
 import { useClerk } from "@clerk/tanstack-react-start";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ChevronRightIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
@@ -91,16 +92,7 @@ export function ProfileHome() {
             </p>
           )}
           {overview.wallet ? <p className="pecu-profile-note">{overview.senderKind === "x" ? "The same wallet Pecu uses in your X chats." : "The wallet for this sign-in. It is separate from any X wallet."}</p> : null}
-          {overview.balances ? (
-            <dl className="pecu-profile-stats">
-              {overview.balances.map((balance) => (
-                <div key={balance.symbol}>
-                  <dt>{balance.symbol}</dt>
-                  <dd>{balance.amount}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : null}
+          {overview.wallet ? <WalletPortfolio address={overview.wallet} /> : null}
         </div>
       </section>
       <section className="pecu-profile-section" aria-labelledby="pecu-orgs">

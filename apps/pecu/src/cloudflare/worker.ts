@@ -1,3 +1,4 @@
+import { portfolioRequestSchema } from "../portfolio-contract";
 import { jsonValueSchema, type JsonValue, type JsonInput } from "../json-contract";
 import { InferenceTools, userInference } from "./user-inference";
 import { captureAgentEvent } from "../analytics";
@@ -213,6 +214,10 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           const { threadId, ...identity } = webThreadDeleteSchema.parse(raw);
           this.webAgent.deleteThread(identity, threadId);
           return json({ ok: true });
+        }
+        if (url.pathname === "/internal/web/portfolio") {
+          const { tokens, stocks, ...identity } = portfolioRequestSchema.parse(raw);
+          return json(await this.webAgent.portfolio(identity, { tokens, stocks }));
         }
         if (url.pathname === "/internal/web/pnl") {
           const { days, ...identity } = webPnlRequestSchema.parse(raw);
@@ -631,7 +636,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/pnl", "/profile", "/profile-safe", "/profile-action"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");

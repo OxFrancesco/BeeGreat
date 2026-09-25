@@ -1,3 +1,4 @@
+import { WalletPortfolio } from "./wallet-portfolio";
 import { ArrowLeftIcon, ExternalLinkIcon, Maximize2Icon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -109,6 +110,7 @@ function PnlPreview({ address, onExpand }: { address: string; onExpand: () => vo
   const snapshot = pnl.value?.snapshot;
   return (
     <div aria-busy={!pnl.value && !pnl.error}>
+      <WalletPortfolio address={address} compact />
       <div className="pecu-pnl-card-head">
         <span>P&L · {pnlPeriod(previewDays).long}</span>
         <a className="pecu-pnl-expand" href={pageHash} aria-label="Open full P&L" onClick={onExpand}>
@@ -191,18 +193,11 @@ function PnlPage({ address, open, onClose, onCloseFocus }: { address: string; op
             <DialogPrimitive.Close className="pecu-chip pecu-pnl-back" aria-label="Back to chat">
               <ArrowLeftIcon className="size-4" />
             </DialogPrimitive.Close>
-            <div className="pecu-pnl-periods" role="group" aria-label="Period">
-              {pnlPeriods.map((period) => (
-                <button key={period.days} type="button" aria-pressed={period.days === days} onClick={() => setDays(period.days)}>
-                  <span aria-hidden="true">{period.short}</span>
-                  <span className="sr-only">{period.long}</span>
-                </button>
-              ))}
-            </div>
+
           </div>
           <div className="pecu-pnl-body" aria-busy={!pnl.value && !pnl.error}>
             <header className="pecu-pnl-heading">
-              <DialogPrimitive.Title>P&L</DialogPrimitive.Title>
+              <DialogPrimitive.Title>Portfolio</DialogPrimitive.Title>
               <p>
                 <span className="mono">{shortAddress(address)}</span>
                 {" · "}
@@ -212,6 +207,17 @@ function PnlPage({ address, open, onClose, onCloseFocus }: { address: string; op
                 </a>
               </p>
             </header>
+            <WalletPortfolio address={address} />
+            <div className="pecu-portfolio-head"><h2>P&L</h2>
+            <div className="pecu-pnl-periods" role="group" aria-label="Period">
+              {pnlPeriods.map((period) => (
+                <button key={period.days} type="button" aria-pressed={period.days === days} onClick={() => setDays(period.days)}>
+                  <span aria-hidden="true">{period.short}</span>
+                  <span className="sr-only">{period.long}</span>
+                </button>
+              ))}
+            </div>
+            </div>
             {pnl.value ? (
               snapshot ? (
                 <PnlReport key={days} snapshot={snapshot} days={days} />

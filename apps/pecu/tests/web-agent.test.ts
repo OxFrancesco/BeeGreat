@@ -517,3 +517,27 @@ test("confirmationCommand parses only exact confirm and cancel commands", () => 
   expect(confirmationCommand("/confirm ABCDEF extra")).toBeUndefined();
   expect(confirmationCommand("confirm ABC123")).toBeUndefined();
 });
+
+test("portfolio reads only the authenticated sender wallet, isolates failures and leaves chat untouched", async () => {
+  const f = fixture();
+  try {
+    const reads: string[] = [];
+    f.agent.portfolioBalance = async (wallet, reference) => {
+      expect(wallet).toBe(address);
+      reads.push(reference);
+      if (reference === "bad") throw new Error("Unknown token bad");
+      return { kind: "read", command: "balance", output: { token: reference.toUpperCase(), amount: "0.000000000000000001" } };
+    };
+    f.agent.portfolioStocks = async () => { throw new Error("upstream offline"); };
+    expect((await f.web.portfolio(identity, { tokens: ["ETH"], stocks: true })).wallet).toBeNull();
+    expect(reads).toEqual([]);
+    f.store.saveWallet(identity.senderId, address, address);
+    const result = await f.web.portfolio(identity, { tokens: ["ETH", "eth", "USDC", "bad"], stocks: true });
+    expect(reads).toEqual(["eth", "usdc", "bad"]);
+    expect(result.balances[0]?.amount).toBe("0.000000000000000001");
+    expect(result.balances[2]?.error).toContain("Base contract address");
+    expect(result.stocksError).toContain("unavailable");
+    expect(f.web.state(identity).messages).toEqual([]);
+    expect((await f.web.portfolio({ ...identity, senderId: "other" }, { tokens: ["ETH"], stocks: false })).wallet).toBeNull();
+  } finally { f.close(); }
+});

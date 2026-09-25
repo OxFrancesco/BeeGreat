@@ -1,3 +1,4 @@
+import { type Portfolio, portfolioBalanceSchema, portfolioQuerySchema } from "./portfolio-contract";
 import { needsChatGptConnection } from "./inference-recovery";
 import { aeroReadText, intentTitle } from "./chat";
 import { WebHistory, type HistoryRow } from "./web-history";
@@ -170,6 +171,30 @@ export class WebAgent {
       JSON.stringify(basket),
     );
   }
+  async portfolio(identity: Identity, query: z.infer<typeof portfolioQuerySchema>): Promise<Portfolio> {
+    const wallet = this.store.wallet(identity.senderId)?.address;
+    const address = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]).safeParse(wallet);
+    if (!address.success) return { wallet: null, balances: [], holdings: null, stocksError: null };
+    const balances = Promise.all([...new Set(query.tokens.map((token) => token.toLowerCase()))].map(async (reference) => {
+      try {
+        const result = await this.agent.portfolioBalance(address.data, reference);
+        const value = z.object({ token: z.string(), token_address: z.string().optional(), amount: z.string() }).parse(result.output);
+        return portfolioBalanceSchema.parse({ reference, symbol: value.token, address: value.token_address ?? null, amount: value.amount, error: null });
+      } catch (error) {
+        const message = error instanceof Error && error.message.startsWith("Unknown token")
+          ? "Ticker not found. Try its Base contract address." : "Balance unavailable. Try again.";
+        return { reference, symbol: reference.startsWith("0x") ? `${reference.slice(0, 6)}…${reference.slice(-4)}` : reference.toUpperCase(), address: reference.startsWith("0x") ? reference : null, amount: null, error: message };
+      }
+    }));
+    let stocksError: string | null = null;
+    const holdings = query.stocks ? this.agent.portfolioStocks(address.data).catch(() => {
+      stocksError = "Stock positions are unavailable. Try again.";
+      return null;
+    }) : Promise.resolve(null);
+    const [rows, stocks] = await Promise.all([balances, holdings]);
+    return { wallet: address.data, balances: rows, holdings: stocks, stocksError };
+  }
+
   async pnl(identity: Identity, days: PnlDays): Promise<WebPnl> {
     const wallet = this.store.wallet(identity.senderId)?.address;
     if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet))

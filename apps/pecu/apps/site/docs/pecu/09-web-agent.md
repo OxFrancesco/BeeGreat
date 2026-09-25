@@ -82,3 +82,16 @@ A signed-in account with a verified X connection receives one randomly assigned 
 - Without a connected X account, My cards offers to connect one in your account settings.
 
 Model replies start displaying as soon as text is available. The final reply includes the complete answer, even if the last streaming update arrives late. Commands such as `/balance` return in one piece. Tool lookups and model processing can still take time before any reply text is available.
+
+## Wallet balances and stocks
+
+Open your wallet at the top of Agent to see balances before P&L. Profile also
+shows the same balances and stock positions. ETH and USDC are always included.
+Use **Add token** with a supported ticker or a Base contract address. WETH,
+AERO, and the stock catalog tickers are supported; use the contract address for
+other tokens. Remove hides an added token without moving funds. Your token list
+is saved for this wallet in this browser.
+
+Stock positions switch between **List** and **Graph**. The graph shows allocation
+by estimated USDC value, not historical performance. Missing prices are excluded
+from the graph and identified in the list. These views only read your wallet.

@@ -1,3 +1,4 @@
+import { STOCKS } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import { z } from "zod";
 import { jsonFieldsSchema, type JsonInput, type JsonFields } from "./json-contract";
 import { projectPolymarket, polymarketModelOutput, polymarketDiscovery } from "./integrations/polymarket/model-output";
@@ -548,6 +549,19 @@ export class PecuAgent {
     this.saveDetails(message, result.data);
     if (result.analytics) this.store.saveAnalytics(message.eventId, result.analytics);
     return result.text;
+  }
+
+  async portfolioBalance(wallet: `0x${string}`, reference: string) {
+    const key = reference.toLowerCase();
+    const stock = STOCKS.find((stock) => stock.symbol.toLowerCase() === key || stock.symbol.slice(0, -1).toLowerCase() === key);
+    const token = stock?.address ?? (key === "weth" ? "0x4200000000000000000000000000000000000006" : reference);
+    return this.services.evm.tokenBalance(wallet, token);
+  }
+
+  async portfolioStocks(wallet: `0x${string}`) {
+    const result = await this.services.aerodrome.run(wallet, "stocks", {});
+    if (result.kind !== "read") throw new Error("Could not load stock positions.");
+    return { stocks: stocksSchema.parse(result.output), observedAt: Date.now() };
   }
 
   async walletPnl(wallet: `0x${string}`, days: number): Promise<PnlSnapshot> {

@@ -1,3 +1,4 @@
+import { WalletPortfolio } from "../src/components/wallet-portfolio";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 import { act } from "react";
@@ -77,6 +78,10 @@ beforeEach(() => {
   requests = [];
   setGlobal("fetch", async (input: string) => {
     requests.push(input);
+    if (input.includes("/portfolio")) {
+      const refs = new URL(input, "https://pecu.app").searchParams.getAll("token");
+      return Response.json({ wallet, balances: refs.map((reference) => ({ reference, symbol: reference.toUpperCase(), amount: "1.25", address: reference === "eth" ? null : reference === "usdc" ? `0x${"22".repeat(20)}` : `0x${"33".repeat(20)}`, error: null })), holdings: { stocks: [], observedAt: Date.now() }, stocksError: null });
+    }
     const days = Number(new URL(input, "https://pecu.app").searchParams.get("days"));
     return Response.json({ wallet, days, snapshot: { ...snapshot, period: `${days} days` } });
   });
@@ -105,13 +110,30 @@ test("#pnl opens the full page, periods load their own read, and closing drops t
     window.dispatchEvent(new window.HashChangeEvent("hashchange"));
   });
   const page = () => document.querySelector(".pecu-pnl-page");
-  expect(page()?.querySelector("h2")?.textContent).toBe("P&L");
+  expect(page()?.querySelector("h2")?.textContent).toBe("Portfolio");
   expect(page()?.textContent).toContain("Total on Base, last 30 days");
   const ninety = Array.from(page()!.querySelectorAll("button")).find((button) => button.textContent?.includes("90 days"))!;
   await act(async () => ninety.click());
   expect(ninety.getAttribute("aria-pressed")).toBe("true");
   expect(page()?.textContent).toContain("Total on Base, last 90 days");
-  expect(requests).toEqual(["/stocks/api/pnl?days=30", "/stocks/api/pnl?days=90"]);
+  expect(requests.filter((path) => path.includes("/pnl"))).toEqual(["/stocks/api/pnl?days=30", "/stocks/api/pnl?days=90"]);
   await act(async () => page()!.querySelector<HTMLButtonElement>('[aria-label="Back to chat"]')!.click());
   expect(window.location.hash).toBe("");
+});
+
+
+test("portfolio keeps the token input behind the plus button and restores removable tokens per wallet", async () => {
+  window.localStorage.setItem(`pecu:portfolio:${wallet.toLowerCase()}`, '["eth","usdc","aero"]');
+  await act(async () => root.render(<WalletPortfolio address={wallet} />));
+  expect(host.textContent).toContain("ETH");
+  expect(host.textContent).toContain("USDC");
+  expect(host.textContent).toContain("AERO");
+  expect(document.querySelector("#portfolio-token")).toBeNull();
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Add token"]')!.click());
+  expect(document.querySelector("#portfolio-token")).not.toBeNull();
+  await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Close add token"]')!.click());
+  expect(document.querySelector("#portfolio-token")).toBeNull();
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Remove AERO"]')!.click());
+  expect(host.textContent).not.toContain("AERO");
+  expect(window.localStorage.getItem(`pecu:portfolio:${wallet.toLowerCase()}`)).toBe('["eth","usdc"]');
 });

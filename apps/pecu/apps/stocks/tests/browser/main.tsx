@@ -1,3 +1,4 @@
+import { portfolioFixture } from "./portfolio";
 import { analyticsFixtures } from "../fixtures/nansen-analytics";
 import { polymarketFixtures } from "../fixtures/polymarket-analytics";
 import { analyticsText } from "../../../../src/analytics-contract";
@@ -38,6 +39,7 @@ const threads = Array.from({ length: 1000 }, (_, i) => ({
 }));
 window.fetch = async (input, init) => {
   const url = new URL(String(input), location.origin);
+  if (url.pathname.endsWith("/portfolio")) return Response.json(portfolioFixture(url));
   if (init?.method === "POST") {
     if (!url.pathname.endsWith("/turn")) throw new Error("This fixture only simulates messages.");
     await new Promise(resolve => setTimeout(resolve, 15000));
@@ -209,6 +211,7 @@ function previewFixture() {
   };
   window.fetch = async (input, init) => {
     const url = new URL(String(input), location.origin);
+  if (url.pathname.endsWith("/portfolio")) return Response.json(portfolioFixture(url));
     if (init?.method === "POST") {
       if (!url.pathname.endsWith("/turn"))
         throw new Error("This fixture only simulates messages.");

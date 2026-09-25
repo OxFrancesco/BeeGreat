@@ -366,3 +366,20 @@ html:has(.pecu-app), body:has(.pecu-app) { background: var(--background); }
 .pecu-connection-dialog > [data-slot="dialog-close"]:hover { background: var(--secondary); }
 .pecu-connection-dialog button:focus-visible, .pecu-connection-dialog a:focus-visible { outline: 2px solid var(--accent-foreground); outline-offset: 3px; }
 .pecu-connection-dialog > [data-slot="dialog-close"]:focus-visible { outline-offset: -5px; }
+
+.pecu-portfolio { margin-bottom: 24px; }
+.pecu-portfolio-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pecu-portfolio-head h2 { font-size: 16px; font-weight: 600; }
+.pecu-portfolio-balances { margin: 8px 0 16px; }
+.pecu-portfolio-balances > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-height: 48px; border-bottom: 1px solid var(--border); }
+.pecu-portfolio-balances dt { flex: 1; }
+.pecu-portfolio-balances dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; max-width: 70%; }
+.pecu-portfolio-balances p { flex-basis: 100%; font-size: 13px; }
+.pecu-portfolio-add { display: flex; gap: 8px; }
+.pecu-portfolio-add input { flex: 1; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: inherit; font: inherit; }
+.pecu-portfolio button { min-height: 44px; }
+.pecu-portfolio-actions { display: flex; align-items: center; gap: 4px; }
+.pecu.pecu-portfolio-popover { z-index: 80; width: 380px; max-width: calc(100vw - 24px); padding: 16px; background: var(--card); border-radius: 16px; box-shadow: var(--clay-shadow); }
+.pecu-portfolio-popover .pecu-portfolio-add { margin-top: 12px; }
+.pecu-portfolio-popover p { margin-top: 12px; font-size: 13px; }
+.pecu-portfolio-actions button, .pecu-portfolio-popover button { min-width: 44px; min-height: 44px; }

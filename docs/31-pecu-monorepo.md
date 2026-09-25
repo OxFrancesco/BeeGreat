@@ -163,3 +163,19 @@ ChatGPT subscription remains required for all model responses unless the
 operator-configured OpenRouter fallback is present.
 
 Pecu agent deployments run only on Cloudflare. `bun run pecu:deploy` builds the container images locally and deploys the private services before the bot. Local verification uses isolated test Workers; there is no local bot startup command.
+
+### Profile portfolio
+
+The Agent wallet panel displays ETH and USDC balances before P&L, with additional
+Base tokens by known ticker or contract address. Profile reuses this component.
+The wallet-scoped browser token list supports removal; adding/removing only
+changes presentation. The authenticated portfolio endpoint derives the wallet
+from the verified sender and reads balances and stock positions without chat
+turns, wallet creation, proposals, or signing. Balance failures are per token;
+stock and P&L failures do not block balances. Stock list/graph controls are shared
+with web chat holdings. Graphs show estimated USDC allocation.
+
+This is Pecu web UI, including mobile browsers. BeeGreat native clients, CLI,
+iMessage and inference providers have no profile contract changes. X Chat keeps
+its existing plain-text balance and stock commands. Both provider paths use the
+same authenticated read endpoint. Deploy the Pecu worker before Stocks.
