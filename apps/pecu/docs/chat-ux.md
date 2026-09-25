@@ -20,12 +20,8 @@ The final saved reply still takes precedence over draft text, including an `ask_
 
 ## Validation
 
-TypeScript, 145 tests, and all four Worker dry-run builds passed. Tests cover exact dust amounts, human token balances, private verbose output, pagination, no additional transaction execution, and persistence in Workerd.
+The 25 September 2026 streaming release passed 467 Pecu tests and 69 Stocks/frontend tests, both TypeScript checks, scoped lint, the Worker build and the Stocks production build. Regression coverage reproduces model completion before the final text event, delayed RPC delivery, old-client streaming, partial Markdown, thread switching and browser disconnects.
 
-Existing production passed live wallet, balance, natural-language quote, and unsigned swap-preview checks. The test wallet received 0.002 ETH. An unsigned 0.000001 ETH to USDC preview was created. No transaction was confirmed or broadcast by this test.
+Production checks in the signed-in Pecu thread observed 14 visible updates on desktop. All four paragraphs arrived before completion and the final streamed text matched the saved answer. A 390px responsive browser view showed 16 visible updates, bold text and list formatting without horizontal overflow. This was a browser layout check, not a physical-device test. No transaction was prepared or executed.
 
-## Remaining work
-
-The new chat UX is not deployed. Automatic approval review rejected creating the production EVM dependency because deployment was not specifically authorized by the UX request. The bot's current production version remains unchanged.
-
-After approval, configure the private EVM service with a Base RPC endpoint, deploy it and the updated bot, then verify normal replies and `b/verbose` in X. The swap preview does not include a complete smart-wallet network-fee estimate. Funded execution and receipt/balance verification remain pending.
+The release is deployed to the Pecu Worker and shared Agent/Stocks frontend. These few live samples verify incremental delivery and final-text integrity; they are not a production latency benchmark. Provider wait, tool execution and deterministic one-piece command replies remain separate from text rendering.
