@@ -151,6 +151,7 @@ import type * as web3lib_crossmintRecords from "../web3lib/crossmintRecords.js";
 import type * as web3lib_crossmintWallet from "../web3lib/crossmintWallet.js";
 import type * as web3lib_eoaTracking from "../web3lib/eoaTracking.js";
 import type * as web3lib_executeConfirmed from "../web3lib/executeConfirmed.js";
+import type * as web3lib_executionServices from "../web3lib/executionServices.js";
 import type * as web3lib_shared from "../web3lib/shared.js";
 import type * as web3lib_socketOrchestration from "../web3lib/socketOrchestration.js";
 import type * as web3lib_socketRefresh from "../web3lib/socketRefresh.js";
@@ -306,6 +307,7 @@ declare const fullApi: ApiFromModules<{
   "web3lib/crossmintWallet": typeof web3lib_crossmintWallet;
   "web3lib/eoaTracking": typeof web3lib_eoaTracking;
   "web3lib/executeConfirmed": typeof web3lib_executeConfirmed;
+  "web3lib/executionServices": typeof web3lib_executionServices;
   "web3lib/shared": typeof web3lib_shared;
   "web3lib/socketOrchestration": typeof web3lib_socketOrchestration;
   "web3lib/socketRefresh": typeof web3lib_socketRefresh;
