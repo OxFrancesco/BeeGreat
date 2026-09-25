@@ -14,7 +14,7 @@ function asRecord(value: JsonValue | undefined): JsonRecord | undefined {
   return v.is(jsonRecordSchema, value) ? value : undefined
 }
 
-export const channel = createNotionChannel({
+export const channel = () => createNotionChannel({
   verificationToken: channelSecret('NOTION_VERIFICATION_TOKEN'),
   async webhook({ event }) {
     // Notion delivers JSON webhook payloads; decode once, then narrow the

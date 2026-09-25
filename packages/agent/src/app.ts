@@ -69,9 +69,10 @@ app.use('/agents/bee/:id', async (c, next) => {
   await next()
 })
 app.route('/agents/bee', createAgentRouter(Bee))
-app.mount('/channels/github', githubChannel.route().fetch)
-app.mount('/channels/linear', linearChannel.route().fetch)
-app.mount('/channels/notion', notionChannel.route().fetch)
+// Webhook constructors import signing keys; Workers permit that only in a request.
+app.mount('/channels/github', (request, env, ctx) => githubChannel().route().fetch(request, env, ctx))
+app.mount('/channels/linear', (request, env, ctx) => linearChannel().route().fetch(request, env, ctx))
+app.mount('/channels/notion', (request, env, ctx) => notionChannel().route().fetch(request, env, ctx))
 
 export default Sentry.withSentry<Bindings>((env) => {
   const dsn = binding(env, 'SENTRY_DSN')?.trim()

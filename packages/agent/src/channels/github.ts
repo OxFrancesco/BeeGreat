@@ -5,7 +5,7 @@ import {
   signalAttributes,
 } from '../shared/beennectors/channel.ts'
 
-export const channel = createGitHubChannel({
+export const channel = () => createGitHubChannel({
   webhookSecret: channelSecret('GITHUB_WEBHOOK_SECRET'),
   async webhook({ delivery }) {
     if (

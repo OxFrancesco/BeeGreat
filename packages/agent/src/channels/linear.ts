@@ -18,7 +18,7 @@ function asString(value: JsonValue | undefined): string | null {
   return v.is(stringSchema, value) ? value : null
 }
 
-export const channel = createLinearChannel({
+export const channel = () => createLinearChannel({
   webhookSecret: channelSecret('LINEAR_WEBHOOK_SECRET'),
   async webhook({ payload, deliveryId }) {
     // Linear delivers JSON webhook payloads; decode once, then narrow the

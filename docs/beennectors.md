@@ -74,6 +74,11 @@ The webhook resolver first matches the event actor to the OAuth owner and only
 falls back to a workspace match when that workspace belongs to exactly one
 BeeGreat user. Ambiguous events are acknowledged but never dispatched.
 
+Webhook channels initialize inside the request handler, after the configuration
+gate. This keeps Cloudflare startup free of random generation and signing-key
+imports. Unconfigured webhooks return 503; configured webhooks still require the
+provider's signature over the exact request body.
+
 ## Available Bee actions
 
 - List recent/relevant GitHub issues and PRs, assigned Linear issues, or recent
