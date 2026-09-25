@@ -63,6 +63,13 @@ describe("evm request validation", () => {
 });
 
 describe("EvmService", () => {
+  test("known-token allowances do not start a second token lookup", async () => {
+    const { service, calls } = executor({ allowance: { amount: "10000", block: "100" } });
+    for (const reference of ["USDC", usdc.toLowerCase()]) {
+      expect((await service.allowance(wallet, reference, recipient)).output).toMatchObject({ token: "USDC", amount: "0.01" });
+    }
+    expect(calls.map((call) => call.command)).toEqual(["allowance", "allowance"]);
+  });
   test("reads any ERC-20 balance in human units", async () => {
     const { service, calls } = executor({ token: { chainId: 8453, address: wallet, token: usdc, block: "100", symbol: "USDC", decimals: 6, amount: "12500000" } });
     const result = await service.tokenBalance(wallet, "USDC");

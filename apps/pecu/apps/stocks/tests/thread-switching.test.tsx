@@ -7,7 +7,7 @@ import type { WebState } from "../../../src/web-contract";
 
 let root: Root;
 let account: ReturnType<typeof useAccount>;
-let requests: { url: string; resolve: (response: Response) => void }[];
+let requests: { url: string; body?: BodyInit | null; resolve: (response: Response) => void; reject: (error: Error) => void }[];
 const originalFetch = globalThis.fetch;
 const state = (threadId: string | null): WebState => ({
   threadId,
@@ -59,7 +59,7 @@ beforeEach(() => {
   });
   window.document.write("<!doctype html><html><body></body></html>");
   requests = [];
-  globalThis.fetch = ((url: string) => {
+  globalThis.fetch = ((url: string, init?: RequestInit) => {
     if (url.includes("/threads"))
       return Promise.resolve(
         Response.json({
@@ -68,13 +68,34 @@ beforeEach(() => {
           newerCursor: null,
         }),
       );
-    return new Promise<Response>((resolve) => requests.push({ url, resolve }));
+    return new Promise<Response>((resolve, reject) => requests.push({ url, body: init?.body, resolve, reject }));
   }) as typeof fetch;
   root = createRoot(document.createElement("div"));
 });
 afterEach(async () => {
   await act(async () => root.unmount());
   globalThis.fetch = originalFetch;
+});
+
+test("a disconnected submission keeps its text and reuses its request ID", async () => {
+  await render(null);
+  await respond(0, state(null));
+  let sending!: Promise<void>;
+  await act(async () => { sending = account.send("Check my allowance", "same-request"); });
+  const turn = requests.findIndex((r) => r.url.endsWith("/turn"));
+  await act(async () => requests[turn]!.reject(new TypeError("Failed to fetch")));
+  await respond(requests.findLastIndex((r) => r.url.includes("/state")), state(null));
+  await act(async () => { await sending; });
+  expect(account.unsent).toBe("Check my allowance");
+  expect(account.error).toContain("connection to Pecu dropped");
+  expect(account.retry?.requestId).toBe("same-request");
+  await act(async () => { sending = account.send(account.retry!.text, account.retry!.requestId); });
+  const retry = requests.findLastIndex((r) => r.url.endsWith("/turn"));
+  expect(JSON.parse(String(requests[retry]!.body)).requestId).toBe("same-request");
+  await respond(retry, {});
+  await respond(requests.findLastIndex((r) => r.url.includes("/state")), state(null));
+  await act(async () => { await sending; });
+  expect(account.unsent).toBeNull();
 });
 
 test("reports when the thread list has loaded so the workspace can land on the latest thread", async () => {

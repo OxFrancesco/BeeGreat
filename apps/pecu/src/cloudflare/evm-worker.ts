@@ -1,6 +1,7 @@
 import { getSandbox, Sandbox } from "@cloudflare/sandbox";
 import { evmRequestSchema, type EvmRequest } from "./evm-protocol";
 import { runEvmCommand } from "./evm-sandbox";
+import { evmReadClient, runEvmRead } from "./evm-reads";
 
 export class EvmSandbox extends Sandbox {
   override sleepAfter = "10m";
@@ -27,10 +28,12 @@ export default {
     } catch (error) {
       return Response.json({ ok: false, error: { code: "InvalidInput", message: error instanceof Error ? error.message : "Invalid request", retryable: false } }, { status: 400 });
     }
+    const read = await runEvmRead(evmReadClient(rpcUrl), parsed);
+    if (read) return Response.json(read, { status: read.ok ? 200 : read.error.retryable ? 502 : 400 });
     const sandbox = getSandbox(env.EVM_SANDBOX, sandboxName);
     const sessionId = `evm-${crypto.randomUUID()}`;
-    const session = await sandbox.createSession({ id: sessionId });
     try {
+      const session = await sandbox.createSession({ id: sessionId });
       const response = await runEvmCommand(
         (command, options) => session.exec(command, options),
         { rpcUrl, ...(env.ETHERSCAN_API_KEY ? { etherscanApiKey: env.ETHERSCAN_API_KEY } : {}) },
@@ -38,6 +41,8 @@ export default {
       );
       const status = response.ok ? 200 : response.error.code === "InvalidInput" || response.error.code === "ChainMismatch" ? 400 : 502;
       return Response.json(response, { status });
+    } catch {
+      return Response.json({ ok: false, error: { code: "SandboxUnavailable", message: "The wallet planning service is unavailable. Please try again shortly.", retryable: true } }, { status: 502 });
     } finally {
       await sandbox.deleteSession(sessionId).catch(() => undefined);
     }

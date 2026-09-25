@@ -144,23 +144,16 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
               },
             },
           },
-          { respond: (message, capabilities, mode) => userInference(env, message.senderId).respond(message, capabilities.yoloEnabled(), new InferenceTools(capabilities, mode), mode) },
+          {
+            warm: (senderId) => userInference(env, senderId).warm(),
+            respond: (message, capabilities, mode, progress) => userInference(env, message.senderId).respond(message, capabilities.yoloEnabled(), new InferenceTools(capabilities, mode, progress), mode),
+          },
           this.config.typesafeApiKey ? new TypeSafeRequestClassifier(this.config.typesafeApiKey) : undefined,
         );
         await this.agent.resumeExecuting();
-        try {
-          await this.agent.relayPendingDeposits();
-        } catch (error) {
-          log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) });
-        }
         this.webAgent = new WebAgent(this.agent, this.store, ctx.storage.sql);
         this.safeProfile = new SafeProfile({ agent: this.agent, store: this.store, evm, chain: new SafeChain(rpc), sql: ctx.storage.sql });
         if (this.config.xchatPollingEnabled) {
-          try {
-            await this.ensureRealtimeSetup();
-          } catch (error) {
-            log("error", "x_realtime_setup_failed", { error: errorMessage(error) });
-          }
           const firstPollAt = Date.now() + 1_000;
           const scheduledAt = await ctx.storage.getAlarm();
           if (scheduledAt === null) {
@@ -171,6 +164,14 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         }
       }
     });
+    ctx.waitUntil(this.ready.then(async () => {
+      try { await this.agent?.relayPendingDeposits(); }
+      catch (error) { log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) }); }
+      if (this.config.xchatPollingEnabled) {
+        try { await this.ensureRealtimeSetup(); }
+        catch (error) { log("error", "x_realtime_setup_failed", { error: errorMessage(error) }); }
+      }
+    }).catch(() => { log("error", "background_initialization_failed", {}); }));
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -537,7 +538,13 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     return new XActivityAdmin(this.config.xBearerToken, this.xAccessToken).ensureRealtime(webhookUrl, botUserId);
   }
 
-  private async ensureRealtimeSetup(): Promise<boolean> {
+  private realtimeSetup?: Promise<boolean>;
+
+  private ensureRealtimeSetup(): Promise<boolean> {
+    return this.realtimeSetup ??= this.checkRealtimeSetup().finally(() => { this.realtimeSetup = undefined; });
+  }
+
+  private async checkRealtimeSetup(): Promise<boolean> {
     const webhookUrl = this.config.xWebhookUrl;
     const bearerToken = this.config.xBearerToken;
     if (!this.realtimeConfigured() || !webhookUrl || !bearerToken) return false;

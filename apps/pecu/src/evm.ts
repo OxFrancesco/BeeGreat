@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { EvmCommand } from "./cloudflare/evm-protocol";
 import { BASE_CHAIN_ID, type PlannedCall } from "./domain";
 import { log } from "./logger";
+import { knownTokenMetadata } from "./token-metadata";
 
 export type EvmExecutor = (command: EvmCommand, input: Record<string, unknown>) => Promise<unknown>;
 
@@ -137,7 +138,7 @@ export class EvmService {
     if (token.kind === "native") throw new Error("ETH has no allowances");
     const [view, meta] = await Promise.all([
       this.call("allowance", { account: wallet, token: token.address, spender }, allowanceView),
-      this.call("token", { address: wallet, token: token.address }, tokenView),
+      knownTokenMetadata(token.address) ?? this.call("token", { address: wallet, token: token.address }, tokenView),
     ]);
     return { kind: "read", command: "allowance", output: { token: meta.symbol, token_address: token.address, owner: wallet, spender, amount: formatUnits(view.amount, meta.decimals), amount_base_units: view.amount, block: view.block } };
   }
@@ -299,7 +300,7 @@ export class EvmService {
   ): Promise<EvmPlanResult> {
     const token = resolveToken(parameters.token);
     if (token.kind === "native") throw new Error("ETH cannot be approved; use an ERC-20 token");
-    const meta = await this.call("token", { address: wallet, token: token.address }, tokenView);
+    const meta = knownTokenMetadata(token.address) ?? await this.call("token", { address: wallet, token: token.address }, tokenView);
     const baseUnits = amount === undefined ? 0n : parseUnits(amount, meta.decimals);
     const operation = action === "approve"
       ? await this.call("approve", { account: wallet, token: token.address, spender: parameters.spender, amount: baseUnits.toString(), key }, operationView)

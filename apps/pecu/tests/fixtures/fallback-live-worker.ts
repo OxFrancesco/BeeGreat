@@ -3,6 +3,7 @@ import { DurableStore } from "../../src/cloudflare/durable-store";
 import { OpenCodeHarness } from "../../src/cloudflare/opencode";
 import type { AgentCapabilities } from "../../src/harness";
 import type { VerifiedMessage } from "../../src/domain";
+import { z } from "zod";
 
 type Env = { FALLBACK: DurableObjectNamespace<FallbackProbe>; OPENROUTER_API_KEY?: string };
 
@@ -32,14 +33,20 @@ const capabilities: AgentCapabilities = {
   nansenCall: toolsDisabled,
 };
 
-const providerCalls: unknown[] = [];
+const providerCalls: { requestBytes: number; toolCount: number; responseMs: number; status: number }[] = [];
 const recordingFetch = Object.assign(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const request = new Request(input, init);
+  const startedAt = Date.now();
+  let requestBytes = 0;
+  let toolCount = 0;
   if (new URL(request.url).hostname === "openrouter.ai") {
-    const auth = request.headers.get("authorization");
-    providerCalls.push({ url: request.url, scheme: auth?.split(" ")[0] ?? null, tokenLength: auth?.split(" ")[1]?.length ?? 0 });
+    const body = await request.clone().text();
+    requestBytes = new TextEncoder().encode(body).length;
+    toolCount = z.object({ tools: z.array(z.unknown()).optional() }).parse(JSON.parse(body)).tools?.length ?? 0;
   }
-  return fetch(request);
+  const response = await fetch(request);
+  if (requestBytes) providerCalls.push({ requestBytes, toolCount, responseMs: Date.now() - startedAt, status: response.status });
+  return response;
 }, { preconnect() {} });
 
 export class FallbackProbe extends DurableObject<Env> {
@@ -57,13 +64,14 @@ export class FallbackProbe extends DurableObject<Env> {
 
   override async fetch(request: Request): Promise<Response> {
     const startedAt = Date.now();
+    providerCalls.length = 0;
     try {
       const harness = await this.harness;
       const mode = new URL(request.url).searchParams.get("mode");
       const text = await harness.respond(
         { eventId: crypto.randomUUID(), senderId: "probe", conversationId: "probe", text: "Reply with exactly the word OK and nothing else.", encodedEvent: "probe" } as VerifiedMessage,
         capabilities,
-        mode === "response" ? "response" : undefined,
+        mode === "response" ? "response" : mode && ["wallet", "defi", "markets", "analytics", "funding"].includes(mode) ? { kind: "mixed", family: z.enum(["wallet", "defi", "markets", "analytics", "funding"]).parse(mode) } : undefined,
         undefined,
         false,
       );
@@ -78,6 +86,6 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/healthz") return Response.json({ ok: true });
-    return env.FALLBACK.get(env.FALLBACK.idFromName("probe")).fetch(request);
+    return env.FALLBACK.get(env.FALLBACK.idFromName(url.searchParams.get("session") ?? "probe")).fetch(request);
   },
 } satisfies ExportedHandler<Env>;

@@ -279,6 +279,8 @@ export class PecuAgent {
     } catch (error) {
       if (/^(?:b)?\//i.test(message.text.trim())) throw error;
       try {
+        // Wake the user's runtime while the classifier chooses the route.
+        const warming = this.harness.warm?.(message.senderId).catch(() => undefined);
         const route: RequestRoute = this.previewOnly.has(message.eventId)
           ? { kind: "fallback" }
           : await this.classifier?.classify(message.text) ?? { kind: "fallback" };
@@ -293,7 +295,9 @@ export class PecuAgent {
             case "help": return helpText;
           }
         }
-        const response = await this.harness.respond(message, this.capabilitiesFor(message), route.kind === "response" || route.kind === "mixed" ? route.kind : undefined, progress);
+        const mode = route.kind === "mixed" && route.family ? { kind: "mixed" as const, family: route.family } : route.kind === "response" || route.kind === "mixed" ? route.kind : undefined;
+        await warming;
+        const response = await this.harness.respond(message, this.capabilitiesFor(message), mode, progress);
         return this.questionText(message.eventId) ?? response;
       } catch (error) {
         const question = this.questionText(message.eventId);

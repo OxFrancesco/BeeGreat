@@ -15,6 +15,15 @@ function recordingExec(stdout: string, exitCode = 0) {
 }
 
 describe("evm sandbox worker", () => {
+  test("provider credentials are redacted from structured and process errors", async () => {
+    const message = `RPC ${settings.rpcUrl} failed with ${settings.etherscanApiKey}`;
+    const exec: SandboxExec = async () => ({ success: false, exitCode: 1, stderr: message, stdout: JSON.stringify({ version: 1, ok: false, error: { code: "RpcFailure", message, retryable: true } }) });
+    const response = await runEvmCommand(exec, settings, { command: "safe-info", input: { chainId: 8453 } });
+    expect(JSON.stringify(response)).not.toContain(settings.rpcUrl);
+    expect(JSON.stringify(response)).not.toContain(settings.etherscanApiKey);
+    const failed: SandboxExec = async () => { throw new Error(message); };
+    expect(await runEvmCommand(failed, settings, { command: "safe-info", input: { chainId: 8453 } })).toMatchObject({ ok: false, error: { code: "SandboxUnavailable", retryable: true } });
+  });
   test("the command does not exit the persistent sandbox shell", async () => {
     const exec: SandboxExec = async (command, options) => {
       const child = Bun.spawn(["bash"], { stdin: "pipe", stdout: "pipe", stderr: "pipe", env: { ...Bun.env, ...Object.fromEntries(Object.entries(options.env).filter((entry): entry is [string, string] => entry[1] !== undefined)) } });

@@ -4,6 +4,7 @@ import { Store } from "../../src/store";
 const created: string[] = [];
 const switched: { sessionID: string; model: { providerID: string; id: string; variant: string } }[] = [];
 const prompts: string[] = [];
+const toolCatalogs: string[][] = [];
 const contextQueue: Record<string, unknown>[] = [];
 const answer = { type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "answer" }] };
 const client = {
@@ -11,10 +12,20 @@ const client = {
     get: async () => ({ id: "session" }),
     create: async (input: { model: { id: string } }) => { created.push(input.model.id); return { id: "session" }; },
     switchModel: async (input: (typeof switched)[number]) => { switched.push(input); },
-    prompt: async (input: { text: string }) => { prompts.push(input.text); return { timeCreated: 1 }; },
+    prompt: async (input: { sessionID: string; text: string }) => {
+      prompts.push(input.text);
+      const event = { sessionID: input.sessionID, tools: Object.fromEntries(registered) };
+      await hooks.get("context")!(event);
+      toolCatalogs.push(Object.keys(event.tools));
+      return { timeCreated: 1 };
+    },
     wait: async () => {},
-    context: async () => [contextQueue.length ? contextQueue.shift() : answer],
+    context: async () => { throw new Error("Reply extraction must not load the conversation"); },
   },
+  message: { list: async (input: { limit: number; order: string }) => {
+    expect(input).toMatchObject({ limit: 1, order: "desc" });
+    return { data: [contextQueue.length ? contextQueue.shift() : answer] };
+  } },
   integration: { list: async () => ({ data: [{ id: "openai", connections: [{ type: "credential", id: "cred" }], methods: [] }] }) },
 };
 type Hook = (event: Record<string, unknown>) => Promise<void>;
@@ -33,6 +44,7 @@ const openai = { providerID: "openai", id: "gpt-6-sol", variant: "medium" };
 const openrouter = { providerID: "openrouter", id: "openai/gpt-6-sol", variant: "medium" };
 const openrouterSmall = { providerID: "openrouter", id: "openai/gpt-6-luna", variant: "low" };
 const pluginContext = {
+  integration: { connection: { active: async () => ({ id: "connection" }), resolve: async () => ({ type: "oauth", methodID: "chatgpt-headless", metadata: { accountID: "account-test" } }) } },
   session: { hook: async (name: string, fn: Hook) => { hooks.set(name, fn); } },
   tool: { hook: async (name: string, fn: Hook) => { hooks.set(name, fn); }, transform: async (fn: (draft: unknown) => void) => fn({ list: () => [], remove() {}, add(tool: {name:string;execute(input: unknown, context:{sessionID:string}):Promise<unknown>}) {registered.set(tool.name,tool);} }) },
   agent: { transform: async (fn: (draft: unknown) => void) => fn({ default() {}, list: () => [] }) },
@@ -44,6 +56,17 @@ try {
   expect(creates.at(-1)!.config?.providers?.openrouter).toBeUndefined();
   expect(harness.fallbackConfigured).toBe(false);
   await plugin!.setup(pluginContext);
+  const subscriptionRequest = { model: openai, headers: {} };
+  await hooks.get("model.request")!(subscriptionRequest);
+  expect(subscriptionRequest.headers).toEqual({ "chatgpt-account-id": "account-test" });
+  const fallbackRequest = { model: openrouter, headers: {} };
+  await hooks.get("model.request")!(fallbackRequest);
+  expect(fallbackRequest.headers).toEqual({});
+  const inventoryProcess = Bun.spawn([process.execPath, new URL("../../scripts/command-inventory.ts", import.meta.url).pathname], { stdout: "pipe", stderr: "pipe" });
+  const [inventoryText, inventoryError, inventoryExit] = await Promise.all([new Response(inventoryProcess.stdout).text(), new Response(inventoryProcess.stderr).text(), inventoryProcess.exited]);
+  expect({ inventoryError, inventoryExit }).toEqual({ inventoryError: "", inventoryExit: 0 });
+  const inventory = JSON.parse(inventoryText);
+  expect(inventory.modelTools.map((tool: { name: string }) => tool.name)).toEqual([...registered.keys()].sort());
   const toolReply = {tool:"polymarket_search",status:"completed",result:{content:JSON.stringify({data:{private:"not telemetry"},presentation:{source_bytes:155870,partial:false}})}};
   await hooks.get("execute.after")!(toolReply);
   expect(toolReply.result).toMatchObject({metadata:{pecu_source_bytes:155870,pecu_output_partial:false,pecu_output_bytes:Buffer.byteLength(toolReply.result.content)}});
@@ -69,8 +92,11 @@ try {
   bound = true;
 
   expect(await harness.respond(message, capabilities, "response")).toBe("answer");
+  expect(toolCatalogs.at(-1)).toEqual(["ask_user"]);
   expect(await harness.respond({ ...message, eventId: "2" }, capabilities, "mixed")).toBe("answer");
+  expect(toolCatalogs.at(-1)).toContain("evm_transfer");
   expect(await harness.respond({ ...message, eventId: "3" }, capabilities)).toBe("answer");
+  expect(toolCatalogs.at(-1)).toEqual([...registered.keys()]);
   expect(created).toEqual(["gpt-6-luna"]);
   expect(switched.map((entry) => entry.model)).toEqual([
     { providerID: "openai", id: "gpt-6-luna", variant: "low" },
@@ -80,6 +106,17 @@ try {
   expect(new Set(switched.map((entry) => entry.sessionID)).size).toBe(1);
   expect(prompts[0]).toContain("explanation-only");
   expect(prompts[1]).not.toContain("explanation-only");
+  expect(await harness.respond({ ...message, eventId: "safe-family", text: "Create a Safe" }, capabilities, { kind: "mixed", family: "wallet" })).toBe("answer");
+  expect(toolCatalogs.at(-1)).toContain("safe_create");
+  expect(toolCatalogs.at(-1)).toContain("safe_role_execute");
+  expect(toolCatalogs.at(-1)).not.toContain("polymarket_search");
+  expect(toolCatalogs.at(-1)).toContain("enable_all_tools");
+  expect(await harness.respond({ ...message, eventId: "aave-family", text: "Supply to Aave" }, capabilities, { kind: "mixed", family: "defi" })).toBe("answer");
+  expect(toolCatalogs.at(-1)).toContain("aave_call");
+  expect(toolCatalogs.at(-1)).toContain("aero_stock_trades");
+  expect(toolCatalogs.at(-1)).not.toContain("nansen_token_flows");
+  expect(await harness.respond({ ...message, eventId: "after-family" }, capabilities)).toBe("answer");
+  expect(toolCatalogs.at(-1)).toEqual([...registered.keys()]);
 
   // A Codex usage-limit 429 must not be retried with backoff, and later turns skip the provider until it resets.
   const request = new Request("https://chatgpt.com/backend-api/codex/responses", { headers: { "chatgpt-account-id": "acct" } });
@@ -118,6 +155,7 @@ try {
   expect(await keyed.respond({ ...message, eventId: "6" }, capabilities, undefined, undefined, false)).toBe("answer");
   expect(switched.at(-1)!.model).toEqual(openrouter);
   expect(await keyed.respond({ ...message, eventId: "7" }, capabilities, "response", undefined, false)).toBe("answer");
+  expect(toolCatalogs.at(-1)).toEqual(["ask_user"]);
   expect(switched.at(-1)!.model).toEqual(openrouterSmall);
 
   // A stored ChatGPT limit no longer refuses the turn when the fallback exists.
@@ -136,6 +174,16 @@ try {
   expect(prompts.length).toBe(midBefore + 2);
   expect(prompts.at(-1)).toBe(prompts.at(-2));
   expect(switched.slice(midSwitches).map((entry) => entry.model)).toEqual([openai, openrouter]);
+
+  contextQueue.push({ type: "assistant", time: { created: 2 }, content: [], error: { type: "provider.internal", message: "server_error", status: 500 } });
+  const responseFallbackBefore = toolCatalogs.length;
+  expect(await keyed.respond({ ...message, eventId: "response-fallback", text: "Explain Polymarket odds" }, capabilities, "response", undefined, true)).toBe("answer");
+  expect(toolCatalogs.slice(responseFallbackBefore)).toEqual([["ask_user"], ["ask_user"]]);
+
+  contextQueue.push({ type: "assistant", time: { created: 2 }, content: [], error: { type: "unknown", message: "explanation failed" } });
+  await expect(keyed.respond({ ...message, eventId: "response-error" }, capabilities, "response", undefined, false)).rejects.toThrow("explanation failed");
+  expect(await keyed.respond({ ...message, eventId: "tools-after-error" }, capabilities, "mixed", undefined, false)).toBe("answer");
+  expect(toolCatalogs.at(-1)).toEqual([...registered.keys()]);
 
   // A non-provider error surfaces without a fallback retry.
   contextQueue.push({ type: "assistant", time: { created: 2 }, content: [], error: { type: "unknown", message: "boom" } });

@@ -9,6 +9,15 @@ const quote = {
 };
 
 describe("plain-language chat", () => {
+  test("liquidity previews show both exact quoted amounts before pool metadata", () => {
+    const reply = aeroPlanText({ kind: "transaction", action: "deposit", parameters: { amount0: "0.1" }, calls: [], context: {
+      deposit: { pool: { symbol: "vAMM-USDC/AERO", lp: "0xpool", is_cl: false, type_label: "volatile", token0: "USDC", token0_address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", token1: "AERO", token1_address: "0x940181a94A35A4569E4529A3CDfB74e38FD98631" }, amount0: "100000", amount1: "140000000000000001", amount0_decimal: 0.1, amount1_decimal: 0.14 },
+    } });
+    expect(reply).toContain("0.1 USDC");
+    expect(reply).toContain("0.140000000000000001 AERO");
+    expect(reply).toContain("vAMM-USDC/AERO");
+    expect(reply).not.toContain("0xpool");
+  });
   test("shows exact dust amounts and the minimum received without technical output", () => {
     const reply = aeroPlanText({ kind: "transaction", action: "swap", parameters: {}, context: { quote }, calls: [] });
     expect(reply).toBe("Swap 0.000001 ETH for about 0.002519 USDC on Base.\nMinimum received: 0.002494 USDC\nNetwork fee: not estimated yet.");

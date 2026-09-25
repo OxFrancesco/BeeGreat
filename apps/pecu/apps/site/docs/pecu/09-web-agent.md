@@ -41,6 +41,7 @@ Each thread is its own conversation, with its own previews and its own YOLO sett
 
 ## Retry and resume
 
+- If the connection drops, Pecu keeps an unsent message visible beside the error. The error's Retry button reuses the same request ID, so a completed request returns its saved reply instead of running again.
 - Retry, the circular arrow under the latest reply, asks Pecu to answer your last message again. The new answer replaces the old one, and your message is not repeated.
 - Retry is only offered on the latest answer. Commands and replies that created a transaction preview cannot be retried. They keep their own controls.
 - A transaction from a retried answer always needs your confirmation, even with YOLO on.

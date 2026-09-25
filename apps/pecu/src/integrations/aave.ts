@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { decodeFunctionData, encodeFunctionData, erc20Abi, formatUnits, parseUnits } from "viem";
 import tools from "./aave-tools.json";
 import skills from "./aave-skills.json";
 import type { PlannedCall } from "../domain";
@@ -62,8 +63,10 @@ export class AaveService {
     const discovered = z.object({ v3: z.object({ markets: z.array(z.object({ market: address, chainId: z.number(), reserves: z.array(z.object({ underlyingToken: address, symbol: z.string() }).passthrough()) })) }) }).parse(markets.data);
     const selected = discovered.v3.markets.find((item) => item.chainId === 8453 && item.market.toLowerCase() === parameters.market.toLowerCase())?.reserves.find((item) => item.underlyingToken.toLowerCase() === parameters.token.toLowerCase());
     if (!selected) throw new Error("That Aave market or token is not available on Base. Refresh the markets first.");
-    const account = await this.rpc("get_user_summary", { version: "v3", chainId: 8453, user: wallet });
-    const reserve = await this.rpc("get_reserve_details", { version: "v3", chainId: 8453, market: parameters.market, token: parameters.token });
+    const [account, reserve] = await Promise.all([
+      this.rpc("get_user_summary", { version: "v3", chainId: 8453, user: wallet }),
+      this.rpc("get_reserve_details", { version: "v3", chainId: 8453, market: parameters.market, token: parameters.token }),
+    ]);
     const simulated = envelope.parse(await this.rpc("preview_action", parameters));
     if (simulated.warnings?.some((warning) => warning.level.toLowerCase() === "error")) throw new Error("Aave's simulation says this action cannot proceed. Adjust the amount or position first.");
     const built = envelope.parse(await this.rpc("prepare_action", parameters));
@@ -71,21 +74,33 @@ export class AaveService {
     let phase = parameters.action as string;
     let txs: unknown[];
     if (raw.__typename === "TransactionRequest") txs = [raw];
-    else if (raw.__typename === "ApprovalRequired" || raw.__typename === "Erc20ApprovalRequired") { txs = [raw.byTransaction]; phase = "token approval"; }
+    else if (raw.__typename === "ApprovalRequired" || raw.__typename === "Erc20ApprovalRequired") { txs = [raw.approval ?? raw.byTransaction]; phase = "token approval"; }
     else if (raw.__typename === "PreContractActionRequired") txs = [raw.transaction, raw.originalTransaction];
     else throw new Error("Aave could not build this action. Check your balance and position.");
+    let approvalLimit: string | undefined;
     const calls = txs.map((item, index): PlannedCall => {
       const tx = transaction.parse(item);
       if (tx.from.toLowerCase() !== wallet.toLowerCase()) throw new Error("Aave returned a transaction for a different wallet.");
       if (phase === "token approval" && (tx.value !== "0" || !tx.data.toLowerCase().startsWith("0x095ea7b3"))) throw new Error("Aave returned an invalid approval transaction.");
+      if (phase === "token approval") {
+        const approved = decodeFunctionData({ abi: erc20Abi, data: tx.data as `0x${string}` });
+        if (tx.to.toLowerCase() !== parameters.token.toLowerCase() || approved.functionName !== "approve" || approved.args[0].toLowerCase() !== parameters.market.toLowerCase()) throw new Error("Aave returned an approval for a different token or spender.");
+        const required = z.object({ raw: z.string().regex(/^[1-9]\d*$/), decimals: z.number().int().min(0).max(255) }).parse(raw.requiredAmount);
+        const amount = BigInt(required.raw);
+        if (amount > approved.args[1] || (!parameters.max && parseUnits(parameters.amount!, required.decimals) !== amount)) throw new Error("Aave returned an approval amount that does not match this action.");
+        tx.data = encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [approved.args[0], amount] });
+        approvalLimit = `${formatUnits(amount, required.decimals)} ${selected.symbol}`;
+      }
       return { from: tx.from as `0x${string}`, to: tx.to as `0x${string}`, data: tx.data as `0x${string}`, value: tx.value, role: index < txs.length - 1 ? "approval" : "action" };
     });
     const health = z.object({ healthFactorAfter: z.unknown().optional() }).passthrough().safeParse(simulated.data);
-    const warnings = [...simulated.warnings ?? [], ...built.warnings ?? []];
+    const nestedWarnings = z.array(z.object({ level: z.string(), message: z.string() })).optional().parse(raw.warnings);
+    const warnings = [...simulated.warnings ?? [], ...built.warnings ?? [], ...nestedWarnings ?? []];
     if (warnings.some((warning) => warning.level.toLowerCase() === "error")) throw new Error("Aave blocked this action. Adjust the amount or position first.");
     const preview = [
       `Aave ${phase} on Base. Amount: ${parameters.max ? "full balance" : parameters.amount} ${parameters.native ? "ETH" : selected.symbol}.`,
       `Token: ${parameters.token}`,
+      ...(approvalLimit ? [`Spending limit: ${approvalLimit}.`] : []),
       ...(health.success && health.data.healthFactorAfter != null ? [`Health factor after: ${String(health.data.healthFactorAfter)}`] : []),
       ...warnings.map((warning) => `${warning.level}: ${warning.message}`),
       ...(phase === "token approval" ? ["This only approves token spending. After confirmation, ask me to continue the original Aave action."] : []),

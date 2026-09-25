@@ -97,6 +97,7 @@ Use one of two forms. Mixing them is rejected.
 
 - `--amount0` and `--amount1` follow the pool's own token0 and token1 order. Check the pool with `/aero pools` first.
 - A new `stable` or `volatile` pool needs both amounts. An existing one can work out the other side from one amount.
+- The deposit preview shows both quoted token amounts before you confirm, including the amount calculated for the other side.
 - CL deposits accept `--price-lower`, `--price-upper`, `--tick-lower`, `--tick-upper` and `--initial-price`. The right values depend on the pool, so look them up rather than guessing. Basic pools reject these flags.
 
 ## Working with positions

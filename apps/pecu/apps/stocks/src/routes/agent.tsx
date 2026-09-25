@@ -631,6 +631,7 @@ function AgentWorkspace({
           <div className="pecu-composer">
             {account.error ? (
               <div className="pecu-error" role="alert">
+                {account.unsent ? <MessagePlain>{account.unsent}</MessagePlain> : null}
                 <span>{account.error}</span>
                 {account.retry ? (
                   <Button

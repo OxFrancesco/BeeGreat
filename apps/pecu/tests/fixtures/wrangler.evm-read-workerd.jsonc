@@ -1,0 +1,6 @@
+{
+  "name": "pecu-evm-read-workerd-test",
+  "main": "evm-read-workerd-worker.ts",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"]
+}

@@ -66,12 +66,21 @@ export function sseFrame(event: WebTurnEvent): string {
 export function turnEventStream(
   run: (progress: ParagraphSink) => Promise<{ status: "complete" | "busy" }>,
   onError?: (error: unknown) => void,
+  heartbeatMs = 15_000,
 ): { response: Response; done: Promise<void> } {
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
   const encoder = new TextEncoder();
   const emit = (event: WebTurnEvent) => writer.write(encoder.encode(sseFrame(event))).catch(() => {});
-  const done = run((text) => { void emit({ type: "paragraph", text }); })
+  let heartbeatPending = false;
+  const heartbeat = () => {
+    if (heartbeatPending) return;
+    heartbeatPending = true;
+    void writer.write(encoder.encode(": keep-alive\n\n")).catch(() => {}).finally(() => { heartbeatPending = false; });
+  };
+  heartbeat();
+  const timer = setInterval(heartbeat, heartbeatMs);
+  const done = Promise.resolve().then(() => run((text) => { void emit({ type: "paragraph", text }); }))
     .then(
       (result) => emit({ type: "complete", status: result.status }),
       (error) => {
@@ -79,7 +88,7 @@ export function turnEventStream(
         return emit({ type: "error", error: error instanceof Error ? error.message : String(error) });
       },
     )
-    .finally(() => writer.close().catch(() => {}));
+    .finally(() => { clearInterval(timer); return writer.close().catch(() => {}); });
   return {
     response: new Response(readable, {
       headers: { "Content-Type": sseContentType, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },

@@ -6,6 +6,7 @@ import { formatUnits, type EvmPlanResult, type EvmReadResult } from "./evm";
 import type { WhopDeposit } from "./integrations/whop";
 import type { IntentAction } from "./state";
 import { resolveStock } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
+import { knownTokenMetadata } from "./token-metadata";
 
 const units = z.string().regex(/^\d+$/);
 const token = z.object({ symbol: z.string(), decimals: z.number().int().min(0).max(255) });
@@ -86,6 +87,20 @@ export function aeroReadText(action: string, output: unknown): string {
 }
 
 export function aeroPlanText(plan: AeroPlanResult | StockBasketPlanResult): string {
+  if (plan.action === "deposit") {
+    const deposit = z.object({
+      pool: z.object({ symbol: z.string(), token0: z.string(), token1: z.string(), token0_address: z.string(), token1_address: z.string() }),
+      amount0: units, amount1: units, amount0_decimal: z.number().nonnegative(), amount1_decimal: z.number().nonnegative(),
+    }).safeParse(plan.context.deposit);
+    if (deposit.success) {
+      const d = deposit.data;
+      const token0 = knownTokenMetadata(d.pool.token0_address);
+      const token1 = knownTokenMetadata(d.pool.token1_address);
+      const amount0 = token0 ? formatUnits(d.amount0, token0.decimals) : String(d.amount0_decimal);
+      const amount1 = token1 ? formatUnits(d.amount1, token1.decimals) : String(d.amount1_decimal);
+      return `Add ${amount0} ${d.pool.token0} and ${amount1} ${d.pool.token1} to ${d.pool.symbol} on Base.\nNetwork fee: not estimated yet.`;
+    }
+  }
   const quote = plan.action === "swap" ? quoteText(plan.context, true) : undefined;
   const action = label(plan.action);
   const trades = z.array(z.object({ from: z.string(), to: z.string(), amount: z.string(), expected: z.string(), minimum: z.string() })).safeParse(plan.context.trades);

@@ -6,6 +6,7 @@ import type { EvmService, EvmTxAction } from "./evm";
 import type { NansenEndpointName } from "./integrations/nansen";
 import type { StockTrade } from "./stock-contract";
 import type { ParagraphSink } from "./web-stream";
+import type { ToolFamily } from "./tool-families";
 
 type EvmReadInput<K extends "read" | "inspect" | "decode"> = Parameters<EvmService[K]>[0];
 
@@ -34,9 +35,10 @@ export type AgentCapabilities = Readonly<{
   nansenCall(endpoint: NansenEndpointName, input: unknown): Promise<string>;
 }>;
 
-export type ResponseMode = "response" | "mixed";
+export type ResponseMode = "response" | "mixed" | Readonly<{ kind: "mixed"; family: ToolFamily }>;
 
 export interface AgentHarness {
+  warm?(senderId: string): Promise<void>;
   /** `progress` receives finished paragraphs while the model is still writing; channels that cannot show partial replies omit it. */
   respond(message: VerifiedMessage, capabilities: AgentCapabilities, mode?: ResponseMode, progress?: ParagraphSink): Promise<string>;
 }

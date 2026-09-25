@@ -12,6 +12,12 @@ const sdkDirectory = "/opt/evm";
 const commandTimeoutMs = 90_000;
 const commandPattern = /^[a-z][a-z-]*$/;
 
+function redactedMessage(message: string, settings: EvmSandboxSettings): string {
+  let text = message.replaceAll(settings.rpcUrl, "[RPC endpoint]").replace(/https?:\/\/[^\s"'<>]+/g, "[provider URL]");
+  if (settings.etherscanApiKey) text = text.replaceAll(settings.etherscanApiKey, "[redacted]");
+  return text.slice(0, 300);
+}
+
 /**
  * Run one allow-listed evm CLI command inside the sandbox. The JSON input
  * travels through an environment variable and a double-quoted shell
@@ -31,7 +37,9 @@ export async function runEvmCommand(exec: SandboxExec, settings: EvmSandboxSetti
     `rm -rf "${journal}"`,
     "exit $status",
   ].join("; ");
-  const result = await exec(`( ${shell} )`, {
+  let result: Awaited<ReturnType<SandboxExec>>;
+  try {
+    result = await exec(`( ${shell} )`, {
     cwd: sdkDirectory,
     timeout: commandTimeoutMs,
     env: {
@@ -40,12 +48,16 @@ export async function runEvmCommand(exec: SandboxExec, settings: EvmSandboxSetti
       EVM_DATABASE: `${journal}/operations.sqlite`,
       EVM_ETHERSCAN_API_KEY: settings.etherscanApiKey,
     },
-  });
+    });
+  } catch {
+    return { ok: false, error: { code: "SandboxUnavailable", message: "The wallet planning service is unavailable. Please try again shortly.", retryable: true } };
+  }
   try {
-    return parseEvmCliOutput(result.stdout);
+    const response = parseEvmCliOutput(result.stdout);
+    return response.ok ? response : { ...response, error: { ...response.error, message: redactedMessage(response.error.message, settings) } };
   } catch (error) {
     const detail = result.stderr.trim().split("\n").at(-1) ?? "";
     const message = error instanceof Error ? error.message : "evm CLI failed";
-    return { ok: false, error: { code: "SandboxFailure", message: detail ? `${message}: ${detail.slice(0, 300)}` : `${message} (exit ${result.exitCode})`, retryable: false } };
+    return { ok: false, error: { code: "SandboxFailure", message: redactedMessage(detail ? `${message}: ${detail}` : `${message} (exit ${result.exitCode})`, settings), retryable: false } };
   }
 }

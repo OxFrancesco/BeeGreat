@@ -7,6 +7,20 @@ async function collect(body: ReadableStream<Uint8Array>) {
   return events;
 }
 
+test("silent tool work keeps the connection active without inventing reply paragraphs", async () => {
+  let finish!: () => void;
+  const gate = new Promise<void>((resolve) => { finish = resolve; });
+  const { response, done } = turnEventStream(async () => { await gate; return { status: "complete" }; }, undefined, 10);
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  expect(decoder.decode((await reader.read()).value)).toBe(": keep-alive\n\n");
+  expect(decoder.decode((await reader.read()).value)).toBe(": keep-alive\n\n");
+  finish();
+  reader.releaseLock();
+  expect(await collect(response.body!)).toEqual([{ type: "complete", status: "complete" }]);
+  await done;
+});
+
 test("a turn stream emits paragraphs as they are produced, then the outcome, and closes", async () => {
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
@@ -20,7 +34,8 @@ test("a turn stream emits paragraphs as they are produced, then the outcome, and
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   const first = decoder.decode((await reader.read()).value);
-  expect(first).toBe(sseFrame({ type: "paragraph", text: "One." }));
+  expect(first).toBe(": keep-alive\n\n");
+  expect(decoder.decode((await reader.read()).value)).toBe(sseFrame({ type: "paragraph", text: "One." }));
   release();
   reader.releaseLock();
   expect(await collect(response.body!)).toEqual([

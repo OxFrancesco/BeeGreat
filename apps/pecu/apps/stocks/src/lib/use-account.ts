@@ -61,7 +61,7 @@ export async function streamTurn(
       Accept: `${sseContentType}, application/json`,
     },
     body: JSON.stringify(body),
-  });
+  }).catch(() => { throw new Error("The connection to Pecu dropped. Check for a reply below, or retry this same request."); });
   if (!response.ok) throw await failed(response);
   if (!response.headers.get("Content-Type")?.includes(sseContentType) || !response.body) {
     await response.json();
@@ -75,7 +75,7 @@ export async function streamTurn(
     else return;
   }
   throw new Error(
-    "The connection dropped while Pecu was answering. The reply will appear here when it is ready.",
+    "The connection to Pecu dropped. Check for a reply below, or retry this same request.",
   );
 }
 type Retry = {
@@ -132,7 +132,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
   const loads = useRef(
     new Map<
       string | null,
-      { promise: Promise<void>; controller: AbortController }
+      { promise: Promise<WebState | void>; controller: AbortController }
     >(),
   );
   const threadLoad = useRef<AbortController | null>(null);
@@ -191,7 +191,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
       id: string | null,
       force = false,
       page: MessagePageQuery = {},
-    ): Promise<void> => {
+    ): Promise<WebState | void> => {
       if (!signedIn) return Promise.resolve();
       const existing = loads.current.get(id);
       if (existing && !force) return existing.promise;
@@ -224,6 +224,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
             wallet: state.wallet,
             threads: current?.threads ?? [],
           }));
+          return state;
         })
         .finally(() => {
           if (loads.current.get(id)?.promise === promise)
@@ -234,7 +235,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     },
     [signedIn, update],
   );
-  const reload = useCallback(() => load(threadId, true), [load, threadId]);
+  const reload = useCallback(async () => { await load(threadId, true); }, [load, threadId]);
   const pageMessages = useCallback(
     async (page: MessagePageQuery = {}) => {
       const epoch = generation.current;
@@ -411,7 +412,11 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
         }
       } catch (e) {
         if (generation.current !== epoch) return;
-        await reload().catch(() => {});
+        const recovered = await load(threadId, true).catch(() => undefined);
+        if (recovered?.messages.some((message) => message.id.endsWith(`:${requestId}`) && message.reply)) {
+          update(threadId, { error: "", retry: null });
+          return;
+        }
         if (generation.current === epoch)
           update(threadId, {
             error:
@@ -500,6 +505,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     error: current.error,
     pending: current.pending,
     retry: current.retry,
+    unsent: current.retry && !current.state?.messages.some((message) => message.id.endsWith(`:${current.retry!.requestId}`)) ? current.retry.text : null,
     inFlight: current.inFlight,
     partial: current.partial,
     reload,

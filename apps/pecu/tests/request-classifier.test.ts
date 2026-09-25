@@ -1,6 +1,24 @@
 import { expect, test } from "bun:test";
 import { TypeSafeRequestClassifier } from "../src/request-classifier";
 
+test("selects a stable tool family in the same classifier request", async () => {
+  let calls = 0;
+  const classifier = new TypeSafeRequestClassifier("test", async (_url, init) => {
+    calls++;
+    expect(JSON.parse(String(init?.body)).questions.family.criteria).toHaveProperty("wallet");
+    return Response.json({ answers: { route: { choice: "mixed", confidence: 0.99 }, family: { choice: "wallet", confidence: 0.99 } } });
+  });
+  expect(await classifier.classify("Create a Safe")).toEqual({ kind: "mixed", family: "wallet" });
+  expect(calls).toBe(1);
+});
+
+test("uncertain or malformed family classifications keep all capabilities available", async () => {
+  for (const family of [{ choice: "wallet", confidence: 0.5 }, { choice: "execute", confidence: 1 }, null]) {
+    const classifier = new TypeSafeRequestClassifier("test", async () => Response.json({ answers: { route: { choice: "mixed", confidence: 0.99 }, family } }));
+    expect(await classifier.classify("continue")).toEqual({ kind: "mixed" });
+  }
+});
+
 test.each(["wallet", "balance", "stocks", "positions", "deposit_status", "help"])("maps %s to an allowlisted command", async (label) => {
   const classifier = new TypeSafeRequestClassifier("test", async (url, init) => {
     expect(url).toBe("https://api.typesafe.ai/v1/systemone");

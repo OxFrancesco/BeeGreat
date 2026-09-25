@@ -207,6 +207,7 @@ export function Chat({
       )}
       {account.error ? (
         <div className="error m-4" role="alert">
+          {account.unsent ? <p>{account.unsent}</p> : null}
           {account.error}
           {account.retry ? (
             <Button

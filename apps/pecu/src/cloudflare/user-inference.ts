@@ -55,10 +55,12 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       }, codexContainerFetch(env.CODEX), loadWorkerConfig(env).openRouterApiKey,
         Reflect.get(env, "POSTHOG_ENABLED") === "true"
           ? (senderId, event) => { ctx.waitUntil(captureAgentEvent({ senderId, event })); }
-          : undefined);
+          : undefined, (work) => ctx.waitUntil(work));
       store.initialize();
     });
   }
+
+  async warm() { await this.ready; }
 
   async status() {
     await this.ready;

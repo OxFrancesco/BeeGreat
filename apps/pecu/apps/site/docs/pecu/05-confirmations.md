@@ -10,6 +10,8 @@ Pecu never sends a transaction straight from your request. It builds the exact t
 
 A preview says what will happen in plain terms. Depending on the action, it shows the amounts, the estimated amount you receive, the minimum you accept, the recipient and any warnings from Aave. It ends with the confirmation controls and the expiry.
 
+When Aave needs a token approval, Pecu prepares that approval separately and limits it to the amount required for the action. The preview shows the spending limit. After approval confirms, ask Pecu to continue the supply or repayment. The approval alone does not perform that action.
+
 - Previews currently show `Network fee: not estimated yet.` Pecu does not guess fees.
 - Pecu prepares at most one preview per message. For several unrelated actions, it prepares the first one and the next after you confirm. Several stock trades in one message are the exception and share one basket preview.
 - Some previews include token approvals that run before the main action. One confirmation covers every step, in order.
