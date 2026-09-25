@@ -231,6 +231,18 @@ describe("wallet and lending calls", () => {
     expect(transactionPlan([approve(usdcAddress, recipient, 0n)], { intent: evm("revoke") })!.steps[0]!.title).toBe("Revoke 0x2222…2222's permission to spend USDC");
   });
 
+  test("wrapping and unwrapping WETH read as their own steps with an ETH to WETH route", () => {
+    const deposit = encodeFunctionData({ abi: [{ type: "function", name: "deposit", stateMutability: "payable", inputs: [], outputs: [] }], functionName: "deposit" });
+    const wrap = transactionPlan([call(wethAddress, deposit, 784_500_000_000_000n, "action")], { intent: evm("contract_call", { signature: "deposit()" }) })!;
+    expect(wrap.steps).toEqual([{ kind: "swap", title: "Wrap 0.0007845 ETH into WETH", contract: wethAddress, contractName: "WETH token", value: "0.0007845 ETH" }]);
+    expect(wrap.route?.nodes.map((node) => node.label)).toEqual(["ETH", "WETH"]);
+    expect(wrap.route?.edges).toEqual([{ from: "n0", to: "n1", step: 0 }]);
+    const withdraw = encodeFunctionData({ abi: [{ type: "function", name: "withdraw", stateMutability: "nonpayable", inputs: [{ type: "uint256" }], outputs: [] }], functionName: "withdraw", args: [10n ** 15n] });
+    const unwrap = transactionPlan([call(wethAddress, withdraw, 0n, "action")], { intent: evm("contract_call", { signature: "withdraw(uint256)" }) })!;
+    expect(unwrap.steps[0]!.title).toBe("Unwrap 0.001 WETH to ETH");
+    expect(unwrap.route?.nodes.map((node) => node.label)).toEqual(["WETH", "ETH"]);
+  });
+
   test("Aave actions flow between the token and Aave, and name the market", () => {
     const market: Address = "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5";
     // SAFETY: the decoder reads only `market` from Aave parameters; the full schema is covered by the Aave integration tests.

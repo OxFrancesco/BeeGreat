@@ -49,6 +49,10 @@ const erc20 = parseAbi([
   "function approve(address spender, uint256 amount)",
   "function transfer(address to, uint256 amount)",
 ]);
+const wrappedEth = parseAbi([
+  "function deposit() payable",
+  "function withdraw(uint256 wad)",
+]);
 const aavePool = parseAbi([
   "function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)",
   "function withdraw(address asset, uint256 amount, address to)",
@@ -457,6 +461,16 @@ function describeCall(plan: PlanBuilder, call: PlannedCall, index: number): void
     const eth = plan.tokenNode(WETH, true);
     plan.edge(eth, plan.node(`account:${key(call.to)}`, () => ({ kind: "account", label: "Recipient", detail: shortAddress(call.to) })), index);
     return plan.add(call, { kind: "transfer", title: `Send ${formatUnits(value, 18)} ETH to ${shortAddress(call.to)}` });
+  }
+  const wrap = key(call.to) === WETH ? decode(wrappedEth, call.data) : undefined;
+  if (wrap?.functionName === "deposit" && value > 0n) {
+    plan.edge(plan.tokenNode(WETH, true), plan.tokenNode(WETH), index);
+    return plan.add(call, { kind: "swap", title: `Wrap ${formatUnits(value, 18)} ETH into WETH` });
+  }
+  if (wrap?.functionName === "withdraw") {
+    const [amount] = z.tuple([uint]).parse(wrap.args);
+    plan.edge(plan.tokenNode(WETH), plan.tokenNode(WETH, true), index);
+    return plan.add(call, { kind: "swap", title: `Unwrap ${formatUnits(amount, 18)} WETH to ETH` });
   }
   const token = decode(erc20, call.data);
   if (token?.functionName === "approve") {
