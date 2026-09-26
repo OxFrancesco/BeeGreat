@@ -46,6 +46,30 @@ test("pool limit applies before hydration and unrelated pools are not priced", a
 });
 import { cachePublicCatalog } from "../src/cloudflare/aero-cache";
 import { createSugarClient } from "@beegreat/sugar";
+import { z } from "zod";
+
+test("a cold edge reads shared public metadata without extending its lifetime", async () => {
+  const objects = new Map<string, string>();
+  const shared = {
+    get: async (key: string) => { const body = objects.get(key); return body === undefined ? null : { text: async () => body }; },
+    put: async (key: string, body: string) => { objects.set(key, body); },
+    delete: async (key: string) => { objects.delete(key); },
+  };
+  const first = new AeroCache(undefined, () => {}, shared);
+  await first.write("tokens:8453:test", [{ symbol: "TOKEN437" }], 600);
+  const schema = z.array(z.object({ symbol: z.string() }));
+  const observations: string[] = [];
+  const anotherRegion = new AeroCache(undefined, event => observations.push(event.operation), shared);
+  expect(await anotherRegion.read("tokens:8453:test", schema)).toEqual([{ symbol: "TOKEN437" }]);
+  expect(observations).toContain("cache.tokens.r2.hit");
+  objects.set("v1/tokens:8453:test", JSON.stringify({ expiresAt: Date.now() - 1, value: [{ symbol: "EXPIRED" }] }));
+  expect(await anotherRegion.read("tokens:8453:test", schema)).toBeUndefined();
+  objects.set("v1/tokens:8453:test", "broken JSON");
+  expect(await anotherRegion.read("tokens:8453:test", schema)).toBeUndefined();
+  const failedEdge = new AeroCache({ match: async () => { throw new Error("cache unavailable"); }, put: async () => { throw new Error("cache unavailable"); }, delete: async () => false }, () => {}, shared);
+  await first.write("tokens:8453:test", [{ symbol: "FRESH" }], 600);
+  expect(await failedEdge.read("tokens:8453:test", schema)).toEqual([{ symbol: "FRESH" }]);
+});
 
 test("one public snapshot serves arbitrary tokens across requests and preserves ambiguity checks", async () => {
   const stored = new Map<string, Response>();

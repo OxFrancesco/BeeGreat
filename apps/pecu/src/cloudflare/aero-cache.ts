@@ -1,35 +1,66 @@
 import { z } from "zod";
 import { toSugarJson, type SugarJson, type SugarPoolLocatorStore, type SugarPoolLocatorKey, type SugarRpcObserver } from "@beegreat/sugar";
 
+export interface SharedCatalog {
+  get(key: string): Promise<{ text(): Promise<string> } | null>;
+  put(key: string, value: string): Promise<{ key: string } | null | void>;
+  delete(key: string): Promise<void>;
+}
+
 /** Only public catalog/topology data goes here. Balances, prices and plans stay fresh. */
 export class AeroCache {
-  constructor(private readonly cache: Pick<Cache, "match" | "put" | "delete"> | undefined, private readonly observe: SugarRpcObserver) {}
+  constructor(private readonly cache: Pick<Cache, "match" | "put" | "delete"> | undefined, private readonly observe: SugarRpcObserver, private readonly shared?: SharedCatalog) {}
   private key(key: string) { return new Request(`https://pecu.app/__aero_cache/v2/${encodeURIComponent(key)}`); }
+  private observed(key: string, tier: string, result: string, start: number) {
+    this.observe({ operation: `cache.${key.split(":")[0]}.${tier}.${result}`, phase: "read", status: result === "error" ? "error" : "success", attemptCount: 1, durationMs: Date.now() - start });
+  }
   async read<T>(key: string, schema: z.ZodType<T>): Promise<T | undefined> {
-    const start = Date.now();
+    let start = Date.now();
     try {
       const response = await this.cache?.match(this.key(key));
       const result = response ? schema.safeParse(await response.json()) : undefined;
       const hit = result?.success === true;
-      this.observe({ operation: hit ? "cache.hit" : "cache.miss", phase: "read", status: "success", attemptCount: 1, durationMs: Date.now() - start });
-      return hit ? result.data : undefined;
-    } catch { return undefined; }
+      this.observed(key, "edge", hit ? "hit" : "miss", start);
+      if (hit) return result.data;
+    } catch { this.observed(key, "edge", "error", start); }
+    if (!this.shared) return;
+    start = Date.now();
+    try {
+      const object = await this.shared.get(`v1/${key}`);
+      const parsed = object ? z.object({ expiresAt: z.number(), value: schema }).safeParse(JSON.parse(await object.text())) : undefined;
+      if (!parsed?.success || parsed.data.expiresAt <= Date.now()) {
+        this.observed(key, "r2", "miss", start);
+        return;
+      }
+      this.observed(key, "r2", "hit", start);
+      await this.writeEdge(key, toSugarJson(parsed.data.value), Math.floor((parsed.data.expiresAt - Date.now()) / 1000));
+      return parsed.data.value;
+    } catch { this.observed(key, "r2", "error", start); return; }
+  }
+  private async writeEdge(key: string, value: SugarJson, ttl: number) {
+    if (!this.cache || ttl <= 0) return;
+    const start = Date.now();
+    try {
+      await this.cache.put(this.key(key), Response.json(value, { headers: { "Cache-Control": `public, max-age=${ttl}` } }));
+      this.observed(key, "edge", "write", start);
+    } catch { this.observed(key, "edge", "error", start); }
   }
   async write(key: string, value: SugarJson, ttl: number) {
     const start = Date.now();
-    try {
-      await this.cache?.put(this.key(key), Response.json(value, { headers: { "Cache-Control": `public, max-age=${ttl}` } }));
-      this.observe({ operation: "cache.write", phase: "read", status: "success", attemptCount: 1, durationMs: Date.now() - start });
-    } catch {
-      this.observe({ operation: "cache.write", phase: "read", status: "error", attemptCount: 1, durationMs: Date.now() - start });
-    }
+    await Promise.all([this.writeEdge(key, value, ttl), (async () => {
+      if (!this.shared) return;
+      try {
+        await this.shared.put(`v1/${key}`, JSON.stringify({ expiresAt: start + ttl * 1000, value }));
+        this.observed(key, "r2", "write", start);
+      } catch { this.observed(key, "r2", "error", start); }
+    })()]);
   }
   locators(): SugarPoolLocatorStore {
     const key = (k: SugarPoolLocatorKey) => `locator:${k.chainId}:${k.sugarContractAddress.toLowerCase()}:${k.poolAddress.toLowerCase()}`;
     return {
       get: k => this.read(key(k), z.object({ offset: z.number().int().nonnegative() })),
       set: (k, v) => this.write(key(k), v, 86400),
-      delete: async k => { try { await this.cache?.delete(this.key(key(k))); } catch {} },
+      delete: async k => { await Promise.allSettled([this.cache?.delete(this.key(key(k))), this.shared?.delete(`v1/${key(k)}`)]); },
     };
   }
 }
