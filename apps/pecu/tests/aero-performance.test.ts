@@ -47,14 +47,32 @@ test("pool limit applies before hydration and unrelated pools are not priced", a
 import { cachePublicCatalog } from "../src/cloudflare/aero-cache";
 import { createSugarClient } from "@beegreat/sugar";
 
-test("known token lookups never load the catalog and distinguish ETH from WETH", async () => {
-  const client = createSugarClient(8453);
-  client.getAllTokens = async () => { throw new Error("Unexpected catalog read"); };
-  cachePublicCatalog(client, new AeroCache(undefined, () => {}));
-  const eth = await client.getToken("ETH");
-  const weth = await client.getToken("WETH");
-  expect(weth?.tokenAddress).toBe(eth?.wrappedTokenAddress);
-  expect(weth?.wrappedTokenAddress).toBeUndefined();
-  expect((await client.getToken("USDC"))?.decimals).toBe(6);
-  expect((await client.getToken(weth!.tokenAddress))?.symbol).toBe("WETH");
+test("one public snapshot serves arbitrary tokens across requests and preserves ambiguity checks", async () => {
+  const stored = new Map<string, Response>();
+  const cache = new AeroCache({
+    match: async request => stored.get(String(request instanceof Request ? request.url : request))?.clone(),
+    put: async (request, response) => { stored.set(String(request instanceof Request ? request.url : request), response.clone()); },
+    delete: async request => stored.delete(String(request instanceof Request ? request.url : request)),
+  }, () => {});
+  const tokens = Array.from({ length: 1000 }, (_, index) => ({ chainId: 8453 as const, chainName: "Base", tokenAddress: `0x${(index + 1).toString(16).padStart(40, "0")}`, symbol: `TOKEN${index}`, decimals: 18, listed: index % 2 === 0, emerging: false }));
+  tokens.push({ ...tokens[0]!, tokenAddress: `0x${"f".repeat(40)}` });
+  let scans = 0;
+  const request = () => {
+    const client = createSugarClient(8453);
+    client.getAllTokens = async () => { scans++; return tokens; };
+    cachePublicCatalog(client, cache);
+    return client;
+  };
+  const first = request();
+  const reads = await Promise.all([first.getToken("TOKEN19"), first.getToken(tokens[437]!.tokenAddress), first.getToken("TOKEN998")]);
+  expect(reads.map(t => t?.symbol)).toEqual(["TOKEN19", "TOKEN437", "TOKEN998"]);
+  const second = request();
+  expect((await second.getToken("TOKEN888"))?.symbol).toBe("TOKEN888");
+  expect(await second.getAllTokens(true)).toHaveLength(501);
+  await expect(second.getToken("TOKEN0")).rejects.toThrow("Ambiguous token symbol");
+  expect(await second.getToken("NOT_PRESENT")).toBeUndefined();
+  expect(scans).toBe(1);
+  stored.clear();
+  await request().getToken("TOKEN19");
+  expect(scans).toBe(2);
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { KNOWN_TOKENS, toSugarJson, type Token, type SugarJson, type SugarPoolLocatorStore, type SugarPoolLocatorKey, type SugarRpcObserver } from "@beegreat/sugar";
+import { toSugarJson, type SugarJson, type SugarPoolLocatorStore, type SugarPoolLocatorKey, type SugarRpcObserver } from "@beegreat/sugar";
 
 /** Only public catalog/topology data goes here. Balances, prices and plans stay fresh. */
 export class AeroCache {
@@ -40,24 +40,11 @@ const tokenSchema = z.object({ chainId: z.literal(8453), chainName: z.string(), 
 });
 
 export function cachePublicCatalog(client: import("@beegreat/sugar").SugarClient, cache: AeroCache) {
-  const known = new Map<string, Token>();
-  for (const token of Object.values(KNOWN_TOKENS[8453])) {
-    known.set(token.symbol.toLowerCase(), token);
-    known.set(token.tokenAddress.toLowerCase(), token);
-    if (token.wrappedTokenAddress) {
-      const { wrappedTokenAddress, ...fields } = token;
-      const wrapped: Token = { ...fields, tokenAddress: wrappedTokenAddress, symbol: `W${token.symbol}` };
-      known.set(wrappedTokenAddress.toLowerCase(), wrapped);
-      known.set(wrapped.symbol.toLowerCase(), wrapped);
-    }
-  }
-  const readToken = client.getToken.bind(client);
-  client.getToken = async reference => known.get(String(reference).toLowerCase()) ?? readToken(reference);
   const original = client.getAllTokens.bind(client);
   let catalog: ReturnType<typeof original> | undefined;
   client.getAllTokens = async (listedOnly = false) => {
     catalog ??= (async () => {
-      const key = `tokens:${client.settings.sugarContractAddress}`;
+      const key = `tokens:8453:${client.settings.sugarContractAddress.toLowerCase()}`;
       const cached = await cache.read(key, z.array(tokenSchema));
       if (cached) return cached;
       const tokens = await original(false);

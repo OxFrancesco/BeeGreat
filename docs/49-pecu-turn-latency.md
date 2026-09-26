@@ -14,4 +14,8 @@ The Aero service binding no longer queues unrelated requests in either the main 
 
 Liquidity planning shares one client across its balance, pool, probe, final swap and deposit calls. The two funding quotes use different amounts and remain required; external price-discovery quotes are unnecessary because full pool results include spot price and units. A durable successful liquidity tool result can end the runtime turn directly and becomes the user reply, preserving the exact preview, confirmation code and verified execution result.
 
+Token metadata uses the complete on-chain catalog snapshot, keyed by chain and Sugar contract, with a ten-minute TTL. There is no known-token lookup bypass. Concurrent lookups within a request share the same catalog read, and subsequent Worker requests use the Cloudflare Cache API snapshot. SDK symbol ambiguity and address resolution remain intact. Eviction or expiration causes a fresh catalog scan. The cache key uses the owned `pecu.app` hostname; the earlier internal hostname did not retain entries in production.
+
+A five-prompt live Jev evaluation of direct liquidity dispatch failed the required field-confidence threshold even for the positive example. That shortcut is not enabled. Jev remains a routing/tool-selection stage; the model uses the typed liquidity tool and code constructs and validates the transaction preview. Negated, hypothetical and multi-action examples did not dispatch.
+
 This change is Pecu-specific. BeeGreat mobile, Android, CLI, voice and iMessage have separate agents and no changed contract. Both OpenRouter and ChatGPT paths share progress and preview handling. No Sugar or EVM SDK source or standalone package changed. No Durable Object identities or migrations changed.
