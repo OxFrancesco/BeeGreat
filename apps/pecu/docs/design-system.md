@@ -191,8 +191,10 @@ wallets with their own icons, then WalletConnect with a QR icon. WalletConnect
 draws its own modal, so ours closes first. The connected wallet is a chip with
 its icon and short address; below 600px only the icon shows. Its popover shows
 the full address, Linked as NAME or Link to your account, and Disconnect.
-When a thread can use linked wallets, the composer footer starts with a
-recessed pill select, Pecu wallet or NAME · short address. Linked previews say
+The Agent's wallet chip shows the thread's wallet with copy and a switch icon.
+The switch popover lists Pecu wallet and linked wallets as rows (name, short
+address, check on the active one), then Link a wallet and Disconnect for the
+browser wallet. There is no second picker in the composer. Linked previews say
 Review, then sign in your wallet, and Sent from your wallet, waiting for Base;
 they hide the confirmation code disclosure. Wallet notices sit under the card
 actions in muted 13px text, with Send again only for an unreported step.
@@ -340,6 +342,11 @@ To change the upstream theme, update the pinned JSON deliberately, regenerate,
 review the token diff, and run the checks. Builds never fetch a moving theme URL.
 The component file catalog refreshes automatically; new visual patterns also
 need a specimen in `apps/site/scripts/build-design.ts`.
+
+Stock holdings open on the dotted pie. Graph and List are two 32px icon buttons in
+a recessed pill right after the Stock holdings title, with the total on the far
+right. List rows carry no color dots; only the graph legend has color swatches,
+as small squares.
 
 Dither chart internals and `stock-holdings.tsx` are exempt from the inline-style
 rule because chart geometry and series colors come from data. Raw Tailwind color

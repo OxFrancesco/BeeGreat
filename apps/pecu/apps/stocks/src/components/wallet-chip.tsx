@@ -1,10 +1,10 @@
 import { CheckIcon, CopyIcon, XIcon } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Popover } from "radix-ui";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { WalletPnl } from "./wallet-pnl";
 
-export function WalletChip({ address }: { address: string }) {
+export function WalletChip({ address, children }: { address: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "copied" | "error">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -99,6 +99,7 @@ export function WalletChip({ address }: { address: string }) {
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>
+      {children}
       <span className="sr-only" role="status">{status === "copied" ? "Wallet address copied" : ""}</span>
     </div>
   );

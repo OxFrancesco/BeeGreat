@@ -71,7 +71,7 @@ export function loadPnl(wallet: string, days: PnlDays): Promise<WebPnl> {
   if (hit && Date.now() - hit.at < fresh) return Promise.resolve(hit.value);
   let read = reads.get(key);
   if (!read) {
-    read = request(`pnl?days=${days}`)
+    read = request(`pnl?${new URLSearchParams({ days: String(days), wallet })}`)
       .then((raw) => {
         const value = webPnlSchema.parse(raw);
         results.set(key, { at: Date.now(), value });

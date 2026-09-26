@@ -37,6 +37,12 @@ verified sender. `src/linked-wallets.ts` owns them.
 
 ## Chat plans signed by a linked wallet
 
+The Agent's top bar wallet chip shows the thread's wallet and a switch icon that
+sets the choice, links another wallet or disconnects the browser wallet. The
+chip, its P&L and the Portfolio page read that wallet: `/portfolio` and `/pnl`
+accept an optional `wallet`, and the server serves only the Pecu wallet or a
+wallet linked to the signed-in account.
+
 A thread's choice (`use`) is read at call time. Balance, token, allowance,
 position, Nansen and plan-building calls then use the linked address. The plan
 is persisted with `signer` in `basedbot_intent_signers`, and its preview adds a

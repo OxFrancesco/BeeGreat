@@ -1,4 +1,4 @@
-import { portfolioQuerySchema, portfolioSchema } from "../../../../src/portfolio-contract";
+import { ownedWalletSchema, portfolioQuerySchema, portfolioSchema } from "../../../../src/portfolio-contract";
 import { type JsonInput } from "../../../../src/json-contract";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/stocks/api/$")({
         if (params._splat === "cards") return cardsRequest(false);
         if (params._splat === "portfolio") {
           const params = new URL(request.url).searchParams;
-          const query = portfolioQuerySchema.safeParse({ tokens: params.getAll("token"), stocks: params.get("stocks") === "1" });
+          const query = portfolioQuerySchema.safeParse({ tokens: params.getAll("token"), stocks: params.get("stocks") === "1", wallet: params.get("wallet") ?? undefined });
           if (!query.success) return json({ error: "Enter a token ticker or Base contract address." }, 400);
           return profileRequest("portfolio", portfolioSchema, query.data);
         }
@@ -211,16 +211,20 @@ export const Route = createFileRoute("/stocks/api/$")({
 });
 
 async function pnlRequest(request: Request) {
-  const days = pnlDaysSchema.safeParse(Number(new URL(request.url).searchParams.get("days") ?? 30));
+  const params = new URL(request.url).searchParams;
+  const days = pnlDaysSchema.safeParse(Number(params.get("days") ?? 30));
   if (!days.success) return json({ error: "Choose 7, 30, 90 or 365 days." }, 400);
+  const wallet = ownedWalletSchema.optional().safeParse(params.get("wallet") ?? undefined);
+  if (!wallet.success) return json({ error: "Check the wallet address." }, 400);
   let viewer;
   try { viewer = await identity(); }
   catch { return json({ error: "Sign in to see your P&L." }, 401); }
   try {
-    const response = await agentRequest("pnl", { ...viewer, days: days.data });
+    const response = await agentRequest("pnl", wallet.data ? { ...viewer, days: days.data, wallet: wallet.data } : { ...viewer, days: days.data });
     const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const error = z.object({ error: z.string() }).safeParse(body).data?.error;
+      if (response.status === 400 && error) return json({ error }, 400);
       return json({ error: response.status === 502 && error ? error : "Could not load your P&L. Try again." }, 503);
     }
     return json(webPnlSchema.parse(body));

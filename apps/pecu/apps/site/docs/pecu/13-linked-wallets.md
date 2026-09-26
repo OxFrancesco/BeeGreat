@@ -24,9 +24,9 @@ Pecu only links accounts that sign with their own key. Smart contract wallets, i
 
 ## Use a linked wallet in chat
 
-When you have a linked wallet, the message box on pecu.app/agent shows a wallet picker. The choice belongs to the thread, like YOLO.
+On pecu.app/agent, the switch button beside your wallet address in the top bar lists your Pecu wallet and your linked wallets. The choice belongs to the thread, like YOLO.
 
-With a linked wallet picked, balance, token and position reads use that wallet, and Pecu builds transaction previews for it. The card lists the wallet and says it pays the Base network fee.
+With a linked wallet picked, the top bar, balances, P&L and position reads use that wallet, and Pecu builds transaction previews for it. The card lists the wallet and says it pays the Base network fee.
 
 1. Connect the same wallet. If another one is connected, the confirm button asks you to connect the right one.
 2. Press the confirm button. Your wallet shows each transaction in order, with any approvals first.
@@ -42,7 +42,7 @@ The card turns to Executed and verified on Base only after Pecu reads every tran
 - If you decline in the wallet before anything is sent, the card goes back to waiting for you. If a later transaction is declined, earlier ones stay on Base and you can confirm again before the preview expires.
 - If your wallet was asked to send a transaction but Pecu never got its hash, for example because the tab closed, the card asks you to check your wallet's activity before sending it again.
 
-Pick Pecu wallet in the same picker to go back. X Chat always uses your Pecu wallet.
+Pick Pecu wallet in the same menu to go back. X Chat always uses your Pecu wallet.
 
 ## Use a linked wallet with Safes
 

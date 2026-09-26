@@ -56,7 +56,7 @@ While YOLO is on, the top bar shows "YOLO on · turn off". Pressing it sends `/y
 
 ## Linked wallets
 
-With a [linked wallet](/docs/pecu/linked-wallets), the message box shows a wallet picker for the thread. Previews built for a linked wallet say Review, then sign in your wallet, and the confirm button asks that wallet to send each transaction instead of sending `/confirm`. The top bar shows the wallet connected in this browser.
+The switch button beside your wallet address in the top bar picks the wallet for the thread: your Pecu wallet or a [linked wallet](/docs/pecu/linked-wallets). The address, balances and P&L then show that wallet. The same menu links another wallet and disconnects the one connected in this browser. Previews built for a linked wallet say Review, then sign in your wallet, and the confirm button asks that wallet to send each transaction instead of sending `/confirm`.
 
 ## Wallet and P&L
 
@@ -96,6 +96,7 @@ AERO, and the stock catalog tickers are supported; use the contract address for
 other tokens. Remove hides an added token without moving funds. Your token list
 is saved for this wallet in this browser.
 
-Stock positions switch between **List** and **Graph**. The graph shows allocation
-by estimated USDC value, not historical performance. Missing prices are excluded
-from the graph and identified in the list. These views only read your wallet.
+Stock positions open as a graph. The two icons beside Stock holdings switch
+between the graph and a list. The graph shows allocation by estimated USDC value,
+not historical performance. Missing prices are excluded from the graph and
+identified in the list. These views only read your wallet.

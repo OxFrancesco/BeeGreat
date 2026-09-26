@@ -150,7 +150,7 @@ export type WebThread = z.infer<typeof webThreadSchema>;
 export const pnlDaysSchema = z.union([z.literal(7), z.literal(30), z.literal(90), z.literal(365)]);
 export type PnlDays = z.infer<typeof pnlDaysSchema>;
 export const webPnlRequestSchema = webIdentitySchema
-  .extend({ days: pnlDaysSchema })
+  .extend({ days: pnlDaysSchema, wallet: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]).optional() })
   .strict();
 export const webPnlSchema = z.object({
   wallet: z.string().nullable(),

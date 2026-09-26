@@ -54,7 +54,7 @@ import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { PecuMascot } from "@/components/pecu-mascot";
 import { StreamedReply } from "@/components/streamed-reply";
 import { WalletChip } from "@/components/wallet-chip";
-import { ThreadWallet } from "@/components/thread-wallet";
+import { WalletSwitch } from "@/components/wallet-switch";
 import { ConnectWallet, openConnectWallet } from "@/components/profile/connect-wallet";
 import { useBrowserWallets } from "@/lib/browser-wallet";
 import { confirmWithWallet, useLinkedWallets, walletLabel } from "@/lib/linked-wallets";
@@ -373,9 +373,17 @@ function AgentWorkspace({
                   </Dialog>
                 ) : null}
                 {account.state?.wallet ? (
-                  <WalletChip key={account.state.wallet} address={account.state.wallet} />
+                  <WalletChip key={account.state.signer ?? account.state.wallet} address={account.state.signer ?? account.state.wallet}>
+                    <WalletSwitch
+                      threadId={threadId}
+                      pecuWallet={account.state.wallet}
+                      signer={account.state.signer ?? null}
+                      onChanged={() => void account.reload().catch(() => undefined)}
+                      onError={account.setError}
+                    />
+                  </WalletChip>
                 ) : null}
-                <ConnectWallet chip={Boolean(linked?.length || connected)} />
+                <ConnectWallet chip={false} />
                 {account.state?.yolo ? (
                   <button
                     className="pecu-chip pecu-chip-warn"
@@ -757,16 +765,6 @@ function AgentWorkspace({
                 </PromptInputBody>
               <PromptInputFooter className="pecu-prompt-footer">
                 <PromptInputTools>
-                  {isSignedIn && linked?.length ? (
-                    <ThreadWallet
-                      threadId={threadId}
-                      signer={account.state?.signer ?? null}
-                      wallets={linked}
-                      disabled={account.pending || account.loading}
-                      onChanged={() => void account.reload().catch(() => undefined)}
-                      onError={account.setError}
-                    />
-                  ) : null}
                   <span className="pecu-prompt-hint">
                     {account.state?.signer
                       ? "Transactions from this wallet need your approval in it."

@@ -226,14 +226,20 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           return json({ ok: true });
         }
         if (url.pathname === "/internal/web/portfolio") {
-          const { tokens, stocks, ...identity } = portfolioRequestSchema.parse(raw);
-          return json(await this.webAgent.portfolio(identity, { tokens, stocks }));
+          const { tokens, stocks, wallet, ...identity } = portfolioRequestSchema.parse(raw);
+          try {
+            return json(await this.webAgent.portfolio(identity, { tokens, stocks, wallet }));
+          } catch (error) {
+            if (error instanceof (await import("../linked-wallets")).LinkedWalletError) return json({ error: error.message }, 400);
+            throw error;
+          }
         }
         if (url.pathname === "/internal/web/pnl") {
-          const { days, ...identity } = webPnlRequestSchema.parse(raw);
+          const { days, wallet, ...identity } = webPnlRequestSchema.parse(raw);
           try {
-            return json(await this.webAgent.pnl(identity, days));
+            return json(await this.webAgent.pnl(identity, days, wallet));
           } catch (error) {
+            if (error instanceof (await import("../linked-wallets")).LinkedWalletError) return json({ error: error.message }, 400);
             const message = errorMessage(error);
             log("warn", "web_pnl_failed", { error: message });
             return json({ error: message.startsWith("Nansen ") ? message : "Could not load your P&L. Try again." }, 502);

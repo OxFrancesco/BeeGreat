@@ -7,7 +7,8 @@ import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import { z } from "zod";
 import type { PecuAgent } from "./agent";
-import type { LinkedWallets } from "./linked-wallets";
+import { LinkedWalletError, type LinkedWallets } from "./linked-wallets";
+import { getAddress } from "viem";
 import type { PecuStore } from "./state";
 import { senderKind, webConversation } from "./web-identity";
 import type { ParagraphSink } from "./web-stream";
@@ -44,7 +45,7 @@ export class WebAgent {
     private readonly agent: PecuAgent,
     private readonly store: PecuStore,
     private readonly sql: WebSql,
-    private readonly linkedWallets?: Pick<LinkedWallets, "signer">,
+    private readonly linkedWallets?: Pick<LinkedWallets, "signer" | "isLinked">,
   ) {
     sql.exec(
       `CREATE TABLE IF NOT EXISTS basedbot_web_turns (id TEXT PRIMARY KEY, owner TEXT NOT NULL, text TEXT NOT NULL, created_at INTEGER NOT NULL, reply TEXT)`,
@@ -173,8 +174,15 @@ export class WebAgent {
       JSON.stringify(basket),
     );
   }
+  /** The Pecu wallet, or a linked wallet the account asked for. Any other address is refused. */
+  private ownedWallet(identity: Identity, requested?: string): string | undefined {
+    const own = this.store.wallet(identity.senderId)?.address;
+    if (!requested || requested.toLowerCase() === own?.toLowerCase()) return own;
+    if (this.linkedWallets?.isLinked(identity.senderId, requested)) return getAddress(requested);
+    throw new LinkedWalletError("This wallet isn't linked to your account.");
+  }
   async portfolio(identity: Identity, query: z.infer<typeof portfolioQuerySchema>): Promise<Portfolio> {
-    const wallet = this.store.wallet(identity.senderId)?.address;
+    const wallet = this.ownedWallet(identity, query.wallet);
     const address = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]).safeParse(wallet);
     if (!address.success) return { wallet: null, balances: [], holdings: null, stocksError: null };
     const balances = Promise.all([...new Set(query.tokens.map((token) => token.toLowerCase()))].map(async (reference) => {
@@ -197,8 +205,8 @@ export class WebAgent {
     return { wallet: address.data, balances: rows, holdings: stocks, stocksError };
   }
 
-  async pnl(identity: Identity, days: PnlDays): Promise<WebPnl> {
-    const wallet = this.store.wallet(identity.senderId)?.address;
+  async pnl(identity: Identity, days: PnlDays, requested?: string): Promise<WebPnl> {
+    const wallet = this.ownedWallet(identity, requested);
     if (!wallet || !/^0x[0-9a-fA-F]{40}$/.test(wallet))
       return { wallet: null, days, snapshot: null };
     const key = wallet.toLowerCase();

@@ -35,7 +35,7 @@ function PortfolioContents({ address, compact }: { address: string; compact: boo
     if (!ready) return;
     const controller = new AbortController();
     setLoading(true);
-    const query = new URLSearchParams(tokens.map((token) => ["token", token]));
+    const query = new URLSearchParams([...tokens.map((token) => ["token", token]), ["wallet", address]]);
     request(`portfolio?${query}`, undefined, controller.signal).then((raw) => {
       const value = portfolioSchema.parse(raw);
       if (!controller.signal.aborted) { setData(value); setError(""); }
@@ -57,7 +57,7 @@ function PortfolioContents({ address, compact }: { address: string; compact: boo
     setAdding(true);
     setAddError("");
     try {
-      const result = portfolioSchema.parse(await request(`portfolio?token=${encodeURIComponent(reference)}`));
+      const result = portfolioSchema.parse(await request(`portfolio?${new URLSearchParams({ token: reference, wallet: address })}`));
       const balance = result.balances[0];
       if (!balance || balance.error) throw new Error(balance?.error ?? "Your wallet is not ready yet.");
       if (balance.address && data?.balances.some((row) => row.address?.toLowerCase() === balance.address?.toLowerCase())) throw new Error("This token is already shown.");
@@ -105,7 +105,7 @@ function PortfolioStocks({ address }: { address: string }) {
   useEffect(() => {
     const controller = new AbortController();
     setError("");
-    request("portfolio?stocks=1", undefined, controller.signal).then((raw) => {
+    request(`portfolio?${new URLSearchParams({ stocks: "1", wallet: address })}`, undefined, controller.signal).then((raw) => {
       const value = portfolioSchema.parse(raw);
       if (!controller.signal.aborted) { setData(value); setError(value.stocksError ?? ""); }
     }).catch(() => { if (!controller.signal.aborted) setError("Could not load stock positions."); });
