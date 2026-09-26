@@ -1,7 +1,7 @@
 // Deterministic timeline for the Pecu explainer. `window.__seek(t)` renders any
 // moment exactly (used by render.ts); without `?render` it plays in real time.
 (() => {
-  const DURATION = 70;
+  const DURATION = 30;
   const stage = document.getElementById("stage");
   const rendering = new URLSearchParams(location.search).has("render");
   if (rendering) document.documentElement.classList.add("render");
@@ -14,10 +14,8 @@
     el,
     start: Number(el.dataset.start),
     end: Number(el.dataset.end),
-    step: Number(el.dataset.step || 0),
     items: [...el.querySelectorAll(".a")],
     videos: [...el.querySelectorAll("video")],
-    counters: [...el.querySelectorAll("[data-count]")],
   }));
 
   // Measure natural heights of chat messages while every scene is laid out.
@@ -64,37 +62,26 @@
   }
 
   const hooks = {
-    counters(s, lt) {
-      s.counters.forEach((el) => {
-        const [start, dur, from, to, dec] = el.dataset.count.split(",").map(Number);
-        const v = from + (to - from) * outQuint(clamp((lt - start) / dur));
-        el.textContent = v.toFixed(dec);
-      });
-    },
     typing(s, lt) {
       s.el.querySelectorAll(".typing i").forEach((dot, k) => {
         dot.style.transform = `translateY(${Math.sin(lt * 9 - k * 0.9) * -6}px)`;
       });
     },
-    confirm(s, lt) {
-      const expiry = s.el.querySelector("#expiry");
-      if (!expiry) return;
-      const left = Math.max(0, 600 - Math.max(0, Math.floor(lt - 2)));
-      expiry.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
-      const spin = s.el.querySelector(".spinner");
-      spin.style.transform = `rotate(${lt * 400}deg)`;
-      const done = clamp((lt - 6.8) / 0.4);
+    status(s, lt) {
+      const status = s.el.querySelector(".status");
+      if (!status) return;
+      const at = Number(status.dataset.done);
+      s.el.querySelector(".spinner").style.transform = `rotate(${lt * 400}deg)`;
+      const done = clamp((lt - at) / 0.4);
       s.el.querySelector(".state.pending").style.opacity = String(1 - done);
       const doneEl = s.el.querySelector(".state.done");
       doneEl.style.opacity = String(done);
       doneEl.style.transform = `scale(${0.9 + 0.1 * outBack(done)})`;
-      s.el.querySelector(".status .link").style.opacity = String(clamp((lt - 7.1) / 0.4));
+      s.el.querySelector(".status .link").style.opacity = String(clamp((lt - at - 0.3) / 0.4));
     },
   };
 
   const chrome = document.querySelector(".chrome");
-  const progress = document.getElementById("progress");
-  const steps = [...progress.children];
 
   function render(t) {
     scenes.forEach((s, i) => {
@@ -104,23 +91,12 @@
       const lt = t - s.start;
       s.el.style.opacity = String(sceneOpacity(s, t, i));
       s.items.forEach((el) => applyItem(el, lt));
-      hooks.counters(s, lt);
       hooks.typing(s, lt);
-      hooks.confirm(s, lt);
+      hooks.status(s, lt);
     });
 
     const [a, b] = chrome.dataset.sceneRange.split(",").map(Number);
     chrome.style.opacity = String(Math.min(clamp((t - a) / 0.5), clamp((b - t) / 0.4)));
-
-    const active = scenes.find((s) => t >= s.start && t < s.end);
-    const stepScenes = scenes.filter((s) => s.step);
-    const first = stepScenes[0].start, last = stepScenes[stepScenes.length - 1].end;
-    progress.style.opacity = String(Math.min(clamp((t - first) / 0.5), clamp((last - t) / 0.4)));
-    const current = active && active.step ? active.step : 0;
-    steps.forEach((el, k) => {
-      el.classList.toggle("on", k + 1 === current);
-      el.classList.toggle("done", k + 1 < current);
-    });
   }
 
   function videoTarget(v, lt) {
@@ -159,7 +135,7 @@
 
   if (rendering) return;
 
-  const fit = () => { stage.style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; };
+  const fit = () => { stage.style.transform = `translate(-50%, -50%) scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; };
   addEventListener("resize", fit);
   fit();
 

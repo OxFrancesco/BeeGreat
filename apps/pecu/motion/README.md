@@ -1,7 +1,7 @@
 # Pecu explainer motion
 
-A 70 second, 1920x1080 explainer: what Pecu is and how to use it in four steps
-(say hi, fund, ask, confirm), then safety rules, capabilities and the call to action.
+A 30 second, 1920x1080 explainer: what Pecu is, a quick chat demo, the feature set
+and the call to action.
 
 - `explainer.html`, `explainer.css`, `explainer.js`: the piece. It imports
   `theme/theme.css`, `theme/clay.css` and the bundled fonts, and uses the mascot
