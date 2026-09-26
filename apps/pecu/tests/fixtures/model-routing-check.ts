@@ -2,6 +2,7 @@ import { unusedCapabilities } from "./agent-services";
 import type { JsonFields } from "../../src/json-contract";
 import { expect, mock } from "bun:test";
 import { Store } from "../../src/store";
+import { z } from "zod";
 
 const created: string[] = [];
 const switched: { sessionID: string; model: { providerID: string; id: string; variant: string } }[] = [];
@@ -74,7 +75,7 @@ class Hooks {
 }
 const hooks = new Hooks();
 const registered = new Map<string, Tool>();
-type ToolDraft = { list(): { id: string }[]; remove(id: string): void; add(tool: Tool & { name: string }): void };
+type ToolDraft = { list(): { id: string }[]; remove(id: string): void; add(tool: Tool & { name: string; input: z.ZodType }): void };
 type AgentDraft = { default(name: string): void; list(): { id: string }[] };
 type CreateOptions = { config?: { providers?: Record<string, { settings?: JsonFields }> }; plugins: { setup(context: typeof pluginContext): Promise<void> }[] };
 const creates: CreateOptions[] = [];
@@ -91,7 +92,7 @@ const openrouterSmall = { providerID: "openrouter", id: "openai/gpt-6-luna", var
 const pluginContext = {
   integration: { connection: { active: async () => ({ id: "connection" }), resolve: async () => ({ type: "oauth", methodID: "chatgpt-headless", metadata: { accountID: "account-test" } }) } },
   session: { hook: async <K extends keyof HookEvents>(name: K, fn: (event: HookEvents[K]) => Promise<void>) => { hooks.set(name, fn); } },
-  tool: { hook: async <K extends keyof HookEvents>(name: K, fn: (event: HookEvents[K]) => Promise<void>) => { hooks.set(name, fn); }, transform: async (fn: (draft: ToolDraft) => void) => fn({ list: () => [], remove() {}, add(tool: Tool & { name: string }) {registered.set(tool.name,tool);} }) },
+  tool: { hook: async <K extends keyof HookEvents>(name: K, fn: (event: HookEvents[K]) => Promise<void>) => { hooks.set(name, fn); }, transform: async (fn: (draft: ToolDraft) => void) => fn({ list: () => [], remove() {}, add(tool: Tool & { name: string; input: z.ZodType }) { z.toJSONSchema(tool.input); registered.set(tool.name,tool); } }) },
   agent: { transform: async (fn: (draft: AgentDraft) => void) => fn({ default() {}, list: () => [] }) },
 };
 try {
@@ -137,7 +138,7 @@ try {
   await expect(hooks.get("context")!(catalog())).rejects.toThrow("no longer bound");
   bound = true;
 
-  expect(await harness.respond(message, capabilities, "response")).toBe("answer");
+  expect(await harness.respond({ ...message, transactionContext: "Verified completed transaction" }, capabilities, "response")).toBe("answer");
   expect(toolCatalogs.at(-1)).toEqual(["ask_user"]);
   expect(await harness.respond({ ...message, eventId: "2" }, capabilities, "mixed")).toBe("answer");
   expect(toolCatalogs.at(-1)).toContain("evm_transfer");
@@ -151,6 +152,7 @@ try {
   ]);
   expect(new Set(switched.map((entry) => entry.sessionID)).size).toBe(1);
   expect(prompts[0]).toContain("explanation-only");
+  expect(prompts[0]).toContain("Verified completed transaction");
   expect(prompts[1]).not.toContain("explanation-only");
   expect(await harness.respond({ ...message, eventId: "safe-family", text: "Create a Safe" }, capabilities, { kind: "mixed", family: "wallet" })).toBe("answer");
   expect(toolCatalogs.at(-1)).toContain("safe_create");

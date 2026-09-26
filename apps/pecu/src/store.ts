@@ -366,6 +366,10 @@ export class Store implements PecuStore {
     return row ? this.toIntent(row) : undefined;
   }
 
+  recentChatIntents(senderId: string, conversationId: string) {
+    return this.db.query<Pick<Intent, "state" | "action" | "preview" | "expiresAt" | "result">, SQLQueryBindings[]>("SELECT state,action,preview,expires_at AS expiresAt,result FROM aero_intents WHERE sender_id=? AND conversation_id=? ORDER BY created_at DESC LIMIT 5").all(senderId, conversationId);
+  }
+
   intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined {
     const row = this.db.query<IntentRow, SQLQueryBindings[]>("SELECT i.*, s.address AS signer FROM aero_intents i LEFT JOIN intent_signers s ON s.intent_id = i.id WHERE i.code_hash = ? AND i.sender_id = ? AND i.conversation_id = ?").get(codeHash, senderId, conversationId);
     return row ? this.toIntent(row) : undefined;

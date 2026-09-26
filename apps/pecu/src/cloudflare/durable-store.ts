@@ -384,6 +384,10 @@ export class DurableStore implements PecuStore {
     return row ? this.toIntent(row) : undefined;
   }
 
+  recentChatIntents(senderId: string, conversationId: string) {
+    return [...this.sql.exec<Pick<Intent, "state" | "action" | "preview" | "expiresAt" | "result">>("SELECT state,action,preview,expires_at AS expiresAt,result FROM basedbot_aero_intents WHERE sender_id=? AND conversation_id=? ORDER BY created_at DESC LIMIT 5", senderId, conversationId)];
+  }
+
   intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined {
     const row = this.first<IntentRow>(
       "SELECT i.*, s.address AS signer FROM basedbot_aero_intents i LEFT JOIN basedbot_intent_signers s ON s.intent_id=i.id WHERE i.code_hash=? AND i.sender_id=? AND i.conversation_id=?",

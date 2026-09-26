@@ -1,5 +1,7 @@
 # Pecu turn timing and liquidity latency
 
+Each inference turn receives the five most recent transaction ledger entries for that sender and chat. This refreshes execution, cancellation and expiration state even when deterministic commands bypassed the model conversation. Repeated action requests require fresh balances and a new preview. Aave tool arguments use JSON-serializable schemas; registration tests convert every tool schema before accepting the catalog.
+
 The web Agent and Stocks chat consume trace and stage SSE events alongside reply text. The contract is `apps/pecu/src/web-stream.ts`. `InferenceTools.stage` forwards runtime stages across the inference Durable Object boundary. Timing is an expandable record in the active browser session, not a durable chat artifact. X Chat receives the same deterministic liquidity preview without progress-message spam.
 
 Each admitted request has an opaque SHA-256 trace ID shared by Cloudflare logs, PostHog lifecycle events and browser first-frame/render timings. Root traces include end-to-end duration and first answer availability. Model generations distinguish provider wait from streaming; tool events and Aero RPC children report their own durations. RPC children may overlap or describe nested operations, so their durations must not be summed as the critical path. RPC headers contain only operation names, durations, counts and outcomes, capped at 64 entries; Cloudflare retains the remaining RPC logs.

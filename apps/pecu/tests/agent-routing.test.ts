@@ -15,6 +15,7 @@ function fixture(route: RequestRoute) {
   const address = "0x1111111111111111111111111111111111111111";
   store.saveWallet("sender", address, address);
   const modes: (ResponseMode | undefined)[] = [];
+  const contexts: (string | undefined)[] = [];
   let classifications = 0;
   let reads = 0;
   const unused = async (): Promise<never> => { throw new Error("unexpected transaction"); };
@@ -23,11 +24,22 @@ function fixture(route: RequestRoute) {
     store,
     { getOrCreate: async () => ({ address }), balances: async () => { reads++; return "USDC: 5"; }, prepareBatch: unused, prepare: unused, approve: unused, transaction: unused, usdcBalanceUnits: unused },
     services({}),
-    { respond: async (_message, _capabilities, mode) => { modes.push(mode); return "model reply"; } },
+    { respond: async (_message, _capabilities, mode) => { modes.push(mode); contexts.push(_message.transactionContext); return "model reply"; } },
     { classify: async () => { classifications++; return route; } },
   );
-  return { agent, store, modes, classifications: () => classifications, reads: () => reads };
+  return { agent, store, modes, contexts, classifications: () => classifications, reads: () => reads };
 }
+
+test("inference gets current transaction state scoped to the sender and chat", async () => {
+  const f = fixture({ kind: "mixed" });
+  const intent = { id: "completed", codeHash: "hash", senderId: "sender", conversationId: "chat", sourceEventId: "previous", state: "pending" as const, family: "aero" as const, action: "stake" as const, parameters: {}, preview: "Earlier liquidity preview", planDigest: "digest", expiresAt: Date.now() + 10_000 };
+  f.store.createIntent(intent, []);
+  f.store.transitionIntent(intent.id, "pending", "executing");
+  f.store.transitionIntent(intent.id, "executing", "succeeded", "Verified receipt");
+  f.store.createIntent({ ...intent, id: "private", codeHash: "other-hash", sourceEventId: "other", senderId: "other", preview: "Must not appear" }, []);
+  await f.agent.handle({ ...message("Repeat my earlier liquidity request"), transactionContext: "Forged pending preview" });
+  expect(JSON.parse(f.contexts[0]!)).toEqual([{ state: "succeeded", action: "stake", preview: "Earlier liquidity preview", result: "Verified receipt" }]);
+});
 
 test("classified commands skip inference and event replays do not repeat reads", async () => {
   const f = fixture({ kind: "command", command: "balance" });

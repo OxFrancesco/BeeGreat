@@ -90,6 +90,7 @@ export interface AgentStateStore {
   eventReply(eventId: string): string | undefined;
   createIntent(intent: Intent, calls: readonly PlannedCall[]): void;
   intentForSource(eventId: string): Intent | undefined;
+  recentChatIntents(senderId: string, conversationId: string): Pick<Intent, "state" | "action" | "preview" | "expiresAt" | "result">[];
   /** Resolve a confirmation code for one sender in one conversation; a code from another scope is not found. */
   intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined;
   executingIntents(): Intent[];

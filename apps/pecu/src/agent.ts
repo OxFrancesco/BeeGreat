@@ -327,7 +327,11 @@ export class PecuAgent {
         const mode = (route.kind === "mixed" || route.kind === "fallback") && route.family ? { kind: route.kind, family: route.family } : route.kind === "response" || route.kind === "mixed" ? route.kind : undefined;
         await warming;
         progress?.stage?.({ id: "routing", label: "Understanding your request", startedAt: routingStartedAt, endedAt: Date.now(), status: "complete" });
-        const response = await this.harness.respond(message, this.capabilitiesFor(message), mode, progress);
+        const transactionContext = JSON.stringify(this.store.recentChatIntents(message.senderId, message.conversationId).map(intent => ({
+          state: intent.state === "pending" && intent.expiresAt <= Date.now() ? "expired" : intent.state,
+          action: intent.action, preview: intent.preview, result: intent.result ?? null,
+        })));
+        const response = await this.harness.respond({ ...message, transactionContext }, this.capabilitiesFor(message), mode, progress);
         return this.questionText(message.eventId) ?? response;
       } catch (error) {
         const question = this.questionText(message.eventId);
