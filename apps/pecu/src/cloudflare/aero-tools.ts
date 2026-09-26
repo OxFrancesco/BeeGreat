@@ -1,4 +1,4 @@
-import { ACTION_SPECS } from "@beegreat/sugar";
+import { requestParameters } from "@beegreat/sugar";
 import { isSugarTxAction, SUGAR_ACTIONS, type SugarAction } from "@beegreat/sugar/contracts";
 import { z } from "zod";
 
@@ -43,19 +43,19 @@ const fieldDescriptions = new Map(Object.entries({
 }));
 
 function inputSchema(action: SugarAction) {
-  const spec = ACTION_SPECS[action];
   const fields: Record<string, z.ZodType<string | number | boolean | undefined>> = {};
-  for (const [name, kind] of Object.entries(spec.allowed)) {
+  for (const { name, kind, required, description } of requestParameters(action)) {
     if (name === "chain" || name === "wallet") continue;
     const base = kind === "boolean" ? z.boolean()
       : kind === "number" ? z.number()
+      : kind === "integer" ? z.number().int()
       : kind === "address" ? z.string().regex(/^0x[0-9a-fA-F]{40}$/)
       : kind === "integer_string" ? z.string().regex(/^\d+$/)
       : z.string().min(1).max(256);
     const constrained = name === "pool_type" ? z.enum(["cl", "stable", "volatile"]) : base;
-    const presence = spec.required.includes(name) ? constrained : constrained.optional();
+    const presence = required ? constrained : constrained.optional();
     const field = name === "use_decimals" ? z.boolean().default(true) : presence;
-    fields[name] = field.describe(fieldDescriptions.get(name) ?? name.replaceAll("_", " "));
+    fields[name] = field.describe(fieldDescriptions.get(name) ?? description);
   }
   return z.strictObject(fields);
 }

@@ -23,7 +23,7 @@
     "polymarket:verify": "bun scripts/verify-polymarket.ts"
   },
   "dependencies": {
-    "@beegreat/sugar": "github:OxFrancesco/aerodrome-sdk-ts#af1464619f74992d6d41923609297de9788001cf",
+    "@beegreat/sugar": "github:OxFrancesco/aerodrome-sdk-ts#0930a1b5bcd1409f1e77941ec976581994b64690",
     "@cloudflare/containers": "0.3.7",
     "@cloudflare/sandbox": "0.12.9",
     "@crossmint/wallets-sdk": "1.12.1",

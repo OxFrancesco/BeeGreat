@@ -18,11 +18,18 @@ describe("command grammar", () => {
   });
 
   test("uses the Aero CLI parser for typed flags", () => {
-    expect(parseCommand("/aero pools --token0 USDC --limit=5 --full --no-use-decimals")).toEqual({
+    expect(parseCommand("/aero pools --token0 USDC --limit=5 --full")).toEqual({
       type: "aero",
       action: "pools",
-      parameters: { token0: "USDC", limit: 5, full: true, use_decimals: false },
+      parameters: { token0: "USDC", limit: 5, full: true },
     });
+  });
+
+  test("coerces negated flags only for actions that accept them", () => {
+    expect(parseCommand("/aero swap --from-token ETH --to-token USDC --amount 1 --no-use-decimals")).toEqual({
+      type: "aero", action: "swap", parameters: { from_token: "ETH", to_token: "USDC", amount: "1", use_decimals: false },
+    });
+    expect(() => parseCommand("/aero pools --no-use-decimals")).toThrow("Invalid negated flag");
   });
 
   test("parses the documented veNFT lock duration as a number", () => {

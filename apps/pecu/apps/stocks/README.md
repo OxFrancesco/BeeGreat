@@ -53,3 +53,5 @@ The current deployment uses Clerk's **development instance**, with its shared X 
 Legacy `/stocks` URLs redirect permanently to `/aero/stocks`, preserving path suffixes and query parameters. API and Clerk return URLs use the new path.
 
 This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
+Turn timing details are enabled only in Vite modes `development`, `preview`, and `test`. `bun run build` produces the production UI without timing controls; `bun run build:preview` retains them. Cloudflare and PostHog traces remain enabled in production. Both Agent and Stocks chat use the same gate.

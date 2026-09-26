@@ -1,4 +1,4 @@
-import { ACTION_SPECS } from "@beegreat/sugar";
+import { requestParameters } from "@beegreat/sugar";
 import { SUGAR_ACTIONS, isSugarTxAction } from "@beegreat/sugar/contracts";
 import { aeroTools } from "../src/cloudflare/aero-tools";
 import { evmTools } from "../src/cloudflare/evm-tools";
@@ -37,7 +37,7 @@ console.log(JSON.stringify({
     polymarket: ["help", "status", "research", "question", ...polymarketEndpointNames.map(name => `read ${name}`)],
     nansen: ["help", "token", "flows", "portfolio", "wallet", "pnl", "markets"],
   },
-  aeroActions: SUGAR_ACTIONS.map(action => ({ action, onchain: isSugarTxAction(action), parameters: ACTION_SPECS[action].allowed, required: ACTION_SPECS[action].required })),
+  aeroActions: SUGAR_ACTIONS.map(action => ({ action, onchain: isSugarTxAction(action), parameters: Object.fromEntries(requestParameters(action).map(spec => [spec.name, spec.kind])), required: requestParameters(action).filter(spec => spec.required).map(spec => spec.name) })),
   modelTools: modelTools.map(name => ({ name, onchain: writes.has(name), status: "not-run" })),
   aaveCalls: aaveTools.map(tool => ({ name: tool.name, parameters: tool.inputSchema, status: "not-run" })),
   aaveSigningActions: aaveParameters["shape"].action.options,
