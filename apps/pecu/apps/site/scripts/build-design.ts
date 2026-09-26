@@ -14,7 +14,7 @@ const escape = (value: string) =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
-const agentCss = `${await read(resolve(pecu, "apps/stocks/src/pecu.css"))}\n${await read(resolve(pecu, "apps/stocks/src/profile.css"))}`;
+const agentCss = `${await read(resolve(pecu, "apps/stocks/src/components/address-text.css"))}\n${await read(resolve(pecu, "apps/stocks/src/pecu.css"))}\n${await read(resolve(pecu, "apps/stocks/src/profile.css"))}`;
 const tokens = (css: string, selector: string) => {
   const start = css.indexOf(selector);
   if (start < 0) throw new Error(`Missing theme selector: ${selector}`);
