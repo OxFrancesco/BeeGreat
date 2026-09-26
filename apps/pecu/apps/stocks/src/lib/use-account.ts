@@ -61,7 +61,7 @@ export async function streamTurn(
   const metric = (name: "first_frame" | "first_answer_render" | "complete", at = performance.now()) => {
     if (!traceId) return;
     const id = traceId;
-    void import("../../../../src/browser-analytics").then(({ trackTurnPerformance }) => trackTurnPerformance(id, name, at - startedAt));
+    void import("../../../../src/browser-analytics").then(({ trackTurnPerformance }) => trackTurnPerformance(id, name, at - startedAt)).catch(() => {});
   };
   const response = await fetch("/stocks/api/turn", {
     method: "POST",
@@ -80,7 +80,11 @@ export async function streamTurn(
     const event = webTurnEventSchema.parse(raw);
     if (event.type === "paragraph") {
       onParagraph(event.text, event.replace === true);
-      if (!firstAnswer) { firstAnswer = true; requestAnimationFrame(() => requestAnimationFrame(() => metric("first_answer_render"))); }
+      if (!firstAnswer) {
+        firstAnswer = true;
+        if (traceId && typeof requestAnimationFrame === "function")
+          requestAnimationFrame(() => requestAnimationFrame(() => metric("first_answer_render")));
+      }
     }
     else if (event.type === "trace") { traceId = event.traceId; metric("first_frame"); }
     else if (event.type === "stage") onStage?.(event.stage);

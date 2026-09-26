@@ -90,6 +90,12 @@ test.each([true, false])("partial replies update before completion and survive u
   const writer = stream.writable.getWriter();
   const encoder = new TextEncoder();
   await act(async () => { requests[turn]!.resolve(new Response(stream.readable, { headers: { "Content-Type": "text/event-stream" } })); });
+  if (live) {
+    await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "trace", traceId: `pecu_${"a".repeat(64)}` }))); });
+    await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "stage", stage: { id: "model-1", label: "Waiting for model", startedAt: 1, status: "running" } }))); });
+    expect(account.pending).toBe(true);
+    expect(account.stages[0]?.label).toBe("Waiting for model");
+  }
   const marker = live ? { replace: true as const } : {};
   await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "paragraph", text: "First", ...marker }))); });
   expect(account.pending).toBe(true);
