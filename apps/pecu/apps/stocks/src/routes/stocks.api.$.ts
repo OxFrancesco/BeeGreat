@@ -4,6 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { agentRequest, cardIdentity, identity, sameOrigin } from "../lib/server";
 import { cardCollectionSchema } from "../../../../src/cards-contract";
+import { linkedWalletActionSchema, linkedWalletResultSchema, linkedWalletsSchema } from "../../../../src/linked-wallet-contract";
 import {
   profileActionResultSchema,
   profileActionSchema,
@@ -49,6 +50,7 @@ export const Route = createFileRoute("/stocks/api/$")({
           return profileRequest("portfolio", portfolioSchema, query.data);
         }
         if (params._splat === "pnl") return pnlRequest(request);
+        if (params._splat === "wallets") return walletRequest("wallets", linkedWalletsSchema);
         if (params._splat === "profile") return profileRequest("profile", profileOverviewSchema);
         if (params._splat === "profile-safe") {
           const safe = new URL(request.url).searchParams.get("safe") ?? "";
@@ -134,6 +136,17 @@ export const Route = createFileRoute("/stocks/api/$")({
             return json({ error: "Check the details and try again." }, 400);
           }
           return profileRequest("profile-action", profileActionResultSchema, { action });
+        }
+        if (op === "wallet") {
+          const body = await request.text();
+          if (body.length > 4096) return json({ error: "Request too large" }, 413);
+          let action;
+          try {
+            action = linkedWalletActionSchema.parse(JSON.parse(body));
+          } catch {
+            return json({ error: "Check the details and try again." }, 400);
+          }
+          return walletRequest("wallet-action", linkedWalletResultSchema, { origin: new URL(request.url).origin, action });
         }
         if (["inference-connect", "inference-disconnect"].includes(op)) {
           let viewer;
@@ -227,6 +240,21 @@ async function profileRequest<Output extends JsonInput>(path: string, schema: z.
     }
     return json(schema.parse(body));
   } catch { return json({ error: "Pecu couldn't finish this request. Try again." }, 503); }
+}
+
+async function walletRequest<Output extends JsonInput>(path: "wallets" | "wallet-action", schema: z.ZodType<Output>, input?: { origin: string; action: JsonInput }) {
+  let viewer;
+  try { viewer = await identity(); }
+  catch { return json({ error: "Sign in to manage your wallets." }, 401); }
+  try {
+    const response = await agentRequest(path, input ? { identity: viewer, ...input } : viewer);
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = z.object({ error: z.string() }).safeParse(body).data?.error;
+      return json({ error: response.status === 400 && error ? error : "Pecu couldn't finish this wallet request. Try again." }, response.status === 400 ? 400 : 503);
+    }
+    return json(schema.parse(body));
+  } catch { return json({ error: "Pecu couldn't finish this wallet request. Try again." }, 503); }
 }
 
 async function cardsRequest(claim: boolean) {

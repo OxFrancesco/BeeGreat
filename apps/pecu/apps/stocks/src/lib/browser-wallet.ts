@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { EIP1193Provider } from "viem";
 import { useSyncExternalStore } from "react";
-import { concatHex, encodeFunctionData, getAddress, padHex, parseAbi, zeroAddress } from "viem";
+import { concatHex, encodeFunctionData, getAddress, numberToHex, padHex, parseAbi, stringToHex, zeroAddress } from "viem";
+import type { WalletTransaction } from "../../../../src/linked-wallet-contract";
 import type { ProfileProposal } from "../../../../src/safe-profile-contract";
 
 type Address = `0x${string}`;
@@ -11,13 +12,27 @@ const providerSchema = z.custom<Eip1193Provider>(value => providerContract.safeP
 const walletInfoSchema = z.object({ uuid: z.string(), name: z.string().catch("Browser wallet"), icon: z.string().catch(""), rdns: z.string().catch("") });
 const addressSchema = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
 const bytesSchema = z.templateLiteral(["0x", z.string().regex(/^(?:[0-9a-fA-F]{2})*$/)]);
+const signatureSchema = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{130}$/)]);
+const transactionHashSchema = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{64}$/)]);
 const providerErrorSchema = z.object({ code: z.number().optional().catch(undefined), message: z.string().optional().catch(undefined) });
 export type BrowserWalletInfo = Readonly<{ uuid: string; name: string; icon: string; rdns: string }>;
 export type BrowserWallet = Readonly<{ info: BrowserWalletInfo; provider: Eip1193Provider }>;
-type Snapshot = Readonly<{ wallets: readonly BrowserWallet[]; connected: Readonly<{ wallet: BrowserWallet; address: Address }> | null }>;
+export type ConnectedWallet = Readonly<{ wallet: BrowserWallet; address: Address }>;
+type Snapshot = Readonly<{ wallets: readonly BrowserWallet[]; connected: ConnectedWallet | null }>;
+
+/** The wallet refused the request. Nothing was signed or sent. */
+export class WalletDeclinedError extends Error {}
+/** The wallet wasn't on the right account or network, so nothing was sent. */
+export class WalletNotReadyError extends Error {}
 
 const baseChainId = "0x2105";
 const storageKey = "pecu-browser-wallet";
+/** Reown (WalletConnect) project ids are public. The Reown dashboard limits which origins may use it. */
+const reownProjectId = import.meta.env.VITE_REOWN_PROJECT_ID?.trim() || "cebb813303780775ef7c4a93f1daadee";
+export const walletConnectInfo: BrowserWalletInfo = { uuid: "walletconnect", name: "WalletConnect", icon: "", rdns: "walletconnect" };
+
+type WalletConnectSession = Readonly<{ wallet: BrowserWallet; connect(): Promise<void>; disconnect(): Promise<void>; accounts(): readonly string[]; connected(): boolean }>;
+let walletConnect: Promise<WalletConnectSession> | undefined;
 const executeAbi = parseAbi([
   "function execTransaction(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,bytes signatures) payable returns (bool success)",
 ]);
@@ -43,11 +58,20 @@ function announce(event: Event) {
   void restore(wallet);
 }
 
+function savedWallet(): string | null {
+  try {
+    return z.object({ rdns: z.string() }).safeParse(JSON.parse(localStorage.getItem(storageKey) ?? "null")).data?.rdns ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function start() {
   if (started || !("window" in globalThis)) return;
   started = true;
   window.addEventListener("eip6963:announceProvider", announce);
   window.dispatchEvent(new Event("eip6963:requestProvider"));
+  if (savedWallet() === walletConnectInfo.rdns) void restoreWalletConnect();
   window.setTimeout(() => {
     const injected = z.object({ ethereum: providerSchema }).safeParse(window);
     if (!snapshot.wallets.length && injected.success) {
@@ -73,19 +97,27 @@ function watch(wallet: BrowserWallet) {
     publish({ connected: { wallet, address } });
     localStorage.setItem(storageKey, JSON.stringify({ rdns: wallet.info.rdns, address }));
   };
+  const ended = () => disconnectBrowserWallet();
   wallet.provider.on?.("accountsChanged", changed);
-  detach = () => wallet.provider.removeListener?.("accountsChanged", changed);
+  wallet.provider.on?.("disconnect", ended);
+  detach = () => {
+    wallet.provider.removeListener?.("accountsChanged", changed);
+    wallet.provider.removeListener?.("disconnect", ended);
+  };
+}
+
+function use(wallet: BrowserWallet, address: Address): Address {
+  publish({ connected: { wallet, address } });
+  localStorage.setItem(storageKey, JSON.stringify({ rdns: wallet.info.rdns, address }));
+  watch(wallet);
+  return address;
 }
 
 async function restore(wallet: BrowserWallet) {
-  if (snapshot.connected) return;
+  if (snapshot.connected || savedWallet() !== wallet.info.rdns) return;
   try {
-    const saved = z.object({ rdns: z.string() }).safeParse(JSON.parse(localStorage.getItem(storageKey) ?? "null"));
-    if (!saved.success || saved.data.rdns !== wallet.info.rdns) return;
     const [address] = accounts(await wallet.provider.request({ method: "eth_accounts" }));
-    if (!address) return;
-    publish({ connected: { wallet, address } });
-    watch(wallet);
+    if (address) use(wallet, address);
   } catch {
     localStorage.removeItem(storageKey);
   }
@@ -94,18 +126,71 @@ async function restore(wallet: BrowserWallet) {
 export async function connectBrowserWallet(wallet: BrowserWallet): Promise<Address> {
   const [address] = accounts(await wallet.provider.request({ method: "eth_requestAccounts" }));
   if (!address) throw new Error("The wallet didn't share an account.");
-  publish({ connected: { wallet, address } });
-  localStorage.setItem(storageKey, JSON.stringify({ rdns: wallet.info.rdns, address }));
-  watch(wallet);
-  return address;
+  return use(wallet, address);
+}
+
+/** Loaded on demand in the browser, so neither the server bundle nor first paint pays for WalletConnect. */
+function loadWalletConnect(): Promise<WalletConnectSession> {
+  if (import.meta.env.SSR) return Promise.reject(new Error("WalletConnect runs in the browser."));
+  if (walletConnect) return walletConnect;
+  const pending = import("@walletconnect/ethereum-provider").then(async ({ EthereumProvider }) => {
+    const origin = window.location.origin;
+    const provider = await EthereumProvider.init({
+      projectId: reownProjectId,
+      optionalChains: [8453],
+      showQrModal: true,
+      rpcMap: { 8453: "https://mainnet.base.org" },
+      metadata: { name: "Pecu", description: "Link your wallet to Pecu on Base.", url: origin, icons: [`${origin}/pecu-assets/icon-192.png`] },
+      qrModalOptions: { themeMode: "light" },
+    });
+    return {
+      wallet: { info: walletConnectInfo, provider: providerSchema.parse(provider) },
+      connect: () => provider.connect(),
+      disconnect: () => provider.disconnect(),
+      accounts: () => provider.accounts,
+      connected: () => Boolean(provider.session),
+    };
+  });
+  walletConnect = pending;
+  pending.catch(() => {
+    if (walletConnect === pending) walletConnect = undefined;
+  });
+  return pending;
+}
+
+async function restoreWalletConnect() {
+  try {
+    const session = await loadWalletConnect();
+    const [address] = accounts(session.accounts());
+    if (session.connected() && address && !snapshot.connected) use(session.wallet, address);
+  } catch {
+    localStorage.removeItem(storageKey);
+  }
+}
+
+/** Opens the WalletConnect QR and mobile-wallet modal, or reuses an existing session. */
+export async function connectWalletConnect(): Promise<Address> {
+  const session = await loadWalletConnect();
+  try {
+    if (!session.connected()) await session.connect();
+  } catch (error) {
+    throw walletError(error);
+  }
+  const [address] = accounts(session.accounts());
+  if (!address) throw new Error("The wallet didn't share an account.");
+  return use(session.wallet, address);
 }
 
 export function disconnectBrowserWallet() {
+  const wallet = snapshot.connected?.wallet;
   detach?.();
   detach = undefined;
   localStorage.removeItem(storageKey);
   publish({ connected: null });
+  if (wallet?.info.rdns === walletConnectInfo.rdns) void walletConnect?.then((session) => session.disconnect()).catch(() => undefined);
 }
+
+export const currentWallet = (): ConnectedWallet | null => snapshot.connected;
 
 export function useBrowserWallets(): Snapshot {
   return useSyncExternalStore(
@@ -120,10 +205,47 @@ export function useBrowserWallets(): Snapshot {
 }
 
 function walletError(cause: unknown): Error {
+  if (cause instanceof WalletNotReadyError || cause instanceof WalletDeclinedError) return cause;
   const details = providerErrorSchema.safeParse(cause).data;
-  if (details?.code === 4001) return new Error("You declined the request in your wallet.");
+  if (details?.code === 4001 || /user (?:rejected|denied)|rejected by user/i.test(details?.message ?? "")) return new WalletDeclinedError("You declined the request in your wallet.");
+  if (/connection request reset/i.test(details?.message ?? "")) return new WalletDeclinedError("WalletConnect closed before a wallet connected.");
   const message = details?.message;
   return new Error(message !== undefined && message.length < 200 ? message : "Your wallet couldn't complete the request.");
+}
+
+/** Sign Pecu's Sign-In with Ethereum link message. The server verifies it against the exact stored text. */
+export async function signWalletLink(wallet: BrowserWallet, address: Address, message: string): Promise<Address> {
+  try {
+    const signature = signatureSchema.safeParse(await wallet.provider.request({ method: "personal_sign", params: [stringToHex(message), address] }));
+    if (!signature.success) throw new Error("Pecu links wallets that sign with their own key. This wallet returned a different kind of signature.");
+    return signature.data;
+  } catch (error) {
+    throw walletError(error);
+  }
+}
+
+/** Send one exact server-built call from the connected wallet after checking the account and network. */
+export async function sendWalletTransaction(wallet: BrowserWallet, address: Address, transaction: WalletTransaction): Promise<Address> {
+  try {
+    try {
+      await ensureBase(wallet.provider);
+      const [active] = accounts(await wallet.provider.request({ method: "eth_accounts" }));
+      if (!active || active.toLowerCase() !== transaction.from.toLowerCase() || active.toLowerCase() !== address.toLowerCase()) {
+        throw new WalletNotReadyError(`Switch your wallet to ${transaction.from.slice(0, 6)}…${transaction.from.slice(-4)} and try again.`);
+      }
+    } catch (error) {
+      const failure = walletError(error);
+      throw failure instanceof WalletDeclinedError || failure instanceof WalletNotReadyError ? failure : new WalletNotReadyError("Switch your wallet to Base and try again.");
+    }
+    const hash = transactionHashSchema.safeParse(await wallet.provider.request({
+      method: "eth_sendTransaction",
+      params: [{ from: transaction.from, to: transaction.to, data: transaction.data, value: numberToHex(BigInt(transaction.value)) }],
+    }));
+    if (!hash.success) throw new Error("The wallet didn't return a transaction hash.");
+    return hash.data;
+  } catch (error) {
+    throw walletError(error);
+  }
 }
 
 async function ensureBase(provider: Eip1193Provider) {

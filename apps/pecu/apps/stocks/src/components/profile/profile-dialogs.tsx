@@ -1,7 +1,7 @@
 import { PlusIcon, XIcon } from "lucide-react";
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import type { ProfileIntent, ProfileOrg } from "../../../../../src/safe-profile-contract";
-import { useBrowserWallets } from "@/lib/browser-wallet";
+import { useLinkedWallets } from "@/lib/linked-wallets";
 import { errorText, newRequestId, profileAction, sameAddress, shortAddress } from "@/lib/profile";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog";
@@ -103,13 +103,13 @@ export function AddSafeDialog({ org, wallet, open, onClose, onCreated, onAdded }
   org: ProfileOrg | null; wallet: string | null; open: boolean; onClose: () => void;
   onCreated: (intent: ProfileIntent, safe: string) => void; onAdded: (safe: string) => void;
 }) {
-  const { connected } = useBrowserWallets();
-  const browser = connected && !sameAddress(connected.address, wallet) ? connected.address : null;
+  const linkedWallets = useLinkedWallets(true).wallets;
+  const linked = (linkedWallets ?? []).filter((item) => !sameAddress(item.address, wallet));
   const [mode, setMode] = useState<"create" | "existing">("create");
   const [name, setName] = useState("");
   const [existing, setExisting] = useState("");
   const [includeWallet, setIncludeWallet] = useState(true);
-  const [includeBrowser, setIncludeBrowser] = useState(true);
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [others, setOthers] = useState<OwnerDraft[]>([blankOwner()]);
   const [threshold, setThreshold] = useState(2);
   useEffect(() => {
@@ -118,13 +118,13 @@ export function AddSafeDialog({ org, wallet, open, onClose, onCreated, onAdded }
     setName("");
     setExisting("");
     setIncludeWallet(Boolean(wallet));
-    setIncludeBrowser(true);
+    setExcluded(new Set());
     setOthers([blankOwner()]);
     setThreshold(2);
   }, [open, wallet]);
   const owners = [
     ...(wallet && includeWallet ? [wallet] : []),
-    ...(browser && includeBrowser ? [browser] : []),
+    ...linked.filter((item) => !excluded.has(item.address)).map((item) => item.address),
     ...others.map((owner) => owner.address.trim()).filter(Boolean),
   ];
   const count = Math.max(owners.length, 1);
@@ -171,13 +171,25 @@ export function AddSafeDialog({ org, wallet, open, onClose, onCreated, onAdded }
                 <span className="mono">{shortAddress(wallet)}</span>
               </label>
             ) : null}
-            {browser ? (
-              <label className="pecu-owner-check">
-                <input type="checkbox" checked={includeBrowser} onChange={(event) => setIncludeBrowser(event.currentTarget.checked)} />
-                <span>Your connected wallet</span>
-                <span className="mono">{shortAddress(browser)}</span>
+            {linked.map((item) => (
+              <label className="pecu-owner-check" key={item.address}>
+                <input
+                  type="checkbox"
+                  checked={!excluded.has(item.address)}
+                  onChange={(event) => {
+                    const include = event.currentTarget.checked;
+                    setExcluded((current) => {
+                      const next = new Set(current);
+                      if (include) next.delete(item.address);
+                      else next.add(item.address);
+                      return next;
+                    });
+                  }}
+                />
+                <span>{item.name ?? "Your wallet"}</span>
+                <span className="mono">{shortAddress(item.address)}</span>
               </label>
-            ) : null}
+            ))}
             {others.map((owner, index) => (
               <div className="pecu-owner-draft" key={owner.key}>
                 <input

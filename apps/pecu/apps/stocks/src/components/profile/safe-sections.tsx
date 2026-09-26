@@ -2,6 +2,7 @@ import { PencilIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import type { ProfileSafeDetail } from "../../../../../src/safe-profile-contract";
 import { useBrowserWallets } from "@/lib/browser-wallet";
+import { useLinkedWallets } from "@/lib/linked-wallets";
 import { addressLabel, errorText, profileAction, resetLabel, sameAddress, type Address } from "@/lib/profile";
 import { Button } from "../ui/button";
 import { AddressLine } from "./address-line";
@@ -12,6 +13,7 @@ type Open = (mode: TransactionMode) => void;
 
 export function SafeOwners({ detail, onOpen, onChanged }: { detail: ProfileSafeDetail; onOpen: Open; onChanged: (message?: string) => void }) {
   const { connected } = useBrowserWallets();
+  const linked = useLinkedWallets(true).wallets;
   const [naming, setNaming] = useState<Address | null>(null);
   const contact = naming ? detail.contacts.find((item) => sameAddress(item.address, naming)) : undefined;
   return (
@@ -26,7 +28,7 @@ export function SafeOwners({ detail, onOpen, onChanged }: { detail: ProfileSafeD
         </div>
         <ul className="pecu-owner-list">
           {detail.owners.map((owner) => {
-            const label = addressLabel(owner, { contacts: detail.contacts, wallet: detail.wallet, browser: connected?.address });
+            const label = addressLabel(owner, { contacts: detail.contacts, wallet: detail.wallet, browser: connected?.address, linked });
             return (
               <li key={owner}>
                 <AddressLine address={owner} label={label} full explorer />
@@ -66,7 +68,8 @@ export function SafeOwners({ detail, onOpen, onChanged }: { detail: ProfileSafeD
 
 export function SafeSettings({ detail, onOpen, onRemove }: { detail: ProfileSafeDetail; onOpen: Open; onRemove: () => void }) {
   const { connected } = useBrowserWallets();
-  const label = (address: string) => addressLabel(address, { contacts: detail.contacts, wallet: detail.wallet, browser: connected?.address });
+  const linked = useLinkedWallets(true).wallets;
+  const label = (address: string) => addressLabel(address, { contacts: detail.contacts, wallet: detail.wallet, browser: connected?.address, linked });
   return (
     <div className="pecu-profile-stack">
       <section className="pecu-profile-section" aria-labelledby="safe-limits">

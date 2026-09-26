@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SafeTransactions } from "../src/components/profile/safe-transactions";
 import { executionSignatures } from "../src/lib/browser-wallet";
 import { confirmationLabel } from "../src/lib/preview";
-import { profileAction } from "../src/lib/profile";
+import { addressLabel, profileAction } from "../src/lib/profile";
 import { alice, bob, pecuWallet, pendingOwner, pendingSend, treasuryDetail } from "./fixtures/safe-profile";
 
 const approved = (owner: string) => `${owner.slice(2).toLowerCase().padStart(64, "0")}${"0".repeat(64)}01`;
@@ -48,4 +48,11 @@ test("Safe confirmations use specific labels and the client explains invalid inp
   await expect(profileAction({ op: "proposal-create", safe: treasuryDetail.address, action: { kind: "send", token: "ETH", to: "0x123", amount: "1" } })).rejects.toThrow("Check the recipient address and try again.");
   await expect(profileAction({ op: "proposal-create", safe: treasuryDetail.address, action: { kind: "send", token: "ETH", to: alice, amount: "one" } })).rejects.toThrow("Enter an amount such as 12.5");
   await expect(profileAction({ op: "org-create", name: "   " })).rejects.toThrow("Enter a name");
+});
+
+test("linked wallets name Safe owners before contacts and the connected wallet", () => {
+  const linked = [{ address: bob, name: "Ledger", linkedAt: 1 }, { address: alice, name: null, linkedAt: 2 }];
+  expect(addressLabel(bob, { linked, browser: bob, contacts: [{ address: bob, name: "Bob" }] })).toBe("Ledger");
+  expect(addressLabel(alice, { linked })).toBe("Your wallet");
+  expect(addressLabel(pecuWallet, { linked, wallet: pecuWallet })).toBe("Your Pecu wallet");
 });

@@ -351,6 +351,12 @@ html:has(.pecu-app), body:has(.pecu-app) { background: var(--background); }
 .pecu .pecu-textarea::placeholder { color: var(--muted-foreground); }
 .pecu-prompt-footer { padding: 0 4px 4px 8px !important; }
 .pecu-prompt-hint { font-size: 12.5px; color: var(--muted-foreground); }
+.pecu-thread-wallet { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 4px 0 10px; border-radius: var(--clay-radius-pill); background: var(--muted); color: var(--muted-foreground); box-shadow: var(--clay-shadow-inset); }
+.pecu .pecu-thread-wallet select { max-width: 220px; min-height: 32px; padding: 0 4px; border: 0; background: transparent; color: var(--foreground); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.pecu .pecu-thread-wallet select:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 8px; }
+.pecu .pecu-thread-wallet select:disabled { cursor: default; opacity: .6; }
+.pecu-wallet-notice { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; }
+.pecu .pecu-wallet-notice .pecu-inline-link { border: 0; background: transparent; font: inherit; font-weight: 600; cursor: pointer; }
 .pecu .pecu-submit { width: 40px; height: 40px; background: var(--primary); color: var(--primary-foreground); box-shadow: var(--clay-shadow-primary); transition: transform 160ms ease, opacity 160ms ease; }
 .pecu .pecu-submit:disabled { opacity: .45; }
 .pecu-prompt-wrap { position: relative; }
@@ -424,6 +430,7 @@ html:has(.pecu-app), body:has(.pecu-app) { background: var(--background); }
   .pecu-auth { gap: 6px; }
   .pecu-wallet-address { font-size: 12px; }
   .pecu-threads-toggle span { display: none; }
+  .pecu-connected-wallet .mono { display: none; }
   .pecu-prompt-hint { display: none; }
 }
 

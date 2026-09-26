@@ -141,3 +141,34 @@ test("terminal states never show a transaction execution action", async () => {
     expect(host.textContent).toContain("Estimated receive");
   }
 });
+
+test("a preview signed by a linked wallet runs the wallet flow instead of typing a confirmation", async () => {
+  const signer = "0x5151515151515151515151515151515151515151";
+  const confirmations: boolean[] = [];
+  const renderSigned = async (state: ConfirmationState, notice: { message: string; resend: boolean } | null = null) => act(async () =>
+    root.render(
+      <PreviewCard
+        preview={{ code: "ABC123", title: "Swap", state, expiresAt: 1_800_000_000_000, signer, text: `Swap 0.05 ETH for about 120 USDC on Base.\nWallet: ${signer}\nYour wallet pays the Base network fee.` }}
+        confirming={false}
+        busy={false}
+        onSend={async (text) => { commands.push(text); }}
+        onWalletConfirm={(resend) => confirmations.push(resend)}
+        walletNotice={notice}
+      />,
+    ),
+  );
+  await renderSigned("pending");
+  expect(host.textContent).toContain("Review, then sign in your wallet");
+  expect(host.textContent).toContain(signer);
+  expect(host.querySelector(".pecu-preview-reference")).toBeNull();
+  await act(async () => button("Confirm swap").click());
+  await act(async () => button("Cancel").click());
+  expect(confirmations).toEqual([false]);
+  expect(commands).toEqual(["/cancel ABC123"]);
+  await renderSigned("executing", { message: "Your wallet was asked to send transaction 1, but Pecu never got its hash.", resend: true });
+  expect(host.textContent).toContain("Sent from your wallet, waiting for Base");
+  await act(async () => button("Send again").click());
+  await act(async () => button("Check transaction").click());
+  expect(confirmations).toEqual([false, true, false]);
+  expect(commands).toEqual(["/cancel ABC123"]);
+});

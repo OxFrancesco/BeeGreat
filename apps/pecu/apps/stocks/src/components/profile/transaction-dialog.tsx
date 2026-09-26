@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import type { JsonFields } from "../../../../../src/json-contract";
 import type { ProfileIntent, ProfileSafeDetail } from "../../../../../src/safe-profile-contract";
 import { useBrowserWallets } from "@/lib/browser-wallet";
+import { useLinkedWallets, walletOptionLabel } from "@/lib/linked-wallets";
 import { addressLabel, newRequestId, profileAction, sameAddress, shortAddress, type Address } from "@/lib/profile";
 import { Field, FormActions, ProfileDialog, useSubmit } from "./profile-dialogs";
 
@@ -67,10 +68,12 @@ function TokenPicker({ detail, token, custom, onToken, onCustom }: { detail: Pro
 function AddressInput({ id, value, onChange, detail, placeholder = "0x…" }: { id: string; value: string; onChange: (value: string) => void; detail: ProfileSafeDetail; placeholder?: string }) {
   const listId = useId();
   const { connected } = useBrowserWallets();
+  const linked = useLinkedWallets(true).wallets ?? [];
   const known = [
     ...detail.contacts,
     ...(detail.wallet ? [{ address: detail.wallet, name: "Your Pecu wallet" }] : []),
-    ...(connected ? [{ address: connected.address, name: "Your connected wallet" }] : []),
+    ...linked.map((item) => ({ address: item.address, name: item.name ?? "Your wallet" })),
+    ...(connected && !linked.some((item) => sameAddress(item.address, connected.address)) ? [{ address: connected.address, name: "Your connected wallet" }] : []),
   ];
   return (
     <>
@@ -86,7 +89,7 @@ export function TransactionDialog({ detail, mode, onClose, onQueued, onIntent }:
   detail: ProfileSafeDetail; mode: TransactionMode | null; onClose: () => void;
   onQueued: (message: string) => void; onIntent: (intent: ProfileIntent) => void;
 }) {
-  const { connected } = useBrowserWallets();
+  const linked = useLinkedWallets(true).wallets;
   const [token, setToken] = useState("ETH");
   const [custom, setCustom] = useState("");
   const [amount, setAmount] = useState("");
@@ -103,10 +106,10 @@ export function TransactionDialog({ detail, mode, onClose, onQueued, onIntent }:
     setAddress("");
     setName("");
     setReset(0);
-    setSpender(detail.wallet ? "wallet" : connected ? "browser" : "other");
+    setSpender(detail.wallet ? "wallet" : "other");
     setThreshold(mode.kind === "owner-remove" ? Math.min(detail.threshold, Math.max(detail.owners.length - 1, 1)) : detail.threshold);
-  }, [mode, detail.threshold, detail.owners.length, detail.wallet, connected]);
-  const label = (value: string) => addressLabel(value, { contacts: detail.contacts, wallet: detail.wallet, browser: connected?.address }) ?? shortAddress(value);
+  }, [mode, detail.threshold, detail.owners.length, detail.wallet]);
+  const label = (value: string) => addressLabel(value, { contacts: detail.contacts, wallet: detail.wallet, linked }) ?? shortAddress(value);
   const selectedToken = token === "other" ? custom.trim() : token;
   const submit = useSubmit(async () => {
     if (!mode) return null;
@@ -124,7 +127,7 @@ export function TransactionDialog({ detail, mode, onClose, onQueued, onIntent }:
       case "threshold": action = { kind: "threshold", threshold }; break;
       case "reject": action = { kind: "reject" }; break;
       case "budget-set": {
-        const delegate = spender === "wallet" ? detail.wallet : spender === "browser" ? connected?.address : address.trim();
+        const delegate = spender === "wallet" ? detail.wallet : spender === "other" ? address.trim() : spender;
         if (!delegate) throw new Error("Choose who can spend.");
         action = { kind: "budget-set", delegate, token: selectedToken, amount: amount.trim(), resetMinutes: reset };
         break;
@@ -198,7 +201,7 @@ export function TransactionDialog({ detail, mode, onClose, onQueued, onIntent }:
               {(id) => (
                 <select id={id} className="pecu-input" value={spender} onChange={(event) => setSpender(event.currentTarget.value)}>
                   {detail.wallet ? <option value="wallet">Your Pecu wallet</option> : null}
-                  {connected && !sameAddress(connected.address, detail.wallet) ? <option value="browser">Your connected wallet</option> : null}
+                  {(linked ?? []).filter((item) => !sameAddress(item.address, detail.wallet)).map((item) => <option key={item.address} value={item.address}>{walletOptionLabel(item)}</option>)}
                   <option value="other">Another address</option>
                 </select>
               )}

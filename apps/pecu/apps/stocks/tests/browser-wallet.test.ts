@@ -1,7 +1,7 @@
 import { afterAll, afterEach, expect, test } from "bun:test";
 import { Window } from "happy-dom";
-import { createWalletClient, custom } from "viem";
-import { connectBrowserWallet, disconnectBrowserWallet, executeSafeTransaction, signSafeTransaction, type BrowserWallet } from "../src/lib/browser-wallet";
+import { createWalletClient, custom, stringToHex } from "viem";
+import { connectBrowserWallet, disconnectBrowserWallet, executeSafeTransaction, sendWalletTransaction, signSafeTransaction, signWalletLink, WalletDeclinedError, WalletNotReadyError, type BrowserWallet } from "../src/lib/browser-wallet";
 import { treasuryDetail, pecuWallet } from "./fixtures/safe-profile";
 
 const window = new Window();
@@ -57,4 +57,41 @@ test("wallet refusal remains an actionable refusal", async () => {
 afterAll(() => {
   if (originalStorage) Object.defineProperty(globalThis, "localStorage", originalStorage);
   else Reflect.deleteProperty(globalThis, "localStorage");
+});
+
+test("linking signs the exact message with the connected account and rejects contract signatures", async () => {
+  const message = "pecu.app wants you to sign in with your Ethereum account:\nLink this wallet";
+  const signature = `0x${"22".repeat(65)}`;
+  const provider = wallet(async ({ method, params }) => {
+    expect(method).toBe("personal_sign");
+    expect(params?.[0]).toBe(stringToHex(message));
+    expect(params?.[1]).toBe(pecuWallet);
+    return signature;
+  });
+  expect(await signWalletLink(provider, pecuWallet, message)).toBe(signature);
+  await expect(signWalletLink(wallet(async () => `0x${"22".repeat(200)}`), pecuWallet, message)).rejects.toThrow("sign with their own key");
+  await expect(signWalletLink(wallet(async () => { throw { code: 4001, message: "User rejected" }; }), pecuWallet, message)).rejects.toBeInstanceOf(WalletDeclinedError);
+});
+
+test("wallet transactions keep the exact server call and refuse the wrong account before sending", async () => {
+  const call = { from: pecuWallet, to: treasuryDetail.address, data: "0x12345678", value: "1000" } as const;
+  const sent: unknown[] = [];
+  const hash = `0x${"ab".repeat(32)}`;
+  const provider = (account: string) => wallet(async ({ method, params }) => {
+    if (method === "eth_chainId") return "0x2105";
+    if (method === "eth_accounts") return [account];
+    expect(method).toBe("eth_sendTransaction");
+    sent.push(params?.[0]);
+    return hash;
+  });
+  expect(await sendWalletTransaction(provider(pecuWallet), pecuWallet, call)).toBe(hash);
+  expect(sent).toEqual([{ from: pecuWallet, to: treasuryDetail.address, data: "0x12345678", value: "0x3e8" }]);
+  await expect(sendWalletTransaction(provider("0x9999999999999999999999999999999999999999"), pecuWallet, call)).rejects.toBeInstanceOf(WalletNotReadyError);
+  expect(sent).toHaveLength(1);
+  const declined = wallet(async ({ method }) => {
+    if (method === "eth_chainId") return "0x2105";
+    if (method === "eth_accounts") return [pecuWallet];
+    throw { code: 4001, message: "User rejected the request." };
+  });
+  await expect(sendWalletTransaction(declined, pecuWallet, call)).rejects.toBeInstanceOf(WalletDeclinedError);
 });

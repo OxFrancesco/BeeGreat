@@ -10,6 +10,7 @@ import {
   type ProfileOverview,
   type ProfileSafeDetail,
 } from "../../../../src/safe-profile-contract";
+import type { LinkedWallet } from "../../../../src/linked-wallet-contract";
 import { request } from "./use-account";
 
 type Address = `0x${string}`;
@@ -102,8 +103,10 @@ export type ProfileContextValue = {
 export const ProfileContext = createContext<ProfileContextValue>({ overview: null, refreshOverview: async () => {} });
 export const useProfile = () => useContext(ProfileContext);
 
-export function addressLabel(address: string, options: { contacts?: readonly { address: string; name: string }[]; wallet?: string | null; browser?: string | null }): string | null {
+export function addressLabel(address: string, options: { contacts?: readonly { address: string; name: string }[]; wallet?: string | null; browser?: string | null; linked?: readonly LinkedWallet[] | null }): string | null {
   if (sameAddress(address, options.wallet)) return "Your Pecu wallet";
+  const linked = options.linked?.find((item) => sameAddress(item.address, address));
+  if (linked) return linked.name ?? "Your wallet";
   if (sameAddress(address, options.browser)) return "Your connected wallet";
   return options.contacts?.find((contact) => sameAddress(contact.address, address))?.name ?? null;
 }

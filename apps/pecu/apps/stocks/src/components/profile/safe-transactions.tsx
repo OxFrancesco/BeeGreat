@@ -2,8 +2,10 @@ import { CheckIcon, CircleIcon, ExternalLinkIcon, PenLineIcon } from "lucide-rea
 import { useState } from "react";
 import type { ProfileIntent, ProfileProposal, ProfileSafeDetail } from "../../../../../src/safe-profile-contract";
 import { executeSafeTransaction, executionSignatures, signSafeTransaction, useBrowserWallets } from "@/lib/browser-wallet";
+import { useLinkedWallets } from "@/lib/linked-wallets";
 import { addressLabel, errorText, newRequestId, profileAction, sameAddress, shortAddress } from "@/lib/profile";
 import { Button } from "../ui/button";
+import { openConnectWallet } from "./connect-wallet";
 
 const proposerText = { you: "Proposed by you", owner: "Proposed by an owner", other: "Proposed by someone who isn't a known owner" } satisfies Record<ProfileProposal["proposer"], string>;
 const dateTime = (value: number) => new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -21,6 +23,7 @@ function ProposalCard({ proposal, detail, onChanged, onIntent, onReject }: {
   onChanged: (message?: string) => void; onIntent: (intent: ProfileIntent) => void; onReject: () => void;
 }) {
   const { connected } = useBrowserWallets();
+  const linked = useLinkedWallets(true).wallets;
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -50,7 +53,8 @@ function ProposalCard({ proposal, detail, onChanged, onIntent, onReject }: {
       setBusy(null);
     }
   };
-  const label = (owner: string) => addressLabel(owner, { contacts: detail.contacts, wallet: detail.wallet, browser });
+  const label = (owner: string) => addressLabel(owner, { contacts: detail.contacts, wallet: detail.wallet, browser, linked });
+  const signable = !submitted && !pendingIntent ? linked?.find((item) => isOwner(item.address) && !approved(item.address) && !sameAddress(item.address, browser)) : undefined;
   const actions: Array<{ key: string; label: string; primary: boolean; task: () => Promise<string | void> }> = [];
   if (!submitted && !pendingIntent) {
     if (browser && connected && isOwner(browser) && !approved(browser)) {
@@ -148,7 +152,11 @@ function ProposalCard({ proposal, detail, onChanged, onIntent, onReject }: {
           )
         ) : null}
       </div>
-      {!detail.wallet && !connected && !submitted ? <p className="pecu-profile-note">Connect a wallet that owns this Safe to sign or execute.</p> : null}
+      {signable ? (
+        <Button className="pecu-button pecu-button-quiet" onClick={() => openConnectWallet({ reason: `Connect ${label(signable.address) ?? shortAddress(signable.address)} to sign this transaction.` })}>
+          Connect {label(signable.address)} to sign
+        </Button>
+      ) : !detail.wallet && !connected && !submitted ? <p className="pecu-profile-note">Connect a wallet that owns this Safe to sign or execute.</p> : null}
     </article>
   );
 }

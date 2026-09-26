@@ -6,6 +6,7 @@ import { Route as ProfileRoute } from "../../src/routes/profile";
 import { Route as ProfileIndexRoute } from "../../src/routes/profile.index";
 import { Route as SafeRoute } from "../../src/routes/profile.safe.$address";
 import { bob, fixtureIntent, opsDetail, profileOverview, treasury, treasuryDetail } from "../fixtures/safe-profile";
+import { linkedMode, linkedWalletFixture } from "./linked";
 import "./fixture.css";
 
 const params = new URLSearchParams(location.search);
@@ -75,10 +76,11 @@ window.fetch = async (input, init) => {
   throw new Error(`Unexpected request ${url.pathname}`);
 };
 
+linkedWalletFixture({ primary: bob });
 const icon = `data:image/svg+xml;base64,${btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#7084ff"/><circle cx="16" cy="16" r="7" fill="#fff"/></svg>')}`;
 let accounts: string[] = params.has("connected") ? [bob] : [];
 if (params.has("connected")) localStorage.setItem("pecu-browser-wallet", JSON.stringify({ rdns: "io.rabby", address: bob }));
-else localStorage.removeItem("pecu-browser-wallet");
+else if (!linkedMode) localStorage.removeItem("pecu-browser-wallet");
 const provider = {
   request: async ({ method }: { method: string }) => {
     await wait(200);
@@ -93,7 +95,7 @@ const provider = {
   removeListener: () => {},
 };
 const announce = () => window.dispatchEvent(new CustomEvent("eip6963:announceProvider", { detail: Object.freeze({ info: { uuid: "rabby-fixture", name: "Rabby", icon, rdns: "io.rabby" }, provider }) }));
-window.addEventListener("eip6963:requestProvider", announce);
+if (!linkedMode) window.addEventListener("eip6963:requestProvider", announce);
 
 const rootRoute = createRootRoute({ component: Outlet });
 // SAFETY: the isolated fixture replaces generated file-route parents with this local root; route ids and paths stay unchanged.

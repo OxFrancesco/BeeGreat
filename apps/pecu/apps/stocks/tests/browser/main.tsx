@@ -5,6 +5,7 @@ import { analyticsText } from "../../../../src/analytics-contract";
 import { connectionFixture } from "./connection";
 import { pnlFixture } from "./pnl";
 import { TransactionFixture } from "./transactions";
+import { linkedWalletFixture } from "./linked";
 import { createRoot } from "react-dom/client";
 import {
   createRootRoute,
@@ -262,6 +263,7 @@ function previewFixture() {
 }
 connectionFixture();
 previewFixture();
+linkedWalletFixture({ chat: true });
 const rootRoute = createRootRoute({ component: Outlet });
 // SAFETY: this isolated fixture mounts the generated /agent route under its own local root with the same id and path.
 const agentRoute = Route.update({

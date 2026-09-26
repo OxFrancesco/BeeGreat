@@ -98,12 +98,18 @@ export function PreviewCard({
   busy,
   confirming,
   onSend,
+  onWalletConfirm,
+  walletNotice,
 }: {
   preview: Preview;
   busy: boolean;
   confirming: boolean;
   onSend: (text: string) => Promise<void>;
+  /** Runs the linked-wallet flow for previews that the user's own wallet signs. */
+  onWalletConfirm?: (resend: boolean) => void;
+  walletNotice?: Readonly<{ message: string; resend: boolean }> | null;
 }) {
+  const signedByWallet = Boolean(preview.signer && onWalletConfirm);
   const headingId = useId();
   const {
     groups: parsedGroups,
@@ -126,18 +132,21 @@ export function PreviewCard({
     minute: "2-digit",
   });
   const labels = {
-    pending: `Review before confirming · expires ${expires}`,
-    executing: "Submitted, waiting for the receipt",
+    pending: signedByWallet ? `Review, then sign in your wallet · expires ${expires}` : `Review before confirming · expires ${expires}`,
+    executing: signedByWallet ? "Sent from your wallet, waiting for Base" : "Submitted, waiting for the receipt",
     succeeded: "Executed and verified on Base",
     failed: "Failed",
     cancelled: "Cancelled, nothing was sent",
     expired: "Expired without confirmation",
   } satisfies Record<Preview["state"], string>;
   const status = confirming
-    ? preview.state === "executing"
-      ? "Checking…"
-      : "Confirming…"
+    ? signedByWallet
+      ? "Check your wallet…"
+      : preview.state === "executing"
+        ? "Checking…"
+        : "Confirming…"
     : labels[preview.state];
+  const confirm = () => (signedByWallet ? onWalletConfirm?.(false) : void onSend(`/confirm ${preview.code}`));
   // Steps with a hash already link to Basescan inside the plan.
   const links = preview.plan?.steps.some((step) => step.hash)
     ? []
@@ -206,7 +215,7 @@ export function PreviewCard({
           <ConfirmationAction
             className="pecu-button pecu-button-primary"
             disabled={busy || confirming}
-            onClick={() => void onSend(`/confirm ${preview.code}`)}
+            onClick={confirm}
           >
             {confirming ? (
               <>
@@ -214,7 +223,7 @@ export function PreviewCard({
                   className="size-4 animate-spin"
                   aria-hidden="true"
                 />
-                {preview.state === "executing" ? "Checking…" : "Confirming…"}
+                {signedByWallet ? "Check your wallet…" : preview.state === "executing" ? "Checking…" : "Confirming…"}
               </>
             ) : preview.state === "executing" ? (
               "Check transaction"
@@ -234,6 +243,16 @@ export function PreviewCard({
             </ConfirmationAction>
           ) : null}
         </ConfirmationActions>
+        {walletNotice ? (
+          <p className="pecu-confirmation-note pecu-wallet-notice" role="status">
+            <span>{walletNotice.message}</span>
+            {walletNotice.resend ? (
+              <button className="pecu-inline-link" type="button" disabled={busy || confirming} onClick={() => onWalletConfirm?.(true)}>
+                Send again
+              </button>
+            ) : null}
+          </p>
+        ) : null}
       </ConfirmationRequest>
       <ConfirmationAccepted>
         {links.length ? (
@@ -263,17 +282,19 @@ export function PreviewCard({
             : "Nothing was sent. Ask again if you still want to do this."}
         </span>
       </ConfirmationRejected>
-      <details className="pecu-preview-reference">
-        <summary>Confirmation code</summary>
-        <div>
-          <code>{preview.code}</code>
-          <CopyButton
-            text={`/confirm ${preview.code}`}
-            label="Copy confirmation command"
-            className="pecu-preview-copy"
-          />
-        </div>
-      </details>
+      {signedByWallet ? null : (
+        <details className="pecu-preview-reference">
+          <summary>Confirmation code</summary>
+          <div>
+            <code>{preview.code}</code>
+            <CopyButton
+              text={`/confirm ${preview.code}`}
+              label="Copy confirmation command"
+              className="pecu-preview-copy"
+            />
+          </div>
+        </details>
+      )}
     </Confirmation>
   );
 }

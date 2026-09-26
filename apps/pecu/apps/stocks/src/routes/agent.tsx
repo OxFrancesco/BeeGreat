@@ -54,6 +54,11 @@ import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { PecuMascot } from "@/components/pecu-mascot";
 import { StreamedReply } from "@/components/streamed-reply";
 import { WalletChip } from "@/components/wallet-chip";
+import { ThreadWallet } from "@/components/thread-wallet";
+import { ConnectWallet, openConnectWallet } from "@/components/profile/connect-wallet";
+import { useBrowserWallets } from "@/lib/browser-wallet";
+import { confirmWithWallet, useLinkedWallets, walletLabel } from "@/lib/linked-wallets";
+import { errorText, sameAddress, shortAddress } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -160,7 +165,36 @@ function AgentWorkspace({
     setDrafts((current) => ({ ...current, [draftKey]: value }));
   const menu = useCommandMenu(draft, setDraft);
   const inFlight = account.inFlight;
-  const busyCode = inFlight ? confirmationCommand(inFlight)?.code : undefined;
+  const { wallets: linked } = useLinkedWallets(Boolean(isSignedIn));
+  const { connected } = useBrowserWallets();
+  const [walletCode, setWalletCode] = useState<string | null>(null);
+  const [walletNotice, setWalletNotice] = useState<{ code: string; message: string; resend: boolean } | null>(null);
+  const busyCode = walletCode ?? (inFlight ? confirmationCommand(inFlight)?.code : undefined);
+  const confirmInWallet = async (preview: { code: string; signer?: string }, resend: boolean) => {
+    const signer = preview.signer;
+    if (!signer || walletCode) return;
+    if (!connected || !sameAddress(connected.address, signer)) {
+      openConnectWallet({ reason: `Connect ${walletLabel(signer, linked) ?? "your wallet"} (${shortAddress(signer)}) to sign this transaction.` });
+      return;
+    }
+    setWalletCode(preview.code);
+    setWalletNotice(null);
+    try {
+      const outcome = await confirmWithWallet({ code: preview.code, threadId, connected, resend });
+      if (outcome.kind === "unreported") {
+        setWalletNotice({ code: preview.code, resend: true, message: `Your wallet was asked to send transaction ${outcome.position + 1}, but Pecu never got its hash. Check your wallet's activity before sending it again.` });
+      } else if (outcome.kind === "waiting") {
+        setWalletNotice({ code: preview.code, resend: false, message: "Sent. Base hasn't included it yet. Check again in a moment." });
+      } else if (outcome.kind === "status" && (outcome.state === "pending" || outcome.state === "executing")) {
+        setWalletNotice({ code: preview.code, resend: false, message: outcome.message });
+      }
+    } catch (error) {
+      setWalletNotice({ code: preview.code, resend: false, message: errorText(error) });
+    } finally {
+      setWalletCode(null);
+      await account.reload().catch(() => undefined);
+    }
+  };
   const [threadsOpen, setThreadsOpen] = useState(false);
   const signIn = () =>
     void clerk.openSignIn({
@@ -341,6 +375,7 @@ function AgentWorkspace({
                 {account.state?.wallet ? (
                   <WalletChip key={account.state.wallet} address={account.state.wallet} />
                 ) : null}
+                <ConnectWallet chip={Boolean(linked?.length || connected)} />
                 {account.state?.yolo ? (
                   <button
                     className="pecu-chip pecu-chip-warn"
@@ -525,11 +560,13 @@ function AgentWorkspace({
                                   ) : null}
                                   {reply.preview ? (
                                     <PreviewCard
-                                      busy={account.pending}
+                                      busy={account.pending || walletCode !== null}
                                       confirming={
                                         busyCode === reply.preview.code
                                       }
                                       onSend={send}
+                                      onWalletConfirm={(resend) => void confirmInWallet(reply.preview!, resend)}
+                                      walletNotice={walletNotice?.code === reply.preview.code ? walletNotice : null}
                                       preview={reply.preview}
                                     />
                                   ) : null}
@@ -720,10 +757,22 @@ function AgentWorkspace({
                 </PromptInputBody>
               <PromptInputFooter className="pecu-prompt-footer">
                 <PromptInputTools>
+                  {isSignedIn && linked?.length ? (
+                    <ThreadWallet
+                      threadId={threadId}
+                      signer={account.state?.signer ?? null}
+                      wallets={linked}
+                      disabled={account.pending || account.loading}
+                      onChanged={() => void account.reload().catch(() => undefined)}
+                      onError={account.setError}
+                    />
+                  ) : null}
                   <span className="pecu-prompt-hint">
-                    {account.state?.yolo
-                      ? "YOLO is on. New transaction requests execute without confirmation."
-                      : "Enter to send. Transactions require confirmation."}
+                    {account.state?.signer
+                      ? "Transactions from this wallet need your approval in it."
+                      : account.state?.yolo
+                        ? "YOLO is on. New transaction requests execute without confirmation."
+                        : "Enter to send. Transactions require confirmation."}
                   </span>
                 </PromptInputTools>
                 <PromptInputSubmit

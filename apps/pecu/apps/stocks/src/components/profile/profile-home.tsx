@@ -10,6 +10,7 @@ import { useAccountIdentity } from "../account-menu";
 import { Button } from "../ui/button";
 import { AddressLine } from "./address-line";
 import { IntentDialog } from "./intent-dialog";
+import { LinkedWallets } from "./linked-wallets";
 import { AddSafeDialog, ConfirmDialog, NameDialog } from "./profile-dialogs";
 
 const statusText = { ready: null, creating: "Creating", "not-created": "Not created" } as const;
@@ -94,6 +95,7 @@ export function ProfileHome() {
           {overview.wallet ? <p className="pecu-profile-note">{overview.senderKind === "x" ? "The same wallet Pecu uses in your X chats." : "The wallet for this sign-in. It is separate from any X wallet."}</p> : null}
           {overview.wallet ? <WalletPortfolio address={overview.wallet} /> : null}
         </div>
+        <LinkedWallets />
       </section>
       <section className="pecu-profile-section" aria-labelledby="pecu-orgs">
         <div className="pecu-profile-section-head">

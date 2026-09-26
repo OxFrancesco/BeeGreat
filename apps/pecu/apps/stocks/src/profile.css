@@ -109,7 +109,7 @@
 .pecu-owner-list, .pecu-limit-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .pecu-owner-list li, .pecu-limit-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 12px 16px; border-radius: var(--clay-radius-surface); background: var(--card); box-shadow: var(--clay-shadow-sm); }
 .pecu-owner-list .pecu-address-line { flex: 1 1 320px; }
-.pecu-owner-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.pecu-owner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .pecu .pecu-owner-actions .pecu-button { min-height: 40px; padding-inline: 12px; }
 .pecu-limit-main { display: grid; gap: 4px; min-width: 0; flex: 1 1 320px; }
 .pecu .pecu-limit-amount { margin: 0; font-size: 14px; }
@@ -166,7 +166,9 @@
 .pecu.pecu-profile-popover { z-index: 60; display: grid; gap: 8px; width: 280px; max-width: calc(100vw - 24px); padding: 16px; border-radius: 18px; background: var(--card); box-shadow: var(--clay-shadow); }
 .pecu .pecu-profile-popover-title { margin: 0; font-size: 14px; font-weight: 650; }
 .pecu .pecu-profile-popover-address { margin: 0; overflow-wrap: anywhere; font-size: 12px; line-height: 1.5; color: var(--muted-foreground); user-select: all; }
-.pecu .pecu-profile-popover-action { justify-content: flex-start; gap: 8px; }
+.pecu .pecu-profile-popover-action { display: flex; align-items: center; justify-content: flex-start; gap: 8px; width: 100%; padding-inline: 12px; }
+.pecu .pecu-profile-popover-state { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; font-weight: 600; color: var(--accent-foreground); }
+.pecu-linked-state { padding: 0 6px; font-size: 13px; font-weight: 600; color: var(--accent-foreground); }
 
 @media (hover: hover) and (pointer: fine) {
   .pecu .pecu-profile-link:not([aria-current="page"]):hover, .pecu .pecu-org-safe:hover, .pecu .pecu-icon-button:hover, .pecu .pecu-address-copy:hover, .pecu .pecu-address-explorer:hover { background: var(--secondary); }
