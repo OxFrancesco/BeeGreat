@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { toSugarJson, type SugarJson, type SugarPoolLocatorStore, type SugarPoolLocatorKey, type SugarRpcObserver } from "@beegreat/sugar";
+import { KNOWN_TOKENS, toSugarJson, type Token, type SugarJson, type SugarPoolLocatorStore, type SugarPoolLocatorKey, type SugarRpcObserver } from "@beegreat/sugar";
 
 /** Only public catalog/topology data goes here. Balances, prices and plans stay fresh. */
 export class AeroCache {
   constructor(private readonly cache: Pick<Cache, "match" | "put" | "delete"> | undefined, private readonly observe: SugarRpcObserver) {}
-  private key(key: string) { return new Request(`https://aero-cache.internal/v1/${encodeURIComponent(key)}`); }
+  private key(key: string) { return new Request(`https://pecu.app/__aero_cache/v2/${encodeURIComponent(key)}`); }
   async read<T>(key: string, schema: z.ZodType<T>): Promise<T | undefined> {
     const start = Date.now();
     try {
@@ -16,7 +16,13 @@ export class AeroCache {
     } catch { return undefined; }
   }
   async write(key: string, value: SugarJson, ttl: number) {
-    try { await this.cache?.put(this.key(key), Response.json(value, { headers: { "Cache-Control": `public, max-age=${ttl}` } })); } catch { /* A cache outage must not break reads. */ }
+    const start = Date.now();
+    try {
+      await this.cache?.put(this.key(key), Response.json(value, { headers: { "Cache-Control": `public, max-age=${ttl}` } }));
+      this.observe({ operation: "cache.write", phase: "read", status: "success", attemptCount: 1, durationMs: Date.now() - start });
+    } catch {
+      this.observe({ operation: "cache.write", phase: "read", status: "error", attemptCount: 1, durationMs: Date.now() - start });
+    }
   }
   locators(): SugarPoolLocatorStore {
     const key = (k: SugarPoolLocatorKey) => `locator:${k.chainId}:${k.sugarContractAddress.toLowerCase()}:${k.poolAddress.toLowerCase()}`;
@@ -34,6 +40,19 @@ const tokenSchema = z.object({ chainId: z.literal(8453), chainName: z.string(), 
 });
 
 export function cachePublicCatalog(client: import("@beegreat/sugar").SugarClient, cache: AeroCache) {
+  const known = new Map<string, Token>();
+  for (const token of Object.values(KNOWN_TOKENS[8453])) {
+    known.set(token.symbol.toLowerCase(), token);
+    known.set(token.tokenAddress.toLowerCase(), token);
+    if (token.wrappedTokenAddress) {
+      const { wrappedTokenAddress, ...fields } = token;
+      const wrapped: Token = { ...fields, tokenAddress: wrappedTokenAddress, symbol: `W${token.symbol}` };
+      known.set(wrappedTokenAddress.toLowerCase(), wrapped);
+      known.set(wrapped.symbol.toLowerCase(), wrapped);
+    }
+  }
+  const readToken = client.getToken.bind(client);
+  client.getToken = async reference => known.get(String(reference).toLowerCase()) ?? readToken(reference);
   const original = client.getAllTokens.bind(client);
   let catalog: ReturnType<typeof original> | undefined;
   client.getAllTokens = async (listedOnly = false) => {

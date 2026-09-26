@@ -50,7 +50,6 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { PecuMascot } from "@/components/pecu-mascot";
 import { StreamedReply } from "@/components/streamed-reply";
@@ -663,9 +662,7 @@ function AgentWorkspace({
                               <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                             </MessageContent>
                           ) : (
-                            <Shimmer className="pecu-shimmer" duration={1.6}>
-                              Pecu is working on it
-                            </Shimmer>
+                            <TurnProgress stages={account.stages} pending />
                           )}
                         </div>
                       </Message>

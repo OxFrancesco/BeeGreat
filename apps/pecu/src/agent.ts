@@ -304,12 +304,17 @@ export class PecuAgent {
       try {
         // Wake the user's runtime while the classifier chooses the route.
         const routingStartedAt = Date.now();
-        const warming = this.harness.warm?.(message.senderId).catch(() => undefined);
+        const trace = turnTrace.getStore();
+        const warming = this.harness.warm?.(message.senderId).catch(() => undefined).then(() => {
+          const endedAt = Date.now();
+          trace?.record?.({ event: "$ai_span", timestamp: endedAt, started_at: routingStartedAt, ended_at: endedAt,
+            $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId, $ai_span_id: `${trace.traceId}_runtime`,
+            $ai_span_name: "Runtime ready", $ai_latency: (endedAt - routingStartedAt) / 1000, $ai_is_error: false });
+        });
         const route: RequestRoute = this.previewOnly.has(message.eventId)
           ? { kind: "fallback" }
           : await this.classifier?.classify(message.text) ?? { kind: "fallback" };
         const routingEnd = Date.now();
-        const trace = turnTrace.getStore();
         trace?.record?.({ event: "$ai_span", timestamp: routingEnd, started_at: routingStartedAt, ended_at: routingEnd,
           $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId, $ai_span_id: `${trace.traceId}_routing`,
           $ai_span_name: "Request routing", $ai_latency: (routingEnd - routingStartedAt) / 1000, $ai_is_error: false });

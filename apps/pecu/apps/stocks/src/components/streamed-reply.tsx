@@ -1,6 +1,5 @@
 import { motion, useReducedMotion } from "motion/react";
 import { MessageResponse } from "./ai-elements/message";
-import { Shimmer } from "./ai-elements/shimmer";
 
 /**
  * Live markdown grows in place; legacy servers can still send complete paragraphs.
@@ -19,9 +18,6 @@ export function StreamedReply({ paragraphs }: { paragraphs: readonly string[] })
           <MessageResponse streaming>{paragraph}</MessageResponse>
         </motion.div>
       ))}
-      <Shimmer className="pecu-shimmer" duration={1.6}>
-        Pecu is working on it
-      </Shimmer>
     </>
   );
 }

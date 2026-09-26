@@ -44,3 +44,17 @@ test("pool limit applies before hydration and unrelated pools are not priced", a
   expect(hydrated).toHaveLength(2);
   expect(indexed).toEqual([1, 2]);
 });
+import { cachePublicCatalog } from "../src/cloudflare/aero-cache";
+import { createSugarClient } from "@beegreat/sugar";
+
+test("known token lookups never load the catalog and distinguish ETH from WETH", async () => {
+  const client = createSugarClient(8453);
+  client.getAllTokens = async () => { throw new Error("Unexpected catalog read"); };
+  cachePublicCatalog(client, new AeroCache(undefined, () => {}));
+  const eth = await client.getToken("ETH");
+  const weth = await client.getToken("WETH");
+  expect(weth?.tokenAddress).toBe(eth?.wrappedTokenAddress);
+  expect(weth?.wrappedTokenAddress).toBeUndefined();
+  expect((await client.getToken("USDC"))?.decimals).toBe(6);
+  expect((await client.getToken(weth!.tokenAddress))?.symbol).toBe("WETH");
+});

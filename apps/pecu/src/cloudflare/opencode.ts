@@ -548,6 +548,7 @@ export class OpenCodeHarness implements AgentHarness {
     const stages = new Map<string, TurnStage>();
     const stage = (id: string, label: string, status: TurnStage["status"] = "running") => {
       const previous = stages.get(id);
+      if (previous && previous.status !== "running" && status === previous.status) return;
       const value: TurnStage = { id, label, startedAt: previous?.startedAt ?? Date.now(), status };
       if (status !== "running") value.endedAt = Date.now();
       stages.set(id, value);
