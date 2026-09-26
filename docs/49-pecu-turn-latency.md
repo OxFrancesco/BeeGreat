@@ -23,3 +23,5 @@ A five-prompt live Jev evaluation of direct liquidity dispatch failed the requir
 This change is Pecu-specific. BeeGreat mobile, Android, CLI, voice and iMessage have separate agents and no changed contract. Both OpenRouter and ChatGPT paths share progress and preview handling. No Sugar or EVM SDK source or standalone package changed. No Durable Object identities or migrations changed.
 
 Pecu pins the published Aero SDK independently of the root workspace SDK. Its installed-package regression tests cover unstaked CL NFT enumeration, pool-scoped lookup and deduplication. Dependency updates must retain the worker-safe CLI parser and bounded pool reads in `patches/aero-cli.patch`; current action schemas come from the SDK's `requestParameters`.
+
+Aero model read tools receive complete JSON results. Human chat summaries are a separate presentation step; their field/depth limits must not truncate the model's inputs. `/aero positions` formats every position using its returned token metadata, including staked and unstaked amounts.
