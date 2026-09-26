@@ -3,6 +3,7 @@ import { toSugarJson, type SugarJson, type SugarPoolLocatorStore, type SugarPool
 import { poolIndexSchema, indexPools } from "../pool-discovery";
 import type { CatalogKind } from "./catalog-refresh";
 import { canonicalToken } from "../token-reference";
+import { cacheDeadline } from "./cache-deadline";
 
 export type CatalogSource = (kind: CatalogKind) => Promise<{ value: unknown; expiresAt: number }>;
 
@@ -22,8 +23,10 @@ export class AeroCache {
   async read<T>(key: string, schema: z.ZodType<T>): Promise<T | undefined> {
     let start = Date.now();
     try {
-      const response = await this.cache?.match(this.key(key));
-      const result = response ? schema.safeParse(await response.json()) : undefined;
+      const result = await cacheDeadline((async () => {
+        const response = await this.cache?.match(this.key(key));
+        return response ? schema.safeParse(await response.json()) : undefined;
+      })());
       const hit = result?.success === true;
       this.observed(key, "edge", hit ? "hit" : "miss", start);
       if (hit) return result.data;
@@ -31,8 +34,10 @@ export class AeroCache {
     if (!this.shared) return;
     start = Date.now();
     try {
-      const object = await this.shared.get(`v1/${key}`);
-      const parsed = object ? z.object({ expiresAt: z.number(), value: schema }).safeParse(JSON.parse(await object.text())) : undefined;
+      const parsed = await cacheDeadline((async () => {
+        const object = await this.shared?.get(`v1/${key}`);
+        return object ? z.object({ expiresAt: z.number(), value: schema }).safeParse(JSON.parse(await object.text())) : undefined;
+      })());
       if (!parsed?.success || parsed.data.expiresAt <= Date.now()) {
         this.observed(key, "r2", "miss", start);
         return;
@@ -46,7 +51,7 @@ export class AeroCache {
     if (!this.cache || ttl <= 0) return;
     const start = Date.now();
     try {
-      await this.cache.put(this.key(key), Response.json(value, { headers: { "Cache-Control": `public, max-age=${ttl}` } }));
+      await cacheDeadline(this.cache.put(this.key(key), Response.json(value, { headers: { "Cache-Control": `public, max-age=${ttl}` } })));
       this.observed(key, "edge", "write", start);
     } catch { this.observed(key, "edge", "error", start); }
   }
@@ -55,7 +60,7 @@ export class AeroCache {
     await Promise.all([this.writeEdge(key, value, ttl), (async () => {
       if (!this.shared) return;
       try {
-        await this.shared.put(`v1/${key}`, JSON.stringify({ expiresAt: start + ttl * 1000, value }));
+        await cacheDeadline(this.shared.put(`v1/${key}`, JSON.stringify({ expiresAt: start + ttl * 1000, value })));
         this.observed(key, "r2", "write", start);
       } catch { this.observed(key, "r2", "error", start); }
     })()]);
@@ -68,7 +73,7 @@ export class AeroCache {
         const existing = await this.read(key(k), z.object({ offset: z.number().int().nonnegative() }));
         if (existing?.offset !== v.offset) await this.write(key(k), v, 86400);
       },
-      delete: async k => { await Promise.allSettled([this.cache?.delete(this.key(key(k))), this.shared?.delete(`v1/${key(k)}`)]); },
+      delete: async k => { await Promise.allSettled([cacheDeadline(Promise.resolve(this.cache?.delete(this.key(key(k))))), cacheDeadline(Promise.resolve(this.shared?.delete(`v1/${key(k)}`)))]); },
     };
   }
 }
