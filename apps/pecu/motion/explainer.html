@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en" class="pecu-theme">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pecu explainer</title>
+<link rel="stylesheet" href="../theme/fonts.css">
+<link rel="stylesheet" href="../theme/theme.css">
+<link rel="stylesheet" href="../theme/clay.css">
+<link rel="stylesheet" href="./explainer.css">
+</head>
+<body>
+<div class="viewport">
+<div class="stage" id="stage">
+
+  <div class="chrome a" data-fx="fade" data-scene-range="8,63">
+    <span class="wordmark">pecu</span>
+  </div>
+  <div class="progress" id="progress">
+    <span data-step="1">Say hi</span><span data-step="2">Fund</span><span data-step="3">Ask</span><span data-step="4">Confirm</span>
+  </div>
+
+  <!-- 1. Reveal -->
+  <section class="scene s-reveal" data-start="0" data-end="8">
+    <video class="reveal" muted playsinline preload="auto" src="../apps/site/site/pecu-assets/mascot/pecu-reveal.webm" data-clip="0,7.95"></video>
+    <h1 class="statement a" data-in="5.2" data-fx="up">Your smart ass on-chain friend!</h1>
+  </section>
+
+  <!-- 2. What is Pecu -->
+  <section class="scene s-what" data-start="8" data-end="16">
+    <div class="snail-big a" data-in="0" data-fx="left">
+      <video muted playsinline preload="auto" src="../apps/site/site/pecu-assets/mascot/idle.webm" data-loop="3"></video>
+    </div>
+    <div class="col">
+      <p class="kicker a" data-in="0.3" data-fx="up">What's Pecu?</p>
+      <h2 class="headline a" data-in="0.5" data-fx="up">An AI agent you just <mark>message.</mark></h2>
+      <div class="chips">
+        <div class="chip clay a" data-in="2.2" data-fx="pop"><b>X Chat</b><span class="mono">@BeeGreatAI</span></div>
+        <div class="chip clay a" data-in="2.6" data-fx="pop"><b>Browser</b><span class="mono">pecu.app/agent</span></div>
+      </div>
+      <div class="wallet-card a" data-in="4.2" data-fx="up">
+        <span class="label">Your own Base smart wallet</span>
+        <span class="addr mono">0x7a3F…c91E</span>
+        <span class="meta">One per account. Created with your first message.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Four steps -->
+  <section class="scene s-steps" data-start="16" data-end="21">
+    <p class="kicker center a" data-in="0.2" data-fx="up">How to use it</p>
+    <h2 class="headline center a" data-in="0.35" data-fx="up">Four steps. That's it.</h2>
+    <div class="step-row">
+      <div class="step-card clay a" data-in="1.2" data-fx="pop"><i>1</i><b>Say hi</b><span>Your wallet is created.</span></div>
+      <div class="step-card clay a" data-in="1.45" data-fx="pop"><i>2</i><b>Fund it</b><span>ETH or USDC on Base.</span></div>
+      <div class="step-card clay a" data-in="1.7" data-fx="pop"><i>3</i><b>Ask</b><span>Plain words or <code>/commands</code>.</span></div>
+      <div class="step-card clay a" data-in="1.95" data-fx="pop"><i>4</i><b>Confirm</b><span>Nothing moves until you do.</span></div>
+    </div>
+  </section>
+
+  <!-- 4. Step 1: say hi -->
+  <section class="scene s-split" data-start="21" data-end="27.5" data-step="1">
+    <div class="copy">
+      <p class="kicker a" data-in="0.2" data-fx="up">Step 1</p>
+      <h2 class="headline a" data-in="0.35" data-fx="up">Say hi to <mark>@BeeGreatAI</mark></h2>
+      <p class="body a" data-in="0.8" data-fx="up">Message Pecu on X Chat, or sign in at pecu.app/agent. Your first message creates your Base smart wallet.</p>
+    </div>
+    <div class="chat-panel a" data-in="0.4" data-fx="right">
+      <div class="chat-head"><img src="../apps/site/site/pecu-assets/mascot/idle.webp" alt=""><b>Pecu</b><span class="mono">@BeeGreatAI</span></div>
+      <div class="chat-body">
+        <div class="msg you a" data-in="1.4" data-fx="grow">gm pecu</div>
+        <div class="msg bot typing a" data-in="2.0" data-out="2.8" data-fx="grow"><i></i><i></i><i></i></div>
+        <div class="msg bot a" data-in="2.8" data-fx="grow"><b>Welcome!</b><span>Your Base wallet is ready.</span></div>
+        <div class="msg you a" data-in="3.8" data-fx="grow"><span class="mono">/wallet</span></div>
+        <div class="msg bot a" data-in="4.5" data-fx="grow"><span>Your Base wallet:</span><span class="mono strong">0x7a3F…c91E</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Step 2: fund -->
+  <section class="scene s-split" data-start="27.5" data-end="34" data-step="2">
+    <div class="copy">
+      <p class="kicker a" data-in="0.2" data-fx="up">Step 2</p>
+      <h2 class="headline a" data-in="0.35" data-fx="up">Fund your <mark>wallet</mark></h2>
+      <p class="body a" data-in="0.8" data-fx="up">Send ETH or USDC to your address on Base. Or send <code>/deposit</code> to pay by bank transfer or crypto.</p>
+      <p class="note a" data-in="4.2" data-fx="up">Base network only. Keep a little ETH for fees.</p>
+    </div>
+    <div class="fund">
+      <div class="route clay a" data-in="1.0" data-fx="pop"><b>Send on Base</b><span class="mono">ETH · USDC</span></div>
+      <div class="route clay a" data-in="1.3" data-fx="pop"><b class="mono">/deposit</b><span>Bank or crypto via Whop</span></div>
+      <div class="balance-card a" data-in="1.8" data-fx="up">
+        <span class="label">Balance</span>
+        <div class="bal"><span>ETH</span><b class="mono" data-count="2.6,1.2,0,0.02,3">0.000</b></div>
+        <div class="bal"><span>USDC</span><b class="mono" data-count="3.0,1.2,0,50,2">0.00</b></div>
+        <div class="bal"><span>AERO</span><b class="mono">0</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Step 3: ask -->
+  <section class="scene s-split" data-start="34" data-end="41" data-step="3">
+    <div class="copy">
+      <p class="kicker a" data-in="0.2" data-fx="up">Step 3</p>
+      <h2 class="headline a" data-in="0.35" data-fx="up">Ask in <mark>plain words</mark></h2>
+      <p class="body a" data-in="0.8" data-fx="up">Or use short commands. Reads answer right away.</p>
+      <div class="cmds">
+        <code class="a" data-in="1.4" data-fx="pop">/balance</code>
+        <code class="a" data-in="1.55" data-fx="pop">/quote</code>
+        <code class="a" data-in="1.7" data-fx="pop">/swap</code>
+        <code class="a" data-in="1.85" data-fx="pop">/send</code>
+        <code class="a" data-in="2.0" data-fx="pop">/stocks</code>
+        <code class="a" data-in="2.15" data-fx="pop">/help</code>
+      </div>
+    </div>
+    <div class="chat-panel a" data-in="0.4" data-fx="right">
+      <div class="chat-head"><img src="../apps/site/site/pecu-assets/mascot/idle.webp" alt=""><b>Pecu</b><span class="mono">@BeeGreatAI</span></div>
+      <div class="chat-body">
+        <div class="msg you a" data-in="1.2" data-fx="grow">What's my balance?</div>
+        <div class="msg bot a" data-in="2.0" data-fx="grow"><span class="mono">ETH: 0.02</span><span class="mono">USDC: 50</span><span class="mono">AERO: 0</span></div>
+        <div class="msg you a" data-in="3.4" data-fx="grow"><span class="mono">/quote 0.01 ETH to USDC</span></div>
+        <div class="msg bot a" data-in="4.2" data-fx="grow"><span>About <b class="mono">24.85 USDC</b>.</span><span class="meta">Just a price. No transaction created.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7. Step 4: preview and confirm -->
+  <section class="scene s-split" data-start="41" data-end="51" data-step="4">
+    <div class="copy">
+      <p class="kicker a" data-in="0.2" data-fx="up">Step 4</p>
+      <h2 class="headline a" data-in="0.35" data-fx="up">Check the preview, then <mark>confirm</mark></h2>
+      <p class="body a" data-in="0.8" data-fx="up">Anything that moves funds comes back as a preview with a code. Nothing is sent until you confirm.</p>
+      <p class="note a" data-in="7.2" data-fx="up">Success is reported only after the receipt is verified on Base.</p>
+    </div>
+    <div class="chat-panel a" data-in="0.4" data-fx="right">
+      <div class="chat-head"><img src="../apps/site/site/pecu-assets/mascot/idle.webp" alt=""><b>Pecu</b><span class="mono">@BeeGreatAI</span></div>
+      <div class="chat-body">
+        <div class="msg you a" data-in="1.2" data-fx="grow">Swap 0.01 ETH to USDC</div>
+        <div class="msg bot preview a" data-in="2.0" data-fx="grow">
+          <b class="tag">Swap preview</b>
+          <span>0.01 ETH → at least <b class="mono">24.61 USDC</b></span>
+          <span class="meta">Network fee: not estimated yet.</span>
+          <span class="meta">Base · expires in <b class="mono" id="expiry">10:00</b></span>
+          <span class="code">Reply <em>confirm</em> or <em>/confirm K7Q2ZM</em></span>
+        </div>
+        <div class="msg you a" data-in="4.6" data-fx="grow"><span class="quote">↳ Swap preview</span>confirm</div>
+        <div class="msg bot status a" data-in="5.4" data-fx="grow">
+          <span class="state pending"><i class="spinner"></i>Submitted, waiting for the receipt</span>
+          <span class="state done"><i class="tick">✓</i>Swap confirmed on Base mainnet</span>
+          <span class="meta mono link">basescan.org/tx/0x4e1b…d07a</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. Safety -->
+  <section class="scene s-safety" data-start="51" data-end="57.5">
+    <p class="kicker center a" data-in="0.2" data-fx="up">Built for control</p>
+    <h2 class="headline center a" data-in="0.35" data-fx="up">You stay in charge.</h2>
+    <div class="safe-grid">
+      <div class="safe clay a" data-in="1.0" data-fx="pop"><i class="glyph">✕</i><b>No keys, ever</b><span>Pecu never asks for a private key, seed phrase or password.</span></div>
+      <div class="safe clay a" data-in="1.25" data-fx="pop"><i class="glyph">✓</i><b>Only you confirm</b><span>The AI can't confirm its own previews or turn on YOLO.</span></div>
+      <div class="safe clay a" data-in="1.5" data-fx="pop"><i class="glyph mono">8453</i><b>Base only</b><span>Transactions run on Base mainnet. Nothing else signs.</span></div>
+      <div class="safe clay a" data-in="1.75" data-fx="pop"><i class="glyph mono">/yolo</i><b>YOLO is opt-in</b><span><code>/yolo on</code> skips the prompt. <code>/yolo off</code> brings it back.</span></div>
+    </div>
+  </section>
+
+  <!-- 9. More -->
+  <section class="scene s-more" data-start="57.5" data-end="63">
+    <h2 class="headline center a" data-in="0.2" data-fx="up">And a lot more, in <mark>plain words.</mark></h2>
+    <div class="cloud">
+      <div class="pill clay a" data-in="0.9" data-fx="pop"><b>Swaps &amp; transfers</b><code>/swap · /send</code></div>
+      <div class="pill clay a" data-in="1.05" data-fx="pop"><b>Aerodrome liquidity</b><code>/aero</code></div>
+      <div class="pill clay a" data-in="1.2" data-fx="pop"><b>Tokenized stocks</b><code>/stocks</code></div>
+      <div class="pill clay a" data-in="1.35" data-fx="pop"><b>Aave v3 on Base</b><code>supply · borrow</code></div>
+      <div class="pill clay a" data-in="1.5" data-fx="pop"><b>Nansen analytics</b><code>/nansen pnl</code></div>
+      <div class="pill clay a" data-in="1.65" data-fx="pop"><b>Polymarket reads</b><code>/polymarket</code></div>
+      <div class="pill clay a" data-in="1.8" data-fx="pop"><b>Bank &amp; crypto deposits</b><code>/deposit</code></div>
+      <div class="pill clay a" data-in="1.95" data-fx="pop"><b>Shared Safe wallets</b><code>pecu.app/profile</code></div>
+    </div>
+  </section>
+
+  <!-- 10. Outro -->
+  <section class="scene s-outro" data-start="63" data-end="70">
+    <div class="snail-outro a" data-in="0" data-fx="pop">
+      <video muted playsinline preload="auto" src="../apps/site/site/pecu-assets/mascot/idle.webm" data-loop="3"></video>
+    </div>
+    <div class="outro-copy">
+      <span class="wordmark big a" data-in="0.5" data-fx="up">pecu</span>
+      <p class="tagline a" data-in="0.8" data-fx="up">Your smart ass on-chain friend!</p>
+      <div class="ctas">
+        <span class="button primary a" data-in="1.4" data-fx="pop">Message @BeeGreatAI on X</span>
+        <span class="button a" data-in="1.6" data-fx="pop">pecu.app/agent</span>
+      </div>
+      <p class="fine a" data-in="2.4" data-fx="fade">Experimental and unofficial. Transactions on Base use real funds. Start small and check every preview.</p>
+    </div>
+  </section>
+
+  <div class="scrub" id="scrub"><input type="range" min="0" max="70" step="0.01" value="0" id="scrubber" aria-label="Timeline"><span id="clock" class="mono">0.0s</span></div>
+</div>
+</div>
+<script src="./explainer.js"></script>
+</body>
+</html>

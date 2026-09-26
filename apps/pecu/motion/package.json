@@ -1,0 +1,11 @@
+{
+  "name": "pecu-motion",
+  "private": true,
+  "scripts": {
+    "render": "bun render.ts",
+    "preview": "bun --port 4318 ../"
+  },
+  "dependencies": {
+    "playwright-core": "1.52.0"
+  }
+}
