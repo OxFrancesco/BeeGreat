@@ -116,7 +116,7 @@ test("#pnl opens the full page, periods load their own read, and closing drops t
   await act(async () => ninety.click());
   expect(ninety.getAttribute("aria-pressed")).toBe("true");
   expect(page()?.textContent).toContain("Total on Base, last 90 days");
-  expect(requests.filter((path) => path.includes("/pnl"))).toEqual(["/stocks/api/pnl?days=30", "/stocks/api/pnl?days=90"]);
+  expect(requests.filter((path) => path.includes("/pnl"))).toEqual([`/stocks/api/pnl?days=30&wallet=${wallet}`, `/stocks/api/pnl?days=90&wallet=${wallet}`]);
   await act(async () => page()!.querySelector<HTMLButtonElement>('[aria-label="Back to chat"]')!.click());
   expect(window.location.hash).toBe("");
 });
