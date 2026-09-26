@@ -7,8 +7,9 @@ import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import { z } from "zod";
 import type { PecuAgent } from "./agent";
+import type { LinkedWallets } from "./linked-wallets";
 import type { PecuStore } from "./state";
-import { senderKind } from "./web-identity";
+import { senderKind, webConversation } from "./web-identity";
 import type { ParagraphSink } from "./web-stream";
 import { pnlSnapshotSchema, type PnlSnapshot } from "./analytics-contract";
 import {
@@ -43,6 +44,7 @@ export class WebAgent {
     private readonly agent: PecuAgent,
     private readonly store: PecuStore,
     private readonly sql: WebSql,
+    private readonly linkedWallets?: Pick<LinkedWallets, "signer">,
   ) {
     sql.exec(
       `CREATE TABLE IF NOT EXISTS basedbot_web_turns (id TEXT PRIMARY KEY, owner TEXT NOT NULL, text TEXT NOT NULL, created_at INTEGER NOT NULL, reply TEXT)`,
@@ -61,14 +63,9 @@ export class WebAgent {
     );
     this.history = new WebHistory(sql);
   }
-  /**
-   * The original web conversation keeps its `stocks:` owner so existing
-   * history, YOLO settings and pending previews stay attached. Extra threads
-   * append `#threadId`; the agent treats each owner as its own conversation.
-   */
-  private owner({ userId, senderId, threadId }: Scope) {
-    const base = `stocks:${userId}:${senderId}`;
-    return threadId ? `${base}#${threadId}` : base;
+  /** The agent treats each thread owner as its own conversation. */
+  private owner(scope: Scope) {
+    return webConversation(scope);
   }
   threads(identity: Identity): WebThread[] {
     return this.history.threads(identity).threads;
@@ -92,6 +89,7 @@ export class WebAgent {
       }
       const plan = intentPlan(this.store, intent, reply.preview.state);
       if (plan) reply.preview.plan = plan;
+      if (intent.signer) reply.preview.signer = intent.signer;
     }
     return {
       id: row.id,
@@ -154,6 +152,7 @@ export class WebAgent {
       wallet: this.store.wallet(identity.senderId)?.address ?? null,
       senderKind: senderKind(identity.senderId),
       yolo: this.store.yoloEnabled(identity.senderId, owner),
+      signer: this.linkedWallets?.signer(identity.senderId, owner) ?? null,
       threadId: scope.threadId ?? null,
       threads: paged ? undefined : this.threads(identity),
       thread: this.history.threadFor(scope),

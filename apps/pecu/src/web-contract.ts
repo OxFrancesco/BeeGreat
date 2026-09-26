@@ -78,6 +78,8 @@ export const previewSchema = z.object({
   expiresAt: z.number(),
   /** Optional so a client can read previews from a backend deployed before plans existed. */
   plan: transactionPlanSchema.optional(),
+  /** The linked wallet that signs this plan in the browser. Absent means the Pecu wallet signs it on confirmation. */
+  signer: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
 });
 
 export function confirmationCommand(text: string): { kind: "confirm" | "cancel"; code: string } | undefined {
@@ -129,6 +131,8 @@ export const webStateSchema = z.object({
   /** Optional so a client can read state from a backend deployed before web-only senders existed. */
   senderKind: z.enum(["x", "web"]).optional(),
   yolo: z.boolean(),
+  /** The linked wallet this thread acts with; null or absent means the Pecu wallet. */
+  signer: z.string().regex(/^0x[0-9a-fA-F]{40}$/).nullable().optional(),
   /** Optional so a client can read state from a backend deployed before threads existed. */
   threadId: z.string().nullable().optional(),
   threads: z.array(webThreadSchema).optional(),

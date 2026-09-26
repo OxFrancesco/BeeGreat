@@ -30,6 +30,9 @@ import { cardViewerSchema } from "../cards-contract";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, webPnlRequestSchema, basketSchema } from "../web-contract";
 import { profileActionRequestSchema, profileSafeRequestSchema } from "../safe-profile-contract";
 import type { SafeProfile } from "../safe-profile";
+import { linkedWalletRequestSchema } from "../linked-wallet-contract";
+import type { LinkedExecution } from "../linked-execution";
+import type { LinkedWallets } from "../linked-wallets";
 import { liveTextContentType, sseContentType, turnEventStream } from "../web-stream";
 import { z } from "zod";
 
@@ -85,6 +88,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   private agent?: PecuAgent;
   private webAgent?: WebAgent;
   private safeProfile?: SafeProfile;
+  private linked?: Readonly<{ wallets: LinkedWallets; execution: LinkedExecution }>;
   private transport?: XChatTransport;
   private xAccessToken?: string;
   private xRefreshToken?: string;
@@ -104,7 +108,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       await this.restoreXOAuthState();
       const configurationError = runtimeConfigurationError(this.config);
       if (!configurationError) {
-        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }, { SafeProfile }, { SafeChain }] = await Promise.all([
+        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }, { SafeProfile }, { SafeChain }, { LinkedWallets }, { LinkedExecution }] = await Promise.all([
           import("../aerodrome"),
           import("../agent"),
           import("../evm"),
@@ -114,6 +118,8 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           import("../integrations/nansen"),
           import("../safe-profile"),
           import("../safe-chain"),
+          import("../linked-wallets"),
+          import("../linked-execution"),
         ]);
         const wallets = new WalletService({
           crossmintApiKey: this.config.crossmintApiKey!,
@@ -121,6 +127,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         }, this.store);
         const rpc = jsonRpcClient(this.config.baseRpcUrl);
         const evm = new EvmService(evmWorkerExecutor(env.EVM));
+        const linkedWallets = new LinkedWallets(ctx.storage.sql);
         this.agent = new PecuAgent(
           this.config,
           this.store,
@@ -145,6 +152,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
                 return this.safeProfile.pending(senderId, safe);
               },
             },
+            linkedWallets,
           },
           {
             warm: (senderId) => userInference(env, senderId).warm(),
@@ -153,8 +161,9 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           this.config.typesafeApiKey ? new TypeSafeRequestClassifier(this.config.typesafeApiKey) : undefined,
         );
         await this.agent.resumeExecuting();
-        this.webAgent = new WebAgent(this.agent, this.store, ctx.storage.sql);
+        this.webAgent = new WebAgent(this.agent, this.store, ctx.storage.sql, linkedWallets);
         this.safeProfile = new SafeProfile({ agent: this.agent, store: this.store, evm, chain: new SafeChain(rpc), sql: ctx.storage.sql });
+        this.linked = { wallets: linkedWallets, execution: new LinkedExecution({ store: this.store, wallets: linkedWallets, rpc, enabled: this.config.enableMainnetExecution }) };
         if (this.config.xchatPollingEnabled) {
           const firstPollAt = Date.now() + 1_000;
           const scheduledAt = await ctx.storage.getAlarm();
@@ -169,6 +178,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     ctx.waitUntil(this.ready.then(async () => {
       try { await this.agent?.relayPendingDeposits(); }
       catch (error) { log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) }); }
+      await this.linked?.execution.sweep();
       if (this.config.xchatPollingEnabled) {
         try { await this.ensureRealtimeSetup(); }
         catch (error) { log("error", "x_realtime_setup_failed", { error: errorMessage(error) }); }
@@ -231,6 +241,9 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         }
         if (["/internal/web/profile", "/internal/web/profile-safe", "/internal/web/profile-action"].includes(url.pathname)) {
           return await this.profileRequest(url.pathname, raw);
+        }
+        if (["/internal/web/wallets", "/internal/web/wallet-action"].includes(url.pathname)) {
+          return await this.walletRequest(url.pathname, raw);
         }
         if (url.pathname === "/internal/web/basket") {
           const { identity, basket } = z.object({ identity: webIdentitySchema, basket: basketSchema }).parse(raw);
@@ -345,6 +358,21 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     }
   }
 
+  private async walletRequest(path: string, raw: JsonValue): Promise<Response> {
+    const linked = this.linked;
+    if (!linked) return json({ error: "Agent unavailable" }, 503);
+    const [{ linkedWalletRequest }, { LinkedWalletError }] = await Promise.all([import("../linked-execution"), import("../linked-wallets")]);
+    try {
+      if (path === "/internal/web/wallets") return json({ wallets: linked.wallets.list(webIdentitySchema.parse(raw).senderId) });
+      return json(await linkedWalletRequest(linked, linkedWalletRequestSchema.parse(raw)));
+    } catch (error) {
+      if (error instanceof LinkedWalletError) return json({ error: error.message }, 400);
+      if (error instanceof z.ZodError) return json({ error: "Check the details and try again." }, 400);
+      log("error", "wallet_request_failed", { path, error: errorMessage(error) });
+      return json({ error: "Pecu couldn't finish this wallet request. Try again." }, 502);
+    }
+  }
+
   /**
    * Answers a web turn as server-sent events. The turn itself runs under
    * `waitUntil`, so a tab that closes mid-reply never aborts the model or
@@ -385,6 +413,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       } catch (error) {
         log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) });
       }
+      await this.linked?.execution.sweep();
       this.nextAlarmDelayMs = realtimeReady ? realtimeFallbackPollMs : this.config.pollIntervalMs;
     } catch (error) {
       failed = true;
@@ -636,7 +665,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action", "/wallets", "/wallet-action"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");

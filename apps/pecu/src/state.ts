@@ -40,6 +40,8 @@ export type Intent = Readonly<{
   planDigest: string;
   expiresAt: number;
   result?: string;
+  /** A linked wallet that signs this plan itself in the browser. Absent means the Pecu wallet signs it. */
+  signer?: `0x${string}`;
 }> & IntentAction;
 
 /** Rebuild the typed action from persisted columns, re-validating parameters at the boundary. */
@@ -94,6 +96,8 @@ export interface AgentStateStore {
   markStepSubmitted(intentId: string, position: number, hash: string): void;
   markStepSucceeded(intentId: string, position: number, hash?: string): void;
   markStepFailed(intentId: string, position: number, error: string): void;
+  /** Return a step handed to a linked wallet to `planned` after the wallet declined it without sending. */
+  releaseStep(intentId: string, position: number): boolean;
 }
 
 export interface WalletStateStore {

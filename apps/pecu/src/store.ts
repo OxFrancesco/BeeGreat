@@ -5,6 +5,7 @@ import { analyticsResultSchema, type AnalyticsResult } from "./analytics-contrac
 import { stockSnapshotSchema, type StockSnapshot } from "./stock-contract";
 import { transactionPlanSchema, type TransactionPlan } from "./transaction-plan-contract";
 import { Database, type SQLQueryBindings } from "bun:sqlite";
+import { getAddress } from "viem";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { agentQuestionSchema, type AgentQuestion, type PlannedCall, type VerifiedMessage } from "./domain";
@@ -53,6 +54,7 @@ type IntentRow = {
   plan_digest: string;
   expires_at: number;
   result: string | null;
+  signer: string | null;
 };
 
 export class Store implements PecuStore {
@@ -150,6 +152,7 @@ export class Store implements PecuStore {
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS intent_signers (intent_id TEXT PRIMARY KEY REFERENCES aero_intents(id), address TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS aero_execution_steps (
         intent_id TEXT NOT NULL REFERENCES aero_intents(id),
         position INTEGER NOT NULL,
@@ -351,6 +354,7 @@ export class Store implements PecuStore {
         intent.action, JSON.stringify(intent.parameters), intent.preview, intent.planDigest, intent.expiresAt,
         intent.result ?? null, now, now,
       );
+      if (intent.signer) this.db.query("INSERT INTO intent_signers (intent_id,address) VALUES (?,?)").run(intent.id, intent.signer);
       calls.forEach((call, index) => {
         insertStep.run(intent.id, index, call.role, call.from, call.to, call.data, call.value);
       });
@@ -358,17 +362,17 @@ export class Store implements PecuStore {
   }
 
   intentForSource(eventId: string): Intent | undefined {
-    const row = this.db.query<IntentRow, SQLQueryBindings[]>("SELECT * FROM aero_intents WHERE source_event_id = ?").get(eventId);
+    const row = this.db.query<IntentRow, SQLQueryBindings[]>("SELECT i.*, s.address AS signer FROM aero_intents i LEFT JOIN intent_signers s ON s.intent_id = i.id WHERE i.source_event_id = ?").get(eventId);
     return row ? this.toIntent(row) : undefined;
   }
 
   intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined {
-    const row = this.db.query<IntentRow, SQLQueryBindings[]>("SELECT * FROM aero_intents WHERE code_hash = ? AND sender_id = ? AND conversation_id = ?").get(codeHash, senderId, conversationId);
+    const row = this.db.query<IntentRow, SQLQueryBindings[]>("SELECT i.*, s.address AS signer FROM aero_intents i LEFT JOIN intent_signers s ON s.intent_id = i.id WHERE i.code_hash = ? AND i.sender_id = ? AND i.conversation_id = ?").get(codeHash, senderId, conversationId);
     return row ? this.toIntent(row) : undefined;
   }
 
   executingIntents(): Intent[] {
-    return (this.db.query<IntentRow, SQLQueryBindings[]>("SELECT * FROM aero_intents WHERE state='executing' ORDER BY created_at").all()).map((row) => this.toIntent(row));
+    return (this.db.query<IntentRow, SQLQueryBindings[]>("SELECT i.*, s.address AS signer FROM aero_intents i LEFT JOIN intent_signers s ON s.intent_id = i.id WHERE i.state='executing' ORDER BY i.created_at").all()).map((row) => this.toIntent(row));
   }
 
   transitionIntent(id: string, from: IntentState, to: IntentState, result?: string): boolean {
@@ -394,6 +398,10 @@ export class Store implements PecuStore {
 
   markStepFailed(intentId: string, position: number, error: string): void {
     this.db.query("UPDATE aero_execution_steps SET state='failed',error=? WHERE intent_id=? AND position=?").run(error, intentId, position);
+  }
+
+  releaseStep(intentId: string, position: number): boolean {
+    return this.db.query("UPDATE aero_execution_steps SET state='planned',transaction_id=NULL WHERE intent_id=? AND position=? AND state='prepared' AND hash IS NULL").run(intentId, position).changes === 1;
   }
 
   enqueueReply(correlationKey: string, conversationId: string, replyToEvent: string, text: string): void {
@@ -577,6 +585,7 @@ export class Store implements PecuStore {
       preview: row.preview, planDigest: row.plan_digest,
       expiresAt: row.expires_at,
     };
-    return row.result === null ? intent : { ...intent, result: row.result };
+    const withResult = row.result === null ? intent : { ...intent, result: row.result };
+    return row.signer ? { ...withResult, signer: getAddress(row.signer) } : withResult;
   }
 }

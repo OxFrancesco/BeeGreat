@@ -14,7 +14,8 @@ import type { WhopService } from "./integrations/whop";
 import { nansenQuerySchema, type NansenQuery, type NansenEndpointName, type NansenService } from "./integrations/nansen";
 import type { SugarAction, SugarParameters } from "@beegreat/sugar/contracts";
 import type { Config } from "./config";
-import { aeroHelpText, BASE_USDC_ADDRESS, depositAmountPattern, helpText, nansenHelpText, parseCommand, parseNaturalWalletCommand, plannedCallSchema, type PlannedCall, type VerifiedMessage } from "./domain";
+import { aeroHelpText, BASE_USDC_ADDRESS, depositAmountPattern, helpText, nansenHelpText, parseCommand, parseNaturalWalletCommand, type PlannedCall, type VerifiedMessage } from "./domain";
+import { digest, planDigest } from "./plan-digest";
 import type { AgentCapabilities, AgentHarness } from "./harness";
 import { log } from "./logger";
 import { executeSteps, type OutcomeUnknown, type InclusionPending, type Reverted, type StepFailed } from "./execution";
@@ -25,6 +26,7 @@ import type { EvmReadResult, EvmService, EvmTxAction } from "./evm";
 import type { SafeReadCommand } from "./safe";
 import type { UserOperationOutcome, UserOperationReference } from "./receipt";
 import { treasurySenderId, WalletService } from "./wallet";
+import { isWebConversation } from "./web-identity";
 import { whopDepositForwardSchema, whopLedgerActivitySchema } from "./whop-webhook";
 import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlanText, evmReadText, verbosePage } from "./chat";
 import { planSummary, tokenHints, transactionPlan } from "./transaction-plan";
@@ -32,15 +34,6 @@ import { isTransactionReadPermissionError } from "./wallet-errors";
 import type { RequestClassifier, RequestRoute } from "./request-classifier";
 import type { ParagraphSink } from "./web-stream";
 import { analyticsText, type PnlSnapshot } from "./analytics-contract";
-
-async function digest(value: string): Promise<string> {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-function planDigest(calls: readonly PlannedCall[]): Promise<string> {
-  return digest(JSON.stringify(calls.map((call) => plannedCallSchema.parse(call))));
-}
 
 /** 32 symbols without I, O, 0, 1; 256 is a multiple of 32 so a byte modulo stays uniform. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -137,6 +130,8 @@ export type AgentServices = Readonly<{
     share(senderId: string, command: SafeReadCommand, output: JsonInput): Promise<void>;
     pending(senderId: string, safe: string): Promise<JsonInput>;
   }>;
+  /** The linked wallet a web thread acts with; absent means the Pecu wallet. */
+  linkedWallets?: Readonly<{ signer(senderId: string, conversationId: string): `0x${string}` | undefined }>;
 }>;
 
 export class PecuAgent {
@@ -178,6 +173,8 @@ export class PecuAgent {
         this.store.transitionIntent(intent.id, "executing", "failed", "Transaction plan was not persisted before shutdown");
         return;
       }
+      // A linked wallet signs its own plan; its web client resumes it and Base settles it.
+      if (intent.signer) return;
       const executor = intent.family === "deposit" ? treasurySenderId : intent.senderId;
       let wallet: `0x${string}`;
       try {
@@ -327,8 +324,8 @@ export class PecuAgent {
       case "balance": return this.balanceReply(message);
       case "confirm": return this.confirm(message, await digest(command.code));
       case "cancel": return this.cancel(message, await digest(command.code));
-      case "token": return this.readReply(message, await this.services.evm.tokenBalance(await this.walletAddress(message.senderId), command.token));
-      case "allowance": return this.readReply(message, await this.services.evm.allowance(await this.walletAddress(message.senderId), command.token, command.spender));
+      case "token": return this.readReply(message, await this.services.evm.tokenBalance(await this.actingWallet(message), command.token));
+      case "allowance": return this.readReply(message, await this.services.evm.allowance(await this.actingWallet(message), command.token, command.spender));
       case "evm": return this.runEvm(message, command.action, command.parameters);
       case "aero": return this.runAero(message, command.action, command.parameters);
       case "deposit": return this.depositReply(message, command.amount);
@@ -344,7 +341,7 @@ export class PecuAgent {
   }
 
   capabilitiesFor(message: VerifiedMessage): AgentCapabilities {
-    const wallet = () => this.walletAddress(message.senderId);
+    const wallet = () => this.actingWallet(message);
     return {
       askUser: async (question, options) => this.askUser(message, question, options),
       yoloEnabled: () => !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId),
@@ -413,13 +410,30 @@ export class PecuAgent {
     return address.parse(wallet.address);
   }
 
+  /** The linked wallet chosen for this web thread, if any. X Chat and profile actions always use the Pecu wallet. */
+  private linkedWallet(message: VerifiedMessage): `0x${string}` | undefined {
+    return isWebConversation(message.conversationId) ? this.services.linkedWallets?.signer(message.senderId, message.conversationId) : undefined;
+  }
+
+  /** The wallet reads and plans use in this conversation. */
+  private async actingWallet(message: VerifiedMessage): Promise<`0x${string}`> {
+    return this.linkedWallet(message) ?? this.walletAddress(message.senderId);
+  }
+
   private async walletReply(message: VerifiedMessage): Promise<string> {
-    const address = await this.walletAddress(message.senderId);
-    this.saveDetails(message, { address, chain: 8453 });
-    return `Your Base wallet:\n${address}`;
+    const linked = this.linkedWallet(message);
+    const address = linked ?? await this.walletAddress(message.senderId);
+    this.saveDetails(message, linked ? { address, chain: 8453, linked: true } : { address, chain: 8453 });
+    return linked ? `This thread uses your linked wallet:\n${address}` : `Your Base wallet:\n${address}`;
   }
 
   private async balanceReply(message: VerifiedMessage): Promise<string> {
+    const linked = this.linkedWallet(message);
+    if (linked) {
+      const results = await Promise.all(["ETH", "USDC", "AERO"].map((token) => this.services.evm.tokenBalance(linked, token)));
+      this.saveDetails(message, results.map((result) => result.output));
+      return results.map(evmReadText).join("\n");
+    }
     const balances = await this.wallets.balances(message.senderId);
     this.saveDetails(message, Object.fromEntries(balances.split("\n").map((line) => {
       const colon = line.indexOf(":");
@@ -438,7 +452,7 @@ export class PecuAgent {
   }
 
   private async runAero(message: VerifiedMessage, action: SugarAction, parameters: SugarParameters): Promise<string> {
-    const wallet = await this.walletAddress(message.senderId);
+    const wallet = await this.actingWallet(message);
     this.requireAnswer(message);
     let result;
     try {
@@ -474,7 +488,7 @@ export class PecuAgent {
   }
 
   private async runStockBasket(message: VerifiedMessage, trades: readonly StockTrade[], slippage?: number): Promise<string> {
-    const wallet = await this.walletAddress(message.senderId);
+    const wallet = await this.actingWallet(message);
     this.requireAnswer(message);
     let result;
     try {
@@ -492,7 +506,7 @@ export class PecuAgent {
   }
 
   async proposeAction(message: VerifiedMessage, action: EvmTxAction, parameters: JsonInput): Promise<{ text: string; context: Readonly<JsonFields> }> {
-    const wallet = await this.walletAddress(message.senderId);
+    const wallet = await this.actingWallet(message);
     const result = await this.services.evm.propose(wallet, action, parameters);
     this.saveDetails(message, { ...result });
     const text = await this.persistProposal(message, wallet, { family: "evm", action: result.action, parameters: result.parameters }, result.calls, evmPlanText(result), result.context);
@@ -501,7 +515,7 @@ export class PecuAgent {
 
   private async runAave(message: VerifiedMessage, name: string, args: JsonFields): Promise<string> {
     if (!this.services.aave) throw new Error("Aave is not configured yet.");
-    const wallet = await this.walletAddress(message.senderId);
+    const wallet = await this.actingWallet(message);
     if (name === "prepare_action") {
       const plan = await this.services.aave.propose(args, wallet);
       this.saveDetails(message, plan.details);
@@ -546,7 +560,7 @@ export class PecuAgent {
   private async nansenReply(message: VerifiedMessage, endpoint: NansenEndpointName, input: NansenQuery): Promise<string> {
     const nansen = this.services.nansen;
     if (!nansen) return "Nansen analytics is not configured yet.";
-    const result = await nansen.call(endpoint, nansenQuerySchema.parse(input), { wallet: await this.walletAddress(message.senderId) });
+    const result = await nansen.call(endpoint, nansenQuerySchema.parse(input), { wallet: await this.actingWallet(message) });
     this.saveDetails(message, result.data);
     if (result.analytics) this.store.saveAnalytics(message.eventId, result.analytics);
     return result.text;
@@ -850,7 +864,10 @@ export class PecuAgent {
     const expiresAt = Date.now() + this.config.quoteTtlSeconds * 1_000;
     const fingerprint = await planDigest(calls);
     const id = crypto.randomUUID();
-    this.store.createIntent({
+    const selected = this.linkedWallet(message);
+    const linked = selected && selected.toLowerCase() === wallet.toLowerCase() ? selected : undefined;
+    const described = linked ? `${preview}\nWallet: ${linked}\nYour wallet pays the Base network fee.` : preview;
+    const record: Intent = {
       id,
       codeHash: await digest(code),
       senderId: message.senderId,
@@ -858,21 +875,30 @@ export class PecuAgent {
       sourceEventId: message.eventId,
       state: "pending",
       ...intent,
-      preview,
+      preview: described,
       planDigest: fingerprint,
       expiresAt,
-    }, calls);
+    };
+    this.store.createIntent(linked ? { ...record, signer: linked } : record, calls);
     const plan = transactionPlan(calls, { intent, tokens: tokenHints(context) });
     if (plan) this.store.saveTransactionPlan(id, plan);
     const steps = planSummary(plan);
-    const shown = steps ? `${preview}\n\n${steps}` : preview;
+    const shown = steps ? `${described}\n\n${steps}` : described;
+    const minutes = Math.floor(this.config.quoteTtlSeconds / 60);
 
     const yolo = this.config.enableMainnetExecution && !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId);
+    if (linked) {
+      // The linked wallet is the signer, so neither YOLO nor a typed confirmation can execute this plan.
+      const execution = this.config.enableMainnetExecution
+        ? `Confirm in this preview to sign with your wallet${yolo ? ". YOLO doesn't apply to your own wallet" : ""}.\nCancel: /cancel ${code}\nExpires in ${minutes} minutes.`
+        : `Transactions are currently disabled. Nothing has been sent.\nCancel: /cancel ${code}`;
+      return `${shown}\n\n${execution}`;
+    }
     if (yolo && !requiresExplicitConfirmation(intent)) {
       return `${shown}\n\nYOLO is on.\n${await this.confirm(message, await digest(code))}\nCheck this request: /confirm ${code}`;
     }
     const execution = this.config.enableMainnetExecution
-      ? `${yolo ? "YOLO is on, but a contract call always needs your confirmation.\n" : ""}Reply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${Math.floor(this.config.quoteTtlSeconds / 60)} minutes.`
+      ? `${yolo ? "YOLO is on, but a contract call always needs your confirmation.\n" : ""}Reply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${minutes} minutes.`
       : `Transactions are currently disabled. Nothing has been sent.\nCancel: /cancel ${code}`;
     return `${shown}\n\n${execution}`;
   }
@@ -886,6 +912,7 @@ export class PecuAgent {
     if (intent.state === "succeeded") return intent.result ?? "This proposal already succeeded.";
     if (intent.state !== "pending" && intent.state !== "executing") return `This proposal is ${intent.state} and cannot be executed.`;
 
+    if (intent.signer) return `This preview signs with your wallet ${intent.signer}. Confirm it in the preview on the Pecu web app with that wallet connected.`;
     const steps = this.store.steps(intent.id);
     const started = steps.some((step) => step.transactionId !== undefined);
     if (!started && Date.now() > intent.expiresAt) {

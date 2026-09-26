@@ -104,6 +104,51 @@ export async function verifyUserOperation(rpc: JsonRpc, reference: UserOperation
   };
 }
 
+const walletTransactionSchema = z.object({
+  from: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+  to: z.string().regex(/^0x[0-9a-fA-F]{40}$/).nullable(),
+  input: z.string().regex(/^0x(?:[0-9a-fA-F]{2})*$/),
+  value: hexQuantity,
+}).nullable();
+
+export type WalletCall = Readonly<{ from: string; to: string; data: string; value: string }>;
+export type WalletTransactionOutcome =
+  | Readonly<{ status: "pending" }>
+  | Readonly<{ status: "confirmed" | "reverted"; hash: string; block: string }>;
+
+export class WalletTransactionMismatchError extends Error {
+  constructor() {
+    super("The transaction your wallet reported doesn't match this preview.");
+    this.name = "WalletTransactionMismatchError";
+  }
+}
+
+/** Whether a reported transaction is exactly this call, from this wallet. An unknown hash is null. */
+export async function walletTransactionMatches(rpc: JsonRpc, hash: string, call: WalletCall): Promise<boolean | null> {
+  const transaction = walletTransactionSchema.parse(await rpc("eth_getTransactionByHash", [hash]));
+  if (!transaction) return null;
+  return transaction.from.toLowerCase() === call.from.toLowerCase()
+    && transaction.to?.toLowerCase() === call.to.toLowerCase()
+    && transaction.input.toLowerCase() === call.data.toLowerCase()
+    && BigInt(transaction.value) === BigInt(call.value);
+}
+
+/**
+ * Verify a transaction that a linked wallet sent itself. Pecu never trusts the
+ * browser's word: the transaction must carry the exact persisted sender,
+ * target, calldata and value, and its receipt block must still be canonical.
+ */
+export async function verifyWalletTransaction(rpc: JsonRpc, hash: string, call: WalletCall): Promise<WalletTransactionOutcome> {
+  const matches = await walletTransactionMatches(rpc, hash, call);
+  if (matches === null) return { status: "pending" };
+  if (!matches) throw new WalletTransactionMismatchError();
+  const receipt = receiptSchema.parse(await rpc("eth_getTransactionReceipt", [hash]));
+  if (!receipt) return { status: "pending" };
+  const block = blockSchema.parse(await rpc("eth_getBlockByNumber", [receipt.blockNumber, false]));
+  if (!block || block.hash.toLowerCase() !== receipt.blockHash.toLowerCase()) return { status: "pending" };
+  return { status: receipt.status === "0x1" ? "confirmed" : "reverted", hash: receipt.transactionHash, block: BigInt(receipt.blockNumber).toString() };
+}
+
 /** Poll until the user operation is included or the deadline passes. */
 export async function awaitUserOperation(
   rpc: JsonRpc,

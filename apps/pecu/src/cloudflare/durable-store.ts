@@ -1,4 +1,5 @@
 import { executionStepFromRow, type ExecutionStepRow } from "../execution-step-row";
+import { getAddress } from "viem";
 import { coalescePolymarketAnalytics } from "../integrations/polymarket/analytics";
 import { polymarketTokenSchema, type PolymarketToken } from "../integrations/polymarket/model-output";
 import { analyticsResultSchema, type AnalyticsResult } from "../analytics-contract";
@@ -51,6 +52,7 @@ type IntentRow = Row & {
   plan_digest: string;
   expires_at: number;
   result: string | null;
+  signer: string | null;
 };
 
 export class DurableStore implements PecuStore {
@@ -111,6 +113,10 @@ export class DurableStore implements PecuStore {
         result TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS basedbot_intent_signers (
+        intent_id TEXT PRIMARY KEY REFERENCES basedbot_aero_intents(id),
+        address TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS basedbot_aero_execution_steps (
         intent_id TEXT NOT NULL REFERENCES basedbot_aero_intents(id),
@@ -356,6 +362,7 @@ export class DurableStore implements PecuStore {
         now,
         now,
       );
+      if (intent.signer) this.sql.exec("INSERT INTO basedbot_intent_signers(intent_id,address) VALUES(?,?)", intent.id, intent.signer);
       calls.forEach((call, position) => {
         this.sql.exec(
           `INSERT INTO basedbot_aero_execution_steps
@@ -373,13 +380,13 @@ export class DurableStore implements PecuStore {
   }
 
   intentForSource(eventId: string): Intent | undefined {
-    const row = this.first<IntentRow>("SELECT * FROM basedbot_aero_intents WHERE source_event_id=?", eventId);
+    const row = this.first<IntentRow>("SELECT i.*, s.address AS signer FROM basedbot_aero_intents i LEFT JOIN basedbot_intent_signers s ON s.intent_id=i.id WHERE i.source_event_id=?", eventId);
     return row ? this.toIntent(row) : undefined;
   }
 
   intentForCode(codeHash: string, senderId: string, conversationId: string): Intent | undefined {
     const row = this.first<IntentRow>(
-      "SELECT * FROM basedbot_aero_intents WHERE code_hash=? AND sender_id=? AND conversation_id=?",
+      "SELECT i.*, s.address AS signer FROM basedbot_aero_intents i LEFT JOIN basedbot_intent_signers s ON s.intent_id=i.id WHERE i.code_hash=? AND i.sender_id=? AND i.conversation_id=?",
       codeHash,
       senderId,
       conversationId,
@@ -389,7 +396,7 @@ export class DurableStore implements PecuStore {
 
   executingIntents(): Intent[] {
     return this.sql.exec<IntentRow>(
-      "SELECT * FROM basedbot_aero_intents WHERE state='executing' ORDER BY created_at",
+      "SELECT i.*, s.address AS signer FROM basedbot_aero_intents i LEFT JOIN basedbot_intent_signers s ON s.intent_id=i.id WHERE i.state='executing' ORDER BY i.created_at",
     ).toArray().map((row) => this.toIntent(row));
   }
 
@@ -442,6 +449,14 @@ export class DurableStore implements PecuStore {
       intentId,
       position,
     );
+  }
+
+  releaseStep(intentId: string, position: number): boolean {
+    return this.sql.exec(
+      "UPDATE basedbot_aero_execution_steps SET state='planned',transaction_id=NULL WHERE intent_id=? AND position=? AND state='prepared' AND hash IS NULL RETURNING position",
+      intentId,
+      position,
+    ).toArray().length === 1;
   }
 
   enqueueReply(correlationKey: string, conversationId: string, replyToEvent: string, text: string): void {
@@ -720,6 +735,7 @@ export class DurableStore implements PecuStore {
       planDigest: row.plan_digest,
       expiresAt: row.expires_at,
     };
-    return row.result === null ? intent : { ...intent, result: row.result };
+    const withResult = row.result === null ? intent : { ...intent, result: row.result };
+    return row.signer ? { ...withResult, signer: getAddress(row.signer) } : withResult;
   }
 }

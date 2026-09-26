@@ -16,6 +16,18 @@ export type SenderKind = "x" | "web";
 export function senderKind(senderId: string): SenderKind {
   return senderId.startsWith("web-") ? "web" : "x";
 }
+/**
+ * The agent conversation for a web thread. The original web conversation keeps
+ * its `stocks:` owner so existing history, YOLO settings and pending previews
+ * stay attached. Extra threads append `#threadId`.
+ */
+export function webConversation({ userId, senderId, threadId }: Readonly<{ userId: string; senderId: string; threadId?: string | null }>): string {
+  const base = `stocks:${userId}:${senderId}`;
+  return threadId ? `${base}#${threadId}` : base;
+}
+export function isWebConversation(conversationId: string): boolean {
+  return conversationId.startsWith("stocks:");
+}
 export function verifiedXAccount(accounts: readonly LinkedAccount[]): string {
   const verified = verifiedXAccounts(accounts);
   if (verified.length !== 1)
