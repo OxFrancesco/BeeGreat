@@ -7,6 +7,7 @@ const amount = z.string().max(100).regex(/^(?:0|[1-9]\d*)(?:\.\d{1,18})?$/);
 export const liquidityRequestSchema = z.strictObject({
   selection: z.discriminatedUnion("kind", [
     z.strictObject({ kind: z.literal("pool"), pool: address }),
+    z.strictObject({ kind: z.literal("discover"), token0: z.string().min(1), token1: z.string().min(1) }),
     z.strictObject({ kind: z.literal("pair"), token0: z.string().min(1), token1: z.string().min(1), tick_spacing: z.number().int().positive(), initial_price: z.number().positive().optional() }),
   ]),
   funding_token: z.string().min(1).max(256),

@@ -1,5 +1,15 @@
 # Pecu performance verification
 
+## Catalog and liquidity planning, September 2026
+
+The Aero Worker keeps one public Base catalog per Sugar contract. A private R2 snapshot backs the edge cache. `AeroCatalog`, a Durable Object, combines concurrent cache misses into one refresh per catalog kind. Cron refreshes pool addresses and swap topology every minute, and the entire token catalog every five minutes. Tokens expire after ten minutes; pool and swap metadata expire after three minutes. A still-valid snapshot remains available during refresh. Expired data never extends its lifetime on a cache read. The SDK verifies pool offsets and reads current reserves, prices, balances and quotes before preparing calls.
+
+Discovery uses compact pool metadata rather than rescanning the full chain for each token pair. Hydration has concurrency four. `aero_liquidity` accepts `selection.kind=discover`, resolves a pair, compares fresh TVL for at most eight matching concentrated pools, and prepares the funded position in one operation. Explicit pool requests retain their chosen address. Explicit new-pool requests retain the existing pair/initial-price path. Discovery is a bounded candidate comparison, not an optimal-yield claim. Explicit ranges require an identified pool to fix price units.
+
+Wallet objects and initialized signers are reused only inside one `TurnTrace`, scoped by sender. A failed initialization is removed so it can retry. Another turn reloads the wallet and signer; balances and transaction status are never memoized. Existing execution locks, durable intent steps, expiry and UserOperation receipt verification still apply.
+
+`scripts/benchmark-browser.js` runs in an authenticated Pecu browser tab. It requires YOLO off, records stream and stage timings, cancels each preview, and verifies cancellation before proceeding. It never confirms a transaction. Save its samples and run `bun scripts/summarize-benchmark.ts samples.json` for median and p95. Keep cold-cache and warm-cache labels tied to actual telemetry, record revision/model/thread history, and exclude clarification or failed turns from completed-preview distributions while reporting their counts. Browser API completion is distinct from rendered preview timing. Small-sample p95 is descriptive, not a production SLO.
+
 Explanation-only turns expose only `ask_user` to the model. The existing execution boundary still rejects account reads and transaction tools in this mode. The restriction lasts for the current turn, including a provider fallback, and clears on success or failure. Mixed and default turns retain their normal tools. Explicit Polymarket turns retain their existing catalog selection.
 
 This applies to Pecu web and X Chat through their shared per-user inference object, on both ChatGPT and OpenRouter. BeeGreat mobile, Android, CLI and iMessage use separate agent paths and are not changed. No SDK, transaction contract, confirmation rule or persistent identity changes are required.

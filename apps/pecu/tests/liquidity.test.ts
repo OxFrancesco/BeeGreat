@@ -52,6 +52,19 @@ function planner(options: { balance?: bigint; reverse?: boolean; empty?: boolean
   return { client, run, swaps, deposits };
 }
 
+test("one liquidity call discovers a pair and produces a budget-checked preview", async () => {
+  const f = planner();
+  const discovery = liquidityRequestSchema.parse({ ...request, selection: { kind: "discover", token0: "WETH", token1: "USDC" } });
+  const found = await f.client.getPoolByAddress(target);
+  if (!found) throw new Error("Missing fixture pool");
+  const calls: unknown[] = [];
+  const result = await liquidityPlan(f.client, f.run, wallet, discovery, async pair => { calls.push(pair); return found; });
+  expect(calls).toEqual([{ token0: weth.tokenAddress, token1: "USDC" }]);
+  expect(result.preview).toContain("budget of 0.0005 ETH");
+  validateIntentPlan({ family: "liquidity", action: "liquidity_budget", parameters: result.parameters }, wallet, result.calls);
+  await expect(liquidityPlan(f.client, f.run, wallet, { ...discovery, range: { lower: 1, upper: 3000 } }, async () => found)).rejects.toThrow("token price units");
+});
+
 test.each([false, true])("half ETH funds both sides within one total budget, reverse order %s", async reverse => {
   const fixture = planner({ reverse });
   const result = await liquidityPlan(fixture.client, fixture.run, wallet, request);

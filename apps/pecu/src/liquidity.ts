@@ -1,11 +1,11 @@
-import { ADDRESS_ZERO, KNOWN_TOKENS, applySlippage, tokenEquals, tokenContractAddress, tickToPrice, type LiquidityPool, type SugarClient, type SugarAction, type SugarParameters, type SugarJson } from "@beegreat/sugar";
+import { ADDRESS_ZERO, applySlippage, tokenEquals, tokenContractAddress, tickToPrice, type LiquidityPool, type SugarClient, type SugarAction, type SugarParameters, type SugarJson } from "@beegreat/sugar";
 import { formatUnits, parseUnits } from "viem";
 import { z } from "zod";
 import { plannedCallSchema } from "./domain";
 import { liquidityPlanSchema, type LiquidityRequest, type LiquidityPlan } from "./liquidity-contract";
+import { canonicalToken } from "./token-reference";
 
 type Client = Pick<SugarClient, "getToken" | "getTokenBalance" | "getPoolByAddress" | "poolSpec" | "quoteConcentratedDeposit" | "deposit">;
-const baseTokens = new Map(Object.values(KNOWN_TOKENS[8453]).map(token => [token.symbol.toLowerCase(), token.tokenAddress]));
 
 type RunAction = (action: SugarAction, parameters: SugarParameters) => Promise<SugarJson>;
 const swapSchema = z.object({
@@ -14,8 +14,8 @@ const swapSchema = z.object({
 });
 const quoteSchema = z.object({ amount_out: z.coerce.bigint().positive() });
 
-export async function liquidityPlan(client: Client, run: RunAction, wallet: `0x${string}`, request: LiquidityRequest): Promise<LiquidityPlan> {
-  const getToken = (reference: string) => client.getToken(baseTokens.get(reference.toLowerCase()) ?? reference);
+export async function liquidityPlan(client: Client, run: RunAction, wallet: `0x${string}`, request: LiquidityRequest, discover?: (pair: { token0: string; token1: string }) => Promise<LiquidityPool>): Promise<LiquidityPlan> {
+  const getToken = (reference: string) => client.getToken(canonicalToken(reference));
   const funding = await getToken(request.funding_token);
   if (!funding) throw new Error("Funding token was not found on Base");
   const balance = await client.getTokenBalance(funding, wallet);
@@ -31,6 +31,10 @@ export async function liquidityPlan(client: Client, run: RunAction, wallet: `0x$
     const found = await client.getPoolByAddress(selection.pool);
     if (!found) throw new Error("Selected pool was not found");
     pool = found;
+  } else if (selection.kind === "discover") {
+    if (!discover) throw new Error("Pool discovery is unavailable");
+    if (request.range) throw new Error("Choose a pool before setting an explicit range so token price units are unambiguous");
+    pool = await discover({ token0: canonicalToken(selection.token0), token1: canonicalToken(selection.token1) });
   } else {
     const [token0, token1] = await Promise.all([getToken(selection.token0), getToken(selection.token1)]);
     if (!token0 || !token1) throw new Error("Pool tokens were not found on Base");

@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { toSugarJson, type SugarJson, type SugarPoolLocatorStore, type SugarPoolLocatorKey, type SugarRpcObserver } from "@beegreat/sugar";
+import { poolIndexSchema, indexPools } from "../pool-discovery";
+import type { CatalogKind } from "./catalog-refresh";
+import { canonicalToken } from "../token-reference";
+
+export type CatalogSource = (kind: CatalogKind) => Promise<{ value: unknown; expiresAt: number }>;
 
 export interface SharedCatalog {
   get(key: string): Promise<{ text(): Promise<string> } | null>;
@@ -68,35 +73,47 @@ export class AeroCache {
   }
 }
 
-const tokenSchema = z.object({ chainId: z.literal(8453), chainName: z.string(), tokenAddress: z.string(),
+export const tokenSchema = z.object({ chainId: z.literal(8453), chainName: z.string(), tokenAddress: z.string(),
   symbol: z.string(), decimals: z.number(), listed: z.boolean(), emerging: z.boolean(),
   wrappedTokenAddress: z.templateLiteral(["0x", z.string()]).optional(),
 });
 
-export function cachePublicCatalog(client: import("@beegreat/sugar").SugarClient, cache: AeroCache) {
+export function cachePublicCatalog(client: import("@beegreat/sugar").SugarClient, cache: AeroCache, source?: CatalogSource) {
+  const read = async <T>(kind: CatalogKind, schema: z.ZodType<T>, ttl: number, fresh: () => Promise<T>): Promise<T> => {
+    const key = `${kind}:8453:${client.settings.sugarContractAddress.toLowerCase()}`;
+    const cached = await cache.read(key, schema);
+    if (cached) return cached;
+    const snapshot = source ? await source(kind) : { value: await fresh(), expiresAt: Date.now() + ttl * 1000 };
+    const value = schema.parse(snapshot.value);
+    if (snapshot.expiresAt <= Date.now()) throw new Error("Catalog refresh returned an expired snapshot");
+    await cache.write(key, toSugarJson(value), Math.floor((snapshot.expiresAt - Date.now()) / 1000));
+    return value;
+  };
   const original = client.getAllTokens.bind(client);
   let catalog: ReturnType<typeof original> | undefined;
   client.getAllTokens = async (listedOnly = false) => {
     catalog ??= (async () => {
-      const key = `tokens:8453:${client.settings.sugarContractAddress.toLowerCase()}`;
-      const cached = await cache.read(key, z.array(tokenSchema));
-      if (cached) return cached;
-      const tokens = await original(false);
-      await cache.write(key, tokens, 600);
-      return tokens;
+      return read("tokens", z.array(tokenSchema), 600, () => original(false));
     })().catch(error => { catalog = undefined; throw error; });
     const tokens = await catalog;
     return listedOnly ? tokens.filter((token, index) => index === 0 || token.listed) : tokens;
   };
+  const getToken = client.getToken.bind(client);
+  client.getToken = async reference => {
+    const text = z.string().safeParse(reference);
+    const ref = text.success ? canonicalToken(text.data) : reference;
+    if (text.success && text.data.toUpperCase() !== "ETH" && !text.data.startsWith("0x") && text.data.toUpperCase() !== "WETH") {
+      const tokens = await client.getAllTokens();
+      const listed = new Map(tokens.filter(token => token.listed && token.symbol.toLowerCase() === text.data.toLowerCase()).map(token => [token.tokenAddress.toLowerCase(), token]));
+      if (listed.size === 1) return listed.values().next().value;
+    }
+    return getToken(ref);
+  };
   const readRaw = client.getRawPools.bind(client);
   client.getRawPools = async (forSwaps = false) => {
     if (!forSwaps) return readRaw(false);
-    const key = `swap-topology:${client.settings.sugarContractAddress}`;
-    const cached = await cache.read(key, z.array(z.unknown()));
-    if (cached) return cached;
-    const result = await readRaw(true);
-    // Tuple adapters accept integer strings. Only route topology is cached, never pool reserves.
-    await cache.write(key, toSugarJson(result), 60);
-    return result;
+    return read("swap-topology", z.array(z.unknown()), 180, () => readRaw(true));
   };
+  let pools: Promise<z.output<typeof poolIndexSchema>> | undefined;
+  return { pools: () => pools ??= read("pools", poolIndexSchema, 180, async () => indexPools(await readRaw(false))).catch(error => { pools = undefined; throw error; }) };
 }

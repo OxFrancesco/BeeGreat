@@ -4,6 +4,7 @@ import type { Config } from "./config";
 import type { PlannedCall } from "./domain";
 import type { WalletStateStore } from "./state";
 import { senderKind } from "./web-identity";
+import { turnTrace, type TurnTrace } from "./turn-trace";
 
 type BaseWallet = Wallet<"base">;
 
@@ -32,12 +33,26 @@ export const treasurySenderId = "treasury";
 
 export class WalletService {
   private readonly wallets: CrossmintWallets;
+  private readonly turnWallets = new WeakMap<TurnTrace, Map<string, Promise<BaseWallet>>>();
 
   constructor(private readonly config: Pick<Config, "crossmintApiKey" | "crossmintWalletSecret">, private readonly store: WalletStateStore) {
     this.wallets = CrossmintWallets.from(createCrossmint({ apiKey: config.crossmintApiKey }));
   }
 
   async getOrCreate(senderId: string): Promise<BaseWallet> {
+    const turn = turnTrace.getStore();
+    if (!turn) return this.loadWallet(senderId);
+    let wallets = this.turnWallets.get(turn);
+    if (!wallets) { wallets = new Map(); this.turnWallets.set(turn, wallets); }
+    const cached = wallets.get(senderId);
+    if (cached) return cached;
+    const scope = wallets;
+    const pending = this.loadWallet(senderId).catch(error => { scope.delete(senderId); throw error; });
+    scope.set(senderId, pending);
+    return pending;
+  }
+
+  private async loadWallet(senderId: string): Promise<BaseWallet> {
     const cached = this.store.wallet(senderId);
     let wallet: BaseWallet;
     if (cached) {

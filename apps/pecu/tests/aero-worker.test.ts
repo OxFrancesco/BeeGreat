@@ -3,12 +3,18 @@ import { AerodromeService } from "../src/aerodrome";
 import { aeroWorkerExecutor } from "../src/cloudflare/aero-client";
 import worker from "../src/cloudflare/aero-worker";
 
+const env: AeroEnv = {
+  ALCHEMY_RPC_URL: "https://invalid.example",
+  get AERO_CATALOG(): never { throw new Error("Invalid requests must not use R2"); },
+  get AERO_REFRESH(): never { throw new Error("Invalid requests must not refresh catalogs"); },
+};
+
 const wallet = "0x1111111111111111111111111111111111111111" as const;
 
 test("Aero Worker rejects a foreign chain before contacting RPC", async () => {
   const response = await worker.fetch(new Request("https://aero.internal/", {
     method: "POST", body: JSON.stringify({ action: "pools", parameters: { chain: 10 } }),
-  }), { ALCHEMY_RPC_URL: "https://invalid.example" });
+  }), env);
   expect(response.status).toBe(400);
 });
 
@@ -19,7 +25,7 @@ test("a stock_basket request on a foreign chain is rejected before any RPC", asy
       action: "stock_basket", chain: 10, wallet,
       trades: [{ side: "buy", stock: "NVDAc", amount: "1" }], slippage: 0.01,
     }),
-  }), { ALCHEMY_RPC_URL: "https://invalid.example" });
+  }), env);
   expect(response.status).toBe(400);
 });
 
@@ -33,7 +39,7 @@ test("a stock_basket request with malformed trades is rejected before any RPC", 
     const response = await worker.fetch(new Request("https://aero.internal/", {
       method: "POST",
       body: JSON.stringify({ action: "stock_basket", chain: 8453, wallet, trades, slippage: 0.01 }),
-    }), { ALCHEMY_RPC_URL: "https://invalid.example" });
+    }), env);
     expect(response.status).toBe(400);
   }
 });

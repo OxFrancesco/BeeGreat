@@ -2,12 +2,16 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "basedbot-aero",
   "account_id": "157a8b025a13404b16f11ad7078e53f1",
-  "main": "src/cloudflare/aero-worker.ts",
+  "main": "src/cloudflare/aero-entry.ts",
   "compatibility_date": "2026-08-29",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
+  "secrets": { "required": ["ALCHEMY_RPC_URL"] },
   "r2_buckets": [{ "binding": "AERO_CATALOG", "bucket_name": "pecu-aero-catalog" }],
+  "durable_objects": { "bindings": [{ "name": "AERO_REFRESH", "class_name": "AeroCatalog" }] },
+  "migrations": [{ "tag": "catalog-v1", "new_sqlite_classes": ["AeroCatalog"] }],
+  "triggers": { "crons": ["* * * * *"] },
   "limits": { "cpu_ms": 120000 },
   "observability": { "enabled": true }
 }

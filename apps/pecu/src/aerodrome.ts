@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { jsonObjectSchema } from "./json-contract";
-import { createSugarCacheStore, createSugarClient, executeSugarAction, KNOWN_TOKENS, toSugarJson, validateSugarRequest } from "@beegreat/sugar";
+import { createSugarCacheStore, createSugarClient, executeSugarAction, toSugarJson, validateSugarRequest } from "@beegreat/sugar";
 import {
   isSugarTxAction,
   type SugarAction,
@@ -14,6 +14,8 @@ import { BASE_CHAIN_ID, plannedCallSchema, type PlannedCall } from "./domain";
 import type { AeroExecutor } from "./cloudflare/aero-client";
 import type { StockBasketRequest } from "./cloudflare/aero-protocol";
 import { liquidityPlan } from "./liquidity";
+import { canonicalToken } from "./token-reference";
+import { discoverLiquidityPool, indexPools } from "./pool-discovery";
 import { liquidityPlanSchema, liquidityRequestSchema, type LiquidityRequest, type LiquidityPlan } from "./liquidity-contract";
 import { stockBasketPlan } from "./stocks";
 import { stockBasketParameters, type StockBasketParameters, type StockTrade } from "./stock-contract";
@@ -79,8 +81,6 @@ function parseCalls(result: JsonObject): PlannedCall[] {
 }
 
 const ACTIONS_WITH_SLIPPAGE = new Set<SugarTxAction>(["swap", "deposit", "withdraw", "stock_buy", "stock_sell", "index_rebalance"]);
-const baseTokenReferences = new Map(Object.values(KNOWN_TOKENS[BASE_CHAIN_ID]).map((token) => [token.symbol.toLowerCase(), token.tokenAddress]));
-baseTokenReferences.set("weth", KNOWN_TOKENS[BASE_CHAIN_ID].eth.wrappedTokenAddress!);
 const aeroSettings = { requestConcurrency: 4, quoteMaxPaths: 128, quoteBatchSize: 16 };
 
 export class AerodromeService {
@@ -124,8 +124,10 @@ export class AerodromeService {
     if (this.executor) return this.executor({ action: "liquidity_budget", chain: BASE_CHAIN_ID, wallet, request }).then(value => liquidityPlanSchema.parse(value));
     const result = this.pending.then(async () => {
       const options = { rpcUrl: this.config.baseRpcUrl, cacheStore: createSugarCacheStore(), settings: aeroSettings };
-      return liquidityPlan(createSugarClient(BASE_CHAIN_ID, { ...options, account: wallet }),
-        (action, parameters) => executeSugarAction(action, parameters, options), wallet, request);
+      const client = createSugarClient(BASE_CHAIN_ID, { ...options, account: wallet });
+      return liquidityPlan(client,
+        (action, parameters) => executeSugarAction(action, parameters, { ...options, clientFactory: () => client }), wallet, request,
+        async pair => discoverLiquidityPool(client, pair, indexPools(await client.getRawPools())));
     });
     this.pending = result.then(() => undefined, () => undefined);
     return result;
@@ -200,7 +202,7 @@ export class AerodromeService {
     for (const name of ["from_token", "to_token", "token0", "token1"]) {
       const reference = parameters[name];
       const parsed = z.string().safeParse(reference);
-      if (parsed.success) parameters[name] = baseTokenReferences.get(parsed.data.toLowerCase()) ?? parsed.data;
+      if (parsed.success) parameters[name] = canonicalToken(parsed.data);
     }
     if (isSugarTxAction(action)) {
       parameters.wallet = wallet;

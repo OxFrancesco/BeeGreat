@@ -10,13 +10,15 @@ group: Use
 
 ## Suggested liquidity plans
 
-Ask "Create a USDC/WETH pool on Aerodrome" and Pecu checks your balances and matching pools. It asks for the pool or pair and your total budget if those are missing, with a suggestion based on what you hold. You do not need to provide tick spacing or calculate the token split.
+Ask "Add USDC/WETH liquidity on Aerodrome using half my ETH" and Pecu discovers an existing pool and prepares a funded position in one operation. It compares fresh TVL for up to eight matching concentrated pools from its public catalog and selects the largest of those candidates. This does not guarantee the best yield or coverage of every pool. Specify a pool address when you want a particular pool. Pecu asks for the pair or total budget when missing; you do not need to calculate the token split.
 
 Once those choices are clear, Pecu prepares one funding-swap, approval and deposit batch. "Use half my ETH" budgets half your ETH for the whole position. It does not stop at a separate wrap. The preview shows the exact funding swap, deposit amounts and range. With YOLO off, confirm that combined preview; with YOLO on, the tool can execute it immediately.
 
 This budget flow supports concentrated liquidity funded with one of the pair's tokens, including native ETH for a WETH pair. It currently requires your Pecu smart wallet. Linked external wallets cannot run this combined batch. Existing-pool deposits create a new position; a genuinely new pool requires a verified initial price.
 
 The default range is 20% below and above the observed pool price, adjustable on request. Fees stop outside the range and token exposure changes. Unspent tokens remain in your wallet. Pecu leaves native ETH available for fees, but does not estimate the network fee. If balances or market data are unavailable, it explains the missing data before preparing a plan.
+
+Token symbols resolve through the full on-chain catalog. A unique listed match takes priority; ambiguous matches require a contract address. ETH means native ETH and WETH means Base's wrapped ETH. Public token and pool catalogs refresh in the background. Balances, pool reserves, prices, allowances and transaction quotes are read live.
 
 ## Flag syntax
 

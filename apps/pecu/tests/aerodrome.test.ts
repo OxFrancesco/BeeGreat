@@ -1,16 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { AerodromeService } from "../src/aerodrome";
-import { KNOWN_TOKENS } from "@beegreat/sugar";
 
 const wallet = "0x1111111111111111111111111111111111111111" as const;
 const other = "0x2222222222222222222222222222222222222222";
 const service = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 100 });
 
 describe("Aero request boundary", () => {
-  test("common Base symbols resolve to SDK canonical tokens before catalog ambiguity", async () => {
+  test("symbols pass through to full-catalog resolution without a token whitelist", async () => {
     const bound = new AerodromeService({ baseRpcUrl: "https://example.com", maxSlippageBps: 100 }, async (request) => "parameters" in request ? request.parameters : {});
     const result = await bound.run(wallet, "quote", { from_token: "usdc", to_token: "AERO", amount: "1", use_decimals: true });
-    expect(result.parameters).toMatchObject({ from_token: KNOWN_TOKENS[8453].usdc.tokenAddress, to_token: KNOWN_TOKENS[8453].aero.tokenAddress });
+    expect(result.parameters).toMatchObject({ from_token: "usdc", to_token: "AERO" });
     expect((await bound.run(wallet, "quote", { from_token: "ETH", to_token: other, amount: "1" })).parameters).toMatchObject({ from_token: "ETH", to_token: other });
     expect((await bound.run(wallet, "quote", { from_token: "UNLISTED", to_token: "USDC", amount: "1" })).parameters.from_token).toBe("UNLISTED");
   });
