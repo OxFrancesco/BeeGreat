@@ -44,6 +44,19 @@ The card turns to Executed and verified on Base only after Pecu reads every tran
 
 Pick Pecu wallet in the same menu to go back. X Chat always uses your Pecu wallet.
 
+## Move tokens between your wallets
+
+On [Pecu Agent](/agent), press Send tokens beside the wallet address.
+
+1. Choose the source and destination wallets. Your Pecu wallet and linked wallets are listed.
+2. Pick a token and enter the amount. Other token accepts a ticker or a Base contract address.
+3. Press Review transfer. Pecu opens a new thread with the transfer preview and YOLO off.
+4. Check the amount and destination, then confirm. A linked source wallet asks you to approve in that wallet.
+
+The form shows your available balance with at most six decimal places. Transfers keep the amount you entered at full precision. Leave ETH for network fees when sending from a linked wallet. You can cancel the preview before confirming it.
+
+If only one wallet is listed, use Link a wallet to add the other. Transfers here stay on Base.
+
 ## Use a linked wallet with Safes
 
 Linked wallets are listed and checked as owners when you create a Safe, and their names label owners and approvals. To sign a Safe transaction with one, connect it and press Sign with your wallet. See [Safes](/docs/pecu/safes#owners-and-approvals).

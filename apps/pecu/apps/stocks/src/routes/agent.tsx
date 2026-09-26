@@ -55,6 +55,7 @@ import { PecuMascot } from "@/components/pecu-mascot";
 import { StreamedReply } from "@/components/streamed-reply";
 import { WalletChip } from "@/components/wallet-chip";
 import { WalletSwitch } from "@/components/wallet-switch";
+import { WalletTransfer } from "@/components/wallet-transfer";
 import { ConnectWallet, openConnectWallet } from "@/components/profile/connect-wallet";
 import { useBrowserWallets } from "@/lib/browser-wallet";
 import { confirmWithWallet, useLinkedWallets, walletLabel } from "@/lib/linked-wallets";
@@ -374,6 +375,7 @@ function AgentWorkspace({
                 ) : null}
                 {account.state?.wallet ? (
                   <WalletChip key={account.state.signer ?? account.state.wallet} address={account.state.signer ?? account.state.wallet}>
+                    <WalletTransfer pecuWallet={account.state.wallet} signer={account.state.signer ?? null} onReviewed={(id) => { void account.loadThreads(); void navigate({ search: { t: id } }); }} />
                     <WalletSwitch
                       threadId={threadId}
                       pecuWallet={account.state.wallet}

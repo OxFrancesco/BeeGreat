@@ -80,7 +80,7 @@ beforeEach(() => {
     requests.push(input);
     if (input.includes("/portfolio")) {
       const refs = new URL(input, "https://pecu.app").searchParams.getAll("token");
-      return Response.json({ wallet, balances: refs.map((reference) => ({ reference, symbol: reference.toUpperCase(), amount: "1.25", address: reference === "eth" ? null : reference === "usdc" ? `0x${"22".repeat(20)}` : `0x${"33".repeat(20)}`, error: null })), holdings: { stocks: [], observedAt: Date.now() }, stocksError: null });
+      return Response.json({ wallet, balances: refs.map((reference) => ({ reference, symbol: reference.toUpperCase(), amount: reference === "eth" ? "0.00419881134121144" : "5.907128", address: reference === "eth" ? null : reference === "usdc" ? `0x${"22".repeat(20)}` : `0x${"33".repeat(20)}`, error: null })), holdings: { stocks: [], observedAt: Date.now() }, stocksError: null });
     }
     const days = Number(new URL(input, "https://pecu.app").searchParams.get("days"));
     return Response.json({ wallet, days, snapshot: { ...snapshot, period: `${days} days` } });
@@ -91,6 +91,7 @@ beforeEach(() => {
 });
 afterEach(async () => {
   await act(async () => root.unmount());
+  await new Promise((resolve) => setTimeout(resolve, 0));
   host.remove();
   for (const [key, descriptor] of restore.reverse()) {
     if (descriptor) Object.defineProperty(globalThis, key, descriptor);
@@ -136,4 +137,9 @@ test("portfolio keeps the token input behind the plus button and restores remova
   await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Remove AERO"]')!.click());
   expect(host.textContent).not.toContain("AERO");
   expect(window.localStorage.getItem(`pecu:portfolio:${wallet.toLowerCase()}`)).toBe('["eth","usdc"]');
+});
+
+for (const compact of [true, false]) test(`portfolio caps balance decimals in ${compact ? "hover" : "full"} view`, async () => {
+  await act(async () => root.render(<WalletPortfolio address={wallet} compact={compact} />));
+  expect(Array.from(host.querySelectorAll(".pecu-portfolio-balances dd"), (node) => node.textContent)).toEqual(["0.004199", "5.907128"]);
 });

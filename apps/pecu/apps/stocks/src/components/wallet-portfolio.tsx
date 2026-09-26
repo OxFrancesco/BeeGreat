@@ -1,8 +1,10 @@
 import { PlusIcon, XIcon } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { portfolioSchema, portfolioTokenSchema, type Portfolio } from "../../../../src/portfolio-contract";
 import { request } from "../lib/use-account";
+import { balanceAmount } from "../lib/balance-amount";
 import { StockHoldings } from "./stock-holdings";
 import { Button } from "./ui/button";
 
@@ -26,8 +28,8 @@ function PortfolioContents({ address, compact }: { address: string; compact: boo
   const [addOpen, setAddOpen] = useState(false);
   useEffect(() => {
     try {
-      const saved: unknown = JSON.parse(window.localStorage.getItem(storageKey(address)) ?? "[]");
-      if (Array.isArray(saved)) setTokens([...new Set([...defaults, ...saved.filter((item): item is string => typeof item === "string" && portfolioTokenSchema.safeParse(item).success).map((item) => item.toLowerCase())])].slice(0, 20));
+      const saved = z.array(portfolioTokenSchema.catch("")).parse(JSON.parse(window.localStorage.getItem(storageKey(address)) ?? "[]"));
+      setTokens([...new Set([...defaults, ...saved.filter(Boolean).map((item) => item.toLowerCase())])].slice(0, 20));
     } catch { /* Storage may be disabled. Balances still work. */ }
     setReady(true);
   }, [address]);
@@ -88,7 +90,7 @@ function PortfolioContents({ address, compact }: { address: string; compact: boo
       <dl className="pecu-portfolio-balances">
         {tokens.map((reference) => {
           const row = data?.balances.find((balance) => balance.reference === reference);
-          return <div key={reference}><dt>{row?.symbol ?? (reference.startsWith("0x") ? `${reference.slice(0, 6)}…${reference.slice(-4)}` : reference.toUpperCase())}</dt><dd>{row?.amount ?? (row?.error ? "Unavailable" : loading ? "Loading…" : "—")}</dd>{!compact && !defaults.includes(reference) && <Button variant="ghost" aria-label={`Remove ${row?.symbol ?? reference}`} disabled={adding} onClick={() => save(tokens.filter((token) => token !== reference))}>Remove</Button>}{row?.error && <p role="status">{row.error}</p>}</div>;
+          return <div key={reference}><dt>{row?.symbol ?? (reference.startsWith("0x") ? `${reference.slice(0, 6)}…${reference.slice(-4)}` : reference.toUpperCase())}</dt><dd>{row?.amount != null ? balanceAmount(row.amount) : (row?.error ? "Unavailable" : loading ? "Loading…" : "—")}</dd>{!compact && !defaults.includes(reference) && <Button variant="ghost" aria-label={`Remove ${row?.symbol ?? reference}`} disabled={adding} onClick={() => save(tokens.filter((token) => token !== reference))}>Remove</Button>}{row?.error && <p role="status">{row.error}</p>}</div>;
         })}
       </dl>
       {data?.wallet === null && <p>Your wallet is not ready yet.</p>}

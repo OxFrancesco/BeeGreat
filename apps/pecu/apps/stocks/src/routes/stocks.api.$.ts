@@ -19,16 +19,9 @@ import {
   inferenceStatusSchema,
   pnlDaysSchema,
   webPnlSchema,
+  webTurnSchema,
 } from "../../../../src/web-contract";
-const turn = z
-  .object({
-    requestId: z.string().uuid(),
-    retryOf: z.string().min(1).max(300).optional(),
-    answerTo: z.string().min(1).max(300).optional(),
-    text: z.string().trim().min(1).max(4000),
-    threadId: threadIdSchema.optional(),
-  })
-  .strict();
+const turn = webTurnSchema.omit({ userId: true, senderId: true });
 const threadDelete = z.object({ threadId: threadIdSchema.nullable() }).strict();
 const json = (body: JsonInput, status = 200) =>
   Response.json(body, {

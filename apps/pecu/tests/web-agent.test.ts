@@ -6,7 +6,8 @@ import type { AgentHarness } from "../src/harness";
 import { PecuAgent } from "../src/agent";
 import { Store } from "../src/store";
 import { pnlCacheMs, WebAgent, type WebSql } from "../src/web";
-import { services } from "./fixtures/agent-services";
+import { evmStub, services } from "./fixtures/agent-services";
+import type { EvmPlanResult } from "../src/evm";
 import { confirmationCommand, webTurnSchema } from "../src/web-contract";
 const address = "0x1111111111111111111111111111111111111111";
 const identity = { userId: "user_alice", senderId: "123" };
@@ -81,7 +82,7 @@ test("wallet P&L reads the sender's own Base wallet once per period for ten minu
     expect(f.web.state(identity).messages).toEqual([]);
   } finally { f.close(); }
 });
-function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService) {
+function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService, evmPlan?: EvmPlanResult) {
   const db = new Database(":memory:");
   const store = new Store(":memory:");
   let calls = 0;
@@ -129,7 +130,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
         throw new Error("No signing");
       },
     },
-    { ...services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), nansen },
+    { ...services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), evm: evmStub({ propose: evmPlan }), nansen },
     {
       respond: async (message, capabilities, mode, progress) => {
         calls++;
@@ -577,5 +578,43 @@ test("portfolio reads only the authenticated sender wallet, isolates failures an
     expect(result.stocksError).toContain("unavailable");
     expect(f.web.state(identity).messages).toEqual([]);
     expect((await f.web.portfolio({ ...identity, senderId: "other" }, { tokens: ["ETH"], stocks: false })).wallet).toBeNull();
+  } finally { f.close(); }
+});
+
+
+test("transfer form reviews refuse a changed source, YOLO and non-transfer commands before handling", async () => {
+  const f = fixture();
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const input = { ...identity, threadId: "transfer-review", requestId: crypto.randomUUID(), text: `/send 1 USDC to 0x${"22".repeat(20)}`, reviewWallet: address };
+    await expect(f.web.handle({ ...input, reviewWallet: `0x${"33".repeat(20)}` })).rejects.toThrow("source wallet changed");
+    await expect(f.web.handle({ ...input, text: "/yolo on" })).rejects.toThrow("only reviews token transfers");
+    f.store.setYolo(identity.senderId, `stocks:${identity.userId}:${identity.senderId}#transfer-review`, true);
+    await expect(f.web.handle(input)).rejects.toThrow("Turn off YOLO");
+    expect(f.web.state(input).messages).toEqual([]);
+    expect(f.calls()).toBe(0);
+    f.store.setYolo(identity.senderId, `stocks:${identity.userId}:${identity.senderId}#transfer-review`, false);
+    const linked = new WebAgent(f.agent, f.store, f.sql, { signer: () => `0x${"33".repeat(20)}`, isLinked: () => true });
+    await expect(linked.handle(input)).rejects.toThrow("source wallet changed");
+  } finally { f.close(); }
+});
+
+test("a form review persists the transfer preview and replays it without signing or a model", async () => {
+  const recipient = "0x2222222222222222222222222222222222222222";
+  const f = fixture(undefined, false, undefined, undefined, {
+    kind: "transaction", action: "transfer", parameters: { token: "ETH", amount: "0.001", to: recipient }, summary: "Send 0.001 ETH", context: {},
+    calls: [{ role: "action", from: address, to: recipient, value: "1000000000000000", data: "0x" }],
+  });
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const input = { ...identity, threadId: "form-review", requestId: crypto.randomUUID(), reviewWallet: address, text: `/send 0.001 ETH to ${recipient}` };
+    expect(await f.web.handle(input)).toEqual({ status: "complete" });
+    const state = f.web.state(input);
+    expect(state.yolo).toBe(false);
+    expect(state.messages.at(-1)?.reply?.preview?.state).toBe("pending");
+    expect(state.messages.at(-1)?.reply?.preview?.text).toContain("0.001 ETH");
+    expect(await f.web.handle(input)).toEqual({ status: "complete" });
+    expect(f.web.state(input).messages).toHaveLength(1);
+    expect(f.calls()).toBe(0);
   } finally { f.close(); }
 });

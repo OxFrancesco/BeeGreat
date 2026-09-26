@@ -56,6 +56,7 @@ export const webTurnSchema = webScopeSchema
     requestId: z.string().uuid(),
     retryOf: z.string().min(1).max(300).optional(),
     answerTo: z.string().min(1).max(300).optional(),
+    reviewWallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
     text: z.string().trim().min(1).max(4000),
   })
   .strict();

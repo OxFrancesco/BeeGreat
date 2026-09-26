@@ -1,5 +1,6 @@
 import { type Portfolio, portfolioBalanceSchema, portfolioQuerySchema } from "./portfolio-contract";
 import { needsChatGptConnection } from "./inference-recovery";
+import { parseCommand } from "./domain";
 import { aeroReadText, intentTitle } from "./chat";
 import { intentPlan } from "./transaction-plan";
 import { WebHistory, type HistoryRow } from "./web-history";
@@ -258,6 +259,13 @@ export class WebAgent {
         "No Pecu wallet exists for this X account. Send /wallet to Pecu on X first.",
       );
     const conversationId = this.owner(input);
+    if (input.reviewWallet) {
+      const command = parseCommand(text);
+      if (command.type !== "evm" || command.action !== "transfer") throw new Error("This form only reviews token transfers.");
+      const wallet = this.linkedWallets?.signer(senderId, conversationId) ?? this.store.wallet(senderId)?.address;
+      if (wallet?.toLowerCase() !== input.reviewWallet.toLowerCase()) throw new Error("The source wallet changed. Open Send again and choose your wallet.");
+      if (this.store.yoloEnabled(senderId, conversationId)) throw new Error("Turn off YOLO before reviewing this transfer.");
+    }
     const eventId = `${conversationId}:${requestId}`;
     if (this.active.has(conversationId)) return { status: "busy" as const };
     this.active.add(conversationId);
