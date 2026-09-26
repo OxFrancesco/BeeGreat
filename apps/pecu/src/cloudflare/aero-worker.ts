@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { abis } from "@beegreat/sugar";
+import { nearbyPoolOffset } from "../pool-offset";
 import { createSugarCacheStore, createSugarClient, executeSugarAction, validateSugarRequest, toSugarJson, type SugarRpcObserver, type SugarJson, type SugarPoolLocatorStore } from "@beegreat/sugar";
 import { aeroRequestSchema, type AeroRequest } from "./aero-protocol";
 import { liquidityPlan } from "../liquidity";
@@ -17,15 +19,26 @@ async function dispatch(request: AeroRequest, env: AeroEnv, observe: SugarRpcObs
   const persistedLocators = cache.locators();
   let poolIndex: PoolIndex | undefined;
   const indexed = (address: string) => poolIndex?.find(pool => pool.address.toLowerCase() === address.toLowerCase());
+  const verifyOffset = async (address: string, offset: number) => {
+    const started = Date.now();
+    const corrected = await nearbyPoolOffset(address, offset, async (limit, start) => z.array(z.unknown()).parse(await sdk.publicClient.readContract({
+      address: sdk.settings.sugarContractAddress, abi: abis.sugar, functionName: "all", args: [limit, start, 0],
+    })));
+    observe({ operation: "pool.locator.nearby", phase: "read", status: "success", durationMs: Date.now() - started, attemptCount: 1, itemCount: 33 });
+    return corrected === undefined ? undefined : { offset: corrected };
+  };
   const poolLocatorStore: SugarPoolLocatorStore = {
     get: async key => {
       const entry = indexed(key.poolAddress);
-      if (entry) return { offset: entry.offset };
+      if (entry) return verifyOffset(key.poolAddress, entry.offset);
       const saved = await persistedLocators.get(key);
-      if (saved) return saved;
+      if (saved) {
+        const verified = await verifyOffset(key.poolAddress, saved.offset);
+        if (verified) return verified;
+      }
       await pools();
       const discovered = indexed(key.poolAddress);
-      return discovered ? { offset: discovered.offset } : undefined;
+      return discovered ? verifyOffset(key.poolAddress, discovered.offset) : undefined;
     },
     set: async (key, value) => { if (indexed(key.poolAddress)?.offset !== value.offset) await persistedLocators.set(key, value); },
     delete: async key => { poolIndex = poolIndex?.filter(pool => pool.address.toLowerCase() !== key.poolAddress.toLowerCase()); await persistedLocators.delete(key); },
