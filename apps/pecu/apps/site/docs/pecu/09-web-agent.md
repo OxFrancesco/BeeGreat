@@ -54,6 +54,10 @@ A preview shows as a card with the amounts first, full addresses you can copy, a
 
 While YOLO is on, the top bar shows "YOLO on · turn off". Pressing it sends `/yolo off`.
 
+## Linked wallets
+
+With a [linked wallet](/docs/pecu/linked-wallets), the message box shows a wallet picker for the thread. Previews built for a linked wallet say Review, then sign in your wallet, and the confirm button asks that wallet to send each transaction instead of sending `/confirm`. The top bar shows the wallet connected in this browser.
+
 ## Wallet and P&L
 
 Once you have a wallet, it appears in the top bar.
@@ -66,7 +70,7 @@ P&L data comes from Nansen and covers your own wallet on Base only. A result is 
 
 ## Profile
 
-Press your avatar in the top bar to open the account menu, then pick Profile, or go to pecu.app/profile. It shows your name, your Pecu wallet with its balances, and your organizations and Safes. Manage account in the same menu opens your sign-in settings. See [Safes](/docs/pecu/safes).
+Press your avatar in the top bar to open the account menu, then pick Profile, or go to pecu.app/profile. It shows your name, your Pecu wallet with its balances, your linked wallets, and your organizations and Safes. Manage account in the same menu opens your sign-in settings. See [Safes](/docs/pecu/safes).
 
 ## ChatGPT connection
 

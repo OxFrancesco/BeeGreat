@@ -17,7 +17,7 @@ You can have up to 20 organizations, with up to 20 Safes and 100 saved names in 
 In an organization, press Add Safe, then Create new.
 
 1. Name the Safe.
-2. Pick the owners. Your Pecu wallet and your connected browser wallet are listed and checked. Add any other owner by address, with an optional name.
+2. Pick the owners. Your Pecu wallet and your [linked wallets](/docs/pecu/linked-wallets) are listed and checked. Add any other owner by address, with an optional name.
 3. Choose how many owners must approve each transaction.
 4. Press Review Safe. Pecu shows the usual transaction card. Confirm it to create the Safe from your Pecu wallet, which pays the network fee.
 
@@ -32,10 +32,10 @@ Each owner approves in one of three ways.
 | Owner | How it approves |
 | --- | --- |
 | Your Pecu wallet | Approve with Pecu wallet records the approval on Base after you confirm the card. |
-| A browser wallet you connect | Sign with your wallet signs the transaction in the wallet. It costs nothing and sends nothing. |
+| A wallet you hold | Connect it, then Sign with your wallet signs the transaction in the wallet. It costs nothing and sends nothing. |
 | Anyone else | They add the same Safe to their own Pecu profile and approve there, or approve on Base with another Safe tool. |
 
-Connect a browser wallet with Connect wallet in the top bar. Pecu finds wallet extensions such as Rabby or MetaMask. The wallet switches to Base before it signs. Disconnect it from the same menu.
+Connect a wallet with Connect wallet in the top bar. Pecu finds wallet extensions such as Rabby or MetaMask, and WalletConnect opens a QR code for phone wallets. The wallet switches to Base before it signs. Disconnect it from the same menu. When one of your linked wallets owns the Safe but is not connected, the transaction offers to connect it.
 
 > [!WARNING]
 > Every Pecu wallet is signed by Pecu's server. A Safe whose owners are all Pecu wallets is not independently controlled. Give at least some owners wallets they hold themselves.

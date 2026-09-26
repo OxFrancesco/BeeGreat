@@ -55,6 +55,8 @@ Press the confirm button on the preview card. It sends `/confirm ABC123` for you
 | Cancelled, nothing was sent | You cancelled it. |
 | Expired without confirmation | The expiry passed before you confirmed. |
 
+A preview built for a [linked wallet](/docs/pecu/linked-wallets#use-a-linked-wallet-in-chat) reads Review, then sign in your wallet, and then Sent from your wallet, waiting for Base. Its button asks your wallet to send each transaction. Typed `/confirm` codes and YOLO never run it.
+
 ## Expiry
 
 Previews currently expire after 10 minutes, and each one says `Expires in 10 minutes.`

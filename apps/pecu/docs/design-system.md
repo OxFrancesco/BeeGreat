@@ -186,6 +186,17 @@ uses the amber clay action; Cancel stays quiet. Do not expose credentials, raw
 provider errors or invented quotas. Sign-in starts only on user action. Closing
 returns to the conversation, and failures retain a retry action.
 
+The wallet picker is one dialog shared by chat and profile: detected EIP-6963
+wallets with their own icons, then WalletConnect with a QR icon. WalletConnect
+draws its own modal, so ours closes first. The connected wallet is a chip with
+its icon and short address; below 600px only the icon shows. Its popover shows
+the full address, Linked as NAME or Link to your account, and Disconnect.
+When a thread can use linked wallets, the composer footer starts with a
+recessed pill select, Pecu wallet or NAME · short address. Linked previews say
+Review, then sign in your wallet, and Sent from your wallet, waiting for Base;
+they hide the confirmation code disclosure. Wallet notices sit under the card
+actions in muted 13px text, with Send again only for an unreported step.
+
 ## Profile and Safes
 
 `/profile` uses the Agent frame: the 272px rail on desktop and a navigation
@@ -196,7 +207,9 @@ labels. Content is a 940px column.
 The profile page leads with one card: a 64px avatar, the person's name as the
 heading, their handle and Manage account, then a divider and the Pecu wallet
 with address, copy, Basescan, which sign-in it belongs to and a recessed stat
-strip of balances. Organizations follow as clay cards with
+strip of balances. Your wallets follows: linked wallets as raised rows with
+name, short address, copy, Basescan, Connected when this browser has it, and
+rename and unlink icons, plus Link a wallet. Organizations follow as clay cards with
 their Safes in a recessed list. With no organizations, one card explains what an
 organization is and offers New organization.
 

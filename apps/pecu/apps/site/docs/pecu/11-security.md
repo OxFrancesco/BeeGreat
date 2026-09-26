@@ -94,6 +94,12 @@ Pecu can create and use Safe organization wallets when you ask in plain words, o
 
 Browser wallets you connect on pecu.app/profile sign and send on their own. Pecu saves a signature only after checking that it matches the pending transaction and comes from a current owner. Profile confirmations never use YOLO. A transaction reported as sent from a browser wallet counts as executed only after Pecu finds the Safe's execution event in its receipt.
 
+## Linked wallets
+
+A [linked wallet](/docs/pecu/linked-wallets) is linked only after it signs a Sign-In with Ethereum message for your account, the page's domain and Base. Each message is saved on the server, works once and expires after five minutes. Pecu recovers the signer from the exact saved text and stores only the public address.
+
+Previews for a linked wallet are built for that address and marked with it when they are saved. Pecu's server never signs them. YOLO, typed codes, X Chat and restart recovery all skip them. On the web card, Pecu hands your wallet one saved transaction at a time. A step counts as done only when Pecu's own Base node shows that exact call, from that wallet, with a successful receipt in a current block. A reported hash that does not match fails the preview.
+
 ## Data shared with other services
 
 | Service | What it receives |
@@ -101,6 +107,7 @@ Browser wallets you connect on pecu.app/profile sign and send on their own. Pecu
 | OpenAI, through your ChatGPT subscription or OpenRouter | Your AI conversations |
 | TypeSafe, when classification is on | The text of your current message only |
 | Crossmint | Your wallet and the transactions you confirm |
+| WalletConnect (Reown) | The pairing and requests between this page and a phone wallet you connect through it |
 | Nansen | The addresses and tokens you ask about, with your wallet as the default |
 | Aave's public service | Your wallet address, for Aave reads and previews |
 | Polymarket | Public read requests |
@@ -116,4 +123,5 @@ These paths are covered by automated tests and fixtures. As of September 2026, t
 - The hosted EVM sandbox and its cold-start time.
 - Live Whop deposits and relays. Webhook checks, holds and the relay path are covered by tests only.
 - Automatic acceptance of new message requests on X.
+- A linked-wallet transaction sent from a real wallet over WalletConnect and settled from its Base receipt.
 - Nansen and Polymarket answers inside a live chat where the AI picks the reads. Their data adapters were checked with fixtures and direct API calls.
