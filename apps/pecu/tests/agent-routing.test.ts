@@ -4,6 +4,8 @@ import type { ResponseMode } from "../src/harness";
 import type { RequestRoute } from "../src/request-classifier";
 import { Store } from "../src/store";
 import { services } from "./fixtures/agent-services";
+import type { ParagraphSink } from "../src/web-stream";
+import type { TurnStage } from "../src/progress";
 
 const stores: Store[] = [];
 afterEach(() => { for (const store of stores.splice(0)) store.close(); });
@@ -49,6 +51,17 @@ test("classified commands skip inference and event replays do not repeat reads",
   expect(f.modes).toEqual([]);
   expect(f.reads()).toBe(1);
   expect(f.classifications()).toBe(1);
+});
+
+test.each(["/balance", "/invalid"])("%s closes progress on success or failure", async text => {
+  const f = fixture({ kind: "response" });
+  const stages: TurnStage[] = [];
+  const progress: ParagraphSink = () => {};
+  progress.stage = value => stages.push(value);
+  await f.agent.handle(message(text), false, progress);
+  expect(stages[0]?.status).toBe("running");
+  expect(stages.at(-1)?.status).toBe(text === "/invalid" ? "error" : "complete");
+  expect(stages.at(-1)?.endedAt).toBeGreaterThanOrEqual(stages[0]!.startedAt);
 });
 
 test.each(["response", "mixed", "fallback"] as const)("%s reaches inference with the correct mode", async (kind) => {

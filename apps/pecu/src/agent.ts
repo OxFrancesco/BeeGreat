@@ -7,6 +7,7 @@ import { polymarketEndpoints, polymarketEndpointNames, type PolymarketEndpointNa
 import { polymarketText } from "./integrations/polymarket/presentation";
 import { polymarketAnalytics } from "./integrations/polymarket/analytics";
 import type { LiquidityRequest } from "./liquidity-contract";
+import type { TurnStage } from "./progress";
 import { stocksSchema, type StockTrade } from "./stock-contract";
 import type { AgentAnalytics, AgentAnalyticsEvent } from "./analytics";
 import type { AaveService } from "./integrations/aave";
@@ -238,14 +239,16 @@ export class PecuAgent {
     if (claim === "completed") return this.store.eventReply(message.eventId);
     if (claim === "busy") return undefined;
     const startedAt = Date.now();
-    progress?.stage?.({ id: "routing", label: "Understanding your request", startedAt, status: "running" });
+    const stages = new Map<string, TurnStage>();
+    const stage = (value: TurnStage) => { stages.set(value.id, value); progress?.stage?.(value); };
+    stage({ id: "routing", label: "Preparing request", startedAt, status: "running" });
     const trace = turnTrace.getStore()!;
     progress?.trace?.(trace.traceId);
     const correlation = { $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId };
     let firstAnswer: number | undefined;
     let failed = false;
     const sink: ParagraphSink | undefined = progress ? text => { firstAnswer ??= Date.now(); progress(text); } : undefined;
-    if (sink) { sink.live = progress?.live; sink.stage = progress?.stage; }
+    if (sink) { sink.live = progress?.live; sink.stage = stage; }
     const channel = message.conversationId.startsWith("stocks:") ? "web" : "x";
     this.track(message.senderId, { event: "pecu_message_received", channel, ...correlation });
     try {
@@ -270,6 +273,9 @@ export class PecuAgent {
       return reply;
     } finally {
       const endedAt = Date.now();
+      for (const value of stages.values()) {
+        if (value.status === "running") stage({ ...value, endedAt, status: failed ? "error" : "complete" });
+      }
       this.track(message.senderId, { event: "$ai_trace", timestamp: endedAt, ...correlation,
         $ai_span_name: "Pecu request", $ai_latency: (endedAt - startedAt) / 1000, $ai_is_error: failed,
         started_at: startedAt, ended_at: endedAt, first_answer_ms: firstAnswer === undefined ? endedAt - startedAt : firstAnswer - startedAt });
