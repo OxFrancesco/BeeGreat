@@ -17,7 +17,7 @@ function fixture(respond: AgentHarness["respond"], balances = "ETH: 0.001979\nUS
     { ...unusedWalletActions, getOrCreate: async () => ({ address: `0x${"1".repeat(40)}` }), balances: async () => balances },
     services({ aerodrome: {
       run: async () => { runs++; throw new Error("Insufficient USDC balance"); },
-      basket: async () => { throw new Error("unexpected aero basket call"); },
+      liquidity: async () => { throw new Error("unexpected liquidity plan"); }, basket: async () => { throw new Error("unexpected aero basket call"); },
     } }),
     { respond },
   );

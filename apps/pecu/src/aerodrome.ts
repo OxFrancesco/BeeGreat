@@ -13,6 +13,8 @@ import { log } from "./logger";
 import { BASE_CHAIN_ID, plannedCallSchema, type PlannedCall } from "./domain";
 import type { AeroExecutor } from "./cloudflare/aero-client";
 import type { StockBasketRequest } from "./cloudflare/aero-protocol";
+import { liquidityPlan } from "./liquidity";
+import { liquidityPlanSchema, liquidityRequestSchema, type LiquidityRequest, type LiquidityPlan } from "./liquidity-contract";
 import { stockBasketPlan } from "./stocks";
 import { stockBasketParameters, type StockBasketParameters, type StockTrade } from "./stock-contract";
 
@@ -109,6 +111,19 @@ export class AerodromeService {
       throw new Error(`Slippage exceeds the configured maximum of ${this.config.maxSlippageBps / 100}%`);
     }
     const result = this.pending.then(() => this.executeBasket(wallet, parameters));
+    this.pending = result.then(() => undefined, () => undefined);
+    return result;
+  }
+
+  liquidity(wallet: `0x${string}`, input: LiquidityRequest): Promise<LiquidityPlan> {
+    const request = liquidityRequestSchema.parse(input);
+    if (request.slippage * 10_000 > this.config.maxSlippageBps) throw new Error("Slippage exceeds the configured maximum");
+    const result = this.pending.then(async () => {
+      if (this.executor) return liquidityPlanSchema.parse(await this.executor({ action: "liquidity_budget", chain: BASE_CHAIN_ID, wallet, request }));
+      const options = { rpcUrl: this.config.baseRpcUrl, cacheStore: createSugarCacheStore(), settings: aeroSettings };
+      return liquidityPlan(createSugarClient(BASE_CHAIN_ID, { ...options, account: wallet }),
+        (action, parameters) => executeSugarAction(action, parameters, options), wallet, request);
+    });
     this.pending = result.then(() => undefined, () => undefined);
     return result;
   }

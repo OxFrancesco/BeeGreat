@@ -23,7 +23,7 @@ function fixture({ failWallet = false, failAnalytics = false } = {}) {
         store.saveWallet(senderId, address, address);
         return { address };
       },
-      balances: unused, prepare: unused, approve: unused, transaction: unused, usdcBalanceUnits: unused,
+      balances: unused, prepareBatch: unused, prepare: unused, approve: unused, transaction: unused, usdcBalanceUnits: unused,
     },
     { ...services({}), analytics: (_sender, event) => {
       if (failAnalytics) throw new Error("Analytics unavailable");

@@ -12,7 +12,7 @@ import { UsageLimitError } from "../usage-limit";
 import type { ParagraphSink } from "../web-stream";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
-const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
+const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "liquidity", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
 
 export class InferenceTools extends RpcTarget {
   constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode, private readonly onParagraph?: ParagraphSink) { super(); }
@@ -132,6 +132,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       walletBalances: (...args) => bridge.call("walletBalances", args),
       aeroRead: (...args) => bridge.call("aeroRead", args),
       aeroPropose: (...args) => bridge.call("aeroPropose", args),
+      liquidity: (...args) => bridge.call("liquidity", args),
       stockTrades: (...args) => bridge.call("stockTrades", args),
       evmToken: (...args) => bridge.call("evmToken", args),
       evmAllowance: (...args) => bridge.call("evmAllowance", args),

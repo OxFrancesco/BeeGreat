@@ -130,7 +130,7 @@ function harness() {
       getOrCreate: async () => { throw new Error("Must reuse existing wallet"); },
       balances: async () => "",
       usdcBalanceUnits: async () => 0n,
-      prepare: async () => { throw new Error("No signing"); },
+      prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async () => { throw new Error("No signing"); },
       approve: async () => { throw new Error("No signing"); },
       transaction: async () => { throw new Error("No signing"); },
     },

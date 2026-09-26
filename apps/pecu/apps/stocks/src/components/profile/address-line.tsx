@@ -1,13 +1,13 @@
 import { ExternalLinkIcon } from "lucide-react";
 import { CopyButton } from "../copy-button";
-import { shortAddress } from "@/lib/profile";
+import { AddressText } from "../address-text";
 
 export function AddressLine({ address, label, full = false, explorer = false }: { address: string; label?: string | null; full?: boolean; explorer?: boolean }) {
   return (
     <span className="pecu-address-line">
       {label ? <span className="pecu-address-label">{label}</span> : null}
       <span className="mono pecu-address-value" title={address}>
-        {full ? address : shortAddress(address)}
+        {full ? address : <AddressText text={address} />}
       </span>
       <CopyButton text={address} label={`Copy ${label ?? "address"}`} className="pecu-address-copy" />
       {explorer ? (

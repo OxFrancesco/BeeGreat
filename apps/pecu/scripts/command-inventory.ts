@@ -17,7 +17,7 @@ const inlineTools = new Set([...harness.matchAll(/draft\.add\(\{\s*name: "([^"]+
 const writes = new Set<string>([
   ...EVM_TX_ACTIONS.map(action => action.startsWith("safe_") ? action : `evm_${action}`),
   ...aeroTools.filter(tool => isSugarTxAction(tool.action)).map(tool => tool.name),
-  "aero_stock_trades",
+  "aero_stock_trades", "aero_liquidity",
 ]);
 const modelTools = [...new Set([
   ...inlineTools, ...aeroTools.map(tool => tool.name), ...evmTools.map(tool => tool.name),

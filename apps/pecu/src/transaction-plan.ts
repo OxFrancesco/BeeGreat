@@ -455,7 +455,7 @@ function describeApproval(plan: PlanBuilder, call: PlannedCall, spender: string,
 }
 
 function describeCall(plan: PlanBuilder, call: PlannedCall, index: number): void {
-  const aero = plan.intent?.family === "aero" || plan.intent?.family === "stocks";
+  const aero = plan.intent?.family === "aero" || plan.intent?.family === "stocks" || plan.intent?.family === "liquidity";
   const value = BigInt(call.value);
   if (call.data === "0x" && value > 0n) {
     const eth = plan.tokenNode(WETH, true);
@@ -532,7 +532,7 @@ function describeCall(plan: PlanBuilder, call: PlannedCall, index: number): void
 
 /** Name every Aerodrome contract a later call targets, so earlier approvals can name their spender. */
 function nameContracts(plan: PlanBuilder, calls: readonly PlannedCall[]): void {
-  if (plan.intent?.family !== "aero" && plan.intent?.family !== "stocks") return;
+  if (plan.intent?.family !== "aero" && plan.intent?.family !== "stocks" && plan.intent?.family !== "liquidity") return;
   for (const call of calls) {
     const gauge = decode(abis.gaugeCl, call.data) ?? decode(abis.gaugeBasic, call.data);
     if (gauge && ["deposit", "withdraw", "getReward"].includes(gauge.functionName) && !decode(erc20, call.data)) plan.gauges.add(key(call.to));

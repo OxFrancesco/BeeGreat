@@ -119,7 +119,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
       },
       balances: async () => "",
       usdcBalanceUnits: async () => 0n,
-      prepare: async () => {
+      prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async () => {
         throw new Error("No signing");
       },
       approve: async () => {

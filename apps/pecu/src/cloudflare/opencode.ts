@@ -8,6 +8,7 @@ import { chatGptConnectionRequired, chatGptUserCode } from "../inference-recover
 import { aaveSkill, aaveSkillNames, aaveSchema } from "../integrations/aave";
 import type { OpenCodeWorkerd } from "@opencode-ai/sdk/workerd";
 import { isSugarTxAction, type SugarParameters } from "@beegreat/sugar/contracts";
+import { liquidityRequestSchema } from "../liquidity-contract";
 import { stockTradeSchema } from "../stock-contract";
 import { aeroTools } from "./aero-tools";
 import { evmTools } from "./evm-tools";
@@ -305,6 +306,13 @@ export class OpenCodeHarness implements AgentHarness {
             });
           }
           draft.add({
+            name: "aero_liquidity",
+            options: { codemode: false },
+            description: "Fund a concentrated-liquidity position from ONE total token budget, including a funding swap, approvals and deposit in one Pecu smart-wallet batch. Use after the user specifies the pool/pair and budget, including half my ETH as fraction bps 5000. Reads live balances and pool price, computes token amounts, and defaults to a range 20 percent below/above spot. ETH funds WETH pools without a separate wrap. Only ask for budget and pool preference; do not ask users for tick spacing, token split, or initial price. Discover the pool first. For a new pair use verified token order, supported tick spacing and a current initial market price. Explicit ranges are token1 per token0. Previews with confirmation; may execute when YOLO is on. Not supported for linked external wallets.",
+            input: liquidityRequestSchema,
+            execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).liquidity(input) }),
+          });
+          draft.add({
             name: "aero_stock_trades",
             options: { codemode: false },
             description: "Propose several tokenized stock buys and sells as one transaction with one confirmation. Use this whenever one message asks for more than one stock trade, for example $1 of NVDAc and $1 of AAPLc. Base mainnet only. Never executes a transaction.",
@@ -371,6 +379,7 @@ export class OpenCodeHarness implements AgentHarness {
           ...polymarketEndpointNames.map((name) => ({ action: `polymarket_${name}`, resource: "*", effect: "allow" as const })),
           ...nansenEndpointNames.map((name) => ({ action: `nansen_${name}`, resource: "*", effect: "allow" as const })),
           ...aeroTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
+          { action: "aero_liquidity", resource: "*", effect: "allow" },
           { action: "aero_stock_trades", resource: "*", effect: "allow" },
           ...evmTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
         ],

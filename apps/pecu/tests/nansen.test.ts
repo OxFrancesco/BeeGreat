@@ -33,7 +33,7 @@ function agentFor(nansen?: { calls: { endpoint: string; input: NansenQuery; wall
       getOrCreate: async () => ({ address }),
       balances: async () => "unused",
       usdcBalanceUnits: async () => 0n,
-      prepare: async () => { throw new Error("unexpected prepare"); },
+      prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async () => { throw new Error("unexpected prepare"); },
       approve: async () => { throw new Error("unexpected approve"); },
       transaction: async () => { throw new Error("unexpected transaction"); },
     },

@@ -125,6 +125,7 @@ function stockTitle(reference: string): string {
 
 /** Short human-readable preview title; never shows machine identifiers. */
 export function intentTitle(intent: IntentAction): string {
+  if (intent.family === "liquidity") return "Fund and create a liquidity position";
   if (intent.family === "stocks") {
     return intent.parameters.trades
       .map((trade) => `${trade.side === "buy" ? "Buy" : "Sell"} ${stockTitle(trade.stock)}`)

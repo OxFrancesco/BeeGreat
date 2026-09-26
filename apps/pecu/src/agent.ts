@@ -6,6 +6,7 @@ import { polymarketRead } from "./integrations/polymarket/client";
 import { polymarketEndpoints, polymarketEndpointNames, type PolymarketEndpointName } from "./integrations/polymarket/catalog.generated";
 import { polymarketText } from "./integrations/polymarket/presentation";
 import { polymarketAnalytics } from "./integrations/polymarket/analytics";
+import type { LiquidityRequest } from "./liquidity-contract";
 import { stocksSchema, type StockTrade } from "./stock-contract";
 import type { AgentAnalytics, AgentAnalyticsEvent } from "./analytics";
 import type { AaveService } from "./integrations/aave";
@@ -53,6 +54,7 @@ function actionLabel(action: string): string {
 function familyLabel(intent: IntentAction): string {
   if (intent.family === "aave") return `Aave ${intent.parameters.stage === "approval" ? "token approval" : intent.parameters.action}`;
   if (intent.family === "aero") return `Aerodrome ${actionLabel(intent.action)}`;
+  if (intent.family === "liquidity") return "Aerodrome liquidity";
   if (intent.family === "stocks") return "Stock trades";
   if (intent.family === "deposit") return "Deposit relay";
   if (intent.action === "safe_create") return "Organization wallet creation";
@@ -110,7 +112,7 @@ function explorerLink(hash: string): string {
   return `https://basescan.org/tx/${hash}`;
 }
 
-export type AgentWallets = Pick<WalletService, "balances" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits"> & {
+export type AgentWallets = Pick<WalletService, "balances" | "prepareBatch" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits"> & {
   getOrCreate(senderId: string): Promise<{ address: string }>;
 };
 
@@ -123,7 +125,7 @@ export type AgentServices = Readonly<{
   polymarketRead?: typeof polymarketRead;
   whop?: Pick<WhopService, "createAccount" | "createDeposit">;
   nansen?: Pick<NansenService, "call">;
-  aerodrome: Pick<AerodromeService, "run" | "basket">;
+  aerodrome: Pick<AerodromeService, "run" | "basket" | "liquidity">;
   evm: Pick<EvmService, "tokenBalance" | "allowance" | "read" | "inspect" | "decode" | "propose" | "safeRead">;
   verifyUserOperation: UserOperationVerifier;
   safeQueue?: Readonly<{
@@ -352,6 +354,7 @@ export class PecuAgent {
       walletBalances: () => this.balanceReply(message),
       aeroRead: (action, parameters) => this.runAero(message, action, parameters),
       aeroPropose: (action, parameters) => this.runAero(message, action, parameters),
+      liquidity: (request) => this.runLiquidity(message, request),
       stockTrades: (trades, slippage) => this.runStockBasket(message, trades, slippage),
       evmToken: async (token) => this.readReply(message, await this.services.evm.tokenBalance(await wallet(), token)),
       evmAllowance: async (token, spender) => this.readReply(message, await this.services.evm.allowance(await wallet(), token, spender)),
@@ -485,6 +488,15 @@ export class PecuAgent {
       ? `You don't have enough USDC for this stock purchase.\n\n${balances}\n\nWould you like to swap one of your tokens to USDC to fund it? Choose a token, deposit USDC, or cancel. A quote is needed to check how much it can cover and leave ETH for fees.`
       : "You don't have enough USDC for this stock purchase, and I found no other funded tokens in the wallet balance list. Would you like to deposit USDC, check another token, or cancel?";
     return this.askUser(message, question, [...tokens, "Deposit USDC", "Cancel"]);
+  }
+
+  private async runLiquidity(message: VerifiedMessage, request: LiquidityRequest): Promise<string> {
+    this.requireAnswer(message);
+    if (this.linkedWallet(message)) throw new Error("Liquidity funding batches currently require your Pecu smart wallet. Select Pecu wallet in this thread to prepare the complete batch. No transaction was prepared.");
+    const wallet = await this.actingWallet(message);
+    const result = await this.services.aerodrome.liquidity(wallet, request);
+    this.saveDetails(message, result);
+    return this.persistProposal(message, wallet, { family: "liquidity", action: "liquidity_budget", parameters: result.parameters }, result.calls, result.preview, { tokens: result.tokens });
   }
 
   private async runStockBasket(message: VerifiedMessage, trades: readonly StockTrade[], slippage?: number): Promise<string> {
@@ -778,10 +790,10 @@ export class PecuAgent {
     }
   }
 
-  private runSteps(senderId: string, intent: Pick<Intent, "id" | "expiresAt">, wallet: `0x${string}`) {
+  private runSteps(senderId: string, intent: Pick<Intent, "id" | "expiresAt"> & { family?: Intent["family"] }, wallet: `0x${string}`) {
     return executeSteps(
       { wallets: this.wallets, journal: this.store, verifyUserOperation: this.services.verifyUserOperation },
-      { intentId: intent.id, senderId, wallet, expiresAt: intent.expiresAt },
+      { intentId: intent.id, senderId, wallet, expiresAt: intent.expiresAt, batch: intent.family === "liquidity" },
     );
   }
 

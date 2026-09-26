@@ -19,7 +19,7 @@ test("commands and natural-language capabilities share direct reads, save eviden
   const agent = new PecuAgent(
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
     store,
-    { getOrCreate: async () => ({ address }), balances: unexpected, prepare: unexpected, approve: unexpected, transaction: unexpected, usdcBalanceUnits: unexpected },
+    { getOrCreate: async () => ({ address }), balances: unexpected, prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: unexpected, approve: unexpected, transaction: unexpected, usdcBalanceUnits: unexpected },
     { ...services({}), polymarketRead: direct, polymarket: { research: unexpected } },
     { respond: async (_message, capabilities) => capabilities.polymarketRead("search", { q: "Fed" }) },
     { classify: async () => ({ kind: "mixed" }) },
@@ -61,7 +61,7 @@ test("identical in-flight reads share work, without caching later reads, failure
   };
   const agent = new PecuAgent(
     {enableMainnetExecution:false,maxSlippageBps:100,quoteTtlSeconds:120,depositRelayMaxUsd:500,depositRelayDailyMaxUsd:2000}, store,
-    {getOrCreate:async()=>({address}),balances:unexpected,prepare:unexpected,approve:unexpected,transaction:unexpected,usdcBalanceUnits:unexpected},
+    {getOrCreate:async()=>({address}),balances:unexpected,prepareBatch:unexpected,prepare:unexpected,approve:unexpected,transaction:unexpected,usdcBalanceUnits:unexpected},
     {...services({}),polymarketRead:direct}, {respond:unexpected},
   );
   const turn = message("Polymarket Bitcoin");
@@ -104,7 +104,7 @@ test("large discoveries remain usable and parallel selected reads attach only ex
   };
   const agent = new PecuAgent(
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 }, store,
-    { getOrCreate: async () => ({ address }), balances: unexpected, prepare: unexpected, approve: unexpected, transaction: unexpected, usdcBalanceUnits: unexpected },
+    { getOrCreate: async () => ({ address }), balances: unexpected, prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: unexpected, approve: unexpected, transaction: unexpected, usdcBalanceUnits: unexpected },
     { ...services({}), polymarketRead: direct },
     { respond: async (_message, capabilities) => {
       const discovery = await capabilities.polymarketRead("search", {q:"Bitcoin 100k"});

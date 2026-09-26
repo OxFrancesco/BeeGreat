@@ -44,7 +44,7 @@ function fixture(options: FixtureOptions = {}) {
       getOrCreate: async () => ({ address: wallet }),
       usdcBalanceUnits: async () => 0n,
       balances: async () => "unused",
-      prepare: async (_senderId, call) => {
+      prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async (_senderId, call) => {
         prepared.push(call);
         const id = `tx-${prepared.length}`;
         records.set(id, awaitingApproval(id, wallet));

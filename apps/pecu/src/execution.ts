@@ -64,6 +64,7 @@ export type StepsResult =
   | Readonly<{ outcome: "unsettled"; failure: OutcomeUnknown | InclusionPending }>;
 
 export type StepWallets = Readonly<{
+  prepareBatch(senderId: string, calls: readonly PlannedCall[]): Promise<{ transactionId: string }>;
   prepare(senderId: string, call: PlannedCall): Promise<{ transactionId: string }>;
   transaction(senderId: string, transactionId: string): Promise<WalletTransaction>;
   approve(senderId: string, transactionId: string): Promise<WalletApproval>;
@@ -80,6 +81,7 @@ export type StepExecutionRequest = Readonly<{
   senderId: string;
   wallet: `0x${string}`;
   expiresAt: number;
+  batch?: boolean;
 }>;
 
 function errorMessage(cause: unknown): string {
@@ -152,7 +154,25 @@ const executeStep = Effect.fn("Pecu.executeStep")(function* (
 export async function executeSteps(deps: StepExecutionDeps, request: StepExecutionRequest): Promise<StepsResult> {
   const program: Effect.Effect<string[], StepFailure> = Effect.gen(function* () {
     const hashes: string[] = [];
-    for (const step of deps.journal.steps(request.intentId)) {
+    const steps = deps.journal.steps(request.intentId);
+    if (request.batch) {
+      const first = steps[0];
+      if (!first) return yield* new StepFailed({ position: 0, reason: "Empty liquidity batch" });
+      const hash = first.state === "succeeded" && first.hash ? first.hash : yield* executeStep({
+        ...deps,
+        wallets: { ...deps.wallets,
+          prepare: (senderId) => deps.wallets.prepareBatch(senderId, steps.map(step => step.call)),
+          transaction: (senderId, id) => deps.wallets.transaction(senderId, id),
+          approve: (senderId, id) => deps.wallets.approve(senderId, id),
+          prepareBatch: (senderId, calls) => deps.wallets.prepareBatch(senderId, calls),
+        },
+      }, request, first);
+      for (const step of steps.slice(1)) {
+        if (step.state !== "succeeded") deps.journal.markStepSucceeded(request.intentId, step.position, hash);
+      }
+      return [hash];
+    }
+    for (const step of steps) {
       if (step.state === "succeeded") {
         if (step.hash) hashes.push(step.hash);
         continue;

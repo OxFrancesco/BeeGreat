@@ -14,6 +14,7 @@ import {
   previewPresentation,
   type PreviewRow,
 } from "../lib/preview";
+import { AddressText } from "./address-text";
 import { CopyButton } from "./copy-button";
 import { TransactionPlan } from "./transaction-plan";
 import {
@@ -57,7 +58,7 @@ function DetailRows({ rows }: { rows: readonly PreviewRow[] }) {
               isAmount(row.value) || row.value.startsWith("0x") ? "mono" : undefined
             }
           >
-            <span>{row.value}</span>
+            <span><AddressText text={row.value} /></span>
             {/^0x[\da-fA-F]{40}$/.test(row.value) ? (
               <CopyButton
                 text={row.value}

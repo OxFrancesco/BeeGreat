@@ -124,7 +124,14 @@ export function validateIntentPlan(
   wallet: `0x${string}`,
   calls: readonly PlannedCall[],
 ): void {
-  if (intent.family === "aero") validatePlan(intent.action, wallet, calls);
+  if (intent.family === "liquidity") {
+    if (calls.length > 16 || intent.parameters.groups.reduce((sum, group) => sum + group.count, 0) !== calls.length) throw new Error("Invalid liquidity batch partition");
+    let start = 0;
+    for (const group of intent.parameters.groups) {
+      validatePlan(group.action, wallet, calls.slice(start, start + group.count));
+      start += group.count;
+    }
+  } else if (intent.family === "aero") validatePlan(intent.action, wallet, calls);
   else if (intent.family === "stocks") validatePlan(intent.action, wallet, calls);
   else if (intent.family === "aave") {
     if (intent.parameters.chainId !== 8453 || intent.parameters.sender.toLowerCase() !== wallet.toLowerCase()) throw new Error("Aave plan has the wrong wallet or chain");

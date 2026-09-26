@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createSugarCacheStore, createSugarClient, executeSugarAction, toSugarJson, type SugarJson } from "@beegreat/sugar";
 import { aeroRequestSchema, type AeroRequest } from "./aero-protocol";
+import { liquidityPlan } from "../liquidity";
 import { stockBasketPlan, stockSnapshot } from "../stocks";
 
 const cacheStore = createSugarCacheStore({ ttlMs: 10 * 60_000 });
@@ -15,6 +16,12 @@ function client(rpcUrl: string, wallet: `0x${string}`) {
 }
 
 async function dispatch(request: AeroRequest, env: Env): Promise<SugarJson> {
+  if (request.action === "liquidity_budget") {
+    const options = { rpcUrl: env.ALCHEMY_RPC_URL, cacheStore: createSugarCacheStore(), settings };
+    return toSugarJson(await liquidityPlan(createSugarClient(8453, { ...options, account: request.wallet }),
+      (action, parameters) => executeSugarAction(action, parameters, options),
+      request.wallet, request.request));
+  }
   if (request.action === "stock_basket") {
     return toSugarJson(await stockBasketPlan(client(env.ALCHEMY_RPC_URL, request.wallet), request.wallet, request.trades, request.slippage));
   }
@@ -46,7 +53,7 @@ export default {
     } catch {
       return Response.json({ error: "Invalid Aero request" }, { status: 400 });
     }
-    if (body.action !== "stock_basket" && body.parameters.chain !== 8453) {
+    if (body.action !== "liquidity_budget" && body.action !== "stock_basket" && body.parameters.chain !== 8453) {
       return Response.json({ error: "Only Base mainnet is supported" }, { status: 400 });
     }
     try {

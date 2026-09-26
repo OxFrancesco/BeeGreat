@@ -37,7 +37,7 @@ export function services(overrides: Partial<AgentServices> & { aero?: AeroResult
     ...serviceOverrides,
     aerodrome: overrides.aerodrome ?? {
       run: async () => { if (!overrides.aero) throw new Error("unexpected aero call"); return overrides.aero; },
-      basket: async () => { if (!overrides.basket) throw new Error("unexpected aero basket call"); return overrides.basket; },
+      liquidity: async () => { throw new Error("unexpected liquidity plan"); }, basket: async () => { if (!overrides.basket) throw new Error("unexpected aero basket call"); return overrides.basket; },
     },
     evm: overrides.evm ?? unusedEvm,
     verifyUserOperation: overrides.verifyUserOperation ?? (async (reference) => confirmedOutcome(reference.hash)),
@@ -56,10 +56,10 @@ export function awaitingApproval(id: string, sender: string): WalletTransaction 
 /** Fail immediately if a read-only wallet fixture starts preparing or submitting a transaction. */
 export const unusedWalletActions = {
   usdcBalanceUnits: unexpected("USDC balance"),
-  prepare: unexpected("wallet prepare"),
+  prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: unexpected("wallet prepare"),
   approve: unexpected("wallet approval"),
   transaction: unexpected("wallet transaction"),
-} satisfies Pick<AgentWallets, "usdcBalanceUnits" | "prepare" | "approve" | "transaction">;
+} satisfies Pick<AgentWallets, "usdcBalanceUnits" | "prepareBatch" | "prepare" | "approve" | "transaction">;
 
 /** Unused tools fail instead of silently returning successful fixture data. */
 export const unusedCapabilities = {
@@ -72,7 +72,7 @@ export const unusedCapabilities = {
   walletBalances: unexpected("walletBalances"),
   aeroRead: unexpected("aeroRead"),
   aeroPropose: unexpected("aeroPropose"),
-  stockTrades: unexpected("stockTrades"),
+  liquidity: async () => { throw new Error("unexpected liquidity tool"); }, stockTrades: unexpected("stockTrades"),
   evmToken: unexpected("evmToken"),
   evmAllowance: unexpected("evmAllowance"),
   evmRead: unexpected("evmRead"),

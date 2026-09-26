@@ -47,7 +47,7 @@ function fixture(overrides: { aerodrome?: AgentServices["aerodrome"]; balances?:
       getOrCreate: async () => ({ address: wallet }),
       usdcBalanceUnits: async () => 0n,
       balances: async () => overrides.balances ?? "ETH: 0.5\nUSDC: 0.01\nAERO: 0.008976",
-      prepare: async (_senderId, call) => {
+      prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async (_senderId, call) => {
         prepared.push(call);
         const id = `tx-${prepared.length}`;
         records.set(id, awaitingApproval(id, wallet));
@@ -66,7 +66,7 @@ function fixture(overrides: { aerodrome?: AgentServices["aerodrome"]; balances?:
     },
     services({ aerodrome: overrides.aerodrome ?? {
       run: async () => { throw new Error("unexpected aero call"); },
-      basket: async () => basketPlan,
+      liquidity: async () => { throw new Error("unexpected liquidity plan"); }, basket: async () => basketPlan,
     }, verifyUserOperation: async (reference) => confirmedOutcome(reference.hash) }),
     { respond: async () => { throw new Error("unexpected model call"); } },
   );
@@ -109,7 +109,7 @@ describe("stock basket proposals", () => {
   test("an insufficient USDC basket error asks how to fund the purchase", async () => {
     const { agent, message } = fixture({ aerodrome: {
       run: async () => { throw new Error("unexpected aero call"); },
-      basket: async () => { throw new Error("Insufficient USDC balance: this needs 3 USDC and the wallet holds 0.01 USDC"); },
+      liquidity: async () => { throw new Error("unexpected liquidity plan"); }, basket: async () => { throw new Error("Insufficient USDC balance: this needs 3 USDC and the wallet holds 0.01 USDC"); },
     } });
     const reply = await agent.capabilitiesFor(message("Buy $1 of NVDAc and $2 of AAPLc")).stockTrades(trades);
     expect(reply).toContain("You don't have enough USDC");

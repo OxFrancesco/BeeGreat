@@ -24,11 +24,11 @@ function fixture(enabled: boolean, expiresAt = Date.now() + 60_000) {
   const wallets = {
     getOrCreate: async () => { throw new Error("unexpected wallet lookup"); },
     balances: async () => "unused",
-    prepare: async () => { throw new Error("unexpected preparation"); },
+    prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async () => { throw new Error("unexpected preparation"); },
     approve: async () => { throw new Error("unexpected approval"); },
     transaction: async () => { throw new Error("unexpected transaction lookup"); },
     usdcBalanceUnits: async () => 0n,
-  } satisfies Pick<WalletService, "getOrCreate" | "balances" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits">;
+  } satisfies Pick<WalletService, "getOrCreate" | "balances" | "prepareBatch" | "prepare" | "approve" | "transaction" | "usdcBalanceUnits">;
   const prepare = spyOn(wallets, "prepare").mockImplementation(async () => { throw new Error("must not prepare"); });
   const approve = spyOn(wallets, "approve").mockImplementation(async () => { throw new Error("must not approve"); });
   const lookup = spyOn(wallets, "getOrCreate").mockImplementation(async () => { throw new Error("must not look up wallet"); });

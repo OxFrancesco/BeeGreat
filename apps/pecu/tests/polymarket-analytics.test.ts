@@ -90,7 +90,7 @@ test("Polymarket reads attach saved cards to commands and model tool calls", asy
   const agent = new PecuAgent(
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
     store,
-    { getOrCreate: async () => ({ address }), balances: unexpected, prepare: unexpected, approve: unexpected, transaction: unexpected, usdcBalanceUnits: unexpected },
+    { getOrCreate: async () => ({ address }), balances: unexpected, prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: unexpected, approve: unexpected, transaction: unexpected, usdcBalanceUnits: unexpected },
     { ...services({}), polymarketRead: async (endpoint) => read(endpoint === "book" ? "book" : "event_by_slug"), polymarket: { research: unexpected } },
     { respond: async (_message, capabilities) => { await capabilities.polymarketRead("book", { token_id: "123" }); return "The book is thin near the midpoint."; } },
     { classify: async () => ({ kind: "mixed" }) },

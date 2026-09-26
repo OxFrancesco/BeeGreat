@@ -3,6 +3,7 @@ import type { PolymarketToken } from "./integrations/polymarket/model-output";
 import type { StockSnapshot } from "./stock-contract";
 import type { TransactionPlan } from "./transaction-plan-contract";
 import type { AnalyticsResult } from "./analytics-contract";
+import { liquidityIntentParameters } from "./liquidity-contract";
 import { stockBasketParameters, type StockBasketParameters } from "./stock-contract";
 import { aaveIntentParameters, type AaveParameters } from "./integrations/aave";
 import { validateSugarRequest } from "@beegreat/sugar";
@@ -23,6 +24,7 @@ export const depositRelayParameters = z.strictObject({
 export type DepositRelayParameters = z.output<typeof depositRelayParameters>;
 
 export type IntentAction =
+  | Readonly<{ family: "liquidity"; action: "liquidity_budget"; parameters: z.output<typeof liquidityIntentParameters> }>
   | Readonly<{ family: "aero"; action: SugarTxAction; parameters: SugarParameters }>
   | Readonly<{ family: "stocks"; action: "stock_basket"; parameters: StockBasketParameters }>
   | Readonly<{ family: "aave"; action: "aave_action"; parameters: AaveParameters }>
@@ -49,6 +51,7 @@ export function parseIntentAction(action: string, parametersJson: string): Inten
   const raw: unknown = JSON.parse(parametersJson);
   if (action === "aave_action") return { family: "aave", action, parameters: aaveIntentParameters.parse(raw) };
   if (action === "deposit_relay") return { family: "deposit", action, parameters: depositRelayParameters.parse(raw) };
+  if (action === "liquidity_budget") return { family: "liquidity", action, parameters: liquidityIntentParameters.parse(raw) };
   if (action === "stock_basket") return { family: "stocks", action, parameters: stockBasketParameters.parse(raw) };
   if (isSugarTxAction(action)) return { family: "aero", action, parameters: validateSugarRequest(action, raw) };
   if (isEvmTxAction(action)) return { family: "evm", action, parameters: validateEvmRequest(action, jsonValueSchema.parse(raw)) };

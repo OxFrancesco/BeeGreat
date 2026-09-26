@@ -81,7 +81,7 @@ function fixture(options: FixtureOptions = {}) {
         return options.treasuryUnits ?? 1_000_000_000_000n;
       },
       balances: async () => "unused",
-      prepare: async (senderId, call) => {
+      prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async (senderId, call) => {
         prepared.push({ senderId, call });
         const id = `tx-${prepared.length}`;
         records.set(id, awaitingApproval(id, senderId === treasurySenderId ? treasury : userWallet));

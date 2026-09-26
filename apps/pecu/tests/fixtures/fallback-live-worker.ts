@@ -17,7 +17,7 @@ const capabilities: AgentCapabilities = {
   walletBalances: toolsDisabled,
   aeroRead: toolsDisabled,
   aeroPropose: toolsDisabled,
-  stockTrades: toolsDisabled,
+  liquidity: async () => { throw new Error("unexpected liquidity tool"); }, stockTrades: toolsDisabled,
   evmToken: toolsDisabled,
   evmAllowance: toolsDisabled,
   evmRead: toolsDisabled,

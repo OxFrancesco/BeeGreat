@@ -88,7 +88,7 @@ function harness() {
       getOrCreate: async () => ({ address: pecuWallet }),
       balances: async () => "Address: pecu\nETH: 9\nUSDC: 9\nAERO: 9",
       usdcBalanceUnits: async () => 0n,
-      prepare: async (_sender, call) => { prepared.push(call); throw new Error("Pecu must not sign in this test"); },
+      prepareBatch: async () => { throw new Error("unexpected batch preparation"); }, prepare: async (_sender, call) => { prepared.push(call); throw new Error("Pecu must not sign in this test"); },
       approve: async () => { throw new Error("Pecu must not sign in this test"); },
       transaction: async () => { throw new Error("Pecu must not sign in this test"); },
     },
@@ -101,7 +101,7 @@ function harness() {
           return { kind: "read", command: "token", output: { token, address: wallet, amount: "1.5" } };
         },
       },
-      aerodrome: { run: async (wallet) => stake(wallet), basket: async () => { throw new Error("unexpected basket"); } },
+      aerodrome: { run: async (wallet) => stake(wallet), liquidity: async () => { throw new Error("unexpected liquidity plan"); }, basket: async () => { throw new Error("unexpected basket"); } },
       linkedWallets: wallets,
     }),
     { respond: async () => { throw new Error("unexpected model call"); } },

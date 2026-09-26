@@ -21,7 +21,7 @@ function fixture(route: RequestRoute) {
   const agent = new PecuAgent(
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 120, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
     store,
-    { getOrCreate: async () => ({ address }), balances: async () => { reads++; return "USDC: 5"; }, prepare: unused, approve: unused, transaction: unused, usdcBalanceUnits: unused },
+    { getOrCreate: async () => ({ address }), balances: async () => { reads++; return "USDC: 5"; }, prepareBatch: unused, prepare: unused, approve: unused, transaction: unused, usdcBalanceUnits: unused },
     services({}),
     { respond: async (_message, _capabilities, mode) => { modes.push(mode); return "model reply"; } },
     { classify: async () => { classifications++; return route; } },

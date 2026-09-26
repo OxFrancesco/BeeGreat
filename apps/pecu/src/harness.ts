@@ -5,6 +5,7 @@ import type { SugarAction, SugarParameters, SugarTxAction } from "@beegreat/suga
 import type { VerifiedMessage } from "./domain";
 import type { EvmService, EvmTxAction } from "./evm";
 import type { NansenEndpointName, NansenQuery } from "./integrations/nansen";
+import type { LiquidityRequest } from "./liquidity-contract";
 import type { StockTrade } from "./stock-contract";
 import type { ParagraphSink } from "./web-stream";
 import type { ToolFamily } from "./tool-families";
@@ -21,6 +22,7 @@ export type AgentCapabilities = Readonly<{
   walletBalances(): Promise<string>;
   aeroRead(action: Exclude<SugarAction, SugarTxAction>, parameters: SugarParameters): Promise<string>;
   aeroPropose(action: SugarTxAction, parameters: SugarParameters): Promise<string>;
+  liquidity(request: LiquidityRequest): Promise<string>;
   stockTrades(trades: readonly StockTrade[], slippage?: number): Promise<string>;
   evmToken(token: string): Promise<string>;
   evmAllowance(token: string, spender: `0x${string}`): Promise<string>;

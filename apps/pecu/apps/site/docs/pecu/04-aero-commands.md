@@ -10,11 +10,13 @@ group: Use
 
 ## Suggested liquidity plans
 
-Ask "Create a USDC/WETH pool on Aerodrome" and Pecu checks your relevant balances and matching pools before recommending amounts and settings. For concentrated liquidity, the suggestion includes a price range, the selected pool's tick spacing and an explanation of the range. Pecu distinguishes adding a position in an existing pool from creating a new pool.
+Ask "Create a USDC/WETH pool on Aerodrome" and Pecu checks your balances and matching pools. It asks for the pool or pair and your total budget if those are missing, with a suggestion based on what you hold. You do not need to provide tick spacing or calculate the token split.
 
-Choose Use this plan, Adjust amounts or Cancel. Accepting a suggestion lets Pecu prepare it after checking current balances and prices. With YOLO off, the transaction preview still needs confirmation. With YOLO on, accepting the plan can execute it. A recommendation by itself never spends funds.
+Once those choices are clear, Pecu prepares one funding-swap, approval and deposit batch. "Use half my ETH" budgets half your ETH for the whole position. It does not stop at a separate wrap. The preview shows the exact funding swap, deposit amounts and range. With YOLO off, confirm that combined preview; with YOLO on, the tool can execute it immediately.
 
-If balances or market data are unavailable, Pecu explains what is missing. Estimated deposit amounts can change in the preview. Concentrated liquidity earns no trading fees while the market price is outside the chosen range.
+This budget flow supports concentrated liquidity funded with one of the pair's tokens, including native ETH for a WETH pair. It currently requires your Pecu smart wallet. Linked external wallets cannot run this combined batch. Existing-pool deposits create a new position; a genuinely new pool requires a verified initial price.
+
+The default range is 20% below and above the observed pool price, adjustable on request. Fees stop outside the range and token exposure changes. Unspent tokens remain in your wallet. Pecu leaves native ETH available for fees, but does not estimate the network fee. If balances or market data are unavailable, it explains the missing data before preparing a plan.
 
 ## Flag syntax
 

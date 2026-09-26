@@ -1,0 +1,7 @@
+.pecu-expand-address { display: inline; cursor: text; overflow-wrap: anywhere; }
+.pecu-address-expanded { display: none; }
+.pecu-expand-address:hover > .pecu-address-short,
+.pecu-expand-address:focus > .pecu-address-short { display: none; }
+.pecu-expand-address:hover > .pecu-address-expanded,
+.pecu-expand-address:focus > .pecu-address-expanded { display: inline; }
+.pecu-expand-address:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 2px; }

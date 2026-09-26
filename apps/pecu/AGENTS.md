@@ -161,6 +161,8 @@ Transaction options and amount rules:
 
 The model also has an `aero_stock_trades` tool for composite stock orders. When one message asks for several stock buys or sells, it combines them into a single basket preview: one confirmation code, approvals followed by one router action, and one persisted intent. It is not a slash command.
 
+The `aero_liquidity` tool takes a pool/pair and one total funding budget. It sizes a funding swap plus concentrated-liquidity deposit, defaulting to a range 20% below/above observed spot. Ask only for missing pool and budget choices; resolve technical parameters with reads. ETH budgets include both the swap and native mint funding. This is one Crossmint multi-call intent, confirmed once or run through explicit YOLO. Preserve its first-step provider ID on retry/recovery and never fall back to individual calls. Linked external wallets are unsupported for this batch and must never be switched silently. See `docs/46-pecu-proactive-planning.md`.
+
 ### Natural-language requests
 
 Users do not need to memorize the command list. Examples:

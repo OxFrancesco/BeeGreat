@@ -1,42 +1,59 @@
 # Pecu proactive planning
 
-For underspecified wallet actions, Pecu reads relevant balances and protocol data
-before recommending a concrete plan. It states the proposed allocation and leaves
-funds available. Explicit user amounts and settings take precedence.
+Pecu reads balances and matching pools before asking about liquidity. It asks for
+only the pool or pair and the total budget if those are missing, suggesting an
+affordable choice. Once those are known, `aero_liquidity` prepares the full plan.
+"Use half my ETH" means half the current ETH balance for the funding swap and
+position together. It does not create a separate wrapping proposal.
 
-Aerodrome liquidity recommendations include amounts, a pool and, for concentrated
-liquidity, a price range with its tradeoff. Pecu distinguishes creating a pool from
-adding a position to an existing one. Pool listings provide tick spacing and token
-order but omit spot prices, so the DeFi tool family also exposes `evm_inspect` and
-`evm_read`. A swap quote supplies a reference price, not the selected pool's spot.
+## Budget planning
 
-The full recommendation goes into `ask_user.question`, because the stored question
-replaces the final model reply. Options let the user accept, adjust or cancel. The
-agent must wait for acceptance before preparing suggested parameters, even with
-YOLO enabled. It rechecks balances and conditions after acceptance. The existing
-confirmation and execution flow then applies. These are model instructions; this
-change does not add a deterministic recommendation-acceptance gate.
+The typed tool accepts an existing concentrated-liquidity pool, or a pair with
+verified token order and supported tick spacing. A new uninitialized pool also
+needs an initial market price established by the agent's read tools. These
+technical values are not a questionnaire for the user. Existing-pool creation
+means a new position and is described as such.
 
-## Scope
+The planner reads fresh balances and pool data, defaults to a range 20% below and
+above spot, and calculates the split using the SDK's deposit estimates and swap
+quotes. Deposit inputs cannot exceed the remaining funding budget or the swap's
+minimum output. ETH follows the SDK's native deposit path, wrapping inside the
+mint call. Unused tokens remain in the wallet. Full native-balance spending is
+rejected to leave ETH for fees; network fees are not estimated by this planner.
 
-The shared OpenCode prompt covers Pecu Agent, Stocks chat and X Chat on both the
-ChatGPT and OpenRouter paths. Web retains its question buttons; X uses plain text.
-The DeFi catalog change also applies when the classifier selects the smaller model.
-Explicit CLI commands retain their current behavior. BeeGreat mobile, Android,
-CLI, iMessage, voice and Hive do not run this Pecu prompt. No SDK, wire contract,
-transaction policy or provider configuration changes are required.
+Funding must be one of the pool tokens, including ETH for WETH. The current tool
+supports two-sided concentrated liquidity. A dollar budget needs USDC or conversion
+to a held token using a live quote. The range is adjustable, not an optimal-return
+claim. Fees stop outside it and token exposure changes.
 
-## Verification
+## Confirmation and recovery
 
-All 467 tests passed across the main suite and an isolated rerun of the five
-Workerd tests, which need local port access outside the sandbox. After the final
-catalog change, the nine routing, question and tool tests passed again. Type
-checking, lint, docs generation and all four Worker dry-run builds passed.
-The model-routing fixture checks that the DeFi catalog includes contract inspection
-and reads. Existing question and confirmation tests cover question persistence,
-cancellation and transaction confirmation boundaries.
+The funding swap, approvals and mint form one persisted `liquidity_budget` intent.
+Each swap/deposit group retains the existing transaction validation. The combined
+calls share a digest, expiry and confirmation. Crossmint receives one ordered
+multi-call request with no approval during preparation. After confirmation, the
+first journal step stores the provider transaction ID for the entire batch.
+Remaining steps succeed only after the matching UserOperation receipt succeeds.
+Retries and boot recovery reuse that transaction ID; there is no sequential fallback.
 
-Live model evaluation with fictional wallet data requires approval to send the
-internal prompt and tool definitions to OpenRouter. Automatic approval review
-rejected that provider request. No wallet transaction was attempted. Live recommendation quality remains unverified. Build and deployment checks do
-not establish how the model answers a real wallet request.
+YOLO still requires the user's explicit setting. With YOLO off, the one combined
+preview needs confirmation. Linked external wallets are explicitly unsupported
+for this tool and are never silently replaced by the Pecu wallet. Their existing
+individual-transaction flow remains separate.
+
+## Scope and verification
+
+Pecu Agent, Stocks chat and X Chat share the tool and prompt on ChatGPT and
+OpenRouter. Web renders the exact decoded calls; X gets the text transaction list.
+CLI commands retain their existing syntax. BeeGreat mobile, Android, CLI,
+iMessage, voice and Hive do not run this Pecu agent. No SDK package changed.
+The Aero service worker and main worker must ship together, Aero first.
+
+Regression tests cover total budgets, native token handling, token order, input
+validation, one provider batch, confirmation, pending receipt retries and recovery.
+They use fixture RPC/provider data and move no funds. Live model quality and a real
+on-chain funding batch are separate from these checks and remain unverified.
+
+Contract addresses in preview details, transaction steps and profile address lines
+are shortened like the wallet chip. Hover or keyboard focus reveals the full
+address; touch users can focus it. Copy controls keep the exact address.

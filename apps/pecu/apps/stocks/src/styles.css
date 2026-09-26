@@ -5,6 +5,7 @@
 @import "../../../theme/theme.css";
 @import "../../../theme/clay.css";
 @import "./pecu.css";
+@import "./components/address-text.css";
 @import "./profile.css";
 @source "../../../../../node_modules/streamdown/dist/*.js";
 @source "./";

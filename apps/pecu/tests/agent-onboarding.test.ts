@@ -24,7 +24,7 @@ function fixture() {
         store.saveWallet(senderId, address, address);
         return { address };
       },
-      balances: unused, prepare: unused, approve: unused, transaction: unused, usdcBalanceUnits: unused,
+      balances: unused, prepareBatch: unused, prepare: unused, approve: unused, transaction: unused, usdcBalanceUnits: unused,
     },
     services({}),
     { respond: async (message) => {

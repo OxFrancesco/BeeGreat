@@ -76,6 +76,18 @@ export class WalletService {
     return { transactionId: result.transactionId };
   }
 
+  async prepareBatch(senderId: string, calls: readonly PlannedCall[]): Promise<{ transactionId: string }> {
+    const wallet = await this.getOrCreate(senderId);
+    if (calls.length < 1 || calls.length > 16 || calls.some(call => call.from.toLowerCase() !== wallet.address.toLowerCase())) throw new Error("Invalid wallet batch");
+    const signer = wallet.signer;
+    if (!signer) throw new Error("Wallet signer is unavailable");
+    const result = await wallet.apiClient.createTransaction(wallet.address, { params: {
+      chain: "base", signer: signer.locator(), calls: calls.map(({ to, data, value }) => ({ to, data, value })),
+    } });
+    if ("error" in result) throw new Error("Crossmint could not prepare the liquidity batch");
+    return { transactionId: z.object({ id: z.string().min(1) }).parse(result).id };
+  }
+
   /** Read Crossmint's record of a prepared or submitted transaction, including its UserOperation hash. */
   async transaction(senderId: string, transactionId: string): Promise<WalletTransaction> {
     const wallet = await this.getOrCreate(senderId);

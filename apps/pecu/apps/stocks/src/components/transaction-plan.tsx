@@ -12,6 +12,7 @@ import {
   type PlanRoute,
 } from "../lib/plan-layout";
 import type { ConfirmationState } from "./ai-elements/confirmation";
+import { AddressText } from "./address-text";
 import { CopyButton } from "./copy-button";
 
 const statusText = {
@@ -25,9 +26,7 @@ const statusText = {
 /** Layer count at which the across layout no longer fits and the card switches to down. */
 const MAX_ACROSS_LAYERS = 5;
 
-function shortAddress(value: string) {
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
-}
+
 
 function percent(value: number, total: number) {
   return `${((value / total) * 100).toFixed(3)}%`;
@@ -167,13 +166,13 @@ export function TransactionPlan({ plan, state }: { plan: Plan; state: Confirmati
           >
             <Bead index={index} step={step} />
             <div className="pecu-plan-step-body">
-              <span className="pecu-plan-step-title">{step.title}</span>
+              <span className="pecu-plan-step-title"><AddressText text={step.title} /></span>
               <span className="pecu-plan-step-meta">
                 {step.kind === "approval" ? <span>Permission only</span> : null}
                 <span className="pecu-plan-contract">
                   {step.contractName ?? "Contract"}
                   <span className="pecu-plan-address">
-                    <span className="mono" title={step.contract}>{shortAddress(step.contract)}</span>
+                    <AddressText text={step.contract} />
                     <CopyButton
                       className="pecu-preview-copy"
                       label={`Copy ${(step.contractName ?? "contract").toLowerCase()} address`}

@@ -1,5 +1,6 @@
 import { SUGAR_ACTIONS } from "@beegreat/sugar/contracts";
 import { z } from "zod";
+import { liquidityRequestSchema } from "../liquidity-contract";
 import { stockTradeSchema } from "../stock-contract";
 
 export const sugarRequestSchema = z.object({
@@ -15,6 +16,10 @@ export const stockBasketRequestSchema = z.strictObject({
   slippage: z.number().gt(0).lt(1),
 });
 
-export const aeroRequestSchema = z.union([stockBasketRequestSchema, sugarRequestSchema]);
+export const liquidityBudgetRequestSchema = z.strictObject({
+  action: z.literal("liquidity_budget"), chain: z.literal(8453),
+  wallet: z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]), request: liquidityRequestSchema,
+});
+export const aeroRequestSchema = z.union([liquidityBudgetRequestSchema, stockBasketRequestSchema, sugarRequestSchema]);
 export type AeroRequest = z.infer<typeof aeroRequestSchema>;
 export type StockBasketRequest = z.infer<typeof stockBasketRequestSchema>;
