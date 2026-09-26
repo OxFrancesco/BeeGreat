@@ -57,3 +57,12 @@ test("oversized messages bypass classification", async () => {
   const classifier = new TypeSafeRequestClassifier("test", async () => { throw new Error("must not call API"); });
   expect(await classifier.classify("x".repeat(8001))).toEqual({ kind: "fallback" });
 });
+
+test("an uncertain command never executes, but independently confident scope is retained", async () => {
+  for (const choice of ["mixed", "wallet", "response"]) {
+    const classifier = new TypeSafeRequestClassifier("test", async () => Response.json({ model: "jev-test", answers: {
+      route: { choice, confidence: 0.86 }, family: { choice: "defi", confidence: 0.99 },
+    } }));
+    expect(await classifier.classify("synthetic uncertain request")).toEqual({ kind: "fallback", family: "defi" });
+  }
+});

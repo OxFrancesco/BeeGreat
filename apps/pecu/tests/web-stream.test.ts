@@ -123,3 +123,18 @@ test("live text snapshots arrive before completion with an explicit replacement 
   ]);
   await done;
 });
+
+test("parallel tool stages precede answer text and do not terminate SSE delivery", async () => {
+  const stage = { id: "pools", label: "Finding pools", status: "running" as const, startedAt: 1000 };
+  const { response, done } = turnEventStream(async progress => {
+    progress.stage?.(stage);
+    progress.stage?.({ ...stage, endedAt: 2500, status: "complete" });
+    progress("Ready to review.");
+    return { status: "complete" };
+  }, undefined, 15000, false, true);
+  expect(await collect(response.body!)).toEqual([
+    { type: "stage", stage }, { type: "stage", stage: { ...stage, endedAt: 2500, status: "complete" } },
+    { type: "paragraph", text: "Ready to review." }, { type: "complete", status: "complete" },
+  ]);
+  await done;
+});

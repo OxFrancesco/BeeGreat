@@ -44,19 +44,20 @@ test("events cover web and X without duplicating replays or wallet provisioning"
   await agent.handle(first);
   await agent.handle(first);
   await agent.handle(message("stocks:user_test:123456789"));
-  expect(events.map((entry) => entry.event)).toEqual([
+  expect(events.filter(entry => entry.event !== "$ai_trace" && entry.event !== "$ai_span").map((entry) => entry.event)).toEqual([
     "pecu_message_received", "pecu_wallet_provisioned", "pecu_message_completed",
     "pecu_message_received", "pecu_message_completed",
   ]);
-  expect(events[0]).toEqual({ event: "pecu_message_received", channel: "x" });
-  expect(events[3]).toEqual({ event: "pecu_message_received", channel: "web" });
+  expect(events[0]).toMatchObject({ event: "pecu_message_received", channel: "x" });
+  expect(events.find(entry => entry.event === "pecu_message_received" && entry.channel === "web")).toMatchObject({ event: "pecu_message_received", channel: "web" });
+  expect(events.filter(entry => entry.event === "$ai_trace")).toHaveLength(2);
   expect(JSON.stringify(events)).not.toMatch(/private|encrypted|123456789|0x111/);
 });
 
 test("failed onboarding emits failure without an upstream error or success event", async () => {
   const { agent, events } = fixture({ failWallet: true });
   await agent.handle(message());
-  expect(events.map((entry) => entry.event)).toEqual(["pecu_message_received", "pecu_message_failed"]);
+  expect(events.filter(entry => entry.event !== "$ai_trace" && entry.event !== "$ai_span").map((entry) => entry.event)).toEqual(["pecu_message_received", "pecu_message_failed"]);
   expect(JSON.stringify(events)).not.toContain("secret-bearing");
 });
 

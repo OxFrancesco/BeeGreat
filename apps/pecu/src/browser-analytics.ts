@@ -6,6 +6,7 @@ const safeProperties = new Set([
   "$browser", "$browser_version", "$os", "$os_version", "$device_type",
   "$screen_height", "$screen_width", "$viewport_height", "$viewport_width",
   "$is_identified", "$process_person_profile", "$anon_distinct_id",
+  "$ai_trace_id", "metric", "duration_ms",
   "product", "environment", "surface", "destination", "$current_url", "$pathname",
 ]);
 
@@ -29,7 +30,7 @@ export const analyticsOptions = {
   respect_dnt: true,
   before_send: (event) => {
     if (!event) return null;
-    if (!["$pageview", "$identify", "pecu_navigation_clicked"].includes(event.event)) return null;
+    if (!["$pageview", "$identify", "pecu_navigation_clicked", "pecu_turn_performance"].includes(event.event)) return null;
     event.properties = Object.fromEntries(Object.entries(event.properties).filter(([key]) => safeProperties.has(key)));
     event.properties.$pathname = analyticsPath(window.location.pathname);
     event.properties.$current_url = `https://pecu.app${event.properties.$pathname}`;
@@ -81,4 +82,8 @@ export type AnalyticsDestination = "agent" | "stocks" | "aero_cli" | "aero_docs"
 
 export function trackNavigation(destination: AnalyticsDestination): void {
   if (initAnalytics()) posthog.capture("pecu_navigation_clicked", { destination }, { send_instantly: true });
+}
+
+export function trackTurnPerformance(traceId: string, metric: "first_frame" | "first_answer_render" | "complete", durationMs: number): void {
+  if (initAnalytics()) posthog.capture("pecu_turn_performance", { $ai_trace_id: traceId, metric, duration_ms: Math.round(durationMs) });
 }

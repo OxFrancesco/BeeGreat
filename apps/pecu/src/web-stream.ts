@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { stageSchema, type TurnStage } from "./progress";
 
 /** Legacy paragraph delivery, or whole-reply snapshots when the caller opts into live text. */
-export type ParagraphSink = ((text: string) => void) & { live?: boolean };
+export type ParagraphSink = ((text: string) => void) & { live?: boolean; stage?: (stage: TurnStage) => void; trace?: (traceId: string) => void };
 
 /**
  * Splits streamed text deltas into finished paragraphs. A paragraph ends at a
@@ -45,6 +46,8 @@ function fenceOpen(text: string): boolean {
 }
 
 export const webTurnEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("trace"), traceId: z.string().regex(/^pecu_[0-9a-f]{64}$/) }),
+  z.object({ type: z.literal("stage"), stage: stageSchema }),
   z.object({ type: z.literal("paragraph"), text: z.string(), replace: z.literal(true).optional() }),
   z.object({ type: z.literal("complete"), status: z.enum(["complete", "busy"]) }),
   z.object({ type: z.literal("error"), error: z.string() }),
@@ -53,6 +56,7 @@ export type WebTurnEvent = z.infer<typeof webTurnEventSchema>;
 
 export const sseContentType = "text/event-stream";
 export const liveTextContentType = `${sseContentType}; mode=live`;
+export const timedTextContentType = `${liveTextContentType}; stages=1`;
 
 export function sseFrame(event: WebTurnEvent): string {
   return `data: ${JSON.stringify(event)}\n\n`;
@@ -69,6 +73,7 @@ export function turnEventStream(
   onError?: (cause: unknown) => void,
   heartbeatMs = 15_000,
   live = false,
+  timings = false,
 ) {
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
@@ -88,6 +93,10 @@ export function turnEventStream(
     void emit(event);
   };
   progress.live = live;
+  if (timings) {
+    progress.trace = traceId => { void emit({ type: "trace", traceId }); };
+    progress.stage = stage => { void emit({ type: "stage", stage }); };
+  }
   const done = Promise.resolve().then(() => run(progress))
     .then(
       (result) => emit({ type: "complete", status: result.status }),

@@ -80,6 +80,7 @@ function parseCalls(result: JsonObject): PlannedCall[] {
 
 const ACTIONS_WITH_SLIPPAGE = new Set<SugarTxAction>(["swap", "deposit", "withdraw", "stock_buy", "stock_sell", "index_rebalance"]);
 const baseTokenReferences = new Map(Object.values(KNOWN_TOKENS[BASE_CHAIN_ID]).map((token) => [token.symbol.toLowerCase(), token.tokenAddress]));
+baseTokenReferences.set("weth", KNOWN_TOKENS[BASE_CHAIN_ID].eth.wrappedTokenAddress!);
 const aeroSettings = { requestConcurrency: 4, quoteMaxPaths: 128, quoteBatchSize: 16 };
 
 export class AerodromeService {
@@ -96,6 +97,7 @@ export class AerodromeService {
     action: SugarAction,
     rawParameters: SugarParameters,
   ): Promise<AeroResult> {
+    if (this.executor) return this.execute(wallet, action, rawParameters);
     const result = this.pending.then(() => this.execute(wallet, action, rawParameters));
     this.pending = result.then(() => undefined, () => undefined);
     return result;
@@ -110,6 +112,7 @@ export class AerodromeService {
     if (parameters.slippage * 10_000 > this.config.maxSlippageBps) {
       throw new Error(`Slippage exceeds the configured maximum of ${this.config.maxSlippageBps / 100}%`);
     }
+    if (this.executor) return this.executeBasket(wallet, parameters);
     const result = this.pending.then(() => this.executeBasket(wallet, parameters));
     this.pending = result.then(() => undefined, () => undefined);
     return result;
@@ -118,8 +121,8 @@ export class AerodromeService {
   liquidity(wallet: `0x${string}`, input: LiquidityRequest): Promise<LiquidityPlan> {
     const request = liquidityRequestSchema.parse(input);
     if (request.slippage * 10_000 > this.config.maxSlippageBps) throw new Error("Slippage exceeds the configured maximum");
+    if (this.executor) return this.executor({ action: "liquidity_budget", chain: BASE_CHAIN_ID, wallet, request }).then(value => liquidityPlanSchema.parse(value));
     const result = this.pending.then(async () => {
-      if (this.executor) return liquidityPlanSchema.parse(await this.executor({ action: "liquidity_budget", chain: BASE_CHAIN_ID, wallet, request }));
       const options = { rpcUrl: this.config.baseRpcUrl, cacheStore: createSugarCacheStore(), settings: aeroSettings };
       return liquidityPlan(createSugarClient(BASE_CHAIN_ID, { ...options, account: wallet }),
         (action, parameters) => executeSugarAction(action, parameters, options), wallet, request);

@@ -23,7 +23,7 @@ export type RequestRoute =
   | { kind: "command"; command: "wallet" | "balance" | "stocks" | "positions" | "deposit_status" | "help" }
   | { kind: "response" }
   | { kind: "mixed"; family?: ToolFamily }
-  | { kind: "fallback" };
+  | { kind: "fallback"; family?: ToolFamily };
 
 export interface RequestClassifier {
   classify(text: string): Promise<RequestRoute>;
@@ -38,6 +38,7 @@ export class TypeSafeRequestClassifier implements RequestClassifier {
 
   async classify(text: string): Promise<RequestRoute> {
     if (text.length > 8000) return { kind: "fallback" };
+    const startedAt = Date.now();
     try {
       const result = await this.client.systemOne({
         state: { userMessage: text },
@@ -47,15 +48,20 @@ export class TypeSafeRequestClassifier implements RequestClassifier {
         },
       });
       const answer = answerSchema.parse(result.answers.route);
-      if (answer.confidence < 0.9) return { kind: "fallback" };
-      if (answer.choice === "mixed") {
-        const family = z.object({ choice: z.enum(["wallet", "defi", "markets", "analytics", "funding", "all"]), confidence: z.number().min(0).max(1) }).safeParse(result.answers.family);
-        return family.success && family.data.confidence >= 0.9 ? { kind: "mixed", family: family.data.choice } : { kind: "mixed" };
-      }
+      const family = z.object({ choice: z.enum(["wallet", "defi", "markets", "analytics", "funding", "all"]), confidence: z.number().min(0).max(1) }).safeParse(result.answers.family);
+      const scope = family.success && family.data.confidence >= 0.9 ? { family: family.data.choice } : {};
+      const probabilities = z.record(z.string(), z.number().min(0).max(1)).safeParse(result.answers.route?.probabilities);
+      log("info", "request_classified", { duration_ms: Date.now() - startedAt, model: result.model,
+        route: answer.choice, route_confidence: answer.confidence,
+        route_probabilities: probabilities.success ? Object.keys(routes).map(key => `${key}:${probabilities.data[key] ?? 0}`) : undefined, family: family.success ? family.data.choice : undefined,
+        family_confidence: family.success ? family.data.confidence : undefined,
+        fallback_reason: answer.confidence < 0.9 ? "route_confidence" : undefined });
+      if (answer.confidence < 0.9) return { kind: "fallback", ...scope };
+      if (answer.choice === "mixed") return { kind: "mixed", ...scope };
       if (answer.choice === "response") return { kind: answer.choice };
       return { kind: "command", command: answer.choice };
-    } catch {
-      log("warn", "request_classifier_unavailable", {});
+    } catch (error) {
+      log("warn", "request_classifier_unavailable", { duration_ms: Date.now() - startedAt, fallback_reason: error instanceof z.ZodError ? "invalid_output" : "classifier_error", error_kind: error instanceof Error ? error.name : "unknown" });
       return { kind: "fallback" };
     }
   }

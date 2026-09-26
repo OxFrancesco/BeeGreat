@@ -15,10 +15,11 @@ import { historyBytes, trimThreadCache } from "./thread-cache";
 import {
   readSseEvents,
   sseContentType,
-  liveTextContentType,
+  timedTextContentType,
   webTurnEventSchema,
 } from "../../../../src/web-stream";
 import { z } from "zod";
+import type { TurnStage } from "../../../../src/progress";
 const errorSchema = z.object({ error: z.string() });
 const busyMessage =
   "The agent is still processing your previous message. Retry shortly.";
@@ -52,12 +53,21 @@ export async function request(
 export async function streamTurn(
   body: JsonInput,
   onParagraph: (text: string, replace: boolean) => void,
+  onStage?: (stage: TurnStage) => void,
 ): Promise<void> {
+  const startedAt = performance.now();
+  let traceId: string | undefined;
+  let firstAnswer = false;
+  const metric = (name: "first_frame" | "first_answer_render" | "complete", at = performance.now()) => {
+    if (!traceId) return;
+    const id = traceId;
+    void import("../../../../src/browser-analytics").then(({ trackTurnPerformance }) => trackTurnPerformance(id, name, at - startedAt));
+  };
   const response = await fetch("/stocks/api/turn", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Accept: `${liveTextContentType}, application/json`,
+      Accept: `${timedTextContentType}, application/json`,
     },
     body: JSON.stringify(body),
   }).catch(() => { throw new Error("The connection to Pecu dropped. Check for a reply below, or retry this same request."); });
@@ -68,10 +78,15 @@ export async function streamTurn(
   }
   for await (const raw of readSseEvents(response.body)) {
     const event = webTurnEventSchema.parse(raw);
-    if (event.type === "paragraph") onParagraph(event.text, event.replace === true);
+    if (event.type === "paragraph") {
+      onParagraph(event.text, event.replace === true);
+      if (!firstAnswer) { firstAnswer = true; requestAnimationFrame(() => requestAnimationFrame(() => metric("first_answer_render"))); }
+    }
+    else if (event.type === "trace") { traceId = event.traceId; metric("first_frame"); }
+    else if (event.type === "stage") onStage?.(event.stage);
     else if (event.type === "error") throw new Error(event.error);
     else if (event.status === "busy") throw new Error(busyMessage);
-    else return;
+    else { metric("complete"); return; }
   }
   throw new Error(
     "The connection to Pecu dropped. Check for a reply below, or retry this same request.",
@@ -94,6 +109,7 @@ type ThreadState = {
   inFlight: string | null;
   /** Paragraphs of the reply being written right now; cleared once the turn completes. */
   partial: readonly string[];
+  stages: readonly TurnStage[];
 };
 const EMPTY_THREAD: ThreadState = {
   state: null,
@@ -105,6 +121,7 @@ const EMPTY_THREAD: ThreadState = {
   retry: null,
   inFlight: null,
   partial: [],
+  stages: [],
 };
 
 export function useAccount(signedIn: boolean, threadId: string | null = null) {
@@ -369,6 +386,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
         retry: null,
         inFlight: retryOf ? null : text,
         partial: [],
+  stages: [],
       });
       if (retryOf)
         setCache((current) => {
@@ -401,6 +419,16 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
               return new Map(current).set(threadId, {
                 ...entry,
                 partial: replace ? [paragraph] : [...entry.partial, paragraph],
+              });
+            });
+          },
+          stage => {
+            if (generation.current !== epoch) return;
+            setCache(current => {
+              const entry = current.get(threadId);
+              if (!entry?.pending) return current;
+              return new Map(current).set(threadId, { ...entry,
+                stages: [...entry.stages.filter(item => item.id !== stage.id), stage].slice(-50),
               });
             });
           },
@@ -507,6 +535,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     unsent: current.retry && !current.state?.messages.some((message) => message.id.endsWith(`:${current.retry!.requestId}`)) ? current.retry.text : null,
     inFlight: current.inFlight,
     partial: current.partial,
+    stages: current.stages,
     reload,
     prefetch,
     prepareNewThread,

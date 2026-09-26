@@ -38,7 +38,7 @@ export type AgentCapabilities = Readonly<{
   nansenCall(endpoint: NansenEndpointName, input: NansenQuery): Promise<string>;
 }>;
 
-export type ResponseMode = "response" | "mixed" | Readonly<{ kind: "mixed"; family: ToolFamily }>;
+export type ResponseMode = "response" | "mixed" | Readonly<{ kind: "mixed" | "fallback"; family: ToolFamily }>;
 
 export interface AgentHarness {
   warm?(senderId: string): Promise<void>;

@@ -1,3 +1,4 @@
+import { TurnProgress } from "./turn-progress";
 import { AnalyticsCard } from "./analytics-card";
 import { CommandMenu } from "./command-menu";
 import { ConnectionRecovery } from "./inference-profile";
@@ -114,6 +115,7 @@ export function Chat({
                         </MessageResponse>
                       ) : null}
                       <ConnectionRecovery reply={message.reply} />
+                                  {!account.pending && message.id === account.state?.messages.at(-1)?.id ? <TurnProgress stages={account.stages} pending={false} /> : null}
                                   {message.reply.analytics?.map((result) => <AnalyticsCard key={result.snapshot.key} snapshot={result.snapshot} />)}
                       {message.reply.holdings ? (
                         <StockHoldings {...message.reply.holdings} />
@@ -174,7 +176,7 @@ export function Chat({
                     account.partial.length &&
                     message.id === account.state?.messages.at(-1)?.id ? (
                     <div className="message assistant" role="status">
-                      <StreamedReply paragraphs={account.partial} />
+                      <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                     </div>
                   ) : (
                     <div className="muted">
@@ -231,12 +233,12 @@ export function Chat({
       {account.pending && !busyCode ? (
         account.inFlight && account.partial.length ? (
           <div className="message assistant mx-6" role="status">
-            <StreamedReply paragraphs={account.partial} />
+            <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
           </div>
         ) : (
-          <p className="muted px-6" role="status">
-            Aero is working…
-          </p>
+          <div className="muted px-6" role="status">
+            <TurnProgress stages={account.stages} pending />
+          </div>
         )
       ) : null}
       <div className="pecu pecu-embed pecu-prompt-wrap">

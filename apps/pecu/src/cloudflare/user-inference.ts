@@ -1,4 +1,4 @@
-import { captureAgentEvent } from "../analytics";
+import { batchedAnalytics } from "../analytics";
 import { chatGptConnectionRequired } from "../inference-recovery";
 import { DurableObject, RpcTarget } from "cloudflare:workers";
 import type { AgentCapabilities, ResponseMode } from "../harness";
@@ -9,6 +9,7 @@ import { codexContainerFetch } from "./codex-fetch";
 import { loadWorkerConfig } from "./config";
 import { log } from "../logger";
 import { UsageLimitError } from "../usage-limit";
+import type { TurnStage } from "../progress";
 import type { ParagraphSink } from "../web-stream";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
@@ -27,6 +28,7 @@ export class InferenceTools extends RpcTarget {
   streams(): false | "paragraph" | "text" {
     return this.onParagraph ? this.onParagraph.live ? "text" : "paragraph" : false;
   }
+  stage(stage: TurnStage): void { this.onParagraph?.stage?.(stage); }
   paragraph(text: string): void {
     this.onParagraph?.(text);
   }
@@ -55,7 +57,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
         return this.active.capabilities;
       }, codexContainerFetch(env.CODEX), loadWorkerConfig(env).openRouterApiKey,
         loadWorkerConfig(env).analyticsEnabled
-          ? (senderId, event) => { ctx.waitUntil(captureAgentEvent({ senderId, event })); }
+          ? batchedAnalytics(work => ctx.waitUntil(work))
           : undefined, (work) => ctx.waitUntil(work));
       store.initialize();
     });
@@ -156,7 +158,10 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       const progress: ParagraphSink | undefined = streamMode
         ? (text) => { delivery = delivery.then(() => bridge.paragraph(text)).catch(() => {}); }
         : undefined;
-      if (progress) progress.live = streamMode === "text";
+      if (progress) {
+        progress.live = streamMode === "text";
+        progress.stage = stage => { delivery = delivery.then(() => bridge.stage(stage)).catch(() => {}); };
+      }
       return await this.harness.respond(message, capabilities, mode, progress, chatGpt);
     } catch (error) {
       // Returned as a reply, not thrown: RPC would flatten the subclass and the caller would wrap it as a command failure.

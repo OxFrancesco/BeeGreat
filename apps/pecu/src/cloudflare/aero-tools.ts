@@ -10,7 +10,7 @@ const descriptions = {
   quote: "Get a live swap quote. This only reads prices and never creates a transaction plan. amount_out_decimal is the output token amount. from_price_usd and to_price_usd are reference prices, not the implied execution price.",
   swap: "Propose a swap. This persists a transaction plan for explicit user confirmation.",
   positions: "Read liquidity positions. Omit owner to use the verified sender's wallet.",
-  pools: "Discover existing pools before recommending liquidity settings. Use token0/token1 filters and a small limit; full returns token metadata and liquidity details. A positive type is the CL tick spacing. Neither listing includes spot price; use contract reads or a live quote for pricing. Filtering or full details can require a full pool scan.",
+  pools: "Discover existing pools before recommending liquidity settings. Use token0/token1 filters and a small limit; full returns token metadata and liquidity details. A positive type is the CL tick spacing. Full results include fresh spot_price and price_unit. Do not make a standalone quote just to discover spot price. Details are hydrated only for the requested rows.",
   epochs: "Read a pool's historical epochs using its lp address.",
   epochs_latest: "Read latest pool epochs, optionally filtered by pool_type.",
   deposit: "Prepare an accepted liquidity deposit, not a read-only recommendation or amount-discovery call. Read balances and pools first; get acceptance of any amounts or range you suggest before calling. Supply pool, or token0, token1 and pool_type. A new CL pool also requires tick_spacing. Supply amount0 or amount1. CL deposits require price or tick bounds in pool token order. initial_price is only for an uninitialized pool.",

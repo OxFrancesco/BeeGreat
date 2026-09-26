@@ -9,6 +9,8 @@ const prompts: string[] = [];
 const toolCatalogs: string[][] = [];
 const contextQueue: JsonFields[] = [];
 const answer = { type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "answer" }] };
+let directPreview = false;
+let interrupts = 0;
 let streamGate: Promise<void> | undefined;
 let streamReady: (() => void) | undefined;
 let streamObserved: (() => void) | undefined;
@@ -18,11 +20,18 @@ const client = {
     yield { type: "server.connected" };
     await streamGate;
     if (signal.aborted) return;
+    if (directPreview) {
+      yield { type: "session.tool.input.started", data: { sessionID: "session", id: "liquidity-call", name: "aero_liquidity" } };
+      yield { type: "session.tool.success", data: { sessionID: "session", id: "liquidity-call", content: [{ type: "text", text: "Verified preview. /confirm ABC123" }], metadata: { pecu_direct_reply: true } } };
+      streamObserved?.();
+      return;
+    }
     yield { type: "session.text.delta", data: { sessionID: "session", assistantMessageID: "stream-answer", ordinal: 0, delta: "First paragraph.\n\nLast para" } };
     streamObserved?.();
     await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
   } },
   sessions: {
+    interrupt: async () => { interrupts++; },
     get: async () => ({ id: "session" }),
     create: async (input: { model: { id: string } }) => { created.push(input.model.id); return { id: "session" }; },
     switchModel: async (input: (typeof switched)[number]) => { switched.push(input); },
@@ -265,6 +274,14 @@ try {
   const liveSink = Object.assign((text: string) => { live.push(text); }, { live: true });
   await keyed.respond({ ...message, eventId: "stream-live" }, capabilities, "response", liveSink, false);
   expect(live).toEqual(["First paragraph.\n\nLast para", "First paragraph.\n\nLast paragraph."]);
+
+  directPreview = true;
+  const direct: string[] = [];
+  const countBeforeDirect = prompts.length;
+  expect(await keyed.respond({ ...message, eventId: "direct-preview" }, capabilities, undefined, value => direct.push(value), false)).toBe("Verified preview. /confirm ABC123");
+  expect(direct).toEqual(["Verified preview. /confirm ABC123"]);
+  expect(interrupts).toBe(1);
+  expect(prompts.length).toBe(countBeforeDirect + 1);
 
   console.log("Luna selection, retained session, Sol fallback, response instructions, usage-limit short-circuit, OpenRouter fallback passed");
 } finally { store.close(); }

@@ -33,6 +33,7 @@ import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlan
 import { planSummary, tokenHints, transactionPlan } from "./transaction-plan";
 import { isTransactionReadPermissionError } from "./wallet-errors";
 import type { RequestClassifier, RequestRoute } from "./request-classifier";
+import { turnTraceIdentity, turnTrace } from "./turn-trace";
 import type { ParagraphSink } from "./web-stream";
 import { analyticsText, type PnlSnapshot } from "./analytics-contract";
 
@@ -222,6 +223,12 @@ export class PecuAgent {
   }
 
   async handle(message: VerifiedMessage, retryUnanswered = false, progress?: ParagraphSink): Promise<string | undefined> {
+    const trace = await turnTraceIdentity(message.senderId, message.eventId, message.conversationId);
+    trace.record = span => this.track(message.senderId, span);
+    return turnTrace.run(trace, () => this.handleTurn(message, retryUnanswered, progress));
+  }
+
+  private async handleTurn(message: VerifiedMessage, retryUnanswered: boolean, progress?: ParagraphSink): Promise<string | undefined> {
     const claim = this.store.claimEvent(
       message.eventId,
       message.conversationId,
@@ -231,28 +238,41 @@ export class PecuAgent {
     if (claim === "completed") return this.store.eventReply(message.eventId);
     if (claim === "busy") return undefined;
     const startedAt = Date.now();
+    progress?.stage?.({ id: "routing", label: "Understanding your request", startedAt, status: "running" });
+    const trace = turnTrace.getStore()!;
+    progress?.trace?.(trace.traceId);
+    const correlation = { $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId };
+    let firstAnswer: number | undefined;
+    let failed = false;
+    const sink: ParagraphSink | undefined = progress ? text => { firstAnswer ??= Date.now(); progress(text); } : undefined;
+    if (sink) { sink.live = progress?.live; sink.stage = progress?.stage; }
     const channel = message.conversationId.startsWith("stocks:") ? "web" : "x";
-    this.track(message.senderId, { event: "pecu_message_received", channel });
+    this.track(message.senderId, { event: "pecu_message_received", channel, ...correlation });
     try {
       const answeringQuestion = message.retryContext === undefined && !message.replyConfirmationCode && !/^(?:b)?\//.test(message.text.trim()) && this.store.answerPendingQuestion(message);
       if (message.retryContext !== undefined || answeringQuestion) this.previewOnly.add(message.eventId);
       if (answeringQuestion && /^cancel$/i.test(message.text.trim())) {
         const reply = "Cancelled. No new transaction was sent.";
         this.store.completeEvent(message.eventId, reply);
-        this.track(message.senderId, { event: "pecu_message_completed", channel, duration_ms: Date.now() - startedAt });
+        this.track(message.senderId, { event: "pecu_message_completed", channel, ...correlation, duration_ms: Date.now() - startedAt });
         return reply;
       }
-      const reply = await this.execute(message, progress);
+      const reply = await this.execute(message, sink);
       this.store.completeEvent(message.eventId, reply);
-      this.track(message.senderId, { event: "pecu_message_completed", channel, duration_ms: Date.now() - startedAt });
+      this.track(message.senderId, { event: "pecu_message_completed", channel, ...correlation, duration_ms: Date.now() - startedAt });
       return reply;
     } catch (error) {
+      failed = true;
       const reply = chatError(error);
       this.store.completeEvent(message.eventId, reply);
       log("warn", "command_failed", { eventId: message.eventId, senderId: message.senderId, error: errorMessage(error) });
-      this.track(message.senderId, { event: "pecu_message_failed", channel, duration_ms: Date.now() - startedAt });
+      this.track(message.senderId, { event: "pecu_message_failed", channel, ...correlation, duration_ms: Date.now() - startedAt });
       return reply;
     } finally {
+      const endedAt = Date.now();
+      this.track(message.senderId, { event: "$ai_trace", timestamp: endedAt, ...correlation,
+        $ai_span_name: "Pecu request", $ai_latency: (endedAt - startedAt) / 1000, $ai_is_error: failed,
+        started_at: startedAt, ended_at: endedAt, first_answer_ms: firstAnswer === undefined ? endedAt - startedAt : firstAnswer - startedAt });
       this.previewOnly.delete(message.eventId);
     }
   }
@@ -283,10 +303,16 @@ export class PecuAgent {
       if (/^(?:b)?\//i.test(message.text.trim())) throw error;
       try {
         // Wake the user's runtime while the classifier chooses the route.
+        const routingStartedAt = Date.now();
         const warming = this.harness.warm?.(message.senderId).catch(() => undefined);
         const route: RequestRoute = this.previewOnly.has(message.eventId)
           ? { kind: "fallback" }
           : await this.classifier?.classify(message.text) ?? { kind: "fallback" };
+        const routingEnd = Date.now();
+        const trace = turnTrace.getStore();
+        trace?.record?.({ event: "$ai_span", timestamp: routingEnd, started_at: routingStartedAt, ended_at: routingEnd,
+          $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId, $ai_span_id: `${trace.traceId}_routing`,
+          $ai_span_name: "Request routing", $ai_latency: (routingEnd - routingStartedAt) / 1000, $ai_is_error: false });
         log("info", "request_routed", { eventId: message.eventId, route: route.kind, command: route.kind === "command" ? route.command : undefined });
         if (route.kind === "command") {
           switch (route.command) {
@@ -298,8 +324,9 @@ export class PecuAgent {
             case "help": return helpText;
           }
         }
-        const mode = route.kind === "mixed" && route.family ? { kind: "mixed" as const, family: route.family } : route.kind === "response" || route.kind === "mixed" ? route.kind : undefined;
+        const mode = (route.kind === "mixed" || route.kind === "fallback") && route.family ? { kind: route.kind, family: route.family } : route.kind === "response" || route.kind === "mixed" ? route.kind : undefined;
         await warming;
+        progress?.stage?.({ id: "routing", label: "Understanding your request", startedAt: routingStartedAt, endedAt: Date.now(), status: "complete" });
         const response = await this.harness.respond(message, this.capabilitiesFor(message), mode, progress);
         return this.questionText(message.eventId) ?? response;
       } catch (error) {
@@ -344,7 +371,10 @@ export class PecuAgent {
 
   capabilitiesFor(message: VerifiedMessage): AgentCapabilities {
     const wallet = () => this.actingWallet(message);
-    return {
+    const trace = turnTrace.getStore();
+    const bound = <Args extends unknown[]>(fn: (...args: Args) => Promise<string>) => (...args: Args) =>
+      trace ? turnTrace.run(trace, () => fn(...args)) : fn(...args);
+    const capabilities: AgentCapabilities = {
       askUser: async (question, options) => this.askUser(message, question, options),
       yoloEnabled: () => !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId),
       aaveCall: (name, args) => this.runAave(message, name, args),
@@ -382,6 +412,10 @@ export class PecuAgent {
       depositSetup: (email) => this.depositSetup(message, email),
       depositStatus: async () => this.depositStatusReply(message),
       nansenCall: (endpoint, input) => this.nansenReply(message, endpoint, input),
+    };
+    return { ...capabilities,
+      aeroRead: bound(capabilities.aeroRead), aeroPropose: bound(capabilities.aeroPropose),
+      liquidity: bound(capabilities.liquidity), stockTrades: bound(capabilities.stockTrades),
     };
   }
 

@@ -1,3 +1,4 @@
+import { TurnProgress } from "../components/turn-progress";
 import { AnalyticsCard } from "../components/analytics-card";
 import { CommandMenu } from "../components/command-menu";
 import { ConnectionRecovery } from "../components/inference-profile";
@@ -533,6 +534,7 @@ function AgentWorkspace({
                                     </MessageResponse>
                                   ) : null}
                                   <ConnectionRecovery reply={reply} />
+                                  {!account.pending && message.id === messages.at(-1)?.id ? <TurnProgress stages={account.stages} pending={false} /> : null}
                                   {reply.analytics?.map((result) => <AnalyticsCard key={result.snapshot.key} snapshot={result.snapshot} />)}
                                   {reply.holdings ? (
                                     <StockHoldings {...reply.holdings} />
@@ -604,15 +606,15 @@ function AgentWorkspace({
                                 account.partial.length &&
                                 message.id === messages.at(-1)?.id ? (
                                 <MessageContent className="pecu-bubble-bot" role="status">
-                                  <StreamedReply paragraphs={account.partial} />
+                                  <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                                 </MessageContent>
                               ) : (
                                 <MessageContent className="pecu-bubble-bot pecu-bubble-muted">
-                                  <span role="status">
+                                  <div role="status">
                                     {account.pending
-                                      ? "Pecu is answering…"
+                                      ? <TurnProgress stages={account.stages} pending />
                                       : "Waiting for Pecu…"}
-                                  </span>
+                                  </div>
                                   {!account.pending ? (
                                     <Button
                                       className="pecu-inline-link"
@@ -658,7 +660,7 @@ function AgentWorkspace({
                           </span>
                           {account.partial.length ? (
                             <MessageContent className="pecu-bubble-bot">
-                              <StreamedReply paragraphs={account.partial} />
+                              <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                             </MessageContent>
                           ) : (
                             <Shimmer className="pecu-shimmer" duration={1.6}>

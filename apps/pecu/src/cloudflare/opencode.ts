@@ -20,6 +20,7 @@ import type { HarnessStateStore } from "../state";
 import { log } from "../logger";
 import { isUsageLimitError, parseUsageLimit, usageLimitActive, UsageLimitError, type UsageLimit } from "../usage-limit";
 import type { ParagraphSink } from "../web-stream";
+import { toolLabel, type TurnStage } from "../progress";
 import { ReplyStream } from "../reply-stream";
 import { toolInFamily, type ToolFamily } from "../tool-families";
 
@@ -310,7 +311,7 @@ export class OpenCodeHarness implements AgentHarness {
             options: { codemode: false },
             description: "Fund a concentrated-liquidity position from ONE total token budget, including a funding swap, approvals and deposit in one Pecu smart-wallet batch. Use after the user specifies the pool/pair and budget, including half my ETH as fraction bps 5000. Reads live balances and pool price, computes token amounts, and defaults to a range 20 percent below/above spot. ETH funds WETH pools without a separate wrap. Only ask for budget and pool preference; do not ask users for tick spacing, token split, or initial price. Discover the pool first. For a new pair use verified token order, supported tick spacing and a current initial market price. Explicit ranges are token1 per token0. Previews with confirmation; may execute when YOLO is on. Not supported for linked external wallets.",
             input: liquidityRequestSchema,
-            execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).liquidity(input) }),
+            execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).liquidity(input), metadata: { pecu_direct_reply: true } }),
           });
           draft.add({
             name: "aero_stock_trades",
@@ -355,7 +356,12 @@ export class OpenCodeHarness implements AgentHarness {
       models: { snapshot: false, fetch: false },
       log: {
         level: "warn",
-        emit: (entry) => console.warn(JSON.stringify({ source: "opencode", level: entry.level, message: entry.message })),
+        emit: (entry) => {
+          const attributes = Object.fromEntries(Object.entries(entry.attributes ?? {}).filter(([key, value]) =>
+            ["tool", "name", "provider", "status", "code"].includes(key) && z.union([z.number(), z.string().regex(/^[a-zA-Z0-9_.:-]{1,120}$/)]).safeParse(value).success));
+          console.warn(JSON.stringify({ source: "opencode", level: entry.level, message: entry.message, ...attributes,
+            cause_type: entry.cause instanceof Error ? entry.cause.name : undefined }));
+        },
       },
       config: {
         default_agent: "basedbot",
@@ -415,7 +421,7 @@ export class OpenCodeHarness implements AgentHarness {
     const route: InferenceRoute = chatGpt && !knownLimit ? "chatgpt" : "fallback";
     if (route === "fallback") log("info", "inference_fallback", { eventId: message.eventId, reason: chatGpt ? "usage-limit" : "not-connected" });
     const models = route === "chatgpt" ? chatGptModels : fallbackModels;
-    const turnModel = mode ? models.small : models.default;
+    const turnModel = mode && !(mode !== "mixed" && mode !== "response" && mode.kind === "fallback") ? models.small : models.default;
     let sessionId = this.store.agentSession(message.senderId, message.conversationId);
     if (message.retryContext !== undefined) sessionId = undefined;
     if (sessionId) {
@@ -446,7 +452,7 @@ export class OpenCodeHarness implements AgentHarness {
       let assistant = await this.turn(sessionId, text, metadata, progress);
       if (assistant.error && route === "chatgpt" && this.fallbackConfigured && assistant.error.type.startsWith("provider.")) {
         log("info", "inference_fallback", { eventId: message.eventId, reason: assistant.error.type, status: assistant.error.status });
-        const retryModel = mode ? fallbackModels.small : fallbackModels.default;
+        const retryModel = mode && !(mode !== "mixed" && mode !== "response" && mode.kind === "fallback") ? fallbackModels.small : fallbackModels.default;
         await this.client.sessions.switchModel({ sessionID: sessionId, model: retryModel });
         assistant = await this.turn(sessionId, text, metadata, progress);
       }
@@ -471,43 +477,48 @@ export class OpenCodeHarness implements AgentHarness {
   private async turn(sessionId: string, text: string, metadata: Record<string, string>, progress?: ParagraphSink) {
     // Finish the previous cursor before admitting another turn on this runtime.
     await this.analyticsPending;
-    const observer = progress ? await this.observeText(sessionId, progress) : undefined;
+    let startedAt = Date.now();
+    const entries: InferenceLogEntry[] = [];
+    const sent = new Set<string>();
+    const cursorKey = `analytics:inference:${sessionId}`;
+    let cursor = await this.storage.get<number>(cursorKey);
+    const collect = async () => {
+      if (!this.analytics) return;
+      try {
+        for await (const entry of this.client.sessions.log({ sessionID: sessionId, after: cursor, follow: false })) {
+          cursor = Math.max(cursor ?? 0, entry.type === "log.synced" ? entry.seq ?? 0 : entry.durable.seq);
+          if (entry.type !== "log.synced" && entry.created >= startedAt && analyticsEventTypes.has(entry.type)) entries.push(entry);
+        }
+        const turn = { senderId: metadata.senderId, eventId: metadata.eventId, conversationId: metadata.conversationId, startedAt };
+        const requests = this.timings?.read(sessionId, startedAt) ?? [];
+        for (const event of [...await generationEvents(entries, turn, requests), ...await toolEvents(entries, turn)]) {
+          if (sent.has(event.$ai_span_id)) continue;
+          this.analytics(metadata.senderId, event);
+          sent.add(event.$ai_span_id);
+        }
+      } catch { log("warn", "inference_analytics_failed", {}); }
+    };
+    const schedule = () => {
+      this.analyticsPending = this.analyticsPending.then(collect);
+      this.waitUntil?.(this.analyticsPending);
+    };
+    const observer = await this.observeText(sessionId, progress ?? (() => {}), schedule);
     try {
       const inbox = await this.client.sessions.prompt({ sessionID: sessionId, text, metadata });
+      startedAt = inbox.timeCreated;
       try {
         await this.client.sessions.wait({ sessionID: sessionId });
       } finally {
-        if (this.analytics) {
-          this.analyticsPending = (async () => {
-            try {
-              const cursorKey = `analytics:inference:${sessionId}`;
-              const after = await this.storage.get<number>(cursorKey);
-              const entries: InferenceLogEntry[] = [];
-              let cursor = after ?? 0;
-              for await (const entry of this.client.sessions.log({ sessionID: sessionId, after, follow: false })) {
-                cursor = Math.max(cursor, entry.type === "log.synced" ? entry.seq ?? 0 : entry.durable.seq);
-                if (entry.type !== "log.synced" && entry.created >= inbox.timeCreated && analyticsEventTypes.has(entry.type)) entries.push(entry);
-              }
-              const turn = {
-                senderId: metadata.senderId, eventId: metadata.eventId,
-                conversationId: metadata.conversationId, startedAt: inbox.timeCreated,
-              };
-              const requests = this.timings?.read(sessionId, inbox.timeCreated) ?? [];
-              const events = [
-                ...await generationEvents(entries, turn, requests),
-                ...await toolEvents(entries, turn),
-              ];
-              for (const event of events) this.analytics?.(metadata.senderId, event);
-              await this.storage.put(cursorKey, cursor);
-              this.timings?.clear(sessionId, Date.now());
-            } catch {
-              log("warn", "inference_analytics_failed", {});
-            }
-          })();
-          if (this.waitUntil) this.waitUntil(this.analyticsPending);
-          else await this.analyticsPending;
-        }
+        schedule();
+        this.analyticsPending = this.analyticsPending.then(async () => {
+          await this.storage.put(cursorKey, cursor);
+          this.timings?.clear(sessionId, Date.now());
+        });
+        if (this.waitUntil) this.waitUntil(this.analyticsPending);
+        else await this.analyticsPending;
       }
+      const directReply = observer.directReply();
+      if (directReply !== undefined) return { content: [{ type: "text" as const, text: directReply }], error: undefined };
       const messages = await this.client.message.list({ sessionID: sessionId, order: "desc", limit: 1 });
       const assistant = messages.data.find((entry) => entry.type === "assistant" && entry.time.created >= inbox.timeCreated);
       if (!assistant || assistant.type !== "assistant") throw new Error("OpenCode completed without an assistant response");
@@ -521,20 +532,55 @@ export class OpenCodeHarness implements AgentHarness {
   }
 
   /** Attach before prompting; the stored answer reconciles any live events still in transit. */
-  private async observeText(sessionId: string, progress: ParagraphSink) {
+  private async observeText(sessionId: string, progress: ParagraphSink, onSettled: () => void) {
     const controller = new AbortController();
     const sink: ParagraphSink = (text) => {
       try { progress(text); } catch { log("warn", "inference_progress_failed", {}); }
     };
     sink.live = progress.live;
     const reply = new ReplyStream(sink);
+    let directReply: string | undefined;
+    const names = new Map<string, string>();
+    const stages = new Map<string, TurnStage>();
+    const stage = (id: string, label: string, status: TurnStage["status"] = "running") => {
+      const previous = stages.get(id);
+      const value: TurnStage = { id, label, startedAt: previous?.startedAt ?? Date.now(), status };
+      if (status !== "running") value.endedAt = Date.now();
+      stages.set(id, value);
+      progress.stage?.(value);
+    };
+    let waitIndex = 0;
+    stage(`model-wait-${waitIndex}`, "Waiting for model");
     let attached = () => {};
     const ready = new Promise<void>((resolve) => { attached = resolve; });
     void (async () => {
       try {
         for await (const event of this.client.events.subscribe({ signal: controller.signal })) {
           if (event.type === "server.connected") attached();
-          else if ((event.type === "session.text.delta" || event.type === "session.text.ended") && event.data.sessionID === sessionId) {
+          if ("data" in event && "sessionID" in event.data && event.data.sessionID === sessionId) {
+            if (["session.step.ended", "session.step.failed", "session.tool.success", "session.tool.failed"].includes(event.type)) onSettled();
+            if (event.type === "session.tool.success" && event.data.metadata?.pecu_direct_reply === true && names.get(event.data.id) === "aero_liquidity") {
+              directReply = event.data.content.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
+              progress(directReply);
+              // The tool success is durable before interruption. Its verified preview is the reply.
+              void this.client.sessions.interrupt({ sessionID: sessionId }).catch(() => log("warn", "preview_stop_failed", {}));
+            }
+            if (event.type === "session.tool.input.started") names.set(event.data.id, event.data.name);
+            if (event.type === "session.tool.called") stage(event.data.id, toolLabel(names.get(event.data.id) ?? ""));
+            if (event.type === "session.tool.success" || event.type === "session.tool.failed") {
+              stage(event.data.id, toolLabel(names.get(event.data.id) ?? ""), event.type === "session.tool.failed" ? "error" : "complete");
+              if (!directReply && ![...stages.values()].some(s => s.status === "running")) stage(`model-wait-${++waitIndex}`, "Waiting for model");
+            }
+            if (event.type === "session.step.started") {
+              stage(`model-wait-${waitIndex}`, "Waiting for model", "complete");
+              stage(event.data.assistantMessageID, "Generating a response");
+            }
+            if (event.type === "session.step.streamed") stage(event.data.assistantMessageID, "Generating a response", "complete");
+            if (event.type === "session.retry.scheduled") stage(`retry-${event.data.attempt}`, "Retrying the model");
+            if (event.type === "session.compaction.started") stage("compaction", "Summarizing conversation");
+            if (event.type === "session.compaction.ended" || event.type === "session.compaction.failed") stage("compaction", "Summarizing conversation", event.type === "session.compaction.failed" ? "error" : "complete");
+          }
+          if ((event.type === "session.text.delta" || event.type === "session.text.ended") && event.data.sessionID === sessionId) {
             const key = `${event.data.assistantMessageID}:${event.data.ordinal}`;
             if (event.type === "session.text.delta") {
               reply.push(key, event.data.delta);
@@ -551,6 +597,7 @@ export class OpenCodeHarness implements AgentHarness {
     })();
     await Promise.race([ready, new Promise<void>((resolve) => setTimeout(resolve, 1_000))]);
     return {
+      directReply: () => directReply,
       finish: (message: Parameters<ReplyStream["finish"]>[0]) => reply.finish(message),
       stop: () => { reply.stop(); controller.abort(); },
     };

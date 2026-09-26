@@ -1,47 +1,56 @@
 import { z } from "zod";
-import { createSugarCacheStore, createSugarClient, executeSugarAction, toSugarJson, type SugarJson } from "@beegreat/sugar";
+import { createSugarCacheStore, createSugarClient, executeSugarAction, validateSugarRequest, toSugarJson, type SugarRpcObserver, type SugarJson } from "@beegreat/sugar";
 import { aeroRequestSchema, type AeroRequest } from "./aero-protocol";
 import { liquidityPlan } from "../liquidity";
+import { AeroCache, cachePublicCatalog } from "./aero-cache";
+import { canonicalToken, focusedPools } from "./aero-pools";
+import { log } from "../logger";
 import { stockBasketPlan, stockSnapshot } from "../stocks";
 
-const cacheStore = createSugarCacheStore({ ttlMs: 10 * 60_000 });
 const settings = { requestConcurrency: 4, quoteMaxPaths: 128, quoteBatchSize: 16 };
 const walletSchema = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}$/)]);
-let pending: Promise<void> = Promise.resolve();
 
 type Env = { ALCHEMY_RPC_URL: string };
 
-function client(rpcUrl: string, wallet: `0x${string}`) {
-  return createSugarClient(8453, { rpcUrl, account: wallet, cacheStore, settings });
-}
-
-async function dispatch(request: AeroRequest, env: Env): Promise<SugarJson> {
+async function dispatch(request: AeroRequest, env: Env, observe: SugarRpcObserver): Promise<SugarJson> {
+  const cache = new AeroCache(globalThis.caches ? await caches.open("pecu-aero-public-v1") : undefined, observe);
+  const poolLocatorStore = cache.locators();
+  const options = { rpcUrl: env.ALCHEMY_RPC_URL, cacheStore: createSugarCacheStore(), settings, poolLocatorStore, onRpcEvent: observe };
+  const wallet = request.action === "liquidity_budget" || request.action === "stock_basket" ? request.wallet : walletSchema.safeParse(request.parameters.wallet).data;
+  const sdk = createSugarClient(8453, { ...options, account: wallet });
+  cachePublicCatalog(sdk, cache);
+  const executeOptions = { ...options, clientFactory: () => sdk };
   if (request.action === "liquidity_budget") {
-    const options = { rpcUrl: env.ALCHEMY_RPC_URL, cacheStore: createSugarCacheStore(), settings };
-    return toSugarJson(await liquidityPlan(createSugarClient(8453, { ...options, account: request.wallet }),
-      (action, parameters) => executeSugarAction(action, parameters, options),
+    return toSugarJson(await liquidityPlan(sdk,
+      (action, parameters) => executeSugarAction(action, parameters, executeOptions),
       request.wallet, request.request));
   }
   if (request.action === "stock_basket") {
-    return toSugarJson(await stockBasketPlan(client(env.ALCHEMY_RPC_URL, request.wallet), request.wallet, request.trades, request.slippage));
+    return toSugarJson(await stockBasketPlan(sdk, request.wallet, request.trades, request.slippage));
   }
-  const { action, parameters } = request;
-  const wallet = walletSchema.safeParse(parameters.wallet).data;
+  const { action } = request;
+  const parameters = { ...request.parameters };
+  for (const field of ["token0", "token1", "from_token", "to_token"]) {
+    const reference = z.string().safeParse(parameters[field]);
+    if (reference.success) parameters[field] = canonicalToken(reference.data);
+  }
+  validateSugarRequest(action, parameters);
+  if (action === "pools" && parameters.full === true) return focusedPools(sdk, parameters, cache, poolLocatorStore);
   if (action === "stocks" && wallet) {
-    return toSugarJson(await stockSnapshot(client(env.ALCHEMY_RPC_URL, wallet), wallet));
+    return toSugarJson(await stockSnapshot(sdk, wallet));
   }
   const trade = z.object({ stock: z.string(), amount: z.string() }).safeParse(parameters);
   if ((action === "stock_buy" || action === "stock_sell") && wallet && trade.success) {
     const side = action === "stock_buy" ? "buy" : "sell";
     const plan = await stockBasketPlan(
-      client(env.ALCHEMY_RPC_URL, wallet),
+      sdk,
       wallet,
       [{ side, stock: trade.data.stock, amount: trade.data.amount }],
       Number(parameters.slippage ?? 0.01),
     );
     return toSugarJson(plan);
   }
-  return executeSugarAction(action, parameters, { rpcUrl: env.ALCHEMY_RPC_URL, cacheStore, settings });
+  return executeSugarAction(action, parameters, executeOptions);
 }
 
 export default {
@@ -57,9 +66,16 @@ export default {
       return Response.json({ error: "Only Base mainnet is supported" }, { status: 400 });
     }
     try {
-      const result = pending.then(() => dispatch(body, env));
-      pending = result.then(() => undefined, () => undefined);
-      return Response.json(await result);
+      const startedAt = Date.now();
+      const requestId = request.headers.get("X-Pecu-Request") ?? crypto.randomUUID();
+      const timings: (Parameters<SugarRpcObserver>[0] & { endedAt: number })[] = [];
+      const observe: SugarRpcObserver = event => {
+        if (timings.length < 64) timings.push({ ...event, endedAt: Date.now() });
+        log("info", "aero_rpc", { trace_id: request.headers.get("X-Pecu-Trace") || undefined, request_id: requestId, action: body.action, ...event });
+      };
+      const result = await dispatch(body, env, observe);
+      log("info", "aero_request_completed", { trace_id: request.headers.get("X-Pecu-Trace") || undefined, request_id: requestId, action: body.action, duration_ms: Date.now() - startedAt, queue_wait_ms: 0 });
+      return Response.json(result, { headers: { "X-Pecu-Rpc": JSON.stringify(timings) } });
     } catch (error) {
       return Response.json({ error: error instanceof Error ? error.message : "Aero request failed" }, { status: 502 });
     }

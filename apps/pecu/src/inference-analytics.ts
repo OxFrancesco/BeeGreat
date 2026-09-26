@@ -10,6 +10,8 @@ type Started = Extract<InferenceLogEntry, { type: "session.step.started" }>;
 export type GenerationAnalyticsEvent = {
   event: "$ai_generation";
   timestamp: number;
+  started_at: number;
+  ended_at: number;
   $ai_trace_id: string;
   $ai_session_id: string;
   $ai_span_id: string;
@@ -73,7 +75,9 @@ export async function generationEvents(entries: readonly InferenceLogEntry[], tu
     previousEnd = entry.created;
     const event: GenerationAnalyticsEvent = {
       event: "$ai_generation",
-      timestamp: requestStart ?? start.created,
+      timestamp: finishedAt,
+      started_at: requestStart ?? start.created,
+      ended_at: finishedAt,
       $ai_trace_id: trace,
       $ai_session_id: session,
       $ai_span_id: await analyticsIdentity(JSON.stringify(["span", turn.senderId, entry.data.assistantMessageID])),
@@ -109,6 +113,8 @@ export async function generationEvents(entries: readonly InferenceLogEntry[], tu
 export type ToolAnalyticsEvent = {
   event: "$ai_span";
   timestamp: number;
+  started_at: number;
+  ended_at: number;
   $ai_trace_id: string;
   $ai_session_id: string;
   $ai_span_id: string;
@@ -147,7 +153,7 @@ export async function toolEvents(entries: readonly InferenceLogEntry[], turn: Pa
     const sourceBytes = outputSize.parse(metadata?.pecu_source_bytes);
     const returned = entry.type === "session.tool.success" ? entry.data.content.flatMap(item => item.type === "text" ? [item.text] : []).join("\n") : undefined;
     const event: ToolAnalyticsEvent = {
-      event: "$ai_span", timestamp: call.created,
+      event: "$ai_span", timestamp: entry.created, started_at: call.created, ended_at: entry.created,
       $ai_trace_id: trace, $ai_session_id: session,
       $ai_span_id: await analyticsIdentity(JSON.stringify(["tool", turn.senderId, entry.data.id])),
       $ai_parent_id: await analyticsIdentity(JSON.stringify(["span", turn.senderId, entry.data.assistantMessageID])),

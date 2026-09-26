@@ -8,7 +8,7 @@ test("request latency includes the provider wait before the first streamed event
   const [event] = await generationEvents([entries[0], firstOutput, ...entries.slice(1)], verificationTurn, [
     { id: "request", session_id: "session-test", provider: "openrouter", model: "openai/gpt-6-sol", started_at: 1000, response_at: 3000, status: 200 },
   ]);
-  expect(event).toMatchObject({ $ai_latency: 6.5, $ai_time_to_first_token: 5.2, http_response_ms: 2000, stream_duration_ms: 1500, timestamp: 1000, latency_source: "http_request" });
+  expect(event).toMatchObject({ $ai_latency: 6.5, $ai_time_to_first_token: 5.2, http_response_ms: 2000, stream_duration_ms: 1500, timestamp: 7500, started_at: 1000, latency_source: "http_request" });
 });
 
 test("tool failures retain their own timings without inputs, output or error text", async () => {
@@ -21,7 +21,7 @@ test("tool failures retain their own timings without inputs, output or error tex
     { ...base, durable: { ...durable, version: 2 }, created: 7300, type: "session.tool.failed", data: { ...data, error: { type: "unknown", message: "private failure" }, executed: false } },
   ];
   const [event] = await toolEvents([...entries, entries[2]], verificationTurn);
-  expect(event).toMatchObject({ event: "$ai_span", timestamp: 2000, $ai_latency: 5.3, $ai_is_error: true, tool_name: "nansen_token_info" });
+  expect(event).toMatchObject({ event: "$ai_span", timestamp: 7300, started_at: 2000, $ai_latency: 5.3, $ai_is_error: true, tool_name: "nansen_token_info" });
   expect(await toolEvents([...entries, entries[2]], verificationTurn)).toHaveLength(1);
   expect(JSON.stringify(event)).not.toMatch(/private|session-test|analytics-inference-verification/);
   const [generation] = await generationEvents(usageStep("step"), verificationTurn);
@@ -37,7 +37,7 @@ test("retries include failed-attempt waits and do not consume other sessions or 
     request,
     { ...request, id: "r2", started_at: 4000, response_at: 5500, status: 200 },
   ]);
-  expect(event).toMatchObject({ $ai_latency: 6.5, timestamp: 1000, request_count: 2, $ai_is_error: false });
+  expect(event).toMatchObject({ $ai_latency: 6.5, timestamp: 7500, started_at: 1000, request_count: 2, $ai_is_error: false });
 });
 
 test("counts cache and reasoning once and excludes tool settlement latency and content", async () => {
@@ -63,7 +63,7 @@ test("a follow-up request can start in the same millisecond as the previous step
     { ...request, id: "second", started_at: previousEnd },
   ]);
   expect(events.map((event) => event.request_count)).toEqual([1, 1]);
-  expect(events[1]).toMatchObject({ timestamp: previousEnd, $ai_latency: 5.5, latency_source: "http_request" });
+  expect(events[1]).toMatchObject({ started_at: previousEnd, $ai_latency: 5.5, latency_source: "http_request" });
 });
 
 test("captures all tool-loop steps and fallback, ignoring history and duplicate endings", async () => {

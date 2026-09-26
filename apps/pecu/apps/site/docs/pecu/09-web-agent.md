@@ -36,7 +36,8 @@ Each thread is its own conversation, with its own previews and its own YOLO sett
 - Type `/` to open command completion. Arrow keys move through the list, Enter or Tab picks a command and Escape closes it.
 - A message can be up to 4,000 characters.
 - On an empty thread, suggestions such as "What's my balance?" send with one press.
-- While Pecu works, it shows "Pecu is working on it" and then the reply as it is written. The saved reply replaces the streamed text when it is ready, and can differ from it when the answer ends in a question, a preview or an error.
+- While Pecu works, it shows its current activity and elapsed time, such as finding pools or waiting for the model. Open Timing to see the completed stages in the current browser session. These durations can overlap when tools run together.
+- Replies appear as they are written. A completed liquidity plan becomes a preview directly, without waiting for a model to rewrite it. The saved reply replaces streamed text when ready.
 - Closing the tab does not stop a reply. Unanswered messages refresh on their own when you come back.
 
 ## Retry and resume

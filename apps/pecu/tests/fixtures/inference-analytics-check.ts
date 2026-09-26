@@ -19,6 +19,10 @@ const sql: TimingSql = { exec: <R extends Record<string, SqlStorageValue>>(query
 } };
 const storage = { get: async (key: string) => values.get(key), put: async <T>(key: string, value: T) => { values.set(key, value); }, delete: async (key: string) => values.delete(key), sql };
 const client = {
+  events: { async *subscribe({ signal }: { signal: AbortSignal }) {
+    yield { type: "server.connected" };
+    await new Promise<void>(resolve => signal.addEventListener("abort", () => resolve(), { once: true }));
+  } },
   sessions: {
     get: async () => ({}),
     switchModel: async () => {},
