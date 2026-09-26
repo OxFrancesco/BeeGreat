@@ -59,7 +59,10 @@ export class AeroCache {
     const key = (k: SugarPoolLocatorKey) => `locator:${k.chainId}:${k.sugarContractAddress.toLowerCase()}:${k.poolAddress.toLowerCase()}`;
     return {
       get: k => this.read(key(k), z.object({ offset: z.number().int().nonnegative() })),
-      set: (k, v) => this.write(key(k), v, 86400),
+      set: async (k, v) => {
+        const existing = await this.read(key(k), z.object({ offset: z.number().int().nonnegative() }));
+        if (existing?.offset !== v.offset) await this.write(key(k), v, 86400);
+      },
       delete: async k => { await Promise.allSettled([this.cache?.delete(this.key(key(k))), this.shared?.delete(`v1/${key(k)}`)]); },
     };
   }

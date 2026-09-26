@@ -50,9 +50,10 @@ import { z } from "zod";
 
 test("a cold edge reads shared public metadata without extending its lifetime", async () => {
   const objects = new Map<string, string>();
+  let writes = 0;
   const shared = {
     get: async (key: string) => { const body = objects.get(key); return body === undefined ? null : { text: async () => body }; },
-    put: async (key: string, body: string) => { objects.set(key, body); },
+    put: async (key: string, body: string) => { writes++; objects.set(key, body); },
     delete: async (key: string) => { objects.delete(key); },
   };
   const first = new AeroCache(undefined, () => {}, shared);
@@ -69,6 +70,13 @@ test("a cold edge reads shared public metadata without extending its lifetime", 
   const failedEdge = new AeroCache({ match: async () => { throw new Error("cache unavailable"); }, put: async () => { throw new Error("cache unavailable"); }, delete: async () => false }, () => {}, shared);
   await first.write("tokens:8453:test", [{ symbol: "FRESH" }], 600);
   expect(await failedEdge.read("tokens:8453:test", schema)).toEqual([{ symbol: "FRESH" }]);
+  const locator = { chainId: 8453, sugarContractAddress: wallet, poolAddress: wallet };
+  const before = writes;
+  await first.locators().set(locator, { offset: 42 });
+  await anotherRegion.locators().set(locator, { offset: 42 });
+  expect(writes - before).toBe(1);
+  await anotherRegion.locators().set(locator, { offset: 43 });
+  expect(writes - before).toBe(2);
 });
 
 test("one public snapshot serves arbitrary tokens across requests and preserves ambiguity checks", async () => {

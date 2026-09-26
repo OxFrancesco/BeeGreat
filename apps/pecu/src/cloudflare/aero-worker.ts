@@ -13,7 +13,7 @@ const walletSchema = z.templateLiteral(["0x", z.string().regex(/^[0-9a-fA-F]{40}
 type Env = { ALCHEMY_RPC_URL: string; AERO_CATALOG?: R2Bucket };
 
 async function dispatch(request: AeroRequest, env: Env, observe: SugarRpcObserver): Promise<SugarJson> {
-  const cache = new AeroCache(globalThis.caches ? await caches.open("pecu-aero-public-v1") : undefined, observe, env.AERO_CATALOG);
+  const cache = new AeroCache(globalThis.caches ? await caches.open("pecu-aero-public-v2") : undefined, observe, env.AERO_CATALOG);
   const poolLocatorStore = cache.locators();
   const options = { rpcUrl: env.ALCHEMY_RPC_URL, cacheStore: createSugarCacheStore(), settings, poolLocatorStore, onRpcEvent: observe };
   const wallet = request.action === "liquidity_budget" || request.action === "stock_basket" ? request.wallet : walletSchema.safeParse(request.parameters.wallet).data;
