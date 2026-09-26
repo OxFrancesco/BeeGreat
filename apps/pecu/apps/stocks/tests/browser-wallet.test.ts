@@ -71,6 +71,7 @@ test("linking signs the exact message with the connected account and rejects con
   expect(await signWalletLink(provider, pecuWallet, message)).toBe(signature);
   await expect(signWalletLink(wallet(async () => `0x${"22".repeat(200)}`), pecuWallet, message)).rejects.toThrow("sign with their own key");
   await expect(signWalletLink(wallet(async () => { throw { code: 4001, message: "User rejected" }; }), pecuWallet, message)).rejects.toBeInstanceOf(WalletDeclinedError);
+  await expect(signWalletLink(wallet(async () => { throw new Error("Failed to publish custom payload, please try again. id:1790414672597791488 tag:undefined"); }), pecuWallet, message)).rejects.toThrow("WalletConnect couldn't connect from this site. Try again later, or use a browser wallet.");
 });
 
 test("wallet transactions keep the exact server call and refuse the wrong account before sending", async () => {

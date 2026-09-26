@@ -209,6 +209,7 @@ function walletError(cause: unknown): Error {
   const details = providerErrorSchema.safeParse(cause).data;
   if (details?.code === 4001 || /user (?:rejected|denied)|rejected by user/i.test(details?.message ?? "")) return new WalletDeclinedError("You declined the request in your wallet.");
   if (/connection request reset/i.test(details?.message ?? "")) return new WalletDeclinedError("WalletConnect closed before a wallet connected.");
+  if (/failed to publish|origin not allowed|socket/i.test(details?.message ?? "")) return new Error("WalletConnect couldn't connect from this site. Try again later, or use a browser wallet.");
   const message = details?.message;
   return new Error(message !== undefined && message.length < 200 ? message : "Your wallet couldn't complete the request.");
 }
