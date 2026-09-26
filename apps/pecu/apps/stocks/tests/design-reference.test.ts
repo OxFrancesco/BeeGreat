@@ -79,3 +79,18 @@ test("all sample cards can confirm, check and cancel locally", () => {
   expect(card().querySelector(".pecu-confirmation")!.getAttribute("data-state")).toBe("cancelled");
   expect(card().querySelector(".pecu-confirmation-actions")).toBeNull();
 });
+
+
+test("design detail copy buttons preserve full addresses after truncation", async () => {
+  const copied: string[] = [];
+  Object.defineProperty(window.navigator, "clipboard", { value: { writeText: async (text: string) => { copied.push(text); } }, configurable: true });
+  const addresses = [...window.document.querySelectorAll("dd .pecu-expand-address")];
+  expect(addresses.length).toBeGreaterThan(0);
+  for (const address of addresses) {
+    const button = address.closest("dd")?.querySelector<HTMLButtonElement>("button");
+    if (!button) throw new Error("Missing address copy button");
+    button.click();
+    await Promise.resolve();
+    expect(copied.at(-1)).toBe(address.getAttribute("aria-label"));
+  }
+});

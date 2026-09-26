@@ -79,7 +79,9 @@ for (const card of document.querySelectorAll("[data-sample-card]")) {
       updatePreview(card, value);
       announce("Sample only. Nothing was sent.");
     } else {
-      const value = button.closest("dd")?.querySelector("span")?.textContent
+      const value = button.closest("dd")?.querySelector(".pecu-expand-address")?.getAttribute("aria-label")
+        ?? button.closest("dd")?.querySelector("span")?.textContent
+        ?? button.closest(".pecu-plan-step-meta")?.querySelector(".pecu-expand-address")?.getAttribute("aria-label")
         ?? button.closest(".pecu-plan-step-meta")?.querySelector("[title]")?.title
         ?? `/confirm ${card.querySelector("code").textContent}`;
       try { await navigator.clipboard.writeText(value); announce("Copied sample value."); }
