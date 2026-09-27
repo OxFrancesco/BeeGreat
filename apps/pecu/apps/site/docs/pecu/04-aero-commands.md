@@ -114,6 +114,8 @@ Use one of two forms. Mixing them is rejected.
 
 ## Working with positions
 
+Position reads include basic liquidity, staked concentrated liquidity and unstaked concentrated-liquidity NFTs held by the selected wallet. A newly deposited CL position is visible before staking. `/aero positions` lists each position with its pool address and staked/unstaked token amounts in human units.
+
 - `withdraw`, `stake`, `unstake`, `claim-emissions` and `claim-fees` need `--position` or `--pool`. For a basic pool position, use the pool address. `--position 0` on its own is ambiguous and also needs `--pool`.
 - `withdraw --fraction 0.5` removes half the position. The fraction must be above 0 and at most 1. Without it, the whole position is withdrawn.
 - `withdraw` collects fees by default. Add `--no-collect` to skip that.

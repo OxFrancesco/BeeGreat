@@ -60,7 +60,7 @@
   "patchedDependencies": {
     "@xdevplatform/chat-xdk@0.5.0": "apps/pecu/patches/@xdevplatform%2Fchat-xdk@0.5.0.patch",
     "@opencode-ai/server@0.0.0-beta-18684": "apps/pecu/patches/@opencode-ai%2Fserver@0.0.0-beta-18684.patch",
-    "@beegreat/sugar@github:OxFrancesco/aerodrome-sdk-ts#af14646": "apps/pecu/patches/aero-cli.patch",
+    "@beegreat/sugar@github:OxFrancesco/aerodrome-sdk-ts#0930a1b": "apps/pecu/patches/aero-cli.patch",
     "@opencode-ai/ai@0.0.0-beta-18684": "apps/pecu/patches/opencode-ai-effect-v4.patch",
     "@opencode-ai/core@0.0.0-beta-18684": "apps/pecu/patches/opencode-core-effect-v4.patch"
   },

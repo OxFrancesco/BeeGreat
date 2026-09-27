@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import type { TurnStage } from "../../../../src/progress";
 
-export function TurnProgress({ stages, pending }: { stages: readonly TurnStage[]; pending: boolean }) {
+type Props = { stages: readonly TurnStage[]; pending: boolean };
+
+export function TurnProgress(props: Props) {
+  if (!["development", "preview", "test"].includes(import.meta.env.MODE)) return null;
+  return <TurnTiming {...props} />;
+}
+
+function TurnTiming({ stages, pending }: Props) {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     if (!pending) return;

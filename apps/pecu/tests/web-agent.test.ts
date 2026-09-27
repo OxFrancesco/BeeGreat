@@ -618,3 +618,17 @@ test("a form review persists the transfer preview and replays it without signing
     expect(f.calls()).toBe(0);
   } finally { f.close(); }
 });
+
+test("Aero model tools receive complete data beyond the chat summary limits", async () => {
+  const stocks = Array.from({ length: 20 }, (_, i) => ({ symbol: `STOCK${i}`, name: `Company ${i}`, address, balance: "2", price_usdc: "150", error: null }));
+  const f = fixture(async (_message, capabilities) => {
+    const result = await capabilities.aeroRead("stocks", {});
+    expect(JSON.parse(result)).toEqual(stocks);
+    return "All holdings inspected.";
+  }, true, stocks);
+  try {
+    f.store.saveWallet("123", address, address);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "Inspect every stock holding" });
+    expect(f.web.state(identity).messages.at(-1)?.reply?.text).toBe("All holdings inspected.");
+  } finally { f.close(); }
+});

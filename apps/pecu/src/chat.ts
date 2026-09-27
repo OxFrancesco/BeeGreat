@@ -75,7 +75,28 @@ export function readableResult(value: JsonInput): string {
   return lines.join("\n") || "No summary is available. Send b/verbose to see the details.";
 }
 
+const positionSummarySchema = z.object({
+  chain_name: z.string(), id: units,
+  pool: z.object({ symbol: z.string(), lp: z.string(), is_cl: z.boolean(), token0: token, token1: token }),
+  amount_token0: units, amount_token1: units, staked_token0: units, staked_token1: units,
+});
+
 export function aeroReadText(action: string, output: JsonInput): string {
+  if (action === "positions") {
+    const positions = z.array(positionSummarySchema).parse(output);
+    if (!positions.length) return "You have no liquidity positions.";
+    return positions.map(position => {
+      const { pool } = position;
+      const amounts = (amount0: string, amount1: string) =>
+        `${formatUnits(amount0, pool.token0.decimals)} ${pool.token0.symbol} + ${formatUnits(amount1, pool.token1.decimals)} ${pool.token1.symbol}`;
+      return [
+        `${pool.symbol}${pool.is_cl ? ` · Position ${position.id}` : ""} · ${position.chain_name}`,
+        `Pool: ${pool.lp}`,
+        `Unstaked: ${amounts(position.amount_token0, position.amount_token1)}`,
+        `Staked: ${amounts(position.staked_token0, position.staked_token1)}`,
+      ].join("\n");
+    }).join("\n\n");
+  }
   if (action === "stocks" && Array.isArray(output)) {
     if (!output.length) return "No stock tokens are available right now.";
     return output.map((item) => {
@@ -83,9 +104,7 @@ export function aeroReadText(action: string, output: JsonInput): string {
       return `${stock.name ?? stock.symbol}, ${stock.symbol}\n${z.string().safeParse(stock.price_usdc).success ? `${stock.price_usdc} USDC` : "Price unavailable"}${z.string().safeParse(stock.balance).success ? ` · You hold ${stock.balance}` : ""}`;
     }).join("\n\n");
   }
-  return quoteText(output) ?? (action === "positions" && Array.isArray(output) && output.length === 0
-    ? "You have no liquidity positions."
-    : readableResult(output));
+  return quoteText(output) ?? readableResult(output);
 }
 
 export function aeroPlanText(plan: AeroPlanResult | StockBasketPlanResult): string {

@@ -397,7 +397,7 @@ export class PecuAgent {
       polymarketRead: (endpoint, input) => this.polymarketReadReply(message, endpoint, input, true),
       walletAddress: () => this.walletReply(message),
       walletBalances: () => this.balanceReply(message),
-      aeroRead: (action, parameters) => this.runAero(message, action, parameters),
+      aeroRead: (action, parameters) => this.runAero(message, action, parameters, "json"),
       aeroPropose: (action, parameters) => this.runAero(message, action, parameters),
       liquidity: (request) => this.runLiquidity(message, request),
       stockTrades: (trades, slippage) => this.runStockBasket(message, trades, slippage),
@@ -503,7 +503,7 @@ export class PecuAgent {
     this.store.saveChatDetails(message.senderId, message.conversationId, JSON.stringify(value, null, 2) ?? "null");
   }
 
-  private async runAero(message: VerifiedMessage, action: SugarAction, parameters: SugarParameters): Promise<string> {
+  private async runAero(message: VerifiedMessage, action: SugarAction, parameters: SugarParameters, format: "text" | "json" = "text"): Promise<string> {
     const wallet = await this.actingWallet(message);
     this.requireAnswer(message);
     let result;
@@ -519,7 +519,7 @@ export class PecuAgent {
         const stocks = stocksSchema.safeParse(result.output);
         if (stocks.success) this.store.saveStockSnapshot(message.eventId, { stocks: stocks.data, observedAt: Date.now() });
       }
-      return aeroReadText(result.action, result.output);
+      return format === "json" ? JSON.stringify(result.output) : aeroReadText(result.action, result.output);
     }
     if (result.kind === "unchanged") {
       return "Your index already matches these allocations. No transaction plan was created.";
