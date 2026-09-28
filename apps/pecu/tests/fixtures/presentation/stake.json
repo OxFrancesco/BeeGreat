@@ -1,0 +1,69 @@
+{
+  "preview": {
+    "code": "TEST12",
+    "title": "Stake position",
+    "state": "succeeded",
+    "text": "Stake on Base\nPosition \u00b7 Id: 77018794\nPosition \u00b7 Pool \u00b7 Symbol: CL100-WETH/USDC\nPosition \u00b7 Pool \u00b7 Lp: 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nPosition \u00b7 Pool \u00b7 Is cl: Yes\nPosition \u00b7 Pool \u00b7 Type label: cl-100\nPosition \u00b7 Pool \u00b7 Token0: WETH\nPosition \u00b7 Pool \u00b7 Token0 address: 0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\nPosition \u00b7 Pool \u00b7 Token1: USDC\nPosition \u00b7 Pool \u00b7 Token1 address: 0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nNetwork fee: not estimated yet.",
+    "expiresAt": 1900000000000,
+    "result": "Aerodrome stake confirmed on Base mainnet.\nhttps://basescan.org/tx/0x1111111111111111111111111111111111111111111111111111111111111111\nhttps://basescan.org/tx/0x2222222222222222222222222222222222222222222222222222222222222222",
+    "plan": {
+      "steps": [
+        {
+          "kind": "approval",
+          "title": "Allow the gauge to take the position for staking",
+          "contract": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contractName": "Position manager",
+          "status": "confirmed",
+          "hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        {
+          "kind": "stake",
+          "title": "Stake the position in its gauge",
+          "contract": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contractName": "Gauge",
+          "status": "confirmed",
+          "hash": "0x2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ]
+    }
+  },
+  "visible": [
+    "Stake on Base",
+    "CL100-WETH/USDC",
+    "not estimated yet"
+  ],
+  "technical": [
+    {
+      "label": "Position \u00b7 Id",
+      "value": "77018794"
+    },
+    {
+      "label": "Position \u00b7 Pool \u00b7 Lp",
+      "value": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "label": "Position \u00b7 Pool \u00b7 Is cl",
+      "value": "Yes"
+    },
+    {
+      "label": "Position \u00b7 Pool \u00b7 Type label",
+      "value": "cl-100"
+    },
+    {
+      "label": "Position \u00b7 Pool \u00b7 Token0",
+      "value": "WETH"
+    },
+    {
+      "label": "Position \u00b7 Pool \u00b7 Token0 address",
+      "value": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "label": "Position \u00b7 Pool \u00b7 Token1",
+      "value": "USDC"
+    },
+    {
+      "label": "Position \u00b7 Pool \u00b7 Token1 address",
+      "value": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

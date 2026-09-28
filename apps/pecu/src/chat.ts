@@ -1,3 +1,4 @@
+import { positionSummary, readPositionSnapshot } from "./position-contract";
 import { isJsonObject, type JsonInput, type JsonFields } from "./json-contract";
 import { z } from "zod";
 import { isTransactionReadPermissionError } from "./wallet-errors";
@@ -75,27 +76,10 @@ export function readableResult(value: JsonInput): string {
   return lines.join("\n") || "No summary is available. Send b/verbose to see the details.";
 }
 
-const positionSummarySchema = z.object({
-  chain_name: z.string(), id: units,
-  pool: z.object({ symbol: z.string(), lp: z.string(), is_cl: z.boolean(), token0: token, token1: token }),
-  amount_token0: units, amount_token1: units, staked_token0: units, staked_token1: units,
-});
-
 export function aeroReadText(action: string, output: JsonInput): string {
   if (action === "positions") {
-    const positions = z.array(positionSummarySchema).parse(output);
-    if (!positions.length) return "You have no liquidity positions.";
-    return positions.map(position => {
-      const { pool } = position;
-      const amounts = (amount0: string, amount1: string) =>
-        `${formatUnits(amount0, pool.token0.decimals)} ${pool.token0.symbol} + ${formatUnits(amount1, pool.token1.decimals)} ${pool.token1.symbol}`;
-      return [
-        `${pool.symbol}${pool.is_cl ? ` · Position ${position.id}` : ""} · ${position.chain_name}`,
-        `Pool: ${pool.lp}`,
-        `Unstaked: ${amounts(position.amount_token0, position.amount_token1)}`,
-        `Staked: ${amounts(position.staked_token0, position.staked_token1)}`,
-      ].join("\n");
-    }).join("\n\n");
+    const snapshot = readPositionSnapshot(output);
+    if (snapshot) return positionSummary(snapshot);
   }
   if (action === "stocks" && Array.isArray(output)) {
     if (!output.length) return "No stock tokens are available right now.";

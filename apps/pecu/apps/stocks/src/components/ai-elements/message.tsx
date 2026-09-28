@@ -1,5 +1,7 @@
 // Adapted from Vercel AI Elements. See LICENSE and NOTICE in this directory.
-import type { ComponentProps, HTMLAttributes } from "react";
+import { useMemo, type ComponentProps, type HTMLAttributes } from "react";
+import { receiptPresentation } from "../../lib/receipt-presentation";
+import { ReceiptLinks } from "../receipt-links";
 import { Streamdown } from "streamdown";
 import { createMathPlugin } from "@streamdown/math";
 import { Button } from "@/components/ui/button";
@@ -81,13 +83,16 @@ export const MessageResponse = ({
   streaming = false,
   className,
   ...props
-}: MessageResponseProps) => (
-  <div className={cn("msg-response break-words", className)} {...props}>
-    <Streamdown mode={streaming ? "streaming" : "static"} isAnimating={streaming} plugins={markdownPlugins} skipHtml controls={false}>
-      {children}
-    </Streamdown>
-  </div>
-);
+}: MessageResponseProps) => {
+  const blocks = useMemo(() => receiptPresentation(children), [children]);
+  return <div className={cn("msg-response break-words", className)} {...props}>
+    {blocks.map((block, index) => block.kind === "receipts" ? <ReceiptLinks key={index} links={block.links} /> : (
+      <Streamdown key={index} mode={streaming ? "streaming" : "static"} isAnimating={streaming} plugins={markdownPlugins} skipHtml controls={false}>
+        {block.text}
+      </Streamdown>
+    ))}
+  </div>;
+};
 
 export type MessagePlainProps = HTMLAttributes<HTMLDivElement> & {
   children: string;

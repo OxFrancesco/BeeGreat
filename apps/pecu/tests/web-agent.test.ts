@@ -82,7 +82,7 @@ test("wallet P&L reads the sender's own Base wallet once per period for ten minu
     expect(f.web.state(identity).messages).toEqual([]);
   } finally { f.close(); }
 });
-function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService, evmPlan?: EvmPlanResult) {
+function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService, evmPlan?: EvmPlanResult, positionData?: import("../src/json-contract").JsonObject[]) {
   const db = new Database(":memory:");
   const store = new Store(":memory:");
   let calls = 0;
@@ -130,7 +130,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
         throw new Error("No signing");
       },
     },
-    { ...services(stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), evm: evmStub({ propose: evmPlan }), nansen },
+    { ...services(positionData !== undefined ? { aero: { kind: "read", action: "positions", parameters: {}, output: positionData } } : stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), evm: evmStub({ propose: evmPlan }), nansen },
     {
       respond: async (message, capabilities, mode, progress) => {
         calls++;
@@ -630,5 +630,44 @@ test("Aero model tools receive complete data beyond the chat summary limits", as
     f.store.saveWallet("123", address, address);
     await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "Inspect every stock holding" });
     expect(f.web.state(identity).messages.at(-1)?.reply?.text).toBe("All holdings inspected.");
+  } finally { f.close(); }
+});
+
+test("liquidity cards survive replay and preserve model prose without leaking into another turn", async () => {
+  const raw = { id: "77018794", chain_name: "Base", pool: { symbol: "CL100-WETH/USDC", lp: address, token0: { symbol: "WETH", decimals: 18 }, token1: { symbol: "USDC", decimals: 6 } }, amount_token0: "641062895327367", amount_token1: "2004739", staked_token0: "0", staked_token1: "0" };
+  const f = fixture(async (message, capabilities) => {
+    if (message.text === "explain my LPs") {
+      await capabilities.aeroRead("positions", {});
+      return "Your positions are unstaked.";
+    }
+    return "Hello";
+  }, false, undefined, undefined, undefined, [raw]);
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    const input = { ...identity, requestId: crypto.randomUUID(), text: "/aero positions" };
+    await f.web.handle(input);
+    const reply = f.web.state(identity).messages.at(-1)?.reply;
+    expect(reply?.positionsOnly).toBe(true);
+    expect(reply?.positions?.positions[0]?.token0.unstaked).toBe("0.000641062895327367");
+    await f.web.handle(input);
+    expect(f.web.state(identity).messages).toHaveLength(1);
+    expect(new WebAgent(f.agent, f.store, f.sql).state(identity).messages[0]?.reply?.positions).toEqual(reply?.positions);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "explain my LPs" });
+    const explained = f.web.state(identity).messages.at(-1)?.reply;
+    expect(explained?.positionsOnly).toBe(false);
+    expect(explained?.text).toBe("Your positions are unstaked.");
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "hello" });
+    expect(f.web.state(identity).messages.at(-1)?.reply?.positions).toBeUndefined();
+  } finally { f.close(); }
+});
+
+test("empty liquidity portfolios retain a readable reply", async () => {
+  const f = fixture(undefined, false, undefined, undefined, undefined, []);
+  try {
+    f.store.saveWallet(identity.senderId, address, address);
+    await f.web.handle({ ...identity, requestId: crypto.randomUUID(), text: "/aero positions" });
+    const reply = f.web.state(identity).messages.at(-1)?.reply;
+    expect(reply?.positionsOnly).not.toBe(true);
+    expect(reply?.text).toBe("You have no liquidity positions.");
   } finally { f.close(); }
 });

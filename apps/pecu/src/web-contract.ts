@@ -1,3 +1,4 @@
+import { positionSnapshotSchema } from "./position-contract";
 import { stockSnapshotSchema } from "./stock-contract";
 import { analyticsResultsSchema, pnlSnapshotSchema } from "./analytics-contract";
 import { z } from "zod";
@@ -89,6 +90,8 @@ export function confirmationCommand(text: string): { kind: "confirm" | "cancel";
   return { kind: match[1].toLowerCase() === "confirm" ? "confirm" : "cancel", code: match[2].toUpperCase() };
 }
 export const webReplySchema = z.object({
+  positions: positionSnapshotSchema.optional(),
+  positionsOnly: z.boolean().optional(),
   analytics: analyticsResultsSchema.optional(),
   analyticsOnly: z.boolean().optional(),
   recovery: z.literal("connect_chatgpt").optional(),

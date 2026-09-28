@@ -1,11 +1,11 @@
-import type { Stock } from "./market";
+import type { HoldingStock } from "../../../../src/stock-presentation";
 
 const positive = (value: string | null) => {
   const number = value === null || !value.trim() ? NaN : Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;
 };
 
-export function stockHoldings(stocks: Stock[]) {
+export function stockHoldings(stocks: HoldingStock[]) {
   const owned = stocks.filter((stock) => (positive(stock.balance) ?? 0) > 0);
   const rows = owned.map((stock) => {
     const price = positive(stock.price_usdc);

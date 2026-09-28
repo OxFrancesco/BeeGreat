@@ -1,3 +1,6 @@
+import { ReceiptLinks } from "./receipt-links";
+import { receiptLink } from "../lib/receipt-presentation";
+import { transactionStepTitle } from "../lib/preview";
 import { CheckIcon, CircleAlertIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -166,9 +169,11 @@ export function TransactionPlan({ plan, state }: { plan: Plan; state: Confirmati
           >
             <Bead index={index} step={step} />
             <div className="pecu-plan-step-body">
-              <span className="pecu-plan-step-title"><AddressText text={step.title} /></span>
-              <span className="pecu-plan-step-meta">
+              <span className="pecu-plan-step-title"><AddressText text={transactionStepTitle(step)} /></span>
+              <div className="pecu-plan-step-meta">
                 {step.kind === "approval" ? <span>Permission only</span> : null}
+                <details className="pecu-plan-contract-details">
+                  <summary>{step.contractName ?? "Contract"} details</summary>
                 <span className="pecu-plan-contract">
                   {step.contractName ?? "Contract"}
                   <span className="pecu-plan-address">
@@ -180,20 +185,18 @@ export function TransactionPlan({ plan, state }: { plan: Plan; state: Confirmati
                     />
                   </span>
                 </span>
+                </details>
                 {step.value ? <span>Sends <span className="mono">{step.value}</span></span> : null}
-              </span>
+              </div>
               {step.status ? (
-                <span className="pecu-plan-step-status">
+                <div className="pecu-plan-step-status">
                   {statusText[step.status]}
                   {step.hash ? (
                     <>
-                      {" · "}
-                      <a href={`https://basescan.org/tx/${step.hash}`} rel="noreferrer" target="_blank">
-                        View on Basescan
-                      </a>
+                      <ReceiptLinks links={[receiptLink(`https://basescan.org/tx/${step.hash}`)!]} />
                     </>
                   ) : null}
-                </span>
+                </div>
               ) : null}
             </div>
           </li>

@@ -1,0 +1,91 @@
+band	default	a	0	0	10
+band	default	a	1	0	20
+band	default	a	2	0	30
+band	default	b	0	0	5
+band	default	b	1	0	15
+band	default	b	2	0	10
+band	stacked	a	0	0	10
+band	stacked	a	1	0	20
+band	stacked	a	2	0	30
+band	stacked	b	0	10	15
+band	stacked	b	1	20	35
+band	stacked	b	2	30	40
+band	percent	a	0	0	0.6666666666666666
+band	percent	a	1	0	0.5714285714285714
+band	percent	a	2	0	0.75
+band	percent	b	0	0.6666666666666666	1
+band	percent	b	1	0.5714285714285714	1
+band	percent	b	2	0.75	1
+scale	0	97	0	100
+scale	-60	240	-60	240
+scale	-30	0	-30	0
+scale	0	0	0	1
+scale	0	0.00371	0	0.004
+column	gradient	3	0	0
+column	gradient	3	1	0
+column	gradient	3	2	0.7535999999999999
+column	gradient	3	3	0.4517333333333333
+column	gradient	3	4	0.16666666666666666
+column	gradient	3	5	0.19
+column	gradient	3	6	0.21333333333333335
+column	gradient	3	7	0.5916666666666667
+column	gradient	3	8	0.25999999999999995
+column	gradient	3	9	0.7083333333333333
+column	gradient	3	10	0.7666666666666666
+column	gradient	3	11	0.825
+column	gradient	3	12	0.8833333333333333
+column	gradient	3	13	0.9416666666666667
+column	gradient	3	14	0
+column	gradient	3	15	0
+column	dotted	3	0	0
+column	dotted	3	1	0
+column	dotted	3	2	0.72
+column	dotted	3	3	0.36
+column	dotted	3	4	0
+column	dotted	3	5	0
+column	dotted	3	6	0
+column	dotted	3	7	0.5916666666666667
+column	dotted	3	8	0
+column	dotted	3	9	0.7083333333333333
+column	dotted	3	10	0.7666666666666666
+column	dotted	3	11	0.825
+column	dotted	3	12	0.8833333333333333
+column	dotted	3	13	0.9416666666666667
+column	dotted	3	14	0
+column	dotted	3	15	0
+column	hatched	3	0	0
+column	hatched	3	1	0
+column	hatched	3	2	0.7535999999999999
+column	hatched	3	3	0.36
+column	hatched	3	4	0
+column	hatched	3	5	0.19
+column	hatched	3	6	0.21333333333333335
+column	hatched	3	7	0
+column	hatched	3	8	0
+column	hatched	3	9	0.7083333333333333
+column	hatched	3	10	0.7666666666666666
+column	hatched	3	11	0
+column	hatched	3	12	0
+column	hatched	3	13	0.9416666666666667
+column	hatched	3	14	0
+column	hatched	3	15	0
+column	solid	3	0	0
+column	solid	3	1	0
+column	solid	3	2	0.8039999999999999
+column	solid	3	3	0.5893333333333333
+column	solid	3	4	0.41666666666666663
+column	solid	3	5	0.475
+column	solid	3	6	0.5333333333333333
+column	solid	3	7	0.5916666666666667
+column	solid	3	8	0.6499999999999999
+column	solid	3	9	0.7083333333333333
+column	solid	3	10	0.7666666666666666
+column	solid	3	11	0.825
+column	solid	3	12	0.8833333333333333
+column	solid	3	13	0.9416666666666667
+column	solid	3	14	0
+column	solid	3	15	0
+hash	Pecu	603635318	0.9481931878253818	0.10813866090029478	0.3436341139022261
+hash	Francesco	3861839317	0.04340189672075212	0.43450800282880664	0.3727468797005713
+hash	😀	3409036472	0.529068949399516	0.044745732797309756	0.21930805686861277
+resample	2	3.6666666666666665	5.333333333333333	7	5.666666666666667	4.333333333333333	3

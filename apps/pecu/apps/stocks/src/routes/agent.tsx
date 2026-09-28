@@ -1,3 +1,5 @@
+import { legacyStockHoldings } from "../../../../src/stock-presentation";
+import { LiquidityPositions, legacyPositions } from "../components/liquidity-positions";
 import { TurnProgress } from "../components/turn-progress";
 import { AnalyticsCard } from "../components/analytics-card";
 import { CommandMenu } from "../components/command-menu";
@@ -155,10 +157,10 @@ function AgentWorkspace({
     duration: sidebarMotion && !reducedMotion ? 0.2 : 0,
     ease: [0.77, 0, 0.175, 1] as const,
   };
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const clerk = useClerk();
   const navigate = useNavigate({ from: Route.fullPath });
-  const account = useAccount(Boolean(isSignedIn), threadId);
+  const account = useAccount(Boolean(isSignedIn), threadId, user?.id);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const draftKey = threadId ?? "default";
   const draft = drafts[draftKey] ?? "";
@@ -389,7 +391,7 @@ function AgentWorkspace({
                 {account.state?.yolo ? (
                   <button
                     className="pecu-chip pecu-chip-warn"
-                    disabled={account.pending}
+                    disabled={account.pending || account.syncing}
                     onClick={() => void send("/yolo off")}
                     type="button"
                   >
@@ -478,6 +480,9 @@ function AgentWorkspace({
                       )
                         return null;
                       const reply = message.reply;
+                      const legacy = reply && !reply.preview && !reply.question && !reply.positions ? legacyPositions(reply.text) : undefined;
+                      const oldStocks = reply && !reply.holdings && !reply.preview && !reply.question ? legacyStockHoldings(reply.text, message.createdAt) : undefined;
+                      const holdings = reply?.holdings ?? oldStocks;
                       const copyText = reply
                         ? reply.preview
                           ? `${reply.preview.title ? `${reply.preview.title}\n` : ""}${reply.preview.text}`
@@ -526,17 +531,18 @@ function AgentWorkspace({
                               {reply ? (
                                 <MessageContent className="pecu-bubble-bot">
                                   {reply.preview ? null : !(
-                                      (reply.holdings && reply.holdingsOnly) || reply.analyticsOnly
+                                      (reply.holdings && reply.holdingsOnly) || reply.analyticsOnly || reply.positionsOnly || legacy || oldStocks
                                     ) ? (
                                     <MessageResponse>
                                       {reply.question?.question ?? reply.text}
                                     </MessageResponse>
                                   ) : null}
                                   <ConnectionRecovery reply={reply} />
+                                  {!reply.preview && (reply.positions || legacy) ? <LiquidityPositions positions={reply.positions?.positions ?? legacy ?? []} /> : null}
                                   {!account.pending && message.id === messages.at(-1)?.id ? <TurnProgress stages={account.stages} pending={false} /> : null}
                                   {reply.analytics?.map((result) => <AnalyticsCard key={result.snapshot.key} snapshot={result.snapshot} />)}
-                                  {reply.holdings ? (
-                                    <StockHoldings {...reply.holdings} />
+                                  {holdings ? (
+                                    <StockHoldings {...holdings} />
                                   ) : null}
                                   {reply.question?.options.length ? (
                                     <div
@@ -551,7 +557,7 @@ function AgentWorkspace({
                                           size="sm"
                                           disabled={
                                             !account.atLatest ||
-                                            account.pending ||
+                                            account.pending || account.syncing ||
                                             message.id !==
                                               account.state?.messages.at(-1)
                                                 ?.id
@@ -571,7 +577,7 @@ function AgentWorkspace({
                                   ) : null}
                                   {reply.preview ? (
                                     <PreviewCard
-                                      busy={account.pending || walletCode !== null}
+                                      busy={account.pending || account.syncing || walletCode !== null}
                                       confirming={
                                         busyCode === reply.preview.code
                                       }
@@ -591,7 +597,7 @@ function AgentWorkspace({
                                     message.id === messages.at(-1)?.id ? (
                                       <MessageAction
                                         label="Retry reply"
-                                        disabled={account.pending}
+                                        disabled={account.pending || account.syncing}
                                         onClick={() =>
                                           void account.regenerate(message)
                                         }
@@ -617,7 +623,7 @@ function AgentWorkspace({
                                   {!account.pending ? (
                                     <Button
                                       className="pecu-inline-link"
-                                      disabled={account.pending}
+                                      disabled={account.pending || account.syncing}
                                       onClick={() =>
                                         void send(
                                           message.text,
@@ -682,7 +688,7 @@ function AgentWorkspace({
                 {account.retry ? (
                   <Button
                     className="pecu-inline-link"
-                    disabled={account.pending}
+                    disabled={account.pending || account.syncing}
                     onClick={() =>
                       void account.send(
                         account.retry!.text,
@@ -724,7 +730,7 @@ function AgentWorkspace({
                 {SUGGESTIONS.map((text) => (
                   <Suggestion
                     className="pecu-suggestion"
-                    disabled={account.pending}
+                    disabled={account.pending || account.syncing}
                     key={text}
                     onClick={(value) => void send(value)}
                     suggestion={text}
@@ -777,7 +783,7 @@ function AgentWorkspace({
                 <PromptInputSubmit
                   className="pecu-submit"
                   disabled={
-                    account.pending ||
+                    account.pending || account.syncing ||
                     account.loading ||
                     (isSignedIn && !draft.trim())
                   }

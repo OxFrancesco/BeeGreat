@@ -1,3 +1,4 @@
+import { readPositionSnapshot } from "./position-contract";
 import { STOCKS } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import { z } from "zod";
 import { jsonFieldsSchema, type JsonInput, type JsonFields } from "./json-contract";
@@ -515,6 +516,10 @@ export class PecuAgent {
     }
     this.saveDetails(message, result.kind === "read" ? result.output : result);
     if (result.kind === "read") {
+      if (result.action === "positions") {
+        const snapshot = readPositionSnapshot(result.output);
+        if (snapshot) this.store.savePositionSnapshot(message.eventId, snapshot);
+      }
       if (result.action === "stocks") {
         const stocks = stocksSchema.safeParse(result.output);
         if (stocks.success) this.store.saveStockSnapshot(message.eventId, { stocks: stocks.data, observedAt: Date.now() });

@@ -114,3 +114,25 @@ test("different per-group fees retain their association", () => {
     "0.02 ETH",
   ]);
 });
+
+test("shared stake fixture only discloses validated technical fields", async () => {
+  const { default: fixture } = await import("../../../tests/fixtures/presentation/stake.json");
+  const parsed = previewPresentation(fixture.preview.text);
+  expect(parsed.technical).toEqual(fixture.technical);
+  expect([...parsed.groups.flatMap((group) => group.details), ...parsed.metadata].map((row) => row.value)).toEqual(fixture.visible);
+});
+
+test("unknown constraints, malformed metadata, and warning text stay visible", () => {
+  for (const line of ["Position · Pool · Token0: WARNING do not sign", "Position · Id: 42. Review carefully", "Position · Pool · Lp: not verified", "Custom constraint: 42", "Continue with /confirm only after checking the receipt"]) {
+    const parsed = previewPresentation(line);
+    expect(parsed.technical).toEqual([]);
+    expect(parsed.groups[0]!.details).toHaveLength(1);
+  }
+});
+
+test("receipt deduplication never hides an extra result receipt", async () => {
+  const { previewReceipts } = await import("../src/lib/preview");
+  const first = `0x${"a".repeat(64)}`;
+  const second = `0x${"b".repeat(64)}`;
+  expect(previewReceipts(`https://basescan.org/tx/${first}\nhttps://basescan.org/tx/${second}\nhttps://basescan.org/tx/${second}`, [first])).toEqual([`https://basescan.org/tx/${second}`]);
+});

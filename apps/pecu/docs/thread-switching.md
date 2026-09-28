@@ -14,9 +14,15 @@ A reply that asks the user to connect ChatGPT opens the connection dialog. When 
 
 The web client requests 40 turns at a time, using `Earlier messages`, `Later messages`, and `Latest`. It replaces the current page instead of accumulating every visited page. The thread sidebar requests 40 indexed summaries per page and keeps the selected thread visible if it is outside that page. Message rows use measured TanStack Virtual windows with two rows of overscan. The small sidebar page renders all of its buttons so keyboard navigation remains available.
 
-The history cache retains at most 12 populated histories, with a 4 MiB serialized-payload budget. It evicts the least recently used inactive pages. The active page remains readable even if that single page exceeds the byte budget. This is a payload budget, not a JavaScript heap limit. Pending and retry controls survive history eviction; user drafts are not discarded. Hover, focus, and touch prefetch at most two concurrent reads. Switching cancels obsolete reads. There is no eager loop over every sidebar thread.
+The history cache retains at most 12 populated histories, with a 4 MiB serialized-payload budget. It evicts the least recently used inactive pages. The active page remains readable even if that single page exceeds the byte budget. This is a payload budget, not a JavaScript heap limit. Pending and retry controls survive history eviction; user drafts are not discarded. The first eight recent histories warm in the background with two workers; hover, focus, and touch can also request a history. Switching cancels obsolete foreground reads and reuses background requests. The full sidebar is never downloaded.
 
 Cached selection revalidates its current page in the background. Message polling applies only to the latest page. Sending from an older page returns to the latest page. Historical question choices and retry buttons cannot act as if they were the latest turn. Superseded requests and responses from before sign-out cannot replace current state.
+
+## Local restart recovery
+
+Web stores bounded history in IndexedDB; native Kotlin stores it in private, backup-excluded app files. Snapshots are keyed by Clerk user ID, expire after 24 hours, and are removed on logout or account changes. Both clients restore readable messages before the network finishes, then revalidate. Restored snapshots cannot send messages or confirm transactions until fresh account state arrives. Uncached histories still require a network read. Storage failures fall back to the normal network path.
+
+Android decodes history and calculates cache sizes off the main thread. Both clients retain at most 12 histories within a 4 MiB serialized-history budget.
 
 ## Storage and rollout
 
@@ -50,7 +56,7 @@ The browser fixture at `http://127.0.0.1:5198/agent` models 1,000 threads and 10
 
 ## Applicable clients
 
-This change covers Pecu desktop/mobile web, the Stocks chat, their authenticated API routes, and the Pecu Worker storage contract. BeeGreat native mobile, Android, CLI, iMessage, voice, Hive, model providers, and channel rendering do not consume these Pecu web-history endpoints. Their behavior is unchanged. Both backend and web deployment are required for this follow-up.
+The original pagination work covers Pecu desktop/mobile web, Stocks chat, and Worker storage. The cache follow-up also covers native Pecu Android (`apps/pecu/apps/android`). It keeps the same endpoints and contracts, requiring a web release and Android rebuild; no backend deployment is needed for caching. BeeGreat Expo, CLI, iMessage, voice, Hive, and inference providers are unchanged because this is client history presentation.
 
 ## Mascot
 

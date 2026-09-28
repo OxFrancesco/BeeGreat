@@ -2,6 +2,8 @@ import type { z } from "zod";
 import type { previewSchema } from "../../../../src/web-contract";
 import { transactionPlans } from "./transaction-plans";
 
+import stake from "../../../../tests/fixtures/presentation/stake.json";
+
 const address = "0x1234567890123456789012345678901234567890";
 const fee = "Network fee: not estimated yet.";
 export const transactionPreviews: Array<z.infer<typeof previewSchema>> = [
@@ -44,7 +46,7 @@ export const transactionPreviews: Array<z.infer<typeof previewSchema>> = [
     title: "Remove liquidity",
     text: `Withdraw on Base\nPosition: 123\nMinimum amount 0: 0.0248 ETH\nMinimum amount 1: 59.70 USDC\n${fee}`,
   },
-  { title: "Stake position", text: `Stake on Base\nPosition: 123\n${fee}` },
+  { title: "Stake position", text: stake.preview.text, plan: { steps: stake.preview.plan.steps.map((step) => ({ ...step, kind: step.kind === "approval" ? "approval" : "stake", status: undefined, hash: undefined })) } },
   { title: "Claim fees", text: `Claim fees on Base\nPosition: 123\n${fee}` },
   {
     title: "Aave supply",

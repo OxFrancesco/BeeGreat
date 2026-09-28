@@ -6,20 +6,24 @@ import {
   CircleAlertIcon,
   XIcon,
 } from "lucide-react";
-import { useId } from "react";
+import { useId, useMemo } from "react";
 import type { z } from "zod";
 import type { previewSchema } from "../../../../src/web-contract";
 import {
   confirmationLabel,
   previewPresentation,
+  previewReceipts,
+  isRepeatedSuccess,
   type PreviewRow,
 } from "../lib/preview";
 import { AddressText } from "./address-text";
 import { CopyButton } from "./copy-button";
+import { ReceiptLinks } from "./receipt-links";
+import { receiptLink } from "../lib/receipt-presentation";
+import { MessageResponse } from "./ai-elements/message";
 import { TransactionPlan } from "./transaction-plan";
 import {
   Confirmation,
-  ConfirmationAccepted,
   ConfirmationAction,
   ConfirmationActions,
   ConfirmationRejected,
@@ -28,12 +32,6 @@ import {
 } from "./ai-elements/confirmation";
 
 type Preview = z.infer<typeof previewSchema>;
-
-const TX_LINK = /https:\/\/basescan\.org\/tx\/0x[0-9a-fA-F]{64}/g;
-
-function shorten(hash: string) {
-  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
-}
 
 /** Values that read as amounts or token figures keep tabular digits. */
 function isAmount(value: string) {
@@ -116,14 +114,18 @@ export function PreviewCard({
     groups: parsedGroups,
     metadata,
     basket,
-  } = previewPresentation(preview.text);
+    technical,
+  } = useMemo(() => previewPresentation(preview.text), [preview.text]);
+  const hiddenMetadata = metadata.filter((row) => !["pending", "executing"].includes(preview.state) && row.label === "Network fee" && row.value === "not estimated yet");
+  const visibleMetadata = metadata.filter((row) => !hiddenMetadata.includes(row));
+  const technicalRows = [...technical, ...hiddenMetadata];
   const groups = parsedGroups.map((group) => ({
     ...group,
     details: group.details.filter(
       (row) =>
         !(
-          row.label === "Action" &&
-          row.value.toLowerCase() === preview.title?.toLowerCase()
+          (row.label === "Action" && row.value.toLowerCase() === preview.title?.toLowerCase()) ||
+          (!row.label && ((preview.title === "Stake position" && row.value === "Stake on Base") || (preview.title === "Unstake position" && row.value === "Unstake on Base")))
         ),
     ),
   }));
@@ -134,7 +136,7 @@ export function PreviewCard({
   });
   const labels = {
     pending: signedByWallet ? `Review, then sign in your wallet · expires ${expires}` : `Review before confirming · expires ${expires}`,
-    executing: signedByWallet ? "Sent from your wallet, waiting for Base" : "Submitted, waiting for the receipt",
+    executing: "In progress",
     succeeded: "Executed and verified on Base",
     failed: "Failed",
     cancelled: "Cancelled, nothing was sent",
@@ -148,10 +150,8 @@ export function PreviewCard({
         : "Confirming…"
     : labels[preview.state];
   const confirm = () => (signedByWallet ? onWalletConfirm?.(false) : void onSend(`/confirm ${preview.code}`));
-  // Steps with a hash already link to Basescan inside the plan.
-  const links = preview.plan?.steps.some((step) => step.hash)
-    ? []
-    : (preview.result ?? "").match(TX_LINK) ?? [];
+  const links = previewReceipts(preview.result, preview.plan?.steps.flatMap((step) => step.hash ? [step.hash] : []) ?? []);
+  const resultText = (preview.result ?? "").split("\n").filter((line) => !/^https:\/\/basescan\.org\/tx\/0x[\da-fA-F]{64}$/.test(line.trim())).join("\n").trim();
   const StateIcon =
     preview.state === "succeeded"
       ? CheckIcon
@@ -202,8 +202,16 @@ export function PreviewCard({
             {group.details.length ? <DetailRows rows={group.details} /> : null}
           </div>
         ))}
-        {metadata.length ? <DetailRows rows={metadata} /> : null}
+        {visibleMetadata.length ? <DetailRows rows={visibleMetadata} /> : null}
         {preview.plan ? <TransactionPlan plan={preview.plan} state={preview.state} /> : null}
+        {technicalRows.length ? (
+          <details className="pecu-preview-reference">
+            <summary>Transaction details</summary>
+            <DetailRows rows={technicalRows} />
+            {isRepeatedSuccess(preview.state, resultText) ? <p>{resultText}</p> : null}
+          </details>
+        ) : null}
+        {resultText && !isRepeatedSuccess(preview.state, resultText) ? <MessageResponse className="pecu-transaction-result">{resultText}</MessageResponse> : null}
         {approval &&
         !preview.text.includes("This only approves token spending.") ? (
           <p className="pecu-preview-approval-note">
@@ -255,28 +263,10 @@ export function PreviewCard({
           </p>
         ) : null}
       </ConfirmationRequest>
-      <ConfirmationAccepted>
         {links.length ? (
-          <div className="pecu-confirmation-links">
-            {links.map((link, index) => (
-              <a href={link} key={link} rel="noreferrer" target="_blank">
-                View transaction{links.length > 1 ? ` ${index + 1}` : ""} on
-                Basescan{" "}
-                <span className="mono">{shorten(link.slice(-66))}</span>
-              </a>
-            ))}
-          </div>
+          <div className="pecu-confirmation-links"><ReceiptLinks links={links.flatMap((url) => { const link = receiptLink(url); return link ? [link] : []; })} /></div>
         ) : null}
-        <span className="pecu-confirmation-note">
-          Receipt verified on Base. Amounts above are from the original preview.
-        </span>
-      </ConfirmationAccepted>
       <ConfirmationRejected>
-        {preview.state === "failed" && preview.result ? (
-          <span className="pecu-confirmation-note">
-            {preview.result.split("\n")[0]}
-          </span>
-        ) : null}
         <span className="pecu-confirmation-note">
           {preview.state === "failed"
             ? "Execution encountered an error. Check the reply and transaction status before trying again."

@@ -80,6 +80,24 @@ const prominent = new Set([
 ]);
 const shared = new Set(["Network", "Network fee"]);
 
+// Only known, value-checked pool metadata can move behind disclosure. Unknown
+// constraints, recipients, spenders, amounts and warnings stay in the review.
+export function isTechnicalPreviewRow(row: PreviewRow): boolean {
+  if (row.label === "Position · Id") return /^\d+$/.test(row.value);
+  if (/^Position · Pool · (Lp|Token[01] address)$/.test(row.label))
+    return /^0x[\da-fA-F]{40}$/.test(row.value);
+  if (row.label === "Position · Pool · Is cl") return /^(Yes|No)$/.test(row.value);
+  if (row.label === "Position · Pool · Type label") return /^(cl-\d+|volatile|stable)$/.test(row.value);
+  if (/^Position · Pool · Token[01]$/.test(row.label)) return /^[A-Za-z0-9._-]{1,24}$/.test(row.value);
+  return false;
+}
+
+export function previewReceipts(result: string | undefined, hashes: readonly string[]) {
+  const linked = new Set(hashes.map((hash) => hash.toLowerCase()));
+  const links = [...new Set(result?.match(/https:\/\/basescan\.org\/tx\/0x[\da-fA-F]{64}\b/g) ?? [])];
+  return links.filter((link) => !linked.has(link.slice(-66).toLowerCase()));
+}
+
 /** Only promote known fields; unrecognised summaries and warnings remain visible. */
 export function previewPresentation(text: string) {
   const parsed = previewRows(text);
@@ -95,14 +113,17 @@ export function previewPresentation(text: string) {
     ),
   );
   const metadata: PreviewRow[] = [];
+  const technical: PreviewRow[] = [];
   const groups = parsed
     .map((rows) => {
       const amounts: PreviewRow[] = [];
       const details: PreviewRow[] = [];
       for (const row of rows) {
-        if (shared.has(row.label) && !conflicting.has(row.label))
+        if (isTechnicalPreviewRow(row)) technical.push(row);
+        else if (shared.has(row.label) && !conflicting.has(row.label))
           metadata.push(row);
         else if (prominent.has(row.label)) amounts.push(row);
+        else if (row.label === "Position · Pool · Symbol") details.push({ label: "Pool", value: row.value });
         else details.push(row);
       }
       return { amounts, details };
@@ -110,6 +131,7 @@ export function previewPresentation(text: string) {
     .filter((group) => group.amounts.length || group.details.length);
   return {
     groups,
+    technical,
     metadata: metadata.filter(
       (row, index) =>
         metadata.findIndex(
@@ -148,4 +170,14 @@ export function confirmationLabel(title = "") {
   const aave = /^Aave (supply|borrow|withdraw|repay)$/i.exec(title);
   if (aave) return `Confirm ${aave[1]!.toLowerCase()}`;
   return "Confirm transaction";
+}
+
+export function transactionStepTitle(step: Readonly<{ kind: string; title: string }>) {
+  if (step.kind === "approval" && step.title === "Allow the gauge to take the position for staking") return "Allow staking";
+  if (step.kind === "stake" && step.title === "Stake the position in its gauge") return "Stake position";
+  return step.title;
+}
+
+export function isRepeatedSuccess(state: string, result: string) {
+  return state === "succeeded" && /^Aerodrome (stake|unstake|claim fees|claim emissions|deposit|withdraw|swap) confirmed on Base mainnet\.$/.test(result);
 }

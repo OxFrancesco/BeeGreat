@@ -28,7 +28,7 @@ export function turnPresentation(
   );
   const preview = target?.reply?.preview;
   let showReply = true;
-  if (preview && message.reply) {
+  if (preview && message.reply && !message.reply.preview && !message.reply.question && !message.reply.positions && !message.reply.holdings && !message.reply.analytics?.length && !message.reply.recovery) {
     if (
       command.kind === "confirm" &&
       preview.result !== undefined &&
@@ -38,7 +38,7 @@ export function turnPresentation(
     } else if (
       command.kind === "cancel" &&
       preview.state === "cancelled" &&
-      message.reply.text.startsWith("Proposal cancelled")
+      message.reply.text === "Proposal cancelled. Nothing was sent."
     ) {
       showReply = false;
     }

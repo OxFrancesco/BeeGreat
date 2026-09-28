@@ -1,0 +1,90 @@
+{
+  "wallet": "0x0000000000000000000000000000000000000001",
+  "senderKind": "web",
+  "yolo": false,
+  "signer": null,
+  "threadId": "native-contract",
+  "olderCursor": {
+    "at": 100,
+    "row": 1
+  },
+  "newerCursor": null,
+  "messages": [
+    {
+      "id": "question",
+      "text": "Inspect my wallet",
+      "createdAt": 100,
+      "canRetry": false,
+      "reply": {
+        "question": {
+          "question": "Which token?",
+          "options": [
+            "ETH",
+            "USDC"
+          ]
+        },
+        "text": "Which token?",
+        "preview": null
+      }
+    },
+    {
+      "id": "preview",
+      "text": "Preview a transfer",
+      "createdAt": 101,
+      "reply": {
+        "text": "Review the transfer.",
+        "preview": {
+          "code": "ABC234",
+          "title": "Send USDC",
+          "text": "Send 1 USDC to 0x0000000000000000000000000000000000000002",
+          "state": "pending",
+          "expiresAt": 200,
+          "plan": {
+            "steps": [
+              {
+                "kind": "transfer",
+                "title": "Send 1 USDC",
+                "contract": "0x0000000000000000000000000000000000000003",
+                "status": "waiting"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "analytics",
+      "text": "Show token flows",
+      "createdAt": 102,
+      "reply": {
+        "analytics": [
+          {
+            "snapshot": {
+              "key": "flows",
+              "observedAt": 102,
+              "subject": "USDC",
+              "chain": "base",
+              "period": "24h",
+              "partial": false,
+              "kind": "flows",
+              "rows": [
+                {
+                  "label": "Whales",
+                  "netUsd": 12,
+                  "wallets": 3
+                }
+              ]
+            },
+            "text": "Whales: $12 net"
+          }
+        ],
+        "analyticsOnly": true,
+        "text": "Token flows",
+        "preview": null
+      }
+    }
+  ],
+  "stocks": null,
+  "stocksAt": null,
+  "basket": null
+}

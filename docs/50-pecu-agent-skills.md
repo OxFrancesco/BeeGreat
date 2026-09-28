@@ -1,6 +1,6 @@
 # Pecu task skills
 
-Pecu's system prompt is `skills/pecu/core/SKILL.md` (response style, transaction and recovery rules, planning, how to load skills) plus a one-line index of the task skills. It is about 4.3 KB, down from 14.3 KB. Everything task-specific lives in eight skills under `skills/pecu/`:
+Pecu's system prompt is `skills/pecu/core/SKILL.md` (response style, transaction and recovery rules, planning, how to load skills) plus a one-line index of the task skills. It is about 3.9 KB, down from 14.3 KB. Everything task-specific lives in eight skills under `skills/pecu/`:
 
 | Skill | Tools | Loads on words like |
 | --- | --- | --- |

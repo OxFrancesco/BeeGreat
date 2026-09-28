@@ -115,13 +115,13 @@ test("pointing at a transaction highlights only the edges it moves", async () =>
   expect(host.querySelector(".is-across [data-active]")).toBeNull();
 });
 
-test("confirmed steps link their own receipts, so the card does not repeat the result links", async () => {
+test("confirmed steps retain additional result receipts without repeating step links", async () => {
   await renderPlan("executing");
   expect([...host.querySelectorAll(".pecu-plan-step")].map((step) => step.getAttribute("data-status"))).toEqual(["confirmed", "confirmed", "confirmed", "confirmed", "submitted", "waiting"]);
   expect(host.querySelectorAll('.is-across .pecu-plan-edge[data-done]')).toHaveLength(1);
   await renderPlan("succeeded");
   expect(host.querySelectorAll('.pecu-plan-step a[href^="https://basescan.org/tx/"]')).toHaveLength(6);
-  expect(host.querySelector(".pecu-confirmation-links")).toBeNull();
+  expect(host.querySelectorAll(".pecu-confirmation-links a")).toHaveLength(1);
   await renderPlan("failed");
   expect([...host.querySelectorAll(".pecu-plan-step-status")].map((status) => status.textContent)).toEqual([
     expect.stringContaining("Confirmed on Base"), expect.stringContaining("Confirmed on Base"), "Failed", "Not sent", "Not sent", "Not sent",
@@ -166,9 +166,23 @@ test("a preview signed by a linked wallet runs the wallet flow instead of typing
   expect(confirmations).toEqual([false]);
   expect(commands).toEqual(["/cancel ABC123"]);
   await renderSigned("executing", { message: "Your wallet was asked to send transaction 1, but Pecu never got its hash.", resend: true });
-  expect(host.textContent).toContain("Sent from your wallet, waiting for Base");
+  expect(host.textContent).toContain("In progress");
   await act(async () => button("Send again").click());
   await act(async () => button("Check transaction").click());
   expect(confirmations).toEqual([false, true, false]);
   expect(commands).toEqual(["/cancel ABC123"]);
+});
+
+test("stake details start closed and full recovery instructions survive failure", async () => {
+  const { default: fixture } = await import("../../../tests/fixtures/presentation/stake.json");
+  const { previewSchema } = await import("../../../src/web-contract");
+  const preview = previewSchema.parse(fixture.preview);
+  await act(async () => root.render(<PreviewCard preview={preview} busy={false} confirming={false} onSend={async () => {}} />));
+  const details = [...host.querySelectorAll("details")].find((node) => node.querySelector("summary")?.textContent === "Transaction details")!;
+  expect(details.open).toBe(false);
+  expect(details.textContent).toContain("77018794");
+  expect(host.querySelectorAll('a[href^="https://basescan.org/tx/"]')).toHaveLength(2);
+  await act(async () => root.render(<PreviewCard preview={{ ...preview, state: "failed", result: "Approval confirmed.\nStake failed. Check receipt before retrying." }} busy={false} confirming={false} onSend={async () => {}} />));
+  expect(host.textContent).toContain("Stake failed. Check receipt before retrying.");
+  expect(button("Confirm stake")).toBeUndefined();
 });

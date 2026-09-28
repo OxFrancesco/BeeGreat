@@ -1,3 +1,4 @@
+import type { PositionSnapshot } from "./position-contract";
 import { jsonValueSchema } from "./json-contract";
 import type { PolymarketToken } from "./integrations/polymarket/model-output";
 import type { StockSnapshot } from "./stock-contract";
@@ -70,6 +71,8 @@ export type ExecutionStep = Readonly<{
 export const eventProcessingLeaseMs = 2 * 60 * 1_000;
 
 export interface AgentStateStore {
+  savePositionSnapshot(eventId: string, snapshot: PositionSnapshot): void;
+  positionSnapshot(eventId: string): PositionSnapshot | undefined;
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void;
   stockSnapshot(eventId: string): StockSnapshot | undefined;
   saveTransactionPlan(intentId: string, plan: TransactionPlan): void;

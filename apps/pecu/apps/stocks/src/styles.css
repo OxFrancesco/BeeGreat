@@ -584,3 +584,14 @@ textarea {
 .pecu-card-model canvas:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; border-radius: var(--clay-radius-surface); }
 .pecu-card-controls { display: flex; justify-content: center; gap: 8px; }
 .pecu-card-collection .pecu-card-hint { text-align: center; font-size: 12px; margin-top: 4px; }
+
+.pecu-position-card { border-radius: var(--clay-radius-surface); box-shadow: var(--clay-shadow-sm); }
+
+.pecu-plan-contract-details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.pecu-plan-contract-details[open] summary { margin-bottom: .5rem; }
+.pecu-transaction-result { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; }
+
+.pecu-receipt-links { display: flex; flex-wrap: wrap; gap: 10px; margin-block: 12px; }
+.pecu-receipt-link { min-height: 44px; max-width: 100%; gap: 8px; text-decoration: none !important; font-weight: 500 !important; }
+.pecu-receipt-link span { overflow-wrap: anywhere; min-width: 0; }
+.pecu-receipt-link svg { flex-shrink: 0; }

@@ -1,0 +1,4 @@
+-keepattributes Signature,InnerClasses,EnclosingMethod
+-keep,allowoptimization,allowshrinking,allowobfuscation interface * { @retrofit2.http.* <methods>; }
+-keep class com.clerk.api.** { *; }
+-keepclassmembers class **$Companion { kotlinx.serialization.KSerializer serializer(...); }

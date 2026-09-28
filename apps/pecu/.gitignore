@@ -1,6 +1,7 @@
 
 # codeview reference codebases
 resources/
+!apps/android/**/src/*/resources/
 
 # Local runtime state and secrets
 .env

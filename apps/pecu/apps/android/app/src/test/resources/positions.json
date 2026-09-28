@@ -1,0 +1,86 @@
+{
+  "snapshot": {
+    "observedAt": 123,
+    "positions": [
+      {
+        "id": "77018794",
+        "pool": "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59",
+        "label": "CL100-WETH/USDC",
+        "chain": "Base",
+        "token0": {
+          "symbol": "WETH",
+          "unstaked": "0.000641062895327367",
+          "staked": "0"
+        },
+        "token1": {
+          "symbol": "USDC",
+          "unstaked": "2.004739",
+          "staked": "0"
+        }
+      },
+      {
+        "id": "77024465",
+        "pool": "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59",
+        "label": "CL100-WETH/USDC",
+        "chain": "Base",
+        "token0": {
+          "symbol": "WETH",
+          "unstaked": "0.000320770072925988",
+          "staked": "0"
+        },
+        "token1": {
+          "symbol": "USDC",
+          "unstaked": "1.003115",
+          "staked": "0"
+        }
+      },
+      {
+        "id": "77027019",
+        "pool": "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59",
+        "label": "CL100-WETH/USDC",
+        "chain": "Base",
+        "token0": {
+          "symbol": "WETH",
+          "unstaked": "0.000160465799691927",
+          "staked": "0"
+        },
+        "token1": {
+          "symbol": "USDC",
+          "unstaked": "0.50181",
+          "staked": "0"
+        }
+      }
+    ]
+  },
+  "legacy": "CL100-WETH/USDC · Position 77018794 · Base\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nUnstaked: 0.000641062895327367 WETH + 2.004739 USDC\nStaked: 0 WETH + 0 USDC\n\nCL100-WETH/USDC · Position 77024465 · Base\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nUnstaked: 0.000320770072925988 WETH + 1.003115 USDC\nStaked: 0 WETH + 0 USDC\n\nCL100-WETH/USDC · Position 77027019 · Base\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nUnstaked: 0.000160465799691927 WETH + 0.50181 USDC\nStaked: 0 WETH + 0 USDC",
+  "amounts": [
+    {
+      "exact": "0",
+      "compact": "0"
+    },
+    {
+      "exact": "0.00000001",
+      "compact": "<0.000001"
+    },
+    {
+      "exact": "0.000641062895327367",
+      "compact": "≈0.000641"
+    },
+    {
+      "exact": "2.004739",
+      "compact": "≈2.004"
+    },
+    {
+      "exact": "100.200000",
+      "compact": "100.2"
+    },
+    {
+      "exact": "123456789.12345",
+      "compact": "≈123456789"
+    },
+    {
+      "exact": "0.00100000",
+      "compact": "0.001"
+    }
+  ]
+}
