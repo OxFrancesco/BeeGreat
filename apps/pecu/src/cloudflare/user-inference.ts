@@ -13,7 +13,7 @@ import type { TurnStage } from "../progress";
 import type { ParagraphSink } from "../web-stream";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
-const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "liquidity", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
+const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "liquidity", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "safeList", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
 
 export class InferenceTools extends RpcTarget {
   constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode, private readonly onParagraph?: ParagraphSink) { super(); }
@@ -143,6 +143,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       evmDecode: (...args) => bridge.call("evmDecode", args),
       safeRead: (...args) => bridge.call("safeRead", args),
       safeQueue: (...args) => bridge.call("safeQueue", args),
+      safeList: (...args) => bridge.call("safeList", args),
       evmPropose: (...args) => bridge.call("evmPropose", args),
       depositInstructions: (...args) => bridge.call("depositInstructions", args),
       depositSetup: (...args) => bridge.call("depositSetup", args),

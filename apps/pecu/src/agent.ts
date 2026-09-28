@@ -134,6 +134,8 @@ export type AgentServices = Readonly<{
   safeQueue?: Readonly<{
     share(senderId: string, command: SafeReadCommand, output: JsonInput): Promise<void>;
     pending(senderId: string, safe: string): Promise<JsonInput>;
+    created(senderId: string, safe: string, creationEvent: string): Promise<void>;
+    list(senderId: string): Promise<JsonInput>;
   }>;
   /** The linked wallet a web thread acts with; absent means the Pecu wallet. */
   linkedWallets?: Readonly<{ signer(senderId: string, conversationId: string): `0x${string}` | undefined }>;
@@ -423,6 +425,12 @@ export class PecuAgent {
         this.saveDetails(message, view);
         return JSON.stringify(view);
       },
+      safeList: async () => {
+        if (!this.services.safeQueue) throw new Error("Your Safe list isn't available.");
+        const view = await this.services.safeQueue.list(message.senderId);
+        this.saveDetails(message, view);
+        return JSON.stringify(view);
+      },
       evmPropose: (action, parameters) => this.runEvm(message, action, parameters),
       depositInstructions: (amount) => this.depositReply(message, amount),
       depositSetup: (email) => this.depositSetup(message, email),
@@ -568,7 +576,16 @@ export class PecuAgent {
   }
 
   private async runEvm(message: VerifiedMessage, action: EvmTxAction, parameters: JsonInput): Promise<string> {
-    return (await this.proposeAction(message, action, parameters)).text;
+    const { text, context } = await this.proposeAction(message, action, parameters);
+    const safe = z.string().safeParse(context.safe);
+    if (action === "safe_create" && safe.success && this.store.intentForSource(message.eventId)) {
+      try {
+        await this.services.safeQueue?.created(message.senderId, safe.data, message.eventId);
+      } catch (error) {
+        log("warn", "safe_list_record_failed", { error: errorMessage(error) });
+      }
+    }
+    return text;
   }
 
   async proposeAction(message: VerifiedMessage, action: EvmTxAction, parameters: JsonInput): Promise<{ text: string; context: Readonly<JsonFields> }> {

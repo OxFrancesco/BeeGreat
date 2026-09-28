@@ -151,6 +151,11 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
                 if (!this.safeProfile) throw new Error("The shared Safe queue isn't available.");
                 return this.safeProfile.pending(senderId, safe);
               },
+              created: async (senderId, safe, creationEvent) => this.safeProfile?.recordChatSafe(senderId, safe, creationEvent),
+              list: async (senderId) => {
+                if (!this.safeProfile) throw new Error("Your Safe list isn't available.");
+                return this.safeProfile.mySafes(senderId);
+              },
             },
             linkedWallets,
           },

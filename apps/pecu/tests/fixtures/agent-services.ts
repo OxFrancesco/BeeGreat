@@ -80,6 +80,7 @@ export const unusedCapabilities = {
   evmDecode: unexpected("evmDecode"),
   safeRead: unexpected("safeRead"),
   safeQueue: unexpected("safeQueue"),
+  safeList: unexpected("safeList"),
   evmPropose: unexpected("evmPropose"),
   depositInstructions: unexpected("depositInstructions"),
   depositSetup: unexpected("depositSetup"),

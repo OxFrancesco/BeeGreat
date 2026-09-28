@@ -123,6 +123,11 @@ function harness() {
     } else throw new Error(`unexpected ${action}`);
     return { kind: "transaction", action, parameters, summary: `Prepared ${action}`, context: action === "safe_create" ? { safe: "0x5afe000000000000000000000000000000000002" } : { safe }, calls: [call] };
   };
+  let profile: SafeProfile | undefined;
+  const linked = () => {
+    if (!profile) throw new Error("profile not ready");
+    return profile;
+  };
   const agent = new PecuAgent(
     { enableMainnetExecution: false, maxSlippageBps: 100, quoteTtlSeconds: 600, depositRelayMaxUsd: 500, depositRelayDailyMaxUsd: 2000 },
     store,
@@ -134,7 +139,15 @@ function harness() {
       approve: async () => { throw new Error("No signing"); },
       transaction: async () => { throw new Error("No signing"); },
     },
-    services({ evm: { ...services({}).evm, propose } }),
+    services({
+      evm: { ...services({}).evm, propose },
+      safeQueue: {
+        share: (senderId, command, output) => linked().shareProposal(senderId, command, output),
+        pending: (senderId, address) => linked().pending(senderId, address),
+        created: async (senderId, address, eventId) => linked().recordChatSafe(senderId, address, eventId),
+        list: async (senderId) => linked().mySafes(senderId),
+      },
+    }),
     { respond: async () => "unused" },
   );
   const evm = {
@@ -156,8 +169,8 @@ function harness() {
   };
   store.saveWallet(alice.senderId, aliceWallet, aliceWallet);
   store.saveWallet(bob.senderId, bobWallet, bobWallet);
-  const profile = new SafeProfile({ agent, store, evm, chain: new SafeChain(base.rpc), sql });
-  return { profile, base, store, sql, safeReads, proposals, close: () => { db.close(); store.close(); } };
+  profile = new SafeProfile({ agent, store, evm, chain: new SafeChain(base.rpc), sql });
+  return { profile, agent, base, store, sql, safeReads, proposals, close: () => { db.close(); store.close(); } };
 }
 type Harness = ReturnType<typeof harness>;
 
@@ -331,4 +344,25 @@ test("Safe proposals built in chat join the shared queue without duplicates", as
   await h.profile.shareProposal(bob.senderId, "safe-info", { safe });
   const queue = (await h.profile.safe(alice, safe)).queue;
   expect(queue).toMatchObject([{ title: "Reject pending transactions", kind: "reject", proposer: "other", summary: "Cancel other transactions at the current wallet nonce" }]);
+});
+
+test("a Safe created in chat is listed for the agent and on the profile, and cancelling it shows it was never created", async () => {
+  const h = setup();
+  await trackedSafe(h);
+  const capabilities = h.agent.capabilitiesFor({ eventId: "chat-create", conversationId: "chat", senderId: alice.senderId, text: "Create a Safe", encodedEvent: "" });
+  const preview = await capabilities.evmPropose("safe_create", { owners: [aliceWallet, external.address], threshold: 2, saltNonce: "7" });
+  const code = /\/cancel ([A-Z0-9]{6})/.exec(preview)?.[1];
+  expect(code).toBeDefined();
+  const created = getAddress("0x5afe000000000000000000000000000000000002");
+  expect(JSON.parse(await capabilities.safeList())).toEqual({ safes: [
+    { address: safe, name: "Main", organization: "Treasury", status: "ready" },
+    { address: created, name: "Safe 1", organization: "My Safes", status: "creating" },
+  ] });
+  const overview = await h.profile.overview(alice);
+  expect(overview.orgs.map((org) => [org.name, org.safes.map((row) => row.name)])).toEqual([["Treasury", ["Main"]], ["My Safes", ["Safe 1"]]]);
+  await h.profile.recordChatSafe(alice.senderId, created, "chat-create");
+  expect((await h.profile.mySafes(alice.senderId)).safes).toHaveLength(2);
+  expect((await h.profile.mySafes(bob.senderId)).safes).toEqual([]);
+  await h.agent.handle({ eventId: "chat-cancel", conversationId: "chat", senderId: alice.senderId, text: `/cancel ${code}`, encodedEvent: "" });
+  expect((await h.profile.mySafes(alice.senderId)).safes.at(-1)?.status).toBe("not-created");
 });
