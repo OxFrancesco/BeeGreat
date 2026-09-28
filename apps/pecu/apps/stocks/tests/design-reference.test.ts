@@ -36,7 +36,7 @@ test("design state selector shows real submitted and terminal content", () => {
   expect(card().querySelector(".pecu-confirmation-actions")!.textContent).toBe("Check transaction");
   selectState("succeeded");
   expect(card().querySelector(".pecu-confirmation-actions")).toBeNull();
-  expect(card().textContent).toContain("Receipt verified on Base");
+  expect(card().textContent).toContain("Confirmed on Base");
   selectState("failed");
   expect(card().textContent).toContain("Sample error. Check transaction status before retrying.");
   for (const state of ["failed", "cancelled", "expired"]) {
@@ -72,7 +72,7 @@ test("all sample cards can confirm, check and cancel locally", () => {
     expect(card(name).querySelector(".pecu-confirmation-actions")!.textContent).toBe("Check transaction");
     card(name).querySelector<HTMLButtonElement>(".pecu-confirmation-actions button")!.click();
     expect(card(name).querySelector(".pecu-confirmation-actions")).toBeNull();
-    expect(card(name).textContent).toContain("Receipt verified on Base");
+    expect(card(name).textContent).toContain("Executed and verified on Base");
   }
   selectState("pending");
   card().querySelector<HTMLButtonElement>(".pecu-confirmation-actions button:last-child")!.click();

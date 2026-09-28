@@ -65,19 +65,17 @@ test("stock trade replies keep human amounts and minimums", () => {
   expect(reply).not.toContain("0xhidden");
 });
 
-test("position summaries include every position with metadata-based amounts", () => {
+test("position summaries show three compact rows with metadata-based amounts", () => {
   const positions = Array.from({ length: 16 }, (_, i) => ({
-    chain_name: "Base", id: String(100 + i), pool: { symbol: `CL100-TOKEN${i}/USD`, lp: `pool-${i}`, is_cl: true,
+    chain_name: "Base", id: String(100 + i), pool: { symbol: `CL100-TOKEN${i}/USD`, lp: `0x${String(i).padStart(40, "0")}`, is_cl: true,
       token0: { symbol: `TOKEN${i}`, decimals: 8 }, token1: { symbol: "USD", decimals: 6 } },
-    amount_token0: "123456789", amount_token1: "2000000", staked_token0: "0", staked_token1: "0",
+    amount_token0: "123456789", amount_token1: "2000000", staked_token0: "0", staked_token1: "5000000",
   }));
   const reply = aeroReadText("positions", positions);
-  for (const position of positions) {
-    expect(reply).toContain(`Position ${position.id}`);
-    expect(reply).toContain(`1.23456789 ${position.pool.token0.symbol}`);
-    expect(reply).toContain(position.pool.lp);
-  }
-  expect(reply).toContain("2 USD");
+  for (const position of positions.slice(0, 3)) expect(reply).toContain(`${position.pool.token0.symbol}/USD: ≈1.234 ${position.pool.token0.symbol} unstaked + 2 USD unstaked + 5 USD staked`);
+  expect(reply).not.toContain("TOKEN3/");
+  expect(reply).toContain("More positions available. Ask for details.");
   expect(reply).not.toContain("123456789");
+  expect(reply).not.toContain(positions[0]!.pool.lp);
   expect(aeroReadText("positions", [])).toBe("You have no liquidity positions.");
 });

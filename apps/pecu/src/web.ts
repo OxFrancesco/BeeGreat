@@ -1,3 +1,4 @@
+import { positionSummary } from "./position-contract";
 import { type Portfolio, portfolioBalanceSchema, portfolioQuerySchema } from "./portfolio-contract";
 import { needsChatGptConnection } from "./inference-recovery";
 import { parseCommand } from "./domain";
@@ -324,7 +325,10 @@ export class WebAgent {
         : undefined;
       const holdings = this.store.stockSnapshot(eventId);
       const analytics = this.store.analytics(eventId);
+      const positions = this.store.positionSnapshot(eventId);
       const response = {
+        positions,
+        positionsOnly: positions?.positions.length ? reply === positionSummary(positions) : undefined,
         analytics: analytics.length ? analytics : undefined,
         analyticsOnly: analytics.length ? analytics.length === 1 && reply === analytics[0]?.text : undefined,
         recovery: needsChatGptConnection({ text: reply }) ? "connect_chatgpt" as const : undefined,

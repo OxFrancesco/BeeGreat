@@ -1,3 +1,5 @@
+import { legacyStockHoldings } from "../../../../src/stock-presentation";
+import { LiquidityPositions, legacyPositions } from "./liquidity-positions";
 import { TurnProgress } from "./turn-progress";
 import { AnalyticsCard } from "./analytics-card";
 import { CommandMenu } from "./command-menu";
@@ -85,6 +87,9 @@ export function Chat({
             key={account.state.messages[0]?.id}
           >
             {(message) => {
+              const legacy = message.reply && !message.reply.preview && !message.reply.question && !message.reply.positions ? legacyPositions(message.reply.text) : undefined;
+              const oldStocks = message.reply && !message.reply.holdings && !message.reply.preview && !message.reply.question ? legacyStockHoldings(message.reply.text, message.createdAt) : undefined;
+              const holdings = message.reply?.holdings ?? oldStocks;
               const presentation = turnPresentation(
                 message,
                 account.state?.messages ?? [],
@@ -107,7 +112,7 @@ export function Chat({
                       }
                     >
                       {message.reply.preview ? null : !(
-                          (message.reply.holdings && message.reply.holdingsOnly) || message.reply.analyticsOnly
+                          (message.reply.holdings && message.reply.holdingsOnly) || message.reply.analyticsOnly || message.reply.positionsOnly || legacy || oldStocks
                         ) ? (
                         <MessageResponse>
                           {message.reply.question?.question ??
@@ -115,10 +120,11 @@ export function Chat({
                         </MessageResponse>
                       ) : null}
                       <ConnectionRecovery reply={message.reply} />
+                                  {!message.reply.preview && (message.reply.positions || legacy) ? <LiquidityPositions positions={message.reply.positions?.positions ?? legacy ?? []} /> : null}
                                   {!account.pending && message.id === account.state?.messages.at(-1)?.id ? <TurnProgress stages={account.stages} pending={false} /> : null}
                                   {message.reply.analytics?.map((result) => <AnalyticsCard key={result.snapshot.key} snapshot={result.snapshot} />)}
-                      {message.reply.holdings ? (
-                        <StockHoldings {...message.reply.holdings} />
+                      {holdings ? (
+                        <StockHoldings {...holdings} />
                       ) : null}
                       {message.reply.question?.options.length ? (
                         <div
@@ -133,7 +139,7 @@ export function Chat({
                               size="sm"
                               disabled={
                                 !account.atLatest ||
-                                account.pending ||
+                                account.pending || account.syncing ||
                                 message.id !==
                                   account.state?.messages.at(-1)?.id
                               }
@@ -153,7 +159,7 @@ export function Chat({
                           variant="ghost"
                           size="icon"
                           aria-label="Retry reply"
-                          disabled={account.pending}
+                          disabled={account.pending || account.syncing}
                           onClick={() => void account.regenerate(message)}
                         >
                           <RotateCcw size={14} />
@@ -162,7 +168,7 @@ export function Chat({
                       {message.reply.preview ? (
                         <div className="pecu pecu-embed">
                           <PreviewCard
-                            busy={account.pending}
+                            busy={account.pending || account.syncing}
                             confirming={
                               busyCode === message.reply.preview.code
                             }
@@ -188,7 +194,7 @@ export function Chat({
                       {!account.pending ? (
                         <Button
                           variant="link"
-                          disabled={account.pending}
+                          disabled={account.pending || account.syncing}
                           onClick={() =>
                             void account.send(
                               message.text,
@@ -214,7 +220,7 @@ export function Chat({
           {account.retry ? (
             <Button
               variant="link"
-              disabled={account.pending}
+              disabled={account.pending || account.syncing}
               onClick={() =>
                 void account.send(
                   account.retry!.text,
@@ -269,7 +275,7 @@ export function Chat({
             size="icon"
             className="h-11 w-11 rounded-xl"
             aria-label="Send message"
-            disabled={account.pending || !draft.trim()}
+            disabled={account.pending || account.syncing || !draft.trim()}
           >
             <ArrowUp size={19} />
           </Button>

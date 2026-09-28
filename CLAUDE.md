@@ -62,6 +62,8 @@ folder to gather information, feedback, patterns, and templates before writing c
 - `resources/cloudflare-sandbox-sdk` — Official Cloudflare Sandbox SDK session and execution contracts
 - `resources/remotion` — Official Remotion source — compositions, sequences, interpolate/spring, OffthreadVideo alpha, fonts, and renderer CLI
 
+- `resources/kotlin` — Official Kotlin compiler and standard library reference for native Pecu Android
+
 <!-- codeview:end -->
 
 ## Design system

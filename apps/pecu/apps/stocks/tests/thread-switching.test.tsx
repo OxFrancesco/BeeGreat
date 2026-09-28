@@ -1,8 +1,9 @@
 import type { JsonInput } from "../../../src/json-contract";
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test, spyOn } from "bun:test";
 import { Window } from "happy-dom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { historyStorage, historySnapshot } from "../src/lib/history-storage";
 import { useAccount } from "../src/lib/use-account";
 import type { WebState } from "../../../src/web-contract";
 import { sseFrame } from "../../../src/web-stream";
@@ -37,11 +38,13 @@ const state = (threadId: string | null): WebState => ({
 function Probe({
   threadId,
   signedIn,
+  owner,
 }: {
   threadId: string | null;
   signedIn: boolean;
+  owner?: string;
 }) {
-  account = useAccount(signedIn, threadId);
+  account = useAccount(signedIn, threadId, owner);
   return null;
 }
 const render = async (threadId: string | null, signedIn = true) => {
@@ -234,7 +237,7 @@ test("newer reloads win when responses for the same thread arrive out of order",
   await act(async () => {
     reload = account.reload();
   });
-  await respond(1, { ...state(null), messages: [] });
+  await respond(requests.findLastIndex(r => r.url.endsWith("/state?paged=1")), { ...state(null), messages: [] });
   await respond(0, state(null));
   await act(async () => {
     await reload!;
@@ -252,8 +255,9 @@ test("history navigation keeps old content until its page arrives, then returns 
   });
   expect(account.paging).toBe(true);
   expect(account.state?.messages[0]?.id).toBe("first");
-  expect(requests[1]?.url).toContain("/messages?");
-  await respond(1, {
+  const pageRequest = requests.findLastIndex(r => r.url.includes("/messages?"));
+  expect(pageRequest).toBeGreaterThanOrEqual(0);
+  await respond(pageRequest, {
     messages: [{ ...state(null).messages[0], id: "older" }],
     olderCursor: null,
     newerCursor: cursor,
@@ -266,7 +270,7 @@ test("history navigation keeps old content until its page arrives, then returns 
   await act(async () => {
     paging = account.pageMessages();
   });
-  await respond(2, { ...state(null), olderCursor: cursor, newerCursor: null });
+  await respond(requests.findLastIndex(r => r.url.endsWith("/state?paged=1")), { ...state(null), olderCursor: cursor, newerCursor: null });
   await act(async () => {
     await paging!;
   });
@@ -276,7 +280,7 @@ test("history navigation keeps old content until its page arrives, then returns 
 test("intent prefetch caps concurrent requests and does not fetch every sidebar thread", async () => {
   await render(null);
   await respond(0, state(null));
-  expect(requests.length).toBe(1);
+  expect(requests.length).toBe(3);
   await act(async () => {
     for (let i = 0; i < 100; i++) account.prefetch(`thread-${i}`);
   });
@@ -292,16 +296,55 @@ test("a fresh missing-connection reply opens ChatGPT settings once, but old hist
   const requestId = crypto.randomUUID();
   let sending: Promise<void>;
   await act(async () => { sending = account.send("hello", requestId); });
-  await respond(1, { status: "complete" });
+  await respond(requests.findLastIndex(r => r.url.endsWith("/turn")), { status: "complete" });
   const next = state(null);
   next.messages = [{ id: `stocks:user:test:${requestId}`, text: "hello", createdAt: 2, reply: { text: "Connect ChatGPT", preview: null, recovery: "connect_chatgpt" } }];
-  await respond(2, next);
+  await respond(requests.findLastIndex(r => r.url.endsWith("/state?paged=1")), next);
   await act(async () => { await sending!; });
   expect(window.location.hash).toBe("#chatgpt");
   window.history.replaceState(null, "", "/");
   let reloading: Promise<void>;
   await act(async () => { reloading = account.reload(); });
-  await respond(3, next);
+  await respond(requests.findLastIndex(r => r.url.endsWith("/state?paged=1")), next);
   await act(async () => { await reloading!; });
   expect(window.location.hash).toBe("");
+});
+
+test("recent thread history is ready before the first selection", async () => {
+  await render(null);
+  await respond(0, state(null));
+  const prefetched = requests.findIndex((r) => r.url.includes("t=aaaaaaaa"));
+  expect(prefetched).toBeGreaterThanOrEqual(0);
+  await respond(prefetched, state("aaaaaaaa"));
+  await render("aaaaaaaa");
+  expect(account.loading).toBe(false);
+  expect(account.state?.messages[0]?.id).toBe("aaaaaaaa");
+});
+
+
+test("restored history renders before the network and remains read-only until refreshed", async () => {
+  const snapshot = historySnapshot({ threads: state(null).threads!, olderCursor: null, newerCursor: null }, [state("aaaaaaaa")]);
+  const read = spyOn(historyStorage, "read").mockResolvedValue(snapshot);
+  try {
+    await act(async () => root.render(<Probe signedIn threadId="aaaaaaaa" owner="alice" />));
+    expect(account.loading).toBe(false);
+    expect(account.syncing).toBe(true);
+    expect(account.state?.messages[0]?.id).toBe("aaaaaaaa");
+    await act(async () => { await account.send("/confirm ABC123"); });
+    expect(requests.some(r => r.url.endsWith("/turn"))).toBe(false);
+    await respond(requests.findIndex(r => r.url.includes("t=aaaaaaaa")), state("aaaaaaaa"));
+    expect(account.syncing).toBe(false);
+  } finally { read.mockRestore(); }
+});
+
+test("switching authenticated accounts cannot reuse the previous account history", async () => {
+  const read = spyOn(historyStorage, "read").mockImplementation(async (owner) => owner === "alice" ? historySnapshot({ threads: state(null).threads!, olderCursor: null, newerCursor: null }, [state("aaaaaaaa")]) : null);
+  const remove = spyOn(historyStorage, "remove").mockResolvedValue();
+  try {
+    await act(async () => root.render(<Probe signedIn threadId="aaaaaaaa" owner="alice" />));
+    expect(account.state?.messages).toHaveLength(1);
+    await act(async () => root.render(<Probe signedIn threadId="aaaaaaaa" owner="bob" />));
+    expect(account.state?.messages ?? []).toHaveLength(0);
+    expect(remove).toHaveBeenCalledWith("alice");
+  } finally { read.mockRestore(); remove.mockRestore(); }
 });

@@ -37,3 +37,21 @@ test("does not execute raw HTML or unsafe links", () => {
   expect(html).not.toContain("onerror=");
   expect(html).not.toContain('href="javascript:');
 });
+
+test("standalone receipts use compact links and preserve exact destinations", () => {
+  const url = `https://basescan.org/tx/0x${"a".repeat(64)}`;
+  const html = render(`Approval confirmed.\n${url}\n${url}`);
+  expect(html).toContain("Approval confirmed.");
+  expect(html).toContain('class="pecu-button pecu-receipt-link"');
+  expect(html).toContain(`href="${url}"`);
+  expect(html.match(/class="pecu-button pecu-receipt-link"/g)).toHaveLength(1);
+  expect(html).not.toContain(`>${url}<`);
+  expect(html).toContain("View transaction");
+});
+
+test("code, foreign links and unrecognized destinations remain ordinary Markdown", () => {
+  const url = `https://basescan.org/tx/0x${"a".repeat(64)}`;
+  expect(render(`\`${url}\``)).not.toContain("pecu-receipt-link");
+  expect(render("https://example.com/receipt")).not.toContain("pecu-receipt-link");
+  expect(render(url + "?extra=1")).not.toContain("pecu-receipt-link");
+});

@@ -1,4 +1,6 @@
-import { ClerkProvider } from "@clerk/tanstack-react-start";
+import { ClerkProvider, useUser } from "@clerk/tanstack-react-start";
+import { useEffect, useRef } from "react";
+import { historyStorage } from "../lib/history-storage";
 import {
   createRootRoute,
   HeadContent,
@@ -41,10 +43,21 @@ function Root() {
           signUpFallbackRedirectUrl="/stocks"
         >
           <Outlet />
+          <HistoryAccount />
           <Analytics />
         </ClerkProvider>
         <Scripts />
       </body>
     </html>
   );
+}
+function HistoryAccount() {
+  const { user, isLoaded } = useUser();
+  const previous = useRef(user?.id);
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (previous.current && previous.current !== user?.id) void historyStorage.remove(previous.current);
+    previous.current = user?.id;
+  }, [user?.id, isLoaded]);
+  return null;
 }

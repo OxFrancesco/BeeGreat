@@ -405,3 +405,75 @@ options show a name and shortened address, with the full address on hover. It
 shows the selected token balance at up to six decimals and uses Review transfer
 to open the existing confirmation card. Display rounding must not change the
 amount validated or sent.
+
+### Pecu liquidity position cards
+
+Use Pecu's own `apps/pecu/theme/clay.css` material: amber primary login controls,
+neutral secondary controls and soft opposing inset light/shade. Native Compose
+mirrors these materials without a bright outline. Position cards lead with the
+token pair, chain/staking state and two compact read-only quantities. Exact
+quantities and technical identifiers belong in a reversible Details disclosure.
+Show three positions initially, with Show more/Show fewer for longer results.
+Do not duplicate the card rows in the assistant's prose or round transaction
+approval data. Login motion loops without a visible playback control and respects
+system reduced motion and app lifecycle.
+
+Pecu native stock holdings default to Graph with an explicit Graph/List selector.
+Use the existing dither chart series palette and a clay surface. Allocation is
+based on estimated USDC value of positive owned positions, never catalog prices
+alone. Missing data stays unavailable; do not draw an empty portfolio as a real
+allocation. Historical reply graphs retain their original observation date.
+
+### Pecu native dither charts
+
+Pecu Android uses the `:dither` Compose module for all allocation, comparison and
+history charts. It retains Dither Kit's seed palette and ordered Bayer texture.
+Use the same data and color order as Pecu web. Keep read-only summaries short and
+put exact holdings in the List view. Missing values stay unavailable. Never infer
+historical series from a current snapshot.
+
+Use in-flow legends, 44dp selection targets, adaptive tick labels and a bounded
+chart height. Supply an accessible description and value formatters. Chart motion
+is optional and respects Android's animation setting; static financial cards do
+not run a perpetual render loop. Clay surfaces belong to the containing Pecu
+card, not each axis or legend entry.
+
+### Pecu transaction cards
+
+Transaction cards lead with the action, pool or exact amounts, then persisted
+step statuses and receipt links. Approval steps say Permission only. Never infer
+submission or success from a loading state. Unknown fields, recipients, spenders,
+minimums, fees and warnings remain in the review. Exact values must not be rounded.
+
+Validated pool metadata belongs in a reversible Transaction details disclosure;
+unrecognized metadata stays visible. Completed cards move the old unestimated
+fee into details. Show each receipt once, retain receipts from partial failures,
+and keep all recovery instructions. Use a static clay surface and status icons;
+only active work may animate. Native expiry updates once at the deadline and
+rechecks when the app resumes, rather than polling every second.
+
+Receipt links use the same compact clay action in native and web chat, including
+standalone outcomes and transaction cards. Keep the exact URL as the destination
+and in Copy reply. Show at most three receipts initially, with Show all/Show fewer.
+Meaningful link labels stay intact. Inline raw receipt URLs use View transaction;
+code samples, images, unfamiliar hosts, incomplete hashes and query-bearing URLs
+are not rewritten. A receipt link alone never implies confirmation.
+
+Hide a confirmation-command reply only when its exact text is already present in
+the matching card and it has no additional structured content or recovery action.
+When the original card is outside loaded history, keep the completion visible.
+
+### Pecu native wallet
+
+The wallet leads with compact token balances in a clay surface. Each balance row
+expands to the exact quantity and token address. Read-only amounts use at most
+six decimals; nonzero dust stays visible and truncated amounts carry ≈. Never
+apply display rounding to transfer inputs or confirmation data.
+
+Receive and Send use the same clay buttons as Pecu login. Receive opens a centered,
+black-on-white QR with its quiet zone intact and the full copyable address below.
+Send uses recessed fields and shows the selected token balance before the amount.
+Add token accepts a ticker or address without removing previously added tokens.
+All disclosures have a close action. Wider wallets place balances beside the
+active panel; large text stacks the header and action buttons. Stock holdings and
+optional P&L remain below balances. No idle animation or polling belongs here.

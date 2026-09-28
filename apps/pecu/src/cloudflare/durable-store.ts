@@ -1,3 +1,4 @@
+import { positionSnapshotSchema, type PositionSnapshot } from "../position-contract";
 import { executionStepFromRow, type ExecutionStepRow } from "../execution-step-row";
 import { getAddress } from "viem";
 import { coalescePolymarketAnalytics } from "../integrations/polymarket/analytics";
@@ -66,6 +67,7 @@ export class DurableStore implements PecuStore {
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS basedbot_polymarket_tokens (event_id TEXT NOT NULL, token_id TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,token_id));
       CREATE TABLE IF NOT EXISTS basedbot_analytics (event_id TEXT NOT NULL, chart_key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,chart_key));
+      CREATE TABLE IF NOT EXISTS basedbot_position_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS basedbot_stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS basedbot_transaction_plans (intent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS basedbot_questions (
@@ -211,6 +213,15 @@ export class DurableStore implements PecuStore {
 
   analytics(eventId: string): AnalyticsResult[] {
     return coalescePolymarketAnalytics(this.sql.exec<{ json: string }>("SELECT json FROM basedbot_analytics WHERE event_id=? ORDER BY rowid DESC LIMIT 12", eventId).toArray().reverse().map((row) => analyticsResultSchema.parse(JSON.parse(row.json))));
+  }
+
+  savePositionSnapshot(eventId: string, snapshot: PositionSnapshot): void {
+    this.sql.exec("INSERT OR REPLACE INTO basedbot_position_snapshots(event_id,json) VALUES(?,?)", eventId, JSON.stringify(positionSnapshotSchema.parse(snapshot)));
+  }
+
+  positionSnapshot(eventId: string): PositionSnapshot | undefined {
+    const row = this.first<{ json: string }>("SELECT json FROM basedbot_position_snapshots WHERE event_id=?", eventId);
+    return row ? positionSnapshotSchema.parse(JSON.parse(row.json)) : undefined;
   }
 
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void {

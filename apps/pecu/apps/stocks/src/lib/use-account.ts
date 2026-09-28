@@ -12,6 +12,7 @@ import {
   type WebState,
 } from "../../../../src/web-contract";
 import { historyBytes, trimThreadCache } from "./thread-cache";
+import { historySnapshot, historyStorage } from "./history-storage";
 import {
   readSseEvents,
   sseContentType,
@@ -104,6 +105,7 @@ type Retry = {
 };
 type ThreadState = {
   state: WebState | null;
+  restored: boolean;
   bytes: number;
   page: MessagePageQuery;
   paging: boolean;
@@ -117,6 +119,7 @@ type ThreadState = {
 };
 const EMPTY_THREAD: ThreadState = {
   state: null,
+  restored: false,
   bytes: 0,
   page: {},
   paging: false,
@@ -128,7 +131,9 @@ const EMPTY_THREAD: ThreadState = {
   stages: [],
 };
 
-export function useAccount(signedIn: boolean, threadId: string | null = null) {
+export function useAccount(signedIn: boolean, threadId: string | null = null, owner?: string) {
+  const cacheOwner = useRef(owner);
+  const [hydrated, setHydrated] = useState(!owner);
   const [cache, setCache] = useState(
     () => new Map<string | null, ThreadState>(),
   );
@@ -152,7 +157,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
   const loads = useRef(
     new Map<
       string | null,
-      { promise: Promise<WebState | void>; controller: AbortController }
+      { promise: Promise<WebState | void>; controller: AbortController; background: boolean }
     >(),
   );
   const threadLoad = useRef<AbortController | null>(null);
@@ -204,13 +209,14 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
         if (threadLoad.current === controller) setThreadsLoading(false);
       }
     },
-    [signedIn],
+    [signedIn, owner],
   );
   const load = useCallback(
     (
       id: string | null,
       force = false,
       page: MessagePageQuery = {},
+      background = false,
     ): Promise<WebState | void> => {
       if (!signedIn) return Promise.resolve();
       const existing = loads.current.get(id);
@@ -239,7 +245,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
           }
           // Summaries are fetched separately and never duplicated into each history.
           const { threads: _threads, ...history } = state;
-          update(id, { state: history, error: "", page, paging: false });
+          update(id, { state: history, restored: historyOnly ? (cacheRef.current.get(id)?.restored ?? false) : false, error: "", page, paging: false });
           setShared((current) => ({
             wallet: state.wallet,
             threads: current?.threads ?? [],
@@ -250,10 +256,10 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
           if (loads.current.get(id)?.promise === promise)
             loads.current.delete(id);
         });
-      loads.current.set(id, { promise, controller });
+      loads.current.set(id, { promise, controller, background });
       return promise;
     },
-    [signedIn, update],
+    [signedIn, owner, update],
   );
   const reload = useCallback(async () => { await load(threadId, true); }, [load, threadId]);
   const pageMessages = useCallback(
@@ -280,33 +286,81 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
   const prefetch = useCallback(
     (id: string | null) => {
       if (cacheRef.current.get(id)?.state || loads.current.size >= 2) return;
-      void load(id).catch(() => {});
+      void load(id, false, {}, true).catch(() => {});
     },
     [load],
   );
   useEffect(() => {
-    if (!signedIn) {
-      generation.current++;
+    const previousOwner = cacheOwner.current;
+    cacheOwner.current = owner;
+    generation.current++;
+    const epoch = generation.current;
+    if (!signedIn || previousOwner !== owner) {
       sends.current.clear();
       recoveryRequests.current.clear();
       setCache(new Map());
       setShared(null);
       setThreadsLoaded(false);
       setThreadPage({ threads: [], olderCursor: null, newerCursor: null });
-    } else void loadThreads();
+      if (previousOwner) void historyStorage.remove(previousOwner);
+    }
+    setHydrated(!owner || !signedIn);
+    if (signedIn) {
+      void loadThreads();
+      if (owner) void historyStorage.read(owner).then((snapshot) => {
+        if (generation.current !== epoch) return;
+        if (snapshot) {
+          setCache((current) => {
+            const next = new Map(current);
+            for (const state of snapshot.states) {
+              const id = state.threadId ?? null;
+              if (!next.get(id)?.state) next.set(id, { ...EMPTY_THREAD, state, bytes: historyBytes(state), restored: true });
+            }
+            return trimThreadCache(next, active.current);
+          });
+          setThreadPage((current) => current.threads.length ? current : snapshot.threads);
+          setThreadsLoaded(true);
+          setShared((current) => current ?? { wallet: snapshot.states.at(-1)?.wallet ?? null, threads: snapshot.threads.threads });
+        }
+        setHydrated(true);
+      });
+    }
     return () => {
       generation.current++;
       for (const { controller } of loads.current.values()) controller.abort();
       loads.current.clear();
       threadLoad.current?.abort();
     };
-  }, [signedIn, loadThreads]);
+  }, [signedIn, owner, loadThreads]);
+  useEffect(() => {
+    if (!signedIn || !owner || !hydrated || cacheOwner.current !== owner) return;
+    const timer = setTimeout(() => {
+      const states = [...cacheRef.current.values()].flatMap((entry) => entry.state && !entry.pending ? [entry.state] : []);
+      void historyStorage.write(owner, historySnapshot(threadPage, states));
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [signedIn, owner, hydrated, cache, threadPage]);
+  useEffect(() => {
+    if (!signedIn || !hydrated || !threadsLoaded) return;
+    const epoch = generation.current;
+    let stopped = false;
+    const queue = threadPage.threads.slice(0, 8).map((thread) => thread.id);
+    const warm = async () => {
+      while (queue.length && !stopped && generation.current === epoch) {
+        const id = queue.shift()!;
+        if (id === active.current || cacheRef.current.get(id)?.state) continue;
+        await load(id, false, {}, true).catch(() => {});
+      }
+    };
+    void warm(); void warm();
+    return () => { stopped = true; };
+  }, [signedIn, hydrated, threadsLoaded, threadPage, load]);
   useEffect(() => {
     const epoch = generation.current;
     if (!signedIn) return;
     // Keep the selected history immediately. Cancel obsolete reads on rapid switches.
     for (const [id, entry] of loads.current) {
-      if (id !== threadId && !sends.current.has(id)) {
+      if (id !== threadId && !entry.background && !sends.current.has(id)) {
         entry.controller.abort();
         loads.current.delete(id);
       }
@@ -314,7 +368,10 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     const cached = cacheRef.current.get(threadId);
     if (cached?.state) {
       update(threadId, {});
-      void load(threadId, false, cached.page).catch(() => {});
+      void load(threadId, false, cached.page).catch((error) => {
+        if (cached.restored && generation.current === epoch && error?.name !== "AbortError")
+          update(threadId, { error: "Could not refresh this conversation. Retry to send messages." });
+      });
       return;
     }
     void load(threadId).catch((error) => {
@@ -350,14 +407,15 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
     },
     [shared, update],
   );
-  const current = signedIn
+  const current = signedIn && cacheOwner.current === owner
     ? (cache.get(threadId) ?? EMPTY_THREAD)
     : EMPTY_THREAD;
+  const visibleShared = cacheOwner.current === owner ? shared : null;
   const state = current.state
-    ? { ...current.state, ...shared }
-    : signedIn && shared
+    ? { ...current.state, ...visibleShared }
+    : signedIn && visibleShared
       ? {
-          ...shared,
+          ...visibleShared,
           threadId,
           yolo: false,
           messages: [],
@@ -378,7 +436,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
       retryOf?: string,
       answerTo?: string,
     ) => {
-      if (!signedIn || sends.current.has(threadId)) return;
+      if (!signedIn || sends.current.has(threadId) || cacheRef.current.get(threadId)?.restored) return;
       const epoch = generation.current;
       sends.current.add(threadId);
       recoveryRequests.current.add(requestId);
@@ -525,6 +583,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null) {
   return {
     state,
     loading,
+    syncing: current.restored,
     paging: current.paging,
     pageMessages,
     atLatest: !current.state?.newerCursor,

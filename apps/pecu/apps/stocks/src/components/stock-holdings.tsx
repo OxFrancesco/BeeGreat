@@ -1,6 +1,6 @@
 import { ListIcon, PieChartIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { StockSnapshot } from "../../../../src/stock-contract";
+import type { HoldingPresentation } from "../../../../src/stock-presentation";
 import { stockHoldings } from "../lib/holdings";
 import { quantity, usdc } from "../lib/market";
 import { PieChart } from "./dither-kit/pie-chart";
@@ -12,7 +12,7 @@ import { PALETTE, rgb } from "./dither-kit/palette";
 
 const colors: DitherColor[] = ["orange", "blue", "green", "purple", "pink", "red", "grey"];
 
-export function StockHoldings({ stocks, observedAt, embedded = false }: StockSnapshot & { embedded?: boolean }) {
+export function StockHoldings({ stocks, observedAt, embedded = false }: HoldingPresentation & { embedded?: boolean }) {
   const [view, setView] = useState<"list" | "graph">("graph");
   const { rows, total, chart, partial } = useMemo(() => stockHoldings(stocks), [stocks]);
   const config = useMemo<ChartConfig>(() => Object.fromEntries(rows.map((row, i) => [row.symbol, { label: row.symbol, color: colors[i % colors.length]! }])), [rows]);
@@ -43,7 +43,7 @@ export function StockHoldings({ stocks, observedAt, embedded = false }: StockSna
       {rows.length ? (
         <ul className={view === "graph" ? "sr-only" : "!m-0 !list-none !p-0 divide-y divide-border"}>
           {rows.map((row) => (
-            <li key={row.address} className="!m-0 flex items-center justify-between gap-3 !py-3">
+            <li key={row.address ?? row.symbol} className="!m-0 flex items-center justify-between gap-3 !py-3">
               <div className="min-w-0"><div>{row.symbol}</div><div className="text-sm text-muted-foreground">{quantity(row.balance)} shares</div></div>
               <div className="text-right font-mono text-sm tabular-nums">
                 <div>{row.value === null ? "Price unavailable" : usdc(row.value)}</div>

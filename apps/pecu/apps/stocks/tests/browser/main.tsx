@@ -272,6 +272,17 @@ const agentRoute = Route.update({
   getParentRoute: () => rootRoute,
 } as never);
 const router = createRouter({ routeTree: rootRoute.addChildren([agentRoute]) });
+performance.mark("thread-fixture-start");
+const historyObserver = new MutationObserver(() => {
+  if (document.querySelector(".pecu-conversation")?.getAttribute("aria-busy") !== "false" || !document.querySelector(".pecu-message-actions")) return;
+  historyObserver.disconnect();
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    performance.mark("thread-fixture-visible");
+    performance.measure("thread-fixture-render", "thread-fixture-start", "thread-fixture-visible");
+  }));
+});
+historyObserver.observe(document.getElementById("root")!, { subtree: true, childList: true, attributes: true });
+
 createRoot(document.getElementById("root")!).render(
   new URLSearchParams(location.search).has("transactions") ? <TransactionFixture /> : <RouterProvider router={router} />,
 );

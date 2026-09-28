@@ -1,3 +1,4 @@
+import { positionSnapshotSchema, type PositionSnapshot } from "./position-contract";
 import { executionStepFromRow, type ExecutionStepRow } from "./execution-step-row";
 import { coalescePolymarketAnalytics } from "./integrations/polymarket/analytics";
 import { polymarketTokenSchema, type PolymarketToken } from "./integrations/polymarket/model-output";
@@ -73,6 +74,7 @@ export class Store implements PecuStore {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS polymarket_tokens (event_id TEXT NOT NULL, token_id TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,token_id));
       CREATE TABLE IF NOT EXISTS analytics (event_id TEXT NOT NULL, chart_key TEXT NOT NULL, json TEXT NOT NULL, PRIMARY KEY(event_id,chart_key));
+      CREATE TABLE IF NOT EXISTS position_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS stock_snapshots (event_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS transaction_plans (intent_id TEXT PRIMARY KEY, json TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS questions (
@@ -246,6 +248,15 @@ export class Store implements PecuStore {
 
   analytics(eventId: string): AnalyticsResult[] {
     return coalescePolymarketAnalytics(this.db.query<{ json: string }, [string]>("SELECT json FROM analytics WHERE event_id=? ORDER BY rowid DESC LIMIT 12").all(eventId).reverse().map((row) => analyticsResultSchema.parse(JSON.parse(row.json))));
+  }
+
+  savePositionSnapshot(eventId: string, snapshot: PositionSnapshot): void {
+    this.db.query("INSERT OR REPLACE INTO position_snapshots(event_id,json) VALUES(?,?)").run(eventId, JSON.stringify(positionSnapshotSchema.parse(snapshot)));
+  }
+
+  positionSnapshot(eventId: string): PositionSnapshot | undefined {
+    const row = this.db.query<{ json: string }, [string]>("SELECT json FROM position_snapshots WHERE event_id=?").get(eventId);
+    return row ? positionSnapshotSchema.parse(JSON.parse(row.json)) : undefined;
   }
 
   saveStockSnapshot(eventId: string, snapshot: StockSnapshot): void {

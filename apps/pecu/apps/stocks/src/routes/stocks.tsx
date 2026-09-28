@@ -27,9 +27,9 @@ function Stocks() {
   return <StockWorkspace key={user?.id ?? "signed-out"} />;
 }
 function StockWorkspace() {
-  const { isSignedIn } = useUser();
+  const { isSignedIn, user } = useUser();
   const clerk = useClerk();
-  const account = useAccount(Boolean(isSignedIn));
+  const account = useAccount(Boolean(isSignedIn), null, user?.id);
   const [market, setMarket] = useState<Stock[]>(() =>
     catalog.map((s) => ({
       ...s,

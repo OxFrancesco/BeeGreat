@@ -87,3 +87,14 @@ test("a cancel reply stays visible when the card is not cancelled or the code is
     showReply: true,
   });
 });
+
+test("additional warnings and structured content never disappear with duplicate text", () => {
+  const result = { text: RESULT, preview: null, recovery: "connect_chatgpt" as const };
+  const recovery = message("/confirm A1B2C3", result);
+  expect(turnPresentation(recovery, [target, recovery])).toMatchObject({ showReply: true });
+  const question = message("/confirm A1B2C3", { text: RESULT, preview: null, question: { question: "Continue?", options: ["No"] } });
+  expect(turnPresentation(question, [target, question])).toMatchObject({ showReply: true });
+  const cancelled = message("Cancel", { text: "", preview: preview({ state: "cancelled" }) });
+  const warning = message("/cancel A1B2C3", { text: "Proposal cancelled. Nothing was sent.\nCheck your allowance.", preview: null });
+  expect(turnPresentation(warning, [cancelled, warning])).toMatchObject({ showReply: true });
+});
