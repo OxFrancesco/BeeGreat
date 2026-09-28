@@ -217,3 +217,12 @@ Accounts can link EOAs they hold (`src/linked-wallets.ts`, `src/linked-execution
 
 A web thread can pick a linked wallet. Plans built for it are saved with `signer`, and the Crossmint signer must never run them: keep them out of YOLO, `/confirm`, X Chat and boot recovery. The web card hands out one exact persisted call at a time and a step succeeds only after Pecu's own Base RPC shows that call from that wallet with a successful canonical receipt. Keep the unlink guard for executing plans, and keep the profile Safe form, owner labels and the Agent's wallet switch reading the same linked list.
 
+
+## Explainer video
+
+`apps/video` is a Remotion project that renders the Pecu explainer (1920×1080, 60 fps, 30 s) from TypeScript. `src/timeline.ts` holds every beat; the picture and `scripts/sound.ts`, which synthesizes the soundtrack into `public/soundtrack.wav`, both read it, so retime there. The film is laid out on a 960×540 canvas zoomed 2×, so it uses the shared theme and clay tokens at their product sizes. Figures in the cards are fictional fixtures.
+
+- `bun run --cwd apps/pecu/apps/video render` writes `out/pecu-explainer.mp4` (regenerates the soundtrack first).
+- `bun run --cwd apps/pecu/apps/video stills 4.8 12.9` renders single frames (in seconds) to `out/stills/` for review.
+- `bun run --cwd apps/pecu/apps/video studio` opens Remotion Studio.
+- Rendering uses Chrome's ANGLE backend (`remotion.config.ts`). The default software backend draws a red fringe around fading clay shadows.

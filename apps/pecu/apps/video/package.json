@@ -1,0 +1,28 @@
+{
+  "name": "@beegreat/pecu-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "bun run sound && remotion studio src/index.ts",
+    "sound": "bun scripts/sound.ts",
+    "render": "bun run sound && remotion render src/index.ts PecuExplainer out/pecu-explainer.mp4",
+    "stills": "bun scripts/stills.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.526",
+    "@remotion/fonts": "4.0.526",
+    "lucide-react": "1.25.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.526"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.526",
+    "@remotion/renderer": "4.0.526",
+    "@types/bun": "1.4.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "typescript": "7.0.2"
+  }
+}

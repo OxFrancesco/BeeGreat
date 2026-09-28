@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pecu explainer video</title>
+<style>
+  :root { --fg: oklch(0.2686 0 0); --muted: oklch(0.551 0.0234 264.36); --border: oklch(0.9276 0.0058 264.53); --tint: oklch(0.9869 0.0214 95.28); --accent: oklch(0.4732 0.1247 46.2); }
+  * { box-sizing: border-box; scrollbar-width: none; }
+  *::-webkit-scrollbar { display: none; }
+  body { margin: 0; background: #fff; color: var(--fg); font: 16px/1.6 Inter, ui-sans-serif, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 940px; margin: 0 auto; padding: 40px 24px 64px; }
+  h1 { margin: 0 0 6px; font-size: 34px; line-height: 1.1; letter-spacing: -0.035em; font-weight: 750; }
+  h2 { margin: 40px 0 12px; font-size: 20px; letter-spacing: -0.01em; font-weight: 650; }
+  p { margin: 0 0 12px; }
+  .meta { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  video, img { display: block; width: 100%; border-radius: 22px; border: 1px solid var(--border); }
+  .stills { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .stills img { border-radius: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 9px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td:first-child { width: 64px; color: var(--muted); font-family: ui-monospace, "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+  code, pre { font-family: ui-monospace, "JetBrains Mono", monospace; font-size: 13.5px; }
+  pre { margin: 0; padding: 14px 16px; border-radius: 14px; background: oklch(0.9846 0.0017 247.84); overflow-x: auto; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pecu explainer video</h1>
+  <p class="meta">30 s · 1920×1080 · 60 fps · H.264 + AAC · 6.3 MB</p>
+
+  <video src="assets/pecu-explainer.mp4" poster="assets/poster.jpg" controls playsinline preload="metadata"></video>
+  <p class="meta" style="margin-top:8px"><a href="assets/pecu-explainer.mp4" download>Download the MP4</a></p>
+
+  <h2>What it shows</h2>
+  <table>
+    <tr><td>0:00</td><td>The homepage snail writes "Pecu". Line: "An AI agent with a wallet on Base."</td></tr>
+    <tr><td>0:04</td><td>The snail walks into the web agent and becomes the chat avatar. "What's my balance?" returns the wallet card. Where to find Pecu: @BeeGreatAI on X, or pecu.app/agent.</td></tr>
+    <tr><td>0:09</td><td>"Swap 0.01 ETH to USDC": amount-led preview, the ETH → Aerodrome pool → USDC route with the amber comet, one tap to Confirmed on Base.</td></tr>
+    <tr><td>0:14</td><td>A 50/30/20 basket of NVDAc, AAPLc and TSLAc paid in USDC.</td></tr>
+    <tr><td>0:18</td><td>Nansen token flows for AERO, then Polymarket odds in the same thread.</td></tr>
+    <tr><td>0:23</td><td>Bento: Aave lending, Aerodrome liquidity, AERO lock, bank deposit, a shared Safe, a linked wallet.</td></tr>
+    <tr><td>0:27</td><td>The Safe tile opens into the dark closing frame: idle snail, wordmark, "Your smart ass on-chain friend.", both calls to action and the non-affiliation line.</td></tr>
+  </table>
+
+  <h2>Frames</h2>
+  <div class="stills">
+    <img src="assets/still-5.6.jpg" alt="Empty chat with the snail and the headline Ask in plain words">
+    <img src="assets/still-12.2.jpg" alt="Swap preview card with the route drawn">
+    <img src="assets/still-20.6.jpg" alt="AERO token flows card">
+    <img src="assets/still-25.6.jpg" alt="Six feature tiles">
+    <img src="assets/still-29.5.jpg" alt="Closing frame with the wordmark and calls to action">
+  </div>
+
+  <h2>How it's built</h2>
+  <ul>
+    <li>Remotion 4.0.526 project in <code>apps/pecu/apps/video</code>. Every frame is React and TypeScript driven by <code>useCurrentFrame()</code>.</li>
+    <li>It imports <code>theme/theme.css</code>, <code>theme/clay.css</code> and the bundled Inter and JetBrains Mono. The layout sits on a 960×540 canvas zoomed 2×, so type, radii and clay shadows keep their product values.</li>
+    <li>Motion uses the design system's curves: <code>cubic-bezier(.23,1,.32,1)</code> for entrances, <code>(.77,0,.175,1)</code> for movement, the homepage 480 ms / 60 ms tile stagger, and the route timings from the transaction card.</li>
+    <li>The soundtrack is synthesized by <code>scripts/sound.ts</code>: mallets, pad, bass, kick, typing ticks, bloops and a chime. Picture and sound both read <code>src/timeline.ts</code>, so every cue lands on its frame. Mastered to −16 LUFS, −1.9 dBFS peak.</li>
+    <li>All balances, prices, flows and odds are fictional fixtures.</li>
+  </ul>
+
+  <h2>Re-render</h2>
+<pre>bun run --cwd apps/pecu/apps/video render          # out/pecu-explainer.mp4
+bun run --cwd apps/pecu/apps/video stills 12.9     # single frames for review
+bun run --cwd apps/pecu/apps/video studio          # Remotion Studio</pre>
+
+  <h2>Notes</h2>
+  <ul>
+    <li>Rendering is pinned to Chrome's ANGLE backend. The default software backend drew a 1 px red fringe around any clay shadow that was fading in.</li>
+    <li>Remotion is free for individuals and companies of up to three people. A larger company needs a Remotion company license.</li>
+    <li>Nothing is deployed and nothing is committed yet.</li>
+  </ul>
+</main>
+</body>
+</html>
