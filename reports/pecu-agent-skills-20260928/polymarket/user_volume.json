@@ -1,0 +1,13 @@
+{
+  "endpoint": "user_volume",
+  "source": "https://data-api.polymarket.com/v2/user-volume?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+  "observedAt": "2026-09-28T07:55:59.199Z",
+  "data": {
+    "data": {
+      "trade_count": 750,
+      "volume": 25453606.699723,
+      "volume_usdc": 12852174.733148
+    }
+  },
+  "next": null
+}

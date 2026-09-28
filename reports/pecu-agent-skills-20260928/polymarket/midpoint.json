@@ -1,0 +1,9 @@
+{
+  "endpoint": "midpoint",
+  "source": "https://clob.polymarket.com/midpoint?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+  "observedAt": "2026-09-28T07:56:01.532Z",
+  "data": {
+    "mid": "0.0355"
+  },
+  "next": null
+}

@@ -1,3 +1,4 @@
+import { baseTools, skillForTool } from "../../src/agent-skills";
 import { unusedCapabilities } from "./agent-services";
 import type { JsonFields } from "../../src/json-contract";
 import { expect, mock } from "bun:test";
@@ -39,7 +40,7 @@ const client = {
     prompt: async (input: { sessionID: string; text: string }) => {
       prompts.push(input.text);
       streamReady?.();
-      const event = { sessionID: input.sessionID, tools: Object.fromEntries(registered) };
+      const event = { sessionID: input.sessionID, system: [{ type: "text", text: "Runtime instructions" }], tools: Object.fromEntries(registered) };
       await hooks.get("context")!(event);
       toolCatalogs.push(Object.keys(event.tools));
       return { timeCreated: 1 };
@@ -57,7 +58,7 @@ type Model = { providerID: string; id: string; variant: string };
 type Decision = { retry: false } | { retry: true; delay: number };
 type Tool = { execute(input: JsonFields, context: { sessionID: string }): Promise<{ content: string }> };
 type HookEvents = {
-  "context": { sessionID: string; tools: Record<string, Partial<Tool>> };
+  "context": { sessionID: string; system: { type: string; text: string }[]; tools: Record<string, Partial<Tool>> };
   "model.request": { model: Model; headers: Record<string, string> };
   "http.request": { agent: string; sessionID: string; model: Model; request: Request };
   "http.response": { model: Model; request: Request; response: Response };
@@ -114,36 +115,55 @@ try {
   expect({ inventoryError, inventoryExit }).toEqual({ inventoryError: "", inventoryExit: 0 });
   const inventory = JSON.parse(inventoryText);
   expect(inventory.modelTools.map((tool: { name: string }) => tool.name)).toEqual([...registered.keys()].sort());
+  for (const name of registered.keys()) {
+    if (!baseTools.has(name)) expect(skillForTool(name), name).toBeDefined();
+  }
   const toolReply = {tool:"polymarket_search",status:"completed",result:{content:JSON.stringify({data:{private:"not telemetry"},presentation:{source_bytes:155870,partial:false}})}};
   await hooks.get("execute.after")!(toolReply);
   expect(toolReply.result).toMatchObject({metadata:{pecu_source_bytes:155870,pecu_output_partial:false,pecu_output_bytes:Buffer.byteLength(toolReply.result.content)}});
   const message = { eventId: "1", senderId: "sender", conversationId: "chat", text: "Explain slippage", encodedEvent: "verified" };
   store.saveAgentSession("sender","catalog-chat","catalog");
-  const catalog = () => ({sessionID:"catalog",tools:{polymarket_search:{},polymarket_midpoint:{},polymarket_positions:{},ask_user:{},enable_all_tools:{},evm_transfer:{},nansen_token_flows:{}}});
+  const catalog = () => ({sessionID:"catalog",system:[{type:"text",text:"Runtime instructions"}],tools:{polymarket_search:{},polymarket_midpoint:{},polymarket_positions:{},ask_user:{},load_skills:{},wallet_balances:{},evm_transfer:{},nansen_token_flows:{}}});
   store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"catalog-turn",text:"Compare Polymarket odds, then check my wallet"});
   const scoped=catalog(); const originalTools=scoped.tools; await hooks.get("context")!(scoped);
   expect(originalTools).toHaveProperty("evm_transfer");
-  expect(Object.keys(scoped.tools)).toEqual(["polymarket_search","polymarket_midpoint","ask_user","enable_all_tools"]);
-  await registered.get("enable_all_tools")!.execute({}, {sessionID:"catalog"});
+  expect(scoped.system.map(part => part.text).join("\n")).toContain("Polymarket odds");
+  expect(scoped.system.map(part => part.text).join("\n")).not.toContain("Organization wallets");
+  await hooks.get("context")!(scoped);
+  expect(scoped.system).toHaveLength(2);
+  expect(scoped.system[0].text).toBe("Runtime instructions");
+  expect(Object.keys(scoped.tools)).toEqual(["polymarket_search","polymarket_midpoint","ask_user","load_skills","wallet_balances"]);
+  await registered.get("load_skills")!.execute({names:["wallet"]}, {sessionID:"catalog"});
+  await registered.get("load_skills")!.execute({names:["polymarket-data"]}, {sessionID:"catalog"});
   const expanded=catalog(); await hooks.get("context")!(expanded);
   expect(expanded.tools).toHaveProperty("evm_transfer");
+  expect(expanded.system.map(part => part.text).join("\n")).toContain("Wallet reads and transactions");
   expect(expanded.tools).toHaveProperty("polymarket_positions");
+  expect(expanded.tools).not.toHaveProperty("nansen_token_flows");
   store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"next-turn",text:"Check Polymarket odds"});
-  const isolated=catalog(); await hooks.get("context")!(isolated);
+  const isolated=catalog(); isolated.system=expanded.system; await hooks.get("context")!(isolated);
+  expect(isolated.system.map(part => part.text).join("\n")).not.toContain("Wallet reads and transactions");
   expect(isolated.tools).not.toHaveProperty("evm_transfer");
   store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"wallet-turn",text:"Check my wallet"});
   const wallet=catalog(); await hooks.get("context")!(wallet);
-  expect(wallet.tools).toHaveProperty("evm_transfer");
+  expect(Object.keys(wallet.tools)).toEqual(["ask_user","load_skills","wallet_balances"]);
+  expect(wallet.system).toHaveLength(2);
+  expect(wallet.system[1].text).not.toContain("Wallet reads and transactions");
+  store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"send-turn",text:"Send 1 USDC to 0x1111111111111111111111111111111111111111"});
+  const send=catalog(); await hooks.get("context")!(send);
+  expect(send.tools).toHaveProperty("evm_transfer");
+  expect(send.tools).not.toHaveProperty("polymarket_search");
   bound = false;
   await expect(hooks.get("context")!(catalog())).rejects.toThrow("no longer bound");
   bound = true;
 
   expect(await harness.respond({ ...message, transactionContext: "Verified completed transaction" }, capabilities, "response")).toBe("answer");
   expect(toolCatalogs.at(-1)).toEqual(["ask_user"]);
+  const base = [...registered.keys()].filter(name => baseTools.has(name));
   expect(await harness.respond({ ...message, eventId: "2" }, capabilities, "mixed")).toBe("answer");
-  expect(toolCatalogs.at(-1)).toContain("evm_transfer");
+  expect(toolCatalogs.at(-1)).toEqual(base);
   expect(await harness.respond({ ...message, eventId: "3" }, capabilities)).toBe("answer");
-  expect(toolCatalogs.at(-1)).toEqual([...registered.keys()]);
+  expect(toolCatalogs.at(-1)).toEqual(base);
   expect(created).toEqual(["gpt-6-luna"]);
   expect(switched.map((entry) => entry.model)).toEqual([
     { providerID: "openai", id: "gpt-6-luna", variant: "low" },
@@ -158,15 +178,28 @@ try {
   expect(toolCatalogs.at(-1)).toContain("safe_create");
   expect(toolCatalogs.at(-1)).toContain("safe_role_execute");
   expect(toolCatalogs.at(-1)).not.toContain("polymarket_search");
-  expect(toolCatalogs.at(-1)).toContain("enable_all_tools");
-  expect(await harness.respond({ ...message, eventId: "aave-family", text: "Supply to Aave" }, capabilities, { kind: "mixed", family: "defi" })).toBe("answer");
+  expect(toolCatalogs.at(-1)).not.toContain("evm_transfer");
+  expect(toolCatalogs.at(-1)).toContain("load_skills");
+  expect(await harness.respond({ ...message, eventId: "aave-words", text: "Supply to Aave" }, capabilities, { kind: "mixed", family: "defi" })).toBe("answer");
+  expect(toolCatalogs.at(-1)).toContain("aave_call");
+  expect(toolCatalogs.at(-1)).not.toContain("aero_stock_trades");
+  expect(await harness.respond({ ...message, eventId: "defi-family", text: "Put my money to work" }, capabilities, { kind: "mixed", family: "defi" })).toBe("answer");
   expect(toolCatalogs.at(-1)).toContain("aave_call");
   expect(toolCatalogs.at(-1)).toContain("evm_read");
-  expect(toolCatalogs.at(-1)).toContain("evm_inspect");
   expect(toolCatalogs.at(-1)).toContain("aero_stock_trades");
   expect(toolCatalogs.at(-1)).not.toContain("nansen_token_flows");
-  expect(await harness.respond({ ...message, eventId: "after-family" }, capabilities)).toBe("answer");
-  expect(toolCatalogs.at(-1)).toEqual([...registered.keys()]);
+  expect(toolCatalogs.at(-1)).not.toContain("safe_create");
+  expect(await harness.respond({ ...message, eventId: "after-family", text: "Use this plan" }, capabilities)).toBe("answer");
+  expect(toolCatalogs.at(-1)).toContain("aero_stock_trades");
+  expect(toolCatalogs.at(-1)).toContain("aave_call");
+  expect(await harness.respond({ ...message, eventId: "explain-after-family" }, capabilities, "response")).toBe("answer");
+  expect(toolCatalogs.at(-1)).toEqual(["ask_user"]);
+  expect(await harness.respond({ ...message, eventId: "after-explanation", text: "Yes" }, capabilities)).toBe("answer");
+  expect(toolCatalogs.at(-1)).toContain("aero_stock_trades");
+  expect(await harness.respond({ ...message, eventId: "new-topic", text: "What are the Polymarket odds?" }, capabilities)).toBe("answer");
+  expect(toolCatalogs.at(-1)).not.toContain("aero_stock_trades");
+  expect(await harness.respond({ ...message, eventId: "after-topic", text: "And the other one?" }, capabilities)).toBe("answer");
+  expect(toolCatalogs.at(-1)).toContain("polymarket_midpoint");
 
   // A Codex usage-limit 429 must not be retried with backoff, and later turns skip the provider until it resets.
   const request = new Request("https://chatgpt.com/backend-api/codex/responses", { headers: { "chatgpt-account-id": "acct" } });
@@ -235,7 +268,7 @@ try {
   contextQueue.push({ type: "assistant", time: { created: 2 }, content: [], error: { type: "unknown", message: "explanation failed" } });
   await expect(keyed.respond({ ...message, eventId: "response-error" }, capabilities, "response", undefined, false)).rejects.toThrow("explanation failed");
   expect(await keyed.respond({ ...message, eventId: "tools-after-error" }, capabilities, "mixed", undefined, false)).toBe("answer");
-  expect(toolCatalogs.at(-1)).toEqual([...registered.keys()]);
+  expect(toolCatalogs.at(-1)).toEqual(base);
 
   // A non-provider error surfaces without a fallback retry.
   contextQueue.push({ type: "assistant", time: { created: 2 }, content: [], error: { type: "unknown", message: "boom" } });

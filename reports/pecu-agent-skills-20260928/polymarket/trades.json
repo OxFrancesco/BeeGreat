@@ -1,0 +1,65 @@
+{
+  "endpoint": "trades",
+  "source": "https://data-api.polymarket.com/v2/trades?limit=2&condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+  "observedAt": "2026-09-28T07:55:58.730Z",
+  "data": {
+    "data": [
+      {
+        "bio": "",
+        "condition_id": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+        "event_slug": "xi-jinping-out-before-2027",
+        "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/xi-jinping-out-in-2025-EjF4SM20eaa3.jpg",
+        "name": "banana333",
+        "outcome": "No",
+        "outcome_index": 1,
+        "price": 0.964,
+        "profile_image": "",
+        "profile_image_optimized": "",
+        "proxy_wallet": "0x60a60c2d03c39b6b726b3ef3f30d0c1dd258aac8",
+        "pseudonym": "Dramatic-Blizzard",
+        "side": "SELL",
+        "size": 312,
+        "slug": "xi-jinping-out-before-2027",
+        "timestamp": 1790580900,
+        "title": "Xi Jinping out before 2027?",
+        "token_id": "25659310674993675562345759665114759892400026242514633218387667107987341231962",
+        "transaction_hash": "0x1aa1530cdb929c0cd682d7837ff8a7a7a5aee6a479ba6108561d512e72c81154"
+      },
+      {
+        "bio": "",
+        "condition_id": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+        "event_slug": "xi-jinping-out-before-2027",
+        "icon": "https://polymarket-upload.s3.us-east-2.amazonaws.com/xi-jinping-out-in-2025-EjF4SM20eaa3.jpg",
+        "name": "WarriorH",
+        "outcome": "No",
+        "outcome_index": 1,
+        "price": 0.965,
+        "profile_image": "",
+        "profile_image_optimized": "",
+        "proxy_wallet": "0xeed8c2be411025120fb511ea2332dd0a1f6135f0",
+        "pseudonym": "Advanced-Mailer",
+        "side": "BUY",
+        "size": 336,
+        "slug": "xi-jinping-out-before-2027",
+        "timestamp": 1790580552,
+        "title": "Xi Jinping out before 2027?",
+        "token_id": "25659310674993675562345759665114759892400026242514633218387667107987341231962",
+        "transaction_hash": "0xcaedfb90c94d7fda8b9fa44487970241759a16b8b03d0d117dd5bdae9f99ec79"
+      }
+    ],
+    "pagination": {
+      "has_more": true,
+      "limit": 2,
+      "next_cursor": "eyJkYXRhIjp7InR5cGUiOiJ0cmFkZXMiLCJwYXJhbXMiOnsibCI6MiwidHMiOjE3OTA1ODA1NTIsInNxIjoiOTQ1ODM2MDgwMDA1MDA1NjgwIiwiZCI6Mn19LCJzaWciOiJlNDI5NGE1ZDU4YzQwNjE3MWUzNzMyYjBjNjUyMDk5ZSJ9",
+      "offset": 0
+    }
+  },
+  "next": {
+    "endpoint": "trades",
+    "input": {
+      "limit": 2,
+      "condition": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+      "cursor": "eyJkYXRhIjp7InR5cGUiOiJ0cmFkZXMiLCJwYXJhbXMiOnsibCI6MiwidHMiOjE3OTA1ODA1NTIsInNxIjoiOTQ1ODM2MDgwMDA1MDA1NjgwIiwiZCI6Mn19LCJzaWciOiJlNDI5NGE1ZDU4YzQwNjE3MWUzNzMyYjBjNjUyMDk5ZSJ9"
+    }
+  }
+}

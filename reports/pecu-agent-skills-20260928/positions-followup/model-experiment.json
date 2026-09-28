@@ -1,0 +1,224 @@
+{
+  "scope": "Live model first-step planning; tools never execute. Not end-to-end latency or on-chain proof. Alternating paired order; provider cache uncontrolled. Reduced experiment catalog omits Aave, Nansen, funding and composite stock tools.",
+  "model": "openai/gpt-6-luna",
+  "rows": [
+    {
+      "id": "positions",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 3882,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 35,
+        "total_tokens": 7125
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2222,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 35,
+        "total_tokens": 6647
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2231,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 35,
+        "total_tokens": 6647
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2530,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 40,
+        "total_tokens": 7130
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2206,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 35,
+        "total_tokens": 7125
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 4061,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 36,
+        "total_tokens": 6648
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 3,
+      "variant": "skills",
+      "elapsedMs": 2159,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 35,
+        "total_tokens": 6647
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 3,
+      "variant": "baseline",
+      "elapsedMs": 8429,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "enable_all_tools",
+          "arguments": {}
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 15,
+        "total_tokens": 7105
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 4,
+      "variant": "baseline",
+      "elapsedMs": 4040,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 36,
+        "total_tokens": 7126
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 4,
+      "variant": "skills",
+      "elapsedMs": 3106,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {
+            "owner": "0x0000000000000000000000000000000000000000"
+          }
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 35,
+        "total_tokens": 6647
+      }
+    }
+  ]
+}

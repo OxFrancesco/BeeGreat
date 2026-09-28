@@ -1,0 +1,394 @@
+{
+  "checkedAt": "2026-09-28T07:56:02.930Z",
+  "failures": 0,
+  "endpoints": [
+    {
+      "name": "activity",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/activity?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748&limit=2",
+      "observedAt": "2026-09-28T07:55:56.610Z",
+      "hasNext": true
+    },
+    {
+      "name": "activity_combos",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/activity/combos?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748&limit=2",
+      "observedAt": "2026-09-28T07:55:56.718Z",
+      "hasNext": false
+    },
+    {
+      "name": "approvals",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/approvals?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "observedAt": "2026-09-28T07:55:56.817Z",
+      "hasNext": false
+    },
+    {
+      "name": "biggest_winners",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/biggest-winners?limit=2",
+      "observedAt": "2026-09-28T07:55:56.952Z",
+      "hasNext": true
+    },
+    {
+      "name": "builders_leaderboard",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/builders/leaderboard?limit=2",
+      "observedAt": "2026-09-28T07:55:57.056Z",
+      "hasNext": true
+    },
+    {
+      "name": "builders_volume",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/builders/volume?limit=2",
+      "observedAt": "2026-09-28T07:55:57.203Z",
+      "hasNext": false
+    },
+    {
+      "name": "holders",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/holders?condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7&limit=2",
+      "observedAt": "2026-09-28T07:55:57.302Z",
+      "hasNext": true
+    },
+    {
+      "name": "leaderboard",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/leaderboard?limit=2",
+      "observedAt": "2026-09-28T07:55:57.402Z",
+      "hasNext": true
+    },
+    {
+      "name": "leaderboard:next",
+      "ok": true
+    },
+    {
+      "name": "live_volume",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/live-volume?event_id=16183",
+      "observedAt": "2026-09-28T07:55:57.684Z",
+      "hasNext": false
+    },
+    {
+      "name": "oi",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/oi?condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+      "observedAt": "2026-09-28T07:55:57.770Z",
+      "hasNext": false
+    },
+    {
+      "name": "positions",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/positions?condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7&limit=2",
+      "observedAt": "2026-09-28T07:55:58.054Z",
+      "hasNext": true
+    },
+    {
+      "name": "positions:next",
+      "ok": true
+    },
+    {
+      "name": "positions_combos",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/positions/combos?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748&limit=2",
+      "observedAt": "2026-09-28T07:55:58.265Z",
+      "hasNext": false
+    },
+    {
+      "name": "prices_history",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/prices-history?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401&interval=1d&limit=2",
+      "observedAt": "2026-09-28T07:55:58.357Z",
+      "hasNext": true
+    },
+    {
+      "name": "prices_history:next",
+      "ok": true
+    },
+    {
+      "name": "resolutions",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/resolutions?condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+      "observedAt": "2026-09-28T07:55:58.532Z",
+      "hasNext": false
+    },
+    {
+      "name": "status",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/status",
+      "observedAt": "2026-09-28T07:55:58.602Z",
+      "hasNext": false
+    },
+    {
+      "name": "trades",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/trades?limit=2&condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+      "observedAt": "2026-09-28T07:55:58.730Z",
+      "hasNext": true
+    },
+    {
+      "name": "trades:next",
+      "ok": true
+    },
+    {
+      "name": "user_pnl",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/user-pnl?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "observedAt": "2026-09-28T07:55:58.942Z",
+      "hasNext": false
+    },
+    {
+      "name": "user_stats",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/user-stats?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "observedAt": "2026-09-28T07:55:59.059Z",
+      "hasNext": false
+    },
+    {
+      "name": "user_volume",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/user-volume?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "observedAt": "2026-09-28T07:55:59.199Z",
+      "hasNext": false
+    },
+    {
+      "name": "value",
+      "ok": true,
+      "source": "https://data-api.polymarket.com/v2/value?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "observedAt": "2026-09-28T07:55:59.303Z",
+      "hasNext": false
+    },
+    {
+      "name": "search",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/public-search?q=Fed&limit_per_type=2",
+      "observedAt": "2026-09-28T07:55:59.512Z",
+      "hasNext": true
+    },
+    {
+      "name": "events",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/events/keyset?limit=2",
+      "observedAt": "2026-09-28T07:55:59.621Z",
+      "hasNext": true
+    },
+    {
+      "name": "events:next",
+      "ok": true
+    },
+    {
+      "name": "markets",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/markets/keyset?limit=2",
+      "observedAt": "2026-09-28T07:55:59.819Z",
+      "hasNext": true
+    },
+    {
+      "name": "markets:next",
+      "ok": true
+    },
+    {
+      "name": "event",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/events/16183",
+      "observedAt": "2026-09-28T07:55:59.946Z",
+      "hasNext": false
+    },
+    {
+      "name": "event_by_slug",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/events/slug/kraken-ipo-in-2025",
+      "observedAt": "2026-09-28T07:56:00.062Z",
+      "hasNext": false
+    },
+    {
+      "name": "market",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/markets/559651",
+      "observedAt": "2026-09-28T07:56:00.108Z",
+      "hasNext": false
+    },
+    {
+      "name": "market_by_slug",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/markets/slug/xi-jinping-out-before-2027",
+      "observedAt": "2026-09-28T07:56:00.205Z",
+      "hasNext": false
+    },
+    {
+      "name": "tags",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/tags?limit=2",
+      "observedAt": "2026-09-28T07:56:00.326Z",
+      "hasNext": true
+    },
+    {
+      "name": "tag",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/tags/2",
+      "observedAt": "2026-09-28T07:56:00.407Z",
+      "hasNext": false
+    },
+    {
+      "name": "tag_by_slug",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/tags/slug/politics",
+      "observedAt": "2026-09-28T07:56:00.450Z",
+      "hasNext": false
+    },
+    {
+      "name": "event_tags",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/events/16183/tags",
+      "observedAt": "2026-09-28T07:56:00.563Z",
+      "hasNext": false
+    },
+    {
+      "name": "market_tags",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/markets/559651/tags",
+      "observedAt": "2026-09-28T07:56:00.632Z",
+      "hasNext": false
+    },
+    {
+      "name": "related_tags",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/tags/2/related-tags/tags",
+      "observedAt": "2026-09-28T07:56:00.710Z",
+      "hasNext": false
+    },
+    {
+      "name": "series",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/series?limit=2",
+      "observedAt": "2026-09-28T07:56:00.844Z",
+      "hasNext": true
+    },
+    {
+      "name": "series_detail",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/series/1",
+      "observedAt": "2026-09-28T07:56:00.942Z",
+      "hasNext": false
+    },
+    {
+      "name": "sports",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/sports",
+      "observedAt": "2026-09-28T07:56:00.990Z",
+      "hasNext": false
+    },
+    {
+      "name": "sports_market_types",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/sports/market-types",
+      "observedAt": "2026-09-28T07:56:01.056Z",
+      "hasNext": false
+    },
+    {
+      "name": "teams",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/teams?limit=2",
+      "observedAt": "2026-09-28T07:56:01.134Z",
+      "hasNext": true
+    },
+    {
+      "name": "profile",
+      "ok": true,
+      "source": "https://gamma-api.polymarket.com/public-profile?address=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "observedAt": "2026-09-28T07:56:01.233Z",
+      "hasNext": false
+    },
+    {
+      "name": "book",
+      "ok": true,
+      "source": "https://clob.polymarket.com/book?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.405Z",
+      "hasNext": false
+    },
+    {
+      "name": "price",
+      "ok": true,
+      "source": "https://clob.polymarket.com/price?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401&side=BUY",
+      "observedAt": "2026-09-28T07:56:01.469Z",
+      "hasNext": false
+    },
+    {
+      "name": "midpoint",
+      "ok": true,
+      "source": "https://clob.polymarket.com/midpoint?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.532Z",
+      "hasNext": false
+    },
+    {
+      "name": "spread",
+      "ok": true,
+      "source": "https://clob.polymarket.com/spread?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.597Z",
+      "hasNext": false
+    },
+    {
+      "name": "last_trade_price",
+      "ok": true,
+      "source": "https://clob.polymarket.com/last-trade-price?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.665Z",
+      "hasNext": false
+    },
+    {
+      "name": "fee_rate",
+      "ok": true,
+      "source": "https://clob.polymarket.com/fee-rate?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.720Z",
+      "hasNext": false
+    },
+    {
+      "name": "tick_size",
+      "ok": true,
+      "source": "https://clob.polymarket.com/tick-size?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.791Z",
+      "hasNext": false
+    },
+    {
+      "name": "negative_risk",
+      "ok": true,
+      "source": "https://clob.polymarket.com/neg-risk?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.854Z",
+      "hasNext": false
+    },
+    {
+      "name": "clob_market",
+      "ok": true,
+      "source": "https://clob.polymarket.com/clob-markets/0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+      "observedAt": "2026-09-28T07:56:01.923Z",
+      "hasNext": false
+    },
+    {
+      "name": "market_by_token",
+      "ok": true,
+      "source": "https://clob.polymarket.com/markets-by-token/32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "observedAt": "2026-09-28T07:56:01.981Z",
+      "hasNext": false
+    },
+    {
+      "name": "rewards",
+      "ok": true,
+      "source": "https://clob.polymarket.com/rewards/markets/current",
+      "observedAt": "2026-09-28T07:56:02.750Z",
+      "hasNext": true
+    },
+    {
+      "name": "market_rewards",
+      "ok": true,
+      "source": "https://clob.polymarket.com/rewards/markets/0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+      "observedAt": "2026-09-28T07:56:02.817Z",
+      "hasNext": false
+    },
+    {
+      "name": "server_time",
+      "ok": true,
+      "source": "https://clob.polymarket.com/time",
+      "observedAt": "2026-09-28T07:56:02.929Z",
+      "hasNext": false
+    }
+  ]
+}

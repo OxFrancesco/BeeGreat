@@ -1,0 +1,69 @@
+{
+  "legacySystemBytes": 14314,
+  "legacyAllSchemaBytesSdkTools": 121559,
+  "coreBytes": 3231,
+  "none": {
+    "skills": [],
+    "instructionBytes": 3231,
+    "schemaBytesSdkTools": 0
+  },
+  "single": [
+    {
+      "skills": [
+        "aave"
+      ],
+      "instructionBytes": 5310,
+      "schemaBytesSdkTools": 0
+    },
+    {
+      "skills": [
+        "aerodrome"
+      ],
+      "instructionBytes": 8347,
+      "schemaBytesSdkTools": 16982
+    },
+    {
+      "skills": [
+        "funding"
+      ],
+      "instructionBytes": 5005,
+      "schemaBytesSdkTools": 0
+    },
+    {
+      "skills": [
+        "nansen"
+      ],
+      "instructionBytes": 5555,
+      "schemaBytesSdkTools": 16903
+    },
+    {
+      "skills": [
+        "polymarket"
+      ],
+      "instructionBytes": 6092,
+      "schemaBytesSdkTools": 8135
+    },
+    {
+      "skills": [
+        "polymarket-data"
+      ],
+      "instructionBytes": 5829,
+      "schemaBytesSdkTools": 48037
+    },
+    {
+      "skills": [
+        "safe"
+      ],
+      "instructionBytes": 6113,
+      "schemaBytesSdkTools": 24092
+    },
+    {
+      "skills": [
+        "wallet"
+      ],
+      "instructionBytes": 5666,
+      "schemaBytesSdkTools": 7410
+    }
+  ],
+  "note": "Schema bytes cover SDK-generated aero, evm/safe, polymarket and nansen tools; inline tools (aave, deposit, liquidity, stock trades, wallet, ask_user) add a few KB."
+}

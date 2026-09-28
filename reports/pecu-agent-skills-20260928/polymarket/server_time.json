@@ -1,0 +1,7 @@
+{
+  "endpoint": "server_time",
+  "source": "https://clob.polymarket.com/time",
+  "observedAt": "2026-09-28T07:56:02.929Z",
+  "data": 1790582162,
+  "next": null
+}

@@ -1,0 +1,359 @@
+{
+  "scope": "Live model planning up to the first non-loading tool call; tools never execute. Loading steps (load_skills / enable_all_tools) are replayed and counted in latency and tokens. Not end-to-end latency or on-chain proof. Alternating paired order; provider cache uncontrolled.",
+  "model": "openai/gpt-6-luna",
+  "pairs": 45,
+  "variants": {
+    "baseline": {
+      "passed": 46,
+      "samples": 51,
+      "errors": 0,
+      "matchedMedianMs": 4895,
+      "matchedP95Ms": 8147,
+      "matchedMeanMs": 4594,
+      "meanPromptTokens": 25955,
+      "meanFirstStepToolBytes": 44238,
+      "meanFirstStepSystemBytes": 14314,
+      "extraSteps": 27
+    },
+    "skills": {
+      "passed": 50,
+      "samples": 51,
+      "errors": 0,
+      "matchedMedianMs": 2305,
+      "matchedP95Ms": 3823,
+      "matchedMeanMs": 2719,
+      "meanPromptTokens": 5479,
+      "meanFirstStepToolBytes": 19469,
+      "meanFirstStepSystemBytes": 6736,
+      "extraSteps": 3
+    }
+  },
+  "medianReductionPercent": 52.91113381001021,
+  "meanLatencyReductionPercent": 40.81410535481063,
+  "promptTokenReductionPercent": 78.89038720863032,
+  "cases": [
+    {
+      "id": "swap-quote",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2182,
+        "meanPromptTokens": 7556,
+        "toolCount": 32,
+        "loads": 0
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2280,
+        "meanPromptTokens": 5635,
+        "toolCount": 23,
+        "loads": 0
+      }
+    },
+    {
+      "id": "positions",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2287,
+        "meanPromptTokens": 7550,
+        "toolCount": 32,
+        "loads": 0
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2085,
+        "meanPromptTokens": 5629,
+        "toolCount": 23,
+        "loads": 0
+      }
+    },
+    {
+      "id": "pools",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 6300,
+        "meanPromptTokens": 37510,
+        "toolCount": 32,
+        "loads": 3
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2407,
+        "meanPromptTokens": 5926,
+        "toolCount": 26,
+        "loads": 0
+      }
+    },
+    {
+      "id": "liquidity-budget",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2262,
+        "meanPromptTokens": 7551,
+        "toolCount": 32,
+        "loads": 0
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2055,
+        "meanPromptTokens": 5630,
+        "toolCount": 23,
+        "loads": 0
+      }
+    },
+    {
+      "id": "stock-basket",
+      "baseline": {
+        "passed": 1,
+        "samples": 3,
+        "medianMs": 5708,
+        "meanPromptTokens": 37502,
+        "toolCount": 32,
+        "loads": 3
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2100,
+        "meanPromptTokens": 5630,
+        "toolCount": 23,
+        "loads": 0
+      }
+    },
+    {
+      "id": "aave-supply",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 6799,
+        "meanPromptTokens": 27508,
+        "toolCount": 32,
+        "loads": 2
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 1590,
+        "meanPromptTokens": 1528,
+        "toolCount": 7,
+        "loads": 0
+      }
+    },
+    {
+      "id": "allowance",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2485,
+        "meanPromptTokens": 19094,
+        "toolCount": 39,
+        "loads": 1
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 1895,
+        "meanPromptTokens": 2881,
+        "toolCount": 13,
+        "loads": 0
+      }
+    },
+    {
+      "id": "send-precheck",
+      "baseline": {
+        "passed": 2,
+        "samples": 3,
+        "medianMs": 5793,
+        "meanPromptTokens": 39066,
+        "toolCount": 39,
+        "loads": 3
+      },
+      "skills": {
+        "passed": 2,
+        "samples": 3,
+        "medianMs": 1529,
+        "meanPromptTokens": 2880,
+        "toolCount": 13,
+        "loads": 0
+      }
+    },
+    {
+      "id": "safe-info",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2213,
+        "meanPromptTokens": 9109,
+        "toolCount": 39,
+        "loads": 0
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2468,
+        "meanPromptTokens": 7823,
+        "toolCount": 39,
+        "loads": 0
+      }
+    },
+    {
+      "id": "no-authorization",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 6429,
+        "meanPromptTokens": 39060,
+        "toolCount": 39,
+        "loads": 3
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2682,
+        "meanPromptTokens": 7817,
+        "toolCount": 39,
+        "loads": 0
+      }
+    },
+    {
+      "id": "nansen-flows",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 6748,
+        "meanPromptTokens": 37356,
+        "toolCount": 26,
+        "loads": 3
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2084,
+        "meanPromptTokens": 5774,
+        "toolCount": 26,
+        "loads": 0
+      }
+    },
+    {
+      "id": "funding",
+      "baseline": {
+        "passed": 2,
+        "samples": 3,
+        "medianMs": 4895,
+        "meanPromptTokens": 23228,
+        "toolCount": 7,
+        "loads": 2
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 1600,
+        "meanPromptTokens": 1518,
+        "toolCount": 7,
+        "loads": 0
+      }
+    },
+    {
+      "id": "odds",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 1931,
+        "meanPromptTokens": 4836,
+        "toolCount": 12,
+        "loads": 0
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2681,
+        "meanPromptTokens": 3352,
+        "toolCount": 14,
+        "loads": 0
+      }
+    },
+    {
+      "id": "pm-leaderboard",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 5633,
+        "meanPromptTokens": 34781,
+        "toolCount": 12,
+        "loads": 3
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2883,
+        "meanPromptTokens": 14425,
+        "toolCount": 57,
+        "loads": 0
+      }
+    },
+    {
+      "id": "accept-plan",
+      "baseline": {
+        "passed": 2,
+        "samples": 3,
+        "medianMs": 3499,
+        "meanPromptTokens": 29994,
+        "toolCount": 139,
+        "loads": 0
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2322,
+        "meanPromptTokens": 5711,
+        "toolCount": 23,
+        "loads": 0
+      }
+    },
+    {
+      "id": "load-path",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 8147,
+        "meanPromptTokens": 59856,
+        "toolCount": 139,
+        "loads": 3
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 3823,
+        "meanPromptTokens": 6898,
+        "toolCount": 4,
+        "loads": 3
+      }
+    },
+    {
+      "id": "wallet-overview",
+      "baseline": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 5278,
+        "meanPromptTokens": 39883,
+        "toolCount": 139,
+        "loads": 1
+      },
+      "skills": {
+        "passed": 3,
+        "samples": 3,
+        "medianMs": 2100,
+        "meanPromptTokens": 1218,
+        "toolCount": 4,
+        "loads": 0
+      }
+    }
+  ]
+}

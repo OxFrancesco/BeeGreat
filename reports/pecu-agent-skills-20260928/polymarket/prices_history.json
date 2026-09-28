@@ -1,0 +1,34 @@
+{
+  "endpoint": "prices_history",
+  "source": "https://data-api.polymarket.com/v2/prices-history?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401&interval=1d&limit=2",
+  "observedAt": "2026-09-28T07:55:58.357Z",
+  "data": {
+    "data": [
+      {
+        "price": 0.0365,
+        "resolution_seconds": 60,
+        "timestamp": 1790495760
+      },
+      {
+        "price": 0.0365,
+        "resolution_seconds": 60,
+        "timestamp": 1790495820
+      }
+    ],
+    "pagination": {
+      "has_more": true,
+      "limit": 2,
+      "next_cursor": "eyJkYXRhIjp7InR5cGUiOiJwcmljZXNfaGlzdG9yeSIsInBhcmFtcyI6eyJsIjoyLCJ0cyI6MTc5MDQ5NTgyMCwic3EiOiI2MCIsImQiOjJ9fSwic2lnIjoiYjVhYzY4ZTIyNjI4MjhlNTEyMzA0NWQ5MjQyZWQzMTcifQ",
+      "offset": 0
+    }
+  },
+  "next": {
+    "endpoint": "prices_history",
+    "input": {
+      "token_id": "32338220190071351435772801779725302244575775216413325951443816017994629993401",
+      "interval": "1d",
+      "limit": 2,
+      "cursor": "eyJkYXRhIjp7InR5cGUiOiJwcmljZXNfaGlzdG9yeSIsInBhcmFtcyI6eyJsIjoyLCJ0cyI6MTc5MDQ5NTgyMCwic3EiOiI2MCIsImQiOjJ9fSwic2lnIjoiYjVhYzY4ZTIyNjI4MjhlNTEyMzA0NWQ5MjQyZWQzMTcifQ"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "endpoint": "last_trade_price",
+  "source": "https://clob.polymarket.com/last-trade-price?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+  "observedAt": "2026-09-28T07:56:01.665Z",
+  "data": {
+    "price": "0.035",
+    "side": "SELL"
+  },
+  "next": null
+}

@@ -1,0 +1,12 @@
+{
+  "endpoint": "value",
+  "source": "https://data-api.polymarket.com/v2/value?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+  "observedAt": "2026-09-28T07:55:59.303Z",
+  "data": {
+    "data": {
+      "proxy_wallet": "0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "value": 0
+    }
+  },
+  "next": null
+}

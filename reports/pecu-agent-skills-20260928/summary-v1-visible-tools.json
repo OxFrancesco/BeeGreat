@@ -1,0 +1,22 @@
+{
+  "scope": "Live model first-step planning; tools never execute. Not end-to-end latency or on-chain proof. Alternating paired order; provider cache uncontrolled. Reduced experiment catalog omits Aave, Nansen, funding and composite stock tools.",
+  "pairs": 22,
+  "variants": {
+    "baseline": {
+      "passed": 22,
+      "samples": 24,
+      "matchedMedianMs": 2582.0,
+      "matchedP95Ms": 6916,
+      "matchedMeanInputTokens": 7769.136363636364
+    },
+    "skills": {
+      "passed": 24,
+      "samples": 24,
+      "matchedMedianMs": 2280.5,
+      "matchedP95Ms": 3135,
+      "matchedMeanInputTokens": 6934.954545454545
+    }
+  },
+  "medianReductionPercent": 11.676994577846633,
+  "inputTokenReductionPercent": 10.737124168475498
+}

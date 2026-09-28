@@ -70,10 +70,12 @@ When classification is enabled, a message that is not a command or shortcut goes
 - A route is used only when the classifier is at least 90% confident. Low confidence, errors, a response slower than 2.5 seconds and messages over 8,000 characters go to GPT-6 Sol with tools.
 - The routes that skip the AI are all reads, so the classifier cannot start a transaction.
 - Answers to Pecu's questions and web retries skip the classifier.
-- In the same request, the classifier can select wallet/Safe, DeFi/stocks, Polymarket, analytics or funding tools. Uncertain selections keep the full catalog. The agent can expand a selected catalog when it needs another capability; this never grants transaction approval.
+- In the same request, the classifier can pick wallet/Safe, DeFi/stocks, Polymarket, analytics or funding as the likely area. Pecu uses it only when your message names no task directly. It never grants transaction approval.
 
 ## What the model receives
 
 Each turn, the model gets your message, whether YOLO is on in this chat and the earlier conversation in the same chat. A retry starts a fresh session with the earlier visible messages and without the answer you discarded. Your wallet address comes from Pecu's tools, not from anything you type.
 
 For a general explanation, Pecu gives the model only the ability to ask you a clarifying question. Account and transaction tools return when a later request needs them. This also applies when Pecu switches from ChatGPT to its built-in model during an explanation.
+
+Pecu's tools are grouped into skills: wallet, Safe, Aerodrome and stocks, Aave, Polymarket odds, Polymarket accounts, Nansen and funding. Each skill carries its own instructions, such as token amount units, liquidity budgets, data lookup order and transaction recovery. The model sees the skills your message calls for, for example "swap" or "Polymarket odds", plus your wallet address and balances. A short follow-up such as "use this plan" keeps the previous message's skills. If the model needs another skill, it loads it and continues on the next step. Skills never grant permission to spend funds or replace transaction confirmation.

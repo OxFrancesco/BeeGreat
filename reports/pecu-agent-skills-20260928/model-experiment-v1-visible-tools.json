@@ -1,0 +1,1062 @@
+{
+  "scope": "Live model first-step planning; tools never execute. Not end-to-end latency or on-chain proof. Alternating paired order; provider cache uncontrolled. Reduced experiment catalog omits Aave, Nansen, funding and composite stock tools.",
+  "model": "openai/gpt-6-luna",
+  "rows": [
+    {
+      "id": "swap-quote",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2402,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7095,
+        "completion_tokens": 38,
+        "total_tokens": 7133
+      }
+    },
+    {
+      "id": "swap-quote",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2173,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6617,
+        "completion_tokens": 38,
+        "total_tokens": 6655
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 3606,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 15,
+        "total_tokens": 7105
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2135,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 15,
+        "total_tokens": 6627
+      }
+    },
+    {
+      "id": "pools",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 1994,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "enable_all_tools",
+          "arguments": {}
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 7094,
+        "completion_tokens": 15,
+        "total_tokens": 7109
+      }
+    },
+    {
+      "id": "pools",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2207,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6616,
+        "completion_tokens": 41,
+        "total_tokens": 6657
+      }
+    },
+    {
+      "id": "allowance",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 4210,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8938,
+        "completion_tokens": 40,
+        "total_tokens": 8978
+      }
+    },
+    {
+      "id": "allowance",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2481,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7956,
+        "completion_tokens": 40,
+        "total_tokens": 7996
+      }
+    },
+    {
+      "id": "send-precheck",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2219,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8937,
+        "completion_tokens": 21,
+        "total_tokens": 8958
+      }
+    },
+    {
+      "id": "send-precheck",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2285,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7955,
+        "completion_tokens": 21,
+        "total_tokens": 7976
+      }
+    },
+    {
+      "id": "approve-precheck",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2729,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8943,
+        "completion_tokens": 40,
+        "total_tokens": 8983
+      }
+    },
+    {
+      "id": "approve-precheck",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2699,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7961,
+        "completion_tokens": 40,
+        "total_tokens": 8001
+      }
+    },
+    {
+      "id": "odds-discovery",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2118,
+      "systemBytes": 14314,
+      "toolCount": 12,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 4672,
+        "completion_tokens": 34,
+        "total_tokens": 4706
+      }
+    },
+    {
+      "id": "odds-discovery",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 1724,
+      "systemBytes": 8923,
+      "toolCount": 12,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 3598,
+        "completion_tokens": 34,
+        "total_tokens": 3632
+      }
+    },
+    {
+      "id": "no-authorization",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 6916,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8934,
+        "completion_tokens": 97,
+        "total_tokens": 9031
+      }
+    },
+    {
+      "id": "no-authorization",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2806,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7952,
+        "completion_tokens": 75,
+        "total_tokens": 8027
+      }
+    },
+    {
+      "id": "swap-quote",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2437,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6617,
+        "completion_tokens": 38,
+        "total_tokens": 6655
+      }
+    },
+    {
+      "id": "swap-quote",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2116,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7095,
+        "completion_tokens": 38,
+        "total_tokens": 7133
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 1878,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 15,
+        "total_tokens": 6627
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2102,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 15,
+        "total_tokens": 7105
+      }
+    },
+    {
+      "id": "pools",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2408,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6616,
+        "completion_tokens": 41,
+        "total_tokens": 6657
+      }
+    },
+    {
+      "id": "pools",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 1941,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7094,
+        "completion_tokens": 41,
+        "total_tokens": 7135
+      }
+    },
+    {
+      "id": "allowance",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 1912,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7956,
+        "completion_tokens": 40,
+        "total_tokens": 7996
+      }
+    },
+    {
+      "id": "allowance",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 4918,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8938,
+        "completion_tokens": 40,
+        "total_tokens": 8978
+      }
+    },
+    {
+      "id": "send-precheck",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2276,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7955,
+        "completion_tokens": 21,
+        "total_tokens": 7976
+      }
+    },
+    {
+      "id": "send-precheck",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 4781,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8937,
+        "completion_tokens": 21,
+        "total_tokens": 8958
+      }
+    },
+    {
+      "id": "approve-precheck",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2161,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7961,
+        "completion_tokens": 40,
+        "total_tokens": 8001
+      }
+    },
+    {
+      "id": "approve-precheck",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2435,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8943,
+        "completion_tokens": 40,
+        "total_tokens": 8983
+      }
+    },
+    {
+      "id": "odds-discovery",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 1715,
+      "systemBytes": 8923,
+      "toolCount": 12,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 3598,
+        "completion_tokens": 34,
+        "total_tokens": 3632
+      }
+    },
+    {
+      "id": "odds-discovery",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 1713,
+      "systemBytes": 14314,
+      "toolCount": 12,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 4672,
+        "completion_tokens": 34,
+        "total_tokens": 4706
+      }
+    },
+    {
+      "id": "no-authorization",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2677,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7952,
+        "completion_tokens": 69,
+        "total_tokens": 8021
+      }
+    },
+    {
+      "id": "no-authorization",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 3051,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8934,
+        "completion_tokens": 94,
+        "total_tokens": 9028
+      }
+    },
+    {
+      "id": "swap-quote",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2320,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7095,
+        "completion_tokens": 38,
+        "total_tokens": 7133
+      }
+    },
+    {
+      "id": "swap-quote",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 3901,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6617,
+        "completion_tokens": 38,
+        "total_tokens": 6655
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2259,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7090,
+        "completion_tokens": 15,
+        "total_tokens": 7105
+      }
+    },
+    {
+      "id": "positions",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1733,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6612,
+        "completion_tokens": 15,
+        "total_tokens": 6627
+      }
+    },
+    {
+      "id": "pools",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 1958,
+      "systemBytes": 14314,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "enable_all_tools",
+          "arguments": {}
+        }
+      ],
+      "correct": false,
+      "usage": {
+        "prompt_tokens": 7094,
+        "completion_tokens": 15,
+        "total_tokens": 7109
+      }
+    },
+    {
+      "id": "pools",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2039,
+      "systemBytes": 11596,
+      "toolCount": 28,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 6616,
+        "completion_tokens": 41,
+        "total_tokens": 6657
+      }
+    },
+    {
+      "id": "allowance",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 3590,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8938,
+        "completion_tokens": 40,
+        "total_tokens": 8978
+      }
+    },
+    {
+      "id": "allowance",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2524,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7956,
+        "completion_tokens": 40,
+        "total_tokens": 7996
+      }
+    },
+    {
+      "id": "send-precheck",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 1980,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8937,
+        "completion_tokens": 21,
+        "total_tokens": 8958
+      }
+    },
+    {
+      "id": "send-precheck",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1938,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7955,
+        "completion_tokens": 21,
+        "total_tokens": 7976
+      }
+    },
+    {
+      "id": "approve-precheck",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 7063,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8943,
+        "completion_tokens": 40,
+        "total_tokens": 8983
+      }
+    },
+    {
+      "id": "approve-precheck",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2046,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7961,
+        "completion_tokens": 40,
+        "total_tokens": 8001
+      }
+    },
+    {
+      "id": "odds-discovery",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2886,
+      "systemBytes": 14314,
+      "toolCount": 12,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 4672,
+        "completion_tokens": 34,
+        "total_tokens": 4706
+      }
+    },
+    {
+      "id": "odds-discovery",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2476,
+      "systemBytes": 8923,
+      "toolCount": 12,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 3598,
+        "completion_tokens": 34,
+        "total_tokens": 3632
+      }
+    },
+    {
+      "id": "no-authorization",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 3257,
+      "systemBytes": 14314,
+      "toolCount": 39,
+      "calls": [],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 8934,
+        "completion_tokens": 82,
+        "total_tokens": 9016
+      }
+    },
+    {
+      "id": "no-authorization",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 3135,
+      "systemBytes": 9304,
+      "toolCount": 39,
+      "calls": [],
+      "correct": true,
+      "usage": {
+        "prompt_tokens": 7952,
+        "completion_tokens": 89,
+        "total_tokens": 8041
+      }
+    }
+  ]
+}

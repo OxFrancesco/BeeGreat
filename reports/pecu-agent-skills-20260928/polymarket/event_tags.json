@@ -1,0 +1,77 @@
+{
+  "endpoint": "event_tags",
+  "source": "https://gamma-api.polymarket.com/events/16183/tags",
+  "observedAt": "2026-09-28T07:56:00.563Z",
+  "data": [
+    {
+      "id": "21",
+      "label": "Crypto",
+      "slug": "crypto",
+      "forceShow": false,
+      "publishedAt": "2023-11-02 21:03:54.55+00",
+      "updatedBy": 15,
+      "createdAt": "2023-11-02T21:03:54.564Z",
+      "updatedAt": "2026-03-09T22:28:03.349847Z"
+    },
+    {
+      "id": "101300",
+      "label": "exchange",
+      "slug": "exchange",
+      "createdAt": "2024-11-21T17:09:30.941319Z",
+      "updatedAt": "2026-04-17T21:11:05.93931Z"
+    },
+    {
+      "id": "120",
+      "label": "Finance",
+      "slug": "finance",
+      "forceShow": false,
+      "publishedAt": "2023-11-02 21:22:21.615+00",
+      "createdAt": "2023-11-02T21:22:21.62Z",
+      "updatedAt": "2026-04-17T20:17:43.066649Z",
+      "isCarousel": false
+    },
+    {
+      "id": "107",
+      "label": "Business",
+      "slug": "business",
+      "forceShow": false,
+      "publishedAt": "2023-11-02 21:20:37.48+00",
+      "createdAt": "2023-11-02T21:20:37.488Z",
+      "updatedAt": "2026-04-17T20:26:28.786983Z"
+    },
+    {
+      "id": "101588",
+      "label": "2025 Predictions",
+      "slug": "2025-predictions",
+      "forceShow": false,
+      "createdAt": "2024-12-30T20:11:13.144816Z",
+      "updatedAt": "2026-04-15T20:30:55.933838Z"
+    },
+    {
+      "id": "102137",
+      "label": "Featured",
+      "slug": "featured",
+      "forceShow": true,
+      "createdAt": "2025-05-16T09:58:40.682219Z",
+      "updatedAt": "2026-04-17T20:26:28.761286Z",
+      "isCarousel": false
+    },
+    {
+      "id": "600",
+      "label": "IPOs",
+      "slug": "ipos",
+      "forceShow": false,
+      "publishedAt": "2023-11-30 16:53:29.136+00",
+      "createdAt": "2023-11-30T16:53:29.141Z",
+      "updatedAt": "2026-04-17T20:24:27.888545Z"
+    },
+    {
+      "id": "105297",
+      "label": "Crypto Listings",
+      "slug": "crypto-listings",
+      "createdAt": "2026-06-09T20:34:36.11836Z",
+      "updatedAt": "2026-06-09T20:35:01.983304Z"
+    }
+  ],
+  "next": null
+}

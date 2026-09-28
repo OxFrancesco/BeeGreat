@@ -1,0 +1,9 @@
+{
+  "endpoint": "negative_risk",
+  "source": "https://clob.polymarket.com/neg-risk?token_id=32338220190071351435772801779725302244575775216413325951443816017994629993401",
+  "observedAt": "2026-09-28T07:56:01.854Z",
+  "data": {
+    "neg_risk": false
+  },
+  "next": null
+}

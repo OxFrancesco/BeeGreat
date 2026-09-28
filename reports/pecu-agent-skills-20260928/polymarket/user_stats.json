@@ -1,0 +1,44 @@
+{
+  "endpoint": "user_stats",
+  "source": "https://data-api.polymarket.com/v2/user-stats?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+  "observedAt": "2026-09-28T07:55:59.059Z",
+  "data": {
+    "data": {
+      "all_time_pnl": {
+        "cashflow_net": null,
+        "deposits": null,
+        "economic_pnl": -1140465.40141,
+        "fees": -290563.88896,
+        "fees_paid": -290563.88896,
+        "fees_refunded": 0,
+        "maker_rebate": 1374.6734,
+        "position_pnl": -1231810.746382,
+        "realized_combo_pnl": 0,
+        "realized_lp_pnl": 0,
+        "realized_market_pnl": -1231810.746382,
+        "realized_pnl": -1231810.746382,
+        "referral_income": 0,
+        "reward_income": 346.013072,
+        "settled_pnl": -1140465.40141,
+        "source_block": 94158786,
+        "sponsored_income": 346.013072,
+        "taker_rebate": 89624.6585,
+        "timestamp": 1789943252,
+        "trade_count": 750,
+        "trade_pnl": -941246.857422,
+        "unrealized_pnl": 0,
+        "volume": 25453606.699723,
+        "volume_usdc": 12852174.733148,
+        "wallet_income": 91345.344972,
+        "withdrawals": null,
+        "yield_income": 0
+      },
+      "biggest_win": 1552215.696993,
+      "join_date": 1780417015,
+      "proxy_wallet": "0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "trades": 30,
+      "views": 217
+    }
+  },
+  "next": null
+}

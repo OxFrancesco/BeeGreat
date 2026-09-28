@@ -1,0 +1,2116 @@
+{
+  "scope": "Source inventory, not execution evidence. Every row still needs a recipe, prerequisites, channel/provider coverage and a recorded result.",
+  "commands": [
+    "/aave",
+    "/aero",
+    "/allowance",
+    "/approve",
+    "/balance",
+    "/cancel",
+    "/confirm",
+    "/deposit",
+    "/help",
+    "/nansen",
+    "/polymarket",
+    "/quote",
+    "/revoke",
+    "/send",
+    "/start",
+    "/stocks",
+    "/swap",
+    "/token",
+    "/verbose",
+    "/wallet",
+    "/yolo"
+  ],
+  "prefixes": [
+    "/",
+    "b/",
+    "bare except yolo"
+  ],
+  "parserSource": "src/domain.ts",
+  "subcommands": {
+    "deposit": [
+      "default",
+      "amount",
+      "setup",
+      "status"
+    ],
+    "yolo": [
+      "status",
+      "on",
+      "off"
+    ],
+    "verbose": [
+      "default",
+      "page"
+    ],
+    "aero": [
+      "help",
+      "--help",
+      "-h",
+      "stocks",
+      "deposit",
+      "positions",
+      "pools",
+      "epochs-latest",
+      "epochs",
+      "withdraw",
+      "stake",
+      "unstake",
+      "claim-emissions",
+      "claim-fees",
+      "create-venft",
+      "quote",
+      "swap",
+      "stock-buy",
+      "stock-sell",
+      "index-rebalance"
+    ],
+    "polymarket": [
+      "help",
+      "status",
+      "research",
+      "question",
+      "read activity",
+      "read activity_combos",
+      "read approvals",
+      "read biggest_winners",
+      "read builders_leaderboard",
+      "read builders_volume",
+      "read holders",
+      "read leaderboard",
+      "read live_volume",
+      "read oi",
+      "read positions",
+      "read positions_combos",
+      "read prices_history",
+      "read resolutions",
+      "read status",
+      "read trades",
+      "read user_pnl",
+      "read user_stats",
+      "read user_volume",
+      "read value",
+      "read search",
+      "read events",
+      "read markets",
+      "read event",
+      "read event_by_slug",
+      "read market",
+      "read market_by_slug",
+      "read tags",
+      "read tag",
+      "read tag_by_slug",
+      "read event_tags",
+      "read market_tags",
+      "read related_tags",
+      "read series",
+      "read series_detail",
+      "read sports",
+      "read sports_market_types",
+      "read teams",
+      "read profile",
+      "read book",
+      "read price",
+      "read midpoint",
+      "read spread",
+      "read last_trade_price",
+      "read fee_rate",
+      "read tick_size",
+      "read negative_risk",
+      "read clob_market",
+      "read market_by_token",
+      "read rewards",
+      "read market_rewards",
+      "read server_time"
+    ],
+    "nansen": [
+      "help",
+      "token",
+      "flows",
+      "portfolio",
+      "wallet",
+      "pnl",
+      "markets"
+    ]
+  },
+  "aeroActions": [
+    {
+      "action": "stocks",
+      "onchain": false,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address"
+      },
+      "required": [
+        "chain"
+      ]
+    },
+    {
+      "action": "deposit",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "pool": "address",
+        "token0": "token",
+        "token1": "token",
+        "pool_type": "choice",
+        "amount0": "string",
+        "amount1": "string",
+        "tick_spacing": "integer",
+        "price_lower": "number",
+        "price_upper": "number",
+        "tick_lower": "integer",
+        "tick_upper": "integer",
+        "initial_price": "number",
+        "slippage": "number",
+        "deadline_minutes": "integer",
+        "use_decimals": "boolean"
+      },
+      "required": [
+        "chain",
+        "wallet"
+      ]
+    },
+    {
+      "action": "positions",
+      "onchain": false,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "owner": "address"
+      },
+      "required": [
+        "chain"
+      ]
+    },
+    {
+      "action": "pools",
+      "onchain": false,
+      "parameters": {
+        "chain": "integer",
+        "token0": "token",
+        "token1": "token",
+        "pool_type": "choice",
+        "full": "boolean",
+        "limit": "integer"
+      },
+      "required": [
+        "chain"
+      ]
+    },
+    {
+      "action": "epochs_latest",
+      "onchain": false,
+      "parameters": {
+        "chain": "integer",
+        "pool_type": "choice"
+      },
+      "required": [
+        "chain"
+      ]
+    },
+    {
+      "action": "epochs",
+      "onchain": false,
+      "parameters": {
+        "chain": "integer",
+        "lp": "address",
+        "pool_type": "choice",
+        "limit": "integer",
+        "offset": "integer"
+      },
+      "required": [
+        "chain",
+        "lp"
+      ]
+    },
+    {
+      "action": "withdraw",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "pool": "address",
+        "position": "integer_string",
+        "fraction": "decimal_string",
+        "burn": "boolean",
+        "collect": "boolean",
+        "unwrap_native": "boolean",
+        "slippage": "number",
+        "deadline_minutes": "integer"
+      },
+      "required": [
+        "chain",
+        "wallet"
+      ]
+    },
+    {
+      "action": "stake",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "pool": "address",
+        "position": "integer_string"
+      },
+      "required": [
+        "chain",
+        "wallet"
+      ]
+    },
+    {
+      "action": "unstake",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "pool": "address",
+        "position": "integer_string",
+        "amount": "string"
+      },
+      "required": [
+        "chain",
+        "wallet"
+      ]
+    },
+    {
+      "action": "claim_emissions",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "pool": "address",
+        "position": "integer_string"
+      },
+      "required": [
+        "chain",
+        "wallet"
+      ]
+    },
+    {
+      "action": "claim_fees",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "pool": "address",
+        "position": "integer_string",
+        "burn": "boolean",
+        "unwrap_native": "boolean"
+      },
+      "required": [
+        "chain",
+        "wallet"
+      ]
+    },
+    {
+      "action": "create_venft",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "amount": "string",
+        "lock_duration_seconds": "integer",
+        "use_decimals": "boolean"
+      },
+      "required": [
+        "chain",
+        "wallet",
+        "amount",
+        "lock_duration_seconds"
+      ]
+    },
+    {
+      "action": "quote",
+      "onchain": false,
+      "parameters": {
+        "chain": "integer",
+        "from_token": "token",
+        "to_token": "token",
+        "amount": "string",
+        "use_decimals": "boolean"
+      },
+      "required": [
+        "chain",
+        "from_token",
+        "to_token",
+        "amount"
+      ]
+    },
+    {
+      "action": "swap",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "from_token": "token",
+        "to_token": "token",
+        "amount": "string",
+        "slippage": "number",
+        "use_decimals": "boolean"
+      },
+      "required": [
+        "chain",
+        "wallet",
+        "from_token",
+        "to_token",
+        "amount"
+      ]
+    },
+    {
+      "action": "stock_buy",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "stock": "string",
+        "amount": "string",
+        "slippage": "number"
+      },
+      "required": [
+        "chain",
+        "wallet",
+        "stock",
+        "amount"
+      ]
+    },
+    {
+      "action": "stock_sell",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "stock": "string",
+        "amount": "string",
+        "slippage": "number"
+      },
+      "required": [
+        "chain",
+        "wallet",
+        "stock",
+        "amount"
+      ]
+    },
+    {
+      "action": "index_rebalance",
+      "onchain": true,
+      "parameters": {
+        "chain": "integer",
+        "wallet": "address",
+        "allocations": "string",
+        "cash": "string",
+        "slippage": "number"
+      },
+      "required": [
+        "chain",
+        "wallet",
+        "allocations"
+      ]
+    }
+  ],
+  "modelTools": [
+    {
+      "name": "aave_call",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aave_schema",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aave_skill",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_claim_emissions",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_claim_fees",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_create_venft",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_deposit",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_epochs",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_epochs_latest",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_index_rebalance",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_liquidity",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_pools",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_positions",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_quote",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_stake",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_stock_buy",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_stock_sell",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_stock_trades",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_stocks",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_swap",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_unstake",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "aero_withdraw",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "ask_user",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "deposit_instructions",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "deposit_setup",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "deposit_status",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_allowance",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_approve",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_contract_call",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_decode",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_inspect",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_read",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_revoke",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_token_balance",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "evm_transfer",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "load_skills",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_prediction_events",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_prediction_market_pnl",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_prediction_markets",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_prediction_orderbook",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_prediction_top_holders",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_prediction_trades",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_prediction_wallet",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_dex_trades",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_flow_intelligence",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_flows",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_info",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_price",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_screener",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_transfers",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_token_who_bought_sold",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_wallet_balances",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_wallet_counterparties",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_wallet_pnl",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_wallet_pnl_breakdown",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_wallet_portfolio",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_wallet_related",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "nansen_wallet_transactions",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_activity",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_activity_combos",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_approvals",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_biggest_winners",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_book",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_builders_leaderboard",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_builders_volume",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_clob_market",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_event",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_event_by_slug",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_event_tags",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_events",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_fee_rate",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_holders",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_last_trade_price",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_leaderboard",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_live_volume",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_market",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_market_by_slug",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_market_by_token",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_market_rewards",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_market_tags",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_markets",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_midpoint",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_negative_risk",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_oi",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_positions",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_positions_combos",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_price",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_prices_history",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_profile",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_related_tags",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_research",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_resolutions",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_rewards",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_search",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_series",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_series_detail",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_server_time",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_sports",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_sports_market_types",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_spread",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_status",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_tag",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_tag_by_slug",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_tags",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_teams",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_tick_size",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_trades",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_user_pnl",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_user_stats",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_user_volume",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "polymarket_value",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_approvals",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_approve",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_batch_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_budget",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_budget_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_budget_revoke_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_budget_spend",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_cancel_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_create",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_execute",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_execute_signatures",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_info",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_module_info",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_module_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_owner_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_passkey_address",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_passkey_deploy",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_passkey_owner_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_queue",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_role_check",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_role_execute",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_role_grant_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_role_revoke_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_roles_deploy",
+      "onchain": true,
+      "status": "not-run"
+    },
+    {
+      "name": "safe_sponsored_enable_propose",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "wallet_address",
+      "onchain": false,
+      "status": "not-run"
+    },
+    {
+      "name": "wallet_balances",
+      "onchain": false,
+      "status": "not-run"
+    }
+  ],
+  "aaveCalls": [
+    {
+      "name": "get_chains",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4",
+              "all"
+            ],
+            "description": "Protocol version (default all)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_markets",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4",
+              "all"
+            ],
+            "description": "Protocol version (default all)."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          },
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional token symbols to return, e.g. ['USDC','GHO']. Case-insensitive. Strongly preferred when you know the asset: a chain has ~70 reserves and listing them all is a large response."
+          },
+          "user": {
+            "type": "string",
+            "description": "Optional wallet address (0x, 40 hex). Adds walletBalance, youCanSupply and youCanBorrow to every row, for this wallet, in the same call. Pass it whenever the question is about what someone can actually do rather than what the rates are."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_emode_categories",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3"
+            ],
+            "description": "Optional, and only 'v3': this tool exists on v3 only."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          },
+          "symbols": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional token symbols to return, e.g. ['USDC','GHO']. Case-insensitive. Strongly preferred when you know the asset: a chain has ~70 reserves and listing them all is a large response."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_user_positions",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4",
+              "all"
+            ],
+            "description": "Protocol version (default all)."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_position_items",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v4"
+            ],
+            "description": "Optional, and only 'v4': this tool exists on v4 only."
+          },
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "spokeId": {
+            "type": "string",
+            "description": "spokeId from get_user_positions (not the spoke address)."
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "supply",
+              "borrow"
+            ],
+            "description": "Which side to list (default supply)."
+          }
+        },
+        "required": [
+          "user",
+          "spokeId"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_user_summary",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4",
+              "all"
+            ],
+            "description": "Protocol version (default all)."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_transaction_processed",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v4"
+            ],
+            "description": "Optional, and only 'v4': this tool exists on v4 only."
+          },
+          "txHash": {
+            "type": "string",
+            "description": "Transaction hash you broadcast (0x...)."
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The 'operations' from the transaction the server built, e.g. ['SPOKE_SUPPLY']."
+          }
+        },
+        "required": [
+          "txHash",
+          "operations"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_reserve_details",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4"
+            ],
+            "description": "Optional: inferred from the reserve selector ('reserveId' is v4, 'market'+'token'+'chainId' is v3). Send it to be explicit, or if you somehow set both."
+          },
+          "reserveId": {
+            "type": "string",
+            "description": "v4 only: the reserveId from get_markets, copied verbatim."
+          },
+          "market": {
+            "type": "string",
+            "description": "v3 only: market pool address (from get_markets)."
+          },
+          "token": {
+            "type": "string",
+            "description": "v3 only: underlying token address."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "v3 only: chain id (positive integer)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_apy_history",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4"
+            ],
+            "description": "Optional: inferred from the reserve selector ('reserveId' is v4, 'market'+'token'+'chainId' is v3). Send it to be explicit, or if you somehow set both."
+          },
+          "reserveId": {
+            "type": "string",
+            "description": "v4 only: the reserveId from get_markets, copied verbatim."
+          },
+          "market": {
+            "type": "string",
+            "description": "v3 only: market pool address (from get_markets)."
+          },
+          "token": {
+            "type": "string",
+            "description": "v3 only: underlying token address."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "v3 only: chain id (positive integer)."
+          },
+          "side": {
+            "type": "string",
+            "enum": [
+              "supply",
+              "borrow"
+            ],
+            "description": "Which rate (default supply)."
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "sixMonths",
+              "year"
+            ],
+            "description": "Time window (default week)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_user_activity",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4",
+              "all"
+            ],
+            "description": "Protocol version (default all)."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          },
+          "market": {
+            "type": "string",
+            "description": "v3 only, optional: market pool address (defaults to the chain's main market)."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Pagination cursor: copy 'pageInfo.next' from a previous call verbatim. It is opaque and cannot be edited, shortened or rebuilt - a value that was changed comes back as a base64 parse failure. Requires an explicit version ('v3' or 'v4'): a cursor belongs to one version's feed."
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_protocol_history",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v4"
+            ],
+            "description": "Optional, and only 'v4': this tool exists on v4 only."
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "sixMonths",
+              "year"
+            ],
+            "description": "Time window (default week)."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_user_summary_history",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v4"
+            ],
+            "description": "Optional, and only 'v4': this tool exists on v4 only."
+          },
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "sixMonths",
+              "year"
+            ],
+            "description": "Time window (default week)."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_hubs",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v4"
+            ],
+            "description": "Optional, and only 'v4': this tool exists on v4 only."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_hub_assets",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v4"
+            ],
+            "description": "Optional, and only 'v4': this tool exists on v4 only."
+          },
+          "hubId": {
+            "type": "string",
+            "description": "hubId from get_hubs."
+          }
+        },
+        "required": [
+          "hubId"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "prepare_action",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "supply",
+              "borrow",
+              "withdraw",
+              "repay"
+            ],
+            "description": "Which action to build."
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4"
+            ],
+            "description": "Optional: inferred from the reserve selector ('reserveId' is v4, 'market'+'token'+'chainId' is v3). Send it to be explicit, or if you somehow set both."
+          },
+          "sender": {
+            "type": "string",
+            "description": "Sender wallet address (0x, 40 hex): the wallet that will sign, as the user named it in this session. If no wallet has been named, ask for it; never substitute a placeholder, which is rejected."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount in MAIN units (e.g. '10.5'), never base units: 100000 base units of a 6-decimal token is '0.1', not '100'. Convert before sending if the user stated base units. Omit only if max=true."
+          },
+          "max": {
+            "type": "boolean",
+            "description": "Withdraw/repay only: use the entire balance/debt."
+          },
+          "native": {
+            "type": "boolean",
+            "description": "Use the chain's native gas token instead of an ERC-20."
+          },
+          "enableCollateral": {
+            "type": "boolean",
+            "description": "supply only: also enable the asset as collateral (default false). Leave it off and the supply earns yield but backs no borrowing, so a following borrow fails for exceeding a borrowing power of zero. Pass true whenever the plan is to borrow against it."
+          },
+          "permitSignature": {
+            "type": "string",
+            "description": "Send this only to replay a call after an approval handed you a permit to sign: the user's signature (0x...) over the PermitTypedData that approval carried under 'bySignature', on either version. It replaces the approval transaction, so the action comes back in one step. Requires permitDeadline."
+          },
+          "permitDeadline": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Unix seconds, the 'deadline' from the permit message that was signed. Required with permitSignature."
+          },
+          "reserveId": {
+            "type": "string",
+            "description": "v4 only: the opaque reserveId, copied verbatim from a get_markets row or a get_position_items item in this session (e.g. 'MTo6MHg5NGU3...Ojo1') - it cannot be constructed or recalled, so fetch one before the first call rather than after a refusal. For a withdraw or a repay take it from get_position_items for the position being acted on, not from get_markets: the same asset exists on several spokes, and the one this wallet supplied is the only one it can exit. The 'spokeId' from get_user_positions is NOT this: it is the same encoding one segment short, names the spoke rather than a reserve inside it, and is rejected. A token symbol such as 'USDC' is rejected too."
+          },
+          "market": {
+            "type": "string",
+            "description": "v3 only: market pool address, from a get_markets row in this session. It cannot be recalled: an Aave pool address you already recognise belongs to another deployment (v2, or another chain) and is rejected."
+          },
+          "token": {
+            "type": "string",
+            "description": "v3 only: underlying token address."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "v3 only: chain id (positive integer)."
+          }
+        },
+        "required": [
+          "action",
+          "sender"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "preview_action",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4"
+            ],
+            "description": "Optional: inferred from the reserve selector ('reserveId' is v4, 'market'+'token'+'chainId' is v3). Send it to be explicit, or if you somehow set both."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "supply",
+              "borrow",
+              "withdraw",
+              "repay"
+            ],
+            "description": "Action to simulate."
+          },
+          "sender": {
+            "type": "string",
+            "description": "Sender wallet address (0x, 40 hex): the wallet that will sign, as the user named it in this session. If no wallet has been named, ask for it; never substitute a placeholder, which is rejected."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount in MAIN units (e.g. '10.5'), never base units: 100000 base units of a 6-decimal token is '0.1', not '100'. Convert before sending if the user stated base units. Omit only if max=true."
+          },
+          "max": {
+            "type": "boolean",
+            "description": "Withdraw/repay only: use the entire balance/debt."
+          },
+          "native": {
+            "type": "boolean",
+            "description": "Use the chain's native gas token instead of an ERC-20, on either version. Pass it whenever the action is in the native token, or the balance check below reads the wrapped ERC-20 balance and can refuse a supply that would work."
+          },
+          "enableCollateral": {
+            "type": "boolean",
+            "description": "v4 supply only: also enable as collateral."
+          },
+          "reserveId": {
+            "type": "string",
+            "description": "v4 only: the opaque reserveId, copied verbatim from a get_markets row or a get_position_items item in this session (e.g. 'MTo6MHg5NGU3...Ojo1') - it cannot be constructed or recalled, so fetch one before the first call rather than after a refusal. For a withdraw or a repay take it from get_position_items for the position being acted on, not from get_markets: the same asset exists on several spokes, and the one this wallet supplied is the only one it can exit. The 'spokeId' from get_user_positions is NOT this: it is the same encoding one segment short, names the spoke rather than a reserve inside it, and is rejected. A token symbol such as 'USDC' is rejected too."
+          },
+          "market": {
+            "type": "string",
+            "description": "v3 only: market pool address, from a get_markets row in this session. It cannot be recalled: an Aave pool address you already recognise belongs to another deployment (v2, or another chain) and is rejected."
+          },
+          "token": {
+            "type": "string",
+            "description": "v3 only: underlying token address."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "v3 only: chain id (positive integer)."
+          }
+        },
+        "required": [
+          "action",
+          "sender"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_swappable_tokens",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chainIds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Optional: chain ids to list tokens for. Omit the argument entirely to get every chain with a count instead of a token list."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_swap_quote",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id (positive integer)."
+          },
+          "sell": {
+            "type": "string",
+            "description": "Token to sell: 'native' for the chain's gas token, or an ERC-20 address (0x...)."
+          },
+          "buy": {
+            "type": "string",
+            "description": "Token to buy: 'native' for the chain's gas token, or an ERC-20 address (0x...)."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount in main units (of the sell token for kind=sell, the buy token for kind=buy)."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "sell",
+              "buy"
+            ],
+            "description": "sell = spend an exact sell amount; buy = receive an exact buy amount. Default sell."
+          },
+          "user": {
+            "type": "string",
+            "description": "Wallet address (0x, 40 hex) of the wallet that will sign, as the user named it in this session. If no wallet has been named, ask for it; never substitute a placeholder, which is rejected."
+          },
+          "slippagePct": {
+            "type": "string",
+            "description": "Optional max slippage as a percent string, e.g. '0.5' for 0.5%. Omit to accept the backend's suggestion, which moves with market conditions - set this to cap it."
+          }
+        },
+        "required": [
+          "chainId",
+          "sell",
+          "buy",
+          "amount",
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_order_status",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "The order id."
+          }
+        },
+        "required": [
+          "orderId"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_pending_orders",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "chainIds": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "Optional: chain ids to read. Omit the argument entirely to sweep every chain the backend serves."
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "open",
+                "pending_signature",
+                "fulfilled",
+                "cancelled",
+                "expired"
+              ],
+              "description": "Order status."
+            },
+            "description": "Optional: statuses to keep. Omit the argument entirely for all of them."
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_user_rewards",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3",
+              "v4",
+              "all"
+            ],
+            "description": "Protocol version (default all)."
+          },
+          "chainId": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "Chain id to restrict to, e.g. 1 for Ethereum. Omit the argument entirely to cover every chain."
+          }
+        },
+        "required": [
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_sgho_vault",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3"
+            ],
+            "description": "Optional, and only 'v3': this tool exists on v3 only."
+          },
+          "user": {
+            "type": "string",
+            "description": "Optional wallet address (0x, 40 hex) to include its position. Omit the argument entirely for vault state only."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_sgho_preview",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "enum": [
+              "v3"
+            ],
+            "description": "Optional, and only 'v3': this tool exists on v3 only."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "deposit",
+              "withdraw"
+            ],
+            "description": "'deposit' converts GHO to shares; 'withdraw' converts shares to GHO."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount in main units (e.g. '10.5'): GHO when action is 'deposit', sGHO shares when it is 'withdraw'."
+          }
+        },
+        "required": [
+          "action",
+          "amount"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "search_governance_proposals",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "created",
+              "active",
+              "queued",
+              "executed",
+              "failed",
+              "cancelled",
+              "expired",
+              "pending",
+              "null"
+            ],
+            "description": "Filter to one lifecycle state. 'active' is open for voting, 'queued' passed and waits out the timelock, 'executed' is done. Omit for every state."
+          },
+          "search": {
+            "type": "string",
+            "description": "Optional full-text query, e.g. 'GHO' or 'Chaos Labs'. Combines with 'state'."
+          },
+          "includeSummaries": {
+            "type": "boolean",
+            "description": "Include each proposal's ~500-char summary (default false). Adds roughly 500 bytes per row, so ask for it when summarising a list rather than when looking one up."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-100, default 20)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip, for paging (default 0)."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_governance_proposal",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "proposalId": {
+            "type": "string",
+            "description": "Proposal id as a decimal string, e.g. '508'. From search_governance_proposals."
+          },
+          "includeDescription": {
+            "type": "boolean",
+            "description": "Include the full proposal markdown from IPFS (default false). It runs to many KB; the short description is always returned."
+          }
+        },
+        "required": [
+          "proposalId"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_proposal_votes",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "proposalId": {
+            "type": "string",
+            "description": "Proposal id as a decimal string, e.g. '508'. From search_governance_proposals."
+          },
+          "support": {
+            "type": "boolean",
+            "description": "Filter to one side: true for votes in favour, false for against. Omit for both."
+          },
+          "limit": {
+            "type": "number",
+            "description": "Max rows to return (1-100, default 20)."
+          },
+          "offset": {
+            "type": "number",
+            "description": "Rows to skip, for paging (default 0)."
+          }
+        },
+        "required": [
+          "proposalId"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_user_vote",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": "string",
+            "description": "Wallet address, 0x-prefixed (40 hex chars)."
+          },
+          "proposalId": {
+            "type": "string",
+            "description": "Proposal id as a decimal string, e.g. '508'. From search_governance_proposals."
+          }
+        },
+        "required": [
+          "user",
+          "proposalId"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_proposal_payloads",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "proposalId": {
+            "type": "string",
+            "description": "Proposal id as a decimal string, e.g. '508'. From search_governance_proposals."
+          }
+        },
+        "required": [
+          "proposalId"
+        ],
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_aave_guide",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "enum": [
+              "overview",
+              "v4",
+              "v3",
+              "positions",
+              "health-factor",
+              "risks",
+              "ids",
+              "amounts",
+              "prices",
+              "signing",
+              "swaps",
+              "gho",
+              "governance",
+              "rewards",
+              "tools",
+              "docs"
+            ],
+            "description": "Guide topic (default overview). Read 'v3' or 'v4' before building an action on that version."
+          },
+          "lookingFor": {
+            "type": "string",
+            "description": "Send this when you looked for a tool to do something and did not find one, or when a flow dead-ended: describe what you were trying to do, in a few words. It returns the full capability list so you can check whether it exists under a name you did not guess, and records the gap when it does not. Omit the argument entirely when you already know which topic you want."
+          }
+        },
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    },
+    {
+      "name": "get_started",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "status": "not-run"
+    }
+  ],
+  "aaveSigningActions": [
+    "supply",
+    "borrow",
+    "withdraw",
+    "repay"
+  ],
+  "manualAudit": [
+    "Reconcile the listed subcommands and natural-language shortcuts against src/domain.ts after parser changes.",
+    "aave_call.prepare_action dispatches to a separate signing flow. Test each supported signing action and approval continuation.",
+    "onchain=false does not imply no side effects. Deposits, settings, proposals, research and catalog controls need their own expected outcomes.",
+    "Test cancellation, expiry, duplicate delivery, repeated confirmation and interrupted execution in addition to successful command runs."
+  ]
+}

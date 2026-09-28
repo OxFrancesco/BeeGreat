@@ -1,0 +1,40 @@
+{
+  "endpoint": "builders_leaderboard",
+  "source": "https://data-api.polymarket.com/v2/builders/leaderboard?limit=2",
+  "observedAt": "2026-09-28T07:55:57.056Z",
+  "data": {
+    "data": [
+      {
+        "active_users": 56,
+        "builder_code": "0x6b0e773fada0a2ec67c956b25a737d353a534ea33db56c717ba7854346c67984",
+        "builder_name": "traderline",
+        "profile_image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/profile-image-1377213-24116eb2-24b0-429e-89a5-4fd2b6182074.png",
+        "rank": 1,
+        "verified": true,
+        "volume": 636487.6034369998
+      },
+      {
+        "active_users": 105,
+        "builder_code": "0xceebf77a833b30520287ddd9478ff51abbdffa30aa90a8d655dba0e8a79ce0c1",
+        "builder_name": "betmoar",
+        "profile_image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/betmoar_2.png",
+        "rank": 2,
+        "verified": true,
+        "volume": 527022.806647
+      }
+    ],
+    "pagination": {
+      "has_more": true,
+      "limit": 2,
+      "next_cursor": "eyJkYXRhIjp7InR5cGUiOiJidWlsZGVyc19sZWFkZXJib2FyZCIsInBhcmFtcyI6eyJsIjoyLCJvIjoyLCJ0IjoiZGF5In19LCJzaWciOiI0MWY5YTE3N2NjOWY3MTE3YWNkYmVkZTAwYjQxY2I1OCJ9",
+      "offset": 0
+    }
+  },
+  "next": {
+    "endpoint": "builders_leaderboard",
+    "input": {
+      "limit": 2,
+      "cursor": "eyJkYXRhIjp7InR5cGUiOiJidWlsZGVyc19sZWFkZXJib2FyZCIsInBhcmFtcyI6eyJsIjoyLCJvIjoyLCJ0IjoiZGF5In19LCJzaWciOiI0MWY5YTE3N2NjOWY3MTE3YWNkYmVkZTAwYjQxY2I1OCJ9"
+    }
+  }
+}

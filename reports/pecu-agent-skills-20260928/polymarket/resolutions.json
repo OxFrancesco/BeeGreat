@@ -1,0 +1,24 @@
+{
+  "endpoint": "resolutions",
+  "source": "https://data-api.polymarket.com/v2/resolutions?condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+  "observedAt": "2026-09-28T07:55:58.532Z",
+  "data": {
+    "data": [
+      {
+        "condition_id": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+        "extended_review": false,
+        "last_update_timestamp": "1751574957",
+        "log_index": "12",
+        "new_version_q": true,
+        "price": "69",
+        "proposed_price": "69",
+        "question_id": "0x1d925c6933062c2e38031293612d8680ffa097c5d3ba2f87a8ecc565bd47183e",
+        "reproposed_price": "69",
+        "status": "posed",
+        "transaction_hash": "0x5bfff82de66f71fba12b82698b6593a3d7352469ae2d3f708a94ab159c87413b",
+        "was_disputed": false
+      }
+    ]
+  },
+  "next": null
+}

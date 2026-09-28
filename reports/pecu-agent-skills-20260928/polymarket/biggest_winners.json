@@ -1,0 +1,54 @@
+{
+  "endpoint": "biggest_winners",
+  "source": "https://data-api.polymarket.com/v2/biggest-winners?limit=2",
+  "observedAt": "2026-09-28T07:55:56.952Z",
+  "data": {
+    "data": [
+      {
+        "condition_id": "0xd5021817f63063feb5556d3183ee1912b9e2902bbbf669146e45560487ca6dde",
+        "event_id": 864754,
+        "event_slug": "nfl-sea-was-2026-09-27",
+        "event_title": "Seahawks vs. Commanders",
+        "final_value": 600000,
+        "initial_value": 138000,
+        "kind": "market",
+        "pnl": 462000,
+        "position_id": "13527819010690478531994519513627695724320899800792309381741191849303423119301",
+        "profile_image": "",
+        "resolved_at": 1790544003,
+        "user_id": "0x7c37b52eb226bcb9411375ec48b0169663fb6aeb",
+        "user_name": "Diabolical-Prize",
+        "win_rank": 1
+      },
+      {
+        "condition_id": "0xd0ee09bc3955e774c42df27cc3b4685a483f8498000c2de26625f20fc9ed4f78",
+        "event_id": 864734,
+        "event_slug": "nfl-nyj-det-2026-09-27",
+        "event_title": "Jets vs. Lions",
+        "final_value": 799999.9933337467,
+        "initial_value": 415991.9965337466,
+        "kind": "market",
+        "pnl": 384007.9968,
+        "position_id": "95736342510698419900951901021673437755123896942730630640231301271092818987950",
+        "profile_image": "",
+        "resolved_at": 1790546420,
+        "user_id": "0xcbc666209b4c17ea84c03c0dda71b5dab9e4ec62",
+        "user_name": "raybanman",
+        "win_rank": 2
+      }
+    ],
+    "pagination": {
+      "has_more": true,
+      "limit": 2,
+      "next_cursor": "eyJkYXRhIjp7InR5cGUiOiJiaWdnZXN0X3dpbm5lcnMiLCJwYXJhbXMiOnsibCI6MiwibyI6MiwidCI6ImRheSIsImMiOiJvdmVyYWxsIn19LCJzaWciOiI3NWFjNWMzY2U5ZmQxY2MyMjE5NThiZDk5ZjE5MTI0OCJ9",
+      "offset": 0
+    }
+  },
+  "next": {
+    "endpoint": "biggest_winners",
+    "input": {
+      "limit": 2,
+      "cursor": "eyJkYXRhIjp7InR5cGUiOiJiaWdnZXN0X3dpbm5lcnMiLCJwYXJhbXMiOnsibCI6MiwibyI6MiwidCI6ImRheSIsImMiOiJvdmVyYWxsIn19LCJzaWciOiI3NWFjNWMzY2U5ZmQxY2MyMjE5NThiZDk5ZjE5MTI0OCJ9"
+    }
+  }
+}
