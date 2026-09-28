@@ -1,0 +1,21 @@
+{
+  "endpoint": "profile",
+  "source": "https://gamma-api.polymarket.com/public-profile?address=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+  "observedAt": "2026-09-28T07:56:01.233Z",
+  "data": {
+    "createdAt": "2026-06-02T16:16:55.202484Z",
+    "proxyWallet": "0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+    "displayUsernamePublic": true,
+    "pseudonym": "Excited-Subtitle",
+    "name": "3edmond.dantes",
+    "users": [
+      {
+        "id": "8423204",
+        "creator": false,
+        "mod": false
+      }
+    ],
+    "verifiedBadge": false
+  },
+  "next": null
+}

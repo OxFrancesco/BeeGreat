@@ -1,0 +1,210 @@
+{
+  "endpoint": "approvals",
+  "source": "https://data-api.polymarket.com/v2/approvals?user=0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+  "observedAt": "2026-09-28T07:55:56.817Z",
+  "data": {
+    "data": {
+      "address": "0x983eedfbd75803602e4a6e6ea9aab6dc6b9c6748",
+      "chain_id": 137,
+      "checked_at": "2026-09-28T07:55:56Z",
+      "contracts": [
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "UsdcCtf",
+          "spender": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "UsdcExchange",
+          "spender": "0xe111180000d2663c0091e4f400237545b87b996b",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "UsdcNegRiskExchange",
+          "spender": "0xe2222d279d744050d28e00520010520000310f59",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "UsdcNegRiskAdapter",
+          "spender": "0xd91e80cf2e7be2e162c6513ced06f1dd0da35296",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "UsdcCollateralAdapter",
+          "spender": "0xada100db00ca00073811820692005400218fce1f",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "UsdcNegRiskCollateralAdapter",
+          "spender": "0xada2005600dec949baf300f4c6120000bdb6eaab",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "PusdV2Exchange",
+          "spender": "0xe3333700ca9d93003f00f0f71f8515005f6c00aa",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "PusdV2Router",
+          "spender": "0x12121212006e4cd160d18e3f00711da5c3372600",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "max",
+          "approved": true,
+          "feature": "trading",
+          "id": "UsdceCollateralOnramp",
+          "spender": "0x93070a847efef7f70739046a929d47a521f5b8ee",
+          "standard": "ERC20",
+          "token": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"
+        },
+        {
+          "amount": "0",
+          "approved": false,
+          "feature": "perps",
+          "id": "PerpsPusdDeposit",
+          "spender": "0xdca4af75705dbb50f62437045aff9921947917d2",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "amount": "800",
+          "approved": true,
+          "feature": "rewards",
+          "id": "SponsorRewards",
+          "spender": "0xdd8db71ce3be8d71ff148b2163d64da181a29e8b",
+          "standard": "ERC20",
+          "token": "0xc011a7e12a19f7b1f670d46f03b03f3342e82dfb"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "CtfExchangeIsApprovedForAll",
+          "spender": "0xe111180000d2663c0091e4f400237545b87b996b",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "CtfNegRiskExchangeIsApprovedForAll",
+          "spender": "0xe2222d279d744050d28e00520010520000310f59",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "CtfNegRiskAdapterIsApprovedForAll",
+          "spender": "0xd91e80cf2e7be2e162c6513ced06f1dd0da35296",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "CtfCollateralAdapterIsApprovedForAll",
+          "spender": "0xada100db00ca00073811820692005400218fce1f",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "CtfNegRiskCollateralAdapterIsApprovedForAll",
+          "spender": "0xada2005600dec949baf300f4c6120000bdb6eaab",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "V2PositionManagerRouterIsApprovedForAll",
+          "spender": "0x12121212006e4cd160d18e3f00711da5c3372600",
+          "standard": "ERC1155",
+          "token": "0x006f54f7f9a22e0000cc2ab60031000000ae9fef"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "V2PositionManagerExchangeIsApprovedForAll",
+          "spender": "0xe3333700ca9d93003f00f0f71f8515005f6c00aa",
+          "standard": "ERC1155",
+          "token": "0x006f54f7f9a22e0000cc2ab60031000000ae9fef"
+        },
+        {
+          "approved": true,
+          "feature": "auto-redeem",
+          "id": "AutoRedeemCtfOperator",
+          "spender": "0xf3cfb6a6ebfeb51876289eb235719eb1c65252b0",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "auto-redeem",
+          "id": "AutoRedeemCtfV2Redeemer",
+          "spender": "0xa1200000d0002264c9a1698e001292d00e1b00af",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "auto-redeem",
+          "id": "AutoRedeemV2PositionManagerV2Redeemer",
+          "spender": "0xa1200000d0002264c9a1698e001292d00e1b00af",
+          "standard": "ERC1155",
+          "token": "0x006f54f7f9a22e0000cc2ab60031000000ae9fef"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "CtfBinaryModuleIsApprovedForAll",
+          "spender": "0x1000008dd9001b968442c1000017eae6e0da00ba",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        },
+        {
+          "approved": true,
+          "feature": "trading",
+          "id": "CtfNegRiskModuleIsApprovedForAll",
+          "spender": "0x200000900045e3b6259600682756002200028933",
+          "standard": "ERC1155",
+          "token": "0x4d97dcd97ec945f40cf65f87097ace5ea0476045"
+        }
+      ]
+    }
+  },
+  "next": null
+}

@@ -1,0 +1,46 @@
+{
+  "endpoint": "market_rewards",
+  "source": "https://clob.polymarket.com/rewards/markets/0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+  "observedAt": "2026-09-28T07:56:02.817Z",
+  "data": {
+    "limit": 100,
+    "count": 1,
+    "next_cursor": "LTE=",
+    "data": [
+      {
+        "condition_id": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+        "question": "Xi Jinping out before 2027?",
+        "market_slug": "xi-jinping-out-before-2027",
+        "event_slug": "xi-jinping-out-before-2027",
+        "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/xi-jinping-out-in-2025-EjF4SM20eaa3.jpg",
+        "rewards_max_spread": 3.5,
+        "rewards_min_size": 200,
+        "market_competitiveness": 652.113071,
+        "tokens": [
+          {
+            "token_id": "32338220190071351435772801779725302244575775216413325951443816017994629993401",
+            "outcome": "Yes",
+            "price": 0.0355
+          },
+          {
+            "token_id": "25659310674993675562345759665114759892400026242514633218387667107987341231962",
+            "outcome": "No",
+            "price": 0.9645
+          }
+        ],
+        "rewards_config": [
+          {
+            "id": 303430,
+            "asset_address": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+            "start_date": "2026-09-16",
+            "end_date": "2500-12-31",
+            "rate_per_day": 300,
+            "total_rewards": 0,
+            "total_days": 173232
+          }
+        ]
+      }
+    ]
+  },
+  "next": null
+}

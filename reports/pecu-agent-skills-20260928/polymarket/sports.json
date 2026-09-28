@@ -1,0 +1,3768 @@
+{
+  "endpoint": "sports",
+  "source": "https://gamma-api.polymarket.com/sports",
+  "observedAt": "2026-09-28T07:56:00.990Z",
+  "data": [
+    {
+      "sport": "ufl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ufl.png",
+      "resolution": "https://www.theufl.com/",
+      "ordering": "away",
+      "tags": "1,100639,1186,105925",
+      "series": "12553"
+    },
+    {
+      "sport": "lmp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lmp.png",
+      "resolution": "https://www.lmp.mx/",
+      "ordering": "home",
+      "tags": "1,100639,678,105936",
+      "series": "12565"
+    },
+    {
+      "sport": "cricpakt20cup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricpakt20cup.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,104074",
+      "series": "11278"
+    },
+    {
+      "sport": "cricps",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricps.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,104073",
+      "series": "11279"
+    },
+    {
+      "sport": "cricpsl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricpsl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103805",
+      "series": "11214"
+    },
+    {
+      "sport": "cricsa20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricsa20.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103811",
+      "series": "10450"
+    },
+    {
+      "sport": "cricsm",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricsm.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103810",
+      "series": "11218"
+    },
+    {
+      "sport": "cricss",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricss.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102817",
+      "series": "10453"
+    },
+    {
+      "sport": "liiga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/liiga.png",
+      "resolution": "https://liiga.fi/en",
+      "ordering": "home",
+      "tags": "1,100639,100088,105937",
+      "series": "12566"
+    },
+    {
+      "sport": "hbehfcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbehfcl.png",
+      "resolution": "https://ehfcl.eurohandball.com/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105926",
+      "series": "12554"
+    },
+    {
+      "sport": "hockeychl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hockeychl.png",
+      "resolution": "https://www.championshockeyleague.com/en",
+      "ordering": "home",
+      "tags": "1,100639,100088,105938",
+      "series": "12567"
+    },
+    {
+      "sport": "ncaalax",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ncaalax.png",
+      "resolution": "https://www.ncaa.com/sports/lacrosse-men/d1",
+      "ordering": "home",
+      "tags": "1,100639,102393,105939",
+      "series": "12568"
+    },
+    {
+      "sport": "ncaawlax",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ncaawlax.png",
+      "resolution": "https://www.ncaa.com/sports/lacrosse-women/d1",
+      "ordering": "home",
+      "tags": "1,100639,102393,105940",
+      "series": "12569"
+    },
+    {
+      "sport": "rueuchall",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rueuchall.png",
+      "resolution": "https://www.epcrugby.com/challenge-cup/",
+      "ordering": "home",
+      "tags": "1,100639,102193,105941",
+      "series": "12570"
+    },
+    {
+      "sport": "ruprod2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ruprod2.png",
+      "resolution": "https://www.lnr.fr/pro-d2",
+      "ordering": "home",
+      "tags": "1,100639,102193,105942",
+      "series": "12571"
+    },
+    {
+      "sport": "cricdhakadpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.tigercricket.com.bd/",
+      "ordering": "home",
+      "tags": "1,100639,517,105943",
+      "series": "12572"
+    },
+    {
+      "sport": "cricranji",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.bcci.tv/domestic/ranji-trophy",
+      "ordering": "home",
+      "tags": "1,100639,517,105944",
+      "series": "12573"
+    },
+    {
+      "sport": "hbhandbold",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbhandbold.png",
+      "resolution": "https://tophaandbold.dk/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105927",
+      "series": "12555"
+    },
+    {
+      "sport": "hblnh",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hblnh.png",
+      "resolution": "https://www.lnh.fr/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105928",
+      "series": "12556"
+    },
+    {
+      "sport": "hbbundesliga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbbundesliga.png",
+      "resolution": "https://www.daikin-hbl.de/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105929",
+      "series": "12557"
+    },
+    {
+      "sport": "hbnbi",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbnbi.png",
+      "resolution": "https://www.mksz.hu/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105930",
+      "series": "12558"
+    },
+    {
+      "sport": "hbeliteserien",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbeliteserien.png",
+      "resolution": "https://www.handball.no/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105931",
+      "series": "12559"
+    },
+    {
+      "sport": "hbsuperliga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbsuperliga.png",
+      "resolution": "https://orlen-superliga.pl/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105932",
+      "series": "12560"
+    },
+    {
+      "sport": "hbasobal",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbasobal.png",
+      "resolution": "https://asobal.es/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105933",
+      "series": "12561"
+    },
+    {
+      "sport": "hbhandboll",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hbhandboll.png",
+      "resolution": "https://handbollsligan.se/",
+      "ordering": "home",
+      "tags": "1,100639,102897,105934",
+      "series": "12562"
+    },
+    {
+      "sport": "crict20blast",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crict20blast-44c392b2.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103807",
+      "series": "11215"
+    },
+    {
+      "sport": "kor",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/kor-594af508.png",
+      "resolution": "https://www.kleague.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102771",
+      "series": "10444"
+    },
+    {
+      "sport": "lal",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lal-33aa3578.png",
+      "resolution": "https://www.laliga.com/en-GB",
+      "ordering": "home",
+      "tags": "1,780,100639,100350",
+      "series": "10193"
+    },
+    {
+      "sport": "liv",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/liv-4ab9915a.png",
+      "resolution": "https://www.livgolf.com/",
+      "ordering": "home",
+      "tags": "1,100219,102254",
+      "series": "12421"
+    },
+    {
+      "sport": "lol",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lol-cf27b4a0.png",
+      "resolution": "https://liquipedia.net/leagueoflegends/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,65,100639",
+      "series": "10311"
+    },
+    {
+      "sport": "cricadt10",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://ttensports.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105945",
+      "series": "12574"
+    },
+    {
+      "sport": "rurgr",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rurgr.png",
+      "resolution": "https://www.world.rugby/",
+      "ordering": "home",
+      "tags": "1,100639,102193,106121",
+      "series": "12691"
+    },
+    {
+      "sport": "gsc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.bundesliga.com/en/bundesliga",
+      "ordering": "home",
+      "tags": "1,100639,100350,106112",
+      "series": "12683"
+    },
+    {
+      "sport": "wjc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/hockey-wjc-c1aab48338.png",
+      "resolution": "https://www.iihf.com/",
+      "ordering": "home",
+      "tags": "1,100639,100088,105458",
+      "series": "11975"
+    },
+    {
+      "sport": "crictopend",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106134",
+      "series": "12743"
+    },
+    {
+      "sport": "weuq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/weuq.png",
+      "resolution": "https://www.uefa.com/womenseuro/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105214",
+      "series": "11845"
+    },
+    {
+      "sport": "cof",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cof-3215dd65.png",
+      "resolution": "https://www.concacaf.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,101280",
+      "series": "10244"
+    },
+    {
+      "sport": "col",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/col-b7b27511.png",
+      "resolution": "https://www.uefa.com/uefaconferenceleague/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102763",
+      "series": "10437"
+    },
+    {
+      "sport": "conl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/conl-0ec6bb0c.png",
+      "resolution": "https://www.concacaf.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102867",
+      "series": "10673"
+    },
+    {
+      "sport": "cricilt20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricilt20-4695496a.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103812",
+      "series": "11219"
+    },
+    {
+      "sport": "cricipl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricipl-a905c278.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,101988",
+      "series": "11213"
+    },
+    {
+      "sport": "cricmlc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricmlc-b3ef2b92.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103813",
+      "series": "11221"
+    },
+    {
+      "sport": "crict20lpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crict20lpl-24e6653a.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102812",
+      "series": "10448"
+    },
+    {
+      "sport": "el1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/el1-c9906fad.png",
+      "resolution": "https://www.efl.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104319",
+      "series": "11435"
+    },
+    {
+      "sport": "pol",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/pol-c590c3d8.png",
+      "resolution": "https://ekstraklasa.org/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105705",
+      "series": "12320"
+    },
+    {
+      "sport": "qat1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/qat1-70bd17f9.png",
+      "resolution": "https://www.qsl.com.qa/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105729",
+      "series": "12355"
+    },
+    {
+      "sport": "setkamemd",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/setkamemd-7744beea.png",
+      "resolution": "https://setkacup.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105715,105717",
+      "series": "12330"
+    },
+    {
+      "sport": "setkawoua",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/setkawoua-7744beea.png",
+      "resolution": "https://setkacup.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105715,105719",
+      "series": "12332"
+    },
+    {
+      "sport": "vbefeler",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbefeler-ee2da206.png",
+      "resolution": "https://www.tvf.org.tr/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105336",
+      "series": "11922"
+    },
+    {
+      "sport": "vbeuro",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbeuro-89e0a6a3.png",
+      "resolution": "https://www.cev.eu/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105345",
+      "series": "11931"
+    },
+    {
+      "sport": "vbliguea",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbliguea-110ee764.png",
+      "resolution": "https://www.lnv.fr/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105338",
+      "series": "11924"
+    },
+    {
+      "sport": "vbplusliga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbplusliga-c96f4a25.png",
+      "resolution": "https://www.plusliga.pl/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105335",
+      "series": "11921"
+    },
+    {
+      "sport": "vbsvleague",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbsvleague-b956fb94.png",
+      "resolution": "https://www.svleague.jp/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105340",
+      "series": "11926"
+    },
+    {
+      "sport": "cricthunderbolt",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricthunderbolt.png",
+      "resolution": "https://www.ipl.com/cricket/news/thunderbolt-t10-league-2026-full-schedule-teams-squads-amp-live-streaming-details/",
+      "ordering": "home",
+      "tags": "1,100639,517,104206",
+      "series": "11339"
+    },
+    {
+      "sport": "vbvleague",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbvleague-59bf4e7e.png",
+      "resolution": "https://www.kovo.co.kr/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105341",
+      "series": "11927"
+    },
+    {
+      "sport": "vbworlds",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbworlds-1b4897d5.png",
+      "resolution": "https://en.volleyballworld.com/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105344",
+      "series": "11930"
+    },
+    {
+      "sport": "nascar-xfinity",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nascar-xfinity-bf112708.png",
+      "resolution": "https://www.nascar.com",
+      "ordering": "home",
+      "tags": "1,102166,434,105837",
+      "series": "12576"
+    },
+    {
+      "sport": "uru1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/uru1.png",
+      "resolution": "https://www.auf.org.uy/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105241",
+      "series": "11862"
+    },
+    {
+      "sport": "powerslap",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/powerslap-557b4791.png",
+      "resolution": "https://www.powerslap.com/",
+      "ordering": "home",
+      "tags": "1,100639,104084",
+      "series": "11286"
+    },
+    {
+      "sport": "indycar",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/indycar-84fbb663.png",
+      "resolution": "https://www.indycar.com",
+      "ordering": "home",
+      "tags": "1,100639,102181",
+      "series": "11970"
+    },
+    {
+      "sport": "nascar",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nascar-d4f6e603.png",
+      "resolution": "https://www.nascar.com",
+      "ordering": "home",
+      "tags": "1,102166,434",
+      "series": "12575"
+    },
+    {
+      "sport": "crickcct20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crickcct20.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106140",
+      "series": "12749"
+    },
+    {
+      "sport": "cricdpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106126",
+      "series": "12739"
+    },
+    {
+      "sport": "cricassam",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106127",
+      "series": "12740"
+    },
+    {
+      "sport": "crickcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crickcl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106137",
+      "series": "12746"
+    },
+    {
+      "sport": "cricetpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricetpl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106136",
+      "series": "12745"
+    },
+    {
+      "sport": "crictnpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crictnpl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106125",
+      "series": "12738"
+    },
+    {
+      "sport": "cricupt20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricupt20.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106138",
+      "series": "12747"
+    },
+    {
+      "sport": "crict20max",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crict20max.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106139",
+      "series": "12748"
+    },
+    {
+      "sport": "efl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/efl.png",
+      "resolution": "https://www.efl.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102595",
+      "series": "10329"
+    },
+    {
+      "sport": "daviscup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/daviscup-2026.jpg",
+      "resolution": "https://www.daviscup.com/",
+      "ordering": "home",
+      "tags": "864,1,100639,106226",
+      "series": "12826"
+    },
+    {
+      "sport": "nascar-truck",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nascar-truck-704e1c76.png",
+      "resolution": "https://www.nascar.com",
+      "ordering": "home",
+      "tags": "1,102166,434,105838",
+      "series": "12577"
+    },
+    {
+      "sport": "cricodcw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricodcw.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106146",
+      "series": "12751"
+    },
+    {
+      "sport": "bkfibaw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+      "resolution": "https://www.fiba.basketball/en/events/fiba-womens-basketball-world-cup-2026",
+      "ordering": "home",
+      "tags": "1,100639,28,104188",
+      "series": "12783"
+    },
+    {
+      "sport": "cricshield",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.cricket.com.au/competitions/sheffield-shield",
+      "ordering": "home",
+      "tags": "1,100639,517,102817",
+      "series": "10453"
+    },
+    {
+      "sport": "cricsherepunjab",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106168",
+      "series": "12784"
+    },
+    {
+      "sport": "cricdplw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106169",
+      "series": "12785"
+    },
+    {
+      "sport": "cricnrwt10",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106170",
+      "series": "12786"
+    },
+    {
+      "sport": "ttolympics",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ttolympics-468933ad.png",
+      "resolution": "https://olympics.com/",
+      "ordering": "home",
+      "tags": "1,100639,103767,105330",
+      "series": "11916"
+    },
+    {
+      "sport": "ecu1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ecu1-61a5bd65.png",
+      "resolution": "https://www.ligapro.ec/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105242",
+      "series": "11863"
+    },
+    {
+      "sport": "euc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/euc.png",
+      "resolution": "https://www.uefa.com/euro2024/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104316",
+      "series": "11430"
+    },
+    {
+      "sport": "el2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/el2-c9906fad.png",
+      "resolution": "https://www.efl.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104320",
+      "series": "11436"
+    },
+    {
+      "sport": "elc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/elc-37291eaa.png",
+      "resolution": "https://www.efl.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102643",
+      "series": "10355"
+    },
+    {
+      "sport": "enl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/enl-b3868725.png",
+      "resolution": "https://www.thenationalleague.org.uk/",
+      "ordering": "home",
+      "tags": "1,100639,100350,100737",
+      "series": "11445"
+    },
+    {
+      "sport": "ere",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ere-8208824a.png",
+      "resolution": "https://eredivisie.eu/competition/",
+      "ordering": "home",
+      "tags": "1,100639,100350,101735",
+      "series": "10286"
+    },
+    {
+      "sport": "es2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/es2-a27290d7.png",
+      "resolution": "https://www.laliga.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102866",
+      "series": "10672"
+    },
+    {
+      "sport": "euroleague",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/euroleague-c97c6e64.png",
+      "resolution": "https://www.euroleaguebasketball.net/euroleague/",
+      "ordering": "home",
+      "tags": "1,100639,102669",
+      "series": "10371"
+    },
+    {
+      "sport": "f1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/f1-9ffc2002.png",
+      "resolution": "https://www.formula1.com/",
+      "ordering": "home",
+      "tags": "1,435,100639",
+      "series": "11635"
+    },
+    {
+      "sport": "sui",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sui-af6d68db.png",
+      "resolution": "https://www.football.ch/super-league/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105704",
+      "series": "12319"
+    },
+    {
+      "sport": "ttcup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ttcup-96719fa9.png",
+      "resolution": "https://tt-cup.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105710",
+      "series": "12326"
+    },
+    {
+      "sport": "ewq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ewq.png",
+      "resolution": "https://www.uefa.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102544",
+      "series": "10243"
+    },
+    {
+      "sport": "tur",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/tur-ee9065df.png",
+      "resolution": "https://tff.org/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102564",
+      "series": "10292"
+    },
+    {
+      "sport": "cricecspt",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106171",
+      "series": "12787"
+    },
+    {
+      "sport": "cricmajort20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106172",
+      "series": "12788"
+    },
+    {
+      "sport": "abb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/big-bash-league-f223934dac.png",
+      "resolution": "https://www.bigbash.com.au/matches",
+      "ordering": "home",
+      "tags": "1,517,100639,102813",
+      "series": "10449"
+    },
+    {
+      "sport": "cricomand50",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/cricket-ball-a0b0bf2dc9.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,106173",
+      "series": "12789"
+    },
+    {
+      "sport": "lmb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lmb.png",
+      "resolution": "https://www.lmb.com.mx/",
+      "ordering": "home",
+      "tags": "1,100639,678,103217",
+      "series": "12790"
+    },
+    {
+      "sport": "fin1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fin1.png",
+      "resolution": "https://www.veikkausliiga.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105243",
+      "series": "11864"
+    },
+    {
+      "sport": "isl1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/isl1.png",
+      "resolution": "https://www.ksi.is/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105244",
+      "series": "11865"
+    },
+    {
+      "sport": "ncaabaseball",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ncaabaseball.png",
+      "resolution": "https://www.ncaa.com/sports/baseball/d1",
+      "ordering": "home",
+      "tags": "1,100639,678,105219",
+      "series": "12791"
+    },
+    {
+      "sport": "irl1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/irl1.png",
+      "resolution": "https://www.leagueofireland.ie/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105245",
+      "series": "11866"
+    },
+    {
+      "sport": "bjkcup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bjkcup-2026.png",
+      "resolution": "https://www.billiejeankingcup.com/",
+      "ordering": "home",
+      "tags": "864,1,100639,106227",
+      "series": "12827"
+    },
+    {
+      "sport": "afcq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/afcq.png",
+      "resolution": "https://www.cafonline.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,106276",
+      "series": "12854"
+    },
+    {
+      "sport": "boxing",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/boxing-cba26879.png",
+      "resolution": "https://www.espn.com/boxing/",
+      "ordering": "home",
+      "tags": "1,683",
+      "series": "12578"
+    },
+    {
+      "sport": "kaz1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/kaz1.png",
+      "resolution": "https://kff.kz/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105246",
+      "series": "11867"
+    },
+    {
+      "sport": "modus",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/modus-super-series-3cb628a632.jpg",
+      "resolution": "https://modussuperseries.com/",
+      "ordering": "away",
+      "tags": "1,100639,101437,106153",
+      "series": "12755"
+    },
+    {
+      "sport": "bra3",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bra3-b7d9ce0e.png",
+      "resolution": "https://www.cbf.com.br/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105248",
+      "series": "11869"
+    },
+    {
+      "sport": "dehl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/dehl-2af620e7.png",
+      "resolution": "https://www.penny-del.org/en/del/schedule-and-results.html",
+      "ordering": "home",
+      "tags": "1,100639,100088,102909",
+      "series": "10701"
+    },
+    {
+      "sport": "den",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/den-77449867.png",
+      "resolution": "https://www.superliga.dk/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102652",
+      "series": "10363"
+    },
+    {
+      "sport": "nor2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nor2-2695d0a5.png",
+      "resolution": "https://www.obosligaen.no/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105250",
+      "series": "11871"
+    },
+    {
+      "sport": "pdcdarts",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/pdc-182dba4913.jpg",
+      "resolution": "https://www.pdc.tv/",
+      "ordering": "away",
+      "tags": "1,100639,101437,101544",
+      "series": "12754"
+    },
+    {
+      "sport": "cricwncl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricwncl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103180",
+      "series": "10909"
+    },
+    {
+      "sport": "crint",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crint.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102803",
+      "series": "10528"
+    },
+    {
+      "sport": "cwc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cwc.png",
+      "resolution": "https://www.fifa.com/fifaplus/en/tournaments/mens/clubworldcup",
+      "ordering": "home",
+      "tags": "1,100639,100350,102192",
+      "series": "11461"
+    },
+    {
+      "sport": "czechligapro",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/czechligapro.png",
+      "resolution": "https://tt-cup.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105709",
+      "series": "12325"
+    },
+    {
+      "sport": "afl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/afl.png",
+      "resolution": "https://www.afl.com.au/",
+      "ordering": "home",
+      "tags": "1,100639,103615",
+      "series": "12563"
+    },
+    {
+      "sport": "uzb1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/uzb1.png",
+      "resolution": "https://pfl.uz/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105247",
+      "series": "11868"
+    },
+    {
+      "sport": "swe2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/swe2.png",
+      "resolution": "https://www.superettan.se/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105251",
+      "series": "11872"
+    },
+    {
+      "sport": "est1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/est1.png",
+      "resolution": "https://jalgpall.ee/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105252",
+      "series": "11873"
+    },
+    {
+      "sport": "poker",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/poker-94b603f7.png",
+      "resolution": "https://www.wsop.com/",
+      "ordering": "home",
+      "tags": "1,100277",
+      "series": "12579"
+    },
+    {
+      "sport": "rodeo",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rodeo-d1300f09.png",
+      "resolution": "https://www.prorodeo.com/",
+      "ordering": "home",
+      "tags": "1,104814",
+      "series": "12580"
+    },
+    {
+      "sport": "aut",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/aut.png",
+      "resolution": "https://www.bundesliga.at/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104929",
+      "series": "11636"
+    },
+    {
+      "sport": "fro1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/fro1.png",
+      "resolution": "https://www.football.fo/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105257",
+      "series": "11878"
+    },
+    {
+      "sport": "cfb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cfb-3ddd4bb7.png",
+      "resolution": "https://www.ncaa.com/",
+      "ordering": "away",
+      "tags": "1,100351,100639",
+      "series": "12756"
+    },
+    {
+      "sport": "canch",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://canadasoccer.com/championship/canchamp/",
+      "ordering": "home",
+      "tags": "1,100639,100350,106187",
+      "series": "12802"
+    },
+    {
+      "sport": "dfb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/dfb.png",
+      "resolution": "https://www.dfb.de/dfb-pokal/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102154",
+      "series": "10317"
+    },
+    {
+      "sport": "dota2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/dota2-1d288592aa.png",
+      "resolution": "https://www.liquipedia.net/dota2/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102366,100639",
+      "series": "10309"
+    },
+    {
+      "sport": "efa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/efa-f5eaf3cc.png",
+      "resolution": "https://www.thefa.com/competitions/thefacup",
+      "ordering": "home",
+      "tags": "1,100639,100350,102594",
+      "series": "10314"
+    },
+    {
+      "sport": "bkcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkcl-3d45a66c.png",
+      "resolution": "https://www.championsleague.basketball/",
+      "ordering": "home",
+      "tags": "1,100639,28,103093",
+      "series": "10879"
+    },
+    {
+      "sport": "fifwc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fifwc.png",
+      "resolution": "https://www.fifa.com/fifaplus/en/tournaments/mens/worldcup",
+      "ordering": "home",
+      "tags": "1,100639,100350,102232",
+      "series": "11433"
+    },
+    {
+      "sport": "bkfr1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfr1.png",
+      "resolution": "https://www.lnb.fr/",
+      "ordering": "home",
+      "tags": "1,100639,28,103098",
+      "series": "10872"
+    },
+    {
+      "sport": "bkligend",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkligend-3e4f0eff.png",
+      "resolution": "https://www.acb.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,103094",
+      "series": "10878"
+    },
+    {
+      "sport": "blr1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/blr1-9539a43b.png",
+      "resolution": "https://abff.by/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105255",
+      "series": "11876"
+    },
+    {
+      "sport": "chi2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/chi2-fe04f9a9.png",
+      "resolution": "https://www.thecfa.cn/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105259",
+      "series": "11880"
+    },
+    {
+      "sport": "fif",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fif-de73631a.png",
+      "resolution": "https://www.fifa.com/en",
+      "ordering": "home",
+      "tags": "1,100639,100350,102539",
+      "series": "10238"
+    },
+    {
+      "sport": "kor2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/kor2-594af508.png",
+      "resolution": "https://www.kleague.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105258",
+      "series": "11879"
+    },
+    {
+      "sport": "bkvtb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkvtb.png",
+      "resolution": "https://www.vtb-league.com/en/",
+      "ordering": "home",
+      "tags": "1,100639,28,104344",
+      "series": "11465"
+    },
+    {
+      "sport": "lva1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lva1-f20005cc.png",
+      "resolution": "https://www.virsliga.lv/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105253",
+      "series": "11874"
+    },
+    {
+      "sport": "ltu1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ltu1.png",
+      "resolution": "https://alyga.lt/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105254",
+      "series": "11875"
+    },
+    {
+      "sport": "geo1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/geo1.png",
+      "resolution": "https://gff.ge/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105256",
+      "series": "11877"
+    },
+    {
+      "sport": "col2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/col2.png",
+      "resolution": "https://dimayor.com.co/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105260",
+      "series": "11881"
+    },
+    {
+      "sport": "chl2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/chl2.png",
+      "resolution": "https://www.anfp.cl/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105261",
+      "series": "11882"
+    },
+    {
+      "sport": "uslc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/uslc.png",
+      "resolution": "https://www.uslchampionship.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105703",
+      "series": "12318"
+    },
+    {
+      "sport": "usoc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.ussoccer.com/us-open-cup",
+      "ordering": "home",
+      "tags": "1,100639,100350,105946",
+      "series": "12581"
+    },
+    {
+      "sport": "isc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.legaseriea.it/en/supercoppa",
+      "ordering": "home",
+      "tags": "1,100639,100350,105947",
+      "series": "12582"
+    },
+    {
+      "sport": "hun",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/hun.png",
+      "resolution": "https://www.mlsz.hu/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104933",
+      "series": "11640"
+    },
+    {
+      "sport": "saf1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/saf1.png",
+      "resolution": "https://www.psl.co.za/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105734",
+      "series": "12360"
+    },
+    {
+      "sport": "u20wwc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.fifa.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,106189",
+      "series": "12804"
+    },
+    {
+      "sport": "grc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/grc.png",
+      "resolution": "https://www.epo.gr/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104337",
+      "series": "11457"
+    },
+    {
+      "sport": "chfa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/chfa-c1269a4e.png",
+      "resolution": "https://www.thecfa.cn/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105707",
+      "series": "12322"
+    },
+    {
+      "sport": "fl1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fl1-1ddf3796.png",
+      "resolution": "https://ligue1.com/en",
+      "ordering": "home",
+      "tags": "1,100639,102070,100350",
+      "series": "10195"
+    },
+    {
+      "sport": "hok",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hok.png",
+      "resolution": "https://liquipedia.net/honorofkings/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102757,100639",
+      "series": "10434"
+    },
+    {
+      "sport": "hr1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hr1.png",
+      "resolution": "https://hnl.hr/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104331",
+      "series": "11451"
+    },
+    {
+      "sport": "fpd",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fpd-03ec82e9.png",
+      "resolution": "https://www.unafut.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104318",
+      "series": "11434"
+    },
+    {
+      "sport": "ire",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ire.png",
+      "resolution": "https://www.fai.ie/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104935",
+      "series": "11642"
+    },
+    {
+      "sport": "fr2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fr2-c1c38d4c.png",
+      "resolution": "https://www.ligue2.fr/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102871",
+      "series": "10675"
+    },
+    {
+      "sport": "frtc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/frtc-82281ddc.png",
+      "resolution": "https://www.ligue1.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105733",
+      "series": "12359"
+    },
+    {
+      "sport": "gtm",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/gtm-585d0f3a.png",
+      "resolution": "https://www.ligagt.org/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104322",
+      "series": "11438"
+    },
+    {
+      "sport": "icwq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/icwq-de73631a.png",
+      "resolution": "https://www.fifa.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104342",
+      "series": "11463"
+    },
+    {
+      "sport": "itc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/itc-acd1808d.png",
+      "resolution": "https://www.legaseriea.it/en/coppa-italia",
+      "ordering": "home",
+      "tags": "1,100639,100350,102008",
+      "series": "10287"
+    },
+    {
+      "sport": "ned2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ned2-bafdd3bb.png",
+      "resolution": "https://www.keukenkampioendivisie.nl/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105727",
+      "series": "12353"
+    },
+    {
+      "sport": "bul",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bul.png",
+      "resolution": "https://bfunion.bg/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104936",
+      "series": "11643"
+    },
+    {
+      "sport": "slo",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/slo.png",
+      "resolution": "https://www.prvaliga.si/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104934",
+      "series": "11641"
+    },
+    {
+      "sport": "sclc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sclc.png",
+      "resolution": "https://spfl.co.uk/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105706",
+      "series": "12321"
+    },
+    {
+      "sport": "uae1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/uae1.png",
+      "resolution": "https://uaeproleague.ae/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105728",
+      "series": "12354"
+    },
+    {
+      "sport": "gre1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/gre1.png",
+      "resolution": "https://www.slgr.gr/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105730",
+      "series": "12356"
+    },
+    {
+      "sport": "isr",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/isr.png",
+      "resolution": "https://www.football.org.il/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104931",
+      "series": "11638"
+    },
+    {
+      "sport": "ptsc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ptsc.png",
+      "resolution": "https://www.fpf.pt/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105731",
+      "series": "12357"
+    },
+    {
+      "sport": "ecs",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ecs.png",
+      "resolution": "https://www.thefa.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105732",
+      "series": "12358"
+    },
+    {
+      "sport": "par1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/par1.png",
+      "resolution": "https://www.apf.org.py/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105735",
+      "series": "12361"
+    },
+    {
+      "sport": "rlchallenge",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rlchallenge.png",
+      "resolution": "https://www.rugby-league.com/competitions/pro-national/betfred-challenge-cup",
+      "ordering": "home",
+      "tags": "1,100639,102193,105948",
+      "series": "12583"
+    },
+    {
+      "sport": "darts",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/darts.png",
+      "resolution": "https://www.pdc.tv/",
+      "ordering": "away",
+      "tags": "1,100639,101437",
+      "series": "12754,12755"
+    },
+    {
+      "sport": "bkjpn",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkjpn.png",
+      "resolution": "https://www.bleague.jp/en/",
+      "ordering": "home",
+      "tags": "1,100639,28,104349",
+      "series": "11470"
+    },
+    {
+      "sport": "bkarg",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkarg-7df9ee3e.png",
+      "resolution": "https://www.lnba.com.ar/",
+      "ordering": "home",
+      "tags": "1,100639,28,103099",
+      "series": "10873"
+    },
+    {
+      "sport": "bknbl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bknbl-37dcd79c.png",
+      "resolution": "https://www.nbl.com.au/",
+      "ordering": "home",
+      "tags": "1,100639,28,103096",
+      "series": "10876"
+    },
+    {
+      "sport": "brco",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/brco-88a207f5.png",
+      "resolution": "https://www.cbf.com.br/futebol-brasileiro/competicoes/copa-do-brasil",
+      "ordering": "home",
+      "tags": "1,100639,100350,104340",
+      "series": "11460"
+    },
+    {
+      "sport": "jap",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/jap-afa94c27.png",
+      "resolution": "https://www.jleague.jp/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102649",
+      "series": "10360"
+    },
+    {
+      "sport": "bkseriea",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkseriea.png",
+      "resolution": "https://www.flashscoreusa.com/basketball/italy/lega-a",
+      "ordering": "home",
+      "tags": "1,100639,28,103095",
+      "series": "10877"
+    },
+    {
+      "sport": "bun",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bun.png",
+      "resolution": "https://www.bundesliga.com/en/bundesliga",
+      "ordering": "home",
+      "tags": "1,1494,100639,100350",
+      "series": "10194"
+    },
+    {
+      "sport": "caf",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/caf.png",
+      "resolution": "https://www.cafonline.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102540",
+      "series": "10240"
+    },
+    {
+      "sport": "mlbb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/mlbb.png",
+      "resolution": "https://liquipedia.net/mobilelegends/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102750,100639",
+      "series": "10426"
+    },
+    {
+      "sport": "vbligueb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/vball-6b6648595f.png",
+      "resolution": "https://www.lnv.fr/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105949",
+      "series": "12585"
+    },
+    {
+      "sport": "vbligueaw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/vball-6b6648595f.png",
+      "resolution": "https://www.lnv.fr/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105950",
+      "series": "12586"
+    },
+    {
+      "sport": "vbbundesligaw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/vball-6b6648595f.png",
+      "resolution": "https://www.volleyball-bundesliga.de/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105951",
+      "series": "12587"
+    },
+    {
+      "sport": "vb2bundesliga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/vball-6b6648595f.png",
+      "resolution": "https://www.volleyball-bundesliga.de/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105952",
+      "series": "12588"
+    },
+    {
+      "sport": "vb2bundesligaw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/vball-6b6648595f.png",
+      "resolution": "https://www.volleyball-bundesliga.de/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105953",
+      "series": "12589"
+    },
+    {
+      "sport": "ahl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ahl-be74d880.png",
+      "resolution": "https://theahl.com/stats/schedule",
+      "ordering": "away",
+      "tags": "1,100639,100088,102907",
+      "series": "10699"
+    },
+    {
+      "sport": "bkcba",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkcba-f7467a43.png",
+      "resolution": "https://www.flashscore.com/basketball/china/cba",
+      "ordering": "home",
+      "tags": "1,100639,28,103097",
+      "series": "10875"
+    },
+    {
+      "sport": "brcm",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/brcm-8f65ca17.png",
+      "resolution": "https://www.fmf.com.br/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104323",
+      "series": "11439"
+    },
+    {
+      "sport": "ccc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ccc-39fda5b4.png",
+      "resolution": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "ordering": "home",
+      "tags": "1,100639,100350,104343",
+      "series": "11464"
+    },
+    {
+      "sport": "cdr",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cdr-fa7bffc3.png",
+      "resolution": "https://www.laliga.com/en-GB/copa-del-rey",
+      "ordering": "home",
+      "tags": "1,100639,100350,101783",
+      "series": "10316"
+    },
+    {
+      "sport": "vbbelligaa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/vball-6b6648595f.png",
+      "resolution": "https://www.volleybelgium.be/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105954",
+      "series": "12590"
+    },
+    {
+      "sport": "vbdivisao1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/vball-6b6648595f.png",
+      "resolution": "https://fpvoleibol.pt/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105955",
+      "series": "12591"
+    },
+    {
+      "sport": "cde",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cde.png",
+      "resolution": "https://www.fff.fr/competitions/coupe-de-france/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102604",
+      "series": "10315"
+    },
+    {
+      "sport": "bkaba",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkaba.png",
+      "resolution": "https://www.aba-liga.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,104346",
+      "series": "11467"
+    },
+    {
+      "sport": "bkbbl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkbbl.png",
+      "resolution": "https://www.easycredit-bbl.de/en/",
+      "ordering": "home",
+      "tags": "1,100639,28,104345",
+      "series": "11466"
+    },
+    {
+      "sport": "bkbsl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkbsl.png",
+      "resolution": "https://www.tbl.org.tr/",
+      "ordering": "home",
+      "tags": "1,100639,28,104347",
+      "series": "11468"
+    },
+    {
+      "sport": "bkfibaqaf",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfibaqaf.png",
+      "resolution": "https://www.fiba.basketball/basketballworldcup/2027/qualifiers",
+      "ordering": "home",
+      "tags": "1,100639,28,104350",
+      "series": "11471"
+    },
+    {
+      "sport": "bkfibaqam",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfibaqam.png",
+      "resolution": "https://www.fiba.basketball/basketballworldcup/2027/qualifiers",
+      "ordering": "home",
+      "tags": "1,100639,28,104351",
+      "series": "11472"
+    },
+    {
+      "sport": "bkgr1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkgr1.png",
+      "resolution": "https://www.esake.gr/",
+      "ordering": "home",
+      "tags": "1,100639,28,104348",
+      "series": "11469"
+    },
+    {
+      "sport": "cehl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cehl.png",
+      "resolution": "https://www.hokej.cz/tipsport-extraliga",
+      "ordering": "home",
+      "tags": "1,100639,100088,102910",
+      "series": "10702"
+    },
+    {
+      "sport": "crichundred",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crichundred-6d816087.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105722",
+      "series": "12348"
+    },
+    {
+      "sport": "bkkbl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkkbl-3b85b1a9.png",
+      "resolution": "https://www.kbl.or.kr/",
+      "ordering": "home",
+      "tags": "1,100639,28,103100",
+      "series": "10874"
+    },
+    {
+      "sport": "crichundredw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crichundredw-08a62fa5.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105723",
+      "series": "12349"
+    },
+    {
+      "sport": "wsl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.wslfootball.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105959",
+      "series": "12596"
+    },
+    {
+      "sport": "tha1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://thaileague.co.th/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105960",
+      "series": "12597"
+    },
+    {
+      "sport": "argcopa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/argcopa.png",
+      "resolution": "https://www.copaargentina.org/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105739",
+      "series": "12365"
+    },
+    {
+      "sport": "idn1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://ileague.id/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105961",
+      "series": "12598"
+    },
+    {
+      "sport": "idn2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://ileague.id/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105962",
+      "series": "12599"
+    },
+    {
+      "sport": "srb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/srb.png",
+      "resolution": "https://superliga.rs/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104932",
+      "series": "11639"
+    },
+    {
+      "sport": "cricecsch",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricecsch.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105745",
+      "series": "12370"
+    },
+    {
+      "sport": "cricecseng",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricecseng.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105746",
+      "series": "12371"
+    },
+    {
+      "sport": "cricmaharani",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricmaharani.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105747",
+      "series": "12372"
+    },
+    {
+      "sport": "cricmukono",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricmukono.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105748",
+      "series": "12373"
+    },
+    {
+      "sport": "crickerala",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crickerala.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105749",
+      "series": "12374"
+    },
+    {
+      "sport": "cricjclt10",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricjclt10.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105750",
+      "series": "12375"
+    },
+    {
+      "sport": "cricppl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricppl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105751",
+      "series": "12376"
+    },
+    {
+      "sport": "cricfalcons",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricfalcons.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105752",
+      "series": "12377"
+    },
+    {
+      "sport": "cricinterprov",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricinterprov.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105753",
+      "series": "12378"
+    },
+    {
+      "sport": "dpwt",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/dpwt.png",
+      "resolution": "https://www.europeantour.com/",
+      "ordering": "home",
+      "tags": "1,100219,102519",
+      "series": "12420"
+    },
+    {
+      "sport": "mex",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/country-flags/mex.png",
+      "resolution": "https://www.ligamx.net/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102448",
+      "series": "10290"
+    },
+    {
+      "sport": "kft",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/kft.png",
+      "resolution": "https://www.pgatour.com/korn-ferry-tour",
+      "ordering": "home",
+      "tags": "1,100219,105851",
+      "series": "12468"
+    },
+    {
+      "sport": "cricbpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricbpl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103809",
+      "series": "10588"
+    },
+    {
+      "sport": "lec",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lec.png",
+      "resolution": "https://www.leaguescup.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102449",
+      "series": "11449"
+    },
+    {
+      "sport": "lib",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lib.png",
+      "resolution": "https://conmebollibertadores.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102562",
+      "series": "10289"
+    },
+    {
+      "sport": "crichkt20w",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crichkt20w.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,104072",
+      "series": "11280"
+    },
+    {
+      "sport": "criclcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/criclcl.png",
+      "resolution": "https://www.llct20.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,104203",
+      "series": "11337"
+    },
+    {
+      "sport": "cricnt20c",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricnt20c.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,104204",
+      "series": "11338"
+    },
+    {
+      "sport": "usc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer%20ball-bba4025f77.png",
+      "resolution": "https://www.uefa.com/uefasupercup/",
+      "ordering": "home",
+      "tags": "1,100639,105616,100350",
+      "series": "12224"
+    },
+    {
+      "sport": "bl2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bl2.png",
+      "resolution": "https://www.bundesliga.com/en/2bundesliga",
+      "ordering": "home",
+      "tags": "1,100639,100350,102864",
+      "series": "10670"
+    },
+    {
+      "sport": "chess",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/chess.png",
+      "resolution": "https://lichess.org/",
+      "ordering": "home",
+      "tags": "1,256,100639",
+      "series": "11480"
+    },
+    {
+      "sport": "atc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/atc-31b8463f.png",
+      "resolution": "https://www.oefb.at/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104335",
+      "series": "11455"
+    },
+    {
+      "sport": "bkbsn",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkbsn-5a999885.png",
+      "resolution": "https://bsnpr.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,105272",
+      "series": "11890"
+    },
+    {
+      "sport": "bkcebl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkcebl-e621ee69.png",
+      "resolution": "https://www.cebl.ca/",
+      "ordering": "home",
+      "tags": "1,100639,28,105275",
+      "series": "11893"
+    },
+    {
+      "sport": "usl1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer-leagues/usl1.png",
+      "resolution": "https://www.uslleagueone.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105737",
+      "series": "12363"
+    },
+    {
+      "sport": "bkeurocup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkeurocup-3d5c9c5b.png",
+      "resolution": "https://www.eurocupbasketball.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,105266",
+      "series": "11884"
+    },
+    {
+      "sport": "ven1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ven1.png",
+      "resolution": "https://fvf.org.ve/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105249",
+      "series": "11870"
+    },
+    {
+      "sport": "tur2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/tur2.png",
+      "resolution": "https://www.tff.org/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105736",
+      "series": "12362"
+    },
+    {
+      "sport": "cafcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cafcl.png",
+      "resolution": "https://www.cafonline.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105738",
+      "series": "12364"
+    },
+    {
+      "sport": "aze1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.pfl.az/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105913",
+      "series": "12547"
+    },
+    {
+      "sport": "aze2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.pfl.az/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105914",
+      "series": "12548"
+    },
+    {
+      "sport": "azec",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.affa.az/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105915",
+      "series": "12549"
+    },
+    {
+      "sport": "aseanw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://aseanutdfc.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105916",
+      "series": "12550"
+    },
+    {
+      "sport": "bra",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bra-70e7714d.png",
+      "resolution": "https://www.cbf.com.br/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102648",
+      "series": "10359"
+    },
+    {
+      "sport": "bkibl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkibl.png",
+      "resolution": "https://www.flashscore.com/basketball/indonesia/ibl/",
+      "ordering": "home",
+      "tags": "1,100639,28,105274",
+      "series": "11892"
+    },
+    {
+      "sport": "vbsuperlega",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbsuperlega.png",
+      "resolution": "https://www.legavolley.it/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105334",
+      "series": "11920"
+    },
+    {
+      "sport": "vbsuperliga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbsuperliga.png",
+      "resolution": "https://superliga.cbv.com.br/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105337",
+      "series": "11923"
+    },
+    {
+      "sport": "vbvnl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbvnl.png",
+      "resolution": "https://en.volleyballworld.com/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105342",
+      "series": "11928"
+    },
+    {
+      "sport": "chi",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/chi.png",
+      "resolution": "https://www.cfa.com.cn/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102764",
+      "series": "10439"
+    },
+    {
+      "sport": "codmw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/codmw.png",
+      "resolution": "https://liquipedia.net/callofduty/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,100230,100639",
+      "series": "10427"
+    },
+    {
+      "sport": "copaam",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/copaam.png",
+      "resolution": "https://www.copaamerica.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,100278",
+      "series": "11429"
+    },
+    {
+      "sport": "afwq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/afwq.png",
+      "resolution": "https://www.cafonline.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102540",
+      "series": "10240"
+    },
+    {
+      "sport": "aswq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/aswq.png",
+      "resolution": "https://www.the-afc.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,101680",
+      "series": "10241"
+    },
+    {
+      "sport": "cricbbl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricbbl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102813",
+      "series": "10449"
+    },
+    {
+      "sport": "clf",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/clf.png",
+      "resolution": "https://www.flashscore.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105795",
+      "series": "12410"
+    },
+    {
+      "sport": "ccup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ccup.png",
+      "resolution": "https://www.mlssoccer.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105802",
+      "series": "12417"
+    },
+    {
+      "sport": "nirl1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.nifootballleague.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105909",
+      "series": "12543"
+    },
+    {
+      "sport": "canpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.cplsoccer.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105910",
+      "series": "12544"
+    },
+    {
+      "sport": "tpe1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.ctfa.com.tw/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105911",
+      "series": "12545"
+    },
+    {
+      "sport": "tpew",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://www.ctfa.com.tw/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105912",
+      "series": "12546"
+    },
+    {
+      "sport": "cricodc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricodc.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105742",
+      "series": "12367"
+    },
+    {
+      "sport": "aflw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/aflw.png",
+      "resolution": "https://www.afl.com.au/aflw",
+      "ordering": "home",
+      "tags": "1,100639,105935",
+      "series": "12564"
+    },
+    {
+      "sport": "asean",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/asean-90316666.png",
+      "resolution": "https://www.aseanfootball.org/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105873",
+      "series": "12516"
+    },
+    {
+      "sport": "rlsuper",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rlsuper-10ff42f2.png",
+      "resolution": "https://www.superleague.co.uk/",
+      "ordering": "home",
+      "tags": "1,100639,102193,105840",
+      "series": "12452"
+    },
+    {
+      "sport": "rueuchamp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rueuchamp-e307f2d2.png",
+      "resolution": "https://www.epcrugby.com/",
+      "ordering": "home",
+      "tags": "1,100639,102193,103113",
+      "series": "10882"
+    },
+    {
+      "sport": "ruprem",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ruprem-f2d0841b.png",
+      "resolution": "https://www.premiershiprugby.com/",
+      "ordering": "home",
+      "tags": "1,100639,102193,103054",
+      "series": "10840"
+    },
+    {
+      "sport": "setkameua",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/setkameua-7744beea.png",
+      "resolution": "https://setkacup.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105715,105716",
+      "series": "12329"
+    },
+    {
+      "sport": "argpn",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/argpn.png",
+      "resolution": "https://www.afa.com.ar/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105240",
+      "series": "11861"
+    },
+    {
+      "sport": "bel1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bel1.png",
+      "resolution": "https://www.proleague.be/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105725",
+      "series": "12351"
+    },
+    {
+      "sport": "bel2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bel2.png",
+      "resolution": "https://www.proleague.be/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105726",
+      "series": "12352"
+    },
+    {
+      "sport": "acle",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/acle.png",
+      "resolution": "https://www.the-afc.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104937",
+      "series": "11644"
+    },
+    {
+      "sport": "aseanc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/soccer ball-bba4025f77.png",
+      "resolution": "https://aseanutdfc.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,105917",
+      "series": "12551"
+    },
+    {
+      "sport": "bkisrsl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkisrsl.png",
+      "resolution": "https://basket.co.il/",
+      "ordering": "home",
+      "tags": "1,100639,28,105268",
+      "series": "11886"
+    },
+    {
+      "sport": "con",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/con.png",
+      "resolution": "https://www.conmebol.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,100787",
+      "series": "10246"
+    },
+    {
+      "sport": "ptc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ptc.png",
+      "resolution": "https://www.ligaportugal.pt/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104334",
+      "series": "11454"
+    },
+    {
+      "sport": "r6siege",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/r6siege.png",
+      "resolution": "https://liquipedia.net/rainbowsix/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102755,100639",
+      "series": "10432"
+    },
+    {
+      "sport": "rl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rl.png",
+      "resolution": "https://liquipedia.net/rocketleague/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102756,100639",
+      "series": "10433"
+    },
+    {
+      "sport": "rlnrl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rlnrl.png",
+      "resolution": "https://www.nrl.com/",
+      "ordering": "home",
+      "tags": "1,100639,102193,105839",
+      "series": "12451"
+    },
+    {
+      "sport": "ruchamp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ruchamp.png",
+      "resolution": "https://www.sarugby.co.za/",
+      "ordering": "home",
+      "tags": "1,100639,102193,103115",
+      "series": "10884"
+    },
+    {
+      "sport": "bklkl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bklkl.png",
+      "resolution": "https://lkl.lt/",
+      "ordering": "home",
+      "tags": "1,100639,28,105267",
+      "series": "11885"
+    },
+    {
+      "sport": "rus",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rus-92658283.png",
+      "resolution": "https://premierliga.ru",
+      "ordering": "home",
+      "tags": "1,100639,100350,102593",
+      "series": "10313"
+    },
+    {
+      "sport": "criccsat20w",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/criccsat20w.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102808",
+      "series": "10446"
+    },
+    {
+      "sport": "itsb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/itsb.png",
+      "resolution": "https://www.legaserieb.it/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102870",
+      "series": "10676"
+    },
+    {
+      "sport": "rusrp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rusrp.png",
+      "resolution": "https://super.rugby/",
+      "ordering": "home",
+      "tags": "1,100639,102193,103114",
+      "series": "10883"
+    },
+    {
+      "sport": "rutopft",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rutopft.png",
+      "resolution": "https://www.lnr.fr/top-14",
+      "ordering": "home",
+      "tags": "1,100639,102193,103055",
+      "series": "10841"
+    },
+    {
+      "sport": "ruurc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ruurc.png",
+      "resolution": "https://www.unitedrugby.com/",
+      "ordering": "home",
+      "tags": "1,100639,102193,103112",
+      "series": "10881"
+    },
+    {
+      "sport": "sawq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sawq.png",
+      "resolution": "https://www.conmebol.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,100787",
+      "series": "10246"
+    },
+    {
+      "sport": "skc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/skc.png",
+      "resolution": "https://www.slstat.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104330",
+      "series": "11450"
+    },
+    {
+      "sport": "sud",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sud.png",
+      "resolution": "https://conmebolsudamericana.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102563",
+      "series": "10291"
+    },
+    {
+      "sport": "swe",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/swe.png",
+      "resolution": "https://www.allsvenskan.se/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104930",
+      "series": "11637"
+    },
+    {
+      "sport": "ttchallenger",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ttchallenger.png",
+      "resolution": "https://tt-cup.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105711",
+      "series": "12327"
+    },
+    {
+      "sport": "criccpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/criccpl-79c4d834.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103808",
+      "series": "11216"
+    },
+    {
+      "sport": "nbasl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nbasl.png",
+      "resolution": "https://www.nba.com/summer-league",
+      "ordering": "home",
+      "tags": "1,100639,105577",
+      "series": "12174"
+    },
+    {
+      "sport": "ncag",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ncag.png",
+      "resolution": "https://www.concacaf.com/gold-cup/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102263",
+      "series": "11432"
+    },
+    {
+      "sport": "nlc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nlc.png",
+      "resolution": "https://www.knvb.nl/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104339",
+      "series": "11459"
+    },
+    {
+      "sport": "ja2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ja2-afa94c27.png",
+      "resolution": "https://www.jleague.jp/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102770",
+      "series": "10443"
+    },
+    {
+      "sport": "nawq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nawq-3215dd65.png",
+      "resolution": "https://www.concacaf.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,101280",
+      "series": "10244"
+    },
+    {
+      "sport": "nor",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nor-95d12fdb.png",
+      "resolution": "https://www.eliteserien.no/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102651",
+      "series": "10362"
+    },
+    {
+      "sport": "rusixnat",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rusixnat-11c2bd5a.png",
+      "resolution": "https://www.sixnationsrugby.com/",
+      "ordering": "home",
+      "tags": "1,100639,102193,103111",
+      "series": "10880"
+    },
+    {
+      "sport": "sc1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sc1-131332ec.png",
+      "resolution": "https://liquipedia.net/starcraft/Main_Page",
+      "ordering": "home",
+      "tags": "64,103065,100639,1",
+      "series": "10436"
+    },
+    {
+      "sport": "spl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/spl-531d89e8.png",
+      "resolution": "https://www.spl.com.sa/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102650",
+      "series": "10361"
+    },
+    {
+      "sport": "ssc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ssc-e6dd0eb2.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,103075,100639,100350",
+      "series": "10863"
+    },
+    {
+      "sport": "svk1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/svk1-6191301c.png",
+      "resolution": "https://nikeliga.sk/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104332",
+      "series": "11452"
+    },
+    {
+      "sport": "trsk",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/trsk-7e3f4ab2.png",
+      "resolution": "https://tff.org/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104333",
+      "series": "11453"
+    },
+    {
+      "sport": "bkplk",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkplk.png",
+      "resolution": "https://plk.pl/",
+      "ordering": "home",
+      "tags": "1,100639,28,105269",
+      "series": "11887"
+    },
+    {
+      "sport": "bkkls",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkkls.png",
+      "resolution": "https://kls.rs/",
+      "ordering": "home",
+      "tags": "1,100639,28,105270",
+      "series": "11888"
+    },
+    {
+      "sport": "bkvensl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkvensl.png",
+      "resolution": "https://www.flashscore.com/basketball/venezuela/superliga/",
+      "ordering": "home",
+      "tags": "1,100639,28,105273",
+      "series": "11891"
+    },
+    {
+      "sport": "bknznbl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/super+cool+basketball+in+red+and+blue+wow.png",
+      "resolution": "https://nznbl.basketball/",
+      "ordering": "home",
+      "tags": "1,100639,28,105918",
+      "series": "12552"
+    },
+    {
+      "sport": "bkligarg",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkligarg-a2dc76d0.png",
+      "resolution": "https://laligaargentina.com.ar/",
+      "ordering": "home",
+      "tags": "1,100639,28,105276",
+      "series": "11894"
+    },
+    {
+      "sport": "bknbb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bknbb-958a0a9f.png",
+      "resolution": "https://lnb.com.br/nbb/",
+      "ordering": "home",
+      "tags": "1,100639,28,105271",
+      "series": "11889"
+    },
+    {
+      "sport": "vbbundesliga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbbundesliga-5c63dcf1.png",
+      "resolution": "https://www.volleyball-bundesliga.de/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105339",
+      "series": "11925"
+    },
+    {
+      "sport": "vbcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/vbcl-e91d7c3d.png",
+      "resolution": "https://www.cev.eu/",
+      "ordering": "home",
+      "tags": "1,100639,102883,105343",
+      "series": "11929"
+    },
+    {
+      "sport": "cricjcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricjcl-4a6a66e2.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105514",
+      "series": "11998"
+    },
+    {
+      "sport": "cricshpageeza",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricshpageeza-bde852e4.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105512",
+      "series": "11996"
+    },
+    {
+      "sport": "cricmaharaja",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricmaharaja.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105506",
+      "series": "11990"
+    },
+    {
+      "sport": "criccoppat10",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/criccoppat10.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105508",
+      "series": "11992"
+    },
+    {
+      "sport": "cricecsbg",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricecsbg.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105509",
+      "series": "11993"
+    },
+    {
+      "sport": "cricnsk",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricnsk.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105510",
+      "series": "11994"
+    },
+    {
+      "sport": "cricapl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricapl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105511",
+      "series": "11995"
+    },
+    {
+      "sport": "crickpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crickpl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105513",
+      "series": "11997"
+    },
+    {
+      "sport": "cricgsl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricgsl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105740",
+      "series": "12366"
+    },
+    {
+      "sport": "cricodcl2w",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricodcl2w.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105743",
+      "series": "12368"
+    },
+    {
+      "sport": "cricgermant10",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cricgermant10.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105744",
+      "series": "12369"
+    },
+    {
+      "sport": "ofc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ofc.png",
+      "resolution": "https://www.oceaniafootball.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102566",
+      "series": "10294"
+    },
+    {
+      "sport": "owq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/owq.png",
+      "resolution": "https://www.oceaniafootball.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102545",
+      "series": "10294"
+    },
+    {
+      "sport": "ttelite",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ttelite.png",
+      "resolution": "https://www.tt-series.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105708",
+      "series": "12324"
+    },
+    {
+      "sport": "crictelangana",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crictelangana-d51e28b4.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105507",
+      "series": "11991"
+    },
+    {
+      "sport": "uef",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/uef.png",
+      "resolution": "https://www.uefa.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102544",
+      "series": "10243"
+    },
+    {
+      "sport": "j2100",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/j2100-afa94c27.png",
+      "resolution": "https://www.jleague.jp/",
+      "ordering": "home",
+      "tags": "1,102770,100639,100350",
+      "series": "10443"
+    },
+    {
+      "sport": "ow",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ow-e437715b.png",
+      "resolution": "https://liquipedia.net/overwatch/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102753,100639",
+      "series": "10430"
+    },
+    {
+      "sport": "por",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/por-c057d4f4.png",
+      "resolution": "https://www.ligaportugal.pt/",
+      "ordering": "home",
+      "tags": "1,100639,100350,101772",
+      "series": "10330"
+    },
+    {
+      "sport": "sc2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sc2-f86b231c.png",
+      "resolution": "https://liquipedia.net/starcraft2/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102758,100639",
+      "series": "10435"
+    },
+    {
+      "sport": "scoc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/scoc-f281e924.png",
+      "resolution": "https://www.scottishfa.co.uk/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104338",
+      "series": "11458"
+    },
+    {
+      "sport": "scop",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/scop-23e566a5.png",
+      "resolution": "https://spfl.co.uk/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102872",
+      "series": "10674"
+    },
+    {
+      "sport": "setkamecz",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/setkamecz-7744beea.png",
+      "resolution": "https://setkacup.com",
+      "ordering": "home",
+      "tags": "1,100639,103767,105715,105718",
+      "series": "12331"
+    },
+    {
+      "sport": "lpga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lpga-a889a169.png",
+      "resolution": "https://www.lpga.com/",
+      "ordering": "home",
+      "tags": "1,100219,105806",
+      "series": "12419"
+    },
+    {
+      "sport": "bkbul",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkbul-13f42dae.png",
+      "resolution": "https://basketball.bg/",
+      "ordering": "home",
+      "tags": "1,100639,28,105819",
+      "series": "12433"
+    },
+    {
+      "sport": "bkfi2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfi2-264b4d95.png",
+      "resolution": "https://basket.fi/sarjat/sarjat/i-divisioonat/",
+      "ordering": "home",
+      "tags": "1,100639,28,105833",
+      "series": "12447"
+    },
+    {
+      "sport": "bkfr2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfr2-460bf161.png",
+      "resolution": "https://www.lnb.fr/",
+      "ordering": "home",
+      "tags": "1,100639,28,105829",
+      "series": "12443"
+    },
+    {
+      "sport": "wimbledon",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wimbledon-0b7b28a8.png",
+      "resolution": "https://www.wimbledon.com/en_GB/scores/index.html",
+      "ordering": "home",
+      "tags": "864,1,100639,100290",
+      "series": "12012"
+    },
+    {
+      "sport": "wta",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wta-a0555a41.png",
+      "resolution": "https://www.wtatennis.com/scores",
+      "ordering": "home",
+      "tags": "1,864,100639,102123",
+      "series": "10366"
+    },
+    {
+      "sport": "ueq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ueq.png",
+      "resolution": "https://www.uefa.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104317",
+      "series": "11431"
+    },
+    {
+      "sport": "ukr1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ukr1.png",
+      "resolution": "https://upl.ua",
+      "ordering": "home",
+      "tags": "1,100639,100350,103886",
+      "series": "11241"
+    },
+    {
+      "sport": "unl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/unl.png",
+      "resolution": "https://www.uefa.com/uefanationsleague/",
+      "ordering": "home",
+      "tags": "1,100639,100350,100816",
+      "series": "11446"
+    },
+    {
+      "sport": "afcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/afcl.png",
+      "resolution": "https://www.the-afc.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104937",
+      "series": "11644"
+    },
+    {
+      "sport": "ttworldcup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/wtt-logo-3830a9bcd5.png",
+      "resolution": "https://www.ittf.com/",
+      "ordering": "home",
+      "tags": "1,100639,103767,105328",
+      "series": "11914"
+    },
+    {
+      "sport": "wch",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wch.png",
+      "resolution": "https://www.iihf.com/",
+      "ordering": "home",
+      "tags": "1,100639,100088,102151",
+      "series": "11648"
+    },
+    {
+      "sport": "bkaut",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkaut.png",
+      "resolution": "https://www.basketballaustria.at/",
+      "ordering": "home",
+      "tags": "1,100639,28,105818",
+      "series": "12432"
+    },
+    {
+      "sport": "bkblr",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkblr.png",
+      "resolution": "https://www.flashscore.com/basketball/belarus/premier-league/",
+      "ordering": "home",
+      "tags": "1,100639,28,105836",
+      "series": "12450"
+    },
+    {
+      "sport": "bkcyp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkcyp.png",
+      "resolution": "https://www.cbf.basketball/",
+      "ordering": "home",
+      "tags": "1,100639,28,105820",
+      "series": "12434"
+    },
+    {
+      "sport": "bkden",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkden.png",
+      "resolution": "https://www.basket.dk/",
+      "ordering": "home",
+      "tags": "1,100639,28,105821",
+      "series": "12435"
+    },
+    {
+      "sport": "bkes2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkes2.png",
+      "resolution": "https://www.feb.es/",
+      "ordering": "home",
+      "tags": "1,100639,28,105832",
+      "series": "12446"
+    },
+    {
+      "sport": "bkest",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkest.png",
+      "resolution": "https://www.basket.ee/",
+      "ordering": "home",
+      "tags": "1,100639,28,105822",
+      "series": "12436"
+    },
+    {
+      "sport": "bkcze",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkcze.png",
+      "resolution": "https://www.nbl.cz/",
+      "ordering": "home",
+      "tags": "1,100639,28,105814",
+      "series": "12428"
+    },
+    {
+      "sport": "arg",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/arg-7cddb724.png",
+      "resolution": "https://www.afa.com.ar/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102561",
+      "series": "10312"
+    },
+    {
+      "sport": "bksvk",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bksvk-43ece7b5.png",
+      "resolution": "https://www.slovakbasket.sk/",
+      "ordering": "home",
+      "tags": "1,100639,28,105826",
+      "series": "12440"
+    },
+    {
+      "sport": "atp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/atp-b3819f2f.png",
+      "resolution": "https://www.atptour.com/en/scores/current",
+      "ordering": "home",
+      "tags": "1,864,100639,101232",
+      "series": "10365"
+    },
+    {
+      "sport": "auc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/auc-9e4b9826.png",
+      "resolution": "https://www.a-league.com.au/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104336",
+      "series": "11456"
+    },
+    {
+      "sport": "aus",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/aus-490c517a.png",
+      "resolution": "https://www.aleague.com.au/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102765",
+      "series": "10438"
+    },
+    {
+      "sport": "val",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/val-41c5e64a.png",
+      "resolution": "https://liquipedia.net/valorant/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,101672,100639",
+      "series": "10369"
+    },
+    {
+      "sport": "bkmkd",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkmkd.png",
+      "resolution": "https://basketball.mk/",
+      "ordering": "home",
+      "tags": "1,100639,28,105824",
+      "series": "12438"
+    },
+    {
+      "sport": "bknor",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bknor.png",
+      "resolution": "https://www.basket.no/",
+      "ordering": "home",
+      "tags": "1,100639,28,105825",
+      "series": "12439"
+    },
+    {
+      "sport": "bksvn",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bksvn.png",
+      "resolution": "https://www.kzs.si/",
+      "ordering": "home",
+      "tags": "1,100639,28,105827",
+      "series": "12441"
+    },
+    {
+      "sport": "bkukr",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkukr.png",
+      "resolution": "https://fbu.ua/",
+      "ordering": "home",
+      "tags": "1,100639,28,105828",
+      "series": "12442"
+    },
+    {
+      "sport": "acn",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/acn.png",
+      "resolution": "https://www.cafonline.com/caf-africa-cup-of-nations/",
+      "ordering": "home",
+      "tags": "1,102974",
+      "series": "10786"
+    },
+    {
+      "sport": "afc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/afc.png",
+      "resolution": "https://www.the-afc.com/en/home.html",
+      "ordering": "home",
+      "tags": "1,100639,100350,101680",
+      "series": "10241"
+    },
+    {
+      "sport": "bkbel",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkbel.png",
+      "resolution": "https://www.bnxtleague.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,105812",
+      "series": "12426"
+    },
+    {
+      "sport": "bkfibaqas",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfibaqas.png",
+      "resolution": "https://www.fiba.basketball/basketballworldcup/2027/qualifiers",
+      "ordering": "home",
+      "tags": "1,100639,28,104352",
+      "series": "11473"
+    },
+    {
+      "sport": "bkfibaqeu",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfibaqeu.png",
+      "resolution": "https://www.fiba.basketball/basketballworldcup/2027/qualifiers",
+      "ordering": "home",
+      "tags": "1,100639,28,104353",
+      "series": "11474"
+    },
+    {
+      "sport": "bkcro",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkcro.png",
+      "resolution": "https://hks.hr/",
+      "ordering": "home",
+      "tags": "1,100639,28,105810",
+      "series": "12424"
+    },
+    {
+      "sport": "bkfin",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkfin-264b4d95.png",
+      "resolution": "https://www.korisliiga.fi/",
+      "ordering": "home",
+      "tags": "1,100639,28,105813",
+      "series": "12427"
+    },
+    {
+      "sport": "bkrus",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkrus-fe2885bb.png",
+      "resolution": "https://russiabasket.ru/",
+      "ordering": "home",
+      "tags": "1,100639,28,105835",
+      "series": "12449"
+    },
+    {
+      "sport": "cpbl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cpbl-81a529e6.png",
+      "resolution": "https://www.cpbl.com.tw/",
+      "ordering": "home",
+      "tags": "1,100639,678,105454",
+      "series": "11972"
+    },
+    {
+      "sport": "crict20blastl2w",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crict20blastl2w-44c392b2.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105205",
+      "series": "11841"
+    },
+    {
+      "sport": "crict20blastw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crict20blastw-44c392b2.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,105204",
+      "series": "11840"
+    },
+    {
+      "sport": "crict20plw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crict20plw-5175a64d.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103179",
+      "series": "11220"
+    },
+    {
+      "sport": "bkgr2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkgr2.png",
+      "resolution": "https://www.flashscore.com/basketball/greece/elite-league/",
+      "ordering": "home",
+      "tags": "1,100639,28,105830",
+      "series": "12444"
+    },
+    {
+      "sport": "bkit2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkit2.png",
+      "resolution": "https://www.legapallacanestro.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,105831",
+      "series": "12445"
+    },
+    {
+      "sport": "bkkaz",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkkaz.png",
+      "resolution": "https://www.nbl.kz/",
+      "ordering": "home",
+      "tags": "1,100639,28,105823",
+      "series": "12437"
+    },
+    {
+      "sport": "bkkz2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkkz2.png",
+      "resolution": "https://www.nbl.kz/",
+      "ordering": "home",
+      "tags": "1,100639,28,105834",
+      "series": "12448"
+    },
+    {
+      "sport": "bklat",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bklat.png",
+      "resolution": "https://www.basket.lv/",
+      "ordering": "home",
+      "tags": "1,100639,28,105809",
+      "series": "12423"
+    },
+    {
+      "sport": "bkgbr",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkgbr.png",
+      "resolution": "https://superleaguebasketball.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,105817",
+      "series": "12431"
+    },
+    {
+      "sport": "bkhun",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkhun.png",
+      "resolution": "https://www.hunbasket.hu/",
+      "ordering": "home",
+      "tags": "1,100639,28,105815",
+      "series": "12429"
+    },
+    {
+      "sport": "bkmex",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkmex.png",
+      "resolution": "https://lnbp.mx/",
+      "ordering": "home",
+      "tags": "1,100639,28,105816",
+      "series": "12430"
+    },
+    {
+      "sport": "bkned",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bkned.png",
+      "resolution": "https://www.bnxtleague.com/",
+      "ordering": "home",
+      "tags": "1,100639,28,105811",
+      "series": "12425"
+    },
+    {
+      "sport": "crafgwi20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crafgwi20.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103181",
+      "series": "10910"
+    },
+    {
+      "sport": "craus",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/craus.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102946",
+      "series": "10752"
+    },
+    {
+      "sport": "crban",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crban.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103014",
+      "series": "10799"
+    },
+    {
+      "sport": "crbtnmlyhkg20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crbtnmlyhkg20.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103182",
+      "series": "10911"
+    },
+    {
+      "sport": "creng",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/creng.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102944",
+      "series": "10750"
+    },
+    {
+      "sport": "crictbcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crictbcl-2ad5a053.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,104447",
+      "series": "11513"
+    },
+    {
+      "sport": "cwbb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cwbb-3ddd4bb7.png",
+      "resolution": "https://www.ncaa.com/sports/basketball-women/d1",
+      "ordering": "home",
+      "tags": "1,28,100639,102003",
+      "series": "10471"
+    },
+    {
+      "sport": "crind",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crind.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102943",
+      "series": "10748"
+    },
+    {
+      "sport": "crnew",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crnew.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102949",
+      "series": "10755"
+    },
+    {
+      "sport": "crpak",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crpak.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102945",
+      "series": "10751"
+    },
+    {
+      "sport": "crsou",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crsou.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102947",
+      "series": "10753"
+    },
+    {
+      "sport": "cru19wc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cru19wc.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103178",
+      "series": "10907"
+    },
+    {
+      "sport": "cruae",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cruae.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,102948",
+      "series": "10754"
+    },
+    {
+      "sport": "crwncl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crwncl.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103180",
+      "series": "10909"
+    },
+    {
+      "sport": "crwpl20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crwpl20.png",
+      "resolution": "https://www.espncricinfo.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103179",
+      "series": "10908"
+    },
+    {
+      "sport": "crwt20wcgq",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/crwt20wcgq.png",
+      "resolution": "https://www.icc-cricket.com/",
+      "ordering": "home",
+      "tags": "1,100639,517,103183",
+      "series": "10912"
+    },
+    {
+      "sport": "cs2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cs2.png",
+      "resolution": "https://hltv.org",
+      "ordering": "home",
+      "tags": "1,64,100780,100639",
+      "series": "10310"
+    },
+    {
+      "sport": "csa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/csa.png",
+      "resolution": "https://www.icc-cricket.com/fixtures-results",
+      "ordering": "home",
+      "tags": "1,517,100639,102808",
+      "series": "10446"
+    },
+    {
+      "sport": "cuba",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cuba.png",
+      "resolution": "https://www.baseballdecuba.com/",
+      "ordering": "home",
+      "tags": "1,100639,678,105453",
+      "series": "11971"
+    },
+    {
+      "sport": "fifa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fifa.png",
+      "resolution": "https://liquipedia.net/easportsfc/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102751,100639",
+      "series": "10428"
+    },
+    {
+      "sport": "nba",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nba-7a8bf611.png",
+      "resolution": "https://www.nba.com/",
+      "ordering": "away",
+      "tags": "1,745,100639",
+      "series": "10345"
+    },
+    {
+      "sport": "mwoh",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/mwoh-468933ad.png",
+      "resolution": "https://www.olympics.com",
+      "ordering": "home",
+      "tags": "1,100639,100088,103666",
+      "series": "11136"
+    },
+    {
+      "sport": "nfl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nfl-helmet-blue-a1188621.png",
+      "resolution": "https://www.nfl.com/",
+      "ordering": "away",
+      "tags": "1,450,100639",
+      "series": "12185"
+    },
+    {
+      "sport": "ncaab",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ncaab-3ddd4bb7.png",
+      "resolution": "https://www.ncaa.com/march-madness-live/bracket",
+      "ordering": "home",
+      "tags": "1,100149,100639",
+      "series": "39"
+    },
+    {
+      "sport": "ttbl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ttbl-f1c75872.png",
+      "resolution": "https://www.ttbl.de/",
+      "ordering": "home",
+      "tags": "1,100639,103767,105333",
+      "series": "11919"
+    },
+    {
+      "sport": "ttcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ttcl-9c1a98d3.png",
+      "resolution": "https://www.ettu.org/",
+      "ordering": "home",
+      "tags": "1,100639,103767,105331",
+      "series": "11917"
+    },
+    {
+      "sport": "tteuropecup",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/tteuropecup-9c1a98d3.png",
+      "resolution": "https://www.ettu.org/",
+      "ordering": "home",
+      "tags": "1,100639,103767,105332",
+      "series": "11918"
+    },
+    {
+      "sport": "mlb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/mlb-f4060398.png",
+      "resolution": "https://www.mlb.com/",
+      "ordering": "away",
+      "tags": "1,100639,100381",
+      "series": "3"
+    },
+    {
+      "sport": "fifaw",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/fifaw.png",
+      "resolution": "https://www.fifa.com/fifaplus/en/tournaments/womens/womensworldcup",
+      "ordering": "home",
+      "tags": "1,100639,100350,104329",
+      "series": "11448"
+    },
+    {
+      "sport": "kbo",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/kbo.png",
+      "resolution": "https://www.koreabaseball.com/",
+      "ordering": "away",
+      "tags": "1,100639,678,102668",
+      "series": "10370"
+    },
+    {
+      "sport": "khl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/khl.png",
+      "resolution": "https://en.khl.ru/calendar/",
+      "ordering": "home",
+      "tags": "1,100639,100088,102908",
+      "series": "10700"
+    },
+    {
+      "sport": "lidom",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lidom.png",
+      "resolution": "https://www.lidom.com/",
+      "ordering": "home",
+      "tags": "1,100639,678,105455",
+      "series": "11973"
+    },
+    {
+      "sport": "lol-wild-rift",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lol-wild-rift.png",
+      "resolution": "https://liquipedia.net/wildrift/Main_Page",
+      "ordering": "home",
+      "tags": "64,102752,100639,1",
+      "series": "10429"
+    },
+    {
+      "sport": "lpl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lpl.png",
+      "resolution": "https://www.icc-cricket.com/fixtures-results",
+      "ordering": "home",
+      "tags": "1,517,100639,102812",
+      "series": "10448"
+    },
+    {
+      "sport": "lvbp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/lvbp.png",
+      "resolution": "https://www.lvbp.com/",
+      "ordering": "home",
+      "tags": "1,100639,678,105456",
+      "series": "11974"
+    },
+    {
+      "sport": "mls",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/mls.png",
+      "resolution": "https://www.mls.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,100100",
+      "series": "10189"
+    },
+    {
+      "sport": "nwsl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/nwsl.png",
+      "resolution": "https://www.nwslsoccer.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,104341",
+      "series": "11462"
+    },
+    {
+      "sport": "odi",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/odi.png",
+      "resolution": "https://www.icc-cricket.com/fixtures-results",
+      "ordering": "home",
+      "tags": "1,517,100639,102815",
+      "series": "10451"
+    },
+    {
+      "sport": "pubg",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/pubg.png",
+      "resolution": "https://liquipedia.net/pubg/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102754,100639",
+      "series": "10431"
+    },
+    {
+      "sport": "sasa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sasa.png",
+      "resolution": "https://www.icc-cricket.com/fixtures-results",
+      "ordering": "home",
+      "tags": "1,517,100639,102814",
+      "series": "10450"
+    },
+    {
+      "sport": "sc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sc.png",
+      "resolution": "https://liquipedia.net/starcraft/Main_Page",
+      "ordering": "home",
+      "tags": "1,64,102759,100639",
+      "series": "10436"
+    },
+    {
+      "sport": "she",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/she.png",
+      "resolution": "https://www.cricket.com.au/matches",
+      "ordering": "home",
+      "tags": "1,517,100639,102817",
+      "series": "10453"
+    },
+    {
+      "sport": "t20",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/t20.png",
+      "resolution": "https://www.icc-cricket.com/fixtures-results",
+      "ordering": "home",
+      "tags": "1,517,100639,102810",
+      "series": "10445"
+    },
+    {
+      "sport": "test",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/test.png",
+      "resolution": "https://www.icc-cricket.com/fixtures-results",
+      "ordering": "home",
+      "tags": "1,517,100639,102842",
+      "series": "10661"
+    },
+    {
+      "sport": "npb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/npb-3eb99bac.png",
+      "resolution": "https://npb.jp/",
+      "ordering": "home",
+      "tags": "1,100639,678,105452",
+      "series": "11968"
+    },
+    {
+      "sport": "ttworlds",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ttworlds.png",
+      "resolution": "https://www.ittf.com/",
+      "ordering": "home",
+      "tags": "1,100639,103767,105329",
+      "series": "11915"
+    },
+    {
+      "sport": "shl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/shl-6008f927.png",
+      "resolution": "https://www.eliteprospects.com/league/shl",
+      "ordering": "home",
+      "tags": "1,899,100088,102906",
+      "series": "10695"
+    },
+    {
+      "sport": "nhl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/hockey-stick-ce1126-9167ab07a881.png",
+      "resolution": "https://www.nhl.com/",
+      "ordering": "away",
+      "tags": "1,899,100639",
+      "series": "10346"
+    },
+    {
+      "sport": "sea",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/sea.png",
+      "resolution": "https://www.legaseriea.it/en",
+      "ordering": "home",
+      "tags": "1,100639,101962,100350,100618",
+      "series": "10203"
+    },
+    {
+      "sport": "egy1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/egy1.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,105919",
+      "series": "10969"
+    },
+    {
+      "sport": "bol1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/bolivia-lfpb-269aa260a4.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,105920",
+      "series": "10966"
+    },
+    {
+      "sport": "chi1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/chile-primera-f7e672809d.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,105923",
+      "series": "10965"
+    },
+    {
+      "sport": "snhl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/snhl.png",
+      "resolution": "https://www.nationalleague.ch/",
+      "ordering": "home",
+      "tags": "1,100639,100088,100642,102911",
+      "series": "10703"
+    },
+    {
+      "sport": "ufc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ufc-40ea1d2a.png",
+      "resolution": "https://www.ufc.com/",
+      "ordering": "home",
+      "tags": "1,100639,279",
+      "series": "38"
+    },
+    {
+      "sport": "atp-doubles",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/atp-doubles-b3819f2f.png",
+      "resolution": "https://www.atptour.com/en/scores/current",
+      "ordering": "home",
+      "tags": "864,1,100639,101232",
+      "series": "11632"
+    },
+    {
+      "sport": "bra2",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/bra2-4f881e95.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,105921",
+      "series": "10973"
+    },
+    {
+      "sport": "cze1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cze1-86c6b653.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,105908",
+      "series": "10970"
+    },
+    {
+      "sport": "isp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/isp-7385e0a5.png",
+      "resolution": "https://www.indiansuperleague.com/",
+      "ordering": "home",
+      "tags": "1,100639,100350,103986",
+      "series": "10364"
+    },
+    {
+      "sport": "itf",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/itf-0baac21a.png",
+      "resolution": "https://www.itftennis.com/en/tournament-calendar/",
+      "ordering": "home",
+      "tags": "1,864,100639,104923",
+      "series": "11634"
+    },
+    {
+      "sport": "mar1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/mar1-4ab29658.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,105924",
+      "series": "10968"
+    },
+    {
+      "sport": "per1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/per1-df84fd68.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,104396",
+      "series": "10967"
+    },
+    {
+      "sport": "rou1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/rou1-fb7b8760.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,104398",
+      "series": "10971"
+    },
+    {
+      "sport": "uel",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/uel-710651e1.png",
+      "resolution": "https://www.uefa.com/uefaeuropaleague/",
+      "ordering": "home",
+      "tags": "1,100639,101787,100350",
+      "series": "10209"
+    },
+    {
+      "sport": "uwcl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/uwcl-2ed410df.png",
+      "resolution": "https://www.uefa.com/womenschampionsleague/",
+      "ordering": "home",
+      "tags": "1,100639,100350,103885",
+      "series": "11240"
+    },
+    {
+      "sport": "wta-doubles",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wta-doubles-a0555a41.png",
+      "resolution": "https://www.wtatennis.com/scores",
+      "ordering": "home",
+      "tags": "864,1,100639,102123",
+      "series": "11633"
+    },
+    {
+      "sport": "wnba",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wnba.png",
+      "resolution": "https://www.wnba.com/",
+      "ordering": "away",
+      "tags": "1,100639,100254",
+      "series": "10105"
+    },
+    {
+      "sport": "wttmen",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wttmen.png",
+      "resolution": "https://www.worldtabletennis.com/",
+      "ordering": "home",
+      "tags": "1,100639,103767,103768,103773",
+      "series": "11198"
+    },
+    {
+      "sport": "wttwom",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wttwom.png",
+      "resolution": "https://www.worldtabletennis.com/",
+      "ordering": "home",
+      "tags": "1,100639,103767,103768,103774",
+      "series": "11199"
+    },
+    {
+      "sport": "wwcquefa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wwcquefa.png",
+      "resolution": "https://www.fifa.com/fifaplus/en/tournaments/womens/womensworldcup",
+      "ordering": "home",
+      "tags": "1,100639,100350,105215",
+      "series": "11846"
+    },
+    {
+      "sport": "cfl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cfl.png",
+      "resolution": "https://www.cfl.ca/",
+      "ordering": "away",
+      "tags": "1,105200,1186",
+      "series": "11839"
+    },
+    {
+      "sport": "ipl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ipl.png",
+      "resolution": "https://www.iplt20.com/",
+      "ordering": "home",
+      "tags": "1,101977,100639,517,518",
+      "series": "44"
+    },
+    {
+      "sport": "pga",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/pga.png",
+      "resolution": "https://www.pgatour.com/",
+      "ordering": "home",
+      "tags": "1,100219,101777,102112",
+      "series": "10976"
+    },
+    {
+      "sport": "zuffa",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/zuffa-57819fe1.png",
+      "resolution": "https://www.ufc.com/",
+      "ordering": "home",
+      "tags": "1,100639,683,103213",
+      "series": "10954"
+    },
+    {
+      "sport": "cycling",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cycling-ae662192.png",
+      "resolution": "https://www.uci.org",
+      "ordering": "home",
+      "tags": "1,102142,104450",
+      "series": "12336"
+    },
+    {
+      "sport": "cbb",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/cbb-3ddd4bb7.png",
+      "resolution": "https://www.ncaa.com/",
+      "ordering": "away",
+      "tags": "1,101178,100639,101954",
+      "series": "10470"
+    },
+    {
+      "sport": "weuc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/weuc-e2aedf1b.png",
+      "resolution": "https://www.uefa.com/womenseuro/",
+      "ordering": "home",
+      "tags": "1,100639,100350,102356",
+      "series": "11447"
+    },
+    {
+      "sport": "wwoh",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wwoh-468933ad.png",
+      "resolution": "https://www.olympics.com",
+      "ordering": "home",
+      "tags": "1,100639,100088,103667",
+      "series": "11137"
+    },
+    {
+      "sport": "col1",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/col1-8f41a5d3.png",
+      "resolution": "https://www.laliga.com/en-GB/other-competitions/supercopa-de-espana",
+      "ordering": "home",
+      "tags": "1,100639,100350,105922",
+      "series": "10964"
+    },
+    {
+      "sport": "epl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/epl-24885021.png",
+      "resolution": "https://www.premierleague.com/",
+      "ordering": "home",
+      "tags": "1,82,306,100639,100350",
+      "series": "10188"
+    },
+    {
+      "sport": "j1100",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/j1100-afa94c27.png",
+      "resolution": "https://www.jleague.jp/",
+      "ordering": "home",
+      "tags": "1,102649,100639,100350",
+      "series": "10360"
+    },
+    {
+      "sport": "mlp",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/mlp-5db597d4.png",
+      "resolution": "https://ppatour.com/",
+      "ordering": "home",
+      "tags": "1,102471,105057,100639",
+      "series": "11697"
+    },
+    {
+      "sport": "pll",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/pll-10a4d631.png",
+      "resolution": "https://premierlacrosseleague.com",
+      "ordering": "home",
+      "tags": "102392,1,100639,102393,102391",
+      "series": "11262"
+    },
+    {
+      "sport": "ucl",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/ucl-a369c3d8.png",
+      "resolution": "https://www.uefa.com/uefachampionsleague/",
+      "ordering": "home",
+      "tags": "1,100977,100639,1234,100350",
+      "series": "10204"
+    },
+    {
+      "sport": "wbc",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wbc-3bd303b8.png",
+      "resolution": "https://mlb.com",
+      "ordering": "home",
+      "tags": "1,10063,103894",
+      "series": "11249"
+    },
+    {
+      "sport": "wll",
+      "image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/league-icons/wll-ea660794.png",
+      "resolution": "https://thewll.com/",
+      "ordering": "home",
+      "tags": "1,103911,102393,100639",
+      "series": "11263"
+    }
+  ],
+  "next": null
+}

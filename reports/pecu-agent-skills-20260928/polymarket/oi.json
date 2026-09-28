@@ -1,0 +1,14 @@
+{
+  "endpoint": "oi",
+  "source": "https://data-api.polymarket.com/v2/oi?condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+  "observedAt": "2026-09-28T07:55:57.770Z",
+  "data": {
+    "data": [
+      {
+        "condition_id": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+        "value": 4030577.35726
+      }
+    ]
+  },
+  "next": null
+}

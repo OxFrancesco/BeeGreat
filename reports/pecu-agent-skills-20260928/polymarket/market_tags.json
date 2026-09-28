@@ -1,0 +1,58 @@
+{
+  "endpoint": "market_tags",
+  "source": "https://gamma-api.polymarket.com/markets/559651/tags",
+  "observedAt": "2026-09-28T07:56:00.632Z",
+  "data": [
+    {
+      "id": "103715",
+      "label": "HFC",
+      "slug": "hfc",
+      "forceShow": false,
+      "createdAt": "2026-02-10T00:17:21.422175Z",
+      "updatedAt": "2026-04-17T20:55:08.357992Z",
+      "isCarousel": false
+    },
+    {
+      "id": "366",
+      "label": "world affairs",
+      "slug": "world-affairs",
+      "publishedAt": "2023-11-02 22:05:44.425+00",
+      "createdAt": "2023-11-02T22:05:44.48Z",
+      "updatedAt": "2026-04-17T20:47:56.524437Z"
+    },
+    {
+      "id": "100265",
+      "label": "Geopolitics",
+      "slug": "geopolitics",
+      "forceShow": true,
+      "createdAt": "2024-06-12T20:13:03.615956Z",
+      "updatedAt": "2026-04-17T20:49:04.209055Z"
+    },
+    {
+      "id": "101970",
+      "label": "World",
+      "slug": "world",
+      "forceShow": false,
+      "createdAt": "2025-03-19T23:36:08.498099Z",
+      "updatedAt": "2026-04-17T17:18:59.135061Z"
+    },
+    {
+      "id": "102458",
+      "label": "Earn 4%",
+      "slug": "earn-4",
+      "forceShow": false,
+      "createdAt": "2025-08-01T13:31:11.928744Z",
+      "updatedAt": "2026-04-17T21:09:22.871226Z",
+      "isCarousel": false
+    },
+    {
+      "id": "101253",
+      "label": "Macro Geopolitics",
+      "slug": "macro-geopolitics",
+      "forceShow": false,
+      "createdAt": "2024-11-13T01:49:20.436741Z",
+      "updatedAt": "2026-04-17T17:19:59.236496Z"
+    }
+  ],
+  "next": null
+}

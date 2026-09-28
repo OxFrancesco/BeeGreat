@@ -1,0 +1,71 @@
+{
+  "endpoint": "status",
+  "source": "https://data-api.polymarket.com/v2/status",
+  "observedAt": "2026-09-28T07:55:58.602Z",
+  "data": {
+    "data": {
+      "age_seconds": 19,
+      "computed_at": "2026-09-28T07:55:39Z",
+      "ingestion": {
+        "chain_id": 137,
+        "cursors": 175,
+        "lagging": [
+          {
+            "behind_max": 1,
+            "block": 94584664,
+            "source": "auto_redeem_neg_risk_redemption"
+          },
+          {
+            "behind_max": 1,
+            "block": 94584664,
+            "source": "auto_redeem_v2_binary_redemption"
+          },
+          {
+            "behind_max": 1,
+            "block": 94584664,
+            "source": "auto_redeem_v2_neg_risk_redemption"
+          },
+          {
+            "behind_max": 1,
+            "block": 94584664,
+            "source": "binary_module_bridge_position_minted"
+          },
+          {
+            "behind_max": 1,
+            "block": 94584664,
+            "source": "binary_module_migration_resolved"
+          }
+        ],
+        "max_synced_block": 94584665,
+        "min_synced_block": 94584664,
+        "most_lagged": {
+          "behind_max": 1,
+          "block": 94584664,
+          "source": "auto_redeem_neg_risk_redemption"
+        },
+        "network": "polygon"
+      },
+      "serving": {
+        "lag_seconds": 3,
+        "mechanisms": [
+          {
+            "age_seconds": 3,
+            "name": "activity_feed"
+          },
+          {
+            "age_seconds": 1,
+            "blocks_behind": 0,
+            "name": "custody_balances"
+          },
+          {
+            "age_seconds": 0,
+            "blocks_behind": 1,
+            "name": "pnl"
+          }
+        ],
+        "worst": "activity_feed"
+      }
+    }
+  },
+  "next": null
+}

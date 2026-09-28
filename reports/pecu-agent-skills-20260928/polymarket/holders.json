@@ -1,0 +1,85 @@
+{
+  "endpoint": "holders",
+  "source": "https://data-api.polymarket.com/v2/holders?condition=0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7&limit=2",
+  "observedAt": "2026-09-28T07:55:57.302Z",
+  "data": {
+    "data": [
+      {
+        "holders": [
+          {
+            "amount": 685996.503776,
+            "bio": "",
+            "display_username_public": true,
+            "name": "rollsrolls",
+            "outcome_index": 0,
+            "profile_image": "",
+            "profile_image_optimized": "",
+            "proxy_wallet": "0x2c649b504168c5414277f23135fb9ce36df72099",
+            "pseudonym": "Common-Airbus",
+            "token_id": "32338220190071351435772801779725302244575775216413325951443816017994629993401",
+            "verified": false
+          },
+          {
+            "amount": 646290.866611,
+            "bio": "The hands learn by reaching. The eyes learn by waiting. I price the dawn, while the crowd prices noon. Every light I have known, a love beyond time has shown. Articles: X/Aurelian9x",
+            "display_username_public": true,
+            "name": "Aurelian9",
+            "outcome_index": 0,
+            "profile_image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/profile-image-6359182-94aa6a8c-f7be-4177-b82c-f91bcb3b2a8a.png",
+            "profile_image_optimized": "",
+            "proxy_wallet": "0x6806d2ab8efb9c41baa28c72e44fdfc4b3293a05",
+            "pseudonym": "Icky-Puma",
+            "token_id": "32338220190071351435772801779725302244575775216413325951443816017994629993401",
+            "verified": false
+          }
+        ],
+        "token_id": "32338220190071351435772801779725302244575775216413325951443816017994629993401"
+      },
+      {
+        "holders": [
+          {
+            "amount": 333978.896038,
+            "bio": "",
+            "display_username_public": true,
+            "name": "onekey02",
+            "outcome_index": 1,
+            "profile_image": "",
+            "profile_image_optimized": "",
+            "proxy_wallet": "0xfaf98181c44636998a194aa7660bcae1b977f4c4",
+            "pseudonym": "Impassioned-Prohibition",
+            "token_id": "25659310674993675562345759665114759892400026242514633218387667107987341231962",
+            "verified": false
+          },
+          {
+            "amount": 152285.870491,
+            "bio": "",
+            "display_username_public": true,
+            "name": "0xrc",
+            "outcome_index": 1,
+            "profile_image": "https://polymarket-upload.s3.us-east-2.amazonaws.com/profile-image-1119821-6dbc6ebf-1f2c-4871-84c8-f94aeb51553b.png",
+            "profile_image_optimized": "",
+            "proxy_wallet": "0x40047c2a7f97b6849ec2a665425c171dc4b6c40b",
+            "pseudonym": "Spanish-Priority",
+            "token_id": "25659310674993675562345759665114759892400026242514633218387667107987341231962",
+            "verified": false
+          }
+        ],
+        "token_id": "25659310674993675562345759665114759892400026242514633218387667107987341231962"
+      }
+    ],
+    "pagination": {
+      "has_more": true,
+      "limit": 2,
+      "next_cursor": "eyJkYXRhIjp7InR5cGUiOiJob2xkZXJzIiwicGFyYW1zIjp7ImwiOjIsIm8iOjJ9fSwic2lnIjoiMzRkMDFlYzU0ZjdlZmRhMjdmZTE4ZDZmNjZjZmU0OTAifQ",
+      "offset": 0
+    }
+  },
+  "next": {
+    "endpoint": "holders",
+    "input": {
+      "condition": "0xa467b14d51f01b957109d9cbb1d6c124fab2a089d52ed8f471d23c2812e743b7",
+      "limit": 2,
+      "cursor": "eyJkYXRhIjp7InR5cGUiOiJob2xkZXJzIiwicGFyYW1zIjp7ImwiOjIsIm8iOjJ9fSwic2lnIjoiMzRkMDFlYzU0ZjdlZmRhMjdmZTE4ZDZmNjZjZmU0OTAifQ"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "endpoint": "teams",
+  "source": "https://gamma-api.polymarket.com/teams?limit=2",
+  "observedAt": "2026-09-28T07:56:01.134Z",
+  "data": [
+    {
+      "id": 216158,
+      "name": "Axel Sola",
+      "league": "ufc",
+      "record": "13-1-1",
+      "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/team_logos/mma/axel_sola.png",
+      "abbreviation": "axe",
+      "createdAt": "2025-11-03T18:43:58.938256Z",
+      "updatedAt": "2026-05-15T09:00:01.449694Z"
+    },
+    {
+      "id": 169458,
+      "name": "United States fe",
+      "league": "csgo",
+      "record": "0-0",
+      "logo": "https://polymarket-upload.s3.us-east-2.amazonaws.com/team_logos/esports/cs2/cs-go_united states fe_135839.png",
+      "abbreviation": "usa",
+      "createdAt": "2025-10-21T20:03:50.140246Z",
+      "updatedAt": "2025-11-08T03:39:32.338468Z"
+    }
+  ],
+  "next": {
+    "endpoint": "teams",
+    "input": {
+      "limit": 2,
+      "offset": 2
+    }
+  }
+}

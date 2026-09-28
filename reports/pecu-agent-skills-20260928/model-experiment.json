@@ -1,0 +1,2463 @@
+{
+  "scope": "Live model planning up to the first non-loading tool call; tools never execute. Loading steps (load_skills / enable_all_tools) are replayed and counted in latency and tokens. Not end-to-end latency or on-chain proof. Alternating paired order; provider cache uncontrolled.",
+  "model": "openai/gpt-6-luna",
+  "rows": [
+    {
+      "id": "swap-quote",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2335,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7556,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "swap-quote",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 3224,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5635,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "positions",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2287,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7550,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "positions",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2085,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5629,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pools",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 6019,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37510,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "pools",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2305,
+      "steps": 1,
+      "systemBytes": 8842,
+      "toolBytes": 23344,
+      "toolCount": 26,
+      "promptTokens": 5926,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "liquidity-budget",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2262,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7551,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "ETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "fraction",
+              "bps": 5000
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "liquidity-budget",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2055,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5630,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "ETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "fraction",
+              "bps": 5000
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "stock-basket",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 5708,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37502,
+      "calls": [
+        {
+          "name": "aero_stocks",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": false
+    },
+    {
+      "id": "stock-basket",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2100,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5630,
+      "calls": [
+        {
+          "name": "aero_stock_trades",
+          "arguments": {
+            "trades": [
+              {
+                "side": "buy",
+                "stock": "NVDAc",
+                "amount": "1"
+              },
+              {
+                "side": "buy",
+                "stock": "AAPLc",
+                "amount": "1"
+              }
+            ]
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "aave-supply",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 1883,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7545,
+      "calls": [
+        {
+          "name": "aave_skill",
+          "arguments": {
+            "name": "safe-transactions"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "aave-supply",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 1507,
+      "steps": 1,
+      "systemBytes": 5310,
+      "toolBytes": 3028,
+      "toolCount": 7,
+      "promptTokens": 1528,
+      "calls": [
+        {
+          "name": "aave_skill",
+          "arguments": {
+            "name": "safe-transactions"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "allowance",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 6111,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 39068,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "allowance",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 1777,
+      "steps": 1,
+      "systemBytes": 5666,
+      "toolBytes": 9387,
+      "toolCount": 13,
+      "promptTokens": 2881,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "send-precheck",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 6510,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 39066,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "send-precheck",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 1529,
+      "steps": 1,
+      "systemBytes": 5666,
+      "toolBytes": 9387,
+      "toolCount": 13,
+      "promptTokens": 2880,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "safe-info",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 2209,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 9109,
+      "calls": [
+        {
+          "name": "safe_info",
+          "arguments": {
+            "safe": "0x2222222222222222222222222222222222222222"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "safe-info",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2468,
+      "steps": 1,
+      "systemBytes": 7269,
+      "toolBytes": 34701,
+      "toolCount": 39,
+      "promptTokens": 7823,
+      "calls": [
+        {
+          "name": "safe_info",
+          "arguments": {
+            "safe": "0x2222222222222222222222222222222222222222"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "no-authorization",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 6429,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 39060,
+      "calls": [],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "no-authorization",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 3096,
+      "steps": 1,
+      "systemBytes": 7269,
+      "toolBytes": 34701,
+      "toolCount": 39,
+      "promptTokens": 7817,
+      "calls": [],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "nansen-flows",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 7898,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 19302,
+      "toolCount": 26,
+      "promptTokens": 37356,
+      "calls": [
+        {
+          "name": "nansen_token_who_bought_sold",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "side": "BUY",
+            "days": 7,
+            "limit": 10
+          }
+        },
+        {
+          "name": "nansen_token_flow_intelligence",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "timeframe": "7d"
+          }
+        },
+        {
+          "name": "nansen_token_flows",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "days": 7,
+            "label": "smart_money",
+            "limit": 10
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "nansen-flows",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2047,
+      "steps": 1,
+      "systemBytes": 5555,
+      "toolBytes": 19491,
+      "toolCount": 26,
+      "promptTokens": 5774,
+      "calls": [
+        {
+          "name": "nansen_token_who_bought_sold",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "side": "BUY",
+            "days": 7,
+            "limit": 10
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "funding",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 4895,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 2563,
+      "toolCount": 7,
+      "promptTokens": 33211,
+      "calls": [
+        {
+          "name": "deposit_instructions",
+          "arguments": {
+            "amount": "50"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "funding",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 1919,
+      "steps": 1,
+      "systemBytes": 5005,
+      "toolBytes": 2752,
+      "toolCount": 7,
+      "promptTokens": 1518,
+      "calls": [
+        {
+          "name": "deposit_instructions",
+          "arguments": {
+            "amount": "50"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "odds",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 1931,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 9412,
+      "toolCount": 12,
+      "promptTokens": 4836,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "odds",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2152,
+      "steps": 1,
+      "systemBytes": 6092,
+      "toolBytes": 10159,
+      "toolCount": 14,
+      "promptTokens": 3352,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "limit_per_type": 3,
+            "events_status": "active",
+            "search_tags": false
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pm-leaderboard",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 6697,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 9412,
+      "toolCount": 12,
+      "promptTokens": 34781,
+      "calls": [
+        {
+          "name": "polymarket_leaderboard",
+          "arguments": {
+            "time_period": "week",
+            "category": "overall",
+            "sort_by": "PNL",
+            "limit": 5
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "pm-leaderboard",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2883,
+      "steps": 1,
+      "systemBytes": 7411,
+      "toolBytes": 60575,
+      "toolCount": 57,
+      "promptTokens": 14425,
+      "calls": [
+        {
+          "name": "polymarket_leaderboard",
+          "arguments": {
+            "time_period": "week",
+            "category": "overall",
+            "sort_by": "PNL",
+            "limit": 5
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "accept-plan",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 3499,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 29994,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "WETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "amount",
+              "amount": "0.002"
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "accept-plan",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 2342,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5711,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "WETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "amount",
+              "amount": "0.002"
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "load-path",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 8200,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 59856,
+      "calls": [
+        {
+          "name": "aero_stocks",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "load-path",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 3733,
+      "steps": 2,
+      "systemBytes": 4510,
+      "toolBytes": 1554,
+      "toolCount": 4,
+      "promptTokens": 6898,
+      "calls": [
+        {
+          "name": "aero_stocks",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "aerodrome"
+      ],
+      "correct": true
+    },
+    {
+      "id": "wallet-overview",
+      "sample": 0,
+      "variant": "baseline",
+      "elapsedMs": 3705,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 29903,
+      "calls": [
+        {
+          "name": "wallet_balances",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "wallet-overview",
+      "sample": 0,
+      "variant": "skills",
+      "elapsedMs": 17104,
+      "steps": 1,
+      "systemBytes": 4510,
+      "toolBytes": 1554,
+      "toolCount": 4,
+      "promptTokens": 1218,
+      "calls": [
+        {
+          "name": "wallet_address",
+          "arguments": {}
+        },
+        {
+          "name": "wallet_balances",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "swap-quote",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2036,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5635,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "swap-quote",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2182,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7556,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "positions",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2735,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5629,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "positions",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 1942,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7550,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pools",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2629,
+      "steps": 1,
+      "systemBytes": 8842,
+      "toolBytes": 23344,
+      "toolCount": 26,
+      "promptTokens": 5926,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pools",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 6300,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37510,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "liquidity-budget",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2208,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5630,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "ETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "fraction",
+              "bps": 5000
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "liquidity-budget",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2682,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7551,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "ETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "fraction",
+              "bps": 5000
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "stock-basket",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 1859,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5630,
+      "calls": [
+        {
+          "name": "aero_stock_trades",
+          "arguments": {
+            "trades": [
+              {
+                "side": "buy",
+                "stock": "NVDAc",
+                "amount": "1"
+              },
+              {
+                "side": "buy",
+                "stock": "AAPLc",
+                "amount": "1"
+              }
+            ]
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "stock-basket",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 6867,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37502,
+      "calls": [
+        {
+          "name": "aero_stock_trades",
+          "arguments": {
+            "trades": [
+              {
+                "side": "buy",
+                "stock": "NVDAc",
+                "amount": "1"
+              },
+              {
+                "side": "buy",
+                "stock": "AAPLc",
+                "amount": "1"
+              }
+            ]
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "aave-supply",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 1590,
+      "steps": 1,
+      "systemBytes": 5310,
+      "toolBytes": 3028,
+      "toolCount": 7,
+      "promptTokens": 1528,
+      "calls": [
+        {
+          "name": "aave_skill",
+          "arguments": {
+            "name": "safe-transactions"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "aave-supply",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 8591,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37490,
+      "calls": [
+        {
+          "name": "aave_skill",
+          "arguments": {
+            "name": "safe-transactions"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "allowance",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2733,
+      "steps": 1,
+      "systemBytes": 5666,
+      "toolBytes": 9387,
+      "toolCount": 13,
+      "promptTokens": 2881,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "allowance",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2485,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 9107,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "send-precheck",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 1431,
+      "steps": 1,
+      "systemBytes": 5666,
+      "toolBytes": 9387,
+      "toolCount": 13,
+      "promptTokens": 2880,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "send-precheck",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 5793,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 39066,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        },
+        {
+          "name": "wallet_address",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": false
+    },
+    {
+      "id": "safe-info",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2328,
+      "steps": 1,
+      "systemBytes": 7269,
+      "toolBytes": 34701,
+      "toolCount": 39,
+      "promptTokens": 7823,
+      "calls": [
+        {
+          "name": "safe_info",
+          "arguments": {
+            "safe": "0x2222222222222222222222222222222222222222"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "safe-info",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 2503,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 9109,
+      "calls": [
+        {
+          "name": "safe_info",
+          "arguments": {
+            "safe": "0x2222222222222222222222222222222222222222"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "no-authorization",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2476,
+      "steps": 1,
+      "systemBytes": 7269,
+      "toolBytes": 34701,
+      "toolCount": 39,
+      "promptTokens": 7817,
+      "calls": [],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "no-authorization",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 6293,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 39060,
+      "calls": [],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "nansen-flows",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2084,
+      "steps": 1,
+      "systemBytes": 5555,
+      "toolBytes": 19491,
+      "toolCount": 26,
+      "promptTokens": 5774,
+      "calls": [
+        {
+          "name": "nansen_token_flow_intelligence",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "timeframe": "7d"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "nansen-flows",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 6406,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 19302,
+      "toolCount": 26,
+      "promptTokens": 37356,
+      "calls": [
+        {
+          "name": "nansen_token_who_bought_sold",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "side": "BUY",
+            "days": 7,
+            "limit": 10
+          }
+        },
+        {
+          "name": "nansen_token_flow_intelligence",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "timeframe": "7d"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "funding",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 1600,
+      "steps": 1,
+      "systemBytes": 5005,
+      "toolBytes": 2752,
+      "toolCount": 7,
+      "promptTokens": 1518,
+      "calls": [
+        {
+          "name": "deposit_instructions",
+          "arguments": {
+            "amount": "50"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "funding",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 1663,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 2563,
+      "toolCount": 7,
+      "promptTokens": 3262,
+      "calls": [
+        {
+          "name": "deposit_instructions",
+          "arguments": {
+            "amount": "50"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "odds",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2681,
+      "steps": 1,
+      "systemBytes": 6092,
+      "toolBytes": 10159,
+      "toolCount": 14,
+      "promptTokens": 3352,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3,
+            "search_tags": false,
+            "search_profiles": false
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "odds",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 1919,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 9412,
+      "toolCount": 12,
+      "promptTokens": 4836,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pm-leaderboard",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2463,
+      "steps": 1,
+      "systemBytes": 7411,
+      "toolBytes": 60575,
+      "toolCount": 57,
+      "promptTokens": 14425,
+      "calls": [
+        {
+          "name": "polymarket_leaderboard",
+          "arguments": {
+            "time_period": "week",
+            "sort_by": "PNL",
+            "category": "overall",
+            "limit": 5
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pm-leaderboard",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 5209,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 9412,
+      "toolCount": 12,
+      "promptTokens": 34781,
+      "calls": [
+        {
+          "name": "polymarket_leaderboard",
+          "arguments": {
+            "time_period": "week",
+            "limit": 5
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "accept-plan",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2322,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5711,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "WETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "amount",
+              "amount": "0.002"
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "accept-plan",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 3769,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 29994,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "WETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "amount",
+              "amount": "0.002"
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "load-path",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 4103,
+      "steps": 2,
+      "systemBytes": 4510,
+      "toolBytes": 1554,
+      "toolCount": 4,
+      "promptTokens": 6898,
+      "calls": [
+        {
+          "name": "aero_stock_buy",
+          "arguments": {
+            "stock": "NVDAc",
+            "amount": "1"
+          }
+        }
+      ],
+      "loaded": [
+        "aerodrome"
+      ],
+      "correct": true
+    },
+    {
+      "id": "load-path",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 8147,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 59856,
+      "calls": [
+        {
+          "name": "aero_stocks",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "wallet-overview",
+      "sample": 1,
+      "variant": "skills",
+      "elapsedMs": 2097,
+      "steps": 1,
+      "systemBytes": 4510,
+      "toolBytes": 1554,
+      "toolCount": 4,
+      "promptTokens": 1218,
+      "calls": [
+        {
+          "name": "wallet_address",
+          "arguments": {}
+        },
+        {
+          "name": "wallet_balances",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "wallet-overview",
+      "sample": 1,
+      "variant": "baseline",
+      "elapsedMs": 5278,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 29903,
+      "calls": [
+        {
+          "name": "wallet_balances",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "swap-quote",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2162,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7556,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "swap-quote",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2280,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5635,
+      "calls": [
+        {
+          "name": "aero_quote",
+          "arguments": {
+            "from_token": "ETH",
+            "to_token": "USDC",
+            "amount": "0.001",
+            "use_decimals": true
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "positions",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 3510,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7550,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "positions",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1922,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5629,
+      "calls": [
+        {
+          "name": "aero_positions",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pools",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 6778,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37510,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "pools",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2407,
+      "steps": 1,
+      "systemBytes": 8842,
+      "toolBytes": 23344,
+      "toolCount": 26,
+      "promptTokens": 5926,
+      "calls": [
+        {
+          "name": "aero_pools",
+          "arguments": {
+            "token0": "USDC",
+            "token1": "AERO",
+            "pool_type": "cl",
+            "full": true,
+            "limit": 3
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "liquidity-budget",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2128,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 7551,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "ETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "fraction",
+              "bps": 5000
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "liquidity-budget",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2037,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5630,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "ETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "fraction",
+              "bps": 5000
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "stock-basket",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 5694,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37502,
+      "calls": [
+        {
+          "name": "aero_stocks",
+          "arguments": {}
+        },
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": false
+    },
+    {
+      "id": "stock-basket",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2189,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5630,
+      "calls": [
+        {
+          "name": "aero_stock_trades",
+          "arguments": {
+            "trades": [
+              {
+                "side": "buy",
+                "stock": "NVDAc",
+                "amount": "1"
+              },
+              {
+                "side": "buy",
+                "stock": "AAPLc",
+                "amount": "1"
+              }
+            ]
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "aave-supply",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 6799,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 28014,
+      "toolCount": 32,
+      "promptTokens": 37490,
+      "calls": [
+        {
+          "name": "aave_skill",
+          "arguments": {
+            "name": "safe-transactions"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "aave-supply",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1954,
+      "steps": 1,
+      "systemBytes": 5310,
+      "toolBytes": 3028,
+      "toolCount": 7,
+      "promptTokens": 1528,
+      "calls": [
+        {
+          "name": "aave_skill",
+          "arguments": {
+            "name": "safe-transactions"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "allowance",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2257,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 9107,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "allowance",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1895,
+      "steps": 1,
+      "systemBytes": 5666,
+      "toolBytes": 9387,
+      "toolCount": 13,
+      "promptTokens": 2881,
+      "calls": [
+        {
+          "name": "evm_allowance",
+          "arguments": {
+            "token": "USDC",
+            "spender": "0x1111111111111111111111111111111111111111"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "send-precheck",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 5096,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 39066,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "send-precheck",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1785,
+      "steps": 1,
+      "systemBytes": 5666,
+      "toolBytes": 9387,
+      "toolCount": 13,
+      "promptTokens": 2880,
+      "calls": [
+        {
+          "name": "evm_token_balance",
+          "arguments": {
+            "token": "USDC"
+          }
+        },
+        {
+          "name": "wallet_address",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": false
+    },
+    {
+      "id": "safe-info",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2213,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 9109,
+      "calls": [
+        {
+          "name": "safe_info",
+          "arguments": {
+            "safe": "0x2222222222222222222222222222222222222222"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "safe-info",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2586,
+      "steps": 1,
+      "systemBytes": 7269,
+      "toolBytes": 34701,
+      "toolCount": 39,
+      "promptTokens": 7823,
+      "calls": [
+        {
+          "name": "safe_info",
+          "arguments": {
+            "safe": "0x2222222222222222222222222222222222222222"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "no-authorization",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 7032,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 34512,
+      "toolCount": 39,
+      "promptTokens": 39060,
+      "calls": [],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "no-authorization",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2682,
+      "steps": 1,
+      "systemBytes": 7269,
+      "toolBytes": 34701,
+      "toolCount": 39,
+      "promptTokens": 7817,
+      "calls": [],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "nansen-flows",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 6748,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 19302,
+      "toolCount": 26,
+      "promptTokens": 37356,
+      "calls": [
+        {
+          "name": "nansen_token_who_bought_sold",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "side": "BUY",
+            "days": 7,
+            "limit": 10
+          }
+        },
+        {
+          "name": "nansen_token_flow_intelligence",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "timeframe": "7d"
+          }
+        },
+        {
+          "name": "nansen_token_flows",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "days": 7,
+            "label": "smart_money",
+            "limit": 10
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "nansen-flows",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2092,
+      "steps": 1,
+      "systemBytes": 5555,
+      "toolBytes": 19491,
+      "toolCount": 26,
+      "promptTokens": 5774,
+      "calls": [
+        {
+          "name": "nansen_token_flow_intelligence",
+          "arguments": {
+            "chain": "base",
+            "token": "AERO",
+            "timeframe": "7d"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "funding",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 5086,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 2563,
+      "toolCount": 7,
+      "promptTokens": 33211,
+      "calls": [
+        {
+          "name": "deposit_instructions",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": false
+    },
+    {
+      "id": "funding",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1526,
+      "steps": 1,
+      "systemBytes": 5005,
+      "toolBytes": 2752,
+      "toolCount": 7,
+      "promptTokens": 1518,
+      "calls": [
+        {
+          "name": "deposit_instructions",
+          "arguments": {
+            "amount": "50"
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "odds",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 2041,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 9412,
+      "toolCount": 12,
+      "promptTokens": 4836,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "odds",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 3396,
+      "steps": 1,
+      "systemBytes": 6092,
+      "toolBytes": 10159,
+      "toolCount": 14,
+      "promptTokens": 3352,
+      "calls": [
+        {
+          "name": "polymarket_search",
+          "arguments": {
+            "q": "Bitcoin 100k",
+            "events_status": "active",
+            "limit_per_type": 3
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "pm-leaderboard",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 5633,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 9412,
+      "toolCount": 12,
+      "promptTokens": 34781,
+      "calls": [
+        {
+          "name": "polymarket_leaderboard",
+          "arguments": {
+            "time_period": "week",
+            "category": "overall",
+            "sort_by": "PNL",
+            "limit": 5
+          }
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "pm-leaderboard",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 3028,
+      "steps": 1,
+      "systemBytes": 7411,
+      "toolBytes": 60575,
+      "toolCount": 57,
+      "promptTokens": 14425,
+      "calls": [
+        {
+          "name": "polymarket_leaderboard",
+          "arguments": {
+            "time_period": "week",
+            "sort_by": "PNL",
+            "limit": 5
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "accept-plan",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 3393,
+      "steps": 1,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 29994,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "WETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "amount",
+              "amount": "0.002"
+            },
+            "range": null,
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": false
+    },
+    {
+      "id": "accept-plan",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 1867,
+      "steps": 1,
+      "systemBytes": 8347,
+      "toolBytes": 22146,
+      "toolCount": 23,
+      "promptTokens": 5711,
+      "calls": [
+        {
+          "name": "aero_liquidity",
+          "arguments": {
+            "selection": {
+              "kind": "discover",
+              "token0": "WETH",
+              "token1": "USDC"
+            },
+            "funding_token": "ETH",
+            "budget": {
+              "kind": "amount",
+              "amount": "0.002"
+            },
+            "slippage": 0.005
+          }
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    },
+    {
+      "id": "load-path",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 7040,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 59856,
+      "calls": [
+        {
+          "name": "aero_stocks",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "load-path",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 3823,
+      "steps": 2,
+      "systemBytes": 4510,
+      "toolBytes": 1554,
+      "toolCount": 4,
+      "promptTokens": 6898,
+      "calls": [
+        {
+          "name": "aero_stock_buy",
+          "arguments": {
+            "stock": "NVDAc",
+            "amount": "1"
+          }
+        }
+      ],
+      "loaded": [
+        "aerodrome"
+      ],
+      "correct": true
+    },
+    {
+      "id": "wallet-overview",
+      "sample": 2,
+      "variant": "baseline",
+      "elapsedMs": 7280,
+      "steps": 2,
+      "systemBytes": 14314,
+      "toolBytes": 134734,
+      "toolCount": 139,
+      "promptTokens": 59844,
+      "calls": [
+        {
+          "name": "wallet_balances",
+          "arguments": {}
+        }
+      ],
+      "loaded": [
+        "all"
+      ],
+      "correct": true
+    },
+    {
+      "id": "wallet-overview",
+      "sample": 2,
+      "variant": "skills",
+      "elapsedMs": 2100,
+      "steps": 1,
+      "systemBytes": 4510,
+      "toolBytes": 1554,
+      "toolCount": 4,
+      "promptTokens": 1218,
+      "calls": [
+        {
+          "name": "wallet_address",
+          "arguments": {}
+        },
+        {
+          "name": "wallet_balances",
+          "arguments": {}
+        }
+      ],
+      "loaded": [],
+      "correct": true
+    }
+  ]
+}

@@ -1,0 +1,2041 @@
+{
+  "scope": "Parser and public-read filter validation only; no command execution",
+  "total": 339,
+  "passed": 339,
+  "rows": [
+    {
+      "command": "/help",
+      "expected": "help",
+      "actual": "help",
+      "passed": true
+    },
+    {
+      "command": "b/help",
+      "expected": "help",
+      "actual": "help",
+      "passed": true
+    },
+    {
+      "command": "help",
+      "expected": "help",
+      "actual": "help",
+      "passed": true
+    },
+    {
+      "command": "/start",
+      "expected": "help",
+      "actual": "help",
+      "passed": true
+    },
+    {
+      "command": "b/start",
+      "expected": "help",
+      "actual": "help",
+      "passed": true
+    },
+    {
+      "command": "start",
+      "expected": "help",
+      "actual": "help",
+      "passed": true
+    },
+    {
+      "command": "/wallet",
+      "expected": "wallet",
+      "actual": "wallet",
+      "passed": true
+    },
+    {
+      "command": "b/wallet",
+      "expected": "wallet",
+      "actual": "wallet",
+      "passed": true
+    },
+    {
+      "command": "wallet",
+      "expected": "wallet",
+      "actual": "wallet",
+      "passed": true
+    },
+    {
+      "command": "/balance",
+      "expected": "balance",
+      "actual": "balance",
+      "passed": true
+    },
+    {
+      "command": "b/balance",
+      "expected": "balance",
+      "actual": "balance",
+      "passed": true
+    },
+    {
+      "command": "balance",
+      "expected": "balance",
+      "actual": "balance",
+      "passed": true
+    },
+    {
+      "command": "/stocks",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/stocks",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "stocks",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/token USDC",
+      "expected": "token",
+      "actual": "token",
+      "passed": true
+    },
+    {
+      "command": "b/token USDC",
+      "expected": "token",
+      "actual": "token",
+      "passed": true
+    },
+    {
+      "command": "token USDC",
+      "expected": "token",
+      "actual": "token",
+      "passed": true
+    },
+    {
+      "command": "/allowance USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "allowance",
+      "actual": "allowance",
+      "passed": true
+    },
+    {
+      "command": "b/allowance USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "allowance",
+      "actual": "allowance",
+      "passed": true
+    },
+    {
+      "command": "allowance USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "allowance",
+      "actual": "allowance",
+      "passed": true
+    },
+    {
+      "command": "/send 1 USDC to 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "b/send 1 USDC to 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "send 1 USDC to 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "/approve 1 USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "b/approve 1 USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "approve 1 USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "/revoke USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "b/revoke USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "revoke USDC for 0x1111111111111111111111111111111111111111",
+      "expected": "evm",
+      "actual": "evm",
+      "passed": true
+    },
+    {
+      "command": "/quote 0.001 ETH to USDC",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/quote 0.001 ETH to USDC",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "quote 0.001 ETH to USDC",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/swap 0.001 ETH to USDC",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/swap 0.001 ETH to USDC",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "swap 0.001 ETH to USDC",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/confirm ABC123",
+      "expected": "confirm",
+      "actual": "confirm",
+      "passed": true
+    },
+    {
+      "command": "b/confirm ABC123",
+      "expected": "confirm",
+      "actual": "confirm",
+      "passed": true
+    },
+    {
+      "command": "confirm ABC123",
+      "expected": "confirm",
+      "actual": "confirm",
+      "passed": true
+    },
+    {
+      "command": "/cancel ABC123",
+      "expected": "cancel",
+      "actual": "cancel",
+      "passed": true
+    },
+    {
+      "command": "b/cancel ABC123",
+      "expected": "cancel",
+      "actual": "cancel",
+      "passed": true
+    },
+    {
+      "command": "cancel ABC123",
+      "expected": "cancel",
+      "actual": "cancel",
+      "passed": true
+    },
+    {
+      "command": "/yolo",
+      "expected": "yolo",
+      "actual": "yolo",
+      "passed": true
+    },
+    {
+      "command": "b/yolo",
+      "expected": "yolo",
+      "actual": "yolo",
+      "passed": true
+    },
+    {
+      "command": "/yolo on",
+      "expected": "yolo",
+      "actual": "yolo",
+      "passed": true
+    },
+    {
+      "command": "b/yolo on",
+      "expected": "yolo",
+      "actual": "yolo",
+      "passed": true
+    },
+    {
+      "command": "/yolo off",
+      "expected": "yolo",
+      "actual": "yolo",
+      "passed": true
+    },
+    {
+      "command": "b/yolo off",
+      "expected": "yolo",
+      "actual": "yolo",
+      "passed": true
+    },
+    {
+      "command": "/verbose",
+      "expected": "verbose",
+      "actual": "verbose",
+      "passed": true
+    },
+    {
+      "command": "b/verbose",
+      "expected": "verbose",
+      "actual": "verbose",
+      "passed": true
+    },
+    {
+      "command": "verbose",
+      "expected": "verbose",
+      "actual": "verbose",
+      "passed": true
+    },
+    {
+      "command": "/verbose 2",
+      "expected": "verbose",
+      "actual": "verbose",
+      "passed": true
+    },
+    {
+      "command": "b/verbose 2",
+      "expected": "verbose",
+      "actual": "verbose",
+      "passed": true
+    },
+    {
+      "command": "verbose 2",
+      "expected": "verbose",
+      "actual": "verbose",
+      "passed": true
+    },
+    {
+      "command": "/deposit",
+      "expected": "deposit",
+      "actual": "deposit",
+      "passed": true
+    },
+    {
+      "command": "b/deposit",
+      "expected": "deposit",
+      "actual": "deposit",
+      "passed": true
+    },
+    {
+      "command": "deposit",
+      "expected": "deposit",
+      "actual": "deposit",
+      "passed": true
+    },
+    {
+      "command": "/deposit 50",
+      "expected": "deposit",
+      "actual": "deposit",
+      "passed": true
+    },
+    {
+      "command": "b/deposit 50",
+      "expected": "deposit",
+      "actual": "deposit",
+      "passed": true
+    },
+    {
+      "command": "deposit 50",
+      "expected": "deposit",
+      "actual": "deposit",
+      "passed": true
+    },
+    {
+      "command": "/deposit setup test@example.com",
+      "expected": "deposit-setup",
+      "actual": "deposit-setup",
+      "passed": true
+    },
+    {
+      "command": "b/deposit setup test@example.com",
+      "expected": "deposit-setup",
+      "actual": "deposit-setup",
+      "passed": true
+    },
+    {
+      "command": "deposit setup test@example.com",
+      "expected": "deposit-setup",
+      "actual": "deposit-setup",
+      "passed": true
+    },
+    {
+      "command": "/deposit status",
+      "expected": "deposit-status",
+      "actual": "deposit-status",
+      "passed": true
+    },
+    {
+      "command": "b/deposit status",
+      "expected": "deposit-status",
+      "actual": "deposit-status",
+      "passed": true
+    },
+    {
+      "command": "deposit status",
+      "expected": "deposit-status",
+      "actual": "deposit-status",
+      "passed": true
+    },
+    {
+      "command": "/aero",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "b/aero",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "aero",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "/aero help",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "b/aero help",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "aero help",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "/aero --help",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "b/aero --help",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "aero --help",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "/aero -h",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "b/aero -h",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "aero -h",
+      "expected": "aero-help",
+      "actual": "aero-help",
+      "passed": true
+    },
+    {
+      "command": "/aave",
+      "expected": "aave-help",
+      "actual": "aave-help",
+      "passed": true
+    },
+    {
+      "command": "b/aave",
+      "expected": "aave-help",
+      "actual": "aave-help",
+      "passed": true
+    },
+    {
+      "command": "aave",
+      "expected": "aave-help",
+      "actual": "aave-help",
+      "passed": true
+    },
+    {
+      "command": "/aave help",
+      "expected": "aave-help",
+      "actual": "aave-help",
+      "passed": true
+    },
+    {
+      "command": "b/aave help",
+      "expected": "aave-help",
+      "actual": "aave-help",
+      "passed": true
+    },
+    {
+      "command": "aave help",
+      "expected": "aave-help",
+      "actual": "aave-help",
+      "passed": true
+    },
+    {
+      "command": "/nansen",
+      "expected": "nansen-help",
+      "actual": "nansen-help",
+      "passed": true
+    },
+    {
+      "command": "b/nansen",
+      "expected": "nansen-help",
+      "actual": "nansen-help",
+      "passed": true
+    },
+    {
+      "command": "nansen",
+      "expected": "nansen-help",
+      "actual": "nansen-help",
+      "passed": true
+    },
+    {
+      "command": "/nansen help",
+      "expected": "nansen-help",
+      "actual": "nansen-help",
+      "passed": true
+    },
+    {
+      "command": "b/nansen help",
+      "expected": "nansen-help",
+      "actual": "nansen-help",
+      "passed": true
+    },
+    {
+      "command": "nansen help",
+      "expected": "nansen-help",
+      "actual": "nansen-help",
+      "passed": true
+    },
+    {
+      "command": "/nansen token 0x1111111111111111111111111111111111111111 base 7d",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen token 0x1111111111111111111111111111111111111111 base 7d",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen token 0x1111111111111111111111111111111111111111 base 7d",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen flows 0x1111111111111111111111111111111111111111 base 7d",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen flows 0x1111111111111111111111111111111111111111 base 7d",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen flows 0x1111111111111111111111111111111111111111 base 7d",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen portfolio",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen portfolio",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen portfolio",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen portfolio 0x1111111111111111111111111111111111111111",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen portfolio 0x1111111111111111111111111111111111111111",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen portfolio 0x1111111111111111111111111111111111111111",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen wallet",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen wallet",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen wallet",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen wallet 0x1111111111111111111111111111111111111111 ethereum",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen wallet 0x1111111111111111111111111111111111111111 ethereum",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen wallet 0x1111111111111111111111111111111111111111 ethereum",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen pnl",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen pnl",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen pnl",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen pnl 0x1111111111111111111111111111111111111111 base",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen pnl 0x1111111111111111111111111111111111111111 base",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen pnl 0x1111111111111111111111111111111111111111 base",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/nansen markets fed",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "b/nansen markets fed",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "nansen markets fed",
+      "expected": "nansen",
+      "actual": "nansen",
+      "passed": true
+    },
+    {
+      "command": "/polymarket",
+      "expected": "polymarket-help",
+      "actual": "polymarket-help",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket",
+      "expected": "polymarket-help",
+      "actual": "polymarket-help",
+      "passed": true
+    },
+    {
+      "command": "polymarket",
+      "expected": "polymarket-help",
+      "actual": "polymarket-help",
+      "passed": true
+    },
+    {
+      "command": "/polymarket help",
+      "expected": "polymarket-help",
+      "actual": "polymarket-help",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket help",
+      "expected": "polymarket-help",
+      "actual": "polymarket-help",
+      "passed": true
+    },
+    {
+      "command": "polymarket help",
+      "expected": "polymarket-help",
+      "actual": "polymarket-help",
+      "passed": true
+    },
+    {
+      "command": "/polymarket status",
+      "expected": "polymarket",
+      "actual": "polymarket",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket status",
+      "expected": "polymarket",
+      "actual": "polymarket",
+      "passed": true
+    },
+    {
+      "command": "polymarket status",
+      "expected": "polymarket",
+      "actual": "polymarket",
+      "passed": true
+    },
+    {
+      "command": "/polymarket research Compare Fed markets",
+      "expected": "polymarket",
+      "actual": "polymarket",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket research Compare Fed markets",
+      "expected": "polymarket",
+      "actual": "polymarket",
+      "passed": true
+    },
+    {
+      "command": "polymarket research Compare Fed markets",
+      "expected": "polymarket",
+      "actual": "polymarket",
+      "passed": true
+    },
+    {
+      "command": "/polymarket Fed rates",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket Fed rates",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket Fed rates",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/aero stocks",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero stocks",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero stocks",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero deposit --pool 0x1111111111111111111111111111111111111111 --amount0 1 --amount1 1 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero deposit --pool 0x1111111111111111111111111111111111111111 --amount0 1 --amount1 1 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero deposit --pool 0x1111111111111111111111111111111111111111 --amount0 1 --amount1 1 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero positions --owner 0x1111111111111111111111111111111111111111",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero positions --owner 0x1111111111111111111111111111111111111111",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero positions --owner 0x1111111111111111111111111111111111111111",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero pools --token0 USDC --token1 AERO --pool-type cl --limit 3 --full",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero pools --token0 USDC --token1 AERO --pool-type cl --limit 3 --full",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero pools --token0 USDC --token1 AERO --pool-type cl --limit 3 --full",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero epochs-latest --pool-type cl",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero epochs-latest --pool-type cl",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero epochs-latest --pool-type cl",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero epochs --lp 0x1111111111111111111111111111111111111111 --limit 3 --offset 0",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero epochs --lp 0x1111111111111111111111111111111111111111 --limit 3 --offset 0",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero epochs --lp 0x1111111111111111111111111111111111111111 --limit 3 --offset 0",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero withdraw --position 123 --fraction 0.5 --collect",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero withdraw --position 123 --fraction 0.5 --collect",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero withdraw --position 123 --fraction 0.5 --collect",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero stake --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero stake --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero stake --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero unstake --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero unstake --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero unstake --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero claim-emissions --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero claim-emissions --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero claim-emissions --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero claim-fees --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero claim-fees --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero claim-fees --position 123",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero create-venft --amount 1 --lock-duration-seconds 31536000 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero create-venft --amount 1 --lock-duration-seconds 31536000 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero create-venft --amount 1 --lock-duration-seconds 31536000 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero quote --from-token ETH --to-token USDC --amount 0.001 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero quote --from-token ETH --to-token USDC --amount 0.001 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero quote --from-token ETH --to-token USDC --amount 0.001 --use-decimals",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero swap --from-token ETH --to-token USDC --amount 0.001 --use-decimals --slippage 0.005",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero swap --from-token ETH --to-token USDC --amount 0.001 --use-decimals --slippage 0.005",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero swap --from-token ETH --to-token USDC --amount 0.001 --use-decimals --slippage 0.005",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero stock-buy --stock NVDAc --amount 1",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero stock-buy --stock NVDAc --amount 1",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero stock-buy --stock NVDAc --amount 1",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero stock-sell --stock NVDAc --amount 0.001",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero stock-sell --stock NVDAc --amount 0.001",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero stock-sell --stock NVDAc --amount 0.001",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/aero index-rebalance --allocations NVDAc=50,AAPLc=50 --cash 1",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "b/aero index-rebalance --allocations NVDAc=50,AAPLc=50 --cash 1",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "aero index-rebalance --allocations NVDAc=50,AAPLc=50 --cash 1",
+      "expected": "aero",
+      "actual": "aero",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read activity {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read activity {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read activity {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read activity_combos {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read activity_combos {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read activity_combos {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read approvals {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read approvals {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read approvals {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read biggest_winners {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read biggest_winners {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read biggest_winners {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read builders_leaderboard {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read builders_leaderboard {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read builders_leaderboard {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read builders_volume {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read builders_volume {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read builders_volume {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read holders {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read holders {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read holders {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read leaderboard {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read leaderboard {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read leaderboard {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read live_volume {\"event_id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read live_volume {\"event_id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read live_volume {\"event_id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read oi {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read oi {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read oi {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read positions {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read positions {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read positions {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read positions_combos {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read positions_combos {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read positions_combos {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read prices_history {\"token_id\":\"123\",\"interval\":\"1d\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read prices_history {\"token_id\":\"123\",\"interval\":\"1d\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read prices_history {\"token_id\":\"123\",\"interval\":\"1d\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read resolutions {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read resolutions {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read resolutions {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read status {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read status {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read status {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read trades {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read trades {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read trades {\"condition\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read user_pnl {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read user_pnl {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read user_pnl {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read user_stats {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read user_stats {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read user_stats {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read user_volume {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read user_volume {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read user_volume {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read value {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read value {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read value {\"user\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read search {\"q\":\"Fed\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read search {\"q\":\"Fed\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read search {\"q\":\"Fed\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read events {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read events {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read events {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read markets {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read markets {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read markets {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read event {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read event {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read event {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read event_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read event_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read event_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read market {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read market {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read market {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read market_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read market_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read market_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read tags {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read tags {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read tags {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read tag {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read tag {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read tag {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read tag_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read tag_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read tag_by_slug {\"slug\":\"test-market\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read event_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read event_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read event_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read market_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read market_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read market_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read related_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read related_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read related_tags {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read series {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read series {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read series {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read series_detail {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read series_detail {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read series_detail {\"id\":\"1\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read sports {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read sports {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read sports {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read sports_market_types {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read sports_market_types {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read sports_market_types {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read teams {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read teams {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read teams {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read profile {\"address\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read profile {\"address\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read profile {\"address\":\"0x1111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read book {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read book {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read book {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read price {\"token_id\":\"123\",\"side\":\"BUY\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read price {\"token_id\":\"123\",\"side\":\"BUY\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read price {\"token_id\":\"123\",\"side\":\"BUY\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read midpoint {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read midpoint {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read midpoint {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read spread {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read spread {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read spread {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read last_trade_price {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read last_trade_price {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read last_trade_price {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read fee_rate {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read fee_rate {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read fee_rate {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read tick_size {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read tick_size {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read tick_size {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read negative_risk {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read negative_risk {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read negative_risk {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read clob_market {\"condition_id\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read clob_market {\"condition_id\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read clob_market {\"condition_id\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read market_by_token {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read market_by_token {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read market_by_token {\"token_id\":\"123\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read rewards {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read rewards {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read rewards {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read market_rewards {\"condition_id\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read market_rewards {\"condition_id\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read market_rewards {\"condition_id\":\"0x1111111111111111111111111111111111111111111111111111111111111111\"}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "/polymarket read server_time {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "b/polymarket read server_time {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    },
+    {
+      "command": "polymarket read server_time {}",
+      "expected": "polymarket-read",
+      "actual": "polymarket-read",
+      "passed": true
+    }
+  ]
+}

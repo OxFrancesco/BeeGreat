@@ -1,0 +1,37 @@
+{
+  "endpoint": "live_volume",
+  "source": "https://data-api.polymarket.com/v2/live-volume?event_id=16183",
+  "observedAt": "2026-09-28T07:55:57.684Z",
+  "data": {
+    "data": {
+      "conditions": [
+        {
+          "condition_id": "0xced0cb8725bad43d78fda0cd0e5fa9e31804625cb3502b2c7897f8e8f7fa9e1f",
+          "taker_volume": 569268.038516
+        },
+        {
+          "condition_id": "0x9b3c3177fe473124c756b01e123b4b03e3a99880844ed8dea21b0a7879ca04aa",
+          "taker_volume": 545632.474811
+        },
+        {
+          "condition_id": "0x5b70123b2c37355840b38bc60752919dae7ca5fe11d5e5184aa69be01b9db458",
+          "taker_volume": 494516.532539
+        },
+        {
+          "condition_id": "0xcba52062bde65f42263306c9dcb935f6be724462ef8df7e2f7528ca7c9a3b4ee",
+          "taker_volume": 1539.034279
+        },
+        {
+          "condition_id": "0xcee7afac20d34bfca0ddafe231f402b105a5ffbaf841fa9c12b1eee4b9031874",
+          "taker_volume": 355.714646
+        },
+        {
+          "condition_id": "0xe1779ab59d1c8472852a843d3b6f69e7921c4c34d4f778b6be0e9b468986f45f",
+          "taker_volume": 272.329182
+        }
+      ],
+      "taker_volume_total": 1611584.123973
+    }
+  },
+  "next": null
+}

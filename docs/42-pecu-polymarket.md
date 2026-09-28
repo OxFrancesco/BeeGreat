@@ -230,11 +230,13 @@ books are requested for depth/spread questions. This does not change transaction
 preparation, confirmation or execution ordering.
 
 
-Explicit Polymarket requests initially expose market discovery, details, prices, books,
-history and clarification. The model can call `enable_all_tools` for other Polymarket data or when a mixed request also needs
-wallet, Nansen, Aave or other capabilities. Expansion is scoped to the current turn
-and changes visibility only; authorization and transaction confirmations are unchanged.
-Requests without an explicit Polymarket mention retain the full catalog.
+Polymarket tools belong to two agent skills (see `docs/50-pecu-agent-skills.md`).
+`polymarket` covers discovery, details, prices, books and history and loads for
+odds questions. `polymarket-data` covers accounts, trades, holders, PnL, rankings,
+resolutions and Exa research, and loads when a Polymarket message names one of those.
+The model can call `load_skills` for either skill or for wallet, Nansen, Aave or other
+capabilities. Loading is scoped to the current turn and changes visibility only;
+authorization and transaction confirmations are unchanged.
 
 Identical Polymarket reads already in flight within one turn share their result.
 Different reads remain concurrent. Completed reads and failures are not cached, and

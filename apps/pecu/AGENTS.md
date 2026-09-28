@@ -177,6 +177,10 @@ Users do not need to memorize the command list. Examples:
 The model also has tools for contract reads, verified ABI inspection, data decoding, and simulated contract-call previews. Those are natural-language capabilities, not `/read`, `/inspect`, `/decode`, `/contract-call`, or `/evm` slash commands. Supply the contract address, function signature and arguments when needed. These capabilities must preserve the same wallet ownership and transaction confirmation rules as explicit commands.
 
 
+## Agent skills
+
+The model's system prompt is only `skills/pecu/core/SKILL.md` plus a one-line index of the task skills. Each task skill in `skills/pecu/<name>/SKILL.md` declares the tools it owns (`tools`, exact names or `prefix_*`, exact names win) and the words that load it (`triggers`, a case-insensitive regex). A step sees `ask_user`, `load_skills`, `wallet_address`, `wallet_balances` and the tools of its active skills. Active skills are trigger matches on the user's message, otherwise the confident classifier family, otherwise the previous turn's skills, plus anything the model loaded with `load_skills` this turn. Put task-specific rules in the owning skill, not in core or the per-turn prompt. Run `bun run skills:build` after editing; typecheck and build fail on a stale `src/agent-skills.generated.json`. Every registered tool other than the four base tools must belong to a skill (`tests/fixtures/model-routing-check.ts`). See `docs/50-pecu-agent-skills.md` for the benchmark.
+
 ## Aave and Polymarket integrations
 
 The five official Aave skills are vendored under `skills/aave/` and bundled into the deployed agent. Their source is `resources/aave-skills`, managed with codeview. `aave_skill` loads one workflow, `aave_schema` returns exact tool arguments, and `aave_call` runs the supported official MCP tools at `https://mcp.aave.com`. Keep third-party instructions subordinate to the verified wallet, chain, confirmation, and JSON-display rules.

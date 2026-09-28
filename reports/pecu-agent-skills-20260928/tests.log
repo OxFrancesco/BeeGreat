@@ -1,0 +1,1476 @@
+$ bun run skills:check && tsc --noEmit
+$ bun scripts/build-agent-skills.ts --check
+$ oxlint --config ../../.oxlintrc.json src scripts tests
+$ bun test ./tests/*.test.ts
+bun test v1.4.2 (744846f84)
+
+tests/activity-queue.test.ts:
+(pass) activity acknowledgement persists work and failed work survives a new queue instance [21.23ms]
+
+tests/aero-bounded-pools.test.ts:
+(pass) an unfiltered pool limit bounds the RPC read [11.78ms]
+(pass) filtered pool searches retain the full candidate set [0.71ms]
+
+tests/aero-installed-positions.test.ts:
+(pass) Pecu installed Aero SDK positions > lists an unstaked concentrated position the positions scan misses [20.62ms]
+(pass) Pecu installed Aero SDK positions > skips the unstaked scan when the account holds no CL NFTs [1.32ms]
+(pass) Pecu installed Aero SDK positions > finds an unstaked concentrated position through the pool-scoped lookup [2.46ms]
+(pass) Pecu installed Aero SDK positions > returns a position listed by both reads only once [4.32ms]
+
+tests/aero-performance.test.ts:
+{"timestamp":"2026-09-28T08:37:31.435Z","level":"info","message":"aero_action_started","action":"pools"}
+{"timestamp":"2026-09-28T08:37:31.436Z","level":"info","message":"aero_action_started","action":"pools"}
+{"timestamp":"2026-09-28T08:37:31.439Z","level":"info","message":"aero_action_completed","action":"pools","durationMs":4}
+{"timestamp":"2026-09-28T08:37:31.439Z","level":"info","message":"aero_action_completed","action":"pools","durationMs":3}
+(pass) independent service-binding reads start without another user's queue [5.17ms]
+(pass) known wrapped and native token identities stay distinct [0.05ms]
+(pass) pool limit applies before hydration and unrelated pools are not priced [1.75ms]
+(pass) a cold edge reads shared public metadata without extending its lifetime [8.92ms]
+(pass) one public snapshot serves arbitrary tokens across requests and preserves ambiguity checks [12.02ms]
+
+tests/aero-tools.test.ts:
+(pass) stock tools expose purchase units and index allocations from the SDK [2.47ms]
+(pass) every SDK action has an object schema without wallet or chain overrides [1.79ms]
+(pass) the first quote call exposes the real SDK keys and defaults human token amounts [5.52ms]
+
+tests/aero-worker.test.ts:
+(pass) Aero Worker rejects a foreign chain before contacting RPC [3.47ms]
+(pass) a stock_basket request on a foreign chain is rejected before any RPC [0.51ms]
+(pass) a stock_basket request with malformed trades is rejected before any RPC [0.36ms]
+{"timestamp":"2026-09-28T08:37:31.488Z","level":"info","message":"aero_action_started","action":"pools"}
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_worker_request","request_id":"1941eb32-6855-48c1-abd2-abbbb8dda1ae","action":"pools"}
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_worker_response","request_id":"1941eb32-6855-48c1-abd2-abbbb8dda1ae","action":"pools","duration_ms":0,"status":502}
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_action_started","action":"pools"}
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_worker_request","request_id":"bc0eca42-cb1d-4640-8738-e00d1186f609","action":"pools"}
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_worker_response","request_id":"bc0eca42-cb1d-4640-8738-e00d1186f609","action":"pools","duration_ms":0,"status":200}
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_action_completed","action":"pools","durationMs":0}
+(pass) Aero service propagates remote failures and accepts the next request [0.63ms]
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_action_started","action":"swap"}
+{"timestamp":"2026-09-28T08:37:31.489Z","level":"info","message":"aero_action_completed","action":"swap","durationMs":0}
+(pass) remote transaction plans still pass the bot's call validation [0.48ms]
+
+tests/aerodrome.test.ts:
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_started","action":"quote"}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_completed","action":"quote","durationMs":0}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_started","action":"quote"}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_completed","action":"quote","durationMs":0}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_started","action":"quote"}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_completed","action":"quote","durationMs":0}
+(pass) Aero request boundary > symbols pass through to full-catalog resolution without a token whitelist [0.30ms]
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_started","action":"index_rebalance"}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_completed","action":"index_rebalance","durationMs":0}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_started","action":"stock_buy"}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_completed","action":"stock_buy","durationMs":0}
+(pass) Aero request boundary > an already balanced SDK index needs no transaction plan [0.30ms]
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_started","action":"stocks"}
+{"timestamp":"2026-09-28T08:37:31.490Z","level":"info","message":"aero_action_completed","action":"stocks","durationMs":0}
+(pass) Aero request boundary > stock reads use the verified wallet [0.12ms]
+{"timestamp":"2026-09-28T08:37:31.491Z","level":"info","message":"aero_action_started","action":"stock_buy"}
+{"timestamp":"2026-09-28T08:37:31.491Z","level":"info","message":"aero_action_started","action":"stock_sell"}
+{"timestamp":"2026-09-28T08:37:31.491Z","level":"info","message":"aero_action_started","action":"index_rebalance"}
+(pass) Aero request boundary > all stock plans use the configured slippage and verified wallet [0.41ms]
+(pass) Aero request boundary > rejects a non-Base chain before any RPC call [0.04ms]
+(pass) Aero request boundary > does not let chat input select a transaction wallet [0.02ms]
+(pass) Aero request boundary > caps user-selected slippage before any RPC call [0.06ms]
+
+tests/agent-confirmation.test.ts:
+{"timestamp":"2026-09-28T08:37:31.975Z","level":"warn","message":"intent_outcome_unknown","trace_id":"pecu_78930415c4f65aa604bad312982eee6eefdd395e7e3d5045e0bd9ea45018f5b6","intentId":"bd1640f7-36c8-4f65-86f9-033610a0c966","action":"stake","transactionId":"tx-1","error":"{\"error\":true,\"message\":\"The API key lacks required scopes: wallets:transactions.read\"}"}
+(pass) confirmation authorization and execution > missing read permission keeps the prepared transaction recoverable without duplicate preparation [40.97ms]
+{"timestamp":"2026-09-28T08:37:31.981Z","level":"warn","message":"intent_outcome_unknown","trace_id":"pecu_21f9e7d3d67e53b2bb5ab0236e6ae23c704a6e452b40953b096c1d38b7b869d0","intentId":"9c37c323-96d6-4146-8e6c-53421e53f411","action":"stake","transactionId":"tx-1","error":"required scopes: wallets:transactions.read"}
+{"timestamp":"2026-09-28T08:37:31.982Z","level":"warn","message":"command_failed","trace_id":"pecu_4e00b8d97db319f212c19f38a057d5c977fd3fe218e307885148947a48bc1367","eventId":"bb5c9438-7bb8-4ece-a1e8-6b5b0454ccbf","senderId":"owner","error":"This transaction preview expired before approval. Request a fresh preview."}
+(pass) confirmation authorization and execution > a permission-blocked preview cannot be approved after expiry [5.50ms]
+(pass) confirmation authorization and execution > reply cancellation and expired replies never execute [5.88ms]
+{"timestamp":"2026-09-28T08:37:31.993Z","level":"warn","message":"command_failed","trace_id":"pecu_6401255af48552729797237c25ab27002891d3ba9f8e5e3a9f5ea309202d790c","eventId":"59ad90f7-ed72-4223-8ddf-33bce36b07db","senderId":"attacker","error":"Confirmation code not found for this X account and conversation."}
+{"timestamp":"2026-09-28T08:37:31.993Z","level":"warn","message":"command_failed","trace_id":"pecu_1594a35d4dc1908504300cad9005e492e19ddb1fd2435315f957f8b0943e52df","eventId":"46988c23-29bf-4931-8d91-3d33d91ba770","senderId":"owner","error":"Confirmation code not found for this X account and conversation."}
+(pass) confirmation authorization and execution > reply confirmation selects the referenced plan and remains scoped and idempotent [5.22ms]
+(pass) confirmation authorization and execution > YOLO is explicit, scoped, reversible, and deduplicates events [5.10ms]
+(pass) confirmation authorization and execution > YOLO cannot bypass the global execution lock [2.67ms]
+(pass) confirmation authorization and execution > verbose reveals only this sender's latest result and does not create or execute another plan [7.88ms]
+(pass) confirmation authorization and execution > an already balanced index creates no confirmation or persisted plan [1.09ms]
+(pass) confirmation authorization and execution > previews without sending, then executes the persisted plan only once [3.66ms]
+{"timestamp":"2026-09-28T08:37:32.020Z","level":"warn","message":"command_failed","trace_id":"pecu_06eaa9f9e9a5f7f63be65e7cdf48ccc97d99a45b056e235d2a8ca2c626bbfb90","eventId":"cff76372-7b06-4d9a-a432-6c9d1f7d9884","senderId":"attacker","error":"Confirmation code not found for this X account and conversation."}
+{"timestamp":"2026-09-28T08:37:32.021Z","level":"warn","message":"command_failed","trace_id":"pecu_9fec24b720576990e91a4090692a020935c6cc486e681e0aaa841f35fd138073","eventId":"8876ca31-4e64-4e1e-813d-662ba39f34b4","senderId":"owner","error":"Confirmation code not found for this X account and conversation."}
+(pass) confirmation authorization and execution > rejects a valid code from another sender or conversation [6.39ms]
+(pass) confirmation authorization and execution > expired proposals never reach Crossmint [2.76ms]
+(pass) confirmation authorization and execution > cancellation prevents later confirmation [2.72ms]
+(pass) confirmation authorization and execution > the execution lock applies even to a valid confirmation code [2.78ms]
+{"timestamp":"2026-09-28T08:37:32.032Z","level":"warn","message":"command_failed","trace_id":"pecu_8dd0bf1914e122c19a199e14cec2d635b5ad42df218ed8667c3e3313c7db8337","eventId":"8239acf9-a6a8-46f5-a995-33a9037a7864","senderId":"owner","error":"Transaction 0xdead was included but the user operation reverted"}
+(pass) confirmation authorization and execution > a reverted user operation fails the intent instead of reporting success [3.36ms]
+(pass) confirmation authorization and execution > a pending inclusion keeps the intent executing and re-checks without resubmitting [3.58ms]
+{"timestamp":"2026-09-28T08:37:32.039Z","level":"warn","message":"intent_outcome_unknown","trace_id":"pecu_f2c12d4fe3238f16eb7408b2598d5e6ad83649cbd6461884aaba1f2949f3d676","intentId":"ac13a341-4a40-4039-968b-05c5a4f7e5f4","action":"stake","transactionId":"tx-1","error":"Crossmint request timed out"}
+(pass) confirmation authorization and execution > a failure right after approval keeps the intent executing and a re-check completes it without approving again [3.94ms]
+{"timestamp":"2026-09-28T08:37:32.043Z","level":"warn","message":"command_failed","trace_id":"pecu_ef80ca3c66f5502b575a37cc8e6b739fa40219e9be99870078892f2593a31c49","eventId":"1105512e-a429-4c3a-9386-9115bc76e7c1","senderId":"owner","error":"Crossmint rejected the signature"}
+(pass) confirmation authorization and execution > a rejected approval that leaves the transaction awaiting approval fails the intent on that step [3.08ms]
+{"timestamp":"2026-09-28T08:37:32.046Z","level":"warn","message":"intent_outcome_unknown","trace_id":"pecu_9f33aec408375397caf2b8d196b033a5d98a719cb9ded4486df9bfe6e5a9e667","intentId":"2878f915-89bc-4764-8903-1b1ae0b4b1b2","action":"stake","transactionId":"tx-1","error":"RPC eth_getTransactionReceipt failed with HTTP 502"}
+(pass) confirmation authorization and execution > a receipt lookup error after submission keeps the intent executing [3.49ms]
+(pass) confirmation authorization and execution > confirmation codes use the wider unambiguous alphabet and resolve per sender and conversation [2.94ms]
+(pass) confirmation authorization and execution > a contract call proposal is never auto-executed by YOLO [2.60ms]
+(pass) confirmation authorization and execution > /send previews an EVM transfer and confirms it through the same gate [3.57ms]
+{"timestamp":"2026-09-28T08:37:32.057Z","level":"warn","message":"command_failed","trace_id":"pecu_68ae07e56900eb4921d98775ba42bb2550280f2ea162c4d6d76580ded2701691","eventId":"036cfd6f-0c1b-4b82-8fbd-251021a73f98","senderId":"owner","error":"Transaction has the wrong sender"}
+(pass) confirmation authorization and execution > an EVM plan with the wrong sender is rejected before it is persisted [1.11ms]
+(pass) YOLO executes a persisted plan regardless of provider property order [2.69ms]
+(pass) regeneration creates a preview even when YOLO is enabled [2.61ms]
+{"timestamp":"2026-09-28T08:37:32.064Z","level":"info","message":"request_routed","trace_id":"pecu_77188e085209029fd2411a53e7c0d30f89dd96141c5fc2282a341032453c036e","eventId":"6ba24f41-8f50-427d-81f6-6a42e1013827","route":"fallback"}
+{"timestamp":"2026-09-28T08:37:32.067Z","level":"warn","message":"command_failed","trace_id":"pecu_e46ec9941be077e692a417ab09a565a1856ff5028a83caf2f9f5f603b063d642","eventId":"1a9695eb-af6f-416c-800d-2a79be3b377f","senderId":"other-owner","error":"Confirmation code not found for this X account and conversation."}
+(pass) Safe approval uses the same sender-bound confirmation and reports only one owner's approval [6.08ms]
+
+tests/agent-natural-wallet.test.ts:
+(pass) natural wallet handling > returns the verified sender's wallet without model mediation [1.06ms]
+(pass) natural wallet handling > returns the verified sender's balances without model mediation [0.88ms]
+
+tests/agent-onboarding.test.ts:
+{"timestamp":"2026-09-28T08:37:32.072Z","level":"info","message":"request_routed","trace_id":"pecu_1c7f0613e5eac77079e908ae2a6463a9a1da5e8263b375cf8351ae82bb44daf0","eventId":"8d9b8ea8-bf3f-461b-b9cf-d6b7faae1c61","route":"fallback"}
+{"timestamp":"2026-09-28T08:37:32.072Z","level":"info","message":"request_routed","trace_id":"pecu_186a96a9d8a97d701dc4bdf97fc3d3c7ff7993707df338b03e02511582928e91","eventId":"a8723ce7-8204-4319-8084-dd065fb98f63","route":"fallback"}
+(pass) a greeting provisions the verified sender before the model replies [1.48ms]
+(pass) help as the first message also provisions a wallet [0.96ms]
+{"timestamp":"2026-09-28T08:37:32.074Z","level":"info","message":"request_routed","trace_id":"pecu_c9248aa8781c3d4902be86dd8ac731e11c19d7f0fd6f0e1f2124500e23d34469","eventId":"f00025d2-f987-4ae3-a185-5882bf943fc3","route":"fallback"}
+{"timestamp":"2026-09-28T08:37:32.075Z","level":"warn","message":"command_failed","trace_id":"pecu_9266b7620b4396ac133a673cb46c25c94fadda880dc660576bc488990bc2f81d","eventId":"ec4e3d6b-28b7-4e62-91b2-445a40bc3c06","senderId":"another-sender","error":"UNIQUE constraint failed: wallets.locator"}
+(pass) existing wallets skip onboarding and different senders provision independently [1.21ms]
+{"timestamp":"2026-09-28T08:37:32.076Z","level":"warn","message":"command_failed","trace_id":"pecu_755a2d09e4143dd0f7c6c33d2b80ea198ca6aa7e56be6de09257834c742f2bc2","eventId":"3db9a157-2104-474a-b1db-89542f4c05de","senderId":"sender","error":"Wallet service unavailable"}
+{"timestamp":"2026-09-28T08:37:32.076Z","level":"info","message":"request_routed","trace_id":"pecu_f526cb4d1074ee5be647feffb5b7d474d7d20211abd07424fee86ff9965f844f","eventId":"eea83177-a075-4e9e-be8e-abecec62352a","route":"fallback"}
+(pass) failed creation reports an error and retries on the next message [1.09ms]
+{"timestamp":"2026-09-28T08:37:32.077Z","level":"warn","message":"command_failed","trace_id":"pecu_38bc232c8107b2275ca58a35156333696ef32cbcca7325239b83e5aa30b6c6dd","eventId":"f97f970b-c18e-432e-b103-5347a4a49ea5","senderId":"treasury","error":"This sender ID is reserved for the Pecu treasury."}
+(pass) the reserved treasury sender cannot provision through chat [0.76ms]
+
+tests/agent-questions.test.ts:
+{"timestamp":"2026-09-28T08:37:32.078Z","level":"info","message":"request_routed","trace_id":"pecu_6dd031fac2dede359f6cffcc778c45fea7e7fe2efed9f02db68895e1d0594d7e","eventId":"6540d560-0d2a-41ef-b369-53a82fb42c65","route":"fallback"}
+(pass) insufficient stock funds asks about held tokens and stops further proposals [1.56ms]
+{"timestamp":"2026-09-28T08:37:32.079Z","level":"info","message":"request_routed","trace_id":"pecu_5d2f660b2b2ce8b461d1c0f22ddfde490d80b7e4156a85de416892886537ec16","eventId":"124b2ce5-4318-495e-9d9b-b7a9defdd154","route":"fallback"}
+(pass) ask_user returns the question even when the model emits no final text [0.92ms]
+{"timestamp":"2026-09-28T08:37:32.080Z","level":"info","message":"request_routed","trace_id":"pecu_805b971856cd99787390ac67946f0cb8971717d4892cdb37178316f32ebc7af9","eventId":"b69c6926-e58d-4e69-b55c-d12e5e9be292","route":"fallback"}
+{"timestamp":"2026-09-28T08:37:32.081Z","level":"info","message":"request_routed","trace_id":"pecu_a9fcbffac65cdaa15f18a7cac780a38ff99fc647b665525b7d5d4c96d7616737","eventId":"337b409b-843a-4b9d-8f02-c0f6c245adaa","route":"fallback"}
+(pass) questions do not authorize transactions or leak into the next turn [1.06ms]
+{"timestamp":"2026-09-28T08:37:32.081Z","level":"info","message":"request_routed","trace_id":"pecu_aea5a7668783659755d0293ead780a65543f65404f6664e04cd9464da1cba9fd","eventId":"aa24ca9b-4cfc-4efe-87f5-42dcab832c8e","route":"fallback"}
+(pass) does not offer empty token balances as funding sources [0.94ms]
+{"timestamp":"2026-09-28T08:37:32.082Z","level":"info","message":"request_routed","trace_id":"pecu_58b94f739ff73b39a52aac39dabd7cb9b7816e5191aae9d3753d268fd1d24d0b","eventId":"830a37f3-fd29-4473-8414-c0adc19adfcf","route":"fallback"}
+(pass) a typed Cancel answer stops a pending clarification without confirmation-code instructions [0.87ms]
+
+tests/agent-recovery.test.ts:
+(pass) interrupted transaction recovery > keeps interrupted plans untouched while mainnet execution is locked [0.83ms]
+{"timestamp":"2026-09-28T08:37:32.085Z","level":"error","message":"intent_recovery_failed","intentId":"recovery","action":"stake","error":"Transaction plan expired; recovery stopped"}
+(pass) interrupted transaction recovery > does not revive an expired confirmation after a restart [1.08ms]
+{"timestamp":"2026-09-28T08:37:32.086Z","level":"error","message":"intent_recovery_failed","intentId":"recovery","action":"stake","error":"Persisted plan digest mismatch; recovery stopped"}
+(pass) interrupted transaction recovery > rejects altered persisted plans before reaching Crossmint [0.82ms]
+
+tests/agent-routing.test.ts:
+{"timestamp":"2026-09-28T08:37:32.096Z","level":"info","message":"request_routed","trace_id":"pecu_0ede61e38e0794ed2d8c37069475d5dc3ca44881b21386bf883d0310d3561d71","eventId":"49e31694-cb2a-45df-8b30-dca6ad8da9a0","route":"mixed"}
+(pass) inference gets current transaction state scoped to the sender and chat [1.69ms]
+{"timestamp":"2026-09-28T08:37:32.097Z","level":"info","message":"request_routed","trace_id":"pecu_a5a9b7373128fb043ddee31b5bed78b7e2cac462bdcf4bedc744123811283698","eventId":"92560515-6425-4d03-bb68-0c1f23f57cc0","route":"command","command":"balance"}
+(pass) classified commands skip inference and event replays do not repeat reads [1.02ms]
+(pass) /balance closes progress on success or failure [0.90ms]
+{"timestamp":"2026-09-28T08:37:32.099Z","level":"warn","message":"command_failed","trace_id":"pecu_2bf2847b85e18a2f04ee05380c0bf697e29d3269ccdb2c3dcbf881925189da9a","eventId":"5ce5ab68-f932-4156-a148-7f967c2154ee","senderId":"sender","error":"Unknown command. Send /help to see the available commands."}
+(pass) /invalid closes progress on success or failure [0.82ms]
+{"timestamp":"2026-09-28T08:37:32.100Z","level":"info","message":"request_routed","trace_id":"pecu_481daf9fde9d87a47cba3d89a6f23e3b52a5ae81b35852f82b802b737599c4d6","eventId":"8b91d210-f184-4ee6-84d0-c384a7201521","route":"response"}
+(pass) response reaches inference with the correct mode [0.77ms]
+{"timestamp":"2026-09-28T08:37:32.100Z","level":"info","message":"request_routed","trace_id":"pecu_b4c904ff70802a278ed04364036c9c281357be954186de2e2011f92e7fbd60a3","eventId":"6e35fbaa-2698-4719-bc96-bf0bcd482ebc","route":"mixed"}
+(pass) mixed reaches inference with the correct mode [0.66ms]
+{"timestamp":"2026-09-28T08:37:32.101Z","level":"info","message":"request_routed","trace_id":"pecu_e18fc21d8321458f455b8a80b4f9790eb632eb6aa8c6bb7c9685405eb44f153e","eventId":"920716dc-2290-465c-bc7a-14a119a37940","route":"fallback"}
+(pass) fallback reaches inference with the correct mode [0.64ms]
+(pass) /balance bypasses the classifier [0.76ms]
+(pass) b/balance bypasses the classifier [0.77ms]
+(pass) show my balance bypasses the classifier [0.71ms]
+{"timestamp":"2026-09-28T08:37:32.106Z","level":"warn","message":"command_failed","trace_id":"pecu_b7dcf8de355e69ee76161d45273a2c82b744698f6c41527b76b560bd144dbe45","eventId":"3869b16c-949f-45f3-baf2-ba7855fb2b82","senderId":"sender","error":"Unknown command. Send /help to see the available commands."}
+(pass) /invalid bypasses the classifier [3.22ms]
+{"timestamp":"2026-09-28T08:37:32.108Z","level":"info","message":"request_routed","trace_id":"pecu_c98a9f95e25f0992efae3272d9ed886633163a62abf099d36cbceb8275bc1d95","eventId":"84328457-c73b-4c61-97f4-3a4ecdfee469","route":"fallback"}
+{"timestamp":"2026-09-28T08:37:32.108Z","level":"info","message":"request_routed","trace_id":"pecu_dec9e708acfd07babe944fa8c40e0ce2f6a052cd3def0380a2733319bbc99d55","eventId":"d180bee5-050a-4b9e-a5e2-6c76bb84e638","route":"fallback"}
+(pass) retry and pending clarification preserve the original inference path [1.34ms]
+{"timestamp":"2026-09-28T08:37:32.109Z","level":"info","message":"request_routed","trace_id":"pecu_2e1d135865df0250dcaa8dc582260249bdd7d933839df1454ac96db62f161383","eventId":"bd213211-489f-4489-9fc3-af83f7ffbf16","route":"response"}
+(pass) requests starting with help do not lose the rest of the question [0.78ms]
+
+tests/agent-skills.test.ts:
+(pass) aave_skill belongs to a skill [0.06ms]
+(pass) aave_schema belongs to a skill
+(pass) aave_call belongs to a skill
+(pass) polymarket_research belongs to a skill
+(pass) deposit_instructions belongs to a skill
+(pass) deposit_setup belongs to a skill
+(pass) deposit_status belongs to a skill
+(pass) aero_liquidity belongs to a skill
+(pass) aero_stock_trades belongs to a skill
+(pass) aero_stocks belongs to a skill
+(pass) aero_deposit belongs to a skill
+(pass) aero_positions belongs to a skill
+(pass) aero_pools belongs to a skill
+(pass) aero_epochs_latest belongs to a skill
+(pass) aero_epochs belongs to a skill
+(pass) aero_withdraw belongs to a skill
+(pass) aero_stake belongs to a skill
+(pass) aero_unstake belongs to a skill
+(pass) aero_claim_emissions belongs to a skill
+(pass) aero_claim_fees belongs to a skill
+(pass) aero_create_venft belongs to a skill
+(pass) aero_quote belongs to a skill
+(pass) aero_swap belongs to a skill
+(pass) aero_stock_buy belongs to a skill
+(pass) aero_stock_sell belongs to a skill
+(pass) aero_index_rebalance belongs to a skill
+(pass) safe_batch_propose belongs to a skill
+(pass) safe_module_info belongs to a skill
+(pass) safe_module_propose belongs to a skill
+(pass) safe_budget belongs to a skill
+(pass) safe_budget_propose belongs to a skill
+(pass) safe_budget_revoke_propose belongs to a skill
+(pass) safe_role_grant_propose belongs to a skill
+(pass) safe_role_revoke_propose belongs to a skill
+(pass) safe_role_check belongs to a skill
+(pass) safe_passkey_address belongs to a skill
+(pass) safe_passkey_owner_propose belongs to a skill
+(pass) safe_sponsored_enable_propose belongs to a skill
+(pass) safe_budget_spend belongs to a skill
+(pass) safe_role_execute belongs to a skill
+(pass) safe_roles_deploy belongs to a skill
+(pass) safe_passkey_deploy belongs to a skill
+(pass) safe_execute_signatures belongs to a skill
+(pass) safe_info belongs to a skill
+(pass) safe_propose belongs to a skill
+(pass) safe_queue belongs to a skill
+(pass) safe_approvals belongs to a skill
+(pass) safe_cancel_propose belongs to a skill
+(pass) safe_owner_propose belongs to a skill
+(pass) safe_create belongs to a skill
+(pass) safe_approve belongs to a skill
+(pass) safe_execute belongs to a skill
+(pass) evm_token_balance belongs to a skill
+(pass) evm_allowance belongs to a skill
+(pass) evm_read belongs to a skill
+(pass) evm_inspect belongs to a skill
+(pass) evm_decode belongs to a skill
+(pass) evm_transfer belongs to a skill
+(pass) evm_approve belongs to a skill
+(pass) evm_revoke belongs to a skill
+(pass) evm_contract_call belongs to a skill
+(pass) polymarket_activity belongs to a skill
+(pass) polymarket_activity_combos belongs to a skill
+(pass) polymarket_approvals belongs to a skill
+(pass) polymarket_biggest_winners belongs to a skill
+(pass) polymarket_builders_leaderboard belongs to a skill
+(pass) polymarket_builders_volume belongs to a skill
+(pass) polymarket_holders belongs to a skill
+(pass) polymarket_leaderboard belongs to a skill
+(pass) polymarket_live_volume belongs to a skill
+(pass) polymarket_oi belongs to a skill
+(pass) polymarket_positions belongs to a skill
+(pass) polymarket_positions_combos belongs to a skill
+(pass) polymarket_prices_history belongs to a skill
+(pass) polymarket_resolutions belongs to a skill
+(pass) polymarket_status belongs to a skill
+(pass) polymarket_trades belongs to a skill
+(pass) polymarket_user_pnl belongs to a skill
+(pass) polymarket_user_stats belongs to a skill
+(pass) polymarket_user_volume belongs to a skill
+(pass) polymarket_value belongs to a skill
+(pass) polymarket_search belongs to a skill
+(pass) polymarket_events belongs to a skill
+(pass) polymarket_markets belongs to a skill
+(pass) polymarket_event belongs to a skill
+(pass) polymarket_event_by_slug belongs to a skill
+(pass) polymarket_market belongs to a skill
+(pass) polymarket_market_by_slug belongs to a skill
+(pass) polymarket_tags belongs to a skill
+(pass) polymarket_tag belongs to a skill
+(pass) polymarket_tag_by_slug belongs to a skill
+(pass) polymarket_event_tags belongs to a skill
+(pass) polymarket_market_tags belongs to a skill
+(pass) polymarket_related_tags belongs to a skill
+(pass) polymarket_series belongs to a skill
+(pass) polymarket_series_detail belongs to a skill
+(pass) polymarket_sports belongs to a skill
+(pass) polymarket_sports_market_types belongs to a skill
+(pass) polymarket_teams belongs to a skill
+(pass) polymarket_profile belongs to a skill
+(pass) polymarket_book belongs to a skill
+(pass) polymarket_price belongs to a skill
+(pass) polymarket_midpoint belongs to a skill
+(pass) polymarket_spread belongs to a skill
+(pass) polymarket_last_trade_price belongs to a skill
+(pass) polymarket_fee_rate belongs to a skill
+(pass) polymarket_tick_size belongs to a skill
+(pass) polymarket_negative_risk belongs to a skill
+(pass) polymarket_clob_market belongs to a skill
+(pass) polymarket_market_by_token belongs to a skill
+(pass) polymarket_rewards belongs to a skill
+(pass) polymarket_market_rewards belongs to a skill
+(pass) polymarket_server_time belongs to a skill
+(pass) nansen_wallet_portfolio belongs to a skill
+(pass) nansen_wallet_pnl_breakdown belongs to a skill
+(pass) nansen_token_info belongs to a skill
+(pass) nansen_token_flow_intelligence belongs to a skill
+(pass) nansen_token_flows belongs to a skill
+(pass) nansen_token_who_bought_sold belongs to a skill
+(pass) nansen_token_transfers belongs to a skill
+(pass) nansen_token_dex_trades belongs to a skill
+(pass) nansen_token_screener belongs to a skill
+(pass) nansen_token_price belongs to a skill
+(pass) nansen_wallet_balances belongs to a skill
+(pass) nansen_wallet_transactions belongs to a skill
+(pass) nansen_wallet_pnl belongs to a skill
+(pass) nansen_wallet_counterparties belongs to a skill
+(pass) nansen_wallet_related belongs to a skill
+(pass) nansen_prediction_markets belongs to a skill
+(pass) nansen_prediction_events belongs to a skill
+(pass) nansen_prediction_orderbook belongs to a skill
+(pass) nansen_prediction_trades belongs to a skill
+(pass) nansen_prediction_top_holders belongs to a skill
+(pass) nansen_prediction_market_pnl belongs to a skill
+(pass) nansen_prediction_wallet belongs to a skill
+(pass) every skill owns tools and the skill list marks which are loaded [0.23ms]
+(pass) Polymarket odds tools stay separate from account and research tools [0.03ms]
+(pass) Quote 0.001 ETH to USDC selects [ "aerodrome" ] [0.45ms]
+(pass) Put half my ETH into ETH/USDC liquidity selects [ "aerodrome" ]
+(pass) Buy $1 of NVDAc and $1 of AAPLc selects [ "aerodrome" ]
+(pass) Stake position 123 selects [ "aerodrome" ]
+(pass) Send 1 USDC to 0x1111111111111111111111111111111111111111 selects [ "wallet" ]
+(pass) What is my USDC allowance for 0x1111111111111111111111111111111111111111? selects [ "wallet" ] [0.01ms]
+(pass) Create a Safe with two signers selects [ "safe" ]
+(pass) Supply 5 USDC to Aave selects [ "aave" ]
+(pass) What are Polymarket's odds of a Fed cut in December? selects [ "polymarket" ] [0.01ms]
+(pass) Show the Polymarket leaderboard selects [ "polymarket", "polymarket-data" ]
+(pass) Who is buying AERO? Show smart money flows selects [ "nansen" ]
+(pass) How do I add money with a bank transfer? selects [ "funding" ]
+(pass) Use this plan selects []
+(pass) hello selects []
+(pass) selection prefers the user's words, then the classifier family, then the previous turn [0.08ms]
+(pass) task instructions are stable and contain only the active skills [0.04ms]
+
+tests/agent-stock-basket.test.ts:
+(pass) stock basket proposals > a basket preview lists every trade and confirms into one plan [17.05ms]
+(pass) stock basket proposals > an insufficient USDC basket error asks how to fund the purchase [0.95ms]
+(pass) stock basket proposals > the persisted intent round-trips through the store [5.42ms]
+
+tests/analytics.test.ts:
+{"timestamp":"2026-09-28T08:37:32.154Z","level":"info","message":"request_routed","trace_id":"pecu_a03dbb8e473cc88a8d005180dd0066de109ab63d944cbc712c13aacf9bd7c4e3","eventId":"409b0ada-66fd-41a0-8307-e99f0b7178df","route":"fallback"}
+{"timestamp":"2026-09-28T08:37:32.155Z","level":"info","message":"request_routed","trace_id":"pecu_36852e49e8bffc668616185df485ac1a2937e3d799bbeebe23472c6dd8c866cb","eventId":"b16789a7-6e70-4356-8bea-0737df3d5a37","route":"fallback"}
+(pass) events cover web and X without duplicating replays or wallet provisioning [5.35ms]
+{"timestamp":"2026-09-28T08:37:32.159Z","level":"warn","message":"command_failed","trace_id":"pecu_6de4f2ac052983bf92e6e946612c0e54dea71173b29eaf63c187cfc35bbc7507","eventId":"ecc4769f-ae0b-43ea-bd77-a2c96f5338cf","senderId":"123456789","error":"secret-bearing upstream error"}
+(pass) failed onboarding emits failure without an upstream error or success event [0.90ms]
+{"timestamp":"2026-09-28T08:37:32.160Z","level":"warn","message":"analytics_delivery_failed","trace_id":"pecu_08d6cc247239c54cd7fc8a3ae74fd32bee7181f9a40fe690533c1b5faa1602c1"}
+{"timestamp":"2026-09-28T08:37:32.160Z","level":"warn","message":"analytics_delivery_failed","trace_id":"pecu_08d6cc247239c54cd7fc8a3ae74fd32bee7181f9a40fe690533c1b5faa1602c1"}
+{"timestamp":"2026-09-28T08:37:32.160Z","level":"warn","message":"analytics_delivery_failed","trace_id":"pecu_08d6cc247239c54cd7fc8a3ae74fd32bee7181f9a40fe690533c1b5faa1602c1"}
+{"timestamp":"2026-09-28T08:37:32.160Z","level":"info","message":"request_routed","trace_id":"pecu_08d6cc247239c54cd7fc8a3ae74fd32bee7181f9a40fe690533c1b5faa1602c1","eventId":"1996039f-e541-4b44-949f-a721592257a2","route":"fallback"}
+{"timestamp":"2026-09-28T08:37:32.160Z","level":"warn","message":"analytics_delivery_failed","trace_id":"pecu_08d6cc247239c54cd7fc8a3ae74fd32bee7181f9a40fe690533c1b5faa1602c1"}
+{"timestamp":"2026-09-28T08:37:32.160Z","level":"warn","message":"analytics_delivery_failed","trace_id":"pecu_08d6cc247239c54cd7fc8a3ae74fd32bee7181f9a40fe690533c1b5faa1602c1"}
+(pass) analytics failures cannot change the reply or event deduplication [0.89ms]
+(pass) identities are deterministic and do not expose X or Clerk IDs [0.09ms]
+(pass) dynamic routes cannot leak identifiers into page properties [0.10ms]
+
+tests/cache-deadline.test.ts:
+(pass) a stalled public cache operation yields to its fallback [5.84ms]
+(pass) R2 stalls become cache misses with error telemetry [1504.85ms]
+
+tests/cards-workerd.test.ts:
+(pass) concurrent card claims obey uniqueness and the global cap in Durable Object SQLite [16200.60ms]
+
+tests/cards.test.ts:
+(pass) one grant persists across retries, reconnects, account changes, and restarts [1.47ms]
+(pass) no X connection cannot claim, and client-shaped invalid identities are rejected [0.34ms]
+(pass) exactly 3000 unique recipients; designs may repeat across people [189.32ms]
+(pass) SQL enforces the ten-copy ceiling and rolls back failed inventory grants [0.70ms]
+
+tests/catalog-refresh.test.ts:
+(pass) concurrent catalog misses share one refresh and failed refreshes can retry [0.58ms]
+(pass) background refresh preserves a valid snapshot until the replacement is ready [0.11ms]
+
+tests/chat.test.ts:
+(pass) plain-language chat > liquidity previews show both exact quoted amounts before pool metadata [0.57ms]
+(pass) plain-language chat > shows exact dust amounts and the minimum received without technical output [0.35ms]
+(pass) plain-language chat > token reads use human units and allowances keep the spender [0.14ms]
+(pass) plain-language chat > verbose pages retain all bytes without another tool call [0.13ms]
+(pass) plain-language chat > service JSON errors do not spill into ordinary replies [0.03ms]
+(pass) stock list includes every supported symbol without technical fields [0.15ms]
+(pass) stock trade replies keep human amounts and minimums [0.09ms]
+(pass) position summaries include every position with metadata-based amounts [0.52ms]
+
+tests/cloudflare-config.test.ts:
+(pass) Cloudflare configuration boundary > TypeSafe is optional and loaded only from server configuration [0.95ms]
+(pass) Cloudflare configuration boundary > OpenRouter is optional and loaded only from server configuration [0.06ms]
+(pass) Cloudflare configuration boundary > defaults to locked Base mainnet [0.03ms]
+(pass) Cloudflare configuration boundary > uses the Alchemy secret before the public Base fallback [0.11ms]
+(pass) Cloudflare configuration boundary > accepts only numeric XChat peer IDs [0.03ms]
+(pass) Cloudflare configuration boundary > loads X realtime delivery secrets without exposing them as public variables [0.04ms]
+(pass) Cloudflare configuration boundary > reports the first missing production requirement [0.06ms]
+(pass) Cloudflare configuration boundary > recognizes a complete locked runtime [0.04ms]
+(pass) Cloudflare configuration boundary > enables XChat polling only for the exact true value [0.04ms]
+(pass) Cloudflare configuration boundary > loads Whop settings with safe defaults and optional secrets [0.08ms]
+(pass) Cloudflare configuration boundary > requires refresh credentials when persistent XChat polling is enabled [0.05ms]
+
+tests/cloudflare-polling.test.ts:
+(pass) Cloudflare polling schedule > honors persisted rate-limit backoff even without a successful poll [0.03ms]
+(pass) Cloudflare polling schedule > uses cron when no durable alarm poll has completed
+(pass) Cloudflare polling schedule > skips a cron tick immediately after a successful alarm poll
+
+tests/codex-transport.test.ts:
+(pass) Codex container transport > allows Luna with the same subscription and storage protections [1.60ms]
+(pass) Codex container transport > keeps the Codex request and event stream intact without forwarding unrelated headers [0.13ms]
+(pass) Codex container transport > rejects unsupported paths, missing subscription authorization, storage, and oversized bodies before sending [7.09ms]
+(pass) Codex container transport > preserves provider errors and never retries them [0.29ms]
+(pass) Codex container transport > routes a Codex request through the private service binding [0.37ms]
+
+tests/command-matrix.test.ts:
+(pass) command grammar: /help [0.05ms]
+(pass) command grammar: b/help
+(pass) command grammar: help
+(pass) command grammar: /start
+(pass) command grammar: b/start
+(pass) command grammar: start
+(pass) command grammar: /wallet
+(pass) command grammar: b/wallet
+(pass) command grammar: wallet
+(pass) command grammar: /balance
+(pass) command grammar: b/balance
+(pass) command grammar: balance
+(pass) command grammar: /stocks
+(pass) command grammar: b/stocks
+(pass) command grammar: stocks
+(pass) command grammar: /token USDC [0.01ms]
+(pass) command grammar: b/token USDC
+(pass) command grammar: token USDC
+(pass) command grammar: /allowance USDC for 0x1111111111111111111111111111111111111111 [0.01ms]
+(pass) command grammar: b/allowance USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: allowance USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: /send 1 USDC to 0x1111111111111111111111111111111111111111
+(pass) command grammar: b/send 1 USDC to 0x1111111111111111111111111111111111111111
+(pass) command grammar: send 1 USDC to 0x1111111111111111111111111111111111111111
+(pass) command grammar: /approve 1 USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: b/approve 1 USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: approve 1 USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: /revoke USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: b/revoke USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: revoke USDC for 0x1111111111111111111111111111111111111111
+(pass) command grammar: /quote 0.001 ETH to USDC [0.05ms]
+(pass) command grammar: b/quote 0.001 ETH to USDC
+(pass) command grammar: quote 0.001 ETH to USDC [0.28ms]
+(pass) command grammar: /swap 0.001 ETH to USDC [0.02ms]
+(pass) command grammar: b/swap 0.001 ETH to USDC
+(pass) command grammar: swap 0.001 ETH to USDC
+(pass) command grammar: /confirm ABC123
+(pass) command grammar: b/confirm ABC123
+(pass) command grammar: confirm ABC123
+(pass) command grammar: /cancel ABC123
+(pass) command grammar: b/cancel ABC123
+(pass) command grammar: cancel ABC123
+(pass) command grammar: /yolo
+(pass) command grammar: b/yolo
+(pass) command grammar: /yolo on
+(pass) command grammar: b/yolo on
+(pass) command grammar: /yolo off
+(pass) command grammar: b/yolo off
+(pass) command grammar: /verbose
+(pass) command grammar: b/verbose
+(pass) command grammar: verbose
+(pass) command grammar: /verbose 2
+(pass) command grammar: b/verbose 2
+(pass) command grammar: verbose 2
+(pass) command grammar: /deposit [0.06ms]
+(pass) command grammar: b/deposit
+(pass) command grammar: deposit
+(pass) command grammar: /deposit 50 [0.04ms]
+(pass) command grammar: b/deposit 50
+(pass) command grammar: deposit 50
+(pass) command grammar: /deposit setup test@example.com [0.02ms]
+(pass) command grammar: b/deposit setup test@example.com
+(pass) command grammar: deposit setup test@example.com
+(pass) command grammar: /deposit status
+(pass) command grammar: b/deposit status
+(pass) command grammar: deposit status
+(pass) command grammar: /aero
+(pass) command grammar: b/aero
+(pass) command grammar: aero
+(pass) command grammar: /aero help
+(pass) command grammar: b/aero help
+(pass) command grammar: aero help
+(pass) command grammar: /aero --help
+(pass) command grammar: b/aero --help
+(pass) command grammar: aero --help
+(pass) command grammar: /aero -h
+(pass) command grammar: b/aero -h
+(pass) command grammar: aero -h
+(pass) command grammar: /aave
+(pass) command grammar: b/aave
+(pass) command grammar: aave
+(pass) command grammar: /aave help
+(pass) command grammar: b/aave help
+(pass) command grammar: aave help
+(pass) command grammar: /nansen [0.07ms]
+(pass) command grammar: b/nansen
+(pass) command grammar: nansen
+(pass) command grammar: /nansen help
+(pass) command grammar: b/nansen help
+(pass) command grammar: nansen help
+(pass) command grammar: /nansen token 0x1111111111111111111111111111111111111111 base 7d [0.04ms]
+(pass) command grammar: b/nansen token 0x1111111111111111111111111111111111111111 base 7d
+(pass) command grammar: nansen token 0x1111111111111111111111111111111111111111 base 7d
+(pass) command grammar: /nansen flows 0x1111111111111111111111111111111111111111 base 7d
+(pass) command grammar: b/nansen flows 0x1111111111111111111111111111111111111111 base 7d
+(pass) command grammar: nansen flows 0x1111111111111111111111111111111111111111 base 7d
+(pass) command grammar: /nansen portfolio
+(pass) command grammar: b/nansen portfolio
+(pass) command grammar: nansen portfolio
+(pass) command grammar: /nansen portfolio 0x1111111111111111111111111111111111111111
+(pass) command grammar: b/nansen portfolio 0x1111111111111111111111111111111111111111
+(pass) command grammar: nansen portfolio 0x1111111111111111111111111111111111111111
+(pass) command grammar: /nansen wallet
+(pass) command grammar: b/nansen wallet
+(pass) command grammar: nansen wallet
+(pass) command grammar: /nansen wallet 0x1111111111111111111111111111111111111111 ethereum
+(pass) command grammar: b/nansen wallet 0x1111111111111111111111111111111111111111 ethereum
+(pass) command grammar: nansen wallet 0x1111111111111111111111111111111111111111 ethereum
+(pass) command grammar: /nansen pnl
+(pass) command grammar: b/nansen pnl
+(pass) command grammar: nansen pnl
+(pass) command grammar: /nansen pnl 0x1111111111111111111111111111111111111111 base
+(pass) command grammar: b/nansen pnl 0x1111111111111111111111111111111111111111 base
+(pass) command grammar: nansen pnl 0x1111111111111111111111111111111111111111 base
+(pass) command grammar: /nansen markets fed
+(pass) command grammar: b/nansen markets fed
+(pass) command grammar: nansen markets fed
+(pass) command grammar: /polymarket
+(pass) command grammar: b/polymarket
+(pass) command grammar: polymarket
+(pass) command grammar: /polymarket help
+(pass) command grammar: b/polymarket help
+(pass) command grammar: polymarket help
+(pass) command grammar: /polymarket status
+(pass) command grammar: b/polymarket status
+(pass) command grammar: polymarket status
+(pass) command grammar: /polymarket research Compare Fed markets [4.62ms]
+(pass) command grammar: b/polymarket research Compare Fed markets [0.07ms]
+(pass) command grammar: polymarket research Compare Fed markets [0.04ms]
+(pass) command grammar: /polymarket Fed rates [0.50ms]
+(pass) command grammar: b/polymarket Fed rates [0.05ms]
+(pass) command grammar: polymarket Fed rates [0.03ms]
+(pass) command grammar: /aero stocks [0.03ms]
+(pass) command grammar: b/aero stocks
+(pass) command grammar: aero stocks
+(pass) command grammar: /aero deposit --pool 0x1111111111111111111111111111111111111111 --amount0 1 --amount1 1 --use-decimals [0.05ms]
+(pass) command grammar: b/aero deposit --pool 0x1111111111111111111111111111111111111111 --amount0 1 --amount1 1 --use-decimals [0.03ms]
+(pass) command grammar: aero deposit --pool 0x1111111111111111111111111111111111111111 --amount0 1 --amount1 1 --use-decimals [0.02ms]
+(pass) command grammar: /aero positions --owner 0x1111111111111111111111111111111111111111
+(pass) command grammar: b/aero positions --owner 0x1111111111111111111111111111111111111111
+(pass) command grammar: aero positions --owner 0x1111111111111111111111111111111111111111
+(pass) command grammar: /aero pools --token0 USDC --token1 AERO --pool-type cl --limit 3 --full [0.02ms]
+(pass) command grammar: b/aero pools --token0 USDC --token1 AERO --pool-type cl --limit 3 --full [0.01ms]
+(pass) command grammar: aero pools --token0 USDC --token1 AERO --pool-type cl --limit 3 --full
+(pass) command grammar: /aero epochs-latest --pool-type cl
+(pass) command grammar: b/aero epochs-latest --pool-type cl
+(pass) command grammar: aero epochs-latest --pool-type cl
+(pass) command grammar: /aero epochs --lp 0x1111111111111111111111111111111111111111 --limit 3 --offset 0 [0.01ms]
+(pass) command grammar: b/aero epochs --lp 0x1111111111111111111111111111111111111111 --limit 3 --offset 0
+(pass) command grammar: aero epochs --lp 0x1111111111111111111111111111111111111111 --limit 3 --offset 0 [0.01ms]
+(pass) command grammar: /aero withdraw --position 123 --fraction 0.5 --collect [0.02ms]
+(pass) command grammar: b/aero withdraw --position 123 --fraction 0.5 --collect [0.01ms]
+(pass) command grammar: aero withdraw --position 123 --fraction 0.5 --collect
+(pass) command grammar: /aero stake --position 123
+(pass) command grammar: b/aero stake --position 123
+(pass) command grammar: aero stake --position 123
+(pass) command grammar: /aero unstake --position 123
+(pass) command grammar: b/aero unstake --position 123
+(pass) command grammar: aero unstake --position 123
+(pass) command grammar: /aero claim-emissions --position 123
+(pass) command grammar: b/aero claim-emissions --position 123
+(pass) command grammar: aero claim-emissions --position 123
+(pass) command grammar: /aero claim-fees --position 123
+(pass) command grammar: b/aero claim-fees --position 123
+(pass) command grammar: aero claim-fees --position 123
+(pass) command grammar: /aero create-venft --amount 1 --lock-duration-seconds 31536000 --use-decimals
+(pass) command grammar: b/aero create-venft --amount 1 --lock-duration-seconds 31536000 --use-decimals
+(pass) command grammar: aero create-venft --amount 1 --lock-duration-seconds 31536000 --use-decimals
+(pass) command grammar: /aero quote --from-token ETH --to-token USDC --amount 0.001 --use-decimals
+(pass) command grammar: b/aero quote --from-token ETH --to-token USDC --amount 0.001 --use-decimals
+(pass) command grammar: aero quote --from-token ETH --to-token USDC --amount 0.001 --use-decimals
+(pass) command grammar: /aero swap --from-token ETH --to-token USDC --amount 0.001 --use-decimals --slippage 0.005
+(pass) command grammar: b/aero swap --from-token ETH --to-token USDC --amount 0.001 --use-decimals --slippage 0.005
+(pass) command grammar: aero swap --from-token ETH --to-token USDC --amount 0.001 --use-decimals --slippage 0.005
+(pass) command grammar: /aero stock-buy --stock NVDAc --amount 1
+(pass) command grammar: b/aero stock-buy --stock NVDAc --amount 1
+(pass) command grammar: aero stock-buy --stock NVDAc --amount 1
+(pass) command grammar: /aero stock-sell --stock NVDAc --amount 0.001
+(pass) command grammar: b/aero stock-sell --stock NVDAc --amount 0.001
+(pass) command grammar: aero stock-sell --stock NVDAc --amount 0.001
+(pass) command grammar: /aero index-rebalance --allocations NVDAc=50,AAPLc=50 --cash 1
+(pass) command grammar: b/aero index-rebalance --allocations NVDAc=50,AAPLc=50 --cash 1
+(pass) command grammar: aero index-rebalance --allocations NVDAc=50,AAPLc=50 --cash 1
+(pass) command grammar: /polymarket read activity {"user":"0x1111111111111111111111111111111111111111"} [0.39ms]
+(pass) command grammar: b/polymarket read activity {"user":"0x1111111111111111111111111111111111111111"} [0.04ms]
+(pass) command grammar: polymarket read activity {"user":"0x1111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: /polymarket read activity_combos {"user":"0x1111111111111111111111111111111111111111"} [0.13ms]
+(pass) command grammar: b/polymarket read activity_combos {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read activity_combos {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read approvals {"user":"0x1111111111111111111111111111111111111111"} [0.07ms]
+(pass) command grammar: b/polymarket read approvals {"user":"0x1111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: polymarket read approvals {"user":"0x1111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: /polymarket read biggest_winners {} [0.11ms]
+(pass) command grammar: b/polymarket read biggest_winners {} [0.02ms]
+(pass) command grammar: polymarket read biggest_winners {} [0.02ms]
+(pass) command grammar: /polymarket read builders_leaderboard {} [0.10ms]
+(pass) command grammar: b/polymarket read builders_leaderboard {} [0.02ms]
+(pass) command grammar: polymarket read builders_leaderboard {} [0.03ms]
+(pass) command grammar: /polymarket read builders_volume {} [0.07ms]
+(pass) command grammar: b/polymarket read builders_volume {} [0.03ms]
+(pass) command grammar: polymarket read builders_volume {} [0.02ms]
+(pass) command grammar: /polymarket read holders {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.15ms]
+(pass) command grammar: b/polymarket read holders {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.05ms]
+(pass) command grammar: polymarket read holders {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: /polymarket read leaderboard {} [0.14ms]
+(pass) command grammar: b/polymarket read leaderboard {} [0.03ms]
+(pass) command grammar: polymarket read leaderboard {} [0.02ms]
+(pass) command grammar: /polymarket read live_volume {"event_id":"1"} [0.12ms]
+(pass) command grammar: b/polymarket read live_volume {"event_id":"1"} [0.02ms]
+(pass) command grammar: polymarket read live_volume {"event_id":"1"} [0.02ms]
+(pass) command grammar: /polymarket read oi {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.07ms]
+(pass) command grammar: b/polymarket read oi {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: polymarket read oi {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: /polymarket read positions {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.28ms]
+(pass) command grammar: b/polymarket read positions {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: polymarket read positions {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: /polymarket read positions_combos {"user":"0x1111111111111111111111111111111111111111"} [0.18ms]
+(pass) command grammar: b/polymarket read positions_combos {"user":"0x1111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: polymarket read positions_combos {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read prices_history {"token_id":"123","interval":"1d"} [0.23ms]
+(pass) command grammar: b/polymarket read prices_history {"token_id":"123","interval":"1d"} [0.03ms]
+(pass) command grammar: polymarket read prices_history {"token_id":"123","interval":"1d"} [0.03ms]
+(pass) command grammar: /polymarket read resolutions {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.08ms]
+(pass) command grammar: b/polymarket read resolutions {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read resolutions {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read status {} [0.04ms]
+(pass) command grammar: b/polymarket read status {} [0.02ms]
+(pass) command grammar: polymarket read status {} [0.02ms]
+(pass) command grammar: /polymarket read trades {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.25ms]
+(pass) command grammar: b/polymarket read trades {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read trades {"condition":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read user_pnl {"user":"0x1111111111111111111111111111111111111111"} [0.08ms]
+(pass) command grammar: b/polymarket read user_pnl {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read user_pnl {"user":"0x1111111111111111111111111111111111111111"} [0.06ms]
+(pass) command grammar: /polymarket read user_stats {"user":"0x1111111111111111111111111111111111111111"} [0.04ms]
+(pass) command grammar: b/polymarket read user_stats {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read user_stats {"user":"0x1111111111111111111111111111111111111111"} [0.03ms]
+(pass) command grammar: /polymarket read user_volume {"user":"0x1111111111111111111111111111111111111111"} [0.08ms]
+(pass) command grammar: b/polymarket read user_volume {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read user_volume {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read value {"user":"0x1111111111111111111111111111111111111111"} [0.07ms]
+(pass) command grammar: b/polymarket read value {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read value {"user":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read search {"q":"Fed"} [0.16ms]
+(pass) command grammar: b/polymarket read search {"q":"Fed"} [0.03ms]
+(pass) command grammar: polymarket read search {"q":"Fed"} [0.02ms]
+(pass) command grammar: /polymarket read events {} [0.28ms]
+(pass) command grammar: b/polymarket read events {} [0.02ms]
+(pass) command grammar: polymarket read events {} [0.02ms]
+(pass) command grammar: /polymarket read markets {} [0.23ms]
+(pass) command grammar: b/polymarket read markets {} [0.02ms]
+(pass) command grammar: polymarket read markets {} [0.01ms]
+(pass) command grammar: /polymarket read event {"id":"1"} [0.11ms]
+(pass) command grammar: b/polymarket read event {"id":"1"} [0.01ms]
+(pass) command grammar: polymarket read event {"id":"1"} [0.01ms]
+(pass) command grammar: /polymarket read event_by_slug {"slug":"test-market"} [0.09ms]
+(pass) command grammar: b/polymarket read event_by_slug {"slug":"test-market"} [0.03ms]
+(pass) command grammar: polymarket read event_by_slug {"slug":"test-market"} [0.03ms]
+(pass) command grammar: /polymarket read market {"id":"1"} [0.07ms]
+(pass) command grammar: b/polymarket read market {"id":"1"} [0.01ms]
+(pass) command grammar: polymarket read market {"id":"1"} [0.01ms]
+(pass) command grammar: /polymarket read market_by_slug {"slug":"test-market"} [0.08ms]
+(pass) command grammar: b/polymarket read market_by_slug {"slug":"test-market"} [0.02ms]
+(pass) command grammar: polymarket read market_by_slug {"slug":"test-market"} [0.01ms]
+(pass) command grammar: /polymarket read tags {} [0.15ms]
+(pass) command grammar: b/polymarket read tags {} [0.01ms]
+(pass) command grammar: polymarket read tags {} [0.01ms]
+(pass) command grammar: /polymarket read tag {"id":"1"} [0.07ms]
+(pass) command grammar: b/polymarket read tag {"id":"1"} [0.02ms]
+(pass) command grammar: polymarket read tag {"id":"1"} [0.01ms]
+(pass) command grammar: /polymarket read tag_by_slug {"slug":"test-market"} [0.06ms]
+(pass) command grammar: b/polymarket read tag_by_slug {"slug":"test-market"} [0.01ms]
+(pass) command grammar: polymarket read tag_by_slug {"slug":"test-market"} [0.02ms]
+(pass) command grammar: /polymarket read event_tags {"id":"1"} [0.03ms]
+(pass) command grammar: b/polymarket read event_tags {"id":"1"} [0.03ms]
+(pass) command grammar: polymarket read event_tags {"id":"1"} [0.02ms]
+(pass) command grammar: /polymarket read market_tags {"id":"1"} [0.02ms]
+(pass) command grammar: b/polymarket read market_tags {"id":"1"} [0.02ms]
+(pass) command grammar: polymarket read market_tags {"id":"1"} [0.02ms]
+(pass) command grammar: /polymarket read related_tags {"id":"1"} [0.07ms]
+(pass) command grammar: b/polymarket read related_tags {"id":"1"} [0.02ms]
+(pass) command grammar: polymarket read related_tags {"id":"1"} [0.01ms]
+(pass) command grammar: /polymarket read series {} [0.11ms]
+(pass) command grammar: b/polymarket read series {} [0.02ms]
+(pass) command grammar: polymarket read series {} [0.02ms]
+(pass) command grammar: /polymarket read series_detail {"id":"1"} [0.06ms]
+(pass) command grammar: b/polymarket read series_detail {"id":"1"} [0.02ms]
+(pass) command grammar: polymarket read series_detail {"id":"1"} [0.02ms]
+(pass) command grammar: /polymarket read sports {} [0.02ms]
+(pass) command grammar: b/polymarket read sports {} [0.02ms]
+(pass) command grammar: polymarket read sports {} [0.02ms]
+(pass) command grammar: /polymarket read sports_market_types {} [0.02ms]
+(pass) command grammar: b/polymarket read sports_market_types {} [0.01ms]
+(pass) command grammar: polymarket read sports_market_types {} [0.01ms]
+(pass) command grammar: /polymarket read teams {} [0.12ms]
+(pass) command grammar: b/polymarket read teams {} [0.02ms]
+(pass) command grammar: polymarket read teams {} [0.01ms]
+(pass) command grammar: /polymarket read profile {"address":"0x1111111111111111111111111111111111111111"} [0.06ms]
+(pass) command grammar: b/polymarket read profile {"address":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read profile {"address":"0x1111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read book {"token_id":"123"} [0.05ms]
+(pass) command grammar: b/polymarket read book {"token_id":"123"} [0.03ms]
+(pass) command grammar: polymarket read book {"token_id":"123"} [0.02ms]
+(pass) command grammar: /polymarket read price {"token_id":"123","side":"BUY"} [0.11ms]
+(pass) command grammar: b/polymarket read price {"token_id":"123","side":"BUY"} [0.02ms]
+(pass) command grammar: polymarket read price {"token_id":"123","side":"BUY"} [0.02ms]
+(pass) command grammar: /polymarket read midpoint {"token_id":"123"} [0.03ms]
+(pass) command grammar: b/polymarket read midpoint {"token_id":"123"} [0.01ms]
+(pass) command grammar: polymarket read midpoint {"token_id":"123"} [0.03ms]
+(pass) command grammar: /polymarket read spread {"token_id":"123"} [0.03ms]
+(pass) command grammar: b/polymarket read spread {"token_id":"123"} [0.01ms]
+(pass) command grammar: polymarket read spread {"token_id":"123"} [0.02ms]
+(pass) command grammar: /polymarket read last_trade_price {"token_id":"123"} [0.03ms]
+(pass) command grammar: b/polymarket read last_trade_price {"token_id":"123"} [0.02ms]
+(pass) command grammar: polymarket read last_trade_price {"token_id":"123"} [0.02ms]
+(pass) command grammar: /polymarket read fee_rate {"token_id":"123"} [0.03ms]
+(pass) command grammar: b/polymarket read fee_rate {"token_id":"123"} [0.02ms]
+(pass) command grammar: polymarket read fee_rate {"token_id":"123"} [0.02ms]
+(pass) command grammar: /polymarket read tick_size {"token_id":"123"} [0.04ms]
+(pass) command grammar: b/polymarket read tick_size {"token_id":"123"} [0.01ms]
+(pass) command grammar: polymarket read tick_size {"token_id":"123"} [0.01ms]
+(pass) command grammar: /polymarket read negative_risk {"token_id":"123"} [0.03ms]
+(pass) command grammar: b/polymarket read negative_risk {"token_id":"123"} [0.02ms]
+(pass) command grammar: polymarket read negative_risk {"token_id":"123"} [0.01ms]
+(pass) command grammar: /polymarket read clob_market {"condition_id":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.06ms]
+(pass) command grammar: b/polymarket read clob_market {"condition_id":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.01ms]
+(pass) command grammar: polymarket read clob_market {"condition_id":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read market_by_token {"token_id":"123"} [0.04ms]
+(pass) command grammar: b/polymarket read market_by_token {"token_id":"123"} [0.02ms]
+(pass) command grammar: polymarket read market_by_token {"token_id":"123"} [0.02ms]
+(pass) command grammar: /polymarket read rewards {} [0.06ms]
+(pass) command grammar: b/polymarket read rewards {} [0.01ms]
+(pass) command grammar: polymarket read rewards {} [0.02ms]
+(pass) command grammar: /polymarket read market_rewards {"condition_id":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.09ms]
+(pass) command grammar: b/polymarket read market_rewards {"condition_id":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: polymarket read market_rewards {"condition_id":"0x1111111111111111111111111111111111111111111111111111111111111111"} [0.02ms]
+(pass) command grammar: /polymarket read server_time {} [0.02ms]
+(pass) command grammar: b/polymarket read server_time {} [0.02ms]
+(pass) command grammar: polymarket read server_time {} [0.01ms]
+(pass) YOLO never accepts a bare permission-changing command [0.05ms]
+(pass) every parser verb has a command recipe [1.43ms]
+
+tests/config.test.ts:
+(pass) configuration boundary > defaults to locked Base execution [0.47ms]
+(pass) configuration boundary > rejects staging keys for Base mainnet [0.11ms]
+(pass) configuration boundary > enables execution only for the exact true value [0.03ms]
+(pass) configuration boundary > accepts blank optional values from a copied env file [0.03ms]
+
+tests/deposits.test.ts:
+(pass) deposit commands > /deposit without a funding account asks for an email [1.25ms]
+(pass) deposit commands > /deposit is not configured without a Whop service [0.77ms]
+{"timestamp":"2026-09-28T08:37:50.117Z","level":"warn","message":"command_failed","trace_id":"pecu_159302b299dfcc99c402411b7ff6f653b8b3efdff4d246c38fc7183b364f8341","eventId":"9835d663-eafc-4860-90c8-a48ce5f02cf1","senderId":"owner","error":"Usage: /deposit setup you@example.com"}
+(pass) deposit commands > /deposit setup rejects an invalid email [0.82ms]
+(pass) deposit commands > /deposit setup creates the Whop account once and reuses it [1.25ms]
+(pass) deposit commands > /deposit 50 passes the amount and returns funding details [1.19ms]
+(pass) deposit commands > natural 'add funds' routes without the model [0.93ms]
+(pass) deposit relay > relays a confirmed deposit as an exact USDC transfer from the treasury [3.41ms]
+(pass) deposit relay > ignores a duplicate ledger id [1.75ms]
+(pass) deposit relay > holds deposits for unknown Whop accounts without relaying [0.71ms]
+(pass) deposit relay > holds deposits above the automatic limit for manual review [1.11ms]
+(pass) deposit relay > holds unsettled deposits and relays once Whop releases the funds [206.44ms]
+{"timestamp":"2026-09-28T08:37:50.342Z","level":"warn","message":"deposit_relay_unsettled","depositId":"la_pending","failure":"InclusionPending"}
+{"timestamp":"2026-09-28T08:37:50.346Z","level":"info","message":"intent_recovered","intentId":"23a05193-7afc-4726-93c3-f54a05f2b271","action":"deposit_relay","steps":1}
+(pass) deposit relay > a pending relay stays relaying and the sweep finishes it without resubmitting [11.42ms]
+(pass) deposit relay > holds when the treasury lacks USDC [1.31ms]
+(pass) deposit relay > the sweep backs off an insufficient-treasury recheck for ten minutes [1.19ms]
+(pass) deposit relay > holds while mainnet execution is locked [0.93ms]
+(pass) deposit relay > ignores non-positive ledger amounts [0.78ms]
+(pass) deposit relay > /deposit status lists recent deposits [3.08ms]
+(pass) deposit relay > /deposit status with none invites /deposit [2.84ms]
+(pass) deposit relay > a deposit relay intent cannot be confirmed by the user [1.64ms]
+{"timestamp":"2026-09-28T08:37:50.360Z","level":"info","message":"intent_recovered","intentId":"dep-recover","action":"deposit_relay","steps":1}
+(pass) deposit relay > recovery completes a relaying deposit from a submitted step [2.17ms]
+
+tests/design-policy.test.ts:
+(pass) Pecu theme policy > rejects a local palette and an upstream token override [0.21ms]
+(pass) Pecu theme policy > rejects raw function colors and hand-written shadows [0.03ms]
+(pass) Pecu theme policy > rejects named UI colors and a different font family [0.01ms]
+(pass) Pecu theme policy > allows clay material references, including layered focus shadows [0.01ms]
+(pass) Pecu theme policy > does not treat artwork masks or comments as UI colors
+(pass) Pecu theme policy > keeps the Aero tile palette on the Aero TUI values [0.23ms]
+
+tests/docs-site.test.ts:
+(pass) docs content rules > accepts headings, code comments and angle brackets in inline code [0.15ms]
+(pass) docs content rules > rejects an H1, deep headings, dashes, curly quotes, HTML and unlabeled code [0.06ms]
+Built 2 docs pages
+(pass) docs build > renders pages, outline, callouts, highlighted code and a search index [26.18ms]
+(pass) docs build > fails on a broken docs link or a missing anchor [2.06ms]
+(pass) docs routes on pecu.app > serves clean docs paths from static assets [0.82ms]
+(pass) docs routes on pecu.app > redirects trailing slashes, index files and the old Aero docs path [0.11ms]
+(pass) docs routes on pecu.app > points the SDK landing pages' README links at the docs [3.79ms]
+(pass) docs routes on pecu.app > returns the docs 404 page for unknown paths [0.10ms]
+
+tests/domain.test.ts:
+(pass) command grammar > keeps the simple swap alias while routing it through Aero [0.04ms]
+(pass) command grammar > exposes every SDK action with CLI hyphen normalization [0.12ms]
+(pass) command grammar > uses the Aero CLI parser for typed flags [0.03ms]
+(pass) command grammar > coerces negated flags only for actions that accept them [0.05ms]
+(pass) command grammar > parses the documented veNFT lock duration as a number [0.03ms]
+(pass) command grammar > parses scoped confirmation codes [0.02ms]
+(pass) command grammar > rejects unsafe or unsupported input: /swap -1 ETH to USDC [0.02ms]
+(pass) command grammar > rejects unsafe or unsupported input: /swap 1 ETH to ETH
+(pass) command grammar > rejects unsafe or unsupported input: /aero nope
+(pass) command grammar > rejects unsafe or unsupported input: /send 1 ETH
+(pass) command reference > every documented command parses without an unknown-command error [0.08ms]
+(pass) natural wallet commands > routes verified wallet lookup without relying on model tool choice: What's my address? [0.01ms]
+(pass) natural wallet commands > routes verified wallet lookup without relying on model tool choice: What is my wallet address?
+(pass) natural wallet commands > routes verified wallet lookup without relying on model tool choice: How can I create a wallet?
+(pass) natural wallet commands > routes verified wallet lookup without relying on model tool choice: Show me my Base wallet
+(pass) natural wallet commands > routes verified balance lookup without relying on model tool choice: What's my balance? [0.01ms]
+(pass) natural wallet commands > routes verified balance lookup without relying on model tool choice: Check my wallet balance
+(pass) natural wallet commands > routes verified balance lookup without relying on model tool choice: How much ETH do I have?
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: stocks
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: my stocks
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: my stock holdings
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: check my stock holdings
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: list my stocks
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: view my stock portfolio
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: what stocks do I own
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: which stocks do I hold
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: how many stocks do I have
+(pass) natural wallet commands > routes stock holdings requests without relying on model tool choice: what's in my stock portfolio
+(pass) natural wallet commands > leaves non-wallet requests to the agent: What is the USDC address?
+(pass) natural wallet commands > leaves non-wallet requests to the agent: Show me pools with the best APR
+(pass) natural wallet commands > leaves non-wallet requests to the agent: Can you quote 0.01 ETH to USDC?
+(pass) deposit command grammar > parses /deposit variants [0.03ms]
+(pass) deposit command grammar > rejects unsafe or unsupported input: /deposit 5 [0.01ms]
+(pass) deposit command grammar > rejects unsafe or unsupported input: /deposit 0
+(pass) deposit command grammar > rejects unsafe or unsupported input: /deposit abc
+(pass) deposit command grammar > rejects unsafe or unsupported input: /deposit setup not-an-email
+(pass) deposit command grammar > rejects unsafe or unsupported input: /deposit 50 60
+(pass) deposit command grammar > rejects unsafe or unsupported input: /deposit setup
+(pass) deposit command grammar > routes funding requests without relying on model tool choice: add funds
+(pass) deposit command grammar > routes funding requests without relying on model tool choice: add money to my wallet
+(pass) deposit command grammar > routes funding requests without relying on model tool choice: deposit money
+(pass) deposit command grammar > routes funding requests without relying on model tool choice: top up my wallet
+(pass) deposit command grammar > routes funding requests without relying on model tool choice: fund my wallet
+(pass) deposit command grammar > routes funding requests without relying on model tool choice: how do i add money
+(pass) nansen command grammar > parses /nansen variants [0.07ms]
+(pass) nansen command grammar > rejects unsafe or unsupported input: /nansen token [0.01ms]
+(pass) nansen command grammar > rejects unsafe or unsupported input: /nansen token 0xabc mars [0.03ms]
+(pass) nansen command grammar > rejects unsafe or unsupported input: /nansen wallet nope! [0.05ms]
+(pass) nansen command grammar > rejects unsafe or unsupported input: /nansen flows 0xabc 30d
+(pass) nansen command grammar > rejects unsafe or unsupported input: /nansen bogus
+(pass) generic EVM command grammar > parses transfers, allowances, and token reads [0.03ms]
+(pass) generic EVM command grammar > rejects malformed amounts, addresses, and shapes with usage hints [0.10ms]
+(pass) general portfolio requests use Nansen: show my portfolio [0.01ms]
+(pass) general portfolio requests use Nansen: what am I holding
+(pass) general portfolio requests use Nansen: show my crypto portfolio
+
+tests/evm-client.test.ts:
+(pass) stalled wallet reads time out and abort instead of blocking the queue [11.58ms]
+
+tests/evm-read-workerd.test.ts:
+(pass) direct EVM HTTP reads work in Cloudflare's runtime [1742.57ms]
+
+tests/evm-reads.test.ts:
+(pass) Base reads use one fresh block and known tokens need no metadata calls [2.84ms]
+(pass) invalid inputs, other chains and plans never trigger a direct RPC read [0.30ms]
+(pass) RPC failures never expose provider URLs or credentials [0.28ms]
+
+tests/evm-worker.test.ts:
+(pass) evm sandbox worker > provider credentials are redacted from structured and process errors [0.77ms]
+(pass) evm sandbox worker > CLI exit 0 preserves literal input, removes its journal and keeps the shell alive [27.25ms]
+(pass) evm sandbox worker > CLI exit 7 preserves literal input, removes its journal and keeps the shell alive [24.17ms]
+(pass) evm sandbox worker > the request schema only admits allow-listed read and plan commands [0.35ms]
+(pass) evm sandbox worker > refuses any chain other than Base without touching the sandbox [0.12ms]
+(pass) evm sandbox worker > units needs no chain [0.10ms]
+(pass) evm sandbox worker > returns the CLI's structured error envelope [0.08ms]
+(pass) evm sandbox worker > surfaces a sandbox failure when the CLI prints nothing usable [0.10ms]
+(pass) evm sandbox worker > parses the last stdout line so stray logs do not break the envelope [0.08ms]
+
+tests/evm.test.ts:
+(pass) unit conversion > parses decimals into base units without floating point [0.26ms]
+(pass) unit conversion > formats base units back to human strings [0.05ms]
+(pass) unit conversion > resolves known symbols and raw addresses [0.07ms]
+(pass) evm request validation > rejects unknown fields and malformed values [0.42ms]
+{"timestamp":"2026-09-28T08:37:52.323Z","level":"info","message":"evm_command_started","command":"allowance"}
+{"timestamp":"2026-09-28T08:37:52.323Z","level":"info","message":"evm_command_completed","command":"allowance","durationMs":0}
+{"timestamp":"2026-09-28T08:37:52.323Z","level":"info","message":"evm_command_started","command":"allowance"}
+{"timestamp":"2026-09-28T08:37:52.323Z","level":"info","message":"evm_command_completed","command":"allowance","durationMs":0}
+(pass) EvmService > known-token allowances do not start a second token lookup [0.45ms]
+{"timestamp":"2026-09-28T08:37:52.324Z","level":"info","message":"evm_command_started","command":"token"}
+{"timestamp":"2026-09-28T08:37:52.324Z","level":"info","message":"evm_command_completed","command":"token","durationMs":0}
+(pass) EvmService > reads any ERC-20 balance in human units [0.30ms]
+{"timestamp":"2026-09-28T08:37:52.324Z","level":"info","message":"evm_command_started","command":"balance"}
+{"timestamp":"2026-09-28T08:37:52.324Z","level":"info","message":"evm_command_completed","command":"balance","durationMs":0}
+(pass) EvmService > reads ETH through balance [0.12ms]
+{"timestamp":"2026-09-28T08:37:52.325Z","level":"info","message":"evm_command_started","command":"token"}
+{"timestamp":"2026-09-28T08:37:52.325Z","level":"info","message":"evm_command_completed","command":"token","durationMs":0}
+{"timestamp":"2026-09-28T08:37:52.325Z","level":"info","message":"evm_command_started","command":"transfer"}
+{"timestamp":"2026-09-28T08:37:52.325Z","level":"info","message":"evm_command_completed","command":"transfer","durationMs":0}
+(pass) EvmService > builds an ERC-20 transfer plan after checking decimals and balance [1.95ms]
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_started","command":"token"}
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_completed","command":"token","durationMs":0}
+(pass) EvmService > refuses a transfer that exceeds the balance before the sandbox builds a plan [0.10ms]
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_started","command":"balance"}
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_completed","command":"balance","durationMs":0}
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_started","command":"transfer"}
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_completed","command":"transfer","durationMs":0}
+(pass) EvmService > native transfers omit the token and move wei as value [0.12ms]
+(pass) EvmService > refuses to transfer to the sender's own wallet [0.04ms]
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_started","command":"approve"}
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_completed","command":"approve","durationMs":0}
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_started","command":"revoke"}
+{"timestamp":"2026-09-28T08:37:52.326Z","level":"info","message":"evm_command_completed","command":"revoke","durationMs":0}
+(pass) EvmService > revoke never carries an amount and approve carries base units [0.37ms]
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_started","command":"prepare-call"}
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_completed","command":"prepare-call","durationMs":0}
+(pass) EvmService > contract calls derive the function name from the signature [0.29ms]
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_started","command":"balance"}
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_completed","command":"balance","durationMs":0}
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_started","command":"transfer"}
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_completed","command":"transfer","durationMs":0}
+(pass) EvmService > rejects a plan the sandbox built for another account [0.11ms]
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_started","command":"token"}
+{"timestamp":"2026-09-28T08:37:52.327Z","level":"info","message":"evm_command_completed","command":"token","durationMs":0}
+(pass) EvmService > rejects a malformed sandbox response [0.13ms]
+
+tests/history-workerd.test.ts:
+(pass) history migration and triggers work in actual Durable Object SQLite [1508.49ms]
+
+tests/inference-analytics.test.ts:
+(pass) request latency includes the provider wait before the first streamed event [0.75ms]
+(pass) tool failures retain their own timings without inputs, output or error text [0.78ms]
+(pass) retries include failed-attempt waits and do not consume other sessions or auxiliary models [0.13ms]
+(pass) counts cache and reasoning once and excludes tool settlement latency and content [0.15ms]
+(pass) a follow-up request can start in the same millisecond as the previous step ends [0.25ms]
+(pass) captures all tool-loop steps and fallback, ignoring history and duplicate endings [0.17ms]
+(pass) failed generations preserve missing usage instead of claiming zero cost or leaking errors [0.10ms]
+(pass) zero catalog cost remains unknown and failed calls retain reported usage [0.16ms]
+(pass) harness drains durable usage and preserves replies and errors when telemetry fails [1179.81ms]
+(pass) successful tools report discarded output separately from API success without leaking content [1.71ms]
+
+tests/inference-recovery.test.ts:
+(pass) recovery recognizes provider replies and the older deployed message, not arbitrary advice [0.27ms]
+(pass) extracts only the user code from the provider's documented instructions [0.13ms]
+
+tests/inference-timings.test.ts:
+(pass) request timings survive reconstruction and clear only the completed session window [1.10ms]
+
+tests/integrations-nansen.test.ts:
+{"timestamp":"2026-09-28T08:37:55.033Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":200}
+{"timestamp":"2026-09-28T08:37:55.034Z","level":"info","message":"nansen_call","endpoint":"tgm/flow-intelligence","status":200}
+{"timestamp":"2026-09-28T08:37:55.034Z","level":"info","message":"nansen_call","endpoint":"tgm/flow-intelligence","status":200}
+(pass) NansenService > resolves the incident's parallel AERO requests before reaching Nansen [2.86ms]
+{"timestamp":"2026-09-28T08:37:55.035Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":200}
+(pass) NansenService > resolves symbols only on their chain and rejects unknown EVM references before HTTP [0.29ms]
+{"timestamp":"2026-09-28T08:37:55.036Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":200}
+(pass) NansenService > token_info posts the apikey header, exact body, and ends with attribution [0.26ms]
+{"timestamp":"2026-09-28T08:37:55.036Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":200}
+(pass) NansenService > token_info summarizes the nested token-details and spot-metrics shape [1.01ms]
+{"timestamp":"2026-09-28T08:37:55.037Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":200}
+(pass) NansenService > token_info prints only the title when details and metrics are null [0.15ms]
+{"timestamp":"2026-09-28T08:37:55.037Z","level":"info","message":"nansen_call","endpoint":"profiler/address/current-balance","status":200}
+{"timestamp":"2026-09-28T08:37:55.037Z","level":"info","message":"nansen_call","endpoint":"profiler/address/current-balance","status":200}
+(pass) NansenService > wallet_balances defaults to the context wallet, hides spam, and caps per_page at 25 [0.61ms]
+{"timestamp":"2026-09-28T08:37:55.038Z","level":"info","message":"nansen_call","endpoint":"tgm/dex-trades","status":200}
+(pass) NansenService > token_dex_trades always sends only_smart_money false [0.27ms]
+{"timestamp":"2026-09-28T08:37:55.038Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":429}
+{"timestamp":"2026-09-28T08:37:55.038Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":402}
+{"timestamp":"2026-09-28T08:37:55.038Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":400}
+{"timestamp":"2026-09-28T08:37:55.038Z","level":"info","message":"nansen_call","endpoint":"tgm/token-information","status":503}
+(pass) NansenService > maps Nansen error envelopes to user-safe messages [0.54ms]
+(pass) NansenService > the catalog only wires endpoints allowed by the redistribution policy [0.10ms]
+{"timestamp":"2026-09-28T08:37:55.039Z","level":"info","message":"nansen_call","endpoint":"profiler/address/pnl-summary","status":200}
+{"timestamp":"2026-09-28T08:37:55.039Z","level":"info","message":"nansen_call","endpoint":"profiler/address/pnl-summary","status":200}
+(pass) NansenService > wallet_pnl treats win_rate as a fraction only within 0..1 [0.82ms]
+{"timestamp":"2026-09-28T08:37:55.039Z","level":"info","message":"nansen_call","endpoint":"profiler/address/pnl-summary","status":200}
+(pass) NansenService > wallet_pnl accepts a response with fields at the top level and no data key [0.44ms]
+(pass) NansenService > a missing key surfaces the not-configured message [0.07ms]
+{"timestamp":"2026-09-28T08:37:55.040Z","level":"info","message":"nansen_call","endpoint":"tgm/transfers","status":200}
+(pass) NansenService > date ranges cover the requested number of days [0.26ms]
+
+tests/integrations-whop.test.ts:
+(pass) WhopService > pins only the matching webhook and never returns its secret [0.90ms]
+(pass) WhopService > refuses ambiguous or incomplete webhook listings before any update [0.39ms]
+(pass) WhopService > createAccount posts headers, idempotency key, and the exact account body [0.21ms]
+(pass) WhopService > createAccount rejects a non-biz id [0.14ms]
+(pass) WhopService > createDeposit posts destination and amount and parses methods with nulls [0.74ms]
+(pass) WhopService > createDeposit omits amount when not given [0.06ms]
+{"timestamp":"2026-09-28T08:37:55.045Z","level":"warn","message":"whop_request_failed","path":"/deposits","status":500}
+(pass) WhopService > maps a 500 to a user-safe error [0.06ms]
+
+tests/integrations.test.ts:
+(pass) Aave discovers, inspects, simulates, and builds for the verified Base wallet [2.78ms]
+(pass) Aave inspects account and reserve together, then waits for both before simulation [1.81ms]
+(pass) Aave rejects mismatched approval recipients and amounts [4.04ms]
+(pass) Aave blocks error warnings before building and rejects wrong-chain transactions [1.36ms]
+(pass) Aave approval-only results are identified separately from the eventual supply [1.18ms]
+(pass) official skills and supported schema tools are available [0.14ms]
+(pass) Polymarket status and duplicate events reuse the saved paid run [1.06ms]
+
+tests/linked-wallet-views.test.ts:
+(pass) balances and P&L read the Pecu wallet or a linked wallet, and nothing else [8.01ms]
+
+tests/linked-wallets.test.ts:
+(pass) a wallet links only with its own fresh Sign-In with Ethereum signature, once [6.96ms]
+(pass) names, thread choices and unlinking stay scoped to the account and have a way back [12.96ms]
+(pass) a web thread using a linked wallet reads and plans for that wallet and never lets Pecu sign [5.58ms]
+(pass) the browser wallet sends each exact step in order and Base settles it [7.17ms]
+(pass) declines, reverts, mismatches and expiry close a linked preview honestly [7.23ms]
+(pass) a linked plan in flight blocks unlinking and restart recovery leaves it to the wallet [3.97ms]
+(pass) web state shows the thread's wallet and which wallet signs each preview [4.91ms]
+(pass) wallet transaction verification needs the exact call and a canonical receipt [0.13ms]
+(pass) the background sweep settles sent steps from Base and closes linked plans left past expiry [5.52ms]
+
+tests/liquidity.test.ts:
+(pass) one liquidity call discovers a pair and produces a budget-checked preview [2.60ms]
+(pass) half ETH funds both sides within one total budget, reverse order %s [0.25ms]
+(pass) half ETH funds both sides within one total budget, reverse order %s [0.15ms]
+(pass) rejects over-budget, dust, all native balance, and unavailable initial price [0.33ms]
+{"timestamp":"2026-09-28T08:37:55.154Z","level":"info","message":"intent_recovered","intentId":"ebef268f-4ea7-47b0-8779-1d042c06512f","action":"liquidity_budget","steps":2}
+(pass) confirmed liquidity is one provider batch; pending receipt retries and recovery never resend [5.64ms]
+(pass) wallet adapter prepares one ordered batch without signing [25.53ms]
+
+tests/model-routing.test.ts:
+(pass) OpenCode switches models for each turn without losing the conversation [1298.98ms]
+
+tests/nansen-analytics.test.ts:
+(pass) Nansen analytics > flows keep zero, negative and missing data distinct and suppress undocumented wallet counts [5.80ms]
+(pass) Nansen analytics > detailed P&L preserves losses, request scope and missing valuations [1.23ms]
+(pass) Nansen analytics > empty complete responses differ from missing or truncated responses [0.06ms]
+(pass) Nansen analytics > portfolio preserves debt and separate sources instead of inventing a combined total [1.31ms]
+{"timestamp":"2026-09-28T08:37:56.492Z","level":"info","message":"nansen_call","endpoint":"profiler/address/current-balance","status":200}
+{"timestamp":"2026-09-28T08:37:56.492Z","level":"info","message":"nansen_call","endpoint":"portfolio/defi-holdings","status":503}
+(pass) Nansen analytics > portfolio calls the documented endpoints using the verified wallet and retains a successful source [0.51ms]
+(pass) Nansen analytics > snapshots survive store reconstruction, remain event-scoped and replace repeated reads [1.56ms]
+(pass) Nansen analytics > commands expose the chart reads without requiring model routing [0.10ms]
+
+tests/nansen-collector.test.ts:
+(pass) collector sends exactly 1000 metered requests and resumes without another request [784.83ms]
+(pass) collector stops after auth without retrying [110.20ms]
+(pass) collector stops after cost without retrying [110.15ms]
+
+tests/nansen.test.ts:
+(pass) nansen commands > /nansen wallet passes the sender wallet as context and saves details [1.78ms]
+(pass) nansen commands > an unconfigured service returns the not-configured reply [0.73ms]
+(pass) nansen commands > /nansen help lists the commands and attribution without the model [0.66ms]
+
+tests/policy.test.ts:
+(pass) transaction policy > accepts SDK-generated calls to dynamic pool and gauge contracts [0.02ms]
+(pass) transaction policy > rejects a mismatched wallet [0.09ms]
+(pass) transaction policy > rejects zero-address and wallet targets [0.03ms]
+(pass) transaction policy > allows native value only on the final action [0.02ms]
+(pass) transaction policy > rejects unknown approval functions and action ordering [0.02ms]
+(pass) generic EVM plan policy > accepts exactly one well-formed call per action [0.06ms]
+(pass) generic EVM plan policy > rejects multi-step, approval-role, wrong-sender, and self-targeted plans [0.04ms]
+(pass) generic EVM plan policy > pins calldata shape to the declared action [0.05ms]
+(pass) generic EVM plan policy > a contract call cannot smuggle a token transfer or approval past the per-action validators [0.08ms]
+(pass) generic EVM plan policy > contract calls always require explicit confirmation; SDK-built plans do not [0.02ms]
+(pass) generic EVM plan policy > dispatches by intent family [0.03ms]
+(pass) deposit relay policy > accepts the exact Base USDC transfer to the depositor [0.02ms]
+(pass) deposit relay policy > rejects the wrong token, recipient, amount, native value, and extra calls [0.07ms]
+
+tests/polymarket-agent.test.ts:
+{"timestamp":"2026-09-28T08:37:57.511Z","level":"info","message":"request_routed","trace_id":"pecu_dd4eb5f51efa4fdcaf8ce490f9793dbb6d4eb4448d2c974b053fc0374eea383f","eventId":"63da490e-44b3-4633-92e0-d38216fdb172","route":"mixed"}
+(pass) commands and natural-language capabilities share direct reads, save evidence, and never call Exa [3.35ms]
+(pass) identical in-flight reads share work, without caching later reads, failures or other turns [1.07ms]
+{"timestamp":"2026-09-28T08:37:57.513Z","level":"info","message":"request_routed","trace_id":"pecu_e42f1bafa051df6e654bfef60ac1abec7fed30eb1c90b7e4e6cc12c1a066d448","eventId":"c8373f68-cb83-4ca7-9296-0ffb554adf79","route":"mixed"}
+(pass) large discoveries remain usable and parallel selected reads attach only exact-market cards [4.00ms]
+
+tests/polymarket-analytics.test.ts:
+(pass) markets and events become market-implied odds with Polymarket links [1.21ms]
+(pass) lists, history, books, boards and traders keep units, nulls and pages honest [4.14ms]
+(pass) unexpected shapes and out-of-range prices never become cards [0.61ms]
+{"timestamp":"2026-09-28T08:37:57.529Z","level":"info","message":"request_routed","trace_id":"pecu_ded9fecbcfd6cb506525a7680bf3449f53bfa9861d72f7b659c04f3bd075c2f6","eventId":"event-model","route":"mixed"}
+(pass) Polymarket reads attach saved cards to commands and model tool calls [2.40ms]
+(pass) selected midpoint and market detail share one card regardless of completion order (%s) [0.95ms]
+(pass) selected midpoint and market detail share one card regardless of completion order (%s) [0.71ms]
+
+tests/polymarket-output.test.ts:
+(pass) discovery retains exact market pairs and paging without repeated descriptions [1.21ms]
+(pass) nested markets have a byte budget and explicit omissions separate from upstream paging [14.32ms]
+(pass) oversized non-discovery data and resolution rules stay bounded and explicitly partial [4.20ms]
+(pass) missing or malformed optional upstream fields never restore bulky raw discovery [0.86ms]
+(pass) active search excludes closed children and a large event cannot hide later event identifiers [114.28ms]
+
+tests/polymarket.test.ts:
+(pass) v2 continuation retains filters even after an empty page [6.77ms]
+(pass) Gamma keyset and repeated array filters preserve their own pagination vocabulary [0.45ms]
+(pass) missing users stay null; malformed response envelopes fail [1.49ms]
+(pass) invalid positions request is rejected before network access [0.19ms]
+(pass) invalid activity request is rejected before network access [0.15ms]
+(pass) invalid positions request is rejected before network access [0.09ms]
+(pass) invalid prices_history request is rejected before network access [0.12ms]
+(pass) invalid prices_history request is rejected before network access [0.12ms]
+(pass) invalid holders request is rejected before network access [0.11ms]
+(pass) invalid resolutions request is rejected before network access [0.07ms]
+(pass) invalid activity request is rejected before network access [0.14ms]
+(pass) CLOB price and midpoint accept the documented and observed contracts, but reject nonnumeric prices [2.30ms]
+(pass) 429 respects Retry-After and stops after two retries [3.09ms]
+(pass) 400 is not retried and timeouts abort the transport [1.53ms]
+(pass) commands use direct search and preserve JSON spacing; research remains explicit [0.17ms]
+
+tests/pool-discovery.test.ts:
+(pass) bounded reads overlap, preserve result order, and never exceed four [11.27ms]
+(pass) discovery bounds hydration, uses fresh TVL, and rejects mismatched live pairs [0.89ms]
+
+tests/pool-offset.test.ts:
+(pass) finds a shifted pool with one bounded read instead of a full catalog scan [0.12ms]
+(pass) clamps the first window and never accepts another pool at the cached offset [0.05ms]
+
+tests/receipt.test.ts:
+(pass) user operation receipt verification > confirms when the EntryPoint event matches sender, hash, and inner success [0.39ms]
+(pass) user operation receipt verification > reports reverted when the bundler transaction succeeded but the user operation did not [0.06ms]
+(pass) user operation receipt verification > stays pending without a receipt or when the block was reorganized [0.05ms]
+(pass) user operation receipt verification > rejects receipts whose event belongs to another sender, hash, or contract [0.11ms]
+(pass) user operation receipt verification > polls until the operation is included [0.12ms]
+(pass) user operation receipt verification > gives up as pending after the attempt budget [0.03ms]
+(pass) user operation receipt verification > the JSON-RPC client surfaces provider errors [0.30ms]
+
+tests/reply-confirmation.test.ts:
+(pass) confirmation uses our saved outgoing preview instead of quoted user text [0.25ms]
+(pass) unknown previews require valid signed original and a single code [0.11ms]
+
+tests/reply-stream.test.ts:
+(pass) live text appears before a sentence or paragraph ends and coalesces subsequent deltas [25.24ms]
+(pass) completion reconciles missing deltas and cancels stale updates without changing markdown [26.26ms]
+(pass) legacy paragraphs reconcile an absent end event and do not repeat completed parts [0.25ms]
+(pass) stopping a failed turn cancels pending display updates [26.17ms]
+
+tests/request-classifier.test.ts:
+{"timestamp":"2026-09-28T08:37:57.803Z","level":"info","message":"request_classified","duration_ms":1,"route":"mixed","route_confidence":0.99,"family":"wallet","family_confidence":0.99}
+(pass) selects a stable tool family in the same classifier request [1.87ms]
+{"timestamp":"2026-09-28T08:37:57.804Z","level":"info","message":"request_classified","duration_ms":0,"route":"mixed","route_confidence":0.99,"family":"wallet","family_confidence":0.5}
+{"timestamp":"2026-09-28T08:37:57.804Z","level":"info","message":"request_classified","duration_ms":0,"route":"mixed","route_confidence":0.99}
+{"timestamp":"2026-09-28T08:37:57.804Z","level":"info","message":"request_classified","duration_ms":0,"route":"mixed","route_confidence":0.99}
+(pass) uncertain or malformed family classifications keep all capabilities available [0.51ms]
+{"timestamp":"2026-09-28T08:37:57.804Z","level":"info","message":"request_classified","duration_ms":0,"route":"wallet","route_confidence":0.99}
+(pass) maps wallet to an allowlisted command [0.19ms]
+{"timestamp":"2026-09-28T08:37:57.804Z","level":"info","message":"request_classified","duration_ms":0,"route":"balance","route_confidence":0.99}
+(pass) maps balance to an allowlisted command [0.12ms]
+{"timestamp":"2026-09-28T08:37:57.804Z","level":"info","message":"request_classified","duration_ms":0,"route":"stocks","route_confidence":0.99}
+(pass) maps stocks to an allowlisted command [0.11ms]
+{"timestamp":"2026-09-28T08:37:57.804Z","level":"info","message":"request_classified","duration_ms":0,"route":"positions","route_confidence":0.99}
+(pass) maps positions to an allowlisted command [0.09ms]
+{"timestamp":"2026-09-28T08:37:57.805Z","level":"info","message":"request_classified","duration_ms":0,"route":"deposit_status","route_confidence":0.99}
+(pass) maps deposit_status to an allowlisted command [0.10ms]
+{"timestamp":"2026-09-28T08:37:57.805Z","level":"info","message":"request_classified","duration_ms":0,"route":"help","route_confidence":0.99}
+(pass) maps help to an allowlisted command [0.09ms]
+{"timestamp":"2026-09-28T08:37:57.805Z","level":"info","message":"request_classified","duration_ms":0,"route":"response","route_confidence":0.95}
+(pass) preserves response routing [0.16ms]
+{"timestamp":"2026-09-28T08:37:57.805Z","level":"info","message":"request_classified","duration_ms":0,"route":"mixed","route_confidence":0.95}
+(pass) preserves mixed routing [0.12ms]
+{"timestamp":"2026-09-28T08:37:57.805Z","level":"info","message":"request_classified","duration_ms":0,"route":"wallet","route_confidence":0.5,"fallback_reason":"route_confidence"}
+(pass) invalid or uncertain answers retain the existing agent [0.17ms]
+{"timestamp":"2026-09-28T08:37:57.805Z","level":"warn","message":"request_classifier_unavailable","duration_ms":0,"fallback_reason":"invalid_output","error_kind":"ZodError"}
+(pass) invalid or uncertain answers retain the existing agent [0.16ms]
+{"timestamp":"2026-09-28T08:37:57.805Z","level":"warn","message":"request_classifier_unavailable","duration_ms":0,"fallback_reason":"invalid_output","error_kind":"ZodError"}
+(pass) invalid or uncertain answers retain the existing agent [0.10ms]
+{"timestamp":"2026-09-28T08:37:57.806Z","level":"warn","message":"request_classifier_unavailable","duration_ms":1,"fallback_reason":"invalid_output","error_kind":"ZodError"}
+(pass) invalid or uncertain answers retain the existing agent [0.07ms]
+{"timestamp":"2026-09-28T08:37:57.806Z","level":"warn","message":"request_classifier_unavailable","duration_ms":0,"fallback_reason":"invalid_output","error_kind":"ZodError"}
+(pass) invalid or uncertain answers retain the existing agent [0.07ms]
+{"timestamp":"2026-09-28T08:37:57.806Z","level":"warn","message":"request_classifier_unavailable","duration_ms":0,"fallback_reason":"classifier_error","error_kind":"InternalServerError"}
+(pass) HTTP failures do not retry or block the existing agent [0.24ms]
+(pass) oversized messages bypass classification [0.05ms]
+{"timestamp":"2026-09-28T08:37:57.806Z","level":"info","message":"request_classified","duration_ms":0,"model":"jev-test","route":"mixed","route_confidence":0.86,"family":"defi","family_confidence":0.99,"fallback_reason":"route_confidence"}
+{"timestamp":"2026-09-28T08:37:57.806Z","level":"info","message":"request_classified","duration_ms":0,"model":"jev-test","route":"wallet","route_confidence":0.86,"family":"defi","family_confidence":0.99,"fallback_reason":"route_confidence"}
+{"timestamp":"2026-09-28T08:37:57.807Z","level":"info","message":"request_classified","duration_ms":1,"model":"jev-test","route":"response","route_confidence":0.86,"family":"defi","family_confidence":0.99,"fallback_reason":"route_confidence"}
+(pass) an uncertain command never executes, but independently confident scope is retained [0.63ms]
+
+tests/safe-profile.test.ts:
+(pass) organizations, names and Safes belong to the signed-in sender and survive a restart [7.00ms]
+(pass) a send proposal is shared with every owner tracking the Safe, and only valid owner signatures count [11.02ms]
+(pass) executing with the Pecu wallet counts its own approval, adds collected signatures and passes Pecu's plan checks [16.07ms]
+(pass) approving with the Pecu wallet and creating a Safe go through the same confirmation [10.50ms]
+(pass) closed proposals settle from a verified receipt, a log search, or stay closed when the search fails [10.31ms]
+(pass) chat reads the shared queue with a ready execution plan only when the sender's wallet completes the threshold [3.80ms]
+(pass) Safe proposals built in chat join the shared queue without duplicates [2.63ms]
+
+tests/safe.test.ts:
+(pass) Pecu Safe approval is bound to the exact SDK proposal and verified sender [0.36ms]
+(pass) Pecu rejects Safe execution that changes the inner call, refunds or operation [0.97ms]
+(pass) Pecu validates the Safe deployment owners, threshold and initializer [0.35ms]
+(pass) Safe tools are shared and sandbox commands remain unsigned [0.33ms]
+{"timestamp":"2026-09-28T08:37:58.021Z","level":"info","message":"evm_command_started","command":"safe-approve"}
+{"timestamp":"2026-09-28T08:37:58.021Z","level":"info","message":"evm_command_completed","command":"safe-approve","durationMs":0}
+(pass) Safe service always uses the verified wallet and Base when preparing an approval [0.49ms]
+(pass) Budget payments bind the delegate, recipient, amount and zero fee [0.34ms]
+(pass) Role execution cannot change its role, target, ETH value or call mode [0.36ms]
+(pass) Safe batches decode identically across SDK and Pecu and refuse inner delegatecall [0.48ms]
+(pass) Collected contract signatures bind exact bytes and reject duplicate owners [0.97ms]
+{"timestamp":"2026-09-28T08:37:58.024Z","level":"info","message":"evm_command_started","command":"safe-role-execute"}
+{"timestamp":"2026-09-28T08:37:58.024Z","level":"info","message":"evm_command_completed","command":"safe-role-execute","durationMs":0}
+{"timestamp":"2026-09-28T08:37:58.024Z","level":"info","message":"evm_command_started","command":"decode"}
+{"timestamp":"2026-09-28T08:37:58.024Z","level":"info","message":"evm_command_completed","command":"decode","durationMs":0}
+(pass) Role previews describe verified static contract calls without proposal JSON [0.77ms]
+
+tests/stock-holdings.test.ts:
+(pass) stock commands and common ownership questions use the stock tool [0.11ms]
+(pass) allocation uses value rather than number of shares and excludes unowned stocks [0.14ms]
+(pass) unavailable and malformed data never becomes a fabricated slice [0.04ms]
+
+tests/stocks.test.ts:
+(pass) stockSnapshot > returns every catalog stock in order with prices and balances [1.68ms]
+(pass) stockSnapshot > ignores extra catalog rows and formats balances with token decimals [0.38ms]
+(pass) stockSnapshot > an unpriced stock reports an error but keeps its balance [0.27ms]
+(pass) stockSnapshot > a missing token row reports an error with a null balance [0.29ms]
+(pass) stockBasketPlan > rejects an unknown stock [0.76ms]
+(pass) stockBasketPlan > rejects a repeated stock and direction pair [0.30ms]
+(pass) stockBasketPlan > rejects buys beyond the wallet's USDC balance [0.21ms]
+(pass) stockBasketPlan > rejects a sell beyond the stock balance [0.25ms]
+(pass) stockBasketPlan > rejects a trade without an executable route [0.21ms]
+(pass) stockBasketPlan > plans a two-trade basket as approvals followed by one action [0.34ms]
+
+tests/store.test.ts:
+(pass) durable state > claims each X event once and returns its cached reply [0.95ms]
+(pass) durable state > uses compare-and-set for proposal execution [0.86ms]
+(pass) durable state > resolves a confirmation code only within its sender and conversation [0.61ms]
+(pass) durable state > reuses the same outbox record for one source event [0.57ms]
+(pass) durable state > seeds historical events without turning them into commands [0.56ms]
+(pass) durable state > revives only unanswered bootstrap events [0.55ms]
+(pass) durable state > reclaims an interrupted event after its processing lease expires [0.54ms]
+(pass) durable state > stores funding accounts and deposits idempotently [0.82ms]
+(pass) durable state > keeps one agent session and verified turn per sender and conversation [0.58ms]
+
+tests/stream-workerd.test.ts:
+(pass) paragraphs stream incrementally through a Durable Object stub and a service-binding entrypoint in workerd [2496.73ms]
+
+tests/transaction-plan.test.ts:
+(pass) swap routes > a native ETH swap shows one step and the pool it trades through [2.85ms]
+(pass) swap routes > multi-hop swaps name each pool and intermediate token, after both Permit2 approvals [2.77ms]
+(pass) swap routes > a stock basket fans one token out to every stock in a single router call [1.48ms]
+(pass) swap routes > an unrecognised router command still lists the step without inventing a route [0.93ms]
+(pass) liquidity > a budget plan that creates a pool shows the funding swap flowing into the new pool [2.86ms]
+(pass) liquidity > a native deposit into an existing pool sends ETH and names the pool without 'new' [0.57ms]
+(pass) liquidity > basic pool deposits and withdrawals use the router's amounts [2.02ms]
+(pass) liquidity > position withdrawals, fee claims and staking read as plain steps [2.77ms]
+(pass) liquidity > locking AERO names the vote escrow in its approval [1.39ms]
+(pass) wallet and lending calls > sends draw a flow to the recipient and approvals state the exact limit [0.40ms]
+(pass) wallet and lending calls > wrapping and unwrapping WETH read as their own steps with an ETH to WETH route [0.23ms]
+(pass) wallet and lending calls > Aave actions flow between the token and Aave, and name the market [1.00ms]
+(pass) wallet and lending calls > a lone contract call is left to the preview text, and junk calldata never throws [1.82ms]
+(pass) token hints > reads Sugar quote, route, deposit and EVM context shapes [0.99ms]
+(pass) execution progress > steps carry status and hashes only once the plan is confirmed [0.13ms]
+(pass) execution progress > the store keeps the proposal-time plan and falls back to decoding the persisted steps [1.87ms]
+
+tests/usage-limit.test.ts:
+(pass) recognizes the Codex usage-limit 429 and its reset time [0.41ms]
+(pass) ignores ordinary rate limits, other statuses and non-JSON bodies [0.16ms]
+(pass) a limit without a reset time blocks briefly and reads retry-after when present [0.14ms]
+(pass) a plan without Codex usage is terminal for the day [0.02ms]
+
+tests/user-inference.test.ts:
+(pass) per-user inference isolates credentials and fails closed [76.36ms]
+(pass) profile contract removes internal identifiers and rejects unsafe login URLs [0.83ms]
+
+tests/web-agent.test.ts:
+{"timestamp":"2026-09-28T08:38:00.655Z","level":"info","message":"nansen_call","trace_id":"pecu_f2c034bb1cb838a828eba73e2203a26ffce79d15b7fd5153a0fae288cf1cfe66","endpoint":"tgm/flow-intelligence","status":200}
+{"timestamp":"2026-09-28T08:38:00.657Z","level":"info","message":"request_routed","trace_id":"pecu_6501a7e69f5007f8e537d5ad227b23517ce68d2f7b7205d409078f99bef2329f","eventId":"stocks:user_alice:123:e6a76336-a5d9-4ecc-b6ba-19f2868728b1","route":"fallback"}
+{"timestamp":"2026-09-28T08:38:00.657Z","level":"info","message":"request_routed","trace_id":"pecu_537a9bdf11fa70fa927bedb4689e32597ed957b7e2941b5441a1465c0a2b7b58","eventId":"stocks:user_alice:123:6cf31a6b-80d4-4675-b4b0-d6c4b838811d","route":"fallback"}
+{"timestamp":"2026-09-28T08:38:00.657Z","level":"info","message":"nansen_call","trace_id":"pecu_537a9bdf11fa70fa927bedb4689e32597ed957b7e2941b5441a1465c0a2b7b58","endpoint":"tgm/flow-intelligence","status":200}
+(pass) Nansen charts persist with direct and model replies, replay without a new read, and never leak into another turn [3.73ms]
+{"timestamp":"2026-09-28T08:38:00.659Z","level":"info","message":"nansen_call","endpoint":"profiler/address/pnl","status":200}
+{"timestamp":"2026-09-28T08:38:00.659Z","level":"info","message":"nansen_call","endpoint":"profiler/address/pnl","status":200}
+{"timestamp":"2026-09-28T08:38:00.659Z","level":"info","message":"nansen_call","endpoint":"profiler/address/pnl","status":429}
+{"timestamp":"2026-09-28T08:38:00.659Z","level":"info","message":"nansen_call","endpoint":"profiler/address/pnl","status":429}
+(pass) wallet P&L reads the sender's own Base wallet once per period for ten minutes and never touches chat history [1.93ms]
+{"timestamp":"2026-09-28T08:38:00.660Z","level":"info","message":"request_routed","trace_id":"pecu_da7f1e3f07a9d05e040da3f9aae1694343b95a0afbbe8d24e7340468772fe1f4","eventId":"stocks:user_alice:123:f146d3df-aa92-46a5-92f2-f3af474268ce","route":"fallback"}
+(pass) web reuses an existing X wallet and persists deduplicated history across adapter restarts [1.50ms]
+{"timestamp":"2026-09-28T08:38:00.662Z","level":"info","message":"request_routed","trace_id":"pecu_fcdadb161e90408fa98efaf44e18c65043106c4091cfcc8452d27b73ae7613e0","eventId":"stocks:user_alice:123:0e8c19f4-488b-47d8-8321-9fb98b2feb70","route":"fallback"}
+(pass) a web turn forwards finished paragraphs to the caller while the model writes, and deterministic commands never stream [1.50ms]
+(pass) web never creates a wallet or invokes the agent for an unlinked X account [0.77ms]
+{"timestamp":"2026-09-28T08:38:00.664Z","level":"info","message":"request_routed","trace_id":"pecu_3cd7ff5895c8d0cfd3b15cbbed17187c42ff31cff213dcfc3f420f2872864a8f","eventId":"stocks:user_carol:web-user_carol:293afd20-0a22-4607-81a9-6297f8a25391","route":"fallback"}
+(pass) a web-only sender (Google sign-in) gets its own wallet on the first message [1.27ms]
+(pass) web settings and baskets are scoped to the authenticated web conversation [1.17ms]
+(pass) web request validation rejects wallet overrides and malformed identity [0.37ms]
+(pass) saved baskets reject unknown stocks and incomplete allocations [0.89ms]
+(pass) confirmation controls require the code belonging to the persisted preview [2.04ms]
+{"timestamp":"2026-09-28T08:38:00.670Z","level":"info","message":"request_routed","trace_id":"pecu_ed8ff225b213d42089f148b4b1b2978778a1283b534b46876ae2a8c8fa964b11","eventId":"stocks:user_alice:123:daef418a-d679-4a07-ab4b-faf68db1dad8","route":"fallback"}
+{"timestamp":"2026-09-28T08:38:00.672Z","level":"warn","message":"command_failed","trace_id":"pecu_169a82c6560bef750e545c63732a4af8399237af74c227ea89fe287dae4b81ee","eventId":"stocks:user_alice:123#swap-plan:45d81825-d242-4edf-8031-d1f93861b274","senderId":"123","error":"unexpected aero call"}
+{"timestamp":"2026-09-28T08:38:00.672Z","level":"info","message":"request_routed","trace_id":"pecu_c5385b6729a201d5e72b20de700ae7c98aac60253e5a9ab20cff84ef1f7ba650","eventId":"stocks:user_alice:123#swap-plan:bb52ba4c-e59e-4bf3-b49f-ab9335e65ef5","route":"fallback"}
+(pass) web threads keep their own history, YOLO and titles, and the default thread keeps the original owner [3.80ms]
+{"timestamp":"2026-09-28T08:38:00.674Z","level":"info","message":"request_routed","trace_id":"pecu_281a602e212a2ba0ce1eefe73bf2836e3e4c5c64c0bd736b5283d724ebd39b36","eventId":"stocks:user_alice:123#recover:547bb1a4-0233-442b-b315-eb6f0299152c","route":"fallback"}
+{"timestamp":"2026-09-28T08:38:00.678Z","level":"info","message":"request_routed","trace_id":"pecu_15c27190a7665d9059f0292179d7d0edfb24abe3b36ea71c06ceddf379058794","eventId":"stocks:user_alice:123#other:b107826a-d761-4579-acd5-8e93446d266a","route":"fallback"}
+(pass) thread deletion preserves recovery for submitted transactions [5.84ms]
+{"timestamp":"2026-09-28T08:38:00.680Z","level":"info","message":"request_routed","trace_id":"pecu_71c881317c9b82d4e4886dafa14152d0d3c3b2a51e8b35f272d379845555950c","eventId":"stocks:user_alice:123:69faa406-33fe-4199-9fb7-7a28430287a9","route":"fallback"}
+{"timestamp":"2026-09-28T08:38:00.680Z","level":"info","message":"request_routed","trace_id":"pecu_09452521b88f866debaf62faa4ca62930cd8ec9abfb139cb2adea186ae4125a2","eventId":"stocks:user_alice:123:426e7675-5b17-44f5-8f3c-dbd96a94402b","route":"fallback"}
+(pass) retry replaces the latest answer and deduplicates transport retries [1.87ms]
+{"timestamp":"2026-09-28T08:38:00.682Z","level":"info","message":"request_routed","trace_id":"pecu_7b901808a73bf5c6a8500a94a9e723bb19d50fee56f4b78a541eafb91ac13262","eventId":"stocks:user_alice:123:82af1d62-194d-4578-8d5c-6b4c2467bdc6","route":"fallback"}
+(pass) retry rejects another owner, older turns, changed text, and confirmation commands [1.63ms]
+{"timestamp":"2026-09-28T08:38:00.683Z","level":"info","message":"request_routed","trace_id":"pecu_17bccd8be408a4c876ea69072515d61ec8e4e053543d4209d451c1ef46d8d5fd","eventId":"stocks:user_alice:123:cae9def7-f96d-4611-979d-9c5a12bff0d7","route":"fallback"}
+(pass) question choices persist and accept one owned, current option [2.12ms]
+{"timestamp":"2026-09-28T08:38:00.687Z","level":"info","message":"request_routed","trace_id":"pecu_3f600d3058fec5ab2d4769fa72e2e528a5b09b95291d8402e85f5dc12c0f3e81","eventId":"stocks:user_alice:123:07b08cd2-f3ef-44bd-88ff-2bbf136edaf8","route":"fallback"}
+(pass) stock snapshots follow command and model tool replies, persist on replay, and never leak to other turns [3.21ms]
+{"timestamp":"2026-09-28T08:38:00.689Z","level":"info","message":"request_routed","trace_id":"pecu_f820c54baf77adbed1200f9976aad9d41ee6845246d6a05027cffc44ac818b88","eventId":"stocks:user_alice:123:ff4511d9-beba-41a2-a302-1417ff873799","route":"fallback"}
+(pass) missing ChatGPT connection replies carry a typed recovery action [1.37ms]
+(pass) a completed intent exposes its stored result on the preview [1.58ms]
+(pass) previews carry the decoded transaction plan and its live step progress [4.22ms]
+(pass) confirmationCommand parses only exact confirm and cancel commands [0.10ms]
+(pass) portfolio reads only the authenticated sender wallet, isolates failures and leaves chat untouched [1.56ms]
+(pass) transfer form reviews refuse a changed source, YOLO and non-transfer commands before handling [1.10ms]
+(pass) a form review persists the transfer preview and replays it without signing or a model [2.38ms]
+{"timestamp":"2026-09-28T08:38:00.701Z","level":"info","message":"request_routed","trace_id":"pecu_91bc54101c4ab8b5e9ca111cd5918302d17a0144bb9157ed25beb8815adff50b","eventId":"stocks:user_alice:123:9f496a37-a20f-4e7f-8e1d-73e65f6352fe","route":"fallback"}
+(pass) Aero model tools receive complete data beyond the chat summary limits [1.94ms]
+
+tests/web-history.test.ts:
+(pass) 100,000 legacy turns migrate once; indexed pages and summaries remain bounded [158.85ms]
+(pass) message cursors traverse tied timestamps in both directions without skips or duplicates [0.92ms]
+(pass) summary triggers preserve counts across inserts, retries, restart and full deletion [0.41ms]
+(pass) rejects ambiguous or forged pagination shapes [0.73ms]
+
+tests/web-identity.test.ts:
+(pass) links only a single verified provider user ID, ignoring editable metadata [0.52ms]
+(pass) a linked X account keeps the X wallet; other Clerk sign-ins get a web sender [0.12ms]
+
+tests/web-stream.test.ts:
+(pass) silent tool work keeps the connection active without inventing reply paragraphs [11.92ms]
+(pass) a turn stream emits paragraphs as they are produced, then the outcome, and closes [0.19ms]
+(pass) a failing turn ends the stream with an error event and reports it [0.26ms]
+(pass) a client that cancels the stream does not abort the turn [21.14ms]
+(pass) paragraphs flush only at blank lines and never inside a code fence [0.17ms]
+(pass) a trailing fence without a blank line still flushes on end and whitespace-only chunks are dropped [0.02ms]
+(pass) SSE frames round-trip through the reader even when chunks split mid-frame [0.21ms]
+(pass) the turn event contract rejects unknown shapes [0.07ms]
+(pass) live text snapshots arrive before completion with an explicit replacement marker [0.13ms]
+(pass) parallel tool stages precede answer text and do not terminate SSE delivery [0.36ms]
+
+tests/whop-webhook.test.ts:
+(pass) Whop webhook verification > accepts a valid raw-secret HMAC signature [1.52ms]
+(pass) Whop webhook verification > rejects a tampered body [0.18ms]
+(pass) Whop webhook verification > rejects a timestamp six minutes old [0.12ms]
+(pass) Whop webhook verification > accepts any valid v1 entry among multiple signatures [0.20ms]
+(pass) Whop webhook verification > rejects missing headers [0.11ms]
+(pass) Whop ledger activity schema > parses a loose deposit.succeeded ledger activity [0.27ms]
+
+tests/x-activity.test.ts:
+(pass) X Activity realtime setup > creates one webhook and the supported encrypted-chat subscription [1.07ms]
+(pass) X Activity realtime setup > reuses existing resources and repairs webhook delivery [0.37ms]
+(pass) X Activity realtime setup > revalidates only this bot's webhook and subscription [0.40ms]
+(pass) X Activity realtime setup > replacement preserves existing delivery until X confirms creation, HTTP %s [0.52ms]
+(pass) X Activity realtime setup > replacement preserves existing delivery until X confirms creation, HTTP %s [0.33ms]
+(pass) duplicate subscription repair recreates only the matching bot subscription [0.42ms]
+
+tests/x-identity.test.ts:
+(pass) bot identity comes from the OAuth token and must match the configured account [0.30ms]
+
+tests/x-oauth.test.ts:
+(pass) X OAuth refresh > rotates a confidential client's access and refresh tokens [0.44ms]
+(pass) X OAuth refresh > identifies only X API unauthorized responses [0.07ms]
+
+tests/x-rate-limit.test.ts:
+(pass) X API polling backoff > waits until the server-provided rate-limit reset [0.23ms]
+(pass) X API polling backoff > backs off exponentially when a 429 has no reset header [0.02ms]
+(pass) X API polling backoff > uses the configured interval for non-rate-limit errors [0.04ms]
+
+tests/x-webhook.test.ts:
+(pass) X webhook security > generates CRC responses and verifies the exact raw payload [0.30ms]
+(pass) X webhook security > preserves ciphertext and key changes for direct webhook decryption [0.70ms]
+(pass) X webhook security > extracts only encrypted-chat activity routing data [0.04ms]
+
+tests/xchat-config.test.ts:
+(pass) X SDK Juicebox configuration boundary > restores recursively camel-cased XDK keys without changing values [0.27ms]
+
+tests/xchat-discovery.test.ts:
+{"timestamp":"2026-09-28T08:38:00.939Z","level":"warn","message":"conversation_discovery_backoff","refreshAt":1790585582000}
+{"timestamp":"2026-09-28T08:38:00.940Z","level":"info","message":"conversation_poll_decoded","conversationId":"1-2","events":0,"encodedEvents":0,"messages":0,"verifiedMessages":0,"decryptionErrors":[]}
+(pass) discovery rate limits do not block a configured peer's messages [1.82ms]
+{"timestamp":"2026-09-28T08:38:00.941Z","level":"info","message":"conversation_poll_decoded","conversationId":"1-2","events":0,"encodedEvents":0,"messages":0,"verifiedMessages":0,"decryptionErrors":[]}
+{"timestamp":"2026-09-28T08:38:00.941Z","level":"info","message":"conversation_poll_decoded","conversationId":"1-2","events":0,"encodedEvents":0,"messages":0,"verifiedMessages":0,"decryptionErrors":[]}
+(pass) discovery cache survives transport recreation [0.70ms]
+{"timestamp":"2026-09-28T08:38:00.941Z","level":"warn","message":"conversation_discovery_backoff","refreshAt":1790585582000}
+{"timestamp":"2026-09-28T08:38:00.941Z","level":"info","message":"conversation_poll_decoded","conversationId":"1-2","events":0,"encodedEvents":0,"messages":0,"verifiedMessages":0,"decryptionErrors":[]}
+(pass) expired discovery data remains usable during a rate limit [0.61ms]
+(pass) an empty discovery failure still reaches the scheduler without known peers [0.53ms]
+
+tests/xchat-errors.test.ts:
+(pass) X Chat unlock failures > recognizes invalid PIN errors that must never be retried [0.11ms]
+
+tests/xchat-poll-failure.test.ts:
+{"timestamp":"2026-09-28T08:38:00.945Z","level":"warn","message":"conversation_poll_failed","conversationId":"1-2","error":"HTTP 429"}
+(pass) conversation rate limits reach the scheduler with reset headers intact [0.99ms]
+
+tests/xchat-transport.test.ts:
+{"timestamp":"2026-09-28T08:38:00.947Z","level":"info","message":"conversation_poll_decoded","conversationId":"1319617668186542087-2086819052069007360","events":1,"encodedEvents":1,"messages":1,"verifiedMessages":1,"decryptionErrors":[]}
+{"timestamp":"2026-09-28T08:38:00.947Z","level":"info","message":"message_dispatch_started","eventId":"event-help","ageMs":1000}
+{"timestamp":"2026-09-28T08:38:00.947Z","level":"info","message":"message_dispatch_completed","eventId":"event-help","elapsedMs":0,"hasReply":true}
+{"timestamp":"2026-09-28T08:38:00.947Z","level":"info","message":"reply_send_started","outboxId":"reply:event-help"}
+{"timestamp":"2026-09-28T08:38:00.947Z","level":"info","message":"reply_send_completed","outboxId":"reply:event-help","elapsedMs":0}
+(pass) X Chat inbox bootstrap > replies to the latest recent inbound message from a configured request peer [0.68ms]
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"activity_received","eventType":"chat.received","hasEncodedEvent":false,"hasKeyChangeEvent":false}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"conversation_poll_decoded","conversationId":"1319617668186542087-2086819052069007360","events":1,"encodedEvents":1,"messages":1,"verifiedMessages":1,"decryptionErrors":[]}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"message_dispatch_started","eventId":"signed-event"}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"message_dispatch_completed","eventId":"signed-event","elapsedMs":0,"hasReply":true}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"reply_send_started","outboxId":"reply:signed-event"}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"reply_send_completed","outboxId":"reply:signed-event","elapsedMs":0}
+(pass) X Chat inbox bootstrap > handles a chat.received webhook, ciphertext included: %s [0.53ms]
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"activity_received","eventType":"chat.received","hasEncodedEvent":true,"hasKeyChangeEvent":true}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"activity_decoded","eventId":"signed-event","verified":true,"type":"message","errors":[]}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"message_dispatch_started","eventId":"signed-event"}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"message_dispatch_completed","eventId":"signed-event","elapsedMs":0,"hasReply":true}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"reply_send_started","outboxId":"reply:signed-event"}
+{"timestamp":"2026-09-28T08:38:00.948Z","level":"info","message":"reply_send_completed","outboxId":"reply:signed-event","elapsedMs":0}
+(pass) X Chat inbox bootstrap > handles a chat.received webhook, ciphertext included: %s [0.14ms]
+
+tests/xchat-workerd.test.ts:
+(pass) X Chat WASM in Workerd > initializes the X Chat and Juicebox WASM modules [37827.67ms]
+
+ 1022 pass
+ 0 fail
+ 13546 expect() calls
+Ran 1022 tests across 85 files. [67.62s]
+$ bun run skills:check && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --dry-run --outdir dist/cloudflare && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.aero.jsonc --dry-run --outdir dist/aero && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.codex.jsonc --dry-run --containers-rollout=none --outdir dist/codex && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.evm.jsonc --dry-run --containers-rollout=none --outdir dist/evm
+$ bun scripts/build-agent-skills.ts --check
+
+ ⛅️ wrangler 4.127.1 (update available 4.142.0)
+───────────────────────────────────────────────
+Total Upload: 32863.57 KiB / gzip: 6467.71 KiB
+Your Worker has access to the following bindings:
+Binding                                                                           Resource                  
+env.INFERENCE (UserInference)                                                     Durable Object            
+env.PECU (BasedBotDurableObject)                                                  Durable Object            
+env.AERO (basedbot-aero)                                                          Worker                    
+env.CODEX (basedbot-codex)                                                        Worker                    
+env.EVM (basedbot-evm)                                                            Worker                    
+env.POSTHOG_ENABLED ("true")                                                      Environment Variable      
+env.BASE_RPC_URL ("https://base-mainnet.g.alchemy.com/pu...")                     Environment Variable      
+env.ENABLE_MAINNET_EXECUTION ("true")                                             Environment Variable      
+env.XCHAT_POLLING_ENABLED ("true")                                                Environment Variable      
+env.X_WEBHOOK_URL ("https://basedbot.oddofrancesco000.wor...")                    Environment Variable      
+env.POLL_INTERVAL_MS ("60000")                                                    Environment Variable      
+env.QUOTE_TTL_SECONDS ("600")                                                     Environment Variable      
+env.MAX_SLIPPAGE_BPS ("100")                                                      Environment Variable      
+env.CHAT_PEER_USER_IDS ("1319617668186542087")                                    Environment Variable      
+env.CHAT_BOT_USER_ID ("2086819052069007360")                                      Environment Variable      
+env.WHOP_API_URL ("https://api.whop.com/api/v1")                                  Environment Variable      
+env.WHOP_API_VERSION_DATE ("2026-09-13")                                          Environment Variable      
+env.DEPOSIT_RELAY_MAX_USD ("500")                                                 Environment Variable      
+env.DEPOSIT_RELAY_DAILY_MAX_USD ("2000")                                          Environment Variable      
+
+--dry-run: exiting now.
+
+ ⛅️ wrangler 4.127.1 (update available 4.142.0)
+───────────────────────────────────────────────
+Total Upload: 2292.51 KiB / gzip: 413.24 KiB
+Your Worker has access to the following bindings:
+Binding                                   Resource            
+env.AERO_REFRESH (AeroCatalog)            Durable Object      
+env.AERO_CATALOG (pecu-aero-catalog)      R2 Bucket           
+
+--dry-run: exiting now.
+
+ ⛅️ wrangler 4.127.1 (update available 4.142.0)
+───────────────────────────────────────────────
+Total Upload: 53.21 KiB / gzip: 13.07 KiB
+Your Worker has access to the following bindings:
+Binding                         Resource            
+env.CODEX (CodexContainer)      Durable Object      
+
+The following containers are available:
+- basedbot-codex-codexcontainer (/Volumes/T6-7/Coding/Personal/BeeGreat/apps/pecu/containers/codex/Dockerfile)
+
+--dry-run: exiting now.
+
+ ⛅️ wrangler 4.127.1 (update available 4.142.0)
+───────────────────────────────────────────────
+Total Upload: 2373.06 KiB / gzip: 447.49 KiB
+Your Worker has access to the following bindings:
+Binding                                                            Resource                  
+env.EVM_SANDBOX (EvmSandbox)                                       Durable Object            
+env.BASE_RPC_URL ("https://base-mainnet.g.alchemy.com/pu...")      Environment Variable      
+
+The following containers are available:
+- basedbot-evm-evmsandbox (/Volumes/T6-7/Coding/Personal/BeeGreat/apps/pecu/containers/evm/Dockerfile)
+
+--dry-run: exiting now.
