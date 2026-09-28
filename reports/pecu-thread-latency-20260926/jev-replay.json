@@ -1,0 +1,125 @@
+[
+  {
+    "sample": 0,
+    "durationMs": 514,
+    "route": {
+      "kind": "fallback"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "route": {
+          "type": "choice",
+          "choice": "mixed",
+          "confidence": 0.86,
+          "probabilities": {
+            "response": 0.07,
+            "mixed": 0.89,
+            "stocks": 0,
+            "deposit_status": 0,
+            "wallet": 0.01,
+            "positions": 0,
+            "help": 0,
+            "balance": 0.03
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "defi",
+          "confidence": 0.99,
+          "probabilities": {
+            "all": 0,
+            "analytics": 0,
+            "funding": 0,
+            "markets": 0,
+            "defi": 1,
+            "wallet": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "sample": 1,
+    "durationMs": 284,
+    "route": {
+      "kind": "fallback"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "route": {
+          "type": "choice",
+          "choice": "mixed",
+          "confidence": 0.86,
+          "probabilities": {
+            "stocks": 0,
+            "wallet": 0.02,
+            "help": 0,
+            "balance": 0.02,
+            "deposit_status": 0,
+            "positions": 0,
+            "mixed": 0.88,
+            "response": 0.08
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "defi",
+          "confidence": 0.99,
+          "probabilities": {
+            "wallet": 0.01,
+            "analytics": 0,
+            "funding": 0,
+            "markets": 0,
+            "all": 0,
+            "defi": 0.99
+          }
+        }
+      }
+    }
+  },
+  {
+    "sample": 2,
+    "durationMs": 294,
+    "route": {
+      "kind": "fallback"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "route": {
+          "type": "choice",
+          "choice": "mixed",
+          "confidence": 0.86,
+          "probabilities": {
+            "positions": 0,
+            "wallet": 0.02,
+            "balance": 0.02,
+            "deposit_status": 0,
+            "mixed": 0.88,
+            "help": 0,
+            "stocks": 0,
+            "response": 0.08
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "defi",
+          "confidence": 0.99,
+          "probabilities": {
+            "markets": 0,
+            "defi": 0.99,
+            "wallet": 0,
+            "analytics": 0,
+            "all": 0.01,
+            "funding": 0
+          }
+        }
+      }
+    }
+  }
+]

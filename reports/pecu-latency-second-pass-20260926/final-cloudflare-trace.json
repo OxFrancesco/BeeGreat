@@ -1,0 +1,389 @@
+{
+  "count": 44,
+  "version": "796d5b6c-bb2d-4d85-bcf1-25b3ede77289",
+  "events": [
+    {
+      "timestamp": 1790445263047,
+      "message": "aero_request_completed",
+      "durationMs": 4734
+    },
+    {
+      "timestamp": 1790445263047,
+      "message": "aero_rpc",
+      "operation": "allowance",
+      "phase": "read",
+      "durationMs": 37,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445263010,
+      "message": "aero_rpc",
+      "operation": "estimateAmount1",
+      "phase": "read",
+      "durationMs": 39,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445262971,
+      "message": "aero_rpc",
+      "operation": "quoteExactInput",
+      "phase": "batch",
+      "durationMs": 234,
+      "status": "success",
+      "items": 8
+    },
+    {
+      "timestamp": 1790445262737,
+      "message": "aero_rpc",
+      "operation": "quoteExactInput",
+      "phase": "batch",
+      "durationMs": 2416,
+      "status": "success",
+      "items": 8
+    },
+    {
+      "timestamp": 1790445260321,
+      "message": "aero_rpc",
+      "operation": "cache.swap-topology.edge.write",
+      "phase": "read",
+      "durationMs": 151,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445260170,
+      "message": "aero_rpc",
+      "operation": "cache.swap-topology.r2.hit",
+      "phase": "read",
+      "durationMs": 478,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445259692,
+      "message": "aero_rpc",
+      "operation": "cache.swap-topology.edge.miss",
+      "phase": "read",
+      "durationMs": 3,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445259689,
+      "message": "aero_rpc",
+      "operation": "estimateAmount1",
+      "phase": "read",
+      "durationMs": 38,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259651,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 39,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259622,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 38,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259613,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 38,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259612,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 48,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259602,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 37,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259584,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 48,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259575,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 40,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259565,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 34,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259564,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 40,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259536,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 46,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259535,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 45,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259531,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 41,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259524,
+      "message": "aero_rpc",
+      "operation": "getManyRatesToEthWithCustomConnectors",
+      "phase": "batch",
+      "durationMs": 75,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259490,
+      "message": "aero_rpc",
+      "operation": "getManyRatesToEthWithCustomConnectors",
+      "phase": "batch",
+      "durationMs": 84,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259490,
+      "message": "aero_rpc",
+      "operation": "getManyRatesToEthWithCustomConnectors",
+      "phase": "batch",
+      "durationMs": 84,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259490,
+      "message": "aero_rpc",
+      "operation": "getManyRatesToEthWithCustomConnectors",
+      "phase": "batch",
+      "durationMs": 78,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259449,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 43,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259412,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 36,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259406,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 37,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259406,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 48,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259406,
+      "message": "aero_rpc",
+      "operation": "tokens",
+      "phase": "read",
+      "durationMs": 38,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259376,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 39,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259369,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 34,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259368,
+      "message": "aero_rpc",
+      "operation": "all",
+      "phase": "read",
+      "durationMs": 33,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445259358,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 90,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259337,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 69,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259335,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 67,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259335,
+      "message": "aero_rpc",
+      "operation": "pool.locator.nearby",
+      "phase": "read",
+      "durationMs": 67,
+      "status": "success",
+      "items": 33
+    },
+    {
+      "timestamp": 1790445259268,
+      "message": "aero_rpc",
+      "operation": "cache.pools.edge.write",
+      "phase": "read",
+      "durationMs": 162,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445259106,
+      "message": "aero_rpc",
+      "operation": "cache.pools.r2.hit",
+      "phase": "read",
+      "durationMs": 358,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445258748,
+      "message": "aero_rpc",
+      "operation": "cache.pools.edge.miss",
+      "phase": "read",
+      "durationMs": 6,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445258742,
+      "message": "aero_rpc",
+      "operation": "getBalance",
+      "phase": "read",
+      "durationMs": 49,
+      "status": "success",
+      "items": 1
+    },
+    {
+      "timestamp": 1790445258693,
+      "message": "aero_rpc",
+      "operation": "cache.tokens.edge.write",
+      "phase": "read",
+      "durationMs": 97,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445258596,
+      "message": "aero_rpc",
+      "operation": "cache.tokens.r2.hit",
+      "phase": "read",
+      "durationMs": 278,
+      "status": "success"
+    },
+    {
+      "timestamp": 1790445258318,
+      "message": "aero_rpc",
+      "operation": "cache.tokens.edge.miss",
+      "phase": "read",
+      "durationMs": 5,
+      "status": "success"
+    }
+  ]
+}

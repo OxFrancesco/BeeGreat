@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pecu performance, 24 September 2026</title><style>*{box-sizing:border-box;scrollbar-width:none}*::-webkit-scrollbar{display:none}body{margin:0;background:#111;color:#eee;font:16px/1.65 system-ui}main{max-width:860px;margin:48px auto;padding:0 24px 48px}h1,h2{line-height:1.2;font-weight:600}h1{font-size:30px}h2{font-size:21px;margin-top:36px}a{color:inherit;text-underline-offset:3px}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px}td,th{padding:10px 8px;border-bottom:1px solid #35312c;text-align:left}pre{overflow:auto}code{overflow-wrap:anywhere}@media(max-width:520px){main{margin:24px auto;padding:0 16px 32px}td,th{padding:8px 4px;font-size:12px}}</style></head><body><main><a href="report.md">Download Markdown</a><h1>Pecu performance</h1><p><a href="verification.html">Full command verification: failures and blockers</a></p>
+<p>24 September 2026. Implemented and tested locally. Pecu production has not been redeployed.</p>
+<p>Explanation-only turns were sending 138 tool definitions even though only clarification was allowed. They now send only <code>ask_user</code>. Normal tool requests regain the full catalog. Provider fallback keeps the restriction until the explanation ends, and errors clear it for the next turn.</p>
+<h2>Measured result</h2>
+<p>Five successful OpenRouter GPT-6 Luna probes per version, using the same one-word prompt. Each run starts a new conversation, with one cold turn and four warm turns. Wallet and external tool capabilities are disabled.</p>
+<table>
+<thead>
+<tr><th>Measurement</th><th align="right">Before</th><th align="right">After</th></tr>
+</thead>
+<tbody>
+<tr><td>Tool definitions</td><td align="right">138</td><td align="right">1</td></tr>
+<tr><td>First request body</td><td align="right">139,757 bytes</td><td align="right">11,891 bytes</td></tr>
+<tr><td>Cold harness time</td><td align="right">5,887 ms</td><td align="right">2,761 ms</td></tr>
+<tr><td>Warm median</td><td align="right">4,942 ms</td><td align="right">3,000 ms</td></tr>
+<tr><td>Warm maximum</td><td align="right">5,802 ms</td><td align="right">5,399 ms</td></tr>
+</tbody>
+</table>
+<p>Request bytes fell 91.5%. The observed warm median fell 39.3%. These sequential synthetic runs do not prove a production speedup or a stable p95. They exclude classifier time, web delivery, real tool-task quality and on-chain execution.</p>
+<p><a href="before.jsonl">Before samples</a> · <a href="after.jsonl">After samples</a></p>
+<h2>Production baseline</h2>
+<p>A two-day PostHog snapshot contained 14 completed web turns: median 18.1 seconds and p95 43.0 seconds. There were 44 model generations and 43 tool spans. Successful Polymarket reads took 0.08–0.52 seconds. Seven Nansen spans and one Polymarket markets span failed, so completed turns cannot all be treated as successful answers. Older generation timings cover streaming only.</p>
+<p>Six live classifier probes took 281-901 ms. Explanation and live-data prompts routed as expected. One wallet-read phrasing fell back to the full agent twice. Keep the confidence threshold until routing quality has broader coverage. <a href="classifier.jsonl">Classifier samples</a>.</p>
+<h2>Checks</h2>
+<ul>
+<li>450 tests passed, including Workerd SQLite, streaming and X Chat WASM integration tests.</li>
+<li>Pecu type checking and all four Worker build checks passed.</li>
+<li>Documentation site build passed.</li>
+<li>Tests cover both provider paths, fallback during an explanation, error cleanup, restored tools, session isolation and the existing transaction controls.</li>
+<li>Applies to shared Pecu web and X Chat inference. BeeGreat mobile, Android, CLI and iMessage use separate paths. No SDK changes.</li>
+</ul>
+<h2>Regression coverage still open</h2>
+<p>The <a href="command-inventory.json">source inventory</a> lists 21 command verbs, 138 model tools, 24 direct on-chain tool actions, 30 Aave call definitions and four supported Aave signing actions. These counts overlap and are not execution results. Each command, alias, option, provider and channel still needs a recorded live result.</p>
+<p>During this initial benchmark, no transaction was prepared, signed or submitted. The linked verification follow-up includes cancelled unsigned previews. Full on-chain coverage requires a dedicated funded wallet and an approved plan specifying actions, assets, amounts, recipients or spenders, and fee limits. Mocked receipts and quotes do not count as execution coverage.</p>
+<p>Classifier timeout, startup recovery and telemetry scheduling remain unchanged. Measure their contribution before changing them. The reusable maintenance skill already requires complete command and on-chain coverage, explicit blocked results, and comparable successful-run measurements.</p>
+</main></body></html>

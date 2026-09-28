@@ -1,0 +1,13 @@
+{
+  "latest": {
+    "canRetry": true,
+    "createdAt": 1790454374940,
+    "id": "stocks:user_3JKr4rRetM7Cp2LDVCxhOmxrbGS:1319617668186542087#5925c41b:8d9c5462-045e-48df-9e74-b87a3378a796",
+    "reply": {
+      "preview": null,
+      "text": "You have **three Aerodrome positions**, all in the **CL100 WETH/USDC pool**:\n\n- Position 77018794: 0.00063677 WETH + 2.016258 USDC\n- Position 77024465: 0.00031862 WETH + 1.008879 USDC\n- Position 77027019: 0.00015939 WETH + 0.504694 USDC\n\n**Total in Aerodrome:** about 0.00111478 WETH + 3.529831 USDC, plus a small amount of unclaimed fees. None of the positions is staked.\n\nThat’s separate from your wallet balance of 0.00034811 ETH, 0.045526 USDC, and 0.00897627 AERO. WETH in the pool is not the same as ETH in your wallet."
+    },
+    "text": "What's my balance on the Aerodrome protocol? Which pools do I have?"
+  },
+  "timingControls": 0
+}

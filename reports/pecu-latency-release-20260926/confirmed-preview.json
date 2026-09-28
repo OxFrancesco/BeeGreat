@@ -1,0 +1,76 @@
+{
+  "code": "GPDTDT",
+  "expiresAt": 1790442017626,
+  "plan": {
+    "route": {
+      "edges": [
+        {
+          "from": "n0",
+          "label": "CL50",
+          "step": 0,
+          "to": "n1"
+        },
+        {
+          "from": "n0",
+          "step": 2,
+          "to": "n2"
+        },
+        {
+          "from": "n1",
+          "step": 2,
+          "to": "n2"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "n0",
+          "kind": "token",
+          "label": "ETH"
+        },
+        {
+          "id": "n1",
+          "kind": "token",
+          "label": "USDC"
+        },
+        {
+          "detail": "WETH / USDC",
+          "id": "n2",
+          "kind": "pool",
+          "label": "CL100 pool"
+        }
+      ]
+    },
+    "steps": [
+      {
+        "contract": "0xcAF22ce31298CF2BF1D152862F80216478ad7c67",
+        "contractName": "Aerodrome swap router",
+        "hash": "0x264c1e3077ce12a6350844072d9bb5a83c85ef332871abc93e67572df6dab201",
+        "kind": "swap",
+        "status": "confirmed",
+        "title": "Swap 0.000382752295937939 ETH for at least 1.025041 USDC",
+        "value": "0.000382752295937939 ETH"
+      },
+      {
+        "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "contractName": "USDC token",
+        "hash": "0x264c1e3077ce12a6350844072d9bb5a83c85ef332871abc93e67572df6dab201",
+        "kind": "approval",
+        "status": "confirmed",
+        "title": "Allow the position manager to spend 1.024882 USDC"
+      },
+      {
+        "contract": "0x827922686190790b37229fd06084350E74485b72",
+        "contractName": "Position manager",
+        "hash": "0x264c1e3077ce12a6350844072d9bb5a83c85ef332871abc93e67572df6dab201",
+        "kind": "deposit",
+        "status": "confirmed",
+        "title": "Deposit 0.000313372704062255 ETH and 1.024882 USDC into the CL100 WETH/USDC pool",
+        "value": "0.000313372704062255 ETH"
+      }
+    ]
+  },
+  "result": "Aerodrome liquidity confirmed on Base mainnet.\nhttps://basescan.org/tx/0x264c1e3077ce12a6350844072d9bb5a83c85ef332871abc93e67572df6dab201",
+  "state": "succeeded",
+  "text": "Add a concentrated-liquidity position on Base with a budget of 0.000696125000000194 ETH.\nSwap 0.000382752295937939 ETH for at least 1.025041 USDC.\nDeposit 0.000313372704062255 ETH and 1.024882 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.",
+  "title": "Fund and create a liquidity position"
+}

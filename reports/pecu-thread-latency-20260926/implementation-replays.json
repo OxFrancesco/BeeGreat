@@ -1,0 +1,316 @@
+[
+  {
+    "completedMs": 9846,
+    "frames": [
+      {
+        "at": 412.70000000298023,
+        "stage": {
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790435617562,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 423.80000000074506,
+        "traceId": "pecu_dd7fb90c9a6c4403ccb979a983ab986063d0ee02713ba876c26604de3df5afe2",
+        "type": "trace"
+      },
+      {
+        "at": 1739.1000000014901,
+        "stage": {
+          "endedAt": 1790435618934,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790435617562,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 1966.9000000022352,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790435618518,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 8588.400000002235,
+        "stage": {
+          "endedAt": 1790435625760,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790435618518,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 8592.10000000149,
+        "stage": {
+          "id": "msg_0de476f3a05dY1dxxhFbSd7FpB",
+          "label": "Generating a response",
+          "startedAt": 1790435625760,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 8802.10000000149,
+        "type": "paragraph"
+      },
+      {
+        "at": 8970.70000000298,
+        "type": "paragraph"
+      },
+      {
+        "at": 9171.400000002235,
+        "type": "paragraph"
+      },
+      {
+        "at": 9299.5,
+        "type": "paragraph"
+      },
+      {
+        "at": 9419.5,
+        "type": "paragraph"
+      },
+      {
+        "at": 9601.20000000298,
+        "type": "paragraph"
+      },
+      {
+        "at": 9637,
+        "type": "paragraph"
+      },
+      {
+        "at": 9840,
+        "type": "paragraph"
+      },
+      {
+        "at": 9842.300000000745,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 410.70000000298023,
+    "startedAt": 1790435617115,
+    "status": 200
+  },
+  {
+    "completedMs": 79913.39999999851,
+    "frames": [
+      {
+        "at": 1736.2999999970198,
+        "stage": {
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790436149102,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 1736.2999999970198,
+        "traceId": "pecu_a1650003456ec8274f02c1d0236423bf9d8093038d55b7daa10d8d286fc7df2b",
+        "type": "trace"
+      },
+      {
+        "at": 2054.099999997765,
+        "stage": {
+          "endedAt": 1790436149418,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790436149102,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 3762.89999999851,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790436150498,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 35083.5,
+        "stage": {
+          "endedAt": 1790436182414,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790436150498,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 35083.5,
+        "stage": {
+          "id": "msg_0de4f8d4605dS5EeRDugL17fbh",
+          "label": "Generating a response",
+          "startedAt": 1790436182414,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 35092.39999999851,
+        "stage": {
+          "id": "call_1GKlQNkV4XxKMjtT1XPvOObP",
+          "label": "Reading balances",
+          "startedAt": 1790436182460,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 35095.79999999702,
+        "stage": {
+          "id": "call_4mpAOsjRnBlKvs40nyRZKZRK",
+          "label": "Finding pools",
+          "startedAt": 1790436182460,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 35095.79999999702,
+        "stage": {
+          "endedAt": 1790436182460,
+          "id": "msg_0de4f8d4605dS5EeRDugL17fbh",
+          "label": "Generating a response",
+          "startedAt": 1790436182414,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 36130.699999999255,
+        "stage": {
+          "endedAt": 1790436183456,
+          "id": "call_1GKlQNkV4XxKMjtT1XPvOObP",
+          "label": "Reading balances",
+          "startedAt": 1790436182460,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 54151.099999997765,
+        "stage": {
+          "endedAt": 1790436201414,
+          "id": "call_4mpAOsjRnBlKvs40nyRZKZRK",
+          "label": "Finding pools",
+          "startedAt": 1790436182460,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 54151.199999999255,
+        "stage": {
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790436201414,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 54151.199999999255,
+        "stage": {
+          "endedAt": 1790436201414,
+          "id": "msg_0de4f8d4605dS5EeRDugL17fbh",
+          "label": "Generating a response",
+          "startedAt": 1790436182414,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 58483.699999999255,
+        "stage": {
+          "endedAt": 1790436205893,
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790436201414,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 58488.099999997765,
+        "stage": {
+          "id": "msg_0de5053c6004v2y1ISjnLeMHnR",
+          "label": "Generating a response",
+          "startedAt": 1790436205893,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 59002.39999999851,
+        "stage": {
+          "id": "call_PmGZFX5gO2l4qVaH2252c0Iq",
+          "label": "Preparing liquidity",
+          "startedAt": 1790436206384,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 59002.39999999851,
+        "stage": {
+          "endedAt": 1790436206384,
+          "id": "msg_0de5053c6004v2y1ISjnLeMHnR",
+          "label": "Generating a response",
+          "startedAt": 1790436205893,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 79872.79999999702,
+        "type": "paragraph"
+      },
+      {
+        "at": 79903.79999999702,
+        "stage": {
+          "endedAt": 1790436227245,
+          "id": "call_PmGZFX5gO2l4qVaH2252c0Iq",
+          "label": "Preparing liquidity",
+          "startedAt": 1790436206384,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 79906.09999999776,
+        "stage": {
+          "endedAt": 1790436227245,
+          "id": "msg_0de5053c6004v2y1ISjnLeMHnR",
+          "label": "Generating a response",
+          "startedAt": 1790436205893,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 79909.69999999925,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 1735.0999999977648,
+    "startedAt": 1790436147347,
+    "status": 200
+  }
+]

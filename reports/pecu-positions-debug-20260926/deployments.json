@@ -1,0 +1,26 @@
+[
+  {
+    "name": "basedbot",
+    "version": "10440757-6d78-4236-8c97-1f0b0445b994",
+    "created": "2026-09-26T20:25:44.337935Z",
+    "message": "Release f901580e: preserve complete Aero reads and list every position"
+  },
+  {
+    "name": "basedbot-aero",
+    "version": "8201b78e-223c-4844-8138-d04d9743709c",
+    "created": "2026-09-26T20:19:18.679376Z",
+    "message": "Release e02efbcf: include unstaked concentrated positions"
+  },
+  {
+    "name": "aero-stocks",
+    "version": "9a94b317-ac20-45e6-8303-0a2dae887e5c",
+    "created": "2026-09-26T20:21:01.905086Z",
+    "message": "Release e02efbcf: hide timing details in production"
+  },
+  {
+    "name": "pecu-app",
+    "version": "5b4d30d8-6d48-4e0d-876f-9e0d654c69da",
+    "created": "2026-09-26T20:24:45.426795Z",
+    "message": "Release f901580e: document complete position reads and preview timings"
+  }
+]

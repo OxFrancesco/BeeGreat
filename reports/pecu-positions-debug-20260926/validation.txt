@@ -1,0 +1,9 @@
+Pecu: 528 tests pass, 0 fail, 83 files, 12,354 assertions; includes real Workerd SQLite/stream/WASM checks.
+Web: 94 tests pass, 0 fail, 19 files, 402 assertions.
+Type checks: Pecu, Stocks, docs pass.
+Lint: Pecu and Stocks design lint pass.
+Builds: main/Aero/Codex/EVM Worker dry runs, production Stocks build, docs build pass.
+Position regression: three tests fail against old installed SDK; four pass after pin update.
+Truncation regression: two tests fail before fix and pass after.
+UI: preview fixture shows Timing; development/preview/test render tests pass; production/unknown hide tests pass.
+Repository: fix/pecu-positions-production-timings; f901580ec70c0d259e8feb9861a441fb222c06a0; PR #47.

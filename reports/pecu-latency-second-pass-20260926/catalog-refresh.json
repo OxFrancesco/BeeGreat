@@ -1,0 +1,178 @@
+[
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:47:26.755Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "swap-topology",
+    "duration_ms": 4507,
+    "entries": 35848,
+    "expires_at": 1790445025505,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:47:22.131Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "pools",
+    "duration_ms": 9845,
+    "entries": 37476,
+    "expires_at": 1790445020027,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:46:26.978Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "swap-topology",
+    "duration_ms": 4229,
+    "entries": 35848,
+    "expires_at": 1790444965227,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:46:22.651Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "pools",
+    "duration_ms": 10450,
+    "entries": 37476,
+    "expires_at": 1790444960496,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:45:32.306Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "tokens",
+    "duration_ms": 4607,
+    "entries": 35257,
+    "expires_at": 1790445328746,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:45:27.602Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "swap-topology",
+    "duration_ms": 4325,
+    "entries": 35848,
+    "expires_at": 1790444905764,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:45:23.174Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "pools",
+    "duration_ms": 10322,
+    "entries": 37476,
+    "expires_at": 1790444900955,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:44:33.152Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "swap-topology",
+    "duration_ms": 7732,
+    "entries": 35848,
+    "expires_at": 1790444851055,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:44:25.312Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "pools",
+    "duration_ms": 13049,
+    "entries": 37476,
+    "expires_at": 1790444842546,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:43:29.724Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "tokens",
+    "duration_ms": 7559,
+    "entries": 35257,
+    "expires_at": 1790445207460,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:43:29.413Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "swap-topology",
+    "duration_ms": 6472,
+    "entries": 35848,
+    "expires_at": 1790444786174,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:43:22.841Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "pools",
+    "duration_ms": 10648,
+    "entries": 37476,
+    "expires_at": 1790444780850,
+    "method": "GET",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:42:35.119Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "swap-topology",
+    "duration_ms": 7685,
+    "entries": 35848,
+    "expires_at": 1790444733350,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:42:27.337Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "pools",
+    "duration_ms": 15135,
+    "entries": 37476,
+    "expires_at": 1790444725126,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:41:32.227Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "swap-topology",
+    "duration_ms": 4814,
+    "entries": 35848,
+    "expires_at": 1790444670363,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  },
+  {
+    "level": "info",
+    "timestamp": "2026-09-26T17:41:27.326Z",
+    "message": "aero_catalog_refreshed",
+    "kind": "pools",
+    "duration_ms": 14061,
+    "entries": 37476,
+    "expires_at": 1790444664379,
+    "method": "POST",
+    "version": "cc75dd1b-2966-4514-875f-9ce769c5283c"
+  }
+]

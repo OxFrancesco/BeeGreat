@@ -1,0 +1,396 @@
+[
+  {
+    "sample": 0,
+    "prompt": "Create a concentrated eth usdc pool on aerodrome with half of my eth!",
+    "durationMs": 404,
+    "route": {
+      "kind": "fallback",
+      "family": "defi"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "liquidity_action": {
+          "type": "choice",
+          "choice": "unsupported",
+          "confidence": 0.29,
+          "probabilities": {
+            "existing_position": 0.36,
+            "unsupported": 0.64
+          }
+        },
+        "liquidity_defaults": {
+          "type": "choice",
+          "choice": "default",
+          "confidence": 0.65,
+          "probabilities": {
+            "custom": 0.18,
+            "default": 0.82
+          }
+        },
+        "liquidity_budget": {
+          "type": "choice",
+          "choice": "b0",
+          "confidence": 0.88,
+          "probabilities": {
+            "b0": 0.94,
+            "none": 0.06
+          }
+        },
+        "liquidity_pool": {
+          "type": "choice",
+          "choice": "eth_usdc",
+          "confidence": 0.74,
+          "probabilities": {
+            "none": 0.13,
+            "eth_usdc": 0.87
+          }
+        },
+        "route": {
+          "type": "choice",
+          "choice": "mixed",
+          "confidence": 0.86,
+          "probabilities": {
+            "wallet": 0.02,
+            "stocks": 0,
+            "balance": 0.02,
+            "help": 0,
+            "deposit_status": 0,
+            "response": 0.08,
+            "mixed": 0.88,
+            "positions": 0
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "defi",
+          "confidence": 0.99,
+          "probabilities": {
+            "wallet": 0,
+            "analytics": 0,
+            "funding": 0,
+            "markets": 0,
+            "all": 0.01,
+            "defi": 0.99
+          }
+        }
+      }
+    }
+  },
+  {
+    "sample": 1,
+    "prompt": "Add a concentrated ETH USDC liquidity position on Aerodrome using half of my ETH",
+    "durationMs": 390,
+    "route": {
+      "kind": "mixed",
+      "family": "defi"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "liquidity_action": {
+          "type": "choice",
+          "choice": "existing_position",
+          "confidence": 0.71,
+          "probabilities": {
+            "unsupported": 0.15,
+            "existing_position": 0.85
+          }
+        },
+        "liquidity_defaults": {
+          "type": "choice",
+          "choice": "default",
+          "confidence": 0.6,
+          "probabilities": {
+            "custom": 0.2,
+            "default": 0.8
+          }
+        },
+        "liquidity_budget": {
+          "type": "choice",
+          "choice": "b0",
+          "confidence": 0.71,
+          "probabilities": {
+            "none": 0.15,
+            "b0": 0.85
+          }
+        },
+        "liquidity_pool": {
+          "type": "choice",
+          "choice": "eth_usdc",
+          "confidence": 0.8,
+          "probabilities": {
+            "none": 0.1,
+            "eth_usdc": 0.9
+          }
+        },
+        "route": {
+          "type": "choice",
+          "choice": "mixed",
+          "confidence": 0.93,
+          "probabilities": {
+            "balance": 0.02,
+            "mixed": 0.94,
+            "help": 0,
+            "wallet": 0.01,
+            "response": 0.03,
+            "deposit_status": 0,
+            "stocks": 0,
+            "positions": 0
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "defi",
+          "confidence": 0.99,
+          "probabilities": {
+            "analytics": 0,
+            "all": 0,
+            "defi": 1,
+            "markets": 0,
+            "wallet": 0,
+            "funding": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "sample": 2,
+    "prompt": "Do not add ETH USDC liquidity with half my ETH",
+    "durationMs": 276,
+    "route": {
+      "kind": "fallback",
+      "family": "defi"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "liquidity_action": {
+          "type": "choice",
+          "choice": "unsupported",
+          "confidence": 0.99,
+          "probabilities": {
+            "unsupported": 1,
+            "existing_position": 0
+          }
+        },
+        "liquidity_defaults": {
+          "type": "choice",
+          "choice": "default",
+          "confidence": 0.27,
+          "probabilities": {
+            "custom": 0.37,
+            "default": 0.63
+          }
+        },
+        "liquidity_budget": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.38,
+          "probabilities": {
+            "b0": 0.31,
+            "none": 0.69
+          }
+        },
+        "liquidity_pool": {
+          "type": "choice",
+          "choice": "none",
+          "confidence": 0.08,
+          "probabilities": {
+            "eth_usdc": 0.46,
+            "none": 0.54
+          }
+        },
+        "route": {
+          "type": "choice",
+          "choice": "response",
+          "confidence": 0.51,
+          "probabilities": {
+            "balance": 0.01,
+            "deposit_status": 0,
+            "stocks": 0,
+            "mixed": 0.38,
+            "wallet": 0.01,
+            "positions": 0.01,
+            "help": 0.02,
+            "response": 0.57
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "defi",
+          "confidence": 0.97,
+          "probabilities": {
+            "all": 0.01,
+            "analytics": 0,
+            "funding": 0,
+            "wallet": 0.01,
+            "defi": 0.98,
+            "markets": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "sample": 3,
+    "prompt": "Explain how I would add ETH USDC liquidity using half my ETH",
+    "durationMs": 286,
+    "route": {
+      "kind": "fallback",
+      "family": "defi"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "liquidity_action": {
+          "type": "choice",
+          "choice": "unsupported",
+          "confidence": 0.9,
+          "probabilities": {
+            "unsupported": 0.95,
+            "existing_position": 0.05
+          }
+        },
+        "liquidity_defaults": {
+          "type": "choice",
+          "choice": "default",
+          "confidence": 0.96,
+          "probabilities": {
+            "custom": 0.02,
+            "default": 0.98
+          }
+        },
+        "liquidity_budget": {
+          "type": "choice",
+          "choice": "b0",
+          "confidence": 0.58,
+          "probabilities": {
+            "none": 0.21,
+            "b0": 0.79
+          }
+        },
+        "liquidity_pool": {
+          "type": "choice",
+          "choice": "eth_usdc",
+          "confidence": 0.62,
+          "probabilities": {
+            "none": 0.19,
+            "eth_usdc": 0.81
+          }
+        },
+        "route": {
+          "type": "choice",
+          "choice": "response",
+          "confidence": 0.53,
+          "probabilities": {
+            "balance": 0,
+            "mixed": 0.41,
+            "response": 0.59,
+            "deposit_status": 0,
+            "wallet": 0,
+            "help": 0,
+            "positions": 0,
+            "stocks": 0
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "defi",
+          "confidence": 1,
+          "probabilities": {
+            "all": 0,
+            "wallet": 0,
+            "funding": 0,
+            "analytics": 0,
+            "defi": 1,
+            "markets": 0
+          }
+        }
+      }
+    }
+  },
+  {
+    "sample": 4,
+    "prompt": "Add ETH USDC liquidity with half my ETH then send the rest to Alice",
+    "durationMs": 298,
+    "route": {
+      "kind": "fallback"
+    },
+    "detail": {
+      "status": 200,
+      "model": "jev-1.13.0",
+      "answers": {
+        "liquidity_action": {
+          "type": "choice",
+          "choice": "unsupported",
+          "confidence": 0.99,
+          "probabilities": {
+            "unsupported": 0.99,
+            "existing_position": 0.01
+          }
+        },
+        "liquidity_defaults": {
+          "type": "choice",
+          "choice": "default",
+          "confidence": 0.98,
+          "probabilities": {
+            "default": 0.99,
+            "custom": 0.01
+          }
+        },
+        "liquidity_budget": {
+          "type": "choice",
+          "choice": "b0",
+          "confidence": 0.6,
+          "probabilities": {
+            "none": 0.2,
+            "b0": 0.8
+          }
+        },
+        "liquidity_pool": {
+          "type": "choice",
+          "choice": "eth_usdc",
+          "confidence": 0.47,
+          "probabilities": {
+            "eth_usdc": 0.73,
+            "none": 0.27
+          }
+        },
+        "route": {
+          "type": "choice",
+          "choice": "mixed",
+          "confidence": 0.82,
+          "probabilities": {
+            "deposit_status": 0,
+            "balance": 0.02,
+            "response": 0.11,
+            "wallet": 0.02,
+            "help": 0.01,
+            "stocks": 0,
+            "positions": 0,
+            "mixed": 0.84
+          }
+        },
+        "family": {
+          "type": "choice",
+          "choice": "all",
+          "confidence": 0.55,
+          "probabilities": {
+            "all": 0.62,
+            "markets": 0,
+            "funding": 0,
+            "analytics": 0,
+            "wallet": 0.05,
+            "defi": 0.33
+          }
+        }
+      }
+    }
+  }
+]

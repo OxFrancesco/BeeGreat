@@ -1,0 +1,6 @@
+{"scenario":"explanation","sample":0,"status":200,"durationMs":901,"route":{"kind":"response"},"expected":"response","pass":true}
+{"scenario":"explanation","sample":1,"status":200,"durationMs":290,"route":{"kind":"response"},"expected":"response","pass":true}
+{"scenario":"wallet-read","sample":0,"status":200,"durationMs":305,"route":{"kind":"fallback"},"expected":"command","pass":false}
+{"scenario":"wallet-read","sample":1,"status":200,"durationMs":284,"route":{"kind":"fallback"},"expected":"command","pass":false}
+{"scenario":"live-data","sample":0,"status":200,"durationMs":281,"route":{"kind":"mixed"},"expected":"mixed","pass":true}
+{"scenario":"live-data","sample":1,"status":200,"durationMs":365,"route":{"kind":"mixed"},"expected":"mixed","pass":true}

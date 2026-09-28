@@ -1,0 +1,17 @@
+{
+  "before": {
+    "median": 16.141,
+    "max": 35.59219999999553,
+    "min": 13.5635
+  },
+  "after": {
+    "median": 11.70489999999851,
+    "max": 14.4315,
+    "min": 8.62539999999851
+  },
+  "medianReductionPercent": 27.483427296954886,
+  "maxReductionPercent": 59.45319480110302,
+  "tests": 521,
+  "source": "0c786a3a",
+  "transaction": "0x700a1dcaf6cdbde72d36eb46fb126df5b718afd53f984ebe5db255f0e59e41ce"
+}

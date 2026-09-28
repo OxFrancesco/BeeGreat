@@ -1,0 +1,5 @@
+{"mode":"response","sample":0,"state":"cold","status":200,"result":{"text":"OK","elapsedMs":2761,"fallbackConfigured":true,"providerCalls":[{"requestBytes":11891,"toolCount":1,"responseMs":797,"status":200}]}}
+{"mode":"response","sample":1,"state":"warm","status":200,"result":{"text":"OK","elapsedMs":2936,"fallbackConfigured":true,"providerCalls":[{"requestBytes":12274,"toolCount":1,"responseMs":1004,"status":200}]}}
+{"mode":"response","sample":2,"state":"warm","status":200,"result":{"text":"OK","elapsedMs":5399,"fallbackConfigured":true,"providerCalls":[{"requestBytes":12657,"toolCount":1,"responseMs":1432,"status":200}]}}
+{"mode":"response","sample":3,"state":"warm","status":200,"result":{"text":"OK","elapsedMs":3064,"fallbackConfigured":true,"providerCalls":[{"requestBytes":13040,"toolCount":1,"responseMs":1074,"status":200}]}}
+{"mode":"response","sample":4,"state":"warm","status":200,"result":{"text":"OK","elapsedMs":1875,"fallbackConfigured":true,"providerCalls":[{"requestBytes":13423,"toolCount":1,"responseMs":798,"status":200}]}}

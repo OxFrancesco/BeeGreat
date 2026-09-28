@@ -1,0 +1,85 @@
+{
+  "measurement": "Authenticated browser API stream completion, not UI paint. Stage intervals may overlap. Small sample p95 is descriptive only.",
+  "reports": [
+    {
+      "label": "before-second-pass",
+      "requests": 5,
+      "previews": 5,
+      "outcomes": [
+        "pending",
+        "pending",
+        "pending",
+        "pending",
+        "pending"
+      ],
+      "browserStreamComplete": {
+        "n": 5,
+        "medianMs": 16141,
+        "p95Ms": 35592.19999999553,
+        "minMs": 13563.5,
+        "maxMs": 35592.19999999553
+      },
+      "firstFrame": {
+        "n": 5,
+        "medianMs": 356.8999999985099,
+        "p95Ms": 629.5999999940395,
+        "minMs": 345.8999999985099,
+        "maxMs": 629.5999999940395
+      },
+      "modelMs": {
+        "n": 5,
+        "medianMs": 9371,
+        "p95Ms": 9968,
+        "minMs": 8602,
+        "maxMs": 9968
+      },
+      "traces": [
+        "pecu_bfe7729375c8c7120008a5bb6cd0f5e73b0ae435b776bbc0e767e57d6c798ba7",
+        "pecu_9b8d85a6a45f0d4f09638e93ec9f9746085834b3e58792985fe15622552d1bfa",
+        "pecu_7ec26e5a0d01fee07df6f8719d40f900db5b4159339ef79907c2291ef933c3d5",
+        "pecu_1bceb2e2c1bfb99f95748f7ba9a277812f878cbe55d2ca62f8e9af32ce1b96c9",
+        "pecu_cdbfcdd6460470f4a3e8b24a266055304d40fdb80e3566c08aadf7d24a17ef0f"
+      ]
+    },
+    {
+      "label": "after-second-pass",
+      "requests": 5,
+      "previews": 5,
+      "outcomes": [
+        "pending",
+        "pending",
+        "pending",
+        "pending",
+        "pending"
+      ],
+      "browserStreamComplete": {
+        "n": 5,
+        "medianMs": 12788,
+        "p95Ms": 26192.5,
+        "minMs": 11562.5,
+        "maxMs": 26192.5
+      },
+      "firstFrame": {
+        "n": 5,
+        "medianMs": 381.69999999552965,
+        "p95Ms": 1808.9000000059605,
+        "minMs": 355.5,
+        "maxMs": 1808.9000000059605
+      },
+      "modelMs": {
+        "n": 5,
+        "medianMs": 7820,
+        "p95Ms": 8597,
+        "minMs": 7107,
+        "maxMs": 8597
+      },
+      "traces": [
+        "pecu_7b1a74c100a35fc1bd67d80646326d65ada4c58947691bf5458f9e4410b9705b",
+        "pecu_c1f0b484f9d813e4a579177a68eddc78fb5a2a1dec2278fe3e15e300895b9677",
+        "pecu_2b8b755f4ec24f9eb275389d79a5a2eab9464033e1597e662fb1fd757d53742e",
+        "pecu_770dba2e8df173b40f9a24d73dc19c61b7ae51bc4bfb956b4c11768909ae8af7",
+        "pecu_13912ba18d3370cb938a8347fbe302b671635ca2a2763b2b1f3ae93c7dfdda81"
+      ]
+    }
+  ]
+}
