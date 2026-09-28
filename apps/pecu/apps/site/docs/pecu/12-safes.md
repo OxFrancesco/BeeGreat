@@ -77,3 +77,5 @@ A limit caps the amount, not the recipient. When your Pecu wallet has a limit, p
 ## In chat
 
 Pecu in X Chat and on pecu.app/agent sees the same queue. Ask what is pending on a Safe to get its transactions, approvals and signatures. When your wallet's approval completes the requirement, Pecu can execute with the collected signatures after your confirmation. Safe transactions you propose in chat join the queue.
+
+You can also create a Safe in chat, for example "Create a Safe with me and 0x… as owners, 2 approvals needed". Pecu shows a preview to confirm like any other transaction. The new Safe appears on your profile under My Safes. Ask "Show my Safes" in any chat to list every Safe you created or added, with whether it is ready, still being created or was never created.

@@ -87,7 +87,7 @@ The test accepts Base Sepolia only and generates ephemeral owners. Pimlico's def
 
 ## Pecu
 
-Pecu exposes 26 Safe tools through the shared web/X Chat tool set, for both OpenRouter and ChatGPT inference paths. Safe configuration proposals, budgets, roles, passkey signer deployment, collected signatures and signer replacement use the same verified sender and persisted confirmation flow as existing transfers. Requests stay on Base mainnet.
+Pecu exposes 27 Safe tools through the shared web/X Chat tool set, for both OpenRouter and ChatGPT inference paths. Safe configuration proposals, budgets, roles, passkey signer deployment, collected signatures and signer replacement use the same verified sender and persisted confirmation flow as existing transfers. Requests stay on Base mainnet.
 
 Pecu independently compares planned calldata to the reviewed request. It checks the sender, zero outer value, module destination, role, inner target, amount, signature bytes and deployment configuration. Budget and token previews use token decimals. Other role calls require a verified contract ABI and describe static arguments explicitly in contract base units. Opaque ordinary Safe contract calls remain SDK-only.
 
@@ -104,6 +104,8 @@ The Safe form lists the account's [linked wallets](47-pecu-linked-wallets.md) as
 Profile actions that sign use a dedicated `profile:` conversation, so YOLO never applies and each action shows the existing preview card. Page reads use Multicall3 over the Base RPC for owners, threshold, nonce, modules, balances, approvals and Allowance module limits. Every write still goes through evmSDK in the sandbox and Pecu's plan validation. One sender can have 10 pending proposals per Safe.
 
 Chat reads the queue with `safe_queue`. When the sender's wallet completes the threshold, the result includes an `executeWith` payload for `safe_execute_signatures`.
+
+`safe_list` returns every Safe the sender tracks: those added or created on the profile and those created with `safe_create` in any chat. A chat-created Safe is recorded under a `My Safes` organization with its creation event, so its status reads ready, creating or not created from that intent, and the web profile shows it too.
 
 BeeGreat mobile, Android, CLI, iMessage, voice and Hive do not call Pecu's wallet service. They gain no separate Safe UI. No Convex or Bee UI contracts changed. The Pecu web contract gained `profile`, `profile-safe` and `profile-action` gateway operations (`apps/pecu/src/safe-profile-contract.ts`).
 

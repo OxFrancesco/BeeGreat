@@ -42,6 +42,8 @@ type IntentRow = { event_id: string; sender: string; kind: string; safe: string;
 export class ProfileError extends Error {}
 
 const limits = { orgs: 20, safes: 20, contacts: 100, queued: 100, queuedPerProposer: 10 };
+const chatOrgName = "My Safes";
+const newId = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (byte) => byte.toString(16).padStart(2, "0")).join("");
 const submissionWindowMs = 10 * 60_000;
 const execTransactionSelector = "0x6a761202";
 const recentIntentMs = 30 * 60_000;
@@ -425,11 +427,7 @@ export class SafeProfile {
   async act(identity: Identity, action: ProfileAction): Promise<ProfileActionResult> {
     switch (action.op) {
       case "org-create": {
-        const count = this.rows<{ count: number }>("SELECT COUNT(*) AS count FROM basedbot_safe_orgs WHERE sender=?", identity.senderId)[0]?.count ?? 0;
-        if (count >= limits.orgs) throw new ProfileError(`You can have up to ${limits.orgs} organizations.`);
-        const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), (byte) => byte.toString(16).padStart(2, "0")).join("");
-        this.deps.sql.exec("INSERT INTO basedbot_safe_orgs(id,sender,name,created_at) VALUES(?,?,?,?)", id, identity.senderId, action.name, Date.now());
-        return { ok: true, orgId: id };
+        return { ok: true, orgId: this.createOrg(identity.senderId, action.name) };
       }
       case "org-rename":
         this.org(identity, action.orgId);
@@ -566,6 +564,31 @@ export class SafeProfile {
       identity.senderId, safe,
     )[0];
     if (existing) throw new ProfileError(`This Safe is already in ${existing.name}.`);
+  }
+
+  private createOrg(senderId: string, name: string): string {
+    const count = this.rows<{ count: number }>("SELECT COUNT(*) AS count FROM basedbot_safe_orgs WHERE sender=?", senderId)[0]?.count ?? 0;
+    if (count >= limits.orgs) throw new ProfileError(`You can have up to ${limits.orgs} organizations.`);
+    const id = newId();
+    this.deps.sql.exec("INSERT INTO basedbot_safe_orgs(id,sender,name,created_at) VALUES(?,?,?,?)", id, senderId, name, Date.now());
+    return id;
+  }
+
+  recordChatSafe(senderId: string, address: string, creationEvent: string): void {
+    const safe = checksum(address, "Safe address");
+    const tracked = this.rows<{ safe: string }>("SELECT w.safe FROM basedbot_safe_wallets w JOIN basedbot_safe_orgs o ON o.id=w.org_id WHERE o.sender=? AND w.safe=?", senderId, safe);
+    if (tracked.length) return;
+    const orgId = this.rows<OrgRow>("SELECT * FROM basedbot_safe_orgs WHERE sender=? AND name=? ORDER BY created_at LIMIT 1", senderId, chatOrgName)[0]?.id ?? this.createOrg(senderId, chatOrgName);
+    const count = this.rows<{ count: number }>("SELECT COUNT(*) AS count FROM basedbot_safe_wallets WHERE org_id=?", orgId)[0]?.count ?? 0;
+    this.insertWallet(orgId, safe, `Safe ${count + 1}`, creationEvent);
+  }
+
+  mySafes(senderId: string) {
+    const rows = this.rows<WalletRow & { org_name: string }>(
+      "SELECT w.*, o.name AS org_name FROM basedbot_safe_wallets w JOIN basedbot_safe_orgs o ON o.id=w.org_id WHERE o.sender=? ORDER BY o.created_at, w.created_at",
+      senderId,
+    );
+    return { safes: rows.map((row) => ({ address: checksum(row.safe), name: row.name, organization: row.org_name, status: this.creationStatus(row) })) };
   }
 
   private insertWallet(orgId: string, safe: Address, name: string, creationEvent: string | null): void {

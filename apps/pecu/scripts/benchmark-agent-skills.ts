@@ -72,6 +72,8 @@ const cases: Case[] = [
   { id: "allowance", family: "wallet", text: `What is my USDC allowance for ${address}?`, expected: ["evm_allowance"], arguments: { token: "USDC", spender: address } },
   { id: "send-precheck", family: "wallet", text: `Send 1 USDC to ${address}.`, expected: ["evm_token_balance", "wallet_balances"] },
   { id: "safe-info", family: "wallet", text: "Show the owners and threshold of my Safe at 0x2222222222222222222222222222222222222222.", expected: ["safe_info"] },
+  { id: "safe-list", family: "all", text: "Show my Safes", expected: ["safe_list"] },
+  { id: "safe-create", family: "wallet", text: "Create a Safe with my wallet and 0x2222222222222222222222222222222222222222 as owners, 2 approvals needed.", expected: ["wallet_address", "safe_create"] },
   { id: "no-authorization", family: "wallet", text: "Explain what approving 2 USDC would mean. This is hypothetical. Do not prepare or execute anything.", expected: [] },
   { id: "nansen-flows", family: "analytics", text: "Who is buying AERO on Base? Show smart money flows for the last 7 days.", expected: ["nansen_token_flows", "nansen_token_flow_intelligence", "nansen_token_who_bought_sold"] },
   { id: "funding", family: "funding", text: "How can I add $50 to my wallet by bank transfer?", expected: ["deposit_instructions"], arguments: { amount: "50" } },
