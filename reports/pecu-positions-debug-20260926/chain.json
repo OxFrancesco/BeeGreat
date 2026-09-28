@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-09-26T20:14:23.637Z",
+  "wallet": "0xC2cf95Eaf5DBb58ecEe90FA78aB3Ccd036D68cb2",
+  "count": "3",
+  "positions": [
+    {
+      "id": "77018794",
+      "owner": "0xC2cf95Eaf5DBb58ecEe90FA78aB3Ccd036D68cb2",
+      "token0": "0x4200000000000000000000000000000000000006",
+      "token1": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "tickSpacing": 100,
+      "tickLower": -199600,
+      "tickUpper": -195500,
+      "liquidity": "369209715211"
+    },
+    {
+      "id": "77024465",
+      "owner": "0xC2cf95Eaf5DBb58ecEe90FA78aB3Ccd036D68cb2",
+      "token0": "0x4200000000000000000000000000000000000006",
+      "token1": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "tickSpacing": 100,
+      "tickLower": -199600,
+      "tickUpper": -195500,
+      "liquidity": "184742289932"
+    },
+    {
+      "id": "77027019",
+      "owner": "0xC2cf95Eaf5DBb58ecEe90FA78aB3Ccd036D68cb2",
+      "token0": "0x4200000000000000000000000000000000000006",
+      "token1": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "tickSpacing": 100,
+      "tickLower": -199600,
+      "tickUpper": -195500,
+      "liquidity": "92417659230"
+    }
+  ]
+}

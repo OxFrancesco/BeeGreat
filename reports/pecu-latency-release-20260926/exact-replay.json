@@ -1,0 +1,261 @@
+{
+  "preview": {
+    "code": "K6HFB9",
+    "expiresAt": 1790438988748,
+    "plan": {
+      "route": {
+        "edges": [
+          {
+            "from": "n0",
+            "label": "CL10",
+            "step": 0,
+            "to": "n1"
+          },
+          {
+            "from": "n0",
+            "step": 2,
+            "to": "n2"
+          },
+          {
+            "from": "n1",
+            "step": 2,
+            "to": "n2"
+          }
+        ],
+        "nodes": [
+          {
+            "id": "n0",
+            "kind": "token",
+            "label": "ETH"
+          },
+          {
+            "id": "n1",
+            "kind": "token",
+            "label": "USDC"
+          },
+          {
+            "detail": "WETH / USDC",
+            "id": "n2",
+            "kind": "pool",
+            "label": "CL100 pool"
+          }
+        ]
+      },
+      "steps": [
+        {
+          "contract": "0xcAF22ce31298CF2BF1D152862F80216478ad7c67",
+          "contractName": "Aerodrome swap router",
+          "kind": "swap",
+          "title": "Swap 0.000382966053661255 ETH for at least 1.025989 USDC",
+          "value": "0.000382966053661255 ETH"
+        },
+        {
+          "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "contractName": "USDC token",
+          "kind": "approval",
+          "title": "Allow the position manager to spend 1.025989 USDC"
+        },
+        {
+          "contract": "0x827922686190790b37229fd06084350E74485b72",
+          "contractName": "Position manager",
+          "kind": "deposit",
+          "title": "Deposit 0.000313112748813906 ETH and 1.025989 USDC into the CL100 WETH/USDC pool",
+          "value": "0.000313112748813906 ETH"
+        }
+      ]
+    },
+    "state": "pending",
+    "text": "Add a concentrated-liquidity position on Base with a budget of 0.000696125000000194 ETH.\nSwap 0.000382966053661255 ETH for at least 1.025989 USDC.\nDeposit 0.000313112748813906 ETH and 1.025989 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.",
+    "title": "Fund and create a liquidity position"
+  },
+  "replay": {
+    "completedMs": 28867.900000002235,
+    "frames": [
+      {
+        "at": 1446.7000000029802,
+        "stage": {
+          "id": "routing",
+          "label": "Preparing request",
+          "startedAt": 1790438361875,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 1446.7000000029802,
+        "traceId": "pecu_0bd36538399ad6ca6110f52216f7575e8b181d4aaa5024b2c828892fd8403e5b",
+        "type": "trace"
+      },
+      {
+        "at": 2780.300000000745,
+        "stage": {
+          "endedAt": 1790438363257,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790438361875,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 3048.10000000149,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790438362814,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6966.5,
+        "stage": {
+          "endedAt": 1790438367385,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790438362814,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6966.5,
+        "stage": {
+          "id": "msg_0de714f2205dUljAKO1O00gQC1",
+          "label": "Generating a response",
+          "startedAt": 1790438367385,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7208.900000002235,
+        "stage": {
+          "id": "call_ixfk4KpvBNwq6GDV2TZRYNbj",
+          "label": "Reading balances",
+          "startedAt": 1790438367531,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7208.900000002235,
+        "stage": {
+          "id": "call_UIGWIi3tP98deUrjvqzmM3Qo",
+          "label": "Finding pools",
+          "startedAt": 1790438367531,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7208.900000002235,
+        "stage": {
+          "endedAt": 1790438367531,
+          "id": "msg_0de714f2205dUljAKO1O00gQC1",
+          "label": "Generating a response",
+          "startedAt": 1790438367385,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7978.20000000298,
+        "stage": {
+          "endedAt": 1790438368352,
+          "id": "call_ixfk4KpvBNwq6GDV2TZRYNbj",
+          "label": "Reading balances",
+          "startedAt": 1790438367531,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 17312.5,
+        "stage": {
+          "endedAt": 1790438377685,
+          "id": "call_UIGWIi3tP98deUrjvqzmM3Qo",
+          "label": "Finding pools",
+          "startedAt": 1790438367531,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 17317.300000000745,
+        "stage": {
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790438377685,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 20901,
+        "stage": {
+          "endedAt": 1790438381356,
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790438377685,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 20901,
+        "stage": {
+          "id": "msg_0de7188d5004YuXU5welszkN1L",
+          "label": "Generating a response",
+          "startedAt": 1790438381356,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 21799.60000000149,
+        "stage": {
+          "id": "call_n795DMcf1iOGaEsozOtFZO7k",
+          "label": "Preparing liquidity",
+          "startedAt": 1790438382089,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 21801.60000000149,
+        "stage": {
+          "endedAt": 1790438382089,
+          "id": "msg_0de7188d5004YuXU5welszkN1L",
+          "label": "Generating a response",
+          "startedAt": 1790438381356,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 28842.60000000149,
+        "type": "paragraph"
+      },
+      {
+        "at": 28863.70000000298,
+        "stage": {
+          "endedAt": 1790438389231,
+          "id": "call_n795DMcf1iOGaEsozOtFZO7k",
+          "label": "Preparing liquidity",
+          "startedAt": 1790438382089,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 28863.70000000298,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 1444.7000000029802,
+    "startedAt": 1790438360372,
+    "status": 200
+  }
+}

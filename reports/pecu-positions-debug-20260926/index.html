@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pecu: missing positions fixed</title>
+<style>body{margin:0;background:#f9f9f9;color:#202020;font:17px/1.6 system-ui,sans-serif}main{max-width:880px;margin:auto;padding:44px 24px}h1{font-size:34px;line-height:1.2}h2{font-size:22px;margin-top:36px}a{color:#644a40}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #ddd}img,video{max-width:100%;height:auto}code{overflow-wrap:anywhere}*{scrollbar-width:none}::-webkit-scrollbar{display:none}p{margin:14px 0}figure{margin:24px 0}figcaption{font-size:14px;color:#646464}.table{overflow:auto}</style>
+<main><h1>Pecu: missing positions fixed</h1>
+<p>The original question now returns all three unstaked WETH/USDC positions. Production hides the timing panel; development, preview and test builds retain it. Verified on 26 September 2026. No transactions were sent.</p>
+<p><a href="https://pecu.app/agent?t=5925c41b">Original thread</a> · <a href="https://github.com/OxFrancesco/BeeGreat/pull/47">PR #47</a> · <a href="validation.txt">Validation</a></p>
+<h2>Why positions were missing</h2>
+<p>Pecu imported its own pinned Aero SDK, independent of the workspace SDK. Its old commit <code>af14646</code> read basic and staked liquidity but omitted unstaked concentrated-liquidity NFTs. Updating to the already published <code>0930a1b</code> enables account-based NFT enumeration without hardcoded tokens, pools or position IDs.</p>
+<p>A second defect appeared after deployment: the generic chat formatter stopped after 12 fields, leaving only part of the first position. Model read tools now receive complete JSON. The command formatter lists every position with token amounts converted using the SDK's returned metadata.</p>
+<h2>Live verification</h2>
+<p>An independent Base RPC enumerated the wallet's NFTs and checked each owner and nonzero liquidity. Repeating the exact original question and running <code>/aero positions</code> both returned the same three IDs in pool <code>0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59</code>.</p>
+<div class="table"><table><thead><tr><th>Position</th><th>Unstaked WETH</th><th>Unstaked USDC</th></tr></thead><tbody><tr><td>77018794</td><td>0.000636794258592647</td><td>2.016186</td></tr><tr><td>77024465</td><td>0.000318634165627857</td><td>1.008843</td></tr><tr><td>77027019</td><td>0.000159397308265853</td><td>0.504675</td></tr></tbody></table></div>
+<p>Amounts are the 20:27 UTC snapshot and move with the pool price. All three were unstaked. <a href="chain.json">Independent ownership check</a> · <a href="answer.json">Natural-language answer</a></p>
+<p>PostHog confirms successful <code>positionsUnstakedConcentrated</code> reads and retained production tracing. The natural-language turn took 22.717 seconds; the direct command took 10.259 seconds in the backend and 10.949 seconds at the browser API. These are individual correctness checks, not a performance benchmark. Full pool enumeration still accounts for about 6 seconds of each read.</p>
+<p><a href="https://eu.posthog.com/project/278624/ai-observability/traces/pecu_7fcf81d64f4677b6d625d9a4bc49b9cc780891be0d5439b16c83fb2678134cff">Verified production trace</a> · <a href="posthog.txt">Span evidence</a></p>
+<figure><img src="assets/after.png" alt="Live Pecu answer listing all three Aerodrome positions"><figcaption>Live production answer. The browser screenshot is cropped at the right edge; all three position IDs are visible.</figcaption></figure>
+<h2>Debugging visibility</h2>
+<p>The shared TurnProgress component renders only in Vite modes development, preview and test. Production and unknown modes render nothing. <code>bun run build:preview</code> retains the panel. Cloudflare/PostHog telemetry and streaming remain enabled. The gate covers both Agent and Stocks chat.</p>
+<figure><img src="assets/preview.png" alt="Preview-mode timing panel showing completed stages"><figcaption>Local preview component fixture. The five-mode rendering tests cover production, unknown, development, preview and test.</figcaption></figure>
+<h2>Release evidence</h2>
+<p>528 Pecu tests and 94 web tests passed. Type checks, lint, Worker bundles, web/docs builds and a two-commit secret scan passed. Regression tests failed against the old SDK and truncated output before passing with the fixes.</p>
+<p>The Aero service, main agent, Stocks web app and documentation Worker were deployed to Francesco's personal Cloudflare account. <a href="deployments.json">Read-back deployment versions</a>. The SDK fix was already published; no standalone SDK source changed.</p>
+<p>Shared command and model paths cover Pecu web and X Chat, and both model providers. The live check used web; X Chat and Workerd behavior have regression coverage. BeeGreat native clients do not import this Pecu web component and required no UI changes.</p>
+<p>Source: <code>f901580ec70c0d259e8feb9861a441fb222c06a0</code>, branch <code>fix/pecu-positions-production-timings</code>. Automatic approval review rejected a direct push to main, so the code is published in draft PR #47. Main was not changed.</p>
+<video controls preload="metadata" src="assets/verification.mp4"></video>
+<p>The recording includes the live retry. The browser host disconnected during the final resize, after the successful answer and command checks; the recording was recovered.</p>
+</main></html>

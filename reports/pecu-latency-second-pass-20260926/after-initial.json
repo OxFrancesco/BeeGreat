@@ -1,0 +1,1164 @@
+[
+  {
+    "completedMs": 26192.5,
+    "frames": [
+      {
+        "at": 1808.9000000059605,
+        "stage": {
+          "id": "routing",
+          "label": "Preparing request",
+          "startedAt": 1790444595416,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 1808.9000000059605,
+        "traceId": "pecu_7b1a74c100a35fc1bd67d80646326d65ada4c58947691bf5458f9e4410b9705b",
+        "type": "trace"
+      },
+      {
+        "at": 1808.9000000059605,
+        "stage": {
+          "endedAt": 1790444596844,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790444595416,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 2013.3000000044703,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444596347,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6810.4000000059605,
+        "stage": {
+          "endedAt": 1790444601614,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444596347,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6810.4000000059605,
+        "stage": {
+          "id": "msg_0ded06cdf05dxBpiC5OzBEABaV",
+          "label": "Generating a response",
+          "startedAt": 1790444601614,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6810.4000000059605,
+        "stage": {
+          "id": "call_uO7su0iGuLwLpH1oqci2HFw0",
+          "label": "Reading balances",
+          "startedAt": 1790444601774,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6810.4000000059605,
+        "stage": {
+          "id": "call_Ps6dXP83TnWTKfuvrzPzhLIq",
+          "label": "Finding pools",
+          "startedAt": 1790444601774,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6810.4000000059605,
+        "stage": {
+          "endedAt": 1790444601774,
+          "id": "msg_0ded06cdf05dxBpiC5OzBEABaV",
+          "label": "Generating a response",
+          "startedAt": 1790444601614,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7478.80000000447,
+        "stage": {
+          "endedAt": 1790444602500,
+          "id": "call_uO7su0iGuLwLpH1oqci2HFw0",
+          "label": "Reading balances",
+          "startedAt": 1790444601774,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 19161.20000000298,
+        "stage": {
+          "endedAt": 1790444613979,
+          "id": "call_Ps6dXP83TnWTKfuvrzPzhLIq",
+          "label": "Finding pools",
+          "startedAt": 1790444601774,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 19161.30000000447,
+        "stage": {
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790444613979,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 21562.10000000149,
+        "stage": {
+          "endedAt": 1790444616581,
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790444613979,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 21562.10000000149,
+        "stage": {
+          "id": "msg_0ded0b15b004MHq2AtMlEhiiAy",
+          "label": "Generating a response",
+          "startedAt": 1790444616581,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 22162.80000000447,
+        "stage": {
+          "id": "call_xLraXpghgooyxZMyA8YnaYRT",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444617149,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 22163.10000000149,
+        "stage": {
+          "endedAt": 1790444617149,
+          "id": "msg_0ded0b15b004MHq2AtMlEhiiAy",
+          "label": "Generating a response",
+          "startedAt": 1790444616581,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 26164.90000000596,
+        "replace": true,
+        "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190226290865851 ETH for at least 0.508826 USDC.\nDeposit 0.000157836209134917 ETH and 0.508825 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.\n\nTransactions:\n1. Swap 0.000190226290865851 ETH for at least 0.508826 USDC\n2. Allow the position manager to spend 0.508825 USDC\n3. Deposit 0.000157836209134917 ETH and 0.508825 USDC into the CL100 WETH/USDC pool\n\nReply to this message with \"confirm\" to proceed or \"cancel\" to cancel.\nYou can also send /confirm BL3MGP or /cancel BL3MGP.\nExpires in 10 minutes.",
+        "type": "paragraph"
+      },
+      {
+        "at": 26184.80000000447,
+        "stage": {
+          "endedAt": 1790444621151,
+          "id": "call_xLraXpghgooyxZMyA8YnaYRT",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444617149,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 26188.40000000596,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 1808.3000000044703,
+    "label": "after-second-pass",
+    "outcome": "pending",
+    "preview": {
+      "code": "BL3MGP",
+      "expiresAt": 1790445219831,
+      "plan": {
+        "route": {
+          "edges": [
+            {
+              "from": "n0",
+              "label": "CL1",
+              "step": 0,
+              "to": "n1"
+            },
+            {
+              "from": "n0",
+              "step": 2,
+              "to": "n2"
+            },
+            {
+              "from": "n1",
+              "step": 2,
+              "to": "n2"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "n0",
+              "kind": "token",
+              "label": "ETH"
+            },
+            {
+              "id": "n1",
+              "kind": "token",
+              "label": "USDC"
+            },
+            {
+              "detail": "WETH / USDC",
+              "id": "n2",
+              "kind": "pool",
+              "label": "CL100 pool"
+            }
+          ]
+        },
+        "steps": [
+          {
+            "contract": "0xcAF22ce31298CF2BF1D152862F80216478ad7c67",
+            "contractName": "Aerodrome swap router",
+            "kind": "swap",
+            "title": "Swap 0.000190226290865851 ETH for at least 0.508826 USDC",
+            "value": "0.000190226290865851 ETH"
+          },
+          {
+            "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "contractName": "USDC token",
+            "kind": "approval",
+            "title": "Allow the position manager to spend 0.508825 USDC"
+          },
+          {
+            "contract": "0x827922686190790b37229fd06084350E74485b72",
+            "contractName": "Position manager",
+            "kind": "deposit",
+            "title": "Deposit 0.000157836209134917 ETH and 0.508825 USDC into the CL100 WETH/USDC pool",
+            "value": "0.000157836209134917 ETH"
+          }
+        ]
+      },
+      "state": "pending",
+      "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190226290865851 ETH for at least 0.508826 USDC.\nDeposit 0.000157836209134917 ETH and 0.508825 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.",
+      "title": "Fund and create a liquidity position"
+    },
+    "prompt": "Create a concentrated eth usdc pool on aerodrome with half of my eth!",
+    "requestId": "97aa94b0-d16b-4399-a4b7-97f99d624a0b",
+    "sample": 0,
+    "startedAt": 1790444595044,
+    "status": 200
+  },
+  {
+    "completedMs": 12788,
+    "frames": [
+      {
+        "at": 447.3999999985099,
+        "stage": {
+          "id": "routing",
+          "label": "Preparing request",
+          "startedAt": 1790444623746,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 447.3999999985099,
+        "traceId": "pecu_c1f0b484f9d813e4a579177a68eddc78fb5a2a1dec2278fe3e15e300895b9677",
+        "type": "trace"
+      },
+      {
+        "at": 675.5,
+        "stage": {
+          "endedAt": 1790444624142,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790444623746,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 752.7000000029802,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444624473,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4685.89999999851,
+        "stage": {
+          "endedAt": 1790444628505,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444624473,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4687.60000000149,
+        "stage": {
+          "id": "msg_0ded0da59007WpaIl6xNSYsGxz",
+          "label": "Generating a response",
+          "startedAt": 1790444628505,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4791.10000000149,
+        "stage": {
+          "id": "call_WkZQSW500meCXwjDsD13xyZY",
+          "label": "Reading balances",
+          "startedAt": 1790444628590,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4834.39999999851,
+        "stage": {
+          "id": "call_AA52GyHkCP0OiajtSGyounYW",
+          "label": "Finding pools",
+          "startedAt": 1790444628605,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4845.5,
+        "stage": {
+          "endedAt": 1790444628619,
+          "id": "msg_0ded0da59007WpaIl6xNSYsGxz",
+          "label": "Generating a response",
+          "startedAt": 1790444628505,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 5758.5,
+        "stage": {
+          "endedAt": 1790444629230,
+          "id": "call_WkZQSW500meCXwjDsD13xyZY",
+          "label": "Reading balances",
+          "startedAt": 1790444628590,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 5784.39999999851,
+        "stage": {
+          "endedAt": 1790444629230,
+          "id": "call_AA52GyHkCP0OiajtSGyounYW",
+          "label": "Finding pools",
+          "startedAt": 1790444628605,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 5784.39999999851,
+        "stage": {
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790444629230,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7638.29999999702,
+        "stage": {
+          "endedAt": 1790444631423,
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790444629230,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7639.60000000149,
+        "stage": {
+          "id": "msg_0ded0ecee005S7DPKy3oYESA14",
+          "label": "Generating a response",
+          "startedAt": 1790444631423,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 9013,
+        "stage": {
+          "id": "call_zqO0nTjOKpf9CW8EEqMA7MCq",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444632744,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 9369.10000000149,
+        "stage": {
+          "endedAt": 1790444632904,
+          "id": "msg_0ded0ecee005S7DPKy3oYESA14",
+          "label": "Generating a response",
+          "startedAt": 1790444631423,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 12750.29999999702,
+        "replace": true,
+        "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190222370002256 ETH for at least 0.508815 USDC.\nDeposit 0.000157839642174432 ETH and 0.508815 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.\n\nTransactions:\n1. Swap 0.000190222370002256 ETH for at least 0.508815 USDC\n2. Allow the position manager to spend 0.508815 USDC\n3. Deposit 0.000157839642174432 ETH and 0.508815 USDC into the CL100 WETH/USDC pool\n\nReply to this message with \"confirm\" to proceed or \"cancel\" to cancel.\nYou can also send /confirm 4Z99VE or /cancel 4Z99VE.\nExpires in 10 minutes.",
+        "type": "paragraph"
+      },
+      {
+        "at": 12787.70000000298,
+        "stage": {
+          "endedAt": 1790444636388,
+          "id": "call_zqO0nTjOKpf9CW8EEqMA7MCq",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444632744,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 12787.70000000298,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 447,
+    "label": "after-second-pass",
+    "outcome": "pending",
+    "preview": {
+      "code": "4Z99VE",
+      "expiresAt": 1790445235871,
+      "plan": {
+        "route": {
+          "edges": [
+            {
+              "from": "n0",
+              "label": "CL1",
+              "step": 0,
+              "to": "n1"
+            },
+            {
+              "from": "n0",
+              "step": 2,
+              "to": "n2"
+            },
+            {
+              "from": "n1",
+              "step": 2,
+              "to": "n2"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "n0",
+              "kind": "token",
+              "label": "ETH"
+            },
+            {
+              "id": "n1",
+              "kind": "token",
+              "label": "USDC"
+            },
+            {
+              "detail": "WETH / USDC",
+              "id": "n2",
+              "kind": "pool",
+              "label": "CL100 pool"
+            }
+          ]
+        },
+        "steps": [
+          {
+            "contract": "0xcAF22ce31298CF2BF1D152862F80216478ad7c67",
+            "contractName": "Aerodrome swap router",
+            "kind": "swap",
+            "title": "Swap 0.000190222370002256 ETH for at least 0.508815 USDC",
+            "value": "0.000190222370002256 ETH"
+          },
+          {
+            "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "contractName": "USDC token",
+            "kind": "approval",
+            "title": "Allow the position manager to spend 0.508815 USDC"
+          },
+          {
+            "contract": "0x827922686190790b37229fd06084350E74485b72",
+            "contractName": "Position manager",
+            "kind": "deposit",
+            "title": "Deposit 0.000157839642174432 ETH and 0.508815 USDC into the CL100 WETH/USDC pool",
+            "value": "0.000157839642174432 ETH"
+          }
+        ]
+      },
+      "state": "pending",
+      "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190222370002256 ETH for at least 0.508815 USDC.\nDeposit 0.000157839642174432 ETH and 0.508815 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.",
+      "title": "Fund and create a liquidity position"
+    },
+    "prompt": "Create a concentrated eth usdc pool on aerodrome with half of my eth!",
+    "requestId": "eeae160b-ff2c-4045-a7e3-f98f5d34adeb",
+    "sample": 1,
+    "startedAt": 1790444623808,
+    "status": 200
+  },
+  {
+    "completedMs": 13866.59999999404,
+    "frames": [
+      {
+        "at": 355.5,
+        "stage": {
+          "id": "routing",
+          "label": "Preparing request",
+          "startedAt": 1790444639864,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 355.5,
+        "traceId": "pecu_2b8b755f4ec24f9eb275389d79a5a2eab9464033e1597e662fb1fd757d53742e",
+        "type": "trace"
+      },
+      {
+        "at": 651.2999999970198,
+        "stage": {
+          "endedAt": 1790444640137,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790444639864,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 682.5,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444640163,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4715.19999999553,
+        "stage": {
+          "endedAt": 1790444644249,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444640163,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4715.19999999553,
+        "stage": {
+          "id": "msg_0ded117a3006hSp9Yl0DV6G7Ei",
+          "label": "Generating a response",
+          "startedAt": 1790444644249,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4865.0999999940395,
+        "stage": {
+          "id": "call_MHh0iUdz9aMMfv2t478NmX9u",
+          "label": "Reading balances",
+          "startedAt": 1790444644385,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4885.89999999851,
+        "stage": {
+          "id": "call_Kq5cITAp32fImTSwuV5RARPG",
+          "label": "Finding pools",
+          "startedAt": 1790444644395,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 4902.69999999553,
+        "stage": {
+          "endedAt": 1790444644412,
+          "id": "msg_0ded117a3006hSp9Yl0DV6G7Ei",
+          "label": "Generating a response",
+          "startedAt": 1790444644249,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 5800.79999999702,
+        "stage": {
+          "endedAt": 1790444645182,
+          "id": "call_MHh0iUdz9aMMfv2t478NmX9u",
+          "label": "Reading balances",
+          "startedAt": 1790444644385,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6223.19999999553,
+        "stage": {
+          "endedAt": 1790444645538,
+          "id": "call_Kq5cITAp32fImTSwuV5RARPG",
+          "label": "Finding pools",
+          "startedAt": 1790444644395,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 6224.19999999553,
+        "stage": {
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790444645538,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 8915,
+        "stage": {
+          "endedAt": 1790444648264,
+          "id": "model-wait-1",
+          "label": "Waiting for model",
+          "startedAt": 1790444645538,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 8915.59999999404,
+        "stage": {
+          "id": "msg_0ded12ca20046WT7TIFKqZCa3y",
+          "label": "Generating a response",
+          "startedAt": 1790444648264,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 10100.89999999851,
+        "stage": {
+          "id": "call_mFrsewXZXLTfQHfSHRlA7wc1",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444649465,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 10135.29999999702,
+        "stage": {
+          "endedAt": 1790444649529,
+          "id": "msg_0ded12ca20046WT7TIFKqZCa3y",
+          "label": "Generating a response",
+          "startedAt": 1790444648264,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 13834.59999999404,
+        "replace": true,
+        "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190222985052564 ETH for at least 0.508817 USDC.\nDeposit 0.000157839514948204 ETH and 0.508816 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.\n\nTransactions:\n1. Swap 0.000190222985052564 ETH for at least 0.508817 USDC\n2. Allow the position manager to spend 0.508816 USDC\n3. Deposit 0.000157839514948204 ETH and 0.508816 USDC into the CL100 WETH/USDC pool\n\nReply to this message with \"confirm\" to proceed or \"cancel\" to cancel.\nYou can also send /confirm 3TBG6V or /cancel 3TBG6V.\nExpires in 10 minutes.",
+        "type": "paragraph"
+      },
+      {
+        "at": 13842.59999999404,
+        "stage": {
+          "endedAt": 1790444653303,
+          "id": "call_mFrsewXZXLTfQHfSHRlA7wc1",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444649465,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 13842.69999999553,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 352.8999999985099,
+    "label": "after-second-pass",
+    "outcome": "pending",
+    "preview": {
+      "code": "3TBG6V",
+      "expiresAt": 1790445252802,
+      "plan": {
+        "route": {
+          "edges": [
+            {
+              "from": "n0",
+              "label": "CL1",
+              "step": 0,
+              "to": "n1"
+            },
+            {
+              "from": "n0",
+              "step": 2,
+              "to": "n2"
+            },
+            {
+              "from": "n1",
+              "step": 2,
+              "to": "n2"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "n0",
+              "kind": "token",
+              "label": "ETH"
+            },
+            {
+              "id": "n1",
+              "kind": "token",
+              "label": "USDC"
+            },
+            {
+              "detail": "WETH / USDC",
+              "id": "n2",
+              "kind": "pool",
+              "label": "CL100 pool"
+            }
+          ]
+        },
+        "steps": [
+          {
+            "contract": "0xcAF22ce31298CF2BF1D152862F80216478ad7c67",
+            "contractName": "Aerodrome swap router",
+            "kind": "swap",
+            "title": "Swap 0.000190222985052564 ETH for at least 0.508817 USDC",
+            "value": "0.000190222985052564 ETH"
+          },
+          {
+            "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "contractName": "USDC token",
+            "kind": "approval",
+            "title": "Allow the position manager to spend 0.508816 USDC"
+          },
+          {
+            "contract": "0x827922686190790b37229fd06084350E74485b72",
+            "contractName": "Position manager",
+            "kind": "deposit",
+            "title": "Deposit 0.000157839514948204 ETH and 0.508816 USDC into the CL100 WETH/USDC pool",
+            "value": "0.000157839514948204 ETH"
+          }
+        ]
+      },
+      "state": "pending",
+      "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190222985052564 ETH for at least 0.508817 USDC.\nDeposit 0.000157839514948204 ETH and 0.508816 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.",
+      "title": "Fund and create a liquidity position"
+    },
+    "prompt": "Create a concentrated eth usdc pool on aerodrome with half of my eth!",
+    "requestId": "05e23461-5045-4c0d-963b-84b2c7ad5096",
+    "sample": 2,
+    "startedAt": 1790444639527,
+    "status": 200
+  },
+  {
+    "completedMs": 12430.89999999851,
+    "frames": [
+      {
+        "at": 381.69999999552965,
+        "stage": {
+          "id": "routing",
+          "label": "Preparing request",
+          "startedAt": 1790444655342,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 381.69999999552965,
+        "traceId": "pecu_770dba2e8df173b40f9a24d73dc19c61b7ae51bc4bfb956b4c11768909ae8af7",
+        "type": "trace"
+      },
+      {
+        "at": 718.3999999985099,
+        "stage": {
+          "endedAt": 1790444655616,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790444655342,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 975.1999999955297,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444655669,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 3200.1999999955297,
+        "stage": {
+          "endedAt": 1790444658203,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444655669,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 3200.1999999955297,
+        "stage": {
+          "id": "msg_0ded15435006KS9dUO3uDlw4w9",
+          "label": "Generating a response",
+          "startedAt": 1790444658203,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 8105.5999999940395,
+        "stage": {
+          "id": "call_jtp9RH3z9ZJSOKcs4gUj0D2p",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444662993,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 8221.5,
+        "stage": {
+          "endedAt": 1790444663021,
+          "id": "msg_0ded15435006KS9dUO3uDlw4w9",
+          "label": "Generating a response",
+          "startedAt": 1790444658203,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 12318.69999999553,
+        "replace": true,
+        "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190920311654976 ETH for at least 0.510775 USDC.\nDeposit 0.000157142188345792 ETH and 0.509994 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.\n\nTransactions:\n1. Swap 0.000190920311654976 ETH for at least 0.510775 USDC\n2. Allow the position manager to spend 0.509994 USDC\n3. Deposit 0.000157142188345792 ETH and 0.509994 USDC into the CL100 WETH/USDC pool\n\nReply to this message with \"confirm\" to proceed or \"cancel\" to cancel.\nYou can also send /confirm YZ3EZ3 or /cancel YZ3EZ3.\nExpires in 10 minutes.",
+        "type": "paragraph"
+      },
+      {
+        "at": 12430.79999999702,
+        "stage": {
+          "endedAt": 1790444667123,
+          "id": "call_jtp9RH3z9ZJSOKcs4gUj0D2p",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444662993,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 12430.79999999702,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 380.59999999403954,
+    "label": "after-second-pass",
+    "outcome": "pending",
+    "preview": {
+      "code": "YZ3EZ3",
+      "expiresAt": 1790445266661,
+      "plan": {
+        "route": {
+          "edges": [
+            {
+              "from": "n0",
+              "label": "CL1",
+              "step": 0,
+              "to": "n1"
+            },
+            {
+              "from": "n0",
+              "step": 2,
+              "to": "n2"
+            },
+            {
+              "from": "n1",
+              "step": 2,
+              "to": "n2"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "n0",
+              "kind": "token",
+              "label": "ETH"
+            },
+            {
+              "id": "n1",
+              "kind": "token",
+              "label": "USDC"
+            },
+            {
+              "detail": "WETH / USDC",
+              "id": "n2",
+              "kind": "pool",
+              "label": "CL100 pool"
+            }
+          ]
+        },
+        "steps": [
+          {
+            "contract": "0xcAF22ce31298CF2BF1D152862F80216478ad7c67",
+            "contractName": "Aerodrome swap router",
+            "kind": "swap",
+            "title": "Swap 0.000190920311654976 ETH for at least 0.510775 USDC",
+            "value": "0.000190920311654976 ETH"
+          },
+          {
+            "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "contractName": "USDC token",
+            "kind": "approval",
+            "title": "Allow the position manager to spend 0.509994 USDC"
+          },
+          {
+            "contract": "0x827922686190790b37229fd06084350E74485b72",
+            "contractName": "Position manager",
+            "kind": "deposit",
+            "title": "Deposit 0.000157142188345792 ETH and 0.509994 USDC into the CL100 WETH/USDC pool",
+            "value": "0.000157142188345792 ETH"
+          }
+        ]
+      },
+      "state": "pending",
+      "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190920311654976 ETH for at least 0.510775 USDC.\nDeposit 0.000157142188345792 ETH and 0.509994 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.",
+      "title": "Fund and create a liquidity position"
+    },
+    "prompt": "Create a concentrated eth usdc pool on aerodrome with half of my eth!",
+    "requestId": "ce61dcf9-797d-4ef8-aa24-9eaa1d0e3422",
+    "sample": 3,
+    "startedAt": 1790444655027,
+    "status": 200
+  },
+  {
+    "completedMs": 11562.5,
+    "frames": [
+      {
+        "at": 363.20000000298023,
+        "stage": {
+          "id": "routing",
+          "label": "Preparing request",
+          "startedAt": 1790444669154,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 363.20000000298023,
+        "traceId": "pecu_13912ba18d3370cb938a8347fbe302b671635ca2a2763b2b1f3ae93c7dfdda81",
+        "type": "trace"
+      },
+      {
+        "at": 580.3999999985099,
+        "stage": {
+          "endedAt": 1790444669419,
+          "id": "routing",
+          "label": "Understanding your request",
+          "startedAt": 1790444669154,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 747.1000000014901,
+        "stage": {
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444669467,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 3209.2999999970198,
+        "stage": {
+          "endedAt": 1790444672051,
+          "id": "model-wait-0",
+          "label": "Waiting for model",
+          "startedAt": 1790444669467,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 3214.2000000029802,
+        "stage": {
+          "id": "msg_0ded18a1b006wK3r584LcFMjxt",
+          "label": "Generating a response",
+          "startedAt": 1790444672051,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7729.5,
+        "stage": {
+          "id": "call_9rmjKKts6cf95vM3IDcpn9Du",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444676533,
+          "status": "running"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 7859.29999999702,
+        "stage": {
+          "endedAt": 1790444676574,
+          "id": "msg_0ded18a1b006wK3r584LcFMjxt",
+          "label": "Generating a response",
+          "startedAt": 1790444672051,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 11532.89999999851,
+        "replace": true,
+        "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190717921201554 ETH for at least 0.510234 USDC.\nDeposit 0.000157344578799214 ETH and 0.510223 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.\n\nTransactions:\n1. Swap 0.000190717921201554 ETH for at least 0.510234 USDC\n2. Allow the position manager to spend 0.510223 USDC\n3. Deposit 0.000157344578799214 ETH and 0.510223 USDC into the CL100 WETH/USDC pool\n\nReply to this message with \"confirm\" to proceed or \"cancel\" to cancel.\nYou can also send /confirm YYYS3Y or /cancel YYYS3Y.\nExpires in 10 minutes.",
+        "type": "paragraph"
+      },
+      {
+        "at": 11550.70000000298,
+        "stage": {
+          "endedAt": 1790444680159,
+          "id": "call_9rmjKKts6cf95vM3IDcpn9Du",
+          "label": "Preparing liquidity",
+          "startedAt": 1790444676533,
+          "status": "complete"
+        },
+        "type": "stage"
+      },
+      {
+        "at": 11555.60000000149,
+        "status": "complete",
+        "type": "complete"
+      }
+    ],
+    "headersMs": 358.6000000014901,
+    "label": "after-second-pass",
+    "outcome": "pending",
+    "preview": {
+      "code": "YYYS3Y",
+      "expiresAt": 1790445279550,
+      "plan": {
+        "route": {
+          "edges": [
+            {
+              "from": "n0",
+              "label": "CL1",
+              "step": 0,
+              "to": "n1"
+            },
+            {
+              "from": "n0",
+              "step": 2,
+              "to": "n2"
+            },
+            {
+              "from": "n1",
+              "step": 2,
+              "to": "n2"
+            }
+          ],
+          "nodes": [
+            {
+              "id": "n0",
+              "kind": "token",
+              "label": "ETH"
+            },
+            {
+              "id": "n1",
+              "kind": "token",
+              "label": "USDC"
+            },
+            {
+              "detail": "WETH / USDC",
+              "id": "n2",
+              "kind": "pool",
+              "label": "CL100 pool"
+            }
+          ]
+        },
+        "steps": [
+          {
+            "contract": "0xcAF22ce31298CF2BF1D152862F80216478ad7c67",
+            "contractName": "Aerodrome swap router",
+            "kind": "swap",
+            "title": "Swap 0.000190717921201554 ETH for at least 0.510234 USDC",
+            "value": "0.000190717921201554 ETH"
+          },
+          {
+            "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+            "contractName": "USDC token",
+            "kind": "approval",
+            "title": "Allow the position manager to spend 0.510223 USDC"
+          },
+          {
+            "contract": "0x827922686190790b37229fd06084350E74485b72",
+            "contractName": "Position manager",
+            "kind": "deposit",
+            "title": "Deposit 0.000157344578799214 ETH and 0.510223 USDC into the CL100 WETH/USDC pool",
+            "value": "0.000157344578799214 ETH"
+          }
+        ]
+      },
+      "state": "pending",
+      "text": "Add a concentrated-liquidity position on Base with a budget of 0.000348062500000768 ETH.\nSwap 0.000190717921201554 ETH for at least 0.510234 USDC.\nDeposit 0.000157344578799214 ETH and 0.510223 USDC.\nRange: 2147.412803701014 to 3235.693476621297 USDC per ETH. Tick spacing: 100.\nPool: 0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59\nThe funding swap, token approvals and deposit are submitted together. Unused tokens stay in your wallet. Fees stop outside the range and token exposure changes.\nNetwork fee: not estimated yet.",
+      "title": "Fund and create a liquidity position"
+    },
+    "prompt": "Create a concentrated eth usdc pool on aerodrome with half of my eth!",
+    "requestId": "1f5d0d2c-2619-4a9d-83ce-dd2b5424e016",
+    "sample": 4,
+    "startedAt": 1790444668853,
+    "status": 200
+  }
+]
