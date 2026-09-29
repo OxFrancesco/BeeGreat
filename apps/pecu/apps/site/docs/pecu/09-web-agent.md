@@ -101,3 +101,17 @@ Stock positions open as a graph. The two icons beside Stock holdings switch
 between the graph and a list. The graph shows allocation by estimated USDC value,
 not historical performance. Missing prices are excluded from the graph and
 identified in the list. These views only read your wallet.
+
+## Steer a reply
+
+While Pecu is answering, type another message and send it to change or clarify
+the current request. The original reply keeps streaming. Accepted steering
+messages appear in the thread with "Sent to the current reply."
+
+Steering takes effect when the agent next checks for input. It cannot undo a
+transaction already submitted. Transaction confirmations and wallet permissions
+still apply. If the reply has already ended or is not ready to accept steering,
+Pecu shows an error and keeps your draft so you can send it again.
+
+The web agent, portfolio chat and Android composer support steering. X Chat
+processes messages in order and does not offer live steering.

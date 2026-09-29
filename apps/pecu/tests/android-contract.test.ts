@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { webStateSchema } from "../src/web-contract";
+import { webStateSchema, webTurnSchema } from "../src/web-contract";
 import { webTurnEventSchema } from "../src/web-stream";
 import { notificationListSchema, taskListSchema } from "../src/task-contract";
 
 describe("Android shared fixtures", () => {
+  test("steering targets the same active request on Android", async () => {
+    const fixture = await Bun.file(new URL("../apps/android/app/src/test/resources/steering.json", import.meta.url)).json();
+    expect(webTurnSchema.omit({ userId: true, senderId: true }).parse(fixture)).toEqual(fixture);
+  });
   test("persisted replies and history match the backend contract", async () => {
     const fixture = await Bun.file(new URL("../apps/android/app/src/test/resources/state.json", import.meta.url)).json();
     expect(webStateSchema.parse(fixture)).toEqual(fixture);

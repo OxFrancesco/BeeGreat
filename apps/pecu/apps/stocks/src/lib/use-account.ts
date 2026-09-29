@@ -113,6 +113,7 @@ type ThreadState = {
   pending: boolean;
   retry: Retry | null;
   inFlight: string | null;
+  steering: boolean;
   /** Paragraphs of the reply being written right now; cleared once the turn completes. */
   partial: readonly string[];
   stages: readonly TurnStage[];
@@ -127,6 +128,7 @@ const EMPTY_THREAD: ThreadState = {
   pending: false,
   retry: null,
   inFlight: null,
+  steering: false,
   partial: [],
   stages: [],
 };
@@ -162,7 +164,8 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
   );
   const threadLoad = useRef<AbortController | null>(null);
   const recoveryRequests = useRef(new Set<string>());
-  const sends = useRef(new Set<string | null>());
+  const sends = useRef(new Map<string | null, string>());
+  const steerSends = useRef(new Set<string | null>());
   const update = useCallback(
     (id: string | null, patch: Partial<ThreadState>) => {
       setCache((current) => {
@@ -297,6 +300,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
     const epoch = generation.current;
     if (!signedIn || previousOwner !== owner) {
       sends.current.clear();
+      steerSends.current.clear();
       recoveryRequests.current.clear();
       setCache(new Map());
       setShared(null);
@@ -436,9 +440,30 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
       retryOf?: string,
       answerTo?: string,
     ) => {
-      if (!signedIn || sends.current.has(threadId) || cacheRef.current.get(threadId)?.restored) return;
+      if (!signedIn || cacheRef.current.get(threadId)?.restored) return;
+      if (steerSends.current.has(threadId)) throw new Error("Wait for your steering message to be sent.");
+      const steerOf = sends.current.get(threadId);
+      if (steerOf) {
+        if (retryOf || answerTo || steerSends.current.has(threadId)) throw new Error("Wait for your steering message to be sent.");
+        steerSends.current.add(threadId);
+        const epoch = generation.current;
+        update(threadId, { steering: true, error: "" });
+        try {
+          await streamTurn({ requestId, text, steerOf, threadId: threadId || undefined }, () => {});
+          if (generation.current === epoch) await load(threadId, true).catch(() => {});
+        } catch (error) {
+          if (generation.current === epoch) update(threadId, { error: error instanceof Error ? error.message : "Could not send steering." });
+          throw error;
+        } finally {
+          if (generation.current === epoch) {
+            steerSends.current.delete(threadId);
+            update(threadId, { steering: false });
+          }
+        }
+        return;
+      }
       const epoch = generation.current;
-      sends.current.add(threadId);
+      sends.current.set(threadId, requestId);
       recoveryRequests.current.add(requestId);
       if (cacheRef.current.get(threadId)?.state?.newerCursor)
         void load(threadId, true).catch(() => {});
@@ -594,6 +619,8 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
     loadThreads,
     error: current.error,
     pending: current.pending,
+    steering: current.steering,
+    activeRequestId: sends.current.get(threadId),
     retry: current.retry,
     unsent: current.retry && !current.state?.messages.some((message) => message.id.endsWith(`:${current.retry!.requestId}`)) ? current.retry.text : null,
     inFlight: current.inFlight,

@@ -56,7 +56,7 @@ val wireJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class PlanNode(val id: String, val kind: String, val label: String, val detail: String? = null)
 @Serializable data class PlanEdge(val from: String, val to: String, val step: Int, val label: String? = null)
 @Serializable data class Stage(val id: String, val label: String, val startedAt: Long, val endedAt: Long? = null, val status: String)
-@Serializable data class TurnRequest(val requestId: String, val text: String, val threadId: String? = null, val retryOf: String? = null, val answerTo: String? = null, val reviewWallet: String? = null)
+@Serializable data class TurnRequest(val requestId: String, val text: String, val threadId: String? = null, val retryOf: String? = null, val answerTo: String? = null, val reviewWallet: String? = null, val steerOf: String? = null)
 @Serializable data class StreamEvent(val type: String, val text: String? = null, val replace: Boolean = false, val status: String? = null, val error: String? = null, val stage: Stage? = null)
 @Serializable data class Holdings(val stocks: List<Stock>, val observedAt: Long)
 @Serializable data class Stock(val symbol: String, val name: String, val address: String, val price_usdc: String? = null, val balance: String? = null, val error: String? = null)

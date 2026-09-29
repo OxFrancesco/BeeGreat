@@ -348,3 +348,34 @@ test("switching authenticated accounts cannot reuse the previous account history
     expect(remove).toHaveBeenCalledWith("alice");
   } finally { read.mockRestore(); remove.mockRestore(); }
 });
+
+test("steering keeps the original stream and pending request until its answer finishes", async () => {
+  await render(null);
+  await respond(0, state(null));
+  let sending!: Promise<void>;
+  await act(async () => { sending = account.send("Explain pools", "original"); });
+  const turn = requests.findIndex(r => r.url.endsWith("/turn"));
+  const stream = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = stream.writable.getWriter();
+  const encoder = new TextEncoder();
+  await act(async () => { requests[turn]!.resolve(new Response(stream.readable, { headers: { "Content-Type": "text/event-stream" } })); });
+  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "paragraph", text: "First", replace: true }))); });
+  let steering!: Promise<void>;
+  await act(async () => { steering = account.send("Keep it short", "steering"); });
+  const steerIndex = requests.findLastIndex(r => r.url.endsWith("/turn"));
+  expect(JSON.parse(String(requests[steerIndex]!.body))).toMatchObject({ requestId: "steering", steerOf: "original", text: "Keep it short" });
+  expect(account.steering).toBe(true);
+  await respond(steerIndex, { status: "complete" });
+  await respond(requests.findLastIndex(r => r.url.includes("/state")), state(null));
+  await act(async () => { await steering; });
+  expect(account.steering).toBe(false);
+  expect(account.pending).toBe(true);
+  expect(account.inFlight).toBe("Explain pools");
+  expect(account.partial).toEqual(["First"]);
+  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "paragraph", text: "Short answer", replace: true }))); });
+  expect(account.partial).toEqual(["Short answer"]);
+  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "complete", status: "complete" }))); await writer.close(); });
+  await respond(requests.findLastIndex(r => r.url.includes("/state")), state(null));
+  await act(async () => { await sending; });
+  expect(account.pending).toBe(false);
+});

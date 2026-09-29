@@ -47,6 +47,7 @@ type Turn = z.infer<typeof webTurnSchema>;
 export class WebAgent {
   private readonly history: WebHistory;
   private readonly active = new Set<string>();
+  private readonly steering = new Set<string>();
   private readonly pnlReads = new Map<string, Promise<PnlSnapshot>>();
   constructor(
     private readonly agent: PecuAgent,
@@ -119,6 +120,7 @@ export class WebAgent {
       reply,
       canRetry:
         Boolean(reply) &&
+        !reply?.steerOf &&
         !origin &&
         !intent &&
         !/^(?:b)?\/|^(?:confirm|cancel)$/i.test(row.text.trim()),
@@ -329,7 +331,28 @@ export class WebAgent {
           : null,
     };
   }
+  private async steer(input: Turn) {
+    if (input.retryOf || input.answerTo || input.reviewWallet) throw new Error("A steer cannot retry, answer a choice, or review a transfer.");
+    const conversationId = this.owner(input);
+    const eventId = `${conversationId}:${input.requestId}`;
+    const existing = this.sql.exec<{ text: string; reply: string | null }>("SELECT text,reply FROM basedbot_web_turns WHERE id=?", eventId).toArray()[0];
+    if (existing && existing.text !== input.text) throw new Error("This request already belongs to another message.");
+    if (existing?.reply) {
+      if (webReplySchema.parse(JSON.parse(existing.reply)).steerOf !== input.steerOf) throw new Error("This request belongs to another turn.");
+      return { status: "complete" as const };
+    }
+    if (this.steering.has(eventId)) return { status: "busy" as const };
+    if (!this.active.has(conversationId)) throw new Error("That reply is no longer running. Send your message again.");
+    this.steering.add(eventId);
+    try {
+      await this.agent.steer({ senderId: input.senderId, conversationId, eventId, text: input.text, encodedEvent: "" }, `${conversationId}:${input.steerOf}`);
+      this.sql.exec("INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at,reply) VALUES(?,?,?,?,?)", eventId, conversationId, input.text, Date.now(), JSON.stringify({ text: "Sent to the current reply.", preview: null, steerOf: input.steerOf }));
+      return { status: "complete" as const };
+    } finally { this.steering.delete(eventId); }
+  }
+
   async handle(input: Turn, progress?: ParagraphSink) {
+    if (input.steerOf) return this.steer(input);
     const { senderId, requestId, text } = input;
     if (input.retryOf && input.answerTo) throw new Error("A retry cannot also answer a question.");
     if (senderKind(senderId) === "x" && !this.store.wallet(senderId))

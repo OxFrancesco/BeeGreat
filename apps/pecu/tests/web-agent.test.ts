@@ -1,3 +1,4 @@
+import { webConversation } from "../src/web-identity";
 import { jsonFieldsSchema, type JsonFields } from "../src/json-contract";
 import { NansenService } from "../src/integrations/nansen";
 import { test, expect } from "bun:test";
@@ -82,7 +83,7 @@ test("wallet P&L reads the sender's own Base wallet once per period for ten minu
     expect(f.web.state(identity).messages).toEqual([]);
   } finally { f.close(); }
 });
-function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService, evmPlan?: EvmPlanResult, positionData?: import("../src/json-contract").JsonObject[]) {
+function fixture(answer?: AgentHarness["respond"], provision = false, stockData?: import("../src/stock-contract").StockSnapshot["stocks"], nansen?: NansenService, evmPlan?: EvmPlanResult, positionData?: import("../src/json-contract").JsonObject[], steer?: AgentHarness["steer"]) {
   const db = new Database(":memory:");
   const store = new Store(":memory:");
   let calls = 0;
@@ -132,6 +133,7 @@ function fixture(answer?: AgentHarness["respond"], provision = false, stockData?
     },
     { ...services(positionData !== undefined ? { aero: { kind: "read", action: "positions", parameters: {}, output: positionData } } : stockData === undefined ? {} : { aero: { kind: "read", action: "stocks", parameters: {}, output: stockData } }), evm: evmStub({ propose: evmPlan }), nansen },
     {
+      steer,
       respond: async (message, capabilities, mode, progress) => {
         calls++;
         return answer ? answer(message, capabilities, mode, progress) : `Hello ${message.senderId}`;
@@ -670,4 +672,32 @@ test("empty liquidity portfolios retain a readable reply", async () => {
     expect(reply?.positionsOnly).not.toBe(true);
     expect(reply?.text).toBe("You have no liquidity positions.");
   } finally { f.close(); }
+});
+
+
+test("steering reaches the active turn once and keeps its separate history", async () => {
+  let release!: () => void;
+  const hold = new Promise<void>(resolve => { release = resolve; });
+  const steers: { text: string; target: string }[] = [];
+  const f = fixture(async () => { await hold; return "Revised answer"; }, false, undefined, undefined, undefined, undefined,
+    async (message, target) => { steers.push({ text: message.text, target }); });
+  f.store.saveWallet(identity.senderId, address, address);
+  const requestId = crypto.randomUUID();
+  const original = f.web.handle({ ...identity, requestId, text: "Explain liquidity pools" });
+  const input = { ...identity, requestId: crypto.randomUUID(), text: "Use a short example", steerOf: requestId };
+  try {
+    expect(await f.web.handle(input)).toEqual({ status: "complete" });
+    expect(await f.web.handle(input)).toEqual({ status: "complete" });
+    expect(steers).toEqual([{ text: input.text, target: `${webConversation(identity)}:${requestId}` }]);
+    const row = f.web.state(identity).messages.find(row => row.text === input.text)!;
+    expect(row.reply?.steerOf).toBe(requestId);
+    expect(row.canRetry).toBe(false);
+    expect(f.web.busy(identity)).toBe(true);
+    await expect(f.web.handle({ ...input, text: "Different content" })).rejects.toThrow("another message");
+    await expect(f.web.handle({ ...input, steerOf: crypto.randomUUID() })).rejects.toThrow("another turn");
+    await expect(f.web.handle({ ...input, requestId: crypto.randomUUID(), retryOf: "other" })).rejects.toThrow("cannot retry");
+    await expect(f.web.handle({ ...input, threadId: "other-thread", requestId: crypto.randomUUID() })).rejects.toThrow("no longer running");
+  } finally { release(); await original; }
+  expect(f.web.state(identity).messages.find(row => row.text === "Explain liquidity pools")?.reply?.text).toBe("Revised answer");
+  await expect(f.web.handle({ ...input, requestId: crypto.randomUUID() })).rejects.toThrow("no longer running");
 });

@@ -264,6 +264,11 @@ export class PecuAgent {
     }
   }
 
+  async steer(message: VerifiedMessage, targetEventId: string): Promise<void> {
+    if (!this.harness.steer) throw new Error("Steering is unavailable. Send this message after the reply finishes.");
+    await this.harness.steer(message, targetEventId);
+  }
+
   async handle(message: VerifiedMessage, retryUnanswered = false, progress?: ParagraphSink): Promise<string | undefined> {
     const trace = await turnTraceIdentity(message.senderId, message.eventId, message.conversationId);
     trace.record = span => this.track(message.senderId, span);

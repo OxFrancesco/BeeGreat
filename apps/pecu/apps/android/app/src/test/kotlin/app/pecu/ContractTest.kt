@@ -6,6 +6,12 @@ import java.io.StringReader
 import kotlinx.serialization.encodeToString
 
 class ContractTest {
+  @Test fun `steering contract preserves the original request`() {
+    val text = javaClass.getResource("/steering.json")!!.readText()
+    val turn = wireJson.decodeFromString<TurnRequest>(text)
+    assertEquals("22222222-2222-4222-8222-222222222222", turn.steerOf)
+    assertEquals(wireJson.parseToJsonElement(text), wireJson.parseToJsonElement(wireJson.encodeToString(turn)))
+  }
   @Test fun `TypeScript generated fixtures decode on Android`() {
     val state = wireJson.decodeFromString<AccountState>(javaClass.getResource("/state.json")!!.readText())
     assertEquals("Which token?", state.messages[0].reply!!.question!!.question)

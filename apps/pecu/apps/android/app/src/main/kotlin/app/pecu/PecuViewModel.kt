@@ -13,7 +13,7 @@ import kotlinx.serialization.encodeToString
 data class ChatState(
   val thread: String? = null, val account: AccountState? = null, val draft: String = "",
   val loading: Boolean = false, val syncing: Boolean = false, val paging: Boolean = false, val error: String? = null,
-  val pending: TurnRequest? = null, val retry: TurnRequest? = null,
+  val pending: TurnRequest? = null, val retry: TurnRequest? = null, val steering: Boolean = false,
 )
 data class LiveReply(val text: String = "", val stages: List<Stage> = emptyList())
 data class AccountUi(val ready: Boolean = false, val signedIn: Boolean = false, val name: String = "", val image: String? = null, val busy: Boolean = false, val error: String? = null, val signingInWith: LoginProvider? = null)
@@ -69,6 +69,7 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
   private var accountId: String? = null
   private var loadJob: Job? = null
   private var sendJob: Job? = null
+  private var steerJob: Job? = null
   private var panelJob: Job? = null
   private var threadJob: Job? = null
 
@@ -80,7 +81,7 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
           val id = session.id
           _auth.update { it.copy(ready = session.ready, signedIn = id != null, name = session.name, image = session.image) }
           if (id != accountId) {
-            loadJob?.cancel(); sendJob?.cancel(); panelJob?.cancel(); threadJob?.cancel()
+            loadJob?.cancel(); sendJob?.cancel(); steerJob?.cancel(); panelJob?.cancel(); threadJob?.cancel()
             warmJob?.cancel(); saveJob?.cancelAndJoin(); preloads.values.forEach { it.cancel() }; preloads.clear()
             accountId?.let { historyDisk?.remove(it) }; cacheBytes.clear(); restoredThreads.clear()
             cache.clear(); drafts.clear(); _live.value = LiveReply(); _portfolio.value = null; _inference.value = null; _pnl.value = null
@@ -257,8 +258,28 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
   }
 
   fun send(text: String = _chat.value.draft, answerTo: String? = null, retryOf: String? = null) {
-    if (text.isBlank() || text.length > 4000 || _chat.value.syncing || !_auth.value.signedIn || _chat.value.pending != null || _chat.value.account?.newerCursor != null) return
+    if (text.isBlank() || text.length > 4000 || _chat.value.syncing || !_auth.value.signedIn || _chat.value.steering || _chat.value.account?.newerCursor != null) return
+    val pending = _chat.value.pending
+    if (pending != null) {
+      if (answerTo != null || retryOf != null) return
+      steer(TurnRequest(UUID.randomUUID().toString(), text.trim(), pending.threadId, steerOf = pending.requestId))
+      return
+    }
     launchTurn(TurnRequest(UUID.randomUUID().toString(), text.trim(), _chat.value.thread, retryOf = retryOf, answerTo = answerTo))
+  }
+  private fun steer(request: TurnRequest) {
+    _chat.update { it.copy(steering = true, error = null) }
+    steerJob = viewModelScope.launch {
+      try {
+        api.turn(request) {}
+        if (_chat.value.thread == request.threadId) _chat.update { it.copy(draft = if (it.draft.trim() == request.text) "" else it.draft) }
+        saved["draft"] = _chat.value.draft
+        val state = api.state(request.threadId)
+        remember(request.threadId, state)
+        if (_chat.value.thread == request.threadId) _chat.update { it.copy(account = state) }
+      } catch (error: Exception) { failure(error) }
+      finally { _chat.update { it.copy(steering = false) } }
+    }
   }
   fun reviewTransfer(command: String, wallet: String?): Boolean {
     val state = _chat.value

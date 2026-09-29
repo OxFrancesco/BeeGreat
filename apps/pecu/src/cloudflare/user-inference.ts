@@ -41,7 +41,7 @@ export function userInference(env: Cloudflare.Env, senderId: string) {
 export class UserInference extends DurableObject<Cloudflare.Env> {
   private readonly ready: Promise<void>;
   private harness!: OpenCodeHarness;
-  private active?: { eventId: string; capabilities: AgentCapabilities };
+  private active?: { eventId: string; conversationId: string; senderId: string; capabilities: AgentCapabilities };
   private changing = false;
 
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
@@ -121,6 +121,15 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
     } finally { this.changing = false; }
   }
 
+  async steer(message: VerifiedMessage, targetEventId: string) {
+    await this.ready;
+    if (!this.active || this.active.eventId !== targetEventId ||
+      this.active.conversationId !== message.conversationId || this.active.senderId !== message.senderId) {
+      throw new Error("That reply is no longer running. Send your message again after it finishes.");
+    }
+    await this.harness.steer(message, targetEventId);
+  }
+
   async respond(message: VerifiedMessage, yolo: boolean, bridge: InferenceTools, mode?: ResponseMode) {
     await this.ready;
     if (this.active || this.changing) throw new Error("Pecu is finishing your previous request. Try again shortly.");
@@ -153,7 +162,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       taskList: (...args) => bridge.call("taskList", args),
       taskUpdate: (...args) => bridge.call("taskUpdate", args),
     };
-    this.active = { eventId: message.eventId, capabilities };
+    this.active = { eventId: message.eventId, conversationId: message.conversationId, senderId: message.senderId, capabilities };
     let delivery = Promise.resolve();
     try {
       const chatGpt = !await this.ctx.storage.get<boolean>("disconnected") && (await this.harness.authStatus()).connected;

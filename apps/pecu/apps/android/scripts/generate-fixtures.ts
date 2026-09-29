@@ -1,4 +1,4 @@
-import { webStateSchema } from "../../../src/web-contract";
+import { webStateSchema, webTurnSchema } from "../../../src/web-contract";
 import { webTurnEventSchema } from "../../../src/web-stream";
 import { notificationListSchema, taskListSchema } from "../../../src/task-contract";
 
@@ -49,3 +49,6 @@ const snapshot = readPositionSnapshot(rows, 123)!;
 const legacy = snapshot.positions.map(row => `${row.label} · Position ${row.id} · ${row.chain}\nPool: ${row.pool}\nUnstaked: ${row.token0.unstaked} ${row.token0.symbol} + ${row.token1.unstaked} ${row.token1.symbol}\nStaked: ${row.token0.staked} ${row.token0.symbol} + ${row.token1.staked} ${row.token1.symbol}`).join("\n\n");
 const amounts = ["0", "0.00000001", "0.000641062895327367", "2.004739", "100.200000", "123456789.12345", "0.00100000"].map(exact => ({ exact, compact: compactPositionAmount(exact) }));
 await Bun.write(new URL("positions.json", folder), JSON.stringify({ snapshot, legacy, amounts }, null, 2) + "\n");
+
+const steering = webTurnSchema.omit({ userId: true, senderId: true }).parse({ requestId: "11111111-1111-4111-8111-111111111111", text: "Use a short example", threadId: "native-contract", steerOf: "22222222-2222-4222-8222-222222222222" });
+await Bun.write(new URL("steering.json", folder), JSON.stringify(steering, null, 2) + "\n");

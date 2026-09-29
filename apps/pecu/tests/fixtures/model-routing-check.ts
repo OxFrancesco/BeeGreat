@@ -17,6 +17,9 @@ let streamGate: Promise<void> | undefined;
 let streamReady: (() => void) | undefined;
 let streamObserved: (() => void) | undefined;
 let streamDone: Promise<void> | undefined;
+let onWait: (() => void) | undefined;
+let admissionGate: Promise<void> | undefined;
+const admissions: { sessionID: string; text: string; id?: string; delivery?: string }[] = [];
 const client = {
   events: { async *subscribe({ signal }: { signal: AbortSignal }) {
     yield { type: "server.connected" };
@@ -37,7 +40,9 @@ const client = {
     get: async () => ({ id: "session" }),
     create: async (input: { model: { id: string } }) => { created.push(input.model.id); return { id: "session" }; },
     switchModel: async (input: (typeof switched)[number]) => { switched.push(input); },
-    prompt: async (input: { sessionID: string; text: string }) => {
+    prompt: async (input: { sessionID: string; text: string; id?: string; delivery?: string }) => {
+      admissions.push(input);
+      if (input.delivery === "steer") await admissionGate;
       prompts.push(input.text);
       streamReady?.();
       const event = { sessionID: input.sessionID, system: [{ type: "text", text: "Runtime instructions" }], tools: Object.fromEntries(registered) };
@@ -45,7 +50,7 @@ const client = {
       toolCatalogs.push(Object.keys(event.tools));
       return { timeCreated: 1 };
     },
-    wait: async () => { await streamDone; },
+    wait: async () => { onWait?.(); await streamDone; },
     context: async () => { throw new Error("Reply extraction must not load the conversation"); },
   },
   message: { list: async (input: { limit: number; order: string }) => {
@@ -309,6 +314,29 @@ try {
   const liveSink = Object.assign((text: string) => { live.push(text); }, { live: true });
   await keyed.respond({ ...message, eventId: "stream-live" }, capabilities, "response", liveSink, false);
   expect(live).toEqual(["First paragraph.\n\nLast para", "First paragraph.\n\nLast paragraph."]);
+
+  let releaseSteering!: () => void;
+  streamDone = new Promise<void>(resolve => { releaseSteering = resolve; });
+  const waiting = new Promise<void>(resolve => { onWait = resolve; });
+  let finishedSteering = false;
+  const steered = keyed.respond({ ...message, eventId: "steered-turn" }, capabilities, undefined, undefined, false).then(reply => { finishedSteering = true; return reply; });
+  await waiting;
+  let admit!: () => void;
+  admissionGate = new Promise<void>(resolve => { admit = resolve; });
+  const admission = keyed.steer({ ...message, eventId: "steer-message", text: "Use Polymarket instead" }, "steered-turn");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  releaseSteering();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(finishedSteering).toBe(false);
+  admit(); await admission;
+  admissionGate = undefined;
+  expect(admissions.at(-1)).toMatchObject({ delivery: "steer", text: "Use Polymarket instead", sessionID: "session" });
+  expect(admissions.at(-1)?.id).toMatch(/^msg_[a-f0-9]{64}$/);
+  expect(toolCatalogs.at(-1)).toContain("polymarket_search");
+  releaseSteering(); await steered;
+  await expect(keyed.steer(message, "steered-turn")).rejects.toThrow("not accepting steering");
+  streamDone = undefined;
+  onWait = undefined;
 
   directPreview = true;
   const direct: string[] = [];

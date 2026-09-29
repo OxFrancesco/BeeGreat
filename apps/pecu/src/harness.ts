@@ -47,6 +47,7 @@ export type ResponseMode = "response" | "mixed" | Readonly<{ kind: "mixed" | "fa
 
 export interface AgentHarness {
   warm?(senderId: string): Promise<void>;
+  steer?(message: VerifiedMessage, targetEventId: string): Promise<void>;
   /** `progress` receives finished paragraphs while the model is still writing; channels that cannot show partial replies omit it. */
   respond(message: VerifiedMessage, capabilities: AgentCapabilities, mode?: ResponseMode, progress?: ParagraphSink): Promise<string>;
 }

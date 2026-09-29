@@ -1,3 +1,4 @@
+import { digest } from "../plan-digest";
 import { jsonValueSchema, jsonObjectSchema } from "../json-contract";
 import { polymarketEndpoints, polymarketEndpointNames } from "../integrations/polymarket/catalog.generated";
 import { modelCatalog } from "./model-catalog";
@@ -93,6 +94,7 @@ function providerErrorKind(body: string, headers: Headers): string {
 type SkillSession = { family?: ToolFamily; carried?: string[]; active?: AgentSkill[] };
 
 export class OpenCodeHarness implements AgentHarness {
+  private readonly steering = new Map<string, { sessionId: string; pending: Set<Promise<void>>; revision: number }>();
   private analyticsPending: Promise<void> = Promise.resolve();
   private constructor(
     private readonly client: OpenCodeWorkerd.Interface,
@@ -445,6 +447,22 @@ export class OpenCodeHarness implements AgentHarness {
     return limit && usageLimitActive(limit) ? limit : undefined;
   }
 
+  async steer(message: VerifiedMessage, targetEventId: string): Promise<void> {
+    const id = `msg_${await digest(message.eventId)}`;
+    const active = this.steering.get(targetEventId);
+    if (!active) throw new Error("The reply is not accepting steering yet. Try again in a moment.");
+    const turn = this.store.agentTurn(active.sessionId);
+    if (!turn || turn.eventId !== targetEventId) throw new Error("That reply has ended.");
+    this.store.saveAgentTurn(active.sessionId, { ...turn, text: `${turn.text}\n\nSteering: ${message.text}` });
+    const admission = this.client.sessions.prompt({
+      sessionID: active.sessionId, id, delivery: "steer",
+      text: message.text,
+      metadata: { eventId: targetEventId, senderId: message.senderId, conversationId: message.conversationId },
+    }).then(() => { active.revision++; });
+    active.pending.add(admission);
+    try { await admission; } finally { active.pending.delete(admission); }
+  }
+
   async respond(message: VerifiedMessage, capabilities: AgentCapabilities, mode?: ResponseMode, progress?: ParagraphSink, chatGpt = true): Promise<string> {
     // A spent subscription answers every request with the same 429; skip the provider until it resets.
     const knownLimit = chatGpt ? await this.usageLimit() : undefined;
@@ -511,7 +529,7 @@ export class OpenCodeHarness implements AgentHarness {
     }
   }
 
-  private async turn(sessionId: string, text: string, metadata: Record<string, string>, progress?: ParagraphSink) {
+  private async turn(sessionId: string, text: string, metadata: { eventId: string; senderId: string; conversationId: string }, progress?: ParagraphSink) {
     // Finish the previous cursor before admitting another turn on this runtime.
     await this.analyticsPending;
     let startedAt = Date.now();
@@ -543,9 +561,18 @@ export class OpenCodeHarness implements AgentHarness {
     try {
       const inbox = await this.client.sessions.prompt({ sessionID: sessionId, text, metadata });
       startedAt = inbox.timeCreated;
+      const active = { sessionId, pending: new Set<Promise<void>>(), revision: 0 };
+      this.steering.set(metadata.eventId, active);
       try {
-        await this.client.sessions.wait({ sessionID: sessionId });
+        let revision: number;
+        do {
+          revision = active.revision;
+          await this.client.sessions.wait({ sessionID: sessionId });
+          await Promise.allSettled(active.pending);
+        } while (active.revision !== revision || active.pending.size > 0);
+        this.steering.delete(metadata.eventId);
       } finally {
+        this.steering.delete(metadata.eventId);
         schedule();
         this.analyticsPending = this.analyticsPending.then(async () => {
           await this.storage.put(cursorKey, cursor);
@@ -600,12 +627,13 @@ export class OpenCodeHarness implements AgentHarness {
         for await (const event of this.client.events.subscribe({ signal: controller.signal })) {
           if (event.type === "server.connected") attached();
           if ("data" in event && "sessionID" in event.data && event.data.sessionID === sessionId) {
+            if (event.type === "session.inbox.delivered") directReply = undefined;
             if (["session.step.ended", "session.step.failed", "session.tool.success", "session.tool.failed"].includes(event.type)) onSettled();
             if (event.type === "session.tool.success" && event.data.metadata?.pecu_direct_reply === true && names.get(event.data.id) === "aero_liquidity") {
               directReply = event.data.content.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
               progress(directReply);
               // The tool success is durable before interruption. Its verified preview is the reply.
-              void this.client.sessions.interrupt({ sessionID: sessionId }).catch(() => log("warn", "preview_stop_failed", {}));
+              void this.client.sessions.interrupt({ sessionID: sessionId, continue: true }).catch(() => log("warn", "preview_stop_failed", {}));
             }
             if (event.type === "session.tool.input.started") names.set(event.data.id, event.data.name);
             if (event.type === "session.tool.called") stage(event.data.id, toolLabel(names.get(event.data.id) ?? ""));

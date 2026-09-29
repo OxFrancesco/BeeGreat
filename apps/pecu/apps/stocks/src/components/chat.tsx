@@ -40,8 +40,12 @@ export function Chat({
       return;
     }
     const text = draft.trim();
-    setDraft("");
-    await account.send(text);
+    if (account.pending) {
+      try { await account.send(text); setDraft(current => current.trim() === text ? "" : current); } catch {}
+    } else {
+      setDraft("");
+      await account.send(text);
+    }
   }
   return (
     <section className="chat-panel" aria-label="Agent chat">
@@ -182,7 +186,7 @@ export function Chat({
                     </div>
                   ) : account.pending &&
                     account.partial.length &&
-                    message.id === account.state?.messages.at(-1)?.id ? (
+                    message.id.endsWith(`:${account.activeRequestId}`) ? (
                     <div className="message assistant" role="status">
                       <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                     </div>
@@ -238,7 +242,7 @@ export function Chat({
           ) : null}
         </div>
       ) : null}
-      {account.pending && !busyCode ? (
+      {account.pending && !busyCode && !account.state?.messages.some(message => message.id.endsWith(`:${account.activeRequestId}`)) ? (
         account.inFlight && account.partial.length ? (
           <div className="message assistant mx-6" role="status">
             <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
@@ -276,8 +280,8 @@ export function Chat({
             type="submit"
             size="icon"
             className="h-11 w-11 rounded-xl"
-            aria-label="Send message"
-            disabled={account.pending || account.syncing || !draft.trim()}
+            aria-label={account.pending ? "Steer Pecu" : "Send message"}
+            disabled={account.steering || account.syncing || !draft.trim()}
           >
             <ArrowUp size={19} />
           </Button>

@@ -166,7 +166,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
       LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         if (chat.account?.olderCursor != null) item(key = "older") { TextButton(onClick = model::olderMessages, enabled = !chat.paging) { Text(if (chat.paging) "Loading…" else "Older messages") } }
         items(messages, key = Message::id, contentType = { "message" }) { message ->
-          MessageView(message, model, chat.pending != null || chat.syncing || chat.account?.newerCursor != null, message.id == allMessages.lastOrNull()?.id, onConnect)
+          MessageView(message, model, chat.pending != null || chat.syncing || chat.account?.newerCursor != null, message.id == allMessages.lastOrNull()?.id, chat.pending?.requestId?.let { message.id.endsWith(":" + it) } == true, onConnect)
         }
         if (showPending) item(key = "pending") { Column(verticalArrangement = Arrangement.spacedBy(20.dp)) { UserBubble(chat.pending.text); LiveReplyView(model) } }
         item(key = "end") { Spacer(Modifier.height(4.dp)) }
@@ -176,7 +176,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
   }
 }
 
-@Composable private fun MessageView(message: Message, model: PecuViewModel, busy: Boolean, latest: Boolean, onConnect: () -> Unit) {
+@Composable private fun MessageView(message: Message, model: PecuViewModel, busy: Boolean, latest: Boolean, streaming: Boolean, onConnect: () -> Unit) {
   val command = message.text.matches(Regex("/(confirm|cancel) [A-Za-z0-9]{6}", RegexOption.IGNORE_CASE))
   Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
     val origin = message.origin
@@ -189,7 +189,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
       Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         val reply = message.reply
         if (reply == null) {
-          if (busy && latest) LiveReplyView(model, avatar = false)
+          if (streaming) LiveReplyView(model, avatar = false)
           else { Text("Waiting for Pecu…", color = MaterialTheme.colorScheme.onSurfaceVariant); TextButton(onClick = { model.resume(message) }, enabled = !busy) { Text("Resume response") } }
         } else {
           val legacy = remember(reply.text, reply.preview, reply.question, reply.positions) { if (reply.preview == null && reply.question == null && reply.positions == null) legacyPositions(reply.text) else null }
@@ -246,7 +246,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
     Surface(Modifier.fillMaxWidth().clay(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface) {
       Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.Bottom) {
         BasicTextField(value = chat.draft, onValueChange = model::draft, modifier = Modifier.weight(1f).heightIn(min = 48.dp, max = 160.dp).padding(vertical = 12.dp).semantics { contentDescription = "Message Pecu" }, textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface, lineHeight = 22.sp), cursorBrush = SolidColor(Amber), decorationBox = { inner -> if (chat.draft.isEmpty()) Text("Ask Pecu about your wallet…", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); inner() })
-        FilledIconButton(onClick = { model.send() }, enabled = auth.ready && chat.pending == null && !chat.syncing && chat.draft.isNotBlank() && chat.account?.newerCursor == null, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowUpward, "Send message") }
+        FilledIconButton(onClick = { model.send() }, enabled = auth.ready && !chat.steering && !chat.syncing && chat.draft.isNotBlank() && chat.account?.newerCursor == null, modifier = Modifier.size(48.dp)) { Icon(Icons.Outlined.ArrowUpward, if (chat.pending != null) "Steer Pecu" else "Send message") }
       }
     }
   }

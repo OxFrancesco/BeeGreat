@@ -174,6 +174,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           },
           {
             warm: (senderId) => userInference(env, senderId).warm(),
+            steer: (message, targetEventId) => userInference(env, message.senderId).steer(message, targetEventId),
             respond: (message, capabilities, mode, progress) => userInference(env, message.senderId).respond(message, capabilities.yoloEnabled(), new InferenceTools(capabilities, mode, progress), mode),
           },
           this.config.typesafeApiKey ? new TypeSafeRequestClassifier(this.config.typesafeApiKey) : undefined,

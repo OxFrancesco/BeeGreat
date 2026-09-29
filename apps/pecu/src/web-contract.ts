@@ -56,6 +56,7 @@ export const webScopeSchema = webIdentitySchema
 export const webTurnSchema = webScopeSchema
   .extend({
     requestId: z.string().uuid(),
+    steerOf: z.string().uuid().optional(),
     retryOf: z.string().min(1).max(300).optional(),
     answerTo: z.string().min(1).max(300).optional(),
     reviewWallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
@@ -91,6 +92,7 @@ export function confirmationCommand(text: string): { kind: "confirm" | "cancel";
   return { kind: match[1].toLowerCase() === "confirm" ? "confirm" : "cancel", code: match[2].toUpperCase() };
 }
 export const webReplySchema = z.object({
+  steerOf: z.string().uuid().optional(),
   positions: positionSnapshotSchema.optional(),
   positionsOnly: z.boolean().optional(),
   analytics: analyticsResultsSchema.optional(),

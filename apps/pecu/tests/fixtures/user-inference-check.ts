@@ -34,6 +34,7 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
     async chatGptLoginStatus() { if (state.loginStatusError) throw state.loginStatusError; if (state.complete) state.connected = true; return { data: { status: state.complete ? "complete" : "pending" } }; },
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
+    async steer(_message: VerifiedMessage, _target: string) {},
     async respond(_message: VerifiedMessage, capabilities: AgentCapabilities, _mode?: ResponseMode, progress?: (paragraph: string) => void, chatGpt = true) {
       state.calls++;
       state.lastChatGpt = chatGpt;
@@ -94,7 +95,12 @@ const active = a.instance.respond(message, false, tools);
 await new Promise((resolve) => setTimeout(resolve, 0));
 await expect(a.instance.disconnect()).rejects.toThrow("Wait");
 await expect(a.instance.respond(message, false, tools)).rejects.toThrow("previous request");
+await a.instance.steer({ ...message, eventId: "steer", text: "Keep it brief" }, message.eventId);
+await expect(a.instance.steer({ ...message, senderId: "other" }, message.eventId)).rejects.toThrow("no longer running");
+await expect(a.instance.steer({ ...message, conversationId: "other" }, message.eventId)).rejects.toThrow("no longer running");
+await expect(a.instance.steer(message, "other-event")).rejects.toThrow("no longer running");
 release(); await active; states.get(a.storage)!.hold = undefined;
+await expect(a.instance.steer(message, message.eventId)).rejects.toThrow("no longer running");
 states.get(a.storage)!.usageLimit = true;
 const limited = await a.instance.respond(message, false, tools);
 expect(limited).toContain("usage limit on your ChatGPT plus plan has been reached");

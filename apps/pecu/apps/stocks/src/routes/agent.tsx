@@ -626,7 +626,7 @@ function AgentWorkspace({
                                 </MessageContent>
                               ) : account.pending &&
                                 account.partial.length &&
-                                message.id === messages.at(-1)?.id ? (
+                                message.id.endsWith(`:${account.activeRequestId}`) ? (
                                 <MessageContent className="pecu-bubble-bot" role="status">
                                   <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                                 </MessageContent>
@@ -661,7 +661,7 @@ function AgentWorkspace({
                       );
                     }}
                   </ConversationHistory>
-                  {inFlight && !busyCode ? (
+                  {inFlight && !busyCode && !messages.some(message => message.id.endsWith(`:${account.activeRequestId}`)) ? (
                     <div className="pecu-turn" key="in-flight">
                       <Message from="user">
                         <MessageContent className="pecu-bubble-user">
@@ -761,9 +761,13 @@ function AgentWorkspace({
                 className="pecu-prompt clay"
                 onSubmit={({ text }, event) => {
                   if (!isSignedIn) return signIn();
-                  event.currentTarget.reset();
-                  setDraft("");
-                  void send(text);
+                  if (account.pending) {
+                    void send(text).then(() => setDrafts(current => current[draftKey]?.trim() === text.trim() ? { ...current, [draftKey]: "" } : current)).catch(() => {});
+                  } else {
+                    event.currentTarget.reset();
+                    setDraft("");
+                    void send(text);
+                  }
                 }}
               >
                 <PromptInputBody>
@@ -799,13 +803,14 @@ function AgentWorkspace({
                 </PromptInputTools>
                 <PromptInputSubmit
                   className="pecu-submit"
+                  aria-label={account.pending ? "Steer Pecu" : "Send message"}
                   disabled={
-                    account.pending || account.syncing ||
+                    account.steering || account.syncing ||
                     account.loading ||
                     (isSignedIn && !draft.trim())
                   }
                   status={
-                    account.pending
+                    account.steering
                       ? "submitted"
                       : account.error
                         ? "error"
