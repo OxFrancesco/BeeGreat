@@ -5,6 +5,7 @@ import { z } from "zod";
 import { agentQuestionSchema } from "./question-contract";
 import { clerkUserIdSchema, senderIdSchema } from "./web-identity";
 import { transactionPlanSchema } from "./transaction-plan-contract";
+import { messageOriginSchema } from "./task-contract";
 export const inferenceStatusSchema = z.object({
   model: z.string(),
   reasoning: z.string(),
@@ -100,12 +101,16 @@ export const webReplySchema = z.object({
   question: agentQuestionSchema.optional(),
   text: z.string(),
   preview: previewSchema.nullable(),
+  /** Stored with a task run's reply; presented on the message. */
+  origin: messageOriginSchema.optional(),
 });
 export const webMessageSchema = z.object({
   id: z.string(),
   text: z.string(),
   createdAt: z.number(),
   canRetry: z.boolean().optional(),
+  /** Present when an automation wrote this message; `text` is then the automation title, not something the user typed. */
+  origin: messageOriginSchema.optional(),
   reply: webReplySchema.nullable(),
 });
 export const webThreadSchema = z.object({

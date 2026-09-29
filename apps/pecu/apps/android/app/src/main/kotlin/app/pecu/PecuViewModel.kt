@@ -19,9 +19,17 @@ data class LiveReply(val text: String = "", val stages: List<Stage> = emptyList(
 data class AccountUi(val ready: Boolean = false, val signedIn: Boolean = false, val name: String = "", val image: String? = null, val busy: Boolean = false, val error: String? = null, val signingInWith: LoginProvider? = null)
 
 data class SessionIdentity(val id: String?, val ready: Boolean = true, val name: String = "Account", val image: String? = null)
+data class AutomationsUi(val tasks: List<Automation>? = null, val alerts: List<PecuNotification> = emptyList(), val busy: String? = null, val message: String? = null, val error: String? = null)
+
+/** Phone services the view model drives without holding a Context. */
+interface DeviceHooks {
+  suspend fun pushToken(): String?
+  fun scheduleReminders(reminders: List<LocalReminder>)
+}
 
 class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk: HistoryDisk? = null,
-  sessions: Flow<SessionIdentity>? = null, private val history: HistoryReader? = null) : ViewModel() {
+  sessions: Flow<SessionIdentity>? = null, private val history: HistoryReader? = null, private val device: DeviceHooks? = null,
+  private val automationApi: (() -> PecuApi)? = null) : ViewModel() {
   private val api by lazy { PecuApi(token = {
     when (val result = Clerk.auth.getToken()) {
       is ClerkResult.Success -> result.value
@@ -47,6 +55,10 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
   val panelError = _panelError.asStateFlow()
   private val _panelBusy = MutableStateFlow(false)
   val panelBusy = _panelBusy.asStateFlow()
+  private val _automations = MutableStateFlow(AutomationsUi())
+  val automations = _automations.asStateFlow()
+  private val automationsApi: PecuApi get() = automationApi?.invoke() ?: api
+  private var automationJob: Job? = null
   private val cache = LinkedHashMap<String?, AccountState>()
   private val cacheBytes = mutableMapOf<String?, Int>()
   private val restoredThreads = mutableSetOf<String?>()
@@ -72,7 +84,7 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
             warmJob?.cancel(); saveJob?.cancelAndJoin(); preloads.values.forEach { it.cancel() }; preloads.clear()
             accountId?.let { historyDisk?.remove(it) }; cacheBytes.clear(); restoredThreads.clear()
             cache.clear(); drafts.clear(); _live.value = LiveReply(); _portfolio.value = null; _inference.value = null; _pnl.value = null
-            _threads.value = ThreadPage(emptyList()); _panelError.value = null
+            _threads.value = ThreadPage(emptyList()); _panelError.value = null; automationJob?.cancel(); _automations.value = AutomationsUi()
             val restored = saved.get<String>("owner") == id
             _chat.value = if (restored) ChatState(thread = saved["thread"], draft = saved["draft"] ?: "") else ChatState()
             saved["owner"] = id
@@ -81,6 +93,8 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
             if (id != null) {
               // Fetch fresh data concurrently; local snapshots never delay the request.
               reload(); refreshThreads()
+              // Re-arm reminder alarms and the push target for this account on devices that have them.
+              if (device != null) { registerDevice(); loadAutomations(markRead = false) }
               val snapshot = historyDisk?.read(id)
               if (snapshot != null && accountId == id) {
                 snapshot.states.forEach { state ->
@@ -120,7 +134,54 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
       finally { _auth.update { it.copy(busy = false, signingInWith = null) } }
     }
   }
-  fun signOut() { viewModelScope.launch { Clerk.auth.signOut() } }
+  fun signOut() {
+    viewModelScope.launch {
+      device?.scheduleReminders(emptyList())
+      runCatching { device?.pushToken()?.let { automationsApi.unregisterPush(it) } }
+      Clerk.auth.signOut()
+    }
+  }
+  private fun registerDevice() {
+    val hooks = device ?: return
+    viewModelScope.launch {
+      try { hooks.pushToken()?.let { automationsApi.registerPush(it) } }
+      catch (error: Exception) { if (error is CancellationException) throw error }
+    }
+  }
+
+  /** Load automations and recent alerts, and re-arm local reminder alarms from the fresh schedule. */
+  fun loadAutomations(markRead: Boolean = true) {
+    if (!_auth.value.signedIn) return
+    automationJob?.cancel()
+    automationJob = viewModelScope.launch {
+      try {
+        val tasks = automationsApi.automations().tasks
+        device?.scheduleReminders(localReminders(tasks, System.currentTimeMillis()))
+        val alerts = automationsApi.notifications()
+        _automations.update { it.copy(tasks = tasks, alerts = alerts.notifications.take(10), error = null) }
+        if (markRead && alerts.unread > 0) automationsApi.readNotifications()
+      } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        _automations.update { it.copy(error = error.message ?: "Could not load automations. Try again.") }
+      }
+    }
+  }
+
+  fun automationAction(code: String, kind: String, maxUsd: Double? = null) {
+    if (_automations.value.busy != null) return
+    viewModelScope.launch {
+      _automations.update { it.copy(busy = "$code:$kind", error = null, message = null) }
+      try {
+        val result = automationsApi.automationAction(code, kind, maxUsd)
+        val tasks = _automations.value.tasks.orEmpty().let { list -> if (kind == "cancel") list.filterNot { it.code == code } else list.map { if (it.code == code) result.task else it } }
+        device?.scheduleReminders(localReminders(tasks, System.currentTimeMillis()))
+        _automations.update { it.copy(tasks = tasks, message = result.message) }
+      } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        _automations.update { it.copy(error = error.message ?: "Could not update this automation. Try again.") }
+      } finally { _automations.update { it.copy(busy = null) } }
+    }
+  }
   fun draft(value: String) { _chat.update { it.copy(draft = value.take(4000)) }; saved["draft"] = value.take(4000) }
 
   fun selectThread(id: String?) {

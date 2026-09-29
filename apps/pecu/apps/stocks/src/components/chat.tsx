@@ -102,6 +102,8 @@ export function Chat({
                     <div className="flex justify-end mb-4">
                       <div className="message user">{message.text}</div>
                     </div>
+                  ) : presentation.kind === "task" ? (
+                    <p className="pecu-task-origin mb-2">{presentation.title}</p>
                   ) : null}
                   {message.reply ? (
                     <div

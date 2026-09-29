@@ -16,6 +16,10 @@ android {
     buildConfigField("String", "API_ORIGIN", "\"https://pecu.app\"")
     // Public identifier from the same Clerk instance used by pecu.app.
     buildConfigField("String", "CLERK_PUBLISHABLE_KEY", "\"pk_test_c3RyaWtpbmctYnVmZmFsby05ODUxLmNsZXJrLmFjY291bnRzLmRldiQ\"")
+    // Public Firebase client identifiers for FCM. Empty values build an app without push.
+    listOf("APP_ID" to "appId", "PROJECT_ID" to "projectId", "API_KEY" to "apiKey", "SENDER_ID" to "senderId").forEach { (field, property) ->
+      buildConfigField("String", "FIREBASE_$field", "\"${providers.gradleProperty("pecu.firebase.$property").getOrElse("")}\"")
+    }
   }
   buildTypes {
     release {
@@ -66,6 +70,7 @@ dependencies {
   implementation(libs.coil.network)
   implementation(libs.markdown.m3)
   implementation(libs.zxing.core)
+  implementation(libs.firebase.messaging)
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.okhttp.mockwebserver)

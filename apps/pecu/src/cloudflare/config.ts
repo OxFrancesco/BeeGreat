@@ -32,6 +32,7 @@ const environmentSchema = z.object({
   NANSEN_API_KEY: z.string().optional().catch(undefined),
   TYPESAFE_API_KEY: z.string().optional().catch(undefined),
   OPENROUTER_API_KEY: z.string().optional().catch(undefined),
+  FCM_SERVICE_ACCOUNT: z.string().optional().catch(undefined),
   POSTHOG_ENABLED: z.string().optional().catch(undefined),
 });
 type WorkerEnvironment = Partial<Record<keyof z.output<typeof environmentSchema>, string>>;
@@ -88,6 +89,8 @@ export type WorkerConfig = Readonly<{
   typesafeApiKey?: string;
   nansenApiUrl: string;
   openRouterApiKey?: string;
+  /** Google service-account JSON for FCM HTTP v1. Without it notifications stay in the in-app inbox. */
+  fcmServiceAccount?: string;
 }>;
 
 export function loadWorkerConfig(env: WorkerEnvironment): WorkerConfig {
@@ -145,6 +148,7 @@ export function loadWorkerConfig(env: WorkerEnvironment): WorkerConfig {
     ...optionalConfig("nansenApiKey", (environment.NANSEN_API_KEY || undefined)),
     ...optionalConfig("typesafeApiKey", (environment.TYPESAFE_API_KEY || undefined)),
     ...optionalConfig("openRouterApiKey", (environment.OPENROUTER_API_KEY || undefined)),
+    ...optionalConfig("fcmServiceAccount", (environment.FCM_SERVICE_ACCOUNT || undefined)),
     whopApiUrl: value.WHOP_API_URL,
     whopApiVersionDate: value.WHOP_API_VERSION_DATE,
     depositRelayMaxUsd: value.DEPOSIT_RELAY_MAX_USD,

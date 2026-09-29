@@ -9,6 +9,7 @@ import type { LiquidityRequest } from "./liquidity-contract";
 import type { StockTrade } from "./stock-contract";
 import type { ParagraphSink } from "./web-stream";
 import type { ToolFamily } from "./tool-families";
+import type { TaskCreateInput, TaskUpdateInput } from "./task-control";
 
 type EvmReadInput<K extends "read" | "inspect" | "decode"> = Parameters<EvmService[K]>[0];
 
@@ -37,6 +38,9 @@ export type AgentCapabilities = Readonly<{
   depositSetup(email: string): Promise<string>;
   depositStatus(): Promise<string>;
   nansenCall(endpoint: NansenEndpointName, input: NansenQuery): Promise<string>;
+  taskCreate(input: TaskCreateInput): Promise<string>;
+  taskList(): Promise<string>;
+  taskUpdate(input: TaskUpdateInput): Promise<string>;
 }>;
 
 export type ResponseMode = "response" | "mixed" | Readonly<{ kind: "mixed" | "fallback"; family: ToolFamily }>;

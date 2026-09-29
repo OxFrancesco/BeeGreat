@@ -4,7 +4,7 @@ import { concatHex, encodeFunctionData, erc20Abi, isAddress, maxUint256, type Ad
 import type { PlannedCall } from "../src/domain";
 import type { ExecutionStep, IntentAction } from "../src/state";
 import { Store } from "../src/store";
-import { intentPlan, planSummary, tokenHints, transactionPlan, withStepStates } from "../src/transaction-plan";
+import { intentPlan, planOutflows, planSummary, tokenHints, transactionPlan, withStepStates } from "../src/transaction-plan";
 
 const base = getChainSettings(8453);
 function contract(value: string): Address {
@@ -299,5 +299,42 @@ describe("execution progress", () => {
     expect(decoded.steps.map((item) => item.title)).toEqual(["Allow Permit2 to spend 0.000001 USDC", "Allow the Aerodrome swap router to spend 0.000001 USDC through Permit2"]);
     store.saveTransactionPlan(intent.id, { steps: [{ ...decoded.steps[0]!, title: "Stored" }, decoded.steps[1]!] });
     expect(intentPlan(store, intent, "pending")!.steps[0]!.title).toBe("Stored");
+  });
+});
+
+describe("outflows for automation allowances", () => {
+  const flows = (calls: PlannedCall[]) => planOutflows(calls)?.map((flow) => [flow.native ? "ETH" : flow.token, flow.amount]);
+
+  test("swaps count the exact input and native value once, and approvals move nothing", () => {
+    const native: Quote = { input: { fromToken: ETH, toToken: USDC, path: [{ pool: pool(wethAddress, usdcAddress, 100), reversed: false }], amountIn: 5n * 10n ** 16n }, amountOut: 120_000_000n };
+    expect(flows([swapCall([native], 5n * 10n ** 16n)])).toEqual([["ETH", 5n * 10n ** 16n]]);
+    const basket: Quote[] = [
+      { input: { fromToken: USDC, toToken: token("NVDAc", nvda, 18), amountIn: 100_000_000n, path: [{ pool: pool(usdcAddress, nvda, 100), reversed: false }] }, amountOut: 1n },
+      { input: { fromToken: USDC, toToken: token("AAPLc", aapl, 18), amountIn: 50_000_000n, path: [{ pool: pool(usdcAddress, aapl, 100), reversed: false }] }, amountOut: 1n },
+    ];
+    expect(flows([approve(usdcAddress, permit2, maxUint256), permit(usdcAddress, 150_000_000n), swapCall(basket)])).toEqual([[usdcAddress.toLowerCase(), 150_000_000n]]);
+  });
+
+  test("deposits count both desired amounts; withdrawals, claims and staking move nothing out", () => {
+    const mint = call(positionManager, encodeFunctionData({ abi: abis.nfpm, functionName: "mint", args: [{
+      token0: wethAddress, token1: usdcAddress, tickSpacing: 100, tickLower: -200_000, tickUpper: -190_000,
+      amount0Desired: 9_800_000_000_000_000n, amount1Desired: 25_000_000n, amount0Min: 0n, amount1Min: 0n, recipient: wallet, deadline: 1n, sqrtPriceX96: 0n,
+    }] }), 9_800_000_000_000_000n, "action");
+    expect(flows([mint])).toEqual([["ETH", 9_800_000_000_000_000n], [usdcAddress.toLowerCase(), 25_000_000n]]);
+    const decrease = encodeFunctionData({ abi: abis.nfpm, functionName: "decreaseLiquidity", args: [{ tokenId: 123n, liquidity: 10n, amount0Min: 0n, amount1Min: 0n, deadline: 1n }] });
+    const collect = encodeFunctionData({ abi: abis.nfpm, functionName: "collect", args: [{ tokenId: 123n, recipient: wallet, amount0Max: 1n, amount1Max: 1n }] });
+    const gauge: Address = "0x5555555555555555555555555555555555555555";
+    expect(flows([call(positionManager, encodeFunctionData({ abi: abis.nfpm, functionName: "multicall", args: [[decrease, collect]] }), 0n, "action")])).toEqual([]);
+    expect(flows([call(positionManager, encodeFunctionData({ abi: abis.nfpm, functionName: "approve", args: [gauge, 123n] })), call(gauge, encodeFunctionData({ abi: abis.gaugeCl, functionName: "deposit", args: [123n] }), 0n, "action")])).toEqual([]);
+    const add = call(router, encodeFunctionData({ abi: abis.router, functionName: "addLiquidity", args: [usdcAddress, aeroAddress, false, 10_000_000n, 2n * 10n ** 19n, 0n, 0n, wallet, 1n] }), 0n, "action");
+    expect(flows([add])).toEqual([[usdcAddress.toLowerCase(), 10_000_000n], [aeroAddress.toLowerCase(), 2n * 10n ** 19n]]);
+  });
+
+  test("unknown shapes and approvals carrying ETH cannot be bounded", () => {
+    expect(planOutflows([call(recipient, "0x12345678", 0n, "action")])).toBeUndefined();
+    expect(planOutflows([call(positionManager, encodeFunctionData({ abi: abis.nfpm, functionName: "approve", args: [recipient, 1n] }), 0n, "action")])).toBeUndefined();
+    expect(planOutflows([call(usdcAddress, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [recipient, 1n] }), 1n)])).toBeUndefined();
+    const unknown = encodeFunctionData({ abi: abis.swapper, functionName: "execute", args: ["0x04", ["0x"]] });
+    expect(planOutflows([call(swapper, unknown, 0n, "action")])).toBeUndefined();
   });
 });

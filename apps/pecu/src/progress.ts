@@ -12,6 +12,7 @@ export function toolLabel(name: string) {
     aero_pools: "Finding pools", aero_liquidity: "Preparing liquidity", aero_quote: "Getting a quote",
     wallet_balances: "Reading balances", wallet_address: "Checking wallet", ask_user: "Preparing a question",
     aero_stock_trades: "Preparing stock trades", load_skills: "Loading skills",
+    task_create: "Scheduling", task_list: "Reading automations", task_update: "Updating automation",
   }));
   return labels.get(name) ?? (name.startsWith("aero_") ? "Reading Aerodrome" : name.startsWith("nansen_") ? "Reading market data" : name.startsWith("polymarket_") ? "Reading Polymarket" : name.startsWith("aave_") ? "Checking Aave" : "Running a tool");
 }

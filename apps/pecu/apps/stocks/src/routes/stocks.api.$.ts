@@ -4,6 +4,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { agentRequest, cardIdentity, identity, sameOrigin } from "../lib/server";
 import { cardCollectionSchema } from "../../../../src/cards-contract";
+import {
+  notificationListSchema,
+  notificationReadSchema,
+  pushRegisterSchema,
+  pushUnregisterSchema,
+  taskActionResultSchema,
+  taskActionSchema,
+  taskListSchema,
+} from "../../../../src/task-contract";
 import { linkedWalletActionSchema, linkedWalletResultSchema, linkedWalletsSchema } from "../../../../src/linked-wallet-contract";
 import {
   profileActionResultSchema,
@@ -44,6 +53,8 @@ export const Route = createFileRoute("/stocks/api/$")({
         }
         if (params._splat === "pnl") return pnlRequest(request);
         if (params._splat === "wallets") return walletRequest("wallets", linkedWalletsSchema);
+        if (params._splat === "tasks") return automationRequest("tasks", taskListSchema);
+        if (params._splat === "notifications") return automationRequest("notifications", notificationListSchema);
         if (params._splat === "profile") return profileRequest("profile", profileOverviewSchema);
         if (params._splat === "profile-safe") {
           const safe = new URL(request.url).searchParams.get("safe") ?? "";
@@ -140,6 +151,14 @@ export const Route = createFileRoute("/stocks/api/$")({
             return json({ error: "Check the details and try again." }, 400);
           }
           return walletRequest("wallet-action", linkedWalletResultSchema, { origin: new URL(request.url).origin, action });
+        }
+        const automation = automationOps.get(op);
+        if (automation) {
+          const body = await request.text();
+          if (body.length > 8192) return json({ error: "Request too large" }, 413);
+          const parsed = automation.input.safeParse((() => { try { return JSON.parse(body); } catch { return null; } })());
+          if (!parsed.success) return json({ error: "Check the details and try again." }, 400);
+          return automationRequest(op, automation.output, { [automation.field]: parsed.data });
         }
         if (["inference-connect", "inference-disconnect"].includes(op)) {
           let viewer;
@@ -252,6 +271,29 @@ async function walletRequest<Output extends JsonInput>(path: "wallets" | "wallet
     }
     return json(schema.parse(body));
   } catch { return json({ error: "Pecu couldn't finish this wallet request. Try again." }, 503); }
+}
+
+const ok = z.object({ ok: z.literal(true) });
+const automationOps = new Map<string, { field: string; input: z.ZodType<JsonInput>; output: z.ZodType<JsonInput> }>([
+  ["task-action", { field: "action", input: taskActionSchema, output: taskActionResultSchema }],
+  ["notification-read", { field: "read", input: notificationReadSchema, output: ok }],
+  ["push-register", { field: "device", input: pushRegisterSchema, output: ok }],
+  ["push-unregister", { field: "device", input: pushUnregisterSchema, output: ok }],
+]);
+
+async function automationRequest<Output extends JsonInput>(path: string, schema: z.ZodType<Output>, input?: Readonly<Record<string, JsonInput>>) {
+  let viewer;
+  try { viewer = await identity(); }
+  catch { return json({ error: "Sign in to manage your automations." }, 401); }
+  try {
+    const response = await agentRequest(path, input ? { identity: viewer, ...input } : viewer);
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = z.object({ error: z.string() }).safeParse(body).data?.error;
+      return json({ error: response.status === 400 && error ? error : "Pecu couldn't update your automations. Try again." }, response.status === 400 ? 400 : 503);
+    }
+    return json(schema.parse(body));
+  } catch { return json({ error: "Pecu couldn't load your automations. Try again." }, 503); }
 }
 
 async function cardsRequest(claim: boolean) {

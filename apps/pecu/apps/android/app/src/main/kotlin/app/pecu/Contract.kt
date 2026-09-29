@@ -16,7 +16,27 @@ val wireJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
   val signer: String? = null, val threadId: String? = null, val thread: Thread? = null,
   val messages: List<Message> = emptyList(), val olderCursor: Cursor? = null, val newerCursor: Cursor? = null,
 )
-@Serializable data class Message(val id: String, val text: String, val createdAt: Long, val canRetry: Boolean = false, val reply: Reply? = null)
+@Serializable data class Message(val id: String, val text: String, val createdAt: Long, val canRetry: Boolean = false, val reply: Reply? = null, val origin: MessageOrigin? = null)
+/** Set when an automation wrote the message; `text` is then its title, not something the user typed. */
+@Serializable data class MessageOrigin(val kind: String, val code: String, val title: String, val mode: String)
+@Serializable data class Grant(
+  val scopes: List<String>, val maxUsdPerRun: Double, val days: Int, val state: String,
+  val approvedAt: Long? = null, val expiresAt: Long? = null, val active: Boolean = false,
+)
+@Serializable data class Automation(
+  val code: String, val title: String, val mode: String, val instruction: String, val trigger: JsonObject, val schedule: String,
+  val state: String, val nextRunAt: Long? = null, val lastRunAt: Long? = null, val lastOutcome: String? = null, val runCount: Int = 0,
+  val channel: String, val threadId: String? = null, val grant: Grant? = null, val yolo: Boolean = false, val createdAt: Long,
+) {
+  val triggerKind: String get() = (trigger["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+}
+@Serializable data class AutomationList(val tasks: List<Automation>)
+@Serializable data class AutomationActionResult(val task: Automation, val message: String)
+@Serializable data class PecuNotification(
+  val id: String, val kind: String, val title: String, val body: String, val taskCode: String? = null,
+  val channel: String, val threadId: String? = null, val createdAt: Long, val readAt: Long? = null,
+)
+@Serializable data class NotificationList(val notifications: List<PecuNotification>, val unread: Int)
 @Serializable data class Reply(
   val text: String, val preview: Preview? = null, val question: Question? = null,
   val positions: PositionSnapshot? = null, val positionsOnly: Boolean = false,

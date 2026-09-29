@@ -38,6 +38,9 @@ import type { RequestClassifier, RequestRoute } from "./request-classifier";
 import { turnTraceIdentity, turnTrace } from "./turn-trace";
 import type { ParagraphSink } from "./web-stream";
 import { analyticsText, type PnlSnapshot } from "./analytics-contract";
+import { grantActive, maxRunSteps, type Grant, type TaskMode } from "./task-contract";
+import { grantDecision, type Pricer } from "./task-grant";
+import type { TaskControl } from "./task-control";
 
 /** 32 symbols without I, O, 0, 1; 256 is a multiple of 32 so a byte modulo stays uniform. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -139,13 +142,31 @@ export type AgentServices = Readonly<{
   }>;
   /** The linked wallet a web thread acts with; absent means the Pecu wallet. */
   linkedWallets?: Readonly<{ signer(senderId: string, conversationId: string): `0x${string}` | undefined }>;
+  tasks?: Pick<TaskControl, "create" | "update" | "command" | "createdText" | "modelList">;
 }>;
+
+/** State of one automated task run, shared between the agent turn and the runner that started it. */
+export type TaskRunContext = {
+  readonly taskCode: string;
+  readonly mode: TaskMode;
+  readonly grant: Grant | null;
+  /** Intents this run created, in order. */
+  readonly intents: string[];
+  spentUsd: number;
+  /** The first proposal that could not execute unattended; the run stops there. */
+  waiting?: { intentId: string; reason: string; code: string };
+  /** The conversation's inference runtime was busy, so the run should be retried. */
+  busy: boolean;
+};
+
+const busyReply = /Pecu is finishing your previous request/;
 
 export class PecuAgent {
   private readonly pendingPolymarketReads = new Map<string, Promise<string>>();
   private readonly previewOnly = new Set<string>();
   private readonly executing = new Set<string>();
   private readonly relayingDeposits = new Set<string>();
+  private readonly taskRuns = new Map<string, TaskRunContext>();
 
   constructor(
     private readonly config: Pick<Config, "enableMainnetExecution" | "maxSlippageBps" | "quoteTtlSeconds" | "depositRelayMaxUsd" | "depositRelayDailyMaxUsd">,
@@ -226,6 +247,23 @@ export class PecuAgent {
     }
   }
 
+  /**
+   * Run one automated task turn as the task's owner in the task's conversation.
+   * The returned context says which proposals it created and whether any is
+   * waiting for the user.
+   */
+  async runTask(message: VerifiedMessage, context: Pick<TaskRunContext, "taskCode" | "mode" | "grant">): Promise<{ reply?: string; run: TaskRunContext }> {
+    const run: TaskRunContext = { ...context, intents: [], spentUsd: 0, busy: false };
+    this.taskRuns.set(message.eventId, run);
+    try {
+      const reply = await this.handle(message);
+      if (reply === undefined) run.busy = true;
+      return { reply, run };
+    } finally {
+      this.taskRuns.delete(message.eventId);
+    }
+  }
+
   async handle(message: VerifiedMessage, retryUnanswered = false, progress?: ParagraphSink): Promise<string | undefined> {
     const trace = await turnTraceIdentity(message.senderId, message.eventId, message.conversationId);
     trace.record = span => this.track(message.senderId, span);
@@ -269,6 +307,8 @@ export class PecuAgent {
       return reply;
     } catch (error) {
       failed = true;
+      const run = this.taskRuns.get(message.eventId);
+      if (run && busyReply.test(errorMessage(error))) run.busy = true;
       const reply = chatError(error);
       this.store.completeEvent(message.eventId, reply);
       log("warn", "command_failed", { eventId: message.eventId, senderId: message.senderId, error: errorMessage(error) });
@@ -297,7 +337,8 @@ export class PecuAgent {
       const codeHash = await digest(message.replyConfirmationCode);
       return message.text.trim().toLowerCase() === "confirm" ? this.confirm(message, codeHash) : this.cancel(message, codeHash);
     }
-    const naturalWalletCommand = message.text.trim().startsWith("/")
+    const taskRun = this.taskRuns.has(message.eventId);
+    const naturalWalletCommand = message.text.trim().startsWith("/") || taskRun
       ? undefined
       : parseNaturalWalletCommand(message.text);
     if (naturalWalletCommand?.type === "aero") return this.runAero(message, naturalWalletCommand.action, naturalWalletCommand.parameters);
@@ -320,7 +361,7 @@ export class PecuAgent {
             $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId, $ai_span_id: `${trace.traceId}_runtime`,
             $ai_span_name: "Runtime ready", $ai_latency: (endedAt - routingStartedAt) / 1000, $ai_is_error: false });
         });
-        const route: RequestRoute = this.previewOnly.has(message.eventId)
+        const route: RequestRoute = this.previewOnly.has(message.eventId) || taskRun
           ? { kind: "fallback" }
           : await this.classifier?.classify(message.text) ?? { kind: "fallback" };
         const routingEnd = Date.now();
@@ -380,6 +421,7 @@ export class PecuAgent {
       case "deposit-status": return this.depositStatusReply(message);
       case "nansen-help": return nansenHelpText;
       case "nansen": return this.nansenReply(message, command.endpoint, command.input);
+      case "tasks": return this.services.tasks ? this.services.tasks.command(message.senderId, command) : "Automations are not available yet.";
       default: {
         const _exhaustive: never = command;
         throw new Error(`Unhandled command ${String(_exhaustive)}`);
@@ -394,7 +436,11 @@ export class PecuAgent {
       trace ? turnTrace.run(trace, () => fn(...args)) : fn(...args);
     const capabilities: AgentCapabilities = {
       askUser: async (question, options) => this.askUser(message, question, options),
-      yoloEnabled: () => !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId),
+      yoloEnabled: () => {
+        if (this.previewOnly.has(message.eventId) || !this.store.yoloEnabled(message.senderId, message.conversationId)) return false;
+        const run = this.taskRuns.get(message.eventId);
+        return !run || grantActive(run.grant, Date.now());
+      },
       aaveCall: (name, args) => this.runAave(message, name, args),
       polymarketResearch: (query) => this.polymarketReply(message, query),
       polymarketRead: (endpoint, input) => this.polymarketReadReply(message, endpoint, input, true),
@@ -436,11 +482,41 @@ export class PecuAgent {
       depositSetup: (email) => this.depositSetup(message, email),
       depositStatus: async () => this.depositStatusReply(message),
       nansenCall: (endpoint, input) => this.nansenReply(message, endpoint, input),
+      taskCreate: async (input) => this.taskControl().createdText(this.taskControl().create(message, input)),
+      taskList: async () => this.taskControl().modelList(message.senderId, message.conversationId),
+      taskUpdate: async (input) => this.taskControl().update(message.senderId, input).message,
     };
     return { ...capabilities,
       aeroRead: bound(capabilities.aeroRead), aeroPropose: bound(capabilities.aeroPropose),
       liquidity: bound(capabilities.liquidity), stockTrades: bound(capabilities.stockTrades),
     };
+  }
+
+  /**
+   * Task tools for the model, in live turns and automated runs alike, so a run
+   * can stop or reschedule itself ("until I hold 100 AERO"). Approving an
+   * allowance is not among them; the 20-automation cap bounds creation.
+   */
+  private taskControl(): NonNullable<AgentServices["tasks"]> {
+    if (!this.services.tasks) throw new Error("Automations are not available yet.");
+    return this.services.tasks;
+  }
+
+  /** USD value of an outflow through a live Aerodrome quote to USDC. */
+  private pricer(wallet: `0x${string}`): Pricer {
+    return async (outflow) => {
+      const result = await this.services.aerodrome.run(wallet, "quote", { from_token: outflow.native ? "ETH" : outflow.token, to_token: BASE_USDC_ADDRESS, amount: outflow.amount.toString() });
+      if (result.kind !== "read") return undefined;
+      return z.object({ amount_out_decimal: z.number().nonnegative() }).safeParse(result.output).data?.amount_out_decimal;
+    };
+  }
+
+  /** Current USD price of one token unit for price triggers: the Sugar oracle price, else a one-unit quote. */
+  async tokenPriceUsd(senderId: string, token: string): Promise<number> {
+    const result = await this.services.aerodrome.run(await this.walletAddress(senderId), "quote", { from_token: token, to_token: BASE_USDC_ADDRESS, amount: "1", use_decimals: true });
+    if (result.kind !== "read") throw new Error("Price is unavailable.");
+    const quote = z.object({ from_price_usd: z.number().positive().nullable().optional(), amount_out_decimal: z.number().nonnegative() }).parse(result.output);
+    return quote.from_price_usd ?? quote.amount_out_decimal;
   }
 
   private askUser(message: VerifiedMessage, question: string, options: readonly string[] = []): string {
@@ -938,10 +1014,24 @@ export class PecuAgent {
     this.store.enqueueReply(`deposit:${deposit.id}:${deposit.state}:${deposit.holdReason ?? ""}`, account.conversationId, account.encodedEvent, text);
   }
 
+  /** The source event of the next proposal. An automated run numbers its later steps `eventId#2`, `eventId#3`, and so on. */
+  private proposalSource(message: VerifiedMessage, run: TaskRunContext | undefined): string {
+    if (!run) return message.eventId;
+    if (run.waiting) throw new Error("A step of this automated run is waiting for the user's approval. Stop and summarize it.");
+    if (run.intents.length >= maxRunSteps) throw new Error(`An automated run can execute at most ${maxRunSteps} transactions. Stop and summarize.`);
+    const last = run.intents.at(-1);
+    if (last && this.store.intentForSource(last)?.state !== "succeeded") {
+      throw new Error("The previous step has not been confirmed on Base yet. Stop and summarize; nothing more was prepared.");
+    }
+    return run.intents.length === 0 ? message.eventId : `${message.eventId}#${run.intents.length + 1}`;
+  }
+
   private async persistProposal(message: VerifiedMessage, wallet: `0x${string}`, intent: IntentAction, calls: readonly PlannedCall[], preview: string, context?: JsonInput): Promise<string> {
     this.requireAnswer(message);
     validateIntentPlan(intent, wallet, calls);
-    const previous = this.store.intentForSource(message.eventId);
+    const run = this.taskRuns.get(message.eventId);
+    const source = this.proposalSource(message, run);
+    const previous = this.store.intentForSource(source);
     if (previous) return "A transaction request is already saved for this message. Use its original preview to confirm or check it; no second request was created.";
     const code = confirmationCode();
     const expiresAt = Date.now() + this.config.quoteTtlSeconds * 1_000;
@@ -955,7 +1045,7 @@ export class PecuAgent {
       codeHash: await digest(code),
       senderId: message.senderId,
       conversationId: message.conversationId,
-      sourceEventId: message.eventId,
+      sourceEventId: source,
       state: "pending",
       ...intent,
       preview: described,
@@ -969,6 +1059,24 @@ export class PecuAgent {
     const shown = steps ? `${described}\n\n${steps}` : described;
     const minutes = Math.floor(this.config.quoteTtlSeconds / 60);
 
+    if (run) {
+      run.intents.push(source);
+      const decision = await grantDecision({
+        intent, calls, grant: run.grant, linked: Boolean(linked), spentUsd: run.spentUsd, now: Date.now(), price: this.pricer(wallet),
+        yolo: this.store.yoloEnabled(message.senderId, message.conversationId), executionEnabled: this.config.enableMainnetExecution,
+      });
+      if (decision.execute) {
+        run.spentUsd += decision.usd;
+        return `${shown}\n\nExecuted within this automation's allowance.\n${await this.confirm(message, await digest(code))}\nCheck this request: /confirm ${code}`;
+      }
+      run.waiting = { intentId: id, reason: decision.reason, code };
+      const execution = linked && this.config.enableMainnetExecution
+        ? `Needs your approval: confirm in this preview to sign with your wallet.\nCancel: /cancel ${code}\nExpires in ${minutes} minutes.`
+        : this.config.enableMainnetExecution
+        ? `Needs your approval: ${decision.reason}\nReply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${minutes} minutes.`
+        : `Transactions are currently disabled. Nothing has been sent.\nCancel: /cancel ${code}`;
+      return `${shown}\n\n${execution}`;
+    }
     const yolo = this.config.enableMainnetExecution && !this.previewOnly.has(message.eventId) && this.store.yoloEnabled(message.senderId, message.conversationId);
     if (linked) {
       // The linked wallet is the signer, so neither YOLO nor a typed confirmation can execute this plan.

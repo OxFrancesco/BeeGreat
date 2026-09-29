@@ -1,0 +1,103 @@
+{
+  "tasks": {
+    "tasks": [
+      {
+        "code": "ABC234",
+        "title": "Weekly index rebalance",
+        "mode": "run",
+        "instruction": "Rebalance my index to NVDAc=50,AAPLc=50",
+        "trigger": {
+          "kind": "calendar",
+          "time": "09:00",
+          "weekdays": [
+            1
+          ],
+          "timezone": "Europe/Rome"
+        },
+        "schedule": "Mon 09:00 Europe/Rome",
+        "state": "active",
+        "nextRunAt": 1900000000000,
+        "lastRunAt": null,
+        "lastOutcome": null,
+        "runCount": 0,
+        "channel": "web",
+        "threadId": "index01",
+        "grant": {
+          "scopes": [
+            "trade"
+          ],
+          "maxUsdPerRun": 25,
+          "days": 30,
+          "state": "requested",
+          "approvedAt": null,
+          "expiresAt": null,
+          "active": false
+        },
+        "yolo": true,
+        "createdAt": 100
+      },
+      {
+        "code": "DEF567",
+        "title": "Check AERO",
+        "mode": "remind",
+        "instruction": "Check AERO and decide whether to trade",
+        "trigger": {
+          "kind": "interval",
+          "everyMinutes": 30,
+          "startAt": 100
+        },
+        "schedule": "Every 30 min",
+        "state": "active",
+        "nextRunAt": 1900000000000,
+        "lastRunAt": 100,
+        "lastOutcome": "Reminder sent",
+        "runCount": 4,
+        "channel": "x",
+        "threadId": null,
+        "grant": null,
+        "yolo": false,
+        "createdAt": 100
+      },
+      {
+        "code": "GHJ892",
+        "title": "AERO under $1",
+        "mode": "remind",
+        "instruction": "AERO is below $1",
+        "trigger": {
+          "kind": "price",
+          "token": "AERO",
+          "direction": "below",
+          "priceUsd": "1",
+          "checkMinutes": 5
+        },
+        "schedule": "When AERO is at or below $1",
+        "state": "active",
+        "nextRunAt": 1900000000000,
+        "lastRunAt": null,
+        "lastOutcome": "Checked at $1.18",
+        "runCount": 0,
+        "channel": "web",
+        "threadId": null,
+        "grant": null,
+        "yolo": false,
+        "createdAt": 100
+      }
+    ]
+  },
+  "notifications": {
+    "notifications": [
+      {
+        "id": "n1",
+        "kind": "approval",
+        "title": "Weekly index rebalance: confirm the transaction",
+        "body": "Sell 0.1 NVDAc for USDC. YOLO is off in this chat.",
+        "taskCode": "ABC234",
+        "channel": "web",
+        "threadId": "index01",
+        "createdAt": 200,
+        "readAt": null
+      }
+    ],
+    "unread": 1
+  }
+}

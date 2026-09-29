@@ -86,4 +86,7 @@ export const unusedCapabilities = {
   depositSetup: unexpected("depositSetup"),
   depositStatus: unexpected("depositStatus"),
   nansenCall: unexpected("nansenCall"),
+  taskCreate: unexpected("taskCreate"),
+  taskList: unexpected("taskList"),
+  taskUpdate: unexpected("taskUpdate"),
 } satisfies import("../../src/harness").AgentCapabilities;

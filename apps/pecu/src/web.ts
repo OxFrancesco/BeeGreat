@@ -15,6 +15,8 @@ import type { PecuStore } from "./state";
 import { senderKind, webConversation } from "./web-identity";
 import type { ParagraphSink } from "./web-stream";
 import { pnlSnapshotSchema, type PnlSnapshot } from "./analytics-contract";
+import { maxRunSteps, type MessageOrigin } from "./task-contract";
+import type { Intent } from "./state";
 import {
   basketSchema,
   webReplySchema,
@@ -25,7 +27,10 @@ import {
   type WebPnl,
   type WebState,
   type WebThread,
+  type webMessageSchema,
 } from "./web-contract";
+
+type WebMessage = z.infer<typeof webMessageSchema>;
 
 export const pnlCacheMs = 10 * 60_000;
 
@@ -76,11 +81,24 @@ export class WebAgent {
   threadPage(identity: Identity, page: ThreadPageQuery = {}) {
     return this.history.threads(identity, page);
   }
+  /** The intent a message shows: its own, or for an automated run the latest of its numbered steps. */
+  private messageIntent(eventId: string, automated: boolean): Intent | undefined {
+    if (!automated) return this.store.intentForSource(eventId);
+    let latest: Intent | undefined;
+    for (let step = 1; step <= maxRunSteps; step++) {
+      const intent = this.store.intentForSource(step === 1 ? eventId : `${eventId}#${step}`);
+      if (!intent) break;
+      latest = intent;
+    }
+    return latest;
+  }
   private presentMessage(row: HistoryRow) {
-    const reply = row.reply
+    const stored = row.reply
       ? webReplySchema.parse(JSON.parse(row.reply))
       : null;
-    const intent = this.store.intentForSource(row.id);
+    const origin = stored?.origin;
+    const reply = stored ? { ...stored, origin: undefined } : null;
+    const intent = this.messageIntent(row.id, origin !== undefined);
     if (reply?.preview && intent) {
       reply.preview.state =
         intent.state === "pending" && intent.expiresAt < Date.now()
@@ -94,16 +112,19 @@ export class WebAgent {
       if (plan) reply.preview.plan = plan;
       if (intent.signer) reply.preview.signer = intent.signer;
     }
-    return {
+    const message: WebMessage = {
       id: row.id,
       text: row.text,
       createdAt: row.created_at,
       reply,
       canRetry:
         Boolean(reply) &&
+        !origin &&
         !intent &&
         !/^(?:b)?\/|^(?:confirm|cancel)$/i.test(row.text.trim()),
     };
+    if (origin) message.origin = origin;
+    return message;
   }
   messagePage(scope: Scope, page: MessagePageQuery = {}) {
     const { rows, ...cursors } = this.history.messages(scope, page);
@@ -252,6 +273,62 @@ export class WebAgent {
   busy(scope: Scope): boolean {
     return this.active.has(this.owner(scope));
   }
+  /** Hold a thread for an automated run. Returns the release, or undefined when a turn is already running there. */
+  lock(conversationId: string): (() => void) | undefined {
+    if (this.active.has(conversationId)) return undefined;
+    this.active.add(conversationId);
+    return () => this.active.delete(conversationId);
+  }
+  /** Add an automation's message to its web thread. `text` is shown as the automation title. */
+  async recordTask(conversationId: string, eventId: string, origin: MessageOrigin, reply: string) {
+    this.sql.exec(
+      "INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at) VALUES(?,?,?,?)",
+      eventId,
+      conversationId,
+      origin.title,
+      Date.now(),
+    );
+    const response = await this.replyRecord(eventId, reply, this.messageIntent(eventId, true));
+    this.sql.exec("UPDATE basedbot_web_turns SET reply=? WHERE id=?", JSON.stringify({ ...response, origin }), eventId);
+  }
+  private async replyRecord(eventId: string, reply: string, intent: Intent | undefined) {
+    const code = [...reply.matchAll(/\/(?:confirm|cancel) ([A-Z0-9]{6})\b/g)].at(-1)?.[1];
+    const codeDigest = code
+      ? Array.from(
+          new Uint8Array(
+            await crypto.subtle.digest(
+              "SHA-256",
+              new TextEncoder().encode(code),
+            ),
+          ),
+          (byte) => byte.toString(16).padStart(2, "0"),
+        ).join("")
+      : undefined;
+    const holdings = this.store.stockSnapshot(eventId);
+    const analytics = this.store.analytics(eventId);
+    const positions = this.store.positionSnapshot(eventId);
+    return {
+      positions,
+      positionsOnly: positions?.positions.length ? reply === positionSummary(positions) : undefined,
+      analytics: analytics.length ? analytics : undefined,
+      analyticsOnly: analytics.length ? analytics.length === 1 && reply === analytics[0]?.text : undefined,
+      recovery: needsChatGptConnection({ text: reply }) ? "connect_chatgpt" as const : undefined,
+      holdings,
+      holdingsOnly: holdings ? reply === aeroReadText("stocks", holdings.stocks) : undefined,
+      question: this.store.questionForEvent(eventId),
+      text: reply,
+      preview:
+        intent && code && intent.codeHash === codeDigest
+          ? {
+              code,
+              title: intentTitle(intent),
+              text: intent.preview,
+              state: intent.state,
+              expiresAt: intent.expiresAt,
+            }
+          : null,
+    };
+  }
   async handle(input: Turn, progress?: ParagraphSink) {
     const { senderId, requestId, text } = input;
     if (input.retryOf && input.answerTo) throw new Error("A retry cannot also answer a question.");
@@ -310,43 +387,8 @@ export class WebAgent {
         progress,
       );
       if (!reply) return { status: "busy" as const };
-      const intent = this.store.intentForSource(eventId);
-      const code = reply.match(/\/(?:confirm|cancel) ([A-Z0-9]{6})\b/)?.[1];
-      const codeDigest = code
-        ? Array.from(
-            new Uint8Array(
-              await crypto.subtle.digest(
-                "SHA-256",
-                new TextEncoder().encode(code),
-              ),
-            ),
-            (byte) => byte.toString(16).padStart(2, "0"),
-          ).join("")
-        : undefined;
       const holdings = this.store.stockSnapshot(eventId);
-      const analytics = this.store.analytics(eventId);
-      const positions = this.store.positionSnapshot(eventId);
-      const response = {
-        positions,
-        positionsOnly: positions?.positions.length ? reply === positionSummary(positions) : undefined,
-        analytics: analytics.length ? analytics : undefined,
-        analyticsOnly: analytics.length ? analytics.length === 1 && reply === analytics[0]?.text : undefined,
-        recovery: needsChatGptConnection({ text: reply }) ? "connect_chatgpt" as const : undefined,
-        holdings,
-        holdingsOnly: holdings ? reply === aeroReadText("stocks", holdings.stocks) : undefined,
-        question: this.store.questionForEvent(eventId),
-        text: reply,
-        preview:
-          intent && code && intent.codeHash === codeDigest
-            ? {
-                code,
-                title: intentTitle(intent),
-                text: intent.preview,
-                state: intent.state,
-                expiresAt: intent.expiresAt,
-              }
-            : null,
-      };
+      const response = await this.replyRecord(eventId, reply, this.store.intentForSource(eventId));
       this.sql.exec(
         "UPDATE basedbot_web_turns SET reply=? WHERE id=?",
         JSON.stringify(response),

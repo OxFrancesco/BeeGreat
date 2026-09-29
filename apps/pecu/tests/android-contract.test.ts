@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { webStateSchema } from "../src/web-contract";
 import { webTurnEventSchema } from "../src/web-stream";
+import { notificationListSchema, taskListSchema } from "../src/task-contract";
 
 describe("Android shared fixtures", () => {
   test("persisted replies and history match the backend contract", async () => {
     const fixture = await Bun.file(new URL("../apps/android/app/src/test/resources/state.json", import.meta.url)).json();
     expect(webStateSchema.parse(fixture)).toEqual(fixture);
+  });
+  test("automations and notifications match the backend contract", async () => {
+    const fixture = await Bun.file(new URL("../apps/android/app/src/test/resources/automations.json", import.meta.url)).json();
+    expect(taskListSchema.parse(fixture.tasks)).toEqual(fixture.tasks);
+    expect(notificationListSchema.parse(fixture.notifications)).toEqual(fixture.notifications);
   });
   test("stream events match the deployed protocol", async () => {
     const fixture: unknown[] = await Bun.file(new URL("../apps/android/app/src/test/resources/events.json", import.meta.url)).json();

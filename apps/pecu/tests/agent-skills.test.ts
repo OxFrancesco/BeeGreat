@@ -5,7 +5,7 @@ import { evmTools } from "../src/cloudflare/evm-tools";
 import { polymarketEndpointNames } from "../src/integrations/polymarket/catalog.generated";
 import { nansenEndpointNames } from "../src/integrations/nansen";
 
-const taskTools = ["aave_skill", "aave_schema", "aave_call", "polymarket_research", "deposit_instructions", "deposit_setup", "deposit_status", "aero_liquidity", "aero_stock_trades",
+const taskTools = ["task_create", "task_list", "task_update", "aave_skill", "aave_schema", "aave_call", "polymarket_research", "deposit_instructions", "deposit_setup", "deposit_status", "aero_liquidity", "aero_stock_trades",
   ...aeroTools.map(tool => tool.name), ...evmTools.map(tool => tool.name),
   ...polymarketEndpointNames.map(name => `polymarket_${name}`), ...nansenEndpointNames.map(name => `nansen_${name}`)];
 
@@ -35,6 +35,10 @@ test("Polymarket odds tools stay separate from account and research tools", () =
 
 const cases: [string, AgentSkill[]][] = [
   ["Quote 0.001 ETH to USDC", ["aerodrome"]],
+  ["Remind me to trade AERO tomorrow at 3pm", ["aerodrome", "tasks"]],
+  ["Rebalance my pools every 30 minutes", ["aerodrome", "tasks"]],
+  ["When AERO drops below $1, buy $20 of it", ["aerodrome", "tasks"]],
+  ["Every hour check if anything needs my attention", ["tasks"]],
   ["Put half my ETH into ETH/USDC liquidity", ["aerodrome"]],
   ["Buy $1 of NVDAc and $1 of AAPLc", ["aerodrome"]],
   ["Stake position 123", ["aerodrome"]],
