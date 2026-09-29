@@ -53,7 +53,7 @@ export async function request(
  */
 export async function streamTurn(
   body: JsonInput,
-  onParagraph: (text: string, replace: boolean) => void,
+  onParagraph: (text: string, replace: boolean, eventId?: string) => void,
   onStage?: (stage: TurnStage) => void,
 ): Promise<void> {
   const startedAt = performance.now();
@@ -80,7 +80,7 @@ export async function streamTurn(
   for await (const raw of readSseEvents(response.body)) {
     const event = webTurnEventSchema.parse(raw);
     if (event.type === "paragraph") {
-      onParagraph(event.text, event.replace === true);
+      onParagraph(event.text, event.replace === true, event.eventId);
       if (!firstAnswer) {
         firstAnswer = true;
         if (traceId && typeof requestAnimationFrame === "function")
@@ -114,6 +114,7 @@ type ThreadState = {
   retry: Retry | null;
   inFlight: string | null;
   steering: boolean;
+  activeReplyId?: string;
   /** Paragraphs of the reply being written right now; cleared once the turn completes. */
   partial: readonly string[];
   stages: readonly TurnStage[];
@@ -472,6 +473,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
         error: "",
         retry: null,
         inFlight: retryOf ? null : text,
+        activeReplyId: requestId,
         partial: [],
   stages: [],
       });
@@ -498,14 +500,24 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
             answerTo: answerTo || undefined,
             threadId: threadId || undefined,
           },
-          (paragraph, replace) => {
+          (paragraph, replace, eventId) => {
             if (generation.current !== epoch) return;
+            const activeReplyId = eventId?.split(":").at(-1) ?? requestId;
+            const previous = cacheRef.current.get(threadId)?.activeReplyId;
+            if (previous !== activeReplyId) void load(threadId, true).catch(() => {});
             setCache((current) => {
               const entry = current.get(threadId);
               if (!entry?.pending) return current;
               return new Map(current).set(threadId, {
                 ...entry,
-                partial: replace ? [paragraph] : [...entry.partial, paragraph],
+                activeReplyId,
+                state: entry.state && entry.activeReplyId !== activeReplyId ? {
+                  ...entry.state,
+                  messages: entry.state.messages.map(message => message.id.endsWith(`:${entry.activeReplyId}`) && entry.partial.length
+                    ? { ...message, reply: { text: entry.partial.join("\n\n"), preview: null }, canRetry: false }
+                    : message),
+                } : entry.state,
+                partial: replace || entry.activeReplyId !== activeReplyId ? [paragraph] : [...entry.partial, paragraph],
               });
             });
           },
@@ -540,7 +552,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
       } finally {
         if (generation.current === epoch) {
           sends.current.delete(threadId);
-          update(threadId, { pending: false, inFlight: null, partial: [] });
+          update(threadId, { pending: false, inFlight: null, partial: [], activeReplyId: undefined });
         }
       }
     },
@@ -621,6 +633,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
     pending: current.pending,
     steering: current.steering,
     activeRequestId: sends.current.get(threadId),
+    activeReplyId: current.activeReplyId,
     retry: current.retry,
     unsent: current.retry && !current.state?.messages.some((message) => message.id.endsWith(`:${current.retry!.requestId}`)) ? current.retry.text : null,
     inFlight: current.inFlight,

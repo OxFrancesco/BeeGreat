@@ -35,7 +35,10 @@ export class ReplyStream {
   finish(message: { id: string; content: readonly { type: string; text?: string }[] }) {
     if (this.stopped) return;
     if (this.progress.live) {
-      this.publish(message.content.filter((part) => part.type === "text").map((part) => part.text?.trim()).filter(Boolean).join("\n"));
+      message.content.forEach((part, ordinal) => {
+        if (part.type === "text" && part.text !== undefined) this.part(`${message.id}:${ordinal}`).text = part.text;
+      });
+      this.flush();
     } else {
       message.content.forEach((part, ordinal) => {
         if (part.type === "text" && part.text !== undefined) this.end(`${message.id}:${ordinal}`, part.text);
@@ -43,6 +46,10 @@ export class ReplyStream {
     }
     this.stop();
   }
+
+  snapshot() { return [...this.parts.values()].map((part) => part.text).join("\n"); }
+
+  checkpoint() { if (this.progress.live) this.flush(); }
 
   stop() {
     this.stopped = true;

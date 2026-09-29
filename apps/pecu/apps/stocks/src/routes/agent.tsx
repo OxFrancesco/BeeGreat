@@ -626,7 +626,7 @@ function AgentWorkspace({
                                 </MessageContent>
                               ) : account.pending &&
                                 account.partial.length &&
-                                message.id.endsWith(`:${account.activeRequestId}`) ? (
+                                message.id.endsWith(`:${account.activeReplyId ?? account.activeRequestId}`) ? (
                                 <MessageContent className="pecu-bubble-bot" role="status">
                                   <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                                 </MessageContent>

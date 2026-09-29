@@ -13,7 +13,10 @@ their tool restrictions. Steering cannot reverse a submitted transaction.
 The runtime waits for outstanding steering admissions before closing the turn.
 A deterministic inbox ID prevents repeated admission of the same request.
 Accepted messages persist separately in web history with a `steerOf` reply
-marker. The acknowledgement is not eligible for answer regeneration. A late
+marker. Text already sent stays under the original message. Each delivered
+steer starts a separate response under its own message, including after reload.
+The stream carries the target `eventId` through the inference RPC and SSE;
+web and Android route snapshots to that message. A late
 steer fails explicitly instead of becoming an unrelated new action.
 
 Both web composers and Android keep the active stream and target request while

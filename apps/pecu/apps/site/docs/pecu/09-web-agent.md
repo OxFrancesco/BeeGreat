@@ -105,8 +105,9 @@ identified in the list. These views only read your wallet.
 ## Steer a reply
 
 While Pecu is answering, type another message and send it to change or clarify
-the current request. The original reply keeps streaming. Accepted steering
-messages appear in the thread with "Sent to the current reply."
+the current request. Text Pecu has already sent stays in the conversation.
+The answer to your steer appears below your new message. Earlier text is
+preserved when you reload the thread.
 
 Steering takes effect when the agent next checks for input. It cannot undo a
 transaction already submitted. Transaction confirmations and wallet permissions

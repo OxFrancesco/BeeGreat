@@ -29,8 +29,8 @@ export class InferenceTools extends RpcTarget {
     return this.onParagraph ? this.onParagraph.live ? "text" : "paragraph" : false;
   }
   stage(stage: TurnStage): void { this.onParagraph?.stage?.(stage); }
-  paragraph(text: string): void {
-    this.onParagraph?.(text);
+  paragraph(text: string, eventId?: string): void {
+    this.onParagraph?.(text, eventId);
   }
 }
 
@@ -169,7 +169,7 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       if (!chatGpt && !this.harness.fallbackConfigured) return chatGptConnectionRequired;
       const streamMode = await bridge.streams();
       const progress: ParagraphSink | undefined = streamMode
-        ? (text) => { delivery = delivery.then(() => bridge.paragraph(text)).catch(() => {}); }
+        ? (text, eventId) => { delivery = delivery.then(() => bridge.paragraph(text, eventId)).catch(() => {}); }
         : undefined;
       if (progress) {
         progress.live = streamMode === "text";

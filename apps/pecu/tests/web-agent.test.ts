@@ -679,18 +679,26 @@ test("steering reaches the active turn once and keeps its separate history", asy
   let release!: () => void;
   const hold = new Promise<void>(resolve => { release = resolve; });
   const steers: { text: string; target: string }[] = [];
-  const f = fixture(async () => { await hold; return "Revised answer"; }, false, undefined, undefined, undefined, undefined,
-    async (message, target) => { steers.push({ text: message.text, target }); });
+  let progress: import("../src/web-stream").ParagraphSink | undefined;
+  const f = fixture(async (message, _capabilities, _mode, sink) => {
+    progress = sink;
+    sink?.("Already sent text", message.eventId);
+    await hold;
+    return "Revised answer";
+  }, false, undefined, undefined, undefined, undefined,
+    async (message, target) => { steers.push({ text: message.text, target }); progress?.("Revised answer", message.eventId); });
   f.store.saveWallet(identity.senderId, address, address);
   const requestId = crypto.randomUUID();
   const original = f.web.handle({ ...identity, requestId, text: "Explain liquidity pools" });
+  while (!progress) await Bun.sleep(0);
   const input = { ...identity, requestId: crypto.randomUUID(), text: "Use a short example", steerOf: requestId };
   try {
+    await expect(f.web.handle({ ...input, requestId, text: "Explain liquidity pools" })).rejects.toThrow("another turn");
     expect(await f.web.handle(input)).toEqual({ status: "complete" });
     expect(await f.web.handle(input)).toEqual({ status: "complete" });
     expect(steers).toEqual([{ text: input.text, target: `${webConversation(identity)}:${requestId}` }]);
     const row = f.web.state(identity).messages.find(row => row.text === input.text)!;
-    expect(row.reply?.steerOf).toBe(requestId);
+    expect(row.reply).toBeNull();
     expect(row.canRetry).toBe(false);
     expect(f.web.busy(identity)).toBe(true);
     await expect(f.web.handle({ ...input, text: "Different content" })).rejects.toThrow("another message");
@@ -698,6 +706,10 @@ test("steering reaches the active turn once and keeps its separate history", asy
     await expect(f.web.handle({ ...input, requestId: crypto.randomUUID(), retryOf: "other" })).rejects.toThrow("cannot retry");
     await expect(f.web.handle({ ...input, threadId: "other-thread", requestId: crypto.randomUUID() })).rejects.toThrow("no longer running");
   } finally { release(); await original; }
-  expect(f.web.state(identity).messages.find(row => row.text === "Explain liquidity pools")?.reply?.text).toBe("Revised answer");
+  const saved = new WebAgent(f.agent, f.store, f.sql).state(identity).messages;
+  expect(saved.map(row => [row.text, row.reply?.text])).toEqual([
+    ["Explain liquidity pools", "Already sent text"], ["Use a short example", "Revised answer"],
+  ]);
+  expect(saved.at(-1)?.reply?.steerOf).toBe(requestId);
   await expect(f.web.handle({ ...input, requestId: crypto.randomUUID() })).rejects.toThrow("no longer running");
 });

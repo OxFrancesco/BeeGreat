@@ -10,7 +10,7 @@ const switched: { sessionID: string; model: { providerID: string; id: string; va
 const prompts: string[] = [];
 const toolCatalogs: string[][] = [];
 const contextQueue: JsonFields[] = [];
-const answer = { type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "answer" }] };
+const answer = { id: "stream-answer", type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "answer" }] };
 let directPreview = false;
 let interrupts = 0;
 let streamGate: Promise<void> | undefined;
@@ -19,6 +19,8 @@ let streamObserved: (() => void) | undefined;
 let streamDone: Promise<void> | undefined;
 let onWait: (() => void) | undefined;
 let admissionGate: Promise<void> | undefined;
+let deliveredSteer: Promise<void> | undefined;
+let steeringObserved: (() => void) | undefined;
 const admissions: { sessionID: string; text: string; id?: string; delivery?: string }[] = [];
 const client = {
   events: { async *subscribe({ signal }: { signal: AbortSignal }) {
@@ -33,6 +35,13 @@ const client = {
     }
     yield { type: "session.text.delta", data: { sessionID: "session", assistantMessageID: "stream-answer", ordinal: 0, delta: "First paragraph.\n\nLast para" } };
     streamObserved?.();
+    if (deliveredSteer) {
+      await deliveredSteer;
+      yield { type: "session.inbox.delivered", data: { sessionID: "session", inboxID: admissions.at(-1)?.id } };
+      yield { type: "session.step.started", data: { sessionID: "session", assistantMessageID: "steer-answer" } };
+      yield { type: "session.text.delta", data: { sessionID: "session", assistantMessageID: "steer-answer", ordinal: 0, delta: "New answer" } };
+      steeringObserved?.();
+    }
     await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
   } },
   sessions: {
@@ -337,6 +346,23 @@ try {
   await expect(keyed.steer(message, "steered-turn")).rejects.toThrow("not accepting steering");
   streamDone = undefined;
   onWait = undefined;
+
+  let deliver!: () => void;
+  deliveredSteer = new Promise<void>(resolve => { deliver = resolve; });
+  streamDone = new Promise<void>(resolve => { steeringObserved = resolve; });
+  const readyToSteer = new Promise<void>(resolve => { onWait = resolve; });
+  contextQueue.push({ id: "steer-answer", type: "assistant", time: { created: 2 }, content: [{ type: "text", text: "New answer." }] });
+  const routed: { text: string; eventId?: string }[] = [];
+  const routedSink = Object.assign((text: string, eventId?: string) => { routed.push({ text, eventId }); }, { live: true });
+  const preserving = keyed.respond({ ...message, eventId: "original-turn" }, capabilities, "response", routedSink, false);
+  await readyToSteer;
+  await keyed.steer({ ...message, eventId: "new-turn", text: "Keep it short" }, "original-turn");
+  deliver();
+  expect(await preserving).toBe("New answer.");
+  expect(routed.filter(part => part.eventId === "original-turn").at(-1)?.text).toBe("First paragraph.\n\nLast para");
+  expect(routed.filter(part => part.eventId === "new-turn").at(-1)?.text).toBe("New answer.");
+  expect(routed.findIndex(part => part.eventId === "new-turn")).toBeGreaterThan(routed.findIndex(part => part.eventId === "original-turn"));
+  deliveredSteer = undefined; steeringObserved = undefined; streamDone = undefined; onWait = undefined;
 
   directPreview = true;
   const direct: string[] = [];

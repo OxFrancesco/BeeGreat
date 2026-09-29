@@ -366,14 +366,24 @@ test("steering keeps the original stream and pending request until its answer fi
   expect(JSON.parse(String(requests[steerIndex]!.body))).toMatchObject({ requestId: "steering", steerOf: "original", text: "Keep it short" });
   expect(account.steering).toBe(true);
   await respond(steerIndex, { status: "complete" });
-  await respond(requests.findLastIndex(r => r.url.includes("/state")), state(null));
+  const pending = state(null);
+  pending.messages = [
+    { id: "owner:original", text: "Explain pools", createdAt: 1, reply: null },
+    { id: "owner:steering", text: "Keep it short", createdAt: 2, reply: null },
+  ];
+  await respond(requests.findLastIndex(r => r.url.includes("/state")), pending);
   await act(async () => { await steering; });
   expect(account.steering).toBe(false);
   expect(account.pending).toBe(true);
   expect(account.inFlight).toBe("Explain pools");
   expect(account.partial).toEqual(["First"]);
-  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "paragraph", text: "Short answer", replace: true }))); });
+  await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "paragraph", text: "Short answer", replace: true, eventId: "owner:steering" }))); });
   expect(account.partial).toEqual(["Short answer"]);
+  expect(account.activeReplyId).toBe("steering");
+  expect(account.state?.messages[0]?.reply?.text).toBe("First");
+  pending.messages[0]!.reply = { text: "First", preview: null };
+  await respond(requests.findLastIndex(r => r.url.includes("/state")), pending);
+  expect(account.state?.messages[0]?.reply?.text).toBe("First");
   await act(async () => { await writer.write(encoder.encode(sseFrame({ type: "complete", status: "complete" }))); await writer.close(); });
   await respond(requests.findLastIndex(r => r.url.includes("/state")), state(null));
   await act(async () => { await sending; });

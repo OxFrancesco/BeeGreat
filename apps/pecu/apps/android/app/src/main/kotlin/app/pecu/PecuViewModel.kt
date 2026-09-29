@@ -15,7 +15,7 @@ data class ChatState(
   val loading: Boolean = false, val syncing: Boolean = false, val paging: Boolean = false, val error: String? = null,
   val pending: TurnRequest? = null, val retry: TurnRequest? = null, val steering: Boolean = false,
 )
-data class LiveReply(val text: String = "", val stages: List<Stage> = emptyList())
+data class LiveReply(val text: String = "", val eventId: String? = null, val stages: List<Stage> = emptyList())
 data class AccountUi(val ready: Boolean = false, val signedIn: Boolean = false, val name: String = "", val image: String? = null, val busy: Boolean = false, val error: String? = null, val signingInWith: LoginProvider? = null)
 
 data class SessionIdentity(val id: String?, val ready: Boolean = true, val name: String = "Account", val image: String? = null)
@@ -305,8 +305,22 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
       try {
         val reducer = StreamReducer()
         api.turn(request) { event ->
+          val previous = reducer.eventId
           reducer.accept(event)
-          _live.update { live -> live.copy(text = reducer.text, stages = event.stage?.let { stage -> live.stages.filterNot { it.id == stage.id } + stage } ?: live.stages) }
+          if (previous != reducer.eventId) {
+            val old = _live.value
+            _chat.update { chat -> chat.copy(account = chat.account?.copy(messages = chat.account.messages.map { message ->
+              if (old.text.isNotEmpty() && (message.id == previous || (previous == null && message.id.endsWith(":" + request.requestId)))) message.copy(reply = Reply(text = old.text), canRetry = false) else message
+            })) }
+            val target = reducer.eventId
+            viewModelScope.launch {
+              try {
+                val state = api.state(request.threadId)
+                if (_chat.value.thread == request.threadId && _chat.value.pending != null && _live.value.eventId == target) _chat.update { it.copy(account = state) }
+              } catch (error: Exception) { if (error is CancellationException) throw error }
+            }
+          }
+          _live.update { live -> live.copy(text = reducer.text, eventId = reducer.eventId, stages = event.stage?.let { stage -> live.stages.filterNot { it.id == stage.id } + stage } ?: live.stages) }
         }
         val state = api.state(request.threadId)
         remember(request.threadId, state)

@@ -48,3 +48,12 @@ test("stopping a failed turn cancels pending display updates", async () => {
   await Bun.sleep(25);
   expect(seen).toEqual(["First"]);
 });
+
+ test("finishing a later assistant message keeps text already sent by earlier steps", () => {
+  const seen: string[] = [];
+  const stream = new ReplyStream(Object.assign((text: string) => { seen.push(text); }, { live: true }));
+  stream.push("before:0", "Already sent.");
+  stream.push("after:0", "New");
+  stream.finish({ id: "after", content: [{ type: "text", text: "New answer." }] });
+  expect(seen.at(-1)).toBe("Already sent.\nNew answer.");
+});

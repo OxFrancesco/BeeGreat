@@ -11,6 +11,13 @@
   {
     "type": "paragraph",
     "text": "Your balance",
+    "eventId": "owner:original",
+    "replace": true
+  },
+  {
+    "type": "paragraph",
+    "text": "Short answer",
+    "eventId": "owner:steering",
     "replace": true
   },
   {

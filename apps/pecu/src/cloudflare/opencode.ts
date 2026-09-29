@@ -94,7 +94,7 @@ function providerErrorKind(body: string, headers: Headers): string {
 type SkillSession = { family?: ToolFamily; carried?: string[]; active?: AgentSkill[] };
 
 export class OpenCodeHarness implements AgentHarness {
-  private readonly steering = new Map<string, { sessionId: string; pending: Set<Promise<void>>; revision: number }>();
+  private readonly steering = new Map<string, { sessionId: string; pending: Set<Promise<void>>; revision: number; targets: Map<string, string> }>();
   private analyticsPending: Promise<void> = Promise.resolve();
   private constructor(
     private readonly client: OpenCodeWorkerd.Interface,
@@ -454,6 +454,7 @@ export class OpenCodeHarness implements AgentHarness {
     const turn = this.store.agentTurn(active.sessionId);
     if (!turn || turn.eventId !== targetEventId) throw new Error("That reply has ended.");
     this.store.saveAgentTurn(active.sessionId, { ...turn, text: `${turn.text}\n\nSteering: ${message.text}` });
+    active.targets.set(id, message.eventId);
     const admission = this.client.sessions.prompt({
       sessionID: active.sessionId, id, delivery: "steer",
       text: message.text,
@@ -557,11 +558,12 @@ export class OpenCodeHarness implements AgentHarness {
       this.analyticsPending = this.analyticsPending.then(collect);
       this.waitUntil?.(this.analyticsPending);
     };
-    const observer = await this.observeText(sessionId, progress ?? (() => {}), schedule);
+    const targets = new Map<string, string>();
+    const observer = await this.observeText(sessionId, progress ?? (() => {}), schedule, metadata.eventId, targets);
     try {
       const inbox = await this.client.sessions.prompt({ sessionID: sessionId, text, metadata });
       startedAt = inbox.timeCreated;
-      const active = { sessionId, pending: new Set<Promise<void>>(), revision: 0 };
+      const active = { sessionId, pending: new Set<Promise<void>>(), revision: 0, targets };
       this.steering.set(metadata.eventId, active);
       try {
         let revision: number;
@@ -591,7 +593,7 @@ export class OpenCodeHarness implements AgentHarness {
       if (!assistant || assistant.type !== "assistant") throw new Error("OpenCode completed without an assistant response");
       observer.completeStages(assistant.error ? "error" : "complete");
       if (!assistant.error) observer?.finish(assistant);
-      return assistant;
+      return assistant.error ? assistant : { ...assistant, content: [{ type: "text" as const, text: observer.text() }] };
     } finally {
       observer?.stop();
       try { await this.storage.delete(`skills:turn:${metadata.eventId}`); }
@@ -600,13 +602,23 @@ export class OpenCodeHarness implements AgentHarness {
   }
 
   /** Attach before prompting; the stored answer reconciles any live events still in transit. */
-  private async observeText(sessionId: string, progress: ParagraphSink, onSettled: () => void) {
+  private async observeText(sessionId: string, progress: ParagraphSink, onSettled: () => void, initialEventId: string, targets: Map<string, string>) {
     const controller = new AbortController();
-    const sink: ParagraphSink = (text) => {
-      try { progress(text); } catch { log("warn", "inference_progress_failed", {}); }
+    let target = initialEventId;
+    const replies = new Map<string, ReplyStream>();
+    const messageTargets = new Map<string, string>();
+    const stream = (eventId: string) => {
+      let reply = replies.get(eventId);
+      if (!reply) {
+        const sink: ParagraphSink = (text) => {
+          try { progress(text, eventId); } catch { log("warn", "inference_progress_failed", {}); }
+        };
+        sink.live = progress.live;
+        reply = new ReplyStream(sink);
+        replies.set(eventId, reply);
+      }
+      return reply;
     };
-    sink.live = progress.live;
-    const reply = new ReplyStream(sink);
     let directReply: string | undefined;
     const names = new Map<string, string>();
     const stages = new Map<string, TurnStage>();
@@ -627,11 +639,20 @@ export class OpenCodeHarness implements AgentHarness {
         for await (const event of this.client.events.subscribe({ signal: controller.signal })) {
           if (event.type === "server.connected") attached();
           if ("data" in event && "sessionID" in event.data && event.data.sessionID === sessionId) {
-            if (event.type === "session.inbox.delivered") directReply = undefined;
+            if (event.type === "session.inbox.delivered") {
+              directReply = undefined;
+              const next = targets.get(event.data.inboxID);
+              if (next && next !== target) {
+                stream(target).checkpoint();
+                stream(target).stop();
+                target = next;
+                progress("", target);
+              }
+            }
             if (["session.step.ended", "session.step.failed", "session.tool.success", "session.tool.failed"].includes(event.type)) onSettled();
             if (event.type === "session.tool.success" && event.data.metadata?.pecu_direct_reply === true && names.get(event.data.id) === "aero_liquidity") {
               directReply = event.data.content.flatMap(part => part.type === "text" ? [part.text] : []).join("\n");
-              progress(directReply);
+              progress(directReply, target);
               // The tool success is durable before interruption. Its verified preview is the reply.
               void this.client.sessions.interrupt({ sessionID: sessionId, continue: true }).catch(() => log("warn", "preview_stop_failed", {}));
             }
@@ -642,6 +663,7 @@ export class OpenCodeHarness implements AgentHarness {
               if (!directReply && ![...stages.values()].some(s => s.status === "running")) stage(`model-wait-${++waitIndex}`, "Waiting for model");
             }
             if (event.type === "session.step.started") {
+              messageTargets.set(event.data.assistantMessageID, target);
               stage(`model-wait-${waitIndex}`, "Waiting for model", "complete");
               stage(event.data.assistantMessageID, "Generating a response");
             }
@@ -652,6 +674,9 @@ export class OpenCodeHarness implements AgentHarness {
           }
           if ((event.type === "session.text.delta" || event.type === "session.text.ended") && event.data.sessionID === sessionId) {
             const key = `${event.data.assistantMessageID}:${event.data.ordinal}`;
+            const eventTarget = messageTargets.get(event.data.assistantMessageID) ?? target;
+            messageTargets.set(event.data.assistantMessageID, eventTarget);
+            const reply = stream(eventTarget);
             if (event.type === "session.text.delta") {
               reply.push(key, event.data.delta);
             } else {
@@ -669,8 +694,9 @@ export class OpenCodeHarness implements AgentHarness {
     return {
       completeStages: (status: "complete" | "error" = "complete") => { for (const value of stages.values()) if (value.status === "running") stage(value.id, value.label, status); },
       directReply: () => directReply,
-      finish: (message: Parameters<ReplyStream["finish"]>[0]) => reply.finish(message),
-      stop: () => { for (const value of stages.values()) if (value.status === "running") stage(value.id, value.label, "error"); reply.stop(); controller.abort(); },
+      finish: (message: Parameters<ReplyStream["finish"]>[0]) => stream(messageTargets.get(message.id) ?? target).finish(message),
+      text: () => stream(target).snapshot(),
+      stop: () => { for (const value of stages.values()) if (value.status === "running") stage(value.id, value.label, "error"); for (const reply of replies.values()) reply.stop(); controller.abort(); },
     };
   }
 

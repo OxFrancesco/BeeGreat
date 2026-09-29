@@ -92,6 +92,7 @@ export function confirmationCommand(text: string): { kind: "confirm" | "cancel";
   return { kind: match[1].toLowerCase() === "confirm" ? "confirm" : "cancel", code: match[2].toUpperCase() };
 }
 export const webReplySchema = z.object({
+  steerPending: z.boolean().optional(),
   steerOf: z.string().uuid().optional(),
   positions: positionSnapshotSchema.optional(),
   positionsOnly: z.boolean().optional(),

@@ -22,6 +22,13 @@ class ContractTest {
     val events = wireJson.decodeFromString<List<StreamEvent>>(javaClass.getResource("/events.json")!!.readText())
     assertEquals("Reading balances", events.first().stage!!.label)
     assertTrue(events[1].replace)
+    val reducer = StreamReducer()
+    reducer.accept(events[1])
+    assertEquals("owner:original", reducer.eventId)
+    assertEquals("Your balance", reducer.text)
+    reducer.accept(events[2])
+    assertEquals("owner:steering", reducer.eventId)
+    assertEquals("Short answer", reducer.text)
   }
   @Test fun `live snapshots replace and legacy paragraphs append`() {
     val reducer = StreamReducer()

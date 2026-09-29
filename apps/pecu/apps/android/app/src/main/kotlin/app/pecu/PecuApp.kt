@@ -145,6 +145,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
 }
 
 @Composable private fun Conversation(model: PecuViewModel, chat: ChatState, auth: AccountUi, modifier: Modifier, onConnect: () -> Unit) {
+  val live by model.live.collectAsStateWithLifecycle()
   val list = rememberLazyListState()
   val scope = rememberCoroutineScope()
   val allMessages = chat.account?.messages.orEmpty()
@@ -166,7 +167,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
       LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
         if (chat.account?.olderCursor != null) item(key = "older") { TextButton(onClick = model::olderMessages, enabled = !chat.paging) { Text(if (chat.paging) "Loading…" else "Older messages") } }
         items(messages, key = Message::id, contentType = { "message" }) { message ->
-          MessageView(message, model, chat.pending != null || chat.syncing || chat.account?.newerCursor != null, message.id == allMessages.lastOrNull()?.id, chat.pending?.requestId?.let { message.id.endsWith(":" + it) } == true, onConnect)
+          MessageView(message, model, chat.pending != null || chat.syncing || chat.account?.newerCursor != null, message.id == allMessages.lastOrNull()?.id, chat.pending != null && (live.eventId?.let { message.id == it } ?: message.id.endsWith(":" + chat.pending.requestId)), onConnect)
         }
         if (showPending) item(key = "pending") { Column(verticalArrangement = Arrangement.spacedBy(20.dp)) { UserBubble(chat.pending.text); LiveReplyView(model) } }
         item(key = "end") { Spacer(Modifier.height(4.dp)) }

@@ -186,7 +186,7 @@ export function Chat({
                     </div>
                   ) : account.pending &&
                     account.partial.length &&
-                    message.id.endsWith(`:${account.activeRequestId}`) ? (
+                    message.id.endsWith(`:${account.activeReplyId ?? account.activeRequestId}`) ? (
                     <div className="message assistant" role="status">
                       <TurnProgress stages={account.stages} pending={account.pending} /><StreamedReply paragraphs={account.partial} />
                     </div>

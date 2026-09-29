@@ -57,7 +57,7 @@ val wireJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
 @Serializable data class PlanEdge(val from: String, val to: String, val step: Int, val label: String? = null)
 @Serializable data class Stage(val id: String, val label: String, val startedAt: Long, val endedAt: Long? = null, val status: String)
 @Serializable data class TurnRequest(val requestId: String, val text: String, val threadId: String? = null, val retryOf: String? = null, val answerTo: String? = null, val reviewWallet: String? = null, val steerOf: String? = null)
-@Serializable data class StreamEvent(val type: String, val text: String? = null, val replace: Boolean = false, val status: String? = null, val error: String? = null, val stage: Stage? = null)
+@Serializable data class StreamEvent(val type: String, val eventId: String? = null, val text: String? = null, val replace: Boolean = false, val status: String? = null, val error: String? = null, val stage: Stage? = null)
 @Serializable data class Holdings(val stocks: List<Stock>, val observedAt: Long)
 @Serializable data class Stock(val symbol: String, val name: String, val address: String, val price_usdc: String? = null, val balance: String? = null, val error: String? = null)
 @Serializable data class Analytics(val snapshot: JsonObject, val text: String)
@@ -75,13 +75,18 @@ fun mergeMessages(old: List<Message>, new: List<Message>): List<Message> =
   (old + new).associateBy { it.id }.values.sortedWith(compareBy(Message::createdAt, Message::id))
 
 class StreamReducer {
+  var eventId: String? = null
+    private set
   var text: String = ""
     private set
   var complete = false
     private set
   fun accept(event: StreamEvent) {
     when (event.type) {
-      "paragraph" -> text = if (event.replace) event.text.orEmpty() else listOf(text, event.text.orEmpty()).filter(String::isNotEmpty).joinToString("\n\n")
+      "paragraph" -> {
+        if (event.eventId != null && event.eventId != eventId) { text = ""; eventId = event.eventId }
+        text = if (event.replace) event.text.orEmpty() else listOf(text, event.text.orEmpty()).filter(String::isNotEmpty).joinToString("\n\n")
+      }
       "error" -> throw PecuException(event.error ?: "Pecu could not finish the reply.")
       "complete" -> {
         if (event.status == "busy") throw PecuException("Pecu is still working on your previous message. Check for its reply before retrying.")

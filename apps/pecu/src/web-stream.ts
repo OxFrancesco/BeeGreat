@@ -2,7 +2,7 @@ import { z } from "zod";
 import { stageSchema, type TurnStage } from "./progress";
 
 /** Legacy paragraph delivery, or whole-reply snapshots when the caller opts into live text. */
-export type ParagraphSink = ((text: string) => void) & { live?: boolean; stage?: (stage: TurnStage) => void; trace?: (traceId: string) => void };
+export type ParagraphSink = ((text: string, eventId?: string) => void) & { live?: boolean; stage?: (stage: TurnStage) => void; trace?: (traceId: string) => void };
 
 /**
  * Splits streamed text deltas into finished paragraphs. A paragraph ends at a
@@ -48,7 +48,7 @@ function fenceOpen(text: string): boolean {
 export const webTurnEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("trace"), traceId: z.string().regex(/^pecu_[0-9a-f]{64}$/) }),
   z.object({ type: z.literal("stage"), stage: stageSchema }),
-  z.object({ type: z.literal("paragraph"), text: z.string(), replace: z.literal(true).optional() }),
+  z.object({ type: z.literal("paragraph"), text: z.string(), eventId: z.string().optional(), replace: z.literal(true).optional() }),
   z.object({ type: z.literal("complete"), status: z.enum(["complete", "busy"]) }),
   z.object({ type: z.literal("error"), error: z.string() }),
 ]);
@@ -87,8 +87,8 @@ export function turnEventStream(
   };
   heartbeat();
   const timer = setInterval(heartbeat, heartbeatMs);
-  const progress: ParagraphSink = (text) => {
-    const event: Extract<WebTurnEvent, { type: "paragraph" }> = { type: "paragraph", text };
+  const progress: ParagraphSink = (text, eventId) => {
+    const event: Extract<WebTurnEvent, { type: "paragraph" }> = { type: "paragraph", text, eventId };
     if (live) event.replace = true;
     void emit(event);
   };

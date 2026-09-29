@@ -18,7 +18,8 @@ const state = webStateSchema.parse({
 });
 const events = [
   { type: "stage", stage: { id: "first", label: "Reading balances", startedAt: 100, status: "running" } },
-  { type: "paragraph", text: "Your balance", replace: true },
+  { type: "paragraph", text: "Your balance", replace: true, eventId: "owner:original" },
+  { type: "paragraph", text: "Short answer", replace: true, eventId: "owner:steering" },
   { type: "complete", status: "complete" },
 ].map((event) => webTurnEventSchema.parse(event));
 const folder = new URL("../app/src/test/resources/", import.meta.url);

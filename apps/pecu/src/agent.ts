@@ -293,7 +293,7 @@ export class PecuAgent {
     const correlation = { $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId };
     let firstAnswer: number | undefined;
     let failed = false;
-    const sink: ParagraphSink | undefined = progress ? text => { firstAnswer ??= Date.now(); progress(text); } : undefined;
+    const sink: ParagraphSink | undefined = progress ? (text, eventId) => { firstAnswer ??= Date.now(); progress(text, eventId); } : undefined;
     if (sink) { sink.live = progress?.live; sink.stage = stage; }
     const channel = message.conversationId.startsWith("stocks:") ? "web" : "x";
     this.track(message.senderId, { event: "pecu_message_received", channel, ...correlation });

@@ -98,8 +98,9 @@ export class WebAgent {
       ? webReplySchema.parse(JSON.parse(row.reply))
       : null;
     const origin = stored?.origin;
-    const reply = stored ? { ...stored, origin: undefined } : null;
-    const intent = this.messageIntent(row.id, origin !== undefined);
+    const reply = stored && !stored.steerPending ? { ...stored, origin: undefined } : null;
+    const sourceId = stored?.steerOf ? `${row.id.slice(0, row.id.lastIndexOf(":"))}:${stored.steerOf}` : row.id;
+    const intent = this.messageIntent(sourceId, origin !== undefined);
     if (reply?.preview && intent) {
       reply.preview.state =
         intent.state === "pending" && intent.expiresAt < Date.now()
@@ -337,6 +338,7 @@ export class WebAgent {
     const eventId = `${conversationId}:${input.requestId}`;
     const existing = this.sql.exec<{ text: string; reply: string | null }>("SELECT text,reply FROM basedbot_web_turns WHERE id=?", eventId).toArray()[0];
     if (existing && existing.text !== input.text) throw new Error("This request already belongs to another message.");
+    if (existing && !existing.reply) throw new Error("This request belongs to another turn.");
     if (existing?.reply) {
       if (webReplySchema.parse(JSON.parse(existing.reply)).steerOf !== input.steerOf) throw new Error("This request belongs to another turn.");
       return { status: "complete" as const };
@@ -345,8 +347,13 @@ export class WebAgent {
     if (!this.active.has(conversationId)) throw new Error("That reply is no longer running. Send your message again.");
     this.steering.add(eventId);
     try {
-      await this.agent.steer({ senderId: input.senderId, conversationId, eventId, text: input.text, encodedEvent: "" }, `${conversationId}:${input.steerOf}`);
-      this.sql.exec("INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at,reply) VALUES(?,?,?,?,?)", eventId, conversationId, input.text, Date.now(), JSON.stringify({ text: "Sent to the current reply.", preview: null, steerOf: input.steerOf }));
+      this.sql.exec("INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at,reply) VALUES(?,?,?,?,?)", eventId, conversationId, input.text, Date.now(), JSON.stringify({ text: "", preview: null, steerOf: input.steerOf, steerPending: true }));
+      try {
+        await this.agent.steer({ senderId: input.senderId, conversationId, eventId, text: input.text, encodedEvent: "" }, `${conversationId}:${input.steerOf}`);
+      } catch (error) {
+        this.sql.exec("DELETE FROM basedbot_web_turns WHERE id=? AND reply=?", eventId, JSON.stringify({ text: "", preview: null, steerOf: input.steerOf, steerPending: true }));
+        throw error;
+      }
       return { status: "complete" as const };
     } finally { this.steering.delete(eventId); }
   }
@@ -404,18 +411,39 @@ export class WebAgent {
         Date.now(),
       );
       const retryContext = this.sql.exec<{ context: string }>("SELECT context FROM basedbot_web_retries WHERE id=?", eventId).toArray()[0]?.context;
+      let replyTarget = eventId;
+      const snapshots = new Map<string, string>();
+      const checkpoint = (target: string) => {
+        const response: z.infer<typeof webReplySchema> = { text: snapshots.get(target) ?? "", preview: null };
+        if (target !== eventId) response.steerOf = requestId;
+        this.sql.exec("UPDATE basedbot_web_turns SET reply=? WHERE id=? AND owner=?", JSON.stringify(response), target, conversationId);
+      };
+      const sink: ParagraphSink = (text, target = eventId) => {
+        if (target !== eventId) {
+          const row = this.sql.exec<{ reply: string | null }>("SELECT reply FROM basedbot_web_turns WHERE id=? AND owner=?", target, conversationId).toArray()[0];
+          if (!row?.reply || webReplySchema.parse(JSON.parse(row.reply)).steerOf !== requestId) return;
+        }
+        if (target !== replyTarget) checkpoint(replyTarget);
+        replyTarget = target;
+        snapshots.set(target, progress?.live === false ? [snapshots.get(target), text].filter(Boolean).join("\n\n") : text);
+        progress?.(text, target);
+      };
+      sink.live = progress?.live ?? true;
+      sink.stage = progress?.stage;
+      sink.trace = progress?.trace;
       const reply = await this.agent.handle(
         { senderId, conversationId, eventId, text, encodedEvent: "", retryContext },
         true,
-        progress,
+        sink,
       );
       if (!reply) return { status: "busy" as const };
       const holdings = this.store.stockSnapshot(eventId);
-      const response = await this.replyRecord(eventId, reply, this.store.intentForSource(eventId));
+      const response: z.infer<typeof webReplySchema> = await this.replyRecord(eventId, reply, this.store.intentForSource(eventId));
+      if (replyTarget !== eventId) response.steerOf = requestId;
       this.sql.exec(
         "UPDATE basedbot_web_turns SET reply=? WHERE id=?",
         JSON.stringify(response),
-        eventId,
+        replyTarget,
       );
       if (holdings) {
         this.sql.exec(

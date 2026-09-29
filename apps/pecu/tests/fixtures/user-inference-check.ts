@@ -35,13 +35,13 @@ mock.module("../../src/cloudflare/opencode", () => ({ OpenCodeHarness: { async c
     async cancelChatGptLogin() { state.complete = false; },
     async disconnectChatGpt() { if (state.failDisconnect) throw new Error("offline"); state.connected = false; },
     async steer(_message: VerifiedMessage, _target: string) {},
-    async respond(_message: VerifiedMessage, capabilities: AgentCapabilities, _mode?: ResponseMode, progress?: (paragraph: string) => void, chatGpt = true) {
+    async respond(_message: VerifiedMessage, capabilities: AgentCapabilities, _mode?: ResponseMode, progress?: (paragraph: string, eventId?: string) => void, chatGpt = true) {
       state.calls++;
       state.lastChatGpt = chatGpt;
       state.lastStreamed = progress !== undefined;
       if (state.usageLimit && !fallbackConfigured) throw new UsageLimitError({ kind: "usage_limit_reached", planType: "plus", resetsAt: Date.now() + 3_600_000, observedAt: Date.now() });
       if (state.hold) await state.hold;
-      progress?.("First paragraph.");
+      progress?.("First paragraph.", "owner:steering");
       return _message.text === "Polymarket freshness" ? capabilities.polymarketRead("status", {}) : capabilities.walletAddress();
     },
   };
@@ -70,11 +70,13 @@ expect(await a.instance.respond(message, false, tools)).toBe("wallet-a");
 // Without a sink the harness is told not to stream; with one, paragraphs arrive through the RPC bridge before the reply.
 expect(states.get(a.storage)!.lastStreamed).toBe(false);
 const paragraphs: string[] = [];
-const streamingTools = new InferenceTools({ ...unusedCapabilities, walletAddress: async () => "wallet-a" }, undefined, (text) => paragraphs.push(text));
+const targets: (string | undefined)[] = [];
+const streamingTools = new InferenceTools({ ...unusedCapabilities, walletAddress: async () => "wallet-a" }, undefined, (text, eventId) => { paragraphs.push(text); targets.push(eventId); });
 expect(await a.instance.respond(message, false, streamingTools)).toBe("wallet-a");
 expect(states.get(a.storage)!.lastStreamed).toBe(true);
 await new Promise((resolve) => setTimeout(resolve, 0));
 expect(paragraphs).toEqual(["First paragraph."]);
+expect(targets).toEqual(["owner:steering"]);
 class DelayedBridge extends InferenceTools {
   override async paragraph(text: string) {
     await new Promise((resolve) => setTimeout(resolve, 15));
