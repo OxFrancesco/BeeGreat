@@ -284,7 +284,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         const input = webTurnSchema.safeParse(raw);
         if (!input.success) return json({ error: "Invalid web request" }, 400);
         if (request.headers.get("Accept")?.includes(sseContentType)) {
-          if (this.webAgent.busy(input.data)) return json({ status: "busy" }, 409);
+          if (!input.data.steerOf && this.webAgent.busy(input.data)) return json({ status: "busy" }, 409);
           return this.streamTurn(this.webAgent, input.data, request.headers.get("Accept")?.includes(liveTextContentType), request.headers.get("Accept")?.includes(timedTextContentType));
         }
         const result = await this.webAgent.handle(input.data);
