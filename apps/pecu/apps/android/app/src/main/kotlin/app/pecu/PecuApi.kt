@@ -43,6 +43,13 @@ class PecuApi(
   suspend fun portfolio(tokens: List<String>): Portfolio = wireJson.decodeFromString(get("portfolio", tokens.map { "token" to it } + ("stocks" to "1")))
   suspend fun inference(): Inference = wireJson.decodeFromString(get("inference"))
   suspend fun connect(connect: Boolean): Inference = wireJson.decodeFromString(post(if (connect) "inference-connect" else "inference-disconnect", buildJsonObject {}))
+  suspend fun automations(): AutomationList = wireJson.decodeFromString(get("tasks"))
+  suspend fun automationAction(code: String, kind: String, maxUsd: Double? = null): AutomationActionResult =
+    wireJson.decodeFromString(post("task-action", buildJsonObject { put("code", code); put("kind", kind); maxUsd?.let { put("maxUsd", it) } }))
+  suspend fun notifications(): NotificationList = wireJson.decodeFromString(get("notifications"))
+  suspend fun readNotifications() { post("notification-read", buildJsonObject {}) }
+  suspend fun registerPush(token: String) { post("push-register", buildJsonObject { put("token", token); put("platform", "android") }) }
+  suspend fun unregisterPush(token: String) { post("push-unregister", buildJsonObject { put("token", token) }) }
 
   suspend fun turn(turn: TurnRequest, onEvent: (StreamEvent) -> Unit) {
     val call = client.newCall(request("turn", body = wireJson.encodeToString(turn))

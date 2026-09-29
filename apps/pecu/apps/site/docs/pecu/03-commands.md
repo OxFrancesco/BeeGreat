@@ -69,6 +69,8 @@ ETH has no allowances, so these commands take `USDC`, `AERO` or a token address.
 | `cancel` as a reply | Cancels the preview you reply to. X Chat only. | reply `cancel` |
 | `/confirm CODE` | Sends the saved transaction, or checks one that was already sent. | `/confirm ABC123` |
 | `/cancel CODE` | Cancels a pending preview so it can never be sent. | `/cancel ABC123` |
+| `/tasks` | Lists your automations with their codes. See [Automations](/docs/pecu/automations). | `/tasks` |
+| `/tasks allow CODE [USD]` | Approves an automation's allowance, optionally with a new limit per run. | `/tasks allow ABC234 50` |
 | `/yolo` | Shows whether YOLO is on for you in this chat. It starts off. | `/yolo` |
 | `/yolo on` | New transaction requests run without a confirmation prompt. | `/yolo on` |
 | `/yolo off` | New requests need your confirmation again. | `/yolo off` |

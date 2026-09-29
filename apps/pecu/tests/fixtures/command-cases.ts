@@ -34,6 +34,7 @@ const basic: { command: string; type: Command["type"] }[] = [
   ...["polymarket", "polymarket help"].map(command => ({ command, type: "polymarket-help" as const })),
   ...["polymarket status", "polymarket research Compare Fed markets"].map(command => ({ command, type: "polymarket" as const })),
   { command: "polymarket Fed rates", type: "polymarket-read" },
+  ...["tasks", "tasks pause ABC234", "tasks resume ABC234", "tasks cancel ABC234", "tasks run ABC234", "tasks allow ABC234", "tasks allow ABC234 50", "tasks revoke ABC234", "automations"].map(command => ({ command, type: "tasks" as const })),
 ];
 const requiredValues: JsonFields = { user: address, address, condition, id: "1", slug: "test-market", condition_id: condition, token_id: "123", side: "BUY", q: "Fed", event_id: "1" };
 const polymarket = Object.values(polymarketEndpoints).map(endpoint => {

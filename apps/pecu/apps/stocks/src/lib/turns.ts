@@ -5,6 +5,7 @@ export type TurnMessage = z.infer<typeof webMessageSchema>;
 
 export type TurnPresentation =
   | Readonly<{ kind: "chat" }>
+  | Readonly<{ kind: "task"; title: string }>
   | Readonly<{
       kind: "command";
       command: { kind: "confirm" | "cancel"; code: string };
@@ -21,6 +22,7 @@ export function turnPresentation(
   message: TurnMessage,
   messages: readonly TurnMessage[],
 ): TurnPresentation {
+  if (message.origin) return { kind: "task", title: message.origin.title };
   const command = confirmationCommand(message.text);
   if (!command) return { kind: "chat" };
   const target = messages.find(

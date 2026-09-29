@@ -13,7 +13,7 @@ import type { TurnStage } from "../progress";
 import type { ParagraphSink } from "../web-stream";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
-const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "liquidity", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "safeList", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall"]);
+const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "liquidity", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "safeList", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall", "taskCreate", "taskList", "taskUpdate"]);
 
 export class InferenceTools extends RpcTarget {
   constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode, private readonly onParagraph?: ParagraphSink) { super(); }
@@ -149,6 +149,9 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       depositSetup: (...args) => bridge.call("depositSetup", args),
       depositStatus: (...args) => bridge.call("depositStatus", args),
       nansenCall: (...args) => bridge.call("nansenCall", args),
+      taskCreate: (...args) => bridge.call("taskCreate", args),
+      taskList: (...args) => bridge.call("taskList", args),
+      taskUpdate: (...args) => bridge.call("taskUpdate", args),
     };
     this.active = { eventId: message.eventId, capabilities };
     let delivery = Promise.resolve();

@@ -33,7 +33,7 @@ import com.mikepenz.markdown.m3.Markdown
 import kotlinx.coroutines.launch
 
 val suggestions = listOf("What's my balance?", "Quote 0.01 ETH to USDC", "Show my Aerodrome positions", "Odds of a Fed rate cut on Polymarket?", "/stocks")
-private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap", "/send", "/deposit", "/aero help", "/aave help", "/polymarket help", "/nansen", "/yolo", "/help")
+private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap", "/send", "/deposit", "/aero help", "/aave help", "/polymarket help", "/nansen", "/tasks", "/yolo", "/help")
 
 @Composable fun PecuApp(
   model: PecuViewModel,
@@ -94,6 +94,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
             "account" -> Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
               Text(auth.name, style = MaterialTheme.typography.headlineMedium)
               MenuRow("Balances", Icons.Outlined.AccountBalanceWallet) { sheet = "wallet" }
+              MenuRow("Automations", Icons.Outlined.EventRepeat) { sheet = "automations" }
               MenuRow("ChatGPT connection", Icons.Outlined.Link) { sheet = "connection" }
               MenuRow("Profile and linked wallets", Icons.AutoMirrored.Outlined.OpenInNew) { uri.openUri("https://pecu.app/profile") }
               MenuRow("New thread", Icons.Outlined.Add) { model.newThread(); sheet = null }
@@ -101,6 +102,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
             }
             "wallet" -> WalletSheet(model, chat) { sheet = null }
             "connection" -> ConnectionSheet(model)
+            "automations" -> AutomationsSheet(model) { thread -> model.selectThread(thread); sheet = null }
           }
           Spacer(Modifier.height(24.dp))
         }
@@ -177,7 +179,11 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
 @Composable private fun MessageView(message: Message, model: PecuViewModel, busy: Boolean, latest: Boolean, onConnect: () -> Unit) {
   val command = message.text.matches(Regex("/(confirm|cancel) [A-Za-z0-9]{6}", RegexOption.IGNORE_CASE))
   Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
-    if (!command) UserBubble(message.text)
+    val origin = message.origin
+    if (origin != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+      Icon(Icons.Outlined.EventRepeat, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(origin.title, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } else if (!command) UserBubble(message.text)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
       Image(painterResource(R.drawable.pecu_avatar), null, Modifier.size(32.dp))
       Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -196,7 +202,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
           stocks?.let { StockHoldingsCard(it) }
           reply.analytics.forEach { AnalyticsView(it) }
           if (reply.recovery == "connect_chatgpt") TextButton(onClick = onConnect) { Text("Connect ChatGPT") }
-          Row { CopyAction(reply.text); if (message.canRetry && latest) IconAction("Retry reply", Icons.Outlined.Refresh, !busy) { model.send(message.text, retryOf = message.id) } }
+          Row { CopyAction(reply.text); if (message.canRetry && latest && message.origin == null) IconAction("Retry reply", Icons.Outlined.Refresh, !busy) { model.send(message.text, retryOf = message.id) } }
         }
       }
     }

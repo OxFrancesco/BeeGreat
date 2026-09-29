@@ -45,7 +45,24 @@ These are local rendering tests, not device or production integration evidence.
 - Persisted transaction steps, expiry and confirmation controls. The client never reconstructs transaction calls.
 - Wallet address/QR, balances by ticker or contract address, transfer review with YOLO off, stock List/Graph, P&L periods and analytics.
 - ChatGPT connection and disconnection using existing backend endpoints.
+- Automations: list, pause, resume, run now, delete and allowance approval; FCM push to the Firebase Installation ID; local exact alarms for fixed-time reminders with the same notification tag as the push; boot restore; notification deep links to the thread.
 - Phone/foldable layouts, keyboard and safe-area insets, system dark mode, selectable text and accessible controls.
+
+## Push notifications
+
+FCM is configured without `google-services.json`. Put the public Firebase client
+identifiers in `~/.gradle/gradle.properties` or pass them with `-P`:
+
+```properties
+pecu.firebase.appId=1:1234567890:android:abc123
+pecu.firebase.projectId=your-project
+pecu.firebase.apiKey=AIza...
+pecu.firebase.senderId=1234567890
+```
+
+Empty values build an app without push; the inbox and local reminder alarms still
+work. The Worker needs the matching service account JSON in the
+`FCM_SERVICE_ACCOUNT` secret.
 
 ## Release status and remaining parity
 

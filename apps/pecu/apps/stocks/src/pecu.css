@@ -410,6 +410,28 @@ html:has(.pecu-app), body:has(.pecu-app) { background: var(--background); }
 .pecu.pecu-threads-dialog { border: 0; border-radius: 26px; background: var(--background); box-shadow: var(--clay-shadow); max-height: 80dvh; display: flex; flex-direction: column; overflow: hidden; }
 .pecu.pecu-threads-dialog .pecu-thread-list { max-height: 45dvh; }
 
+/* Automations */
+.pecu.pecu-automations-dialog { max-width: 560px; }
+.pecu-automation-list { list-style: none; margin: 0 -8px; padding: 2px 8px 8px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; min-height: 0; max-height: 60dvh; }
+.pecu-automation { display: grid; gap: 8px; padding: 14px 16px; border-radius: var(--clay-radius-control); background: var(--card); box-shadow: var(--clay-shadow-sm); }
+.pecu-automation-head { display: grid; gap: 2px; min-width: 0; }
+.pecu-automation-title { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; border: 0; background: none; color: var(--foreground); font: inherit; font-size: 15px; font-weight: 650; text-align: left; }
+button.pecu-automation-title { cursor: pointer; }
+button.pecu-automation-title:hover { color: var(--accent-foreground); }
+.pecu-automation-instruction { margin: 0; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+.pecu-automation-allowance { margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--muted); box-shadow: var(--clay-shadow-inset); font-size: 13px; line-height: 1.5; }
+.pecu-automation-allowance.is-pending { background: var(--accent); color: var(--accent-foreground); box-shadow: none; }
+.pecu-automation-approve { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.pecu-automation-approve label { display: grid; gap: 4px; font-size: 12px; color: var(--muted-foreground); }
+.pecu-automation-approve input { width: 120px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: var(--clay-radius-control); background: var(--background); box-shadow: var(--clay-shadow-inset); color: var(--foreground); font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.pecu-automation-approve input:focus-visible { outline: 2px solid var(--accent-foreground); outline-offset: 2px; }
+.pecu-automation-approve input[aria-invalid="true"] { outline: 2px solid var(--destructive); }
+.pecu-automation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -8px -4px; }
+.pecu-automation-error { margin: 0; padding: 8px 12px; border-radius: 12px; background: var(--accent); color: var(--accent-foreground); font-size: 13px; }
+.pecu-automation-notice { margin: 0; font-size: 13px; color: var(--muted-foreground); }
+.pecu-task-origin { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); }
+@media (max-width: 900px) { .pecu-automations-toggle span { display: none; } }
+
 @media (hover: hover) and (pointer: fine) {
   .pecu .pecu-button:hover, .pecu .pecu-submit:hover:not(:disabled) { transform: translateY(-2px); }
 }

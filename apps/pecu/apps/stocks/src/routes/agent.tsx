@@ -10,9 +10,11 @@ import { StockHoldings } from "../components/stock-holdings";
 import { ConversationHistory } from "@/components/history-window";
 import { HistoryNavigation } from "@/components/history-navigation";
 import { AccountMenu } from "../components/account-menu";
+import { Automations } from "../components/automations";
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
+  CalendarClockIcon,
   MessageSquareIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
@@ -230,7 +232,7 @@ function AgentWorkspace({
     account.atLatest && !inFlight
       ? [...messages].reverse().find((message) => {
           const presentation = turnPresentation(message, messages);
-          return presentation.kind === "chat" || presentation.showReply;
+          return presentation.kind !== "command" || presentation.showReply;
         })?.id
       : undefined;
   const empty = !account.loading && account.atLatest && messages.length === 0 && !inFlight;
@@ -248,6 +250,15 @@ function AgentWorkspace({
     const latest = account.threadPage.threads[0];
     if (threadId === null && latest?.id) void navigate({ search: { t: latest.id }, replace: true, resetScroll: false });
   }, [isSignedIn, threadId, account.threadsLoaded, account.threadPage.threads, navigate]);
+  useEffect(() => {
+    if (!isSignedIn) return;
+    // Automations write into threads while the tab is away; show them when the user returns.
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !account.pending) void account.reload().catch(() => undefined);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [isSignedIn, account]);
   const chatGptConnected = useChatGptConnected();
   const previousConnection = useRef(chatGptConnected);
   useEffect(() => {
@@ -375,6 +386,7 @@ function AgentWorkspace({
                     </DialogContent>
                   </Dialog>
                 ) : null}
+                <Automations onOpenThread={openThread} />
                 {account.state?.wallet ? (
                   <WalletChip key={account.state.signer ?? account.state.wallet} address={account.state.signer ?? account.state.wallet}>
                     <WalletTransfer pecuWallet={account.state.wallet} signer={account.state.signer ?? null} onReviewed={(id) => { void account.loadThreads(); void navigate({ search: { t: id } }); }} />
@@ -494,7 +506,7 @@ function AgentWorkspace({
                         : "";
                       const hasMascot =
                         message.id === mascotMessageId &&
-                        presentation.kind === "chat";
+                        presentation.kind !== "command";
                       return (
                         <div className="pecu-turn" key={message.id}>
                           {presentation.kind === "chat" ? (
@@ -509,6 +521,11 @@ function AgentWorkspace({
                                 />
                               </MessageActions>
                             </Message>
+                          ) : presentation.kind === "task" ? (
+                            <p className="pecu-task-origin">
+                              <CalendarClockIcon aria-hidden="true" className="size-3.5" />
+                              <span>{presentation.title}</span>
+                            </p>
                           ) : null}
                           <Message from="assistant">
                             <div

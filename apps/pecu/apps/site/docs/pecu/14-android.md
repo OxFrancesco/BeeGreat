@@ -22,6 +22,12 @@ Native card viewing, external-wallet signing and complete visual parity are stil
 in progress. Live sign-in and phone performance have not yet been verified for
 this build. There is no published Android store release.
 
+**Automations** in the account menu lists your reminders, schedules, heartbeats
+and price alerts, with pause, resume, run now, delete and allowance approval. Runs
+that need you arrive as notifications that open their chat. Reminders with a fixed
+time are also scheduled on the phone, so they show on time without a network.
+Push needs a Firebase configuration in the build. See [Automations](/docs/pecu/automations).
+
 Liquidity positions appear as compact clay cards. Open **Details** for exact
 amounts, the position ID and pool address. Longer lists have **Show more positions**
 and **Show fewer positions** controls. Approximate read-only amounts use ≈;

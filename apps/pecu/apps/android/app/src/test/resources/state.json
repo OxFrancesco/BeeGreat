@@ -53,6 +53,21 @@
       }
     },
     {
+      "id": "task:run-1:1",
+      "text": "Weekly index rebalance",
+      "createdAt": 103,
+      "origin": {
+        "kind": "task",
+        "code": "ABC234",
+        "title": "Weekly index rebalance",
+        "mode": "run"
+      },
+      "reply": {
+        "text": "Your index already matches its targets.",
+        "preview": null
+      }
+    },
+    {
       "id": "analytics",
       "text": "Show token flows",
       "createdAt": 102,

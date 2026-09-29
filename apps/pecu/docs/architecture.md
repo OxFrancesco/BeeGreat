@@ -105,6 +105,10 @@ When the operator sets `OPENROUTER_API_KEY`, the harness also configures OpenCod
 
 The current OpenCode beta requires a single hoisted Effect 4 installation. The X Chat SDK is patched narrowly so Workerd with `nodejs_compat` selects its browser/WASM loader instead of mistaking `process.versions.node` for a real Node filesystem.
 
+## Automations
+
+`src/tasks.ts`, `src/task-control.ts` and `src/proactive.ts` add reminders, scheduled and recurring runs, heartbeats and price alerts. The every-minute cron and the XChat alarm both call the single-flight `ProactiveRunner.sweep()`. Runs execute as synthetic verified turns in the task's own conversation through `PecuAgent.runTask`; their proposals go through `grantDecision`, so YOLO alone never lets an automation spend. Results reach X through the outbox and web threads as rows marked with `origin`; every non-quiet run also lands in the notification inbox and, with `FCM_SERVICE_ACCOUNT`, as an FCM data message to registered Firebase Installation IDs. Details: `docs/52-pecu-proactivity.md` at the monorepo root.
+
 ## Remaining live proof
 
 With production credentials, verify the complete path: deployed health, ChatGPT OAuth completion, encrypted X DM receipt, verified sender binding, Crossmint wallet creation, representative reads from each Aero family, transaction preview, encrypted reply, and state continuity after Durable Object eviction. Mainnet execution is enabled by user request. A funded mainnet transaction requires the user to confirm the exact plan; do not submit one merely to validate deployment.

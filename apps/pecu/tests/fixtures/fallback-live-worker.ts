@@ -31,6 +31,9 @@ const capabilities: AgentCapabilities = {
   depositSetup: toolsDisabled,
   depositStatus: toolsDisabled,
   nansenCall: toolsDisabled,
+  taskCreate: toolsDisabled,
+  taskList: toolsDisabled,
+  taskUpdate: toolsDisabled,
 };
 
 const providerCalls: { requestBytes: number; toolCount: number; responseMs: number; status: number }[] = [];

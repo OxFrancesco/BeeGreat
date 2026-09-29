@@ -372,3 +372,11 @@ Interactive examples: `/polymarket-showcase` on pecu.app.
 ### Card collection
 
 The shared account menu opens My cards in the existing dialog. Show owned Blender card artwork with transparent surroundings, the card name, and copy count only above one. A newly granted card opens the dialog with a short fade and upward movement; reduced motion disables that entrance. Keep loading, retry, exhausted-drop, and connect-X states in the same dialog. The card is an actual 3D model with drag rotation, zoom, turn-over and reset controls. Arrow keys turn it, plus/minus zoom, and Home resets. There is no automatic spin. Closing it clears the cards hash and disposes the viewer. Cards persist after X disconnects.
+
+Automations open from a header chip on web and the account menu on Android. Each
+automation is one raised card: title, a muted line with its kind, schedule and
+next run, the saved instruction, then its allowance as one sentence on a recessed
+panel. A requested or expired allowance uses the amber tint with a USD per run
+field and a primary Approve action. Row actions are quiet text buttons; delete asks
+first. Messages an automation wrote replace the user bubble with a small muted line
+holding the automation title, so they never look like something the user typed.

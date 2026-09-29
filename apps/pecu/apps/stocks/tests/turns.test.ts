@@ -98,3 +98,8 @@ test("additional warnings and structured content never disappear with duplicate 
   const warning = message("/cancel A1B2C3", { text: "Proposal cancelled. Nothing was sent.\nCheck your allowance.", preview: null });
   expect(turnPresentation(warning, [cancelled, warning])).toMatchObject({ showReply: true });
 });
+
+test("an automation message shows its title instead of a user bubble", () => {
+  const turn: TurnMessage = { ...message("Weekly index", { text: "Your index is balanced.", preview: null }), origin: { kind: "task", code: "ABC234", title: "Weekly index", mode: "run" } };
+  expect(turnPresentation(turn, [turn])).toEqual({ kind: "task", title: "Weekly index" });
+});

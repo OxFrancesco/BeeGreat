@@ -29,12 +29,17 @@ import { PecuCards } from "../cards";
 import { cardViewerSchema } from "../cards-contract";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, webPnlRequestSchema, basketSchema } from "../web-contract";
 import { profileActionRequestSchema, profileSafeRequestSchema } from "../safe-profile-contract";
+import { webConversation } from "../web-identity";
 import type { SafeProfile } from "../safe-profile";
 import { linkedWalletRequestSchema } from "../linked-wallet-contract";
 import type { LinkedExecution } from "../linked-execution";
 import type { LinkedWallets } from "../linked-wallets";
 import { timedTextContentType, liveTextContentType, sseContentType, turnEventStream } from "../web-stream";
 import { z } from "zod";
+import type { ProactiveRunner } from "../proactive";
+import { TaskError, type TaskControl } from "../task-control";
+import type { TaskStore } from "../tasks";
+import { notificationReadSchema, pushRegisterSchema, pushUnregisterSchema, taskActionSchema } from "../task-contract";
 
 const objectName = "basedbot-main";
 const xOAuthStateKey = "basedbot-x-oauth";
@@ -89,6 +94,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   private webAgent?: WebAgent;
   private safeProfile?: SafeProfile;
   private linked?: Readonly<{ wallets: LinkedWallets; execution: LinkedExecution }>;
+  private automation?: Readonly<{ tasks: TaskStore; control: TaskControl; runner: ProactiveRunner }>;
   private transport?: XChatTransport;
   private xAccessToken?: string;
   private xRefreshToken?: string;
@@ -108,7 +114,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       await this.restoreXOAuthState();
       const configurationError = runtimeConfigurationError(this.config);
       if (!configurationError) {
-        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }, { SafeProfile }, { SafeChain }, { LinkedWallets }, { LinkedExecution }] = await Promise.all([
+        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }, { SafeProfile }, { SafeChain }, { LinkedWallets }, { LinkedExecution }, { TaskStore }, { TaskControl }, { ProactiveRunner }, { FcmSender }] = await Promise.all([
           import("../aerodrome"),
           import("../agent"),
           import("../evm"),
@@ -120,6 +126,10 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           import("../safe-chain"),
           import("../linked-wallets"),
           import("../linked-execution"),
+          import("../tasks"),
+          import("../task-control"),
+          import("../proactive"),
+          import("../integrations/fcm"),
         ]);
         const wallets = new WalletService({
           crossmintApiKey: this.config.crossmintApiKey!,
@@ -128,6 +138,8 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         const rpc = jsonRpcClient(this.config.baseRpcUrl);
         const evm = new EvmService(evmWorkerExecutor(env.EVM));
         const linkedWallets = new LinkedWallets(ctx.storage.sql);
+        const tasks = new TaskStore(ctx.storage.sql);
+        const control = new TaskControl(tasks, this.store);
         this.agent = new PecuAgent(
           this.config,
           this.store,
@@ -158,6 +170,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
               },
             },
             linkedWallets,
+            tasks: control,
           },
           {
             warm: (senderId) => userInference(env, senderId).warm(),
@@ -169,6 +182,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         this.webAgent = new WebAgent(this.agent, this.store, ctx.storage.sql, linkedWallets);
         this.safeProfile = new SafeProfile({ agent: this.agent, store: this.store, evm, chain: new SafeChain(rpc), sql: ctx.storage.sql });
         this.linked = { wallets: linkedWallets, execution: new LinkedExecution({ store: this.store, wallets: linkedWallets, rpc, enabled: this.config.enableMainnetExecution }) };
+        this.automation = { tasks, control, runner: new ProactiveRunner({ tasks, agent: this.agent, chat: this.store, web: this.webAgent, push: FcmSender.fromSecret(this.config.fcmServiceAccount) }) };
         if (this.config.xchatPollingEnabled) {
           const firstPollAt = Date.now() + 1_000;
           const scheduledAt = await ctx.storage.getAlarm();
@@ -228,7 +242,11 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         if (url.pathname === "/internal/web/thread-delete") {
           const { threadId, ...identity } = webThreadDeleteSchema.parse(raw);
           this.webAgent.deleteThread(identity, threadId);
+          this.automation?.tasks.cancelConversation(identity.senderId, webConversation({ ...identity, threadId }));
           return json({ ok: true });
+        }
+        if (["/internal/web/tasks", "/internal/web/task-action", "/internal/web/notifications", "/internal/web/notification-read", "/internal/web/push-register", "/internal/web/push-unregister"].includes(url.pathname)) {
+          return this.automationRequest(url.pathname, raw);
         }
         if (url.pathname === "/internal/web/portfolio") {
           const { tokens, stocks, wallet, ...identity } = portfolioRequestSchema.parse(raw);
@@ -334,6 +352,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         return json(await this.setupRealtime(webhookUrl));
       }
       if (url.pathname === "/internal/cron" && request.method === "POST") {
+        if (this.automation) this.ctx.waitUntil(this.automation.runner.sweep());
         const lastPollAt = await this.ctx.storage.get<number>(lastSuccessfulPollKey);
         const interval = await this.realtimeReady() ? realtimeFallbackPollMs : this.config.pollIntervalMs;
         if (!shouldRunScheduledPoll(lastPollAt, Date.now(), interval)) {
@@ -366,6 +385,42 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       if (error instanceof z.ZodError) return json({ error: "Check the details and try again." }, 400);
       log("error", "profile_request_failed", { path, error: errorMessage(error) });
       return json({ error: "Pecu couldn't finish this request. Try again." }, 502);
+    }
+  }
+
+  private automationRequest(path: string, raw: JsonValue): Response {
+    const automation = this.automation;
+    if (!automation) return json({ error: "Agent unavailable" }, 503);
+    const identity = z.object({ identity: webIdentitySchema }).safeParse(raw).data?.identity ?? webIdentitySchema.parse(raw);
+    const { tasks, control } = automation;
+    try {
+      switch (path) {
+        case "/internal/web/tasks": return json({ tasks: control.list(identity.senderId) });
+        case "/internal/web/task-action": {
+          const result = control.act(identity.senderId, taskActionSchema.parse(z.object({ action: z.unknown() }).parse(raw).action), "user");
+          if (result.task.state === "active" && result.task.nextRunAt !== null && result.task.nextRunAt <= Date.now()) this.ctx.waitUntil(automation.runner.sweep());
+          return json(result);
+        }
+        case "/internal/web/notifications": return json({ notifications: tasks.notifications(identity.senderId), unread: tasks.unread(identity.senderId) });
+        case "/internal/web/notification-read": {
+          tasks.markRead(identity.senderId, notificationReadSchema.parse(z.object({ read: z.unknown() }).parse(raw).read).ids);
+          return json({ ok: true });
+        }
+        case "/internal/web/push-register": {
+          const device = pushRegisterSchema.parse(z.object({ device: z.unknown() }).parse(raw).device);
+          tasks.registerDevice(identity.senderId, device.token, device.platform);
+          return json({ ok: true });
+        }
+        default: {
+          const device = pushUnregisterSchema.parse(z.object({ device: z.unknown() }).parse(raw).device);
+          tasks.unregisterDevice(identity.senderId, device.token);
+          return json({ ok: true });
+        }
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) return json({ error: "Check the details and try again." }, 400);
+      if (error instanceof TaskError) return json({ error: error.message }, 400);
+      throw error;
     }
   }
 
@@ -426,6 +481,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) });
       }
       await this.linked?.execution.sweep();
+      if (this.automation) this.ctx.waitUntil(this.automation.runner.sweep());
       this.nextAlarmDelayMs = realtimeReady ? realtimeFallbackPollMs : this.config.pollIntervalMs;
     } catch (error) {
       failed = true;
@@ -677,7 +733,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action", "/wallets", "/wallet-action"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action", "/wallets", "/wallet-action", "/tasks", "/task-action", "/notifications", "/notification-read", "/push-register", "/push-unregister"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");

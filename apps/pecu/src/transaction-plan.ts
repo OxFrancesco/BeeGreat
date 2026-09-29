@@ -600,6 +600,93 @@ export function intentPlan(store: Readonly<{ steps(intentId: string): ExecutionS
   return plan && withStepStates(plan, steps, state);
 }
 
+/** Value a plan sends out of the wallet: a token contract (lowercase) or native ETH, in raw units. */
+export type Outflow = Readonly<{ token: string; native: boolean; amount: bigint }>;
+
+const zeroOutflowPosition = new Set(["decreaseLiquidity", "collect", "burn", "unwrapWETH9", "refundETH", "sweepToken"]);
+
+/** Outflows of one action call, or undefined when its shape is not one Pecu can bound. */
+function callOutflows(call: PlannedCall): Outflow[] | undefined {
+  const value = BigInt(call.value);
+  const native: Outflow[] = value > 0n ? [{ token: "native", native: true, amount: value }] : [];
+  if (call.data === "0x") return native;
+  const wrap = key(call.to) === WETH ? decode(wrappedEth, call.data) : undefined;
+  if (wrap) return native;
+  const token = decode(erc20, call.data);
+  if (token?.functionName === "transfer") {
+    const [, amount] = z.tuple([address, uint]).parse(token.args);
+    return [...native, { token: key(call.to), native: false, amount }];
+  }
+  const swap = decode(abis.swapper, call.data);
+  if (swap?.functionName === "execute") {
+    const [commands, inputs] = z.tuple([hex, z.array(hex)], z.unknown()).parse(swap.args);
+    const flows = [...native];
+    for (const trade of swapTrades(commands, inputs)) {
+      if (trade.nativeIn) continue;
+      if (trade.amountIn === undefined) return undefined;
+      flows.push({ token: key(trade.hops[0]!.from), native: false, amount: trade.amountIn });
+    }
+    return flows;
+  }
+  const position = decode(abis.nfpm, call.data);
+  if (position) {
+    const inner = position.functionName === "multicall"
+      ? z.array(hex).parse(position.args[0]).map((data) => decode(abis.nfpm, data))
+      : [position];
+    const flows = [...native];
+    for (const item of inner) {
+      if (!item) return undefined;
+      if (zeroOutflowPosition.has(item.functionName)) continue;
+      if (item.functionName !== "mint") return undefined;
+      const params = mintParams.parse(item.args[0]);
+      const native0 = value > 0n && key(params.token0) === WETH && value === params.amount0Desired;
+      const native1 = value > 0n && key(params.token1) === WETH && value === params.amount1Desired && !native0;
+      if (!native0 && params.amount0Desired > 0n) flows.push({ token: key(params.token0), native: false, amount: params.amount0Desired });
+      if (!native1 && params.amount1Desired > 0n) flows.push({ token: key(params.token1), native: false, amount: params.amount1Desired });
+    }
+    return flows;
+  }
+  const router = decode(abis.router, call.data);
+  const legs = router ? routerLegs(router, value) : undefined;
+  if (legs) {
+    if (!legs.deposit) return native;
+    return [...native, { token: key(legs.tokenA), native: false, amount: legs.amountA }, ...(legs.native ? [] : [{ token: key(legs.tokenB), native: false, amount: legs.amountB }])];
+  }
+  const gauge = decode(abis.gaugeCl, call.data) ?? decode(abis.gaugeBasic, call.data);
+  if (gauge && ["deposit", "withdraw", "getReward"].includes(gauge.functionName)) return native;
+  if (decode(abis.poolBasic, call.data)?.functionName === "claimFees") return native;
+  const lock = decode(abis.votingEscrow, call.data);
+  if (lock?.functionName === "createLock") {
+    const [amount] = z.tuple([uint, uint]).parse(lock.args);
+    return [...native, { token: AERO, native: false, amount }];
+  }
+  return undefined;
+}
+
+/**
+ * Every token amount the exact calls can send out of the wallet, summed per
+ * token. Approvals grant permission but move nothing, so they are skipped.
+ * Undefined means a call has a shape Pecu cannot bound, so the plan must not
+ * run unattended.
+ */
+export function planOutflows(calls: readonly PlannedCall[]): Outflow[] | undefined {
+  const totals = new Map<string, Outflow>();
+  for (const call of calls) {
+    if (call.role === "approval") {
+      if (BigInt(call.value) !== 0n) return undefined;
+      continue;
+    }
+    let flows: Outflow[] | undefined;
+    try { flows = callOutflows(call); } catch { return undefined; }
+    if (!flows) return undefined;
+    for (const flow of flows) {
+      const id = flow.native ? "native" : flow.token;
+      totals.set(id, { ...flow, amount: (totals.get(id)?.amount ?? 0n) + flow.amount });
+    }
+  }
+  return [...totals.values()];
+}
+
 /** Plain-text transaction list for X Chat, where the web graph cannot render. */
 export function planSummary(plan: TransactionPlan | undefined): string | undefined {
   if (!plan || (plan.steps.length < 2 && (plan.route?.nodes.length ?? 0) < 3)) return undefined;

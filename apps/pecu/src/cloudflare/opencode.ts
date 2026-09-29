@@ -26,6 +26,7 @@ import type { ToolFamily } from "../tool-families";
 
 import { selectSkills, skillMarker, skillNames, taskInstructions, toolVisible, type AgentSkill } from "../agent-skills";
 import { systemPrompt } from "./system-prompt";
+import { taskCreateInputSchema, taskUpdateInputSchema } from "../task-control";
 
 const location = { directory: "/" } as const;
 type TurnModel = Readonly<{ providerID: string; id: string; variant: string }>;
@@ -334,6 +335,27 @@ export class OpenCodeHarness implements AgentHarness {
               content: await capabilities(toolContext.sessionID).stockTrades(trades, slippage),
             }),
           });
+          draft.add({
+            name: "task_create",
+            options: { codemode: false },
+            description: "Schedule an automation in this chat: a reminder, a recurring or one-time agent run, a heartbeat checklist, or a price alert. Use the user's own words for instruction. Set grant only when the user explicitly asked Pecu to execute transactions without asking; it stays a request until the user approves it. Never executes anything now.",
+            input: taskCreateInputSchema,
+            execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).taskCreate(input) }),
+          });
+          draft.add({
+            name: "task_list",
+            options: { codemode: false },
+            description: "List the user's automations with code, title, mode, state, schedule, next run, full instruction, allowance and whether each belongs to this chat. Read it before editing or deleting one the user describes in words.",
+            input: z.object({}),
+            execute: async (_input, toolContext) => ({ content: await capabilities(toolContext.sessionID).taskList() }),
+          });
+          draft.add({
+            name: "task_update",
+            options: { codemode: false },
+            description: "Edit, pause, resume, delete or run now an automation by its code. edit takes only the fields that change: title, mode, instruction, trigger, grant, or remove_grant. Changing the instruction, mode or grant sends the allowance back for the user's approval. Cannot approve allowances.",
+            input: taskUpdateInputSchema,
+            execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).taskUpdate(input) }),
+          });
           for (const tool of evmTools) {
             draft.add({
               name: tool.name,
@@ -396,6 +418,7 @@ export class OpenCodeHarness implements AgentHarness {
           ...aeroTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
           { action: "aero_liquidity", resource: "*", effect: "allow" },
           { action: "aero_stock_trades", resource: "*", effect: "allow" },
+          ...["task_create", "task_list", "task_update"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
           ...evmTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
         ],
         agents: {

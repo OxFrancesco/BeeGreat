@@ -5,6 +5,7 @@ import { SUGAR_TX_ACTIONS, type SugarAction, type SugarParameters } from "@beegr
 import { z } from "zod";
 import type { EvmTxParameters } from "./evm";
 import { nansenChains, type NansenEndpointName, type NansenQuery } from "./integrations/nansen";
+import type { TaskCommand } from "./task-control";
 
 export const BASE_CHAIN_ID = 8453 as const;
 export const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -45,7 +46,8 @@ export type Command =
   | Readonly<{ type: "deposit-setup"; email: string }>
   | Readonly<{ type: "deposit-status" }>
   | Readonly<{ type: "nansen-help" }>
-  | Readonly<{ type: "nansen"; endpoint: NansenEndpointName; input: NansenQuery }>;
+  | Readonly<{ type: "nansen"; endpoint: NansenEndpointName; input: NansenQuery }>
+  | TaskCommand;
 
 export type EvmCommand = Extract<Command, { type: "evm" }>;
 
@@ -203,6 +205,24 @@ function parseNansenCommand(parts: string[]): Command {
   }
 }
 
+const taskUsage = "Usage: /tasks, or /tasks pause|resume|cancel|run|revoke CODE, or /tasks allow CODE [USD]";
+const taskVerbs = ["pause", "resume", "cancel", "run", "allow", "revoke"] as const;
+
+function parseTaskCommand(parts: string[]): TaskCommand {
+  if (parts.length === 1) return { type: "tasks", action: "list" };
+  const verb = parts[1]?.toLowerCase();
+  const action = taskVerbs.find((candidate) => candidate === verb);
+  const code = parts[2]?.toUpperCase();
+  if (!action || !code || !/^[A-HJ-NP-Z2-9]{6}$/.test(code)) throw new Error(taskUsage);
+  if (action === "allow" && parts.length === 4) {
+    const usd = parts[3]!.replace(/^\$/, "");
+    if (!/^(?:[1-9]\d{0,4})(?:\.\d{1,2})?$/.test(usd) || Number(usd) > 10_000) throw new Error("The allowance must be a USD amount up to 10000, for example /tasks allow ABC234 50.");
+    return { type: "tasks", action, code, maxUsd: Number(usd) };
+  }
+  if (parts.length !== 3) throw new Error(taskUsage);
+  return { type: "tasks", action, code };
+}
+
 export function parseCommand(input: string): Command {
   const parts = input.trim().replace(/^(?:b)?\//i, "").split(/\s+/);
   const verb = parts[0]?.toLowerCase();
@@ -246,6 +266,7 @@ export function parseCommand(input: string): Command {
   }
   if (verb === "deposit") return parseDepositCommand(parts);
   if (verb === "nansen") return parseNansenCommand(parts);
+  if (verb === "tasks" || verb === "automations") return parseTaskCommand(parts);
   if ((verb === "confirm" || verb === "cancel") && parts.length === 2) {
     const code = parts[1]?.toUpperCase();
     if (!code || !/^[A-Z0-9]{6}$/.test(code)) throw new Error("Confirmation codes contain six letters or numbers.");
@@ -389,6 +410,8 @@ export const helpText = [
   "/polymarket research QUESTION  Start optional deeper research",
   "/polymarket status  Read your latest research result",
   "/nansen help  On-chain analytics for tokens, wallets, and prediction markets",
+  "/tasks  List your automations: reminders, schedules, heartbeats and price alerts",
+  "/tasks allow CODE [USD]  Let an automation execute within its allowance",
   "",
   "Replace 0x… with the full address you want to use.",
   "",

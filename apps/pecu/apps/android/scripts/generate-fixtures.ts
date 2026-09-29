@@ -1,5 +1,6 @@
 import { webStateSchema } from "../../../src/web-contract";
 import { webTurnEventSchema } from "../../../src/web-stream";
+import { notificationListSchema, taskListSchema } from "../../../src/task-contract";
 
 const state = webStateSchema.parse({
   wallet: "0x0000000000000000000000000000000000000001", yolo: false, senderKind: "web", signer: null,
@@ -11,6 +12,7 @@ const state = webStateSchema.parse({
       code: "ABC234", title: "Send USDC", text: "Send 1 USDC to 0x0000000000000000000000000000000000000002", state: "pending", expiresAt: 200,
       plan: { steps: [{ kind: "transfer", title: "Send 1 USDC", contract: "0x0000000000000000000000000000000000000003", status: "waiting" }] },
     } } },
+    { id: "task:run-1:1", text: "Weekly index rebalance", createdAt: 103, origin: { kind: "task", code: "ABC234", title: "Weekly index rebalance", mode: "run" }, reply: { text: "Your index already matches its targets.", preview: null } },
     { id: "analytics", text: "Show token flows", createdAt: 102, reply: { text: "Token flows", preview: null, analyticsOnly: true, analytics: [{ text: "Whales: $12 net", snapshot: { key: "flows", kind: "flows", observedAt: 102, subject: "USDC", chain: "base", period: "24h", partial: false, rows: [{ label: "Whales", netUsd: 12, wallets: 3 }] } }] } },
   ],
 });
@@ -22,6 +24,19 @@ const events = [
 const folder = new URL("../app/src/test/resources/", import.meta.url);
 await Bun.write(new URL("state.json", folder), JSON.stringify(state, null, 2) + "\n");
 await Bun.write(new URL("events.json", folder), JSON.stringify(events, null, 2) + "\n");
+const tasks = taskListSchema.parse({ tasks: [
+  { code: "ABC234", title: "Weekly index rebalance", mode: "run", instruction: "Rebalance my index to NVDAc=50,AAPLc=50", trigger: { kind: "calendar", time: "09:00", weekdays: [1], timezone: "Europe/Rome" }, schedule: "Mon 09:00 Europe/Rome",
+    state: "active", nextRunAt: 1_900_000_000_000, lastRunAt: null, lastOutcome: null, runCount: 0, channel: "web", threadId: "index01",
+    grant: { scopes: ["trade"], maxUsdPerRun: 25, days: 30, state: "requested", approvedAt: null, expiresAt: null, active: false }, yolo: true, createdAt: 100 },
+  { code: "DEF567", title: "Check AERO", mode: "remind", instruction: "Check AERO and decide whether to trade", trigger: { kind: "interval", everyMinutes: 30, startAt: 100 }, schedule: "Every 30 min",
+    state: "active", nextRunAt: 1_900_000_000_000, lastRunAt: 100, lastOutcome: "Reminder sent", runCount: 4, channel: "x", threadId: null, grant: null, yolo: false, createdAt: 100 },
+  { code: "GHJ892", title: "AERO under $1", mode: "remind", instruction: "AERO is below $1", trigger: { kind: "price", token: "AERO", direction: "below", priceUsd: "1", checkMinutes: 5 }, schedule: "When AERO is at or below $1",
+    state: "active", nextRunAt: 1_900_000_000_000, lastRunAt: null, lastOutcome: "Checked at $1.18", runCount: 0, channel: "web", threadId: null, grant: null, yolo: false, createdAt: 100 },
+] });
+const notifications = notificationListSchema.parse({ unread: 1, notifications: [
+  { id: "n1", kind: "approval", title: "Weekly index rebalance: confirm the transaction", body: "Sell 0.1 NVDAc for USDC. YOLO is off in this chat.", taskCode: "ABC234", channel: "web", threadId: "index01", createdAt: 200, readAt: null },
+] });
+await Bun.write(new URL("automations.json", folder), JSON.stringify({ tasks, notifications }, null, 2) + "\n");
 
 const { readPositionSnapshot, compactPositionAmount } = await import("../../../src/position-contract");
 const pool = "0xb2cc224c1c9feE385f8ad6a55b4d94E92359DC59";
