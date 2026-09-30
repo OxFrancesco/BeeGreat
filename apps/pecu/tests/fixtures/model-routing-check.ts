@@ -1,4 +1,5 @@
 import { baseTools, skillForTool } from "../../src/agent-skills";
+import { curatedChain, researchToolNames } from "../../src/research/agents";
 import { unusedCapabilities } from "./agent-services";
 import type { JsonFields } from "../../src/json-contract";
 import { expect, mock } from "bun:test";
@@ -130,8 +131,9 @@ try {
   const inventory = JSON.parse(inventoryText);
   expect(inventory.modelTools.map((tool: { name: string }) => tool.name)).toEqual([...registered.keys()].sort());
   for (const name of registered.keys()) {
-    if (!baseTools.has(name)) expect(skillForTool(name), name).toBeDefined();
+    if (!baseTools.has(name) && !researchToolNames.some((tool) => tool === name)) expect(skillForTool(name), name).toBeDefined();
   }
+  await expect(harness.research({ key: "research:run:social:1", code: "ABC234", role: "social", chain: curatedChain("base")!, prompt: "p", senderId: "sender" })).rejects.toThrow("OpenRouter key");
   const toolReply = {tool:"polymarket_search",status:"completed",result:{content:JSON.stringify({data:{private:"not telemetry"},presentation:{source_bytes:155870,partial:false}})}};
   await hooks.get("execute.after")!(toolReply);
   expect(toolReply.result).toMatchObject({metadata:{pecu_source_bytes:155870,pecu_output_partial:false,pecu_output_bytes:Buffer.byteLength(toolReply.result.content)}});

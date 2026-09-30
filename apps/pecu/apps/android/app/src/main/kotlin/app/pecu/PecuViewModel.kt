@@ -20,6 +20,7 @@ data class AccountUi(val ready: Boolean = false, val signedIn: Boolean = false, 
 
 data class SessionIdentity(val id: String?, val ready: Boolean = true, val name: String = "Account", val image: String? = null)
 data class AutomationsUi(val tasks: List<Automation>? = null, val alerts: List<PecuNotification> = emptyList(), val busy: String? = null, val message: String? = null, val error: String? = null)
+data class ResearchUi(val list: ResearchList? = null, val open: Research? = null, val busy: Boolean = false, val message: String? = null, val error: String? = null)
 
 /** Phone services the view model drives without holding a Context. */
 interface DeviceHooks {
@@ -59,6 +60,14 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
   val automations = _automations.asStateFlow()
   private val automationsApi: PecuApi get() = automationApi?.invoke() ?: api
   private var automationJob: Job? = null
+  private val _research = MutableStateFlow(ResearchUi())
+  val research = _research.asStateFlow()
+  private var researchJob: Job? = null
+  private val _researchLink = MutableStateFlow<String?>(null)
+  /** A research code opened from a notification or pecu://researches link, until its sheet closes. */
+  val researchLink = _researchLink.asStateFlow()
+  fun openResearchLink(code: String) { if (code.matches(Regex("[A-HJ-NP-Z2-9]{6}"))) _researchLink.value = code }
+  fun consumeResearchLink() { _researchLink.value = null }
   private val cache = LinkedHashMap<String?, AccountState>()
   private val cacheBytes = mutableMapOf<String?, Int>()
   private val restoredThreads = mutableSetOf<String?>()
@@ -85,7 +94,7 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
             warmJob?.cancel(); saveJob?.cancelAndJoin(); preloads.values.forEach { it.cancel() }; preloads.clear()
             accountId?.let { historyDisk?.remove(it) }; cacheBytes.clear(); restoredThreads.clear()
             cache.clear(); drafts.clear(); _live.value = LiveReply(); _portfolio.value = null; _inference.value = null; _pnl.value = null
-            _threads.value = ThreadPage(emptyList()); _panelError.value = null; automationJob?.cancel(); _automations.value = AutomationsUi()
+            _threads.value = ThreadPage(emptyList()); _panelError.value = null; automationJob?.cancel(); _automations.value = AutomationsUi(); researchJob?.cancel(); _research.value = ResearchUi()
             val restored = saved.get<String>("owner") == id
             _chat.value = if (restored) ChatState(thread = saved["thread"], draft = saved["draft"] ?: "") else ChatState()
             saved["owner"] = id
@@ -181,6 +190,42 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
         if (error is CancellationException) throw error
         _automations.update { it.copy(error = error.message ?: "Could not update this automation. Try again.") }
       } finally { _automations.update { it.copy(busy = null) } }
+    }
+  }
+  /** Load the research list, or one report when [code] is set; keeps polling while that run is still working. */
+  fun loadResearch(code: String? = _research.value.open?.code) {
+    if (!_auth.value.signedIn) return
+    researchJob?.cancel()
+    researchJob = viewModelScope.launch {
+      while (isActive) {
+        try {
+          val list = automationsApi.researches()
+          val open = code?.let { automationsApi.research(it) }
+          _research.update { it.copy(list = list, open = open, error = null) }
+          if (!(open?.active ?: list.researches.any(Research::active))) break
+        } catch (error: Exception) {
+          if (error is CancellationException) throw error
+          _research.update { it.copy(error = error.message ?: "Could not load your research. Try again.") }
+          break
+        }
+        delay(5_000)
+      }
+    }
+  }
+  fun closeResearch() { _research.update { it.copy(open = null, message = null) }; loadResearch(null) }
+
+  fun researchAction(kind: String, code: String? = null, chain: String? = null, window: String? = null) {
+    if (_research.value.busy) return
+    viewModelScope.launch {
+      _research.update { it.copy(busy = true, error = null, message = null) }
+      try {
+        val result = automationsApi.researchAction(kind, code, chain, window)
+        _research.update { it.copy(message = result.message, open = if (kind == "delete") null else it.open) }
+        loadResearch(if (kind == "delete") null else result.research?.code ?: code)
+      } catch (error: Exception) {
+        if (error is CancellationException) throw error
+        _research.update { it.copy(error = error.message ?: "Could not update this research. Try again.") }
+      } finally { _research.update { it.copy(busy = false) } }
     }
   }
   fun draft(value: String) { _chat.update { it.copy(draft = value.take(4000)) }; saved["draft"] = value.take(4000) }

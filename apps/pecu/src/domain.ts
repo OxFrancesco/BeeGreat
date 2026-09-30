@@ -6,6 +6,9 @@ import { z } from "zod";
 import type { EvmTxParameters } from "./evm";
 import { nansenChains, type NansenEndpointName, type NansenQuery } from "./integrations/nansen";
 import type { TaskCommand } from "./task-control";
+import type { ResearchCommand } from "./research/control";
+import { curatedChain } from "./research/agents";
+import type { ResearchWindow } from "./research-contract";
 
 export const BASE_CHAIN_ID = 8453 as const;
 export const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const;
@@ -47,7 +50,8 @@ export type Command =
   | Readonly<{ type: "deposit-status" }>
   | Readonly<{ type: "nansen-help" }>
   | Readonly<{ type: "nansen"; endpoint: NansenEndpointName; input: NansenQuery }>
-  | TaskCommand;
+  | TaskCommand
+  | ResearchCommand;
 
 export type EvmCommand = Extract<Command, { type: "evm" }>;
 
@@ -223,7 +227,34 @@ function parseTaskCommand(parts: string[]): TaskCommand {
   return { type: "tasks", action, code };
 }
 
+const researchUsage = "Usage: @research base, @research solana 30d, @research, or @research status|cancel|delete CODE";
+const researchWindowAliases: ReadonlyMap<string, ResearchWindow> = new Map([["1d", "1d"], ["24h", "1d"], ["day", "1d"], ["7d", "7d"], ["week", "7d"], ["30d", "30d"], ["month", "30d"]]);
+
+/** Whether a message is a research command: @research, /research or /researches. */
+export function isResearchCommand(input: string): boolean {
+  return /^(?:@research|(?:b)?\/research(?:es)?)(?:\s|$)/i.test(input.trim());
+}
+
+function parseResearchCommand(input: string): ResearchCommand {
+  const words = input.trim().split(/\s+/).slice(1);
+  if (!words.length) return { type: "research", action: "list" };
+  const first = words[0]!.toLowerCase();
+  if (words.length === 1 && (first === "help" || first === "list")) return { type: "research", action: first };
+  if (first === "status" || first === "cancel" || first === "delete") {
+    const code = words[1]?.toUpperCase();
+    if (words.length !== 2 || !code || !/^[A-HJ-NP-Z2-9]{6}$/.test(code)) throw new Error(researchUsage);
+    return { type: "research", action: first, code };
+  }
+  // A bare code as the bot prints it, in capitals, reads that run. Lowercase words are chain names.
+  if (words.length === 1 && /^[A-HJ-NP-Z2-9]{6}$/.test(words[0]!) && !curatedChain(words[0]!)) return { type: "research", action: "status", code: words[0]! };
+  const window = researchWindowAliases.get(words.at(-1)!.toLowerCase());
+  const chain = (window ? words.slice(0, -1) : words).join(" ").trim();
+  if (!chain || chain.length > 60 || !/^[A-Za-z0-9 ._-]+$/.test(chain)) throw new Error(researchUsage);
+  return { type: "research", action: "start", chain, window: window ?? "7d" };
+}
+
 export function parseCommand(input: string): Command {
+  if (isResearchCommand(input)) return parseResearchCommand(input);
   const parts = input.trim().replace(/^(?:b)?\//i, "").split(/\s+/);
   const verb = parts[0]?.toLowerCase();
   if (!verb || ((verb === "help" || verb === "start") && parts.length === 1)) return { type: "help" };
@@ -410,6 +441,8 @@ export const helpText = [
   "/polymarket research QUESTION  Start optional deeper research",
   "/polymarket status  Read your latest research result",
   "/nansen help  On-chain analytics for tokens, wallets, and prediction markets",
+  "@research base  Explain why a chain moved this week; add 1d or 30d",
+  "@research  List your research reports",
   "/tasks  List your automations: reminders, schedules, heartbeats and price alerts",
   "/tasks allow CODE [USD]  Let an automation execute within its allowance",
   "",

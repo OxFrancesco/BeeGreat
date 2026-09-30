@@ -1,6 +1,7 @@
 import { webStateSchema, webTurnSchema } from "../../../src/web-contract";
 import { webTurnEventSchema } from "../../../src/web-stream";
 import { notificationListSchema, taskListSchema } from "../../../src/task-contract";
+import { researchActionResultSchema, researchDetailSchema, researchListSchema } from "../../../src/research-contract";
 
 const state = webStateSchema.parse({
   wallet: "0x0000000000000000000000000000000000000001", yolo: false, senderKind: "web", signer: null,
@@ -53,3 +54,13 @@ await Bun.write(new URL("positions.json", folder), JSON.stringify({ snapshot, le
 
 const steering = webTurnSchema.omit({ userId: true, senderId: true }).parse({ requestId: "11111111-1111-4111-8111-111111111111", text: "Use a short example", threadId: "native-contract", steerOf: "22222222-2222-4222-8222-222222222222" });
 await Bun.write(new URL("steering.json", folder), JSON.stringify(steering, null, 2) + "\n");
+
+const stage = (role: string, label: string, state: string, calls: number) => ({ role, label, state, startedAt: 100, endedAt: state === "running" ? null : 200, calls, summary: state === "done" ? `${label} found the main move.` : null, error: state === "failed" ? "X data is busy" : null });
+const stages = [stage("capital", "Capital", "done", 24), stage("activity", "Activity", "done", 12), stage("flows", "Flows", "skipped", 0), stage("social", "Narrative", "failed", 3), stage("synthesis", "Editor", "done", 0)];
+const running = { code: "ABC234", chain: { id: "base", name: "Base" }, window: "7d", period: { start: "2026-09-23", end: "2026-09-29" }, state: "researching", headline: null, error: null,
+  stages: stages.map((entry) => entry.role === "synthesis" ? { ...entry, state: "pending", endedAt: null, summary: null } : entry), channel: "x", threadId: null, createdAt: 100, completedAt: null };
+const finished = { ...running, code: "DEF567", state: "completed", headline: "Morpho vault deposits carried Base TVL", stages, channel: "web", threadId: "t1", completedAt: 300 };
+const researchList = researchListSchema.parse({ researches: [running, finished], chains: [{ id: "base", name: "Base" }, { id: "solana", name: "Solana" }], limit: { used: 2, daily: 3 } });
+const researchDetail = researchDetailSchema.parse({ ...finished, report: null, markdown: "# Base, 23–29 Sep 2026\n\n**Morpho vault deposits carried Base TVL**\n\n| Metric | Now |\n| --- | ---: |\n| DeFi TVL | $6.24B |", findings: {} });
+const researchAction = researchActionResultSchema.parse({ research: running, message: "Started Base research ABC234." });
+await Bun.write(new URL("researches.json", folder), JSON.stringify({ list: researchList, detail: researchDetail, action: researchAction }, null, 2) + "\n");

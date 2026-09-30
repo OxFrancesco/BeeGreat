@@ -88,6 +88,9 @@ A code only works for the account and conversation that created it. `/cancel` ca
 | `/nansen pnl [ADDRESS] [chain]` | Realized and unrealized P&L by token over 30 days. | `/nansen pnl` |
 | `/nansen portfolio [ADDRESS]` | Wallet tokens across chains and DeFi positions, kept separate. | `/nansen portfolio` |
 | `/nansen markets [words]` | Polymarket markets ranked by 24-hour volume. | `/nansen markets fed rate cut` |
+| `@research CHAIN [1d\|7d\|30d]` | Explains why a chain moved, with the evidence. See [Research](/docs/pecu/research). | `@research base` |
+| `@research` | Lists your research reports and the runs left today. | `@research` |
+| `@research cancel CODE` | Stops a running research run. `status` and `delete` work the same way. | `@research cancel ABC234` |
 | `/polymarket QUESTION` | Searches public Polymarket markets. | `/polymarket fed rate cut` |
 | `/polymarket help` | Lists the direct Polymarket reads. | `/polymarket help` |
 | `/polymarket read ENDPOINT JSON` | Runs one direct Polymarket read. | `/polymarket read leaderboard {"limit":5}` |

@@ -33,7 +33,7 @@ import com.mikepenz.markdown.m3.Markdown
 import kotlinx.coroutines.launch
 
 val suggestions = listOf("What's my balance?", "Quote 0.01 ETH to USDC", "Show my Aerodrome positions", "Odds of a Fed rate cut on Polymarket?", "/stocks")
-private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap", "/send", "/deposit", "/aero help", "/aave help", "/polymarket help", "/nansen", "/tasks", "/yolo", "/help")
+private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap", "/send", "/deposit", "/aero help", "/aave help", "/polymarket help", "/nansen", "/research", "/tasks", "/yolo", "/help")
 
 @Composable fun PecuApp(
   model: PecuViewModel,
@@ -45,6 +45,8 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
   val uri = LocalUriHandler.current
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { if (auth.signedIn && chat.pending == null) model.reload() }
   LaunchedEffect(auth.signedIn) { sheet = null }
+  val researchLink by model.researchLink.collectAsStateWithLifecycle()
+  LaunchedEffect(researchLink) { if (researchLink != null) sheet = "research" }
   if (!auth.signedIn) {
     LoginScreen(auth, model::signIn)
     return
@@ -86,7 +88,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
         }
       }
       sheet?.let { page ->
-        ModalBottomSheet(onDismissRequest = { sheet = null }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ModalBottomSheet(onDismissRequest = { sheet = null; model.consumeResearchLink() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
           sheetMaxWidth = if (page == "wallet") WalletSheetMaxWidth else BottomSheetDefaults.SheetMaxWidth,
           containerColor = MaterialTheme.colorScheme.background) {
           when (page) {
@@ -95,6 +97,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
               Text(auth.name, style = MaterialTheme.typography.headlineMedium)
               MenuRow("Balances", Icons.Outlined.AccountBalanceWallet) { sheet = "wallet" }
               MenuRow("Automations", Icons.Outlined.EventRepeat) { sheet = "automations" }
+              MenuRow("Research", Icons.Outlined.Insights) { sheet = "research" }
               MenuRow("ChatGPT connection", Icons.Outlined.Link) { sheet = "connection" }
               MenuRow("Profile and linked wallets", Icons.AutoMirrored.Outlined.OpenInNew) { uri.openUri("https://pecu.app/profile") }
               MenuRow("New thread", Icons.Outlined.Add) { model.newThread(); sheet = null }
@@ -103,6 +106,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
             "wallet" -> WalletSheet(model, chat) { sheet = null }
             "connection" -> ConnectionSheet(model)
             "automations" -> AutomationsSheet(model) { thread -> model.selectThread(thread); sheet = null }
+            "research" -> ResearchSheet(model, researchLink)
           }
           Spacer(Modifier.height(24.dp))
         }

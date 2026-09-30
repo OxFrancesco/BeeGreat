@@ -16,7 +16,7 @@ const examples = {
   create_venft: "--amount 1 --lock-duration-seconds 31536000 --use-decimals",
   stock_buy: "--stock NVDAc --amount 1", stock_sell: "--stock NVDAc --amount 0.001", index_rebalance: "--allocations NVDAc=50,AAPLc=50 --cash 1",
 } satisfies Record<SugarAction, string>;
-const basic: { command: string; type: Command["type"] }[] = [
+const basic: { command: string; type: Command["type"]; action?: string }[] = [
   ...["help", "start"].map(command => ({ command, type: "help" as const })),
   { command: "wallet", type: "wallet" }, { command: "balance", type: "balance" }, { command: "stocks", type: "aero" },
   { command: "token USDC", type: "token" }, { command: `allowance USDC for ${address}`, type: "allowance" },
@@ -34,6 +34,11 @@ const basic: { command: string; type: Command["type"] }[] = [
   ...["polymarket", "polymarket help"].map(command => ({ command, type: "polymarket-help" as const })),
   ...["polymarket status", "polymarket research Compare Fed markets"].map(command => ({ command, type: "polymarket" as const })),
   { command: "polymarket Fed rates", type: "polymarket-read" },
+  ...["@research", "/research", "/researches", "@research list"].map(command => ({ command, type: "research" as const, action: "list" })),
+  ...["@research base", "@research solana 30d", "@research OP Mainnet 1d", "/research ethereum week"].map(command => ({ command, type: "research" as const, action: "start" })),
+  ...["@research status ABC234", "@research ABC234"].map(command => ({ command, type: "research" as const, action: "status" })),
+  { command: "@research cancel ABC234", type: "research" as const, action: "cancel" }, { command: "@research delete abc234", type: "research" as const, action: "delete" },
+  { command: "@research help", type: "research" as const, action: "help" },
   ...["tasks", "tasks pause ABC234", "tasks resume ABC234", "tasks cancel ABC234", "tasks run ABC234", "tasks allow ABC234", "tasks allow ABC234 50", "tasks revoke ABC234", "automations"].map(command => ({ command, type: "tasks" as const })),
 ];
 const requiredValues: JsonFields = { user: address, address, condition, id: "1", slug: "test-market", condition_id: condition, token_id: "123", side: "BUY", q: "Fed", event_id: "1" };
@@ -55,4 +60,4 @@ export const commandCases = [
     return { command: `aero ${action.replaceAll("_", "-")} ${examples[action]}`.trim(), type: "aero" as const, action };
   }),
   ...polymarket,
-].flatMap(row => (row.type === "yolo" ? ["/", "b/"] : ["/", "b/", ""]).map(prefix => ({ ...row, command: prefix + row.command })));
+].flatMap(row => (row.type === "yolo" ? ["/", "b/"] : row.type === "research" ? [""] : ["/", "b/", ""]).map(prefix => ({ ...row, command: prefix + row.command })));

@@ -47,6 +47,11 @@ class PecuApi(
   suspend fun automationAction(code: String, kind: String, maxUsd: Double? = null): AutomationActionResult =
     wireJson.decodeFromString(post("task-action", buildJsonObject { put("code", code); put("kind", kind); maxUsd?.let { put("maxUsd", it) } }))
   suspend fun notifications(): NotificationList = wireJson.decodeFromString(get("notifications"))
+  suspend fun researches(): ResearchList = wireJson.decodeFromString(get("researches"))
+  suspend fun research(code: String): Research = wireJson.decodeFromString(get("research", listOf("code" to code)))
+  /** kind is start (chain and window), cancel, delete or rerun (code). */
+  suspend fun researchAction(kind: String, code: String? = null, chain: String? = null, window: String? = null): ResearchActionResult =
+    wireJson.decodeFromString(post("research-action", buildJsonObject { put("kind", kind); code?.let { put("code", it) }; chain?.let { put("chain", it) }; window?.let { put("window", it) } }))
   suspend fun readNotifications() { post("notification-read", buildJsonObject {}) }
   suspend fun registerPush(token: String) { post("push-register", buildJsonObject { put("token", token); put("platform", "android") }) }
   suspend fun unregisterPush(token: String) { post("push-unregister", buildJsonObject { put("token", token) }) }

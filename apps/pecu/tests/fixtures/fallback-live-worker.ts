@@ -34,6 +34,10 @@ const capabilities: AgentCapabilities = {
   taskCreate: toolsDisabled,
   taskList: toolsDisabled,
   taskUpdate: toolsDisabled,
+  researchStart: toolsDisabled,
+  researchList: toolsDisabled,
+  researchGet: toolsDisabled,
+  researchCancel: toolsDisabled,
 };
 
 const providerCalls: { requestBytes: number; toolCount: number; responseMs: number; status: number }[] = [];

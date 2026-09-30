@@ -1,6 +1,6 @@
 import { portfolioRequestSchema } from "../portfolio-contract";
 import { jsonValueSchema, type JsonValue, type JsonInput } from "../json-contract";
-import { InferenceTools, userInference } from "./user-inference";
+import { InferenceTools, researchInference, userInference } from "./user-inference";
 import { batchedAnalytics } from "../analytics";
 import { fallbackModels } from "./opencode";
 import { TypeSafeRequestClassifier } from "../request-classifier";
@@ -29,7 +29,7 @@ import { PecuCards } from "../cards";
 import { cardViewerSchema } from "../cards-contract";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, webPnlRequestSchema, basketSchema } from "../web-contract";
 import { profileActionRequestSchema, profileSafeRequestSchema } from "../safe-profile-contract";
-import { webConversation } from "../web-identity";
+import { isWebConversation, webConversation } from "../web-identity";
 import type { SafeProfile } from "../safe-profile";
 import { linkedWalletRequestSchema } from "../linked-wallet-contract";
 import type { LinkedExecution } from "../linked-execution";
@@ -38,7 +38,11 @@ import { timedTextContentType, liveTextContentType, sseContentType, turnEventStr
 import { z } from "zod";
 import type { ProactiveRunner } from "../proactive";
 import { TaskError, type TaskControl } from "../task-control";
-import type { TaskStore } from "../tasks";
+import { threadOf, type TaskStore } from "../tasks";
+import type { ResearchControl } from "../research/control";
+import type { ResearchRunner } from "../research/runner";
+import type { ResearchPack } from "../integrations/chain-data";
+import { researchActionSchema, researchCodeSchema, researchQuerySchema } from "../research-contract";
 import { notificationReadSchema, pushRegisterSchema, pushUnregisterSchema, taskActionSchema } from "../task-contract";
 
 const objectName = "basedbot-main";
@@ -95,6 +99,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   private safeProfile?: SafeProfile;
   private linked?: Readonly<{ wallets: LinkedWallets; execution: LinkedExecution }>;
   private automation?: Readonly<{ tasks: TaskStore; control: TaskControl; runner: ProactiveRunner }>;
+  private research?: Readonly<{ control: ResearchControl; runner: ResearchRunner }>;
   private transport?: XChatTransport;
   private xAccessToken?: string;
   private xRefreshToken?: string;
@@ -114,7 +119,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       await this.restoreXOAuthState();
       const configurationError = runtimeConfigurationError(this.config);
       if (!configurationError) {
-        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }, { SafeProfile }, { SafeChain }, { LinkedWallets }, { LinkedExecution }, { TaskStore }, { TaskControl }, { ProactiveRunner }, { FcmSender }] = await Promise.all([
+        const [{ AerodromeService }, { PecuAgent }, { EvmService }, { awaitUserOperation, jsonRpcClient }, { WalletService }, { WhopService }, { NansenService }, { SafeProfile }, { SafeChain }, { LinkedWallets }, { LinkedExecution }, { TaskStore }, { TaskControl }, { ProactiveRunner }, { FcmSender }, { ResearchStore }, { ResearchRunner }, { ResearchControl }, { ChainDataService }] = await Promise.all([
           import("../aerodrome"),
           import("../agent"),
           import("../evm"),
@@ -130,6 +135,10 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
           import("../task-control"),
           import("../proactive"),
           import("../integrations/fcm"),
+          import("../research/store"),
+          import("../research/runner"),
+          import("../research/control"),
+          import("../integrations/chain-data"),
         ]);
         const wallets = new WalletService({
           crossmintApiKey: this.config.crossmintApiKey!,
@@ -140,6 +149,32 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         const linkedWallets = new LinkedWallets(ctx.storage.sql);
         const tasks = new TaskStore(ctx.storage.sql);
         const control = new TaskControl(tasks, this.store);
+        const push = FcmSender.fromSecret(this.config.fcmServiceAccount);
+        const researchStore = new ResearchStore(ctx.storage.sql);
+        const researchRunner = new ResearchRunner(researchStore, {
+          // SAFETY: the research runtime serialized this text from a ResearchPack it just built.
+          collect: async (key, chain, window) => JSON.parse(await researchInference(env, key).collect(chain, window)) as ResearchPack,
+          run: async (turn) => {
+            const result = await researchInference(env, turn.key).research(turn);
+            return { text: result.text, calls: result.calls, submission: result.submission === null ? null : jsonValueSchema.parse(JSON.parse(result.submission)) };
+          },
+          forget: (key) => researchInference(env, key).forget(),
+        }, {
+          enqueueReply: (key, conversationId, event, text) => this.store.enqueueReply(key, conversationId, event, text),
+          recordWeb: async (conversationId, eventId, origin, text) => this.webAgent?.recordTask(conversationId, eventId, origin, text),
+          notify: async (input) => {
+            tasks.addNotification({ senderId: input.senderId, taskCode: null, conversationId: input.conversationId, kind: input.kind, title: input.title, body: input.body });
+            const tokens = tasks.devices(input.senderId);
+            if (!push || !tokens.length) return;
+            const web = isWebConversation(input.conversationId);
+            const gone = await push.send(tokens, { title: input.title, body: input.body, kind: input.kind, code: input.code, tag: `research:${input.code}`, threadId: web ? threadOf(input.conversationId) : null, channel: web ? "web" : "x" });
+            for (const token of gone) tasks.forgetToken(token);
+          },
+        });
+        const researchControl = new ResearchControl(researchStore, researchRunner, new ChainDataService(), {
+          perSenderDaily: this.config.researchDailyLimit, globalDaily: this.config.researchGlobalDailyLimit,
+        }, (work) => ctx.waitUntil(work));
+        this.research = { control: researchControl, runner: researchRunner };
         this.agent = new PecuAgent(
           this.config,
           this.store,
@@ -171,6 +206,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
             },
             linkedWallets,
             tasks: control,
+            research: researchControl,
           },
           {
             warm: (senderId) => userInference(env, senderId).warm(),
@@ -183,7 +219,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         this.webAgent = new WebAgent(this.agent, this.store, ctx.storage.sql, linkedWallets);
         this.safeProfile = new SafeProfile({ agent: this.agent, store: this.store, evm, chain: new SafeChain(rpc), sql: ctx.storage.sql });
         this.linked = { wallets: linkedWallets, execution: new LinkedExecution({ store: this.store, wallets: linkedWallets, rpc, enabled: this.config.enableMainnetExecution }) };
-        this.automation = { tasks, control, runner: new ProactiveRunner({ tasks, agent: this.agent, chat: this.store, web: this.webAgent, push: FcmSender.fromSecret(this.config.fcmServiceAccount) }) };
+        this.automation = { tasks, control, runner: new ProactiveRunner({ tasks, agent: this.agent, chat: this.store, web: this.webAgent, push }) };
         if (this.config.xchatPollingEnabled) {
           const firstPollAt = Date.now() + 1_000;
           const scheduledAt = await ctx.storage.getAlarm();
@@ -199,6 +235,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       try { await this.agent?.relayPendingDeposits(); }
       catch (error) { log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) }); }
       await this.linked?.execution.sweep();
+      if (this.research) this.ctx.waitUntil(this.research.runner.sweep());
       if (this.config.xchatPollingEnabled) {
         try { await this.ensureRealtimeSetup(); }
         catch (error) { log("error", "x_realtime_setup_failed", { error: errorMessage(error) }); }
@@ -249,6 +286,9 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         if (["/internal/web/tasks", "/internal/web/task-action", "/internal/web/notifications", "/internal/web/notification-read", "/internal/web/push-register", "/internal/web/push-unregister"].includes(url.pathname)) {
           return this.automationRequest(url.pathname, raw);
         }
+        if (["/internal/web/researches", "/internal/web/research", "/internal/web/research-action"].includes(url.pathname)) {
+          return await this.researchRequest(url.pathname, raw);
+        }
         if (url.pathname === "/internal/web/portfolio") {
           const { tokens, stocks, wallet, ...identity } = portfolioRequestSchema.parse(raw);
           try {
@@ -291,6 +331,12 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         return json(result, result.status === "busy" ? 409 : 200);
       }
       if (url.pathname === "/internal/health" && request.method === "GET") return this.health();
+      if (url.pathname.startsWith("/internal/research/") && request.method === "GET") {
+        const code = researchCodeSchema.safeParse(decodeURIComponent(url.pathname.slice("/internal/research/".length)).toUpperCase());
+        const found = code.success ? this.research?.control.export(code.data) : undefined;
+        if (!found) return json({ error: "not found" }, 404);
+        return json(found);
+      }
       if (url.pathname.startsWith("/internal/auth/")) {
         return json({ error: "ChatGPT connections are now per user. Manage your connection in your Pecu profile." }, 410);
       }
@@ -354,6 +400,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       }
       if (url.pathname === "/internal/cron" && request.method === "POST") {
         if (this.automation) this.ctx.waitUntil(this.automation.runner.sweep());
+        if (this.research) this.ctx.waitUntil(this.research.runner.sweep());
         const lastPollAt = await this.ctx.storage.get<number>(lastSuccessfulPollKey);
         const interval = await this.realtimeReady() ? realtimeFallbackPollMs : this.config.pollIntervalMs;
         if (!shouldRunScheduledPoll(lastPollAt, Date.now(), interval)) {
@@ -425,6 +472,24 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     }
   }
 
+  private async researchRequest(path: string, raw: JsonValue): Promise<Response> {
+    const research = this.research;
+    if (!research) return json({ error: "Agent unavailable" }, 503);
+    const { ResearchError } = await import("../research/control");
+    const identity = z.object({ identity: webIdentitySchema }).safeParse(raw).data?.identity ?? webIdentitySchema.parse(raw);
+    try {
+      if (path === "/internal/web/researches") return json(research.control.list(identity.senderId));
+      if (path === "/internal/web/research") return json(research.control.detail(identity.senderId, researchQuerySchema.parse(z.object({ query: z.unknown() }).parse(raw).query).code));
+      const action = researchActionSchema.parse(z.object({ action: z.unknown() }).parse(raw).action);
+      // Runs started from the research page notify instead of writing into a chat thread.
+      return json(await research.control.act(identity.senderId, action, { senderId: identity.senderId, conversationId: webConversation(identity), encodedEvent: "", deliver: false }));
+    } catch (error) {
+      if (error instanceof ResearchError) return json({ error: error.message }, 400);
+      if (error instanceof z.ZodError) return json({ error: "Check the details and try again." }, 400);
+      throw error;
+    }
+  }
+
   private async walletRequest(path: string, raw: JsonValue): Promise<Response> {
     const linked = this.linked;
     if (!linked) return json({ error: "Agent unavailable" }, 503);
@@ -483,6 +548,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       }
       await this.linked?.execution.sweep();
       if (this.automation) this.ctx.waitUntil(this.automation.runner.sweep());
+      if (this.research) this.ctx.waitUntil(this.research.runner.sweep());
       this.nextAlarmDelayMs = realtimeReady ? realtimeFallbackPollMs : this.config.pollIntervalMs;
     } catch (error) {
       failed = true;
@@ -531,6 +597,8 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       },
       deposits: { configured: Boolean(this.config.whopApiKey && this.config.whopWebhookSecret), pending: this.store.pendingDeposits().length },
       nansen: { configured: Boolean(this.config.nansenApiKey) },
+      twitter: { configured: Boolean(this.config.twitterApiKey) },
+      research: { configured: Boolean(this.research && this.config.openRouterApiKey), dailyLimit: this.config.researchDailyLimit },
       configurationError,
     }, !configurationError ? 200 : 503);
   }
@@ -734,7 +802,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action", "/wallets", "/wallet-action", "/tasks", "/task-action", "/notifications", "/notification-read", "/push-register", "/push-unregister"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action", "/wallets", "/wallet-action", "/tasks", "/task-action", "/notifications", "/notification-read", "/push-register", "/push-unregister", "/researches", "/research", "/research-action"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
     if (body.length > 8192) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");
@@ -825,6 +893,7 @@ export default {
       .replace(/^\/admin\/poll$/, "/internal/poll")
       .replace(/^\/admin\/deposits\/([^/]+)\/relay$/, "/internal/deposits/$1/relay")
       .replace(/^\/admin\/deposits$/, "/internal/deposits")
+      .replace(/^\/admin\/research\/([A-Za-z0-9]{6})$/, "/internal/research/$1")
       .replace(/^\/admin\/xchat\/identity$/, "/internal/xchat/identity")
       .replace(/^\/admin\/xchat\/realtime\/setup$/, "/internal/realtime/setup")
       .replace(/^\/admin\/xchat\/realtime\/status$/, "/internal/realtime/status")

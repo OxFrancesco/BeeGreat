@@ -17,7 +17,7 @@ import type { WhopService } from "./integrations/whop";
 import { nansenQuerySchema, type NansenQuery, type NansenEndpointName, type NansenService } from "./integrations/nansen";
 import type { SugarAction, SugarParameters } from "@beegreat/sugar/contracts";
 import type { Config } from "./config";
-import { aeroHelpText, BASE_USDC_ADDRESS, depositAmountPattern, helpText, nansenHelpText, parseCommand, parseNaturalWalletCommand, type PlannedCall, type VerifiedMessage } from "./domain";
+import { aeroHelpText, BASE_USDC_ADDRESS, depositAmountPattern, helpText, isResearchCommand, nansenHelpText, parseCommand, parseNaturalWalletCommand, type PlannedCall, type VerifiedMessage } from "./domain";
 import { digest, planDigest } from "./plan-digest";
 import type { AgentCapabilities, AgentHarness } from "./harness";
 import { log } from "./logger";
@@ -41,6 +41,7 @@ import { analyticsText, type PnlSnapshot } from "./analytics-contract";
 import { grantActive, maxRunSteps, type Grant, type TaskMode } from "./task-contract";
 import { grantDecision, type Pricer } from "./task-grant";
 import type { TaskControl } from "./task-control";
+import { ResearchError, type ResearchCommand, type ResearchControl, type ResearchOrigin } from "./research/control";
 
 /** 32 symbols without I, O, 0, 1; 256 is a multiple of 32 so a byte modulo stays uniform. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -143,6 +144,7 @@ export type AgentServices = Readonly<{
   /** The linked wallet a web thread acts with; absent means the Pecu wallet. */
   linkedWallets?: Readonly<{ signer(senderId: string, conversationId: string): `0x${string}` | undefined }>;
   tasks?: Pick<TaskControl, "create" | "update" | "command" | "createdText" | "modelList">;
+  research?: Pick<ResearchControl, "command" | "listText" | "modelDetail">;
 }>;
 
 /** State of one automated task run, shared between the agent turn and the runner that started it. */
@@ -355,7 +357,7 @@ export class PecuAgent {
     try {
       command = parseCommand(message.text);
     } catch (error) {
-      if (/^(?:b)?\//i.test(message.text.trim())) throw error;
+      if (/^(?:b)?\//i.test(message.text.trim()) || isResearchCommand(message.text)) throw error;
       try {
         // Wake the user's runtime while the classifier chooses the route.
         const routingStartedAt = Date.now();
@@ -427,6 +429,7 @@ export class PecuAgent {
       case "nansen-help": return nansenHelpText;
       case "nansen": return this.nansenReply(message, command.endpoint, command.input);
       case "tasks": return this.services.tasks ? this.services.tasks.command(message.senderId, command) : "Automations are not available yet.";
+      case "research": return this.researchCommand(message, command);
       default: {
         const _exhaustive: never = command;
         throw new Error(`Unhandled command ${String(_exhaustive)}`);
@@ -490,11 +493,27 @@ export class PecuAgent {
       taskCreate: async (input) => this.taskControl().createdText(this.taskControl().create(message, input)),
       taskList: async () => this.taskControl().modelList(message.senderId, message.conversationId),
       taskUpdate: async (input) => this.taskControl().update(message.senderId, input).message,
+      researchStart: (chain, window) => this.researchCommand(message, { type: "research", action: "start", chain, window }),
+      researchList: () => this.researchCommand(message, { type: "research", action: "list" }),
+      researchGet: async (code) => {
+        if (!this.services.research) return "Research is not available yet.";
+        try { return this.services.research.modelDetail(message.senderId, code); }
+        catch (error) { if (error instanceof ResearchError) return error.message; throw error; }
+      },
+      researchCancel: (code) => this.researchCommand(message, { type: "research", action: "cancel", code }),
     };
     return { ...capabilities,
       aeroRead: bound(capabilities.aeroRead), aeroPropose: bound(capabilities.aeroPropose),
       liquidity: bound(capabilities.liquidity), stockTrades: bound(capabilities.stockTrades),
     };
+  }
+
+  /** Research runs report back into the conversation that asked for them: X replies to the verified event, web threads get a history row. */
+  private async researchCommand(message: VerifiedMessage, command: ResearchCommand): Promise<string> {
+    if (!this.services.research) return "Research is not available yet.";
+    const web = isWebConversation(message.conversationId);
+    const origin: ResearchOrigin = { senderId: message.senderId, conversationId: message.conversationId, encodedEvent: web ? "" : message.encodedEvent, deliver: true };
+    return this.services.research.command(origin, command);
   }
 
   /**

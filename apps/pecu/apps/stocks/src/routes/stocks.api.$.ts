@@ -14,6 +14,7 @@ import {
   taskListSchema,
 } from "../../../../src/task-contract";
 import { linkedWalletActionSchema, linkedWalletResultSchema, linkedWalletsSchema } from "../../../../src/linked-wallet-contract";
+import { researchActionResultSchema, researchActionSchema, researchDetailSchema, researchListSchema, researchQuerySchema } from "../../../../src/research-contract";
 import {
   profileActionResultSchema,
   profileActionSchema,
@@ -54,6 +55,12 @@ export const Route = createFileRoute("/stocks/api/$")({
         if (params._splat === "pnl") return pnlRequest(request);
         if (params._splat === "wallets") return walletRequest("wallets", linkedWalletsSchema);
         if (params._splat === "tasks") return automationRequest("tasks", taskListSchema);
+        if (params._splat === "researches") return researchRequest("researches", researchListSchema);
+        if (params._splat === "research") {
+          const query = researchQuerySchema.safeParse({ code: (new URL(request.url).searchParams.get("code") ?? "").toUpperCase() });
+          if (!query.success) return json({ error: "Check the research code." }, 400);
+          return researchRequest("research", researchDetailSchema, { query: query.data });
+        }
         if (params._splat === "notifications") return automationRequest("notifications", notificationListSchema);
         if (params._splat === "profile") return profileRequest("profile", profileOverviewSchema);
         if (params._splat === "profile-safe") {
@@ -151,6 +158,13 @@ export const Route = createFileRoute("/stocks/api/$")({
             return json({ error: "Check the details and try again." }, 400);
           }
           return walletRequest("wallet-action", linkedWalletResultSchema, { origin: new URL(request.url).origin, action });
+        }
+        if (op === "research-action") {
+          const body = await request.text();
+          if (body.length > 4096) return json({ error: "Request too large" }, 413);
+          const action = researchActionSchema.safeParse((() => { try { return JSON.parse(body); } catch { return null; } })());
+          if (!action.success) return json({ error: "Check the details and try again." }, 400);
+          return researchRequest("research-action", researchActionResultSchema, { action: action.data });
         }
         const automation = automationOps.get(op);
         if (automation) {
@@ -294,6 +308,21 @@ async function automationRequest<Output extends JsonInput>(path: string, schema:
     }
     return json(schema.parse(body));
   } catch { return json({ error: "Pecu couldn't load your automations. Try again." }, 503); }
+}
+
+async function researchRequest<Output extends JsonInput>(path: "researches" | "research" | "research-action", schema: z.ZodType<Output>, input?: Readonly<Record<string, JsonInput>>) {
+  let viewer;
+  try { viewer = await identity(); }
+  catch { return json({ error: "Sign in to see your research." }, 401); }
+  try {
+    const response = await agentRequest(path, input ? { identity: viewer, ...input } : viewer);
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = z.object({ error: z.string() }).safeParse(body).data?.error;
+      return json({ error: response.status === 400 && error ? error : "Pecu couldn't load your research. Try again." }, response.status === 400 ? 400 : 503);
+    }
+    return json(schema.parse(body));
+  } catch { return json({ error: "Pecu couldn't load your research. Try again." }, 503); }
 }
 
 async function cardsRequest(claim: boolean) {

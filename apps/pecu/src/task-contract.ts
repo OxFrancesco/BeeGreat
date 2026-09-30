@@ -186,6 +186,9 @@ export const pushTokenSchema = z.string().regex(/^[A-Za-z0-9_:\-.]{20,4096}$/);
 export const pushRegisterSchema = z.strictObject({ token: pushTokenSchema, platform: z.literal("android") });
 export const pushUnregisterSchema = z.strictObject({ token: pushTokenSchema });
 
-/** Marks a web history row created by a task run instead of a user message. */
-export const messageOriginSchema = z.object({ kind: z.literal("task"), code: taskCodeSchema, title: z.string(), mode: taskModeSchema });
+/** Marks a web history row created by a task run or a finished research run instead of a user message. */
+export const messageOriginSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("task"), code: taskCodeSchema, title: z.string(), mode: taskModeSchema }),
+  z.object({ kind: z.literal("research"), code: taskCodeSchema, title: z.string(), mode: z.literal("research") }),
+]);
 export type MessageOrigin = z.infer<typeof messageOriginSchema>;

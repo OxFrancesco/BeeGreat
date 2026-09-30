@@ -35,8 +35,12 @@ class MainActivity : ComponentActivity() {
     super.onNewIntent(intent)
     open(intent)
   }
-  /** Deep links from notifications and the web: `pecu://agent?t=THREAD` opens that thread. */
+  /** Deep links from notifications and the web: `pecu://agent?t=THREAD` opens that thread, `pecu://researches?code=CODE` that report. */
   private fun open(intent: Intent) {
+    intent.data?.takeIf { it.scheme == "pecu" && it.host == "researches" }?.let { link ->
+      link.getQueryParameter("code")?.let(model::openResearchLink)
+      return
+    }
     val link = intent.data?.takeIf { it.scheme == "pecu" && it.host == "agent" } ?: return
     val thread = link.getQueryParameter("t")?.takeIf { it.matches(Regex("[a-z0-9][a-z0-9-]{0,39}")) }
     if (thread != null || link.getQueryParameter("main") == "1") model.selectThread(thread)

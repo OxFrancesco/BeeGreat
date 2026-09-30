@@ -1,0 +1,310 @@
+{
+  "list": {
+    "researches": [
+      {
+        "code": "ABC234",
+        "chain": {
+          "id": "base",
+          "name": "Base"
+        },
+        "window": "7d",
+        "period": {
+          "start": "2026-09-23",
+          "end": "2026-09-29"
+        },
+        "state": "researching",
+        "headline": null,
+        "error": null,
+        "stages": [
+          {
+            "role": "capital",
+            "label": "Capital",
+            "state": "done",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 24,
+            "summary": "Capital found the main move.",
+            "error": null
+          },
+          {
+            "role": "activity",
+            "label": "Activity",
+            "state": "done",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 12,
+            "summary": "Activity found the main move.",
+            "error": null
+          },
+          {
+            "role": "flows",
+            "label": "Flows",
+            "state": "skipped",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 0,
+            "summary": null,
+            "error": null
+          },
+          {
+            "role": "social",
+            "label": "Narrative",
+            "state": "failed",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 3,
+            "summary": null,
+            "error": "X data is busy"
+          },
+          {
+            "role": "synthesis",
+            "label": "Editor",
+            "state": "pending",
+            "startedAt": 100,
+            "endedAt": null,
+            "calls": 0,
+            "summary": null,
+            "error": null
+          }
+        ],
+        "channel": "x",
+        "threadId": null,
+        "createdAt": 100,
+        "completedAt": null
+      },
+      {
+        "code": "DEF567",
+        "chain": {
+          "id": "base",
+          "name": "Base"
+        },
+        "window": "7d",
+        "period": {
+          "start": "2026-09-23",
+          "end": "2026-09-29"
+        },
+        "state": "completed",
+        "headline": "Morpho vault deposits carried Base TVL",
+        "error": null,
+        "stages": [
+          {
+            "role": "capital",
+            "label": "Capital",
+            "state": "done",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 24,
+            "summary": "Capital found the main move.",
+            "error": null
+          },
+          {
+            "role": "activity",
+            "label": "Activity",
+            "state": "done",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 12,
+            "summary": "Activity found the main move.",
+            "error": null
+          },
+          {
+            "role": "flows",
+            "label": "Flows",
+            "state": "skipped",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 0,
+            "summary": null,
+            "error": null
+          },
+          {
+            "role": "social",
+            "label": "Narrative",
+            "state": "failed",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 3,
+            "summary": null,
+            "error": "X data is busy"
+          },
+          {
+            "role": "synthesis",
+            "label": "Editor",
+            "state": "done",
+            "startedAt": 100,
+            "endedAt": 200,
+            "calls": 0,
+            "summary": "Editor found the main move.",
+            "error": null
+          }
+        ],
+        "channel": "web",
+        "threadId": "t1",
+        "createdAt": 100,
+        "completedAt": 300
+      }
+    ],
+    "chains": [
+      {
+        "id": "base",
+        "name": "Base"
+      },
+      {
+        "id": "solana",
+        "name": "Solana"
+      }
+    ],
+    "limit": {
+      "used": 2,
+      "daily": 3
+    }
+  },
+  "detail": {
+    "code": "DEF567",
+    "chain": {
+      "id": "base",
+      "name": "Base"
+    },
+    "window": "7d",
+    "period": {
+      "start": "2026-09-23",
+      "end": "2026-09-29"
+    },
+    "state": "completed",
+    "headline": "Morpho vault deposits carried Base TVL",
+    "error": null,
+    "stages": [
+      {
+        "role": "capital",
+        "label": "Capital",
+        "state": "done",
+        "startedAt": 100,
+        "endedAt": 200,
+        "calls": 24,
+        "summary": "Capital found the main move.",
+        "error": null
+      },
+      {
+        "role": "activity",
+        "label": "Activity",
+        "state": "done",
+        "startedAt": 100,
+        "endedAt": 200,
+        "calls": 12,
+        "summary": "Activity found the main move.",
+        "error": null
+      },
+      {
+        "role": "flows",
+        "label": "Flows",
+        "state": "skipped",
+        "startedAt": 100,
+        "endedAt": 200,
+        "calls": 0,
+        "summary": null,
+        "error": null
+      },
+      {
+        "role": "social",
+        "label": "Narrative",
+        "state": "failed",
+        "startedAt": 100,
+        "endedAt": 200,
+        "calls": 3,
+        "summary": null,
+        "error": "X data is busy"
+      },
+      {
+        "role": "synthesis",
+        "label": "Editor",
+        "state": "done",
+        "startedAt": 100,
+        "endedAt": 200,
+        "calls": 0,
+        "summary": "Editor found the main move.",
+        "error": null
+      }
+    ],
+    "channel": "web",
+    "threadId": "t1",
+    "createdAt": 100,
+    "completedAt": 300,
+    "report": null,
+    "markdown": "# Base, 23–29 Sep 2026\n\n**Morpho vault deposits carried Base TVL**\n\n| Metric | Now |\n| --- | ---: |\n| DeFi TVL | $6.24B |",
+    "findings": {}
+  },
+  "action": {
+    "research": {
+      "code": "ABC234",
+      "chain": {
+        "id": "base",
+        "name": "Base"
+      },
+      "window": "7d",
+      "period": {
+        "start": "2026-09-23",
+        "end": "2026-09-29"
+      },
+      "state": "researching",
+      "headline": null,
+      "error": null,
+      "stages": [
+        {
+          "role": "capital",
+          "label": "Capital",
+          "state": "done",
+          "startedAt": 100,
+          "endedAt": 200,
+          "calls": 24,
+          "summary": "Capital found the main move.",
+          "error": null
+        },
+        {
+          "role": "activity",
+          "label": "Activity",
+          "state": "done",
+          "startedAt": 100,
+          "endedAt": 200,
+          "calls": 12,
+          "summary": "Activity found the main move.",
+          "error": null
+        },
+        {
+          "role": "flows",
+          "label": "Flows",
+          "state": "skipped",
+          "startedAt": 100,
+          "endedAt": 200,
+          "calls": 0,
+          "summary": null,
+          "error": null
+        },
+        {
+          "role": "social",
+          "label": "Narrative",
+          "state": "failed",
+          "startedAt": 100,
+          "endedAt": 200,
+          "calls": 3,
+          "summary": null,
+          "error": "X data is busy"
+        },
+        {
+          "role": "synthesis",
+          "label": "Editor",
+          "state": "pending",
+          "startedAt": 100,
+          "endedAt": null,
+          "calls": 0,
+          "summary": null,
+          "error": null
+        }
+      ],
+      "channel": "x",
+      "threadId": null,
+      "createdAt": 100,
+      "completedAt": null
+    },
+    "message": "Started Base research ABC234."
+  }
+}

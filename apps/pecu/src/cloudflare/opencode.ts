@@ -28,6 +28,13 @@ import type { ToolFamily } from "../tool-families";
 import { selectSkills, skillMarker, skillNames, taskInstructions, toolVisible, type AgentSkill } from "../agent-skills";
 import { systemPrompt } from "./system-prompt";
 import { taskCreateInputSchema, taskUpdateInputSchema } from "../task-control";
+import { twitterEndpointNames, twitterEndpoints, type TwitterService } from "../integrations/twitter";
+import { chainDataEndpointNames, chainDataEndpoints, chainDataTool, type ChainDataService } from "../integrations/chain-data";
+import { nansenQuerySchema, type NansenService } from "../integrations/nansen";
+import { researchAgent, researchCore, researchInstructions, researchToolVisible, resolveChainProfile, type ChainProfile } from "../research/agents";
+import type { ResearchTurn, ResearchTurnResult } from "../research/runner";
+import { findingsSchema, reportSchema, researchCodeSchema, researchWindowSchema, type ResearchRole } from "../research-contract";
+import type { JsonValue } from "../json-contract";
 
 const location = { directory: "/" } as const;
 type TurnModel = Readonly<{ providerID: string; id: string; variant: string }>;
@@ -43,6 +50,17 @@ export const fallbackModels: InferenceModels = {
   small: { providerID: "openrouter", id: "openai/gpt-6-luna", variant: "low" },
 };
 export type InferenceRoute = "chatgpt" | "fallback";
+/** Research runs on the operator's OpenRouter key so a user's chat stays free while specialists work. */
+const researchModels = {
+  specialist: fallbackModels.default,
+  editor: { ...fallbackModels.default, variant: "high" },
+} as const satisfies Record<string, TurnModel>;
+
+/** Keyless and operator-keyed read services the inference runtime calls directly, without the main object. */
+export type HarnessServices = Readonly<{ chainData: ChainDataService; twitter: TwitterService; nansen?: Pick<NansenService, "call"> }>;
+
+type ResearchSession = { role: ResearchRole; chain: ChainProfile; calls: number; budget: number; submission: JsonValue | null };
+const zeroAddress = "0x0000000000000000000000000000000000000000" as const;
 
 export type OAuthStart = Readonly<{
   attemptId: string;
@@ -103,6 +121,7 @@ export class OpenCodeHarness implements AgentHarness {
     readonly fallbackConfigured: boolean,
     private readonly explanationSessions: Set<string>,
     private readonly skillSessions: Map<string, SkillSession>,
+    private readonly researchSessions: Map<string, ResearchSession>,
     private readonly analytics?: AgentAnalytics,
     private readonly timings?: InferenceTimings,
     private readonly waitUntil?: (work: Promise<void>) => void,
@@ -116,6 +135,7 @@ export class OpenCodeHarness implements AgentHarness {
     openRouterApiKey?: string,
     analytics?: AgentAnalytics,
     waitUntil?: (work: Promise<void>) => void,
+    services?: HarnessServices,
   ): Promise<OpenCodeHarness> {
     // OpenCode initializes cryptographic IDs while its modules load. Workerd only
     // permits that inside a request/DO handler, so keep the runtime imports lazy.
@@ -126,7 +146,27 @@ export class OpenCodeHarness implements AgentHarness {
     let timings: InferenceTimings | undefined;
     const explanationSessions = new Set<string>();
     const skillSessions = new Map<string, SkillSession>();
+    const researchSessions = new Map<string, ResearchSession>();
     const pendingRequests = new WeakMap<Request, string>();
+    const service = <K extends keyof HarnessServices>(name: K): NonNullable<HarnessServices[K]> => {
+      const value = services?.[name];
+      if (!value) throw new Error(name === "twitter" ? "X data is not configured yet." : "This data source is not configured yet.");
+      return value;
+    };
+    const resolveChain = async (query: string) => {
+      const chain = await resolveChainProfile(query, service("chainData"));
+      if (!chain) throw new Error(`DefiLlama does not know the chain "${query.slice(0, 40)}". Use a chain id such as base, ethereum or solana.`);
+      return chain;
+    };
+    /** Counts a research session's data reads against its budget; chat turns pass through. */
+    const metered = async (sessionId: string, read: () => Promise<string>): Promise<string> => {
+      const research = researchSessions.get(sessionId);
+      if (research) {
+        if (research.calls >= research.budget) return "Tool budget for this research run is used up. Submit your findings now with what you have.";
+        research.calls++;
+      }
+      return read();
+    };
     const plugin = Plugin.define({
       id: "basedbot-tools",
       setup: async (context) => {
@@ -140,6 +180,12 @@ export class OpenCodeHarness implements AgentHarness {
           if (account.success) event.headers["chatgpt-account-id"] = account.data;
         });
         await context.session.hook("context", async (event) => {
+          const research = researchSessions.get(event.sessionID);
+          if (research) {
+            event.tools = Object.fromEntries(Object.entries(event.tools).filter(([name]) => researchToolVisible(research.role, name)));
+            event.system = [{ type: "text", text: researchInstructions(research.role, research.chain) }];
+            return;
+          }
           const turn = store.agentTurn(event.sessionID);
           if (turn) resolveCapabilities(turn);
           const system = event.system.filter(part => !part.text.startsWith(skillMarker));
@@ -298,11 +344,53 @@ export class OpenCodeHarness implements AgentHarness {
               options: { codemode: false },
               description: entry.description,
               input: entry.input,
-              execute: async (input, toolContext) => ({
-                content: await capabilities(toolContext.sessionID).nansenCall(name, input),
-              }),
+              execute: async (input, toolContext) => {
+                if (!researchSessions.has(toolContext.sessionID)) return { content: await capabilities(toolContext.sessionID).nansenCall(name, input) };
+                const query = nansenQuerySchema.parse(input);
+                // Research has no user wallet; wallet reads must name the address they inspect.
+                if (name.startsWith("wallet_") && !query.address) throw new Error("Give the wallet address from an earlier result.");
+                return { content: await metered(toolContext.sessionID, async () => (await service("nansen").call(name, query, { wallet: zeroAddress })).text) };
+              },
             });
           }
+          for (const name of twitterEndpointNames) {
+            const endpoint = twitterEndpoints[name];
+            draft.add({
+              name: `twitter_${name}`,
+              options: { codemode: false },
+              description: endpoint.description,
+              input: endpoint.input,
+              execute: async (input, toolContext) => ({ content: await metered(toolContext.sessionID, async () => (await service("twitter").call(name, jsonValueSchema.parse(input))).text) }),
+            });
+          }
+          for (const name of chainDataEndpointNames) {
+            const endpoint = chainDataEndpoints[name];
+            draft.add({
+              name: `chain_${name}`,
+              options: { codemode: false },
+              description: endpoint.description,
+              input: endpoint.input,
+              execute: async (input, toolContext) => ({ content: await metered(toolContext.sessionID, () => chainDataTool(service("chainData"), resolveChain, name, jsonValueSchema.parse(input))) }),
+            });
+          }
+          const submit = (session: string, payload: JsonValue) => {
+            const research = researchSessions.get(session);
+            if (!research) throw new Error("Only research runs can submit findings.");
+            research.submission = payload;
+            return { content: "Submitted. Reply with one short line." };
+          };
+          draft.add({ name: "research_findings", options: { codemode: false }, description: "Submit this specialist's structured findings. Call once, at the end.", input: findingsSchema, execute: async (input, toolContext) => submit(toolContext.sessionID, jsonValueSchema.parse(input)) });
+          draft.add({ name: "research_report", options: { codemode: false }, description: "Submit the finished causal report. Call once.", input: reportSchema, execute: async (input, toolContext) => submit(toolContext.sessionID, jsonValueSchema.parse(input)) });
+          draft.add({
+            name: "research_start",
+            options: { codemode: false },
+            description: "Start a research run that explains why a chain moved over a window, with specialist agents and an editor. Takes several minutes and counts toward the user's daily limit. Only when the user asked for research or a deep explanation.",
+            input: z.strictObject({ chain: z.string().trim().min(2).max(60).describe("Chain id or name, for example base, ethereum or solana."), window: researchWindowSchema.default("7d") }),
+            execute: async ({ chain, window }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchStart(chain, window) }),
+          });
+          draft.add({ name: "research_list", options: { codemode: false }, description: "List the user's research runs with code, chain, state, headline and today's remaining runs.", input: z.object({}), execute: async (_input, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchList() }) });
+          draft.add({ name: "research_get", options: { codemode: false }, description: "Read one research run: the full report when finished, otherwise its progress.", input: z.strictObject({ code: researchCodeSchema }), execute: async ({ code }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchGet(code) }) });
+          draft.add({ name: "research_cancel", options: { codemode: false }, description: "Cancel a running research run by its code.", input: z.strictObject({ code: researchCodeSchema }), execute: async ({ code }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchCancel(code) }) });
           for (const tool of aeroTools) {
             draft.add({
               name: tool.name,
@@ -373,7 +461,7 @@ export class OpenCodeHarness implements AgentHarness {
         await context.agent.transform((draft) => {
           draft.default("basedbot");
           for (const agent of draft.list()) {
-            if (String(agent.id) !== "basedbot") draft.remove(String(agent.id));
+            if (!["basedbot", "researcher"].includes(String(agent.id))) draft.remove(String(agent.id));
           }
         });
       },
@@ -422,6 +510,9 @@ export class OpenCodeHarness implements AgentHarness {
           { action: "aero_stock_trades", resource: "*", effect: "allow" },
           ...["task_create", "task_list", "task_update"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
           ...evmTools.map((tool) => ({ action: tool.name, resource: "*", effect: "allow" as const })),
+          ...twitterEndpointNames.map((name) => ({ action: `twitter_${name}`, resource: "*", effect: "allow" as const })),
+          ...chainDataEndpointNames.map((name) => ({ action: `chain_${name}`, resource: "*", effect: "allow" as const })),
+          ...["research_findings", "research_report", "research_start", "research_list", "research_get", "research_cancel"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
         ],
         agents: {
           basedbot: {
@@ -431,6 +522,14 @@ export class OpenCodeHarness implements AgentHarness {
             mode: "primary",
             hidden: false,
           },
+          researcher: {
+            // Sessions pick the OpenRouter model explicitly; this default only has to exist without the key.
+            model: "openai/gpt-6-sol",
+            system: researchCore,
+            description: "On-chain research specialist that explains why a chain moved, from chain data, Nansen flows and X posts",
+            mode: "primary",
+            hidden: true,
+          },
         },
       },
       plugins: [plugin],
@@ -439,7 +538,31 @@ export class OpenCodeHarness implements AgentHarness {
       try { timings = new InferenceTimings(storage.sql); }
       catch { log("warn", "inference_timing_unavailable", {}); }
     }
-    return new OpenCodeHarness(client, store, storage, Boolean(openRouterApiKey), explanationSessions, skillSessions, analytics, timings, waitUntil);
+    return new OpenCodeHarness(client, store, storage, Boolean(openRouterApiKey), explanationSessions, skillSessions, researchSessions, analytics, timings, waitUntil);
+  }
+
+  /** Run one research agent in its own session on the operator's OpenRouter key and return what it submitted. */
+  async research(turn: ResearchTurn): Promise<ResearchTurnResult> {
+    if (!this.fallbackConfigured) throw new Error("Research needs the operator's OpenRouter key.");
+    const model = turn.role === "synthesis" ? researchModels.editor : researchModels.specialist;
+    const session = await this.client.sessions.create({ agent: "researcher", model, location, title: `Research ${turn.code} ${turn.role}`, metadata: { senderId: turn.senderId, conversationId: turn.key } });
+    const state: ResearchSession = { role: turn.role, chain: turn.chain, calls: 0, budget: researchAgent(turn.role).budget, submission: null };
+    this.researchSessions.set(session.id, state);
+    const text = (assistant: Awaited<ReturnType<OpenCodeHarness["turn"]>>) => assistant.content.flatMap((part) => part.type === "text" ? [part.text.trim()] : []).filter(Boolean).join("\n");
+    try {
+      const metadata = { eventId: turn.key, senderId: turn.senderId, conversationId: turn.key };
+      let assistant = await this.turn(session.id, turn.prompt, metadata);
+      let reply = assistant.error ? "" : text(assistant);
+      if (state.submission === null) {
+        // One reminder: specialists sometimes answer in prose instead of submitting.
+        assistant = await this.turn(session.id, `Call ${turn.role === "synthesis" ? "research_report" : "research_findings"} now with what you found. Do not read more data.`, { ...metadata, eventId: `${turn.key}:submit` });
+        if (!assistant.error) reply = [reply, text(assistant)].filter(Boolean).join("\n");
+      }
+      if (state.submission === null && assistant.error && !reply) throw new Error(assistant.error.message);
+      return { text: reply, submission: state.submission, calls: state.calls };
+    } finally {
+      this.researchSessions.delete(session.id);
+    }
   }
 
   async usageLimit(): Promise<UsageLimit | undefined> {

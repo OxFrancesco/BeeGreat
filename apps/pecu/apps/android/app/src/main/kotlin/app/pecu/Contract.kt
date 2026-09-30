@@ -37,6 +37,21 @@ val wireJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
   val channel: String, val threadId: String? = null, val createdAt: Long, val readAt: Long? = null,
 )
 @Serializable data class NotificationList(val notifications: List<PecuNotification>, val unread: Int)
+@Serializable data class ResearchChain(val id: String, val name: String)
+@Serializable data class ResearchPeriod(val start: String, val end: String)
+@Serializable data class ResearchStage(val role: String, val label: String, val state: String, val startedAt: Long? = null, val endedAt: Long? = null, val calls: Int = 0, val summary: String? = null, val error: String? = null)
+@Serializable data class Research(
+  val code: String, val chain: ResearchChain, val window: String, val period: ResearchPeriod? = null, val state: String,
+  val headline: String? = null, val error: String? = null, val stages: List<ResearchStage> = emptyList(),
+  val channel: String, val threadId: String? = null, val createdAt: Long, val completedAt: Long? = null,
+  /** Present only on the detail read. */
+  val markdown: String? = null,
+) {
+  val active: Boolean get() = state in setOf("queued", "collecting", "researching", "synthesizing")
+}
+@Serializable data class ResearchLimit(val used: Int, val daily: Int)
+@Serializable data class ResearchList(val researches: List<Research>, val chains: List<ResearchChain>, val limit: ResearchLimit)
+@Serializable data class ResearchActionResult(val research: Research? = null, val message: String)
 @Serializable data class Reply(
   val text: String, val preview: Preview? = null, val question: Question? = null,
   val positions: PositionSnapshot? = null, val positionsOnly: Boolean = false,

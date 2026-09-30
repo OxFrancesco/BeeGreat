@@ -89,4 +89,8 @@ export const unusedCapabilities = {
   taskCreate: unexpected("taskCreate"),
   taskList: unexpected("taskList"),
   taskUpdate: unexpected("taskUpdate"),
+  researchStart: unexpected("researchStart"),
+  researchList: unexpected("researchList"),
+  researchGet: unexpected("researchGet"),
+  researchCancel: unexpected("researchCancel"),
 } satisfies import("../../src/harness").AgentCapabilities;

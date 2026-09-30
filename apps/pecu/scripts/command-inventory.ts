@@ -5,12 +5,14 @@ import { evmTools } from "../src/cloudflare/evm-tools";
 import { EVM_TX_ACTIONS } from "../src/evm";
 import { polymarketEndpointNames } from "../src/integrations/polymarket/catalog.generated";
 import { nansenEndpointNames } from "../src/integrations/nansen";
+import { twitterEndpointNames } from "../src/integrations/twitter";
+import { chainDataEndpointNames } from "../src/integrations/chain-data";
 import aaveTools from "../src/integrations/aave-tools.json";
 import { aaveParameters } from "../src/integrations/aave";
 
 const root = new URL("../", import.meta.url);
 const domain = await Bun.file(new URL("src/domain.ts", root)).text();
-const commands = new Set([...domain.matchAll(/\bverb === "([^"]+)"/g)].map(match => `/${match[1]}`));
+const commands = new Set([...[...domain.matchAll(/\bverb === "([^"]+)"/g)].map(match => `/${match[1]}`), "@research"]);
 const harness = await Bun.file(new URL("src/cloudflare/opencode.ts", root)).text();
 const inlineTools = new Set([...harness.matchAll(/draft\.add\(\{\s*name: "([^"]+)"/g)].map(match => match[1]));
 
@@ -22,6 +24,7 @@ const writes = new Set<string>([
 const modelTools = [...new Set([
   ...inlineTools, ...aeroTools.map(tool => tool.name), ...evmTools.map(tool => tool.name),
   ...polymarketEndpointNames.map(name => `polymarket_${name}`), ...nansenEndpointNames.map(name => `nansen_${name}`),
+  ...twitterEndpointNames.map(name => `twitter_${name}`), ...chainDataEndpointNames.map(name => `chain_${name}`),
 ])].sort();
 
 console.log(JSON.stringify({
@@ -36,6 +39,7 @@ console.log(JSON.stringify({
     aero: ["help", "--help", "-h", ...SUGAR_ACTIONS.map(action => action.replaceAll("_", "-"))],
     polymarket: ["help", "status", "research", "question", ...polymarketEndpointNames.map(name => `read ${name}`)],
     nansen: ["help", "token", "flows", "portfolio", "wallet", "pnl", "markets"],
+    "@research": ["list", "help", "CHAIN [1d|7d|30d]", "status CODE", "cancel CODE", "delete CODE"],
   },
   aeroActions: SUGAR_ACTIONS.map(action => ({ action, onchain: isSugarTxAction(action), parameters: Object.fromEntries(requestParameters(action).map(spec => [spec.name, spec.kind])), required: requestParameters(action).filter(spec => spec.required).map(spec => spec.name) })),
   modelTools: modelTools.map(name => ({ name, onchain: writes.has(name), status: "not-run" })),

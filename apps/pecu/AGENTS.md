@@ -107,6 +107,9 @@ Source of truth: `src/domain.ts`, `src/agent.ts`, `src/evm.ts`, and the pinned `
 | `/nansen wallet [ADDRESS] [chain]` | Shows token balances for an address, defaulting to the sender's wallet on Base. | `/nansen wallet` or `/nansen wallet 0xADDRESS ethereum` |
 | `/nansen pnl [ADDRESS] [chain]` | Shows realized and unrealized P&L by token for an address. | `/nansen pnl` |
 | `/nansen markets [words]` | Lists Polymarket markets ranked by 24h volume, optionally filtered by search words. | `/nansen markets fed rate cut` |
+| `@research CHAIN [1d\|7d\|30d]` | Starts a research run that explains why a chain moved over the window, with four specialists and an editor. `/research CHAIN` is the same. Counts toward the sender's daily limit. | `@research base` or `@research solana 30d` |
+| `@research`, `/research`, `/researches` | Lists the sender's research runs and today's remaining runs. | `@research` |
+| `@research status CODE`, `@research cancel CODE`, `@research delete CODE` | Shows progress or the finished headline, stops a running run, or removes a finished report. | `@research cancel ABC234` |
 
 ### Advanced Aerodrome reads
 
@@ -197,6 +200,12 @@ Polymarket defaults to 52 direct public read tools in `src/integrations/polymark
 Whop deposits give users a fiat on-ramp. `WHOP_API_KEY` and `WHOP_WEBHOOK_SECRET` are Cloudflare secrets, never in code. Each sender gets one connected account keyed by their verified ID; `/deposit` reuses it. Confirmed `deposit.succeeded` webhooks relay the same dollar amount in Base USDC from the treasury wallet automatically, with no confirmation step. Repeat bank and crypto details exactly as the tool returns them; never invent payment details, fees, or timing. Deposits over the automatic caps wait for manual review.
 
 Nansen analytics is read-only. `NANSEN_API_KEY` is a Cloudflare secret, never in code. Every user-visible Nansen reply must end with `Data: Nansen (nansen.ai)`. Nansen's redistribution terms forbid labels endpoints, all `smart-money/*` endpoints, the PnL leaderboards, and `tgm/holders`, and `tgm/dex-trades` must always send `only_smart_money: false`. The allowed path list is pinned by `tests/integrations-nansen.test.ts`; keep it in sync with any catalog change. Analytics answers report what the data shows and are not financial advice.
+
+## Research and X data
+
+`@research` runs are staged in `src/research/runner.ts`: an evidence pack from DefiLlama and growthepie (`src/integrations/chain-data.ts`), four specialists (Capital, Activity, Flows, Narrative) and an editor, each in a disposable `UserInference` keyed `research:RUN:ROLE:ATTEMPT` on the operator's OpenRouter key. Specialist instructions and tool lists live in `researches/agents/*/SKILL.md`, chain profiles in `researches/chains/*.md`; `bun run skills:build` compiles them into `src/research-agents.generated.json`. A research session sees only its role's tools and submits with `research_findings` or `research_report`, which chat sessions never see. Never state a cause more firmly than its evidence: a same-day post is a lead, TVL includes price moves, and double-counted curator TVL is never added to a total. Research reports built on Nansen data end with `Data: Nansen (nansen.ai)`. Limits come from `RESEARCH_DAILY_LIMIT` and `RESEARCH_GLOBAL_DAILY_LIMIT`. See `docs/54-pecu-research.md` at the monorepo root.
+
+`twitter_*` tools cover every twitterapi.io read endpoint (`src/integrations/twitter.ts`). Keep each endpoint's upstream parameter names, stop pagination on `has_next_page`, and keep responses compact. `TWITTERAPI_IO_KEY` is a Cloudflare secret, never in code, logs or reports. Write endpoints need account cookies and a proxy; they are not wired and must not be added without a confirmation design.
 
 ## Pecu visual consistency
 

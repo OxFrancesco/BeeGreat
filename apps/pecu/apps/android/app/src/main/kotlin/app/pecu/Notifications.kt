@@ -32,8 +32,9 @@ fun ensureAutomationChannel(context: Context) {
   }
 }
 
-/** The deep link a notification opens: the automation's web thread, the original conversation, or just the app for X Chat. */
+/** The deep link a notification opens: a finished research report, the automation's web thread, the original conversation, or just the app for X Chat. */
 fun automationLink(alert: AutomationAlert): Uri {
+  alert.tag.removePrefix("research:").takeIf { alert.tag.startsWith("research:") && it.matches(Regex("[A-HJ-NP-Z2-9]{6}")) }?.let { return Uri.parse("pecu://researches?code=$it") }
   if (alert.channel != "web") return Uri.parse("pecu://agent")
   val thread = alert.threadId?.takeIf { it.matches(Regex("[a-z0-9][a-z0-9-]{0,39}")) }
   return Uri.parse(if (thread != null) "pecu://agent?t=$thread" else "pecu://agent?main=1")

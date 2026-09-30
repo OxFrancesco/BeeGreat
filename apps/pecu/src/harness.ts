@@ -10,6 +10,7 @@ import type { StockTrade } from "./stock-contract";
 import type { ParagraphSink } from "./web-stream";
 import type { ToolFamily } from "./tool-families";
 import type { TaskCreateInput, TaskUpdateInput } from "./task-control";
+import type { ResearchWindow } from "./research-contract";
 
 type EvmReadInput<K extends "read" | "inspect" | "decode"> = Parameters<EvmService[K]>[0];
 
@@ -41,6 +42,10 @@ export type AgentCapabilities = Readonly<{
   taskCreate(input: TaskCreateInput): Promise<string>;
   taskList(): Promise<string>;
   taskUpdate(input: TaskUpdateInput): Promise<string>;
+  researchStart(chain: string, window: ResearchWindow): Promise<string>;
+  researchList(): Promise<string>;
+  researchGet(code: string): Promise<string>;
+  researchCancel(code: string): Promise<string>;
 }>;
 
 export type ResponseMode = "response" | "mixed" | Readonly<{ kind: "mixed" | "fallback"; family: ToolFamily }>;

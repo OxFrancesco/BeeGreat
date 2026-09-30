@@ -15,6 +15,8 @@ const environmentSchema = z.object({
   DEPOSIT_RELAY_MAX_USD: z.string().optional().catch(undefined),
   DEPOSIT_RELAY_DAILY_MAX_USD: z.string().optional().catch(undefined),
   NANSEN_API_URL: z.string().optional().catch(undefined),
+  RESEARCH_DAILY_LIMIT: z.string().optional().catch(undefined),
+  RESEARCH_GLOBAL_DAILY_LIMIT: z.string().optional().catch(undefined),
   CROSSMINT_API_KEY: z.string().optional().catch(undefined),
   CROSSMINT_WALLET_SECRET: z.string().optional().catch(undefined),
   CHAT_PIN: z.string().optional().catch(undefined),
@@ -30,6 +32,7 @@ const environmentSchema = z.object({
   WHOP_API_KEY: z.string().optional().catch(undefined),
   WHOP_WEBHOOK_SECRET: z.string().optional().catch(undefined),
   NANSEN_API_KEY: z.string().optional().catch(undefined),
+  TWITTERAPI_IO_KEY: z.string().optional().catch(undefined),
   TYPESAFE_API_KEY: z.string().optional().catch(undefined),
   OPENROUTER_API_KEY: z.string().optional().catch(undefined),
   FCM_SERVICE_ACCOUNT: z.string().optional().catch(undefined),
@@ -55,6 +58,8 @@ const publicConfigSchema = z.object({
   DEPOSIT_RELAY_MAX_USD: z.coerce.number().int().min(1).max(1_000_000).default(500),
   DEPOSIT_RELAY_DAILY_MAX_USD: z.coerce.number().int().min(1).default(2000),
   NANSEN_API_URL: z.string().url().default("https://api.nansen.ai/api/v1"),
+  RESEARCH_DAILY_LIMIT: z.coerce.number().int().min(1).max(50).default(3),
+  RESEARCH_GLOBAL_DAILY_LIMIT: z.coerce.number().int().min(1).max(1000).default(40),
 });
 
 export type WorkerConfig = Readonly<{
@@ -88,6 +93,11 @@ export type WorkerConfig = Readonly<{
   nansenApiKey?: string;
   typesafeApiKey?: string;
   nansenApiUrl: string;
+  /** twitterapi.io key for the read-only X tools. */
+  twitterApiKey?: string;
+  /** Research runs one sender may start per UTC day, and all senders together. */
+  researchDailyLimit: number;
+  researchGlobalDailyLimit: number;
   openRouterApiKey?: string;
   /** Google service-account JSON for FCM HTTP v1. Without it notifications stay in the in-app inbox. */
   fcmServiceAccount?: string;
@@ -109,6 +119,8 @@ export function loadWorkerConfig(env: WorkerEnvironment): WorkerConfig {
     DEPOSIT_RELAY_MAX_USD: (environment.DEPOSIT_RELAY_MAX_USD || undefined),
     DEPOSIT_RELAY_DAILY_MAX_USD: (environment.DEPOSIT_RELAY_DAILY_MAX_USD || undefined),
     NANSEN_API_URL: (environment.NANSEN_API_URL || undefined),
+    RESEARCH_DAILY_LIMIT: (environment.RESEARCH_DAILY_LIMIT || undefined),
+    RESEARCH_GLOBAL_DAILY_LIMIT: (environment.RESEARCH_GLOBAL_DAILY_LIMIT || undefined),
   });
   const crossmintApiKey = (environment.CROSSMINT_API_KEY || undefined);
   const crossmintWalletSecret = (environment.CROSSMINT_WALLET_SECRET || undefined);
@@ -146,6 +158,7 @@ export function loadWorkerConfig(env: WorkerEnvironment): WorkerConfig {
     ...optionalConfig("whopApiKey", (environment.WHOP_API_KEY || undefined)),
     ...optionalConfig("whopWebhookSecret", (environment.WHOP_WEBHOOK_SECRET || undefined)),
     ...optionalConfig("nansenApiKey", (environment.NANSEN_API_KEY || undefined)),
+    ...optionalConfig("twitterApiKey", (environment.TWITTERAPI_IO_KEY || undefined)),
     ...optionalConfig("typesafeApiKey", (environment.TYPESAFE_API_KEY || undefined)),
     ...optionalConfig("openRouterApiKey", (environment.OPENROUTER_API_KEY || undefined)),
     ...optionalConfig("fcmServiceAccount", (environment.FCM_SERVICE_ACCOUNT || undefined)),
@@ -154,6 +167,8 @@ export function loadWorkerConfig(env: WorkerEnvironment): WorkerConfig {
     depositRelayMaxUsd: value.DEPOSIT_RELAY_MAX_USD,
     depositRelayDailyMaxUsd: value.DEPOSIT_RELAY_DAILY_MAX_USD,
     nansenApiUrl: value.NANSEN_API_URL,
+    researchDailyLimit: value.RESEARCH_DAILY_LIMIT,
+    researchGlobalDailyLimit: value.RESEARCH_GLOBAL_DAILY_LIMIT,
   };
 }
 

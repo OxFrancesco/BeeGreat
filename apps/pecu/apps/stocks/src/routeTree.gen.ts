@@ -10,9 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StocksRouteImport } from './routes/stocks'
+import { Route as ResearchesRouteImport } from './routes/researches'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as AgentRouteImport } from './routes/agent'
+import { Route as ResearchesIndexRouteImport } from './routes/researches.index'
 import { Route as ProfileIndexRouteImport } from './routes/profile.index'
+import { Route as ResearchesCodeRouteImport } from './routes/researches.$code'
 import { Route as AeroStocksRouteImport } from './routes/aero.stocks'
 import { Route as StocksApiMarketRouteImport } from './routes/stocks.api.market'
 import { Route as StocksApiSplatRouteImport } from './routes/stocks.api.$'
@@ -22,6 +25,11 @@ import { Route as AeroStocksSplatRouteImport } from './routes/aero.stocks.$'
 const StocksRoute = StocksRouteImport.update({
   id: '/stocks',
   path: '/stocks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchesRoute = ResearchesRouteImport.update({
+  id: '/researches',
+  path: '/researches',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -34,10 +42,20 @@ const AgentRoute = AgentRouteImport.update({
   path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResearchesIndexRoute = ResearchesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ResearchesRoute,
+} as any)
 const ProfileIndexRoute = ProfileIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProfileRoute,
+} as any)
+const ResearchesCodeRoute = ResearchesCodeRouteImport.update({
+  id: '/$code',
+  path: '/$code',
+  getParentRoute: () => ResearchesRoute,
 } as any)
 const AeroStocksRoute = AeroStocksRouteImport.update({
   id: '/aero/stocks',
@@ -68,9 +86,12 @@ const AeroStocksSplatRoute = AeroStocksSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/agent': typeof AgentRoute
   '/profile': typeof ProfileRouteWithChildren
+  '/researches': typeof ResearchesRouteWithChildren
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
+  '/researches/$code': typeof ResearchesCodeRoute
   '/profile/': typeof ProfileIndexRoute
+  '/researches/': typeof ResearchesIndexRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
   '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
@@ -80,7 +101,9 @@ export interface FileRoutesByTo {
   '/agent': typeof AgentRoute
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
+  '/researches/$code': typeof ResearchesCodeRoute
   '/profile': typeof ProfileIndexRoute
+  '/researches': typeof ResearchesIndexRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
   '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
@@ -90,9 +113,12 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/agent': typeof AgentRoute
   '/profile': typeof ProfileRouteWithChildren
+  '/researches': typeof ResearchesRouteWithChildren
   '/stocks': typeof StocksRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
+  '/researches/$code': typeof ResearchesCodeRoute
   '/profile/': typeof ProfileIndexRoute
+  '/researches/': typeof ResearchesIndexRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
   '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
@@ -103,9 +129,12 @@ export interface FileRouteTypes {
   fullPaths:
     | '/agent'
     | '/profile'
+    | '/researches'
     | '/stocks'
     | '/aero/stocks'
+    | '/researches/$code'
     | '/profile/'
+    | '/researches/'
     | '/aero/stocks/$'
     | '/profile/safe/$address'
     | '/stocks/api/$'
@@ -115,7 +144,9 @@ export interface FileRouteTypes {
     | '/agent'
     | '/stocks'
     | '/aero/stocks'
+    | '/researches/$code'
     | '/profile'
+    | '/researches'
     | '/aero/stocks/$'
     | '/profile/safe/$address'
     | '/stocks/api/$'
@@ -124,9 +155,12 @@ export interface FileRouteTypes {
     | '__root__'
     | '/agent'
     | '/profile'
+    | '/researches'
     | '/stocks'
     | '/aero/stocks'
+    | '/researches/$code'
     | '/profile/'
+    | '/researches/'
     | '/aero/stocks/$'
     | '/profile/safe/$address'
     | '/stocks/api/$'
@@ -136,6 +170,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AgentRoute: typeof AgentRoute
   ProfileRoute: typeof ProfileRouteWithChildren
+  ResearchesRoute: typeof ResearchesRouteWithChildren
   StocksRoute: typeof StocksRouteWithChildren
   AeroStocksRoute: typeof AeroStocksRouteWithChildren
 }
@@ -147,6 +182,13 @@ declare module '@tanstack/react-router' {
       path: '/stocks'
       fullPath: '/stocks'
       preLoaderRoute: typeof StocksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/researches': {
+      id: '/researches'
+      path: '/researches'
+      fullPath: '/researches'
+      preLoaderRoute: typeof ResearchesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -163,12 +205,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/researches/': {
+      id: '/researches/'
+      path: '/'
+      fullPath: '/researches/'
+      preLoaderRoute: typeof ResearchesIndexRouteImport
+      parentRoute: typeof ResearchesRoute
+    }
     '/profile/': {
       id: '/profile/'
       path: '/'
       fullPath: '/profile/'
       preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof ProfileRoute
+    }
+    '/researches/$code': {
+      id: '/researches/$code'
+      path: '/$code'
+      fullPath: '/researches/$code'
+      preLoaderRoute: typeof ResearchesCodeRouteImport
+      parentRoute: typeof ResearchesRoute
     }
     '/aero/stocks': {
       id: '/aero/stocks'
@@ -221,6 +277,20 @@ const ProfileRouteChildren: ProfileRouteChildren = {
 const ProfileRouteWithChildren =
   ProfileRoute._addFileChildren(ProfileRouteChildren)
 
+interface ResearchesRouteChildren {
+  ResearchesCodeRoute: typeof ResearchesCodeRoute
+  ResearchesIndexRoute: typeof ResearchesIndexRoute
+}
+
+const ResearchesRouteChildren: ResearchesRouteChildren = {
+  ResearchesCodeRoute: ResearchesCodeRoute,
+  ResearchesIndexRoute: ResearchesIndexRoute,
+}
+
+const ResearchesRouteWithChildren = ResearchesRoute._addFileChildren(
+  ResearchesRouteChildren,
+)
+
 interface StocksRouteChildren {
   StocksApiSplatRoute: typeof StocksApiSplatRoute
   StocksApiMarketRoute: typeof StocksApiMarketRoute
@@ -249,6 +319,7 @@ const AeroStocksRouteWithChildren = AeroStocksRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   AgentRoute: AgentRoute,
   ProfileRoute: ProfileRouteWithChildren,
+  ResearchesRoute: ResearchesRouteWithChildren,
   StocksRoute: StocksRouteWithChildren,
   AeroStocksRoute: AeroStocksRouteWithChildren,
 }

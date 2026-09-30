@@ -11,9 +11,15 @@ import { log } from "../logger";
 import { UsageLimitError } from "../usage-limit";
 import type { TurnStage } from "../progress";
 import type { ParagraphSink } from "../web-stream";
+import { ChainDataService } from "../integrations/chain-data";
+import { TwitterService } from "../integrations/twitter";
+import { NansenService } from "../integrations/nansen";
+import type { ChainProfile } from "../research/agents";
+import type { ResearchTurn } from "../research/runner";
+import type { ResearchWindow } from "../research-contract";
 
 type Capability = Exclude<keyof AgentCapabilities, "yoloEnabled">;
-const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "liquidity", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "safeList", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall", "taskCreate", "taskList", "taskUpdate"]);
+const allowed = new Set<string>(["askUser", "aaveCall", "polymarketResearch", "polymarketRead", "walletAddress", "walletBalances", "aeroRead", "aeroPropose", "liquidity", "stockTrades", "evmToken", "evmAllowance", "evmRead", "evmInspect", "evmDecode", "safeRead", "safeQueue", "safeList", "evmPropose", "depositInstructions", "depositSetup", "depositStatus", "nansenCall", "taskCreate", "taskList", "taskUpdate", "researchStart", "researchList", "researchGet", "researchCancel"]);
 
 export class InferenceTools extends RpcTarget {
   constructor(private readonly capabilities: AgentCapabilities, private readonly mode?: ResponseMode, private readonly onParagraph?: ParagraphSink) { super(); }
@@ -38,10 +44,18 @@ export function userInference(env: Cloudflare.Env, senderId: string) {
   return env.INFERENCE.get(env.INFERENCE.idFromName(`x:${senderId}`));
 }
 
+/** A disposable runtime for one research stage. Keys start with `research:`, so they never collide with a user's `x:` runtime. */
+export function researchInference(env: Pick<Cloudflare.Env, "INFERENCE">, key: string) {
+  if (!key.startsWith("research:")) throw new Error("Research runtimes need a research key");
+  return env.INFERENCE.get(env.INFERENCE.idFromName(key));
+}
+
 export class UserInference extends DurableObject<Cloudflare.Env> {
   private readonly ready: Promise<void>;
   private harness!: OpenCodeHarness;
+  private readonly chainData = new ChainDataService();
   private active?: { eventId: string; conversationId: string; senderId: string; capabilities: AgentCapabilities };
+  private researching = false;
   private changing = false;
 
   constructor(ctx: DurableObjectState, env: Cloudflare.Env) {
@@ -51,19 +65,48 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
         await ctx.storage.delete("login");
         await ctx.storage.put("loginState", "expired");
       }
+      const config = loadWorkerConfig(env);
       const store = new DurableStore(ctx.storage);
       this.harness = await OpenCodeHarness.create(ctx.storage, store, (message) => {
         if (!this.active || this.active.eventId !== message.eventId) throw new Error("This turn has ended. Send your request again.");
         return this.active.capabilities;
-      }, codexContainerFetch(env.CODEX), loadWorkerConfig(env).openRouterApiKey,
-        loadWorkerConfig(env).analyticsEnabled
+      }, codexContainerFetch(env.CODEX), config.openRouterApiKey,
+        config.analyticsEnabled
           ? batchedAnalytics(work => ctx.waitUntil(work))
-          : undefined, (work) => ctx.waitUntil(work));
+          : undefined, (work) => ctx.waitUntil(work), {
+          chainData: this.chainData,
+          twitter: new TwitterService(config.twitterApiKey),
+          nansen: config.nansenApiKey ? new NansenService(config.nansenApiKey, config.nansenApiUrl) : undefined,
+        });
       store.initialize();
     });
   }
 
   async warm() { await this.ready; }
+
+  /** Build a research run's evidence pack here, so large DefiLlama responses never load into the main object. Returned as JSON text. */
+  async collect(chain: ChainProfile, window: ResearchWindow): Promise<string> {
+    await this.ready;
+    return JSON.stringify(await this.chainData.pack(chain, window));
+  }
+
+  /** Run one research stage. Each stage has its own runtime, so this refuses a second concurrent turn. The submission crosses RPC as JSON text. */
+  async research(turn: ResearchTurn): Promise<{ text: string; submission: string | null; calls: number }> {
+    await this.ready;
+    if (this.active || this.researching) throw new Error("This research runtime is busy.");
+    this.researching = true;
+    try {
+      const result = await this.harness.research(turn);
+      return { text: result.text, submission: result.submission === null ? null : JSON.stringify(result.submission), calls: result.calls };
+    } finally { this.researching = false; }
+  }
+
+  /** Delete a finished research runtime's sessions and storage. */
+  async forget() {
+    await this.ready;
+    if (this.active || this.researching) return;
+    await this.ctx.storage.deleteAll();
+  }
 
   async status() {
     await this.ready;
@@ -161,6 +204,10 @@ export class UserInference extends DurableObject<Cloudflare.Env> {
       taskCreate: (...args) => bridge.call("taskCreate", args),
       taskList: (...args) => bridge.call("taskList", args),
       taskUpdate: (...args) => bridge.call("taskUpdate", args),
+      researchStart: (...args) => bridge.call("researchStart", args),
+      researchList: (...args) => bridge.call("researchList", args),
+      researchGet: (...args) => bridge.call("researchGet", args),
+      researchCancel: (...args) => bridge.call("researchCancel", args),
     };
     this.active = { eventId: message.eventId, conversationId: message.conversationId, senderId: message.senderId, capabilities };
     let delivery = Promise.resolve();

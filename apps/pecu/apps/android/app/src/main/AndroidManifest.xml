@@ -16,6 +16,7 @@
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
         <data android:scheme="pecu" android:host="agent" />
+        <data android:scheme="pecu" android:host="researches" />
       </intent-filter>
     </activity>
     <service android:name=".PecuMessagingService" android:exported="false">

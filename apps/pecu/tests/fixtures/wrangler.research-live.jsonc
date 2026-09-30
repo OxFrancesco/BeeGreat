@@ -1,0 +1,10 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "pecu-research-live-test",
+  "main": "research-live-worker.ts",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "limits": { "cpu_ms": 120000 },
+  "durable_objects": { "bindings": [{ "name": "PROBE", "class_name": "ResearchProbe" }, { "name": "INFERENCE", "class_name": "UserInference" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ResearchProbe", "UserInference"] }]
+}

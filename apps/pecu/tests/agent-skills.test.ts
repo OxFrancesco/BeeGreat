@@ -4,10 +4,15 @@ import { aeroTools } from "../src/cloudflare/aero-tools";
 import { evmTools } from "../src/cloudflare/evm-tools";
 import { polymarketEndpointNames } from "../src/integrations/polymarket/catalog.generated";
 import { nansenEndpointNames } from "../src/integrations/nansen";
+import { twitterEndpointNames } from "../src/integrations/twitter";
+import { chainDataEndpointNames } from "../src/integrations/chain-data";
+import { researchToolVisible } from "../src/research/agents";
 
 const taskTools = ["task_create", "task_list", "task_update", "aave_skill", "aave_schema", "aave_call", "polymarket_research", "deposit_instructions", "deposit_setup", "deposit_status", "aero_liquidity", "aero_stock_trades",
   ...aeroTools.map(tool => tool.name), ...evmTools.map(tool => tool.name),
-  ...polymarketEndpointNames.map(name => `polymarket_${name}`), ...nansenEndpointNames.map(name => `nansen_${name}`)];
+  ...polymarketEndpointNames.map(name => `polymarket_${name}`), ...nansenEndpointNames.map(name => `nansen_${name}`),
+  ...twitterEndpointNames.map(name => `twitter_${name}`), ...chainDataEndpointNames.map(name => `chain_${name}`),
+  "research_start", "research_list", "research_get", "research_cancel"];
 
 test.each(taskTools)("%s belongs to a skill", name => {
   const skill = skillForTool(name);
@@ -58,6 +63,12 @@ const cases: [string, AgentSkill[]][] = [
   ["How do I add money with a bank transfer?", ["funding"]],
   ["Use this plan", []],
   ["hello", []],
+  ["What is @jessepollak posting about?", ["twitter"]],
+  ["Show me tweets about AERO", ["twitter"]],
+  ["What was Base TVL last week?", ["onchain"]],
+  ["Which protocols drove DEX volume on Base?", ["onchain"]],
+  ["Research why Base moved this week", ["research"]],
+  ["What happened on Solana this month?", ["research"]],
 ];
 test.each(cases)("%s selects %p", (text, expected) => {
   expect(skillsForText(text)).toEqual(expected);
@@ -76,4 +87,23 @@ test("task instructions are stable and contain only the active skills", () => {
   expect(taskInstructions(["polymarket"])).toContain("Polymarket odds");
   expect(taskInstructions(["polymarket"])).not.toContain("Organization wallets");
   expect(taskInstructions([])).not.toContain("prepare_action");
+});
+
+test("research submit tools stay out of chat and inside their research role", () => {
+  for (const name of ["research_findings", "research_report"]) {
+    expect(skillForTool(name)).toBeUndefined();
+    expect(toolVisible(name, skillNames)).toBe(false);
+  }
+  expect(researchToolVisible("capital", "chain_protocols")).toBe(true);
+  expect(researchToolVisible("capital", "twitter_search")).toBe(false);
+  expect(researchToolVisible("social", "twitter_search")).toBe(true);
+  expect(researchToolVisible("social", "chain_protocol")).toBe(true);
+  expect(researchToolVisible("social", "chain_protocols")).toBe(false);
+  expect(researchToolVisible("flows", "nansen_token_flows")).toBe(true);
+  expect(researchToolVisible("flows", "nansen_wallet_portfolio")).toBe(false);
+  expect(researchToolVisible("flows", "research_findings")).toBe(true);
+  expect(researchToolVisible("synthesis", "research_report")).toBe(true);
+  expect(researchToolVisible("synthesis", "research_findings")).toBe(false);
+  expect(researchToolVisible("synthesis", "chain_overview")).toBe(false);
+  for (const role of ["capital", "activity", "flows", "social"] as const) expect(researchToolVisible(role, "wallet_balances") || researchToolVisible(role, "ask_user")).toBe(false);
 });

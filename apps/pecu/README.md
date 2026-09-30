@@ -199,6 +199,16 @@ bunx wrangler secret put NANSEN_API_KEY
 
 Nansen's redistribution terms shape the catalog. Address labels, all smart-money endpoints, the PnL leaderboards, and `tgm/holders` are not wired at all, and `nansen_token_dex_trades` always sends `only_smart_money: false`. A test pins the allowed endpoint list.
 
+## Research
+
+`@research base` (or `/research solana 30d`, or "research why Base moved this week") starts a run that explains why a chain moved: DefiLlama and growthepie metrics, protocol movers, Nansen flows and posts on X, read by four specialists and written up by an editor. Reports arrive in the chat, at `pecu.app/researches` and in the Android research sheet. The specialists use the operator's OpenRouter key and the X tools need twitterapi.io:
+
+```sh
+bunx wrangler secret put TWITTERAPI_IO_KEY
+```
+
+`RESEARCH_DAILY_LIMIT` (default 3 per sender) and `RESEARCH_GLOBAL_DAILY_LIMIT` (default 40) cap runs per UTC day. `GET /admin/research/CODE` returns a finished run with the OnChain-Reports source export. `bun scripts/probe-research.ts base 7d` runs one real run in local workerd and prints its time and OpenRouter cost. Details in `docs/54-pecu-research.md` at the monorepo root.
+
 ## Aave and Polymarket
 
 Ask for Aave rates, positions, history, risk reduction, or a Base supply/borrow/withdraw/repay preview. The five official skills live in `skills/aave`; their tool schemas and runtime content are bundled in `src/integrations`. `prepare_action` runs discovery, inspection, and simulation before creating an exact confirmation plan. An allowance approval does not complete the later supply or repayment.

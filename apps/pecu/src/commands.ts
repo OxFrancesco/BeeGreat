@@ -25,5 +25,7 @@ export const chatCommands: readonly ChatCommand[] = [
   { command: "/polymarket help", summary: "Explore Polymarket data reads" },
   { command: "/polymarket status", summary: "Read your latest research result" },
   { command: "/nansen help", summary: "On-chain analytics for tokens, wallets, and prediction markets" },
+  { command: "/research", args: "base 7d", summary: "Explain why a chain moved over 1d, 7d or 30d" },
+  { command: "/researches", summary: "List your research reports" },
   { command: "/help", summary: "Show the command list" },
 ];

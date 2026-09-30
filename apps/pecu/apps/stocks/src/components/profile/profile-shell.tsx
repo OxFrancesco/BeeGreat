@@ -1,6 +1,6 @@
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { Link } from "@tanstack/react-router";
-import { MenuIcon, MessageSquareIcon, ShieldIcon, UserRoundIcon } from "lucide-react";
+import { MenuIcon, MessageSquareIcon, ShieldIcon, TelescopeIcon, UserRoundIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import type { ProfileOverview } from "../../../../../src/safe-profile-contract";
 import { ProfileContext, useProfileOverview } from "@/lib/profile";
@@ -20,6 +20,10 @@ function ProfileNav({ overview, onNavigate }: { overview: ProfileOverview | null
         <Link className="pecu-profile-link" to="/profile" activeOptions={{ exact: true }} activeProps={{ "aria-current": "page" }} onClick={onNavigate}>
           <UserRoundIcon className="size-4" aria-hidden="true" />
           Profile
+        </Link>
+        <Link className="pecu-profile-link" to="/researches" onClick={onNavigate}>
+          <TelescopeIcon className="size-4" aria-hidden="true" />
+          Research
         </Link>
       </div>
       {overview?.orgs.map((org) => (

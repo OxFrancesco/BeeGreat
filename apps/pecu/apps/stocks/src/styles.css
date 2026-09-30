@@ -7,6 +7,7 @@
 @import "./pecu.css";
 @import "./components/address-text.css";
 @import "./profile.css";
+@import "./researches.css";
 @source "../../../../../node_modules/streamdown/dist/*.js";
 @source "./";
 /* Dark mode is opt-in by class. The OS preference must not restyle a light-only app. */

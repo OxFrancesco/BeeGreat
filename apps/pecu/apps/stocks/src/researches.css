@@ -1,0 +1,33 @@
+/* Research: start form, run list, stage progress and the report. Same amber tokens and clay material as the profile. */
+.pecu-research-start { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 20px; padding: 20px 24px; border-radius: var(--clay-radius-large); background: var(--card); box-shadow: var(--clay-shadow); }
+.pecu-research-field { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.pecu-research-field > span, .pecu-research-field > legend { padding: 0; font-size: 13px; font-weight: 600; color: var(--muted-foreground); }
+.pecu-research-field:first-child { flex: 1 1 220px; }
+.pecu-research-field input { min-height: 44px; font-size: 15px; }
+.pecu-research-submit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.pecu .pecu-research-submit .pecu-button { min-height: 48px; padding-inline: 20px; }
+
+.pecu-research-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pecu .pecu-research-row { display: grid; gap: 6px; padding: 16px 18px; border-radius: var(--clay-radius-surface); background: var(--card); box-shadow: var(--clay-shadow-sm); color: var(--foreground); text-decoration: none; }
+.pecu-research-row-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.pecu-research-row-title { font-size: 16px; font-weight: 650; letter-spacing: -0.01em; }
+.pecu-research-row-headline { font-size: 14px; line-height: 1.5; color: var(--muted-foreground); }
+.pecu .pecu-research-link .pecu-profile-link-name { font-weight: 550; }
+
+.pecu-research-stages { display: grid; gap: 2px; margin: 0; padding: 6px; border-radius: var(--clay-radius-surface); background: var(--muted); box-shadow: var(--clay-shadow-inset); list-style: none; }
+.pecu-research-stages li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; padding: 10px 12px; border-radius: var(--clay-radius-control); }
+.pecu-research-stages li[data-state="running"] { background: var(--card); box-shadow: var(--clay-shadow-sm); }
+.pecu-research-stage-name { font-size: 14px; font-weight: 650; }
+.pecu-research-stage-state { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+.pecu-research-stages li[data-state="done"] .pecu-research-stage-state { color: var(--foreground); }
+.pecu-research-stage-note { flex-basis: 100%; font-size: 13px; line-height: 1.5; color: var(--muted-foreground); }
+
+.pecu-research-report { font-size: 15px; line-height: 1.65; }
+.pecu-research-report h1 { display: none; }
+.pecu-research-report h2 { margin: 32px 0 12px; font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+.pecu-research-report h3 { margin: 22px 0 8px; font-size: 16px; font-weight: 650; }
+.pecu-research-report :is(table) { display: block; width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 13px; }
+.pecu-research-report :is(th, td) { padding: 8px 10px; border-top: 1px solid var(--border); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pecu-research-report :is(th, td):first-child { padding-left: 0; text-align: left; white-space: normal; }
+.pecu-research-report thead th { border-top: 0; font-weight: 500; color: var(--muted-foreground); }
+.pecu-research-report a { color: var(--accent-foreground); overflow-wrap: anywhere; }

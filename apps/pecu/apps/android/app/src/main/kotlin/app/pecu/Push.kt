@@ -52,10 +52,10 @@ object Push {
   })
 }
 
-/** Parse an FCM data message into the alert the app shows. Returns null for anything that is not a Pecu automation message. */
+/** Parse an FCM data message into the alert the app shows. Returns null for anything that is not a Pecu automation or research message. */
 fun automationAlert(data: Map<String, String>): AutomationAlert? {
   val title = data["title"]?.takeIf { it.isNotBlank() } ?: return null
-  val tag = data["tag"]?.takeIf { it.startsWith("task:") } ?: return null
+  val tag = data["tag"]?.takeIf { it.startsWith("task:") || it.startsWith("research:") } ?: return null
   return AutomationAlert(title, data["body"].orEmpty(), tag, data["threadId"]?.takeIf { it.isNotBlank() }, data["channel"] ?: "web")
 }
 

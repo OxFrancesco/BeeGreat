@@ -1,6 +1,6 @@
 import { useClerk, useUser } from "@clerk/tanstack-react-start";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayersIcon, LogOutIcon, SettingsIcon, UserRoundIcon } from "lucide-react";
+import { LayersIcon, LogOutIcon, SettingsIcon, TelescopeIcon, UserRoundIcon } from "lucide-react";
 import { DropdownMenu } from "radix-ui";
 import { useRef } from "react";
 import { openChatGptConnection } from "../lib/inference-navigation";
@@ -17,6 +17,7 @@ export function AccountMenu() {
   const clerk = useClerk();
   const account = useAccountIdentity();
   const onProfile = useRouterState({ select: (state) => state.location.pathname.startsWith("/profile") });
+  const onResearch = useRouterState({ select: (state) => state.location.pathname.startsWith("/researches") });
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <>
@@ -40,6 +41,12 @@ export function AccountMenu() {
                 <Link to="/profile" aria-current={onProfile ? "page" : undefined}>
                   <UserRoundIcon aria-hidden="true" />
                   Profile
+                </Link>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item className="pecu-account-item" asChild>
+                <Link to="/researches" aria-current={onResearch ? "page" : undefined}>
+                  <TelescopeIcon aria-hidden="true" />
+                  Research
                 </Link>
               </DropdownMenu.Item>
               <DropdownMenu.Item className="pecu-account-item" onSelect={openPecuCards}>
