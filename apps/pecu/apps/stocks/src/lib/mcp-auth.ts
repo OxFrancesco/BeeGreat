@@ -50,7 +50,7 @@ export async function pecuMcpIdentity(request: Request, config: McpAuthConfig): 
       },
       body: JSON.stringify({ access_token: bearer }),
       cache: "no-store",
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
     if ([400, 404, 422].includes(response.status)) throw new McpAuthError(401, "Your Pecu connection is invalid or has expired. Connect again.");
@@ -92,7 +92,7 @@ export async function pecuMcpAuthenticate(request: Request, config: McpAuthConfi
 export async function pecuMcpAuthorizationMetadata(config: McpAuthConfig): Promise<Response> {
   try {
     const response = await fetch(new URL("/.well-known/oauth-authorization-server", config.issuer), {
-      redirect: "error",
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
     if (!response.ok) throw new Error("Clerk OAuth metadata is unavailable.");
