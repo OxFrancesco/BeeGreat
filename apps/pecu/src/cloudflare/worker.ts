@@ -44,6 +44,10 @@ import type { ResearchRunner } from "../research/runner";
 import type { ResearchPack } from "../integrations/chain-data";
 import { researchActionSchema, researchCodeSchema, researchQuerySchema } from "../research-contract";
 import { notificationReadSchema, pushRegisterSchema, pushUnregisterSchema, taskActionSchema } from "../task-contract";
+import { mcpBackendRequestSchema } from "../mcp-contract";
+import { executePecuMcpTool } from "../mcp-execution";
+import { ChainDataService } from "../integrations/chain-data";
+import { TwitterService } from "../integrations/twitter";
 
 const objectName = "basedbot-main";
 const xOAuthStateKey = "basedbot-x-oauth";
@@ -260,6 +264,13 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       if (url.pathname.startsWith("/internal/web/") && request.method === "POST") {
         if (!this.webAgent) return json({ error: "Agent unavailable" }, 503);
         const raw = jsonValueSchema.parse(await request.json());
+        if (url.pathname === "/internal/web/mcp-call") {
+          if (!this.agent) return json({ error: "Agent unavailable" }, 503);
+          return json(await executePecuMcpTool(this.agent, this.webAgent, this.ctx.storage.sql,
+            mcpBackendRequestSchema.parse(raw), {
+              chainData: new ChainDataService(), twitter: new TwitterService(this.config.twitterApiKey),
+            }));
+        }
         if (["/internal/web/inference", "/internal/web/inference-connect", "/internal/web/inference-disconnect"].includes(url.pathname)) {
           const viewer = webIdentitySchema.parse(raw);
           const inference = userInference(this.env, viewer.senderId);
@@ -808,9 +819,9 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
 export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   override async fetch(request: Request): Promise<Response> {
     const path = new URL(request.url).pathname;
-    if (request.method !== "POST" || !["/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action", "/wallets", "/wallet-action", "/tasks", "/task-action", "/notifications", "/notification-read", "/push-register", "/push-unregister", "/researches", "/research", "/research-action"].includes(path)) return json({error:"not found"},404);
+    if (request.method !== "POST" || !["/mcp-call", "/turn", "/state", "/messages", "/threads", "/basket", "/thread-delete", "/inference", "/inference-connect", "/inference-disconnect", "/cards", "/cards-claim", "/portfolio", "/pnl", "/profile", "/profile-safe", "/profile-action", "/wallets", "/wallet-action", "/tasks", "/task-action", "/notifications", "/notification-read", "/push-register", "/push-unregister", "/researches", "/research", "/research-action"].includes(path)) return json({error:"not found"},404);
     const body = await request.text();
-    if (body.length > 8192) return json({error:"Request too large"},413);
+    if (body.length > (path === "/mcp-call" ? 65_536 : 8192)) return json({error:"Request too large"},413);
     const accept = request.headers.get("Accept");
     const headers = new Headers({ "Content-Type": "application/json" });
     if (accept) headers.set("Accept", accept);

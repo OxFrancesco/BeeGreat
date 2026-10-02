@@ -31,7 +31,7 @@ import type { EvmReadResult, EvmService, EvmTxAction } from "./evm";
 import type { SafeReadCommand } from "./safe";
 import type { UserOperationOutcome, UserOperationReference } from "./receipt";
 import { treasurySenderId, WalletService } from "./wallet";
-import { isWebConversation } from "./web-identity";
+import { isWebConversation, senderKind } from "./web-identity";
 import { whopDepositForwardSchema, whopLedgerActivitySchema } from "./whop-webhook";
 import { aeroPlanText, aeroReadText, chatError, depositInstructionsText, evmPlanText, evmReadText, verbosePage } from "./chat";
 import { planSummary, tokenHints, transactionPlan } from "./transaction-plan";
@@ -44,6 +44,7 @@ import { grantActive, maxRunSteps, type Grant, type TaskCheckpoint, type TaskMod
 import { grantDecision, type Pricer } from "./task-grant";
 import type { TaskControl } from "./task-control";
 import { ResearchError, type ResearchCommand, type ResearchControl, type ResearchOrigin } from "./research/control";
+import { mcpCallResultSchema, type McpCallResult } from "./mcp-contract";
 
 /** 32 symbols without I, O, 0, 1; 256 is a multiple of 32 so a byte modulo stays uniform. */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -287,6 +288,62 @@ export class PecuAgent {
     const trace = await turnTraceIdentity(message.senderId, message.eventId, message.conversationId);
     trace.record = span => this.track(message.senderId, span);
     return turnTrace.run(trace, () => this.handleTurn(message, retryUnanswered, progress));
+  }
+
+  storedToolResult(eventId: string): McpCallResult | undefined {
+    const reply = this.store.eventReply(eventId);
+    return reply === undefined ? undefined : mcpCallResultSchema.parse(JSON.parse(reply));
+  }
+
+  async handleTool(message: VerifiedMessage, execute: (capabilities: AgentCapabilities) => Promise<McpCallResult>): Promise<McpCallResult> {
+    const trace = await turnTraceIdentity(message.senderId, message.eventId, message.conversationId);
+    trace.record = span => this.track(message.senderId, span);
+    return turnTrace.run(trace, async () => {
+      const claim = this.store.claimEvent(message.eventId, message.conversationId, message.senderId);
+      if (claim === "completed") {
+        const result = this.storedToolResult(message.eventId);
+        if (!result) throw new Error("This MCP request has no saved result.");
+        return result;
+      }
+      if (claim === "busy") return { text: "This MCP request is still running. Check the original request before trying again.", isError: true };
+      this.previewOnly.add(message.eventId);
+      let preview: string | undefined;
+      const rememberPreview = <Args extends unknown[]>(operation: (...args: Args) => Promise<string>) => async (...args: Args) => {
+        const text = await operation(...args);
+        const intent = this.store.intentForSource(message.eventId);
+        const code = [...text.matchAll(/\/(?:confirm|cancel) ([A-Z0-9]{6})\b/g)].at(-1)?.[1];
+        if (intent && code && intent.codeHash === await digest(code)) preview = text;
+        return text;
+      };
+      const preservePreview = (result: McpCallResult): McpCallResult => {
+        if (preview && !result.text.includes(preview)) result.text += `\n\n${preview}`;
+        return result;
+      };
+      try {
+        if (message.senderId === treasurySenderId) throw new Error("This sender ID is reserved for the Pecu treasury.");
+        if (senderKind(message.senderId) === "x" && !this.store.wallet(message.senderId))
+          throw new Error("No Pecu wallet exists for this X account. Send /wallet to Pecu on X first.");
+        await this.walletAddress(message.senderId);
+        const capabilities = this.capabilitiesFor(message);
+        const result = preservePreview(mcpCallResultSchema.parse(await execute({
+          ...capabilities,
+          aaveCall: rememberPreview(capabilities.aaveCall),
+          aeroPropose: rememberPreview(capabilities.aeroPropose),
+          liquidity: rememberPreview(capabilities.liquidity),
+          stockTrades: rememberPreview(capabilities.stockTrades),
+          evmPropose: rememberPreview(capabilities.evmPropose),
+        })));
+        this.store.completeEvent(message.eventId, JSON.stringify(result));
+        return result;
+      } catch (error) {
+        const result = preservePreview({ text: chatError(error), isError: true });
+        this.store.completeEvent(message.eventId, JSON.stringify(result));
+        log("warn", "mcp_tool_failed", { eventId: message.eventId, senderId: message.senderId, error: errorMessage(error) });
+        return result;
+      } finally {
+        this.previewOnly.delete(message.eventId);
+      }
+    });
   }
 
   private async handleTurn(message: VerifiedMessage, retryUnanswered: boolean, progress?: ParagraphSink): Promise<string | undefined> {

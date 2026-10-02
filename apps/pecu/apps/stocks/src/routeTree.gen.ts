@@ -12,15 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as StocksRouteImport } from './routes/stocks'
 import { Route as ResearchesRouteImport } from './routes/researches'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as AgentRouteImport } from './routes/agent'
 import { Route as ResearchesIndexRouteImport } from './routes/researches.index'
 import { Route as ProfileIndexRouteImport } from './routes/profile.index'
 import { Route as ResearchesCodeRouteImport } from './routes/researches.$code'
 import { Route as AeroStocksRouteImport } from './routes/aero.stocks'
+import { Route as DotwellKnownOauthProtectedResourceRouteImport } from './routes/[.]well-known.oauth-protected-resource'
 import { Route as StocksApiMarketRouteImport } from './routes/stocks.api.market'
 import { Route as StocksApiSplatRouteImport } from './routes/stocks.api.$'
 import { Route as ProfileSafeAddressRouteImport } from './routes/profile.safe.$address'
 import { Route as AeroStocksSplatRouteImport } from './routes/aero.stocks.$'
+import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known.oauth-protected-resource.mcp'
 
 const StocksRoute = StocksRouteImport.update({
   id: '/stocks',
@@ -35,6 +38,11 @@ const ResearchesRoute = ResearchesRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentRoute = AgentRouteImport.update({
@@ -62,6 +70,12 @@ const AeroStocksRoute = AeroStocksRouteImport.update({
   path: '/aero/stocks',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownOauthProtectedResourceRoute =
+  DotwellKnownOauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const StocksApiMarketRoute = StocksApiMarketRouteImport.update({
   id: '/api/market',
   path: '/api/market',
@@ -82,16 +96,25 @@ const AeroStocksSplatRoute = AeroStocksSplatRouteImport.update({
   path: '/$',
   getParentRoute: () => AeroStocksRoute,
 } as any)
+const DotwellKnownOauthProtectedResourceMcpRoute =
+  DotwellKnownOauthProtectedResourceMcpRouteImport.update({
+    id: '/mcp',
+    path: '/mcp',
+    getParentRoute: () => DotwellKnownOauthProtectedResourceRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/agent': typeof AgentRoute
+  '/mcp': typeof McpRoute
   '/profile': typeof ProfileRouteWithChildren
   '/researches': typeof ResearchesRouteWithChildren
   '/stocks': typeof StocksRouteWithChildren
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
   '/researches/$code': typeof ResearchesCodeRoute
   '/profile/': typeof ProfileIndexRoute
   '/researches/': typeof ResearchesIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
   '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
@@ -99,11 +122,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/agent': typeof AgentRoute
+  '/mcp': typeof McpRoute
   '/stocks': typeof StocksRouteWithChildren
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
   '/researches/$code': typeof ResearchesCodeRoute
   '/profile': typeof ProfileIndexRoute
   '/researches': typeof ResearchesIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
   '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
@@ -112,13 +138,16 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/agent': typeof AgentRoute
+  '/mcp': typeof McpRoute
   '/profile': typeof ProfileRouteWithChildren
   '/researches': typeof ResearchesRouteWithChildren
   '/stocks': typeof StocksRouteWithChildren
+  '/.well-known/oauth-protected-resource': typeof DotwellKnownOauthProtectedResourceRouteWithChildren
   '/aero/stocks': typeof AeroStocksRouteWithChildren
   '/researches/$code': typeof ResearchesCodeRoute
   '/profile/': typeof ProfileIndexRoute
   '/researches/': typeof ResearchesIndexRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/aero/stocks/$': typeof AeroStocksSplatRoute
   '/profile/safe/$address': typeof ProfileSafeAddressRoute
   '/stocks/api/$': typeof StocksApiSplatRoute
@@ -128,13 +157,16 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/agent'
+    | '/mcp'
     | '/profile'
     | '/researches'
     | '/stocks'
+    | '/.well-known/oauth-protected-resource'
     | '/aero/stocks'
     | '/researches/$code'
     | '/profile/'
     | '/researches/'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/aero/stocks/$'
     | '/profile/safe/$address'
     | '/stocks/api/$'
@@ -142,11 +174,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/agent'
+    | '/mcp'
     | '/stocks'
+    | '/.well-known/oauth-protected-resource'
     | '/aero/stocks'
     | '/researches/$code'
     | '/profile'
     | '/researches'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/aero/stocks/$'
     | '/profile/safe/$address'
     | '/stocks/api/$'
@@ -154,13 +189,16 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/agent'
+    | '/mcp'
     | '/profile'
     | '/researches'
     | '/stocks'
+    | '/.well-known/oauth-protected-resource'
     | '/aero/stocks'
     | '/researches/$code'
     | '/profile/'
     | '/researches/'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/aero/stocks/$'
     | '/profile/safe/$address'
     | '/stocks/api/$'
@@ -169,9 +207,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AgentRoute: typeof AgentRoute
+  McpRoute: typeof McpRoute
   ProfileRoute: typeof ProfileRouteWithChildren
   ResearchesRoute: typeof ResearchesRouteWithChildren
   StocksRoute: typeof StocksRouteWithChildren
+  DotwellKnownOauthProtectedResourceRoute: typeof DotwellKnownOauthProtectedResourceRouteWithChildren
   AeroStocksRoute: typeof AeroStocksRouteWithChildren
 }
 
@@ -196,6 +236,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agent': {
@@ -233,6 +280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AeroStocksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/stocks/api/market': {
       id: '/stocks/api/market'
       path: '/api/market'
@@ -260,6 +314,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/aero/stocks/$'
       preLoaderRoute: typeof AeroStocksSplatRouteImport
       parentRoute: typeof AeroStocksRoute
+    }
+    '/.well-known/oauth-protected-resource/mcp': {
+      id: '/.well-known/oauth-protected-resource/mcp'
+      path: '/mcp'
+      fullPath: '/.well-known/oauth-protected-resource/mcp'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceMcpRouteImport
+      parentRoute: typeof DotwellKnownOauthProtectedResourceRoute
     }
   }
 }
@@ -304,6 +365,21 @@ const StocksRouteChildren: StocksRouteChildren = {
 const StocksRouteWithChildren =
   StocksRoute._addFileChildren(StocksRouteChildren)
 
+interface DotwellKnownOauthProtectedResourceRouteChildren {
+  DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
+}
+
+const DotwellKnownOauthProtectedResourceRouteChildren: DotwellKnownOauthProtectedResourceRouteChildren =
+  {
+    DotwellKnownOauthProtectedResourceMcpRoute:
+      DotwellKnownOauthProtectedResourceMcpRoute,
+  }
+
+const DotwellKnownOauthProtectedResourceRouteWithChildren =
+  DotwellKnownOauthProtectedResourceRoute._addFileChildren(
+    DotwellKnownOauthProtectedResourceRouteChildren,
+  )
+
 interface AeroStocksRouteChildren {
   AeroStocksSplatRoute: typeof AeroStocksSplatRoute
 }
@@ -318,9 +394,12 @@ const AeroStocksRouteWithChildren = AeroStocksRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AgentRoute: AgentRoute,
+  McpRoute: McpRoute,
   ProfileRoute: ProfileRouteWithChildren,
   ResearchesRoute: ResearchesRouteWithChildren,
   StocksRoute: StocksRouteWithChildren,
+  DotwellKnownOauthProtectedResourceRoute:
+    DotwellKnownOauthProtectedResourceRouteWithChildren,
   AeroStocksRoute: AeroStocksRouteWithChildren,
 }
 export const routeTree = rootRouteImport

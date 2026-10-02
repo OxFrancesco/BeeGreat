@@ -1,0 +1,6 @@
+{
+  "name": "pecu-mcp-workerd-test",
+  "main": "mcp-workerd.ts",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"]
+}

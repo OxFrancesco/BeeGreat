@@ -2,31 +2,32 @@ import { codeModeName } from "../src/cloudflare/code-mode";
 import { requestParameters } from "@beegreat/sugar";
 import { SUGAR_ACTIONS, isSugarTxAction } from "@beegreat/sugar/contracts";
 import { aeroTools } from "../src/cloudflare/aero-tools";
-import { evmTools } from "../src/cloudflare/evm-tools";
 import { EVM_TX_ACTIONS } from "../src/evm";
 import { polymarketEndpointNames } from "../src/integrations/polymarket/catalog.generated";
-import { nansenEndpointNames } from "../src/integrations/nansen";
-import { twitterEndpointNames } from "../src/integrations/twitter";
-import { chainDataEndpointNames } from "../src/integrations/chain-data";
+import { registerPecuTools } from "../src/tool-catalog";
 import aaveTools from "../src/integrations/aave-tools.json";
 import { aaveParameters } from "../src/integrations/aave";
 
 const root = new URL("../", import.meta.url);
 const domain = await Bun.file(new URL("src/domain.ts", root)).text();
 const commands = new Set([...[...domain.matchAll(/\bverb === "([^"]+)"/g)].map(match => `/${match[1]}`), "@research"]);
-const harness = await Bun.file(new URL("src/cloudflare/opencode.ts", root)).text();
-const inlineTools = new Set([...harness.matchAll(/(?:draft\.add|register)\(\{\s*name: "([^"]+)"/g)].map(match => match[1]));
+const registered = new Set<string>();
+registerPecuTools(tool => registered.add(tool.name), {
+  capabilities: () => { throw new Error("Inventory has no execution capabilities"); },
+  loadSkills: async () => { throw new Error("Inventory has no execution capabilities"); },
+  research: {
+    active: () => false,
+    meter: async () => { throw new Error("Inventory has no execution capabilities"); },
+    submit: () => { throw new Error("Inventory has no execution capabilities"); },
+  },
+});
 
 const writes = new Set<string>([
   ...EVM_TX_ACTIONS.map(action => action.startsWith("safe_") ? action : `evm_${action}`),
   ...aeroTools.filter(tool => isSugarTxAction(tool.action)).map(tool => tool.name),
   "aero_stock_trades", "aero_liquidity",
 ]);
-const modelTools = [...new Set([
-  codeModeName, ...inlineTools, ...aeroTools.map(tool => tool.name), ...evmTools.map(tool => tool.name),
-  ...polymarketEndpointNames.map(name => `polymarket_${name}`), ...nansenEndpointNames.map(name => `nansen_${name}`),
-  ...twitterEndpointNames.map(name => `twitter_${name}`), ...chainDataEndpointNames.map(name => `chain_${name}`),
-])].sort();
+const modelTools = [codeModeName, ...registered].sort();
 
 console.log(JSON.stringify({
   scope: "Source inventory, not execution evidence. Every row still needs a recipe, prerequisites, channel/provider coverage and a recorded result.",

@@ -3,16 +3,12 @@ import type { Result, ToolContext } from "@opencode-ai/plugin/promise/tool";
 import { Effect, Schema } from "effect";
 import { z } from "zod";
 import { jsonValueSchema, type JsonValue } from "../json-contract";
+import type { PecuToolRegistration } from "../tool-catalog";
 
 export const codeModeName = "run_tools";
 export const directTools = new Set(["ask_user", "load_skills", "aero_liquidity", "research_findings", "research_report"]);
 import { codeModeCallsSchema } from "../progress";
 type Call = z.infer<typeof codeModeCallsSchema>[number];
-type Registration<Input extends z.ZodType> = {
-  name: string; description: string; input: Input;
-  options: { codemode: false };
-  execute: (input: z.output<Input>, context: ToolContext) => Promise<Result>;
-};
 type Entry = {
   name: string; description: string; input: Tool.JsonSchema;
   execute: (input: JsonValue, context: ToolContext) => Promise<string>;
@@ -47,7 +43,7 @@ Available tool signatures:`;
 export class PecuCodeMode {
   private readonly entries = new Map<string, Entry>();
 
-  register<Input extends z.ZodType>(registration: Registration<Input>): void {
+  register<Input extends z.ZodType>(registration: PecuToolRegistration<Input>): void {
     if (!directTools.has(registration.name)) {
       this.entries.set(registration.name, {
         name: registration.name, description: registration.description,

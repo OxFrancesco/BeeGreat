@@ -64,6 +64,11 @@ folder to gather information, feedback, patterns, and templates before writing c
 
 - `resources/kotlin` — Official Kotlin compiler and standard library reference for native Pecu Android
 
+
+- `resources/mcp-typescript-sdk` — Official MCP TypeScript SDK v2 — stateless 2026-07-28 core, Streamable HTTP, MRTR, examples
+- `resources/mcp-spec` — Official MCP specification — 2026-07-28 schema, transport, authorization, SEPs
+- `resources/clerk-javascript` — Official Clerk JavaScript SDK — backend OAuth token verification and user identity
+
 <!-- codeview:end -->
 
 ## Design system

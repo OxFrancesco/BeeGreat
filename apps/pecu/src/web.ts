@@ -19,6 +19,7 @@ import type { ParagraphSink } from "./web-stream";
 import { pnlSnapshotSchema, type PnlSnapshot } from "./analytics-contract";
 import type { MessageOrigin } from "./task-contract";
 import type { Intent } from "./state";
+import type { McpCallResult } from "./mcp-contract";
 import {
   basketSchema,
   webReplySchema,
@@ -291,6 +292,22 @@ export class WebAgent {
     );
     const response = await this.replyRecord(eventId, reply, this.messageIntent(eventId));
     this.sql.exec("UPDATE basedbot_web_turns SET reply=? WHERE id=?", JSON.stringify({ ...response, origin }), eventId);
+  }
+  async recordTool(scope: Scope, eventId: string, label: string, operation: () => Promise<McpCallResult>): Promise<McpCallResult> {
+    if (senderKind(scope.senderId) === "x" && !this.store.wallet(scope.senderId))
+      throw new Error("No Pecu wallet exists for this X account. Send /wallet to Pecu on X first.");
+    const conversationId = this.owner(scope);
+    const release = this.lock(conversationId);
+    if (!release) throw new Error("Pecu is finishing a request in this thread. Try again shortly.");
+    try {
+      const existing = this.sql.exec<{ text: string }>("SELECT text FROM basedbot_web_turns WHERE id=? AND owner=?", eventId, conversationId).toArray()[0];
+      if (existing && existing.text !== label) throw new Error("This request already belongs to another message.");
+      this.sql.exec("INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at) VALUES(?,?,?,?)", eventId, conversationId, label, Date.now());
+      const result = await operation();
+      const reply = await this.replyRecord(eventId, result.text, this.store.intentForSource(eventId));
+      this.sql.exec("UPDATE basedbot_web_turns SET reply=? WHERE id=? AND owner=?", JSON.stringify(reply), eventId, conversationId);
+      return result;
+    } finally { release(); }
   }
   private async replyRecord(eventId: string, reply: string, intent: Intent | undefined) {
     const code = [...reply.matchAll(/\/(?:confirm|cancel) ([A-Z0-9]{6})\b/g)].at(-1)?.[1];

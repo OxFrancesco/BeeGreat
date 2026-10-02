@@ -82,6 +82,9 @@ export default {
       return Response.redirect(url, 308);
     }
     if (
+      url.pathname === "/mcp" ||
+      url.pathname === "/.well-known/oauth-protected-resource" ||
+      url.pathname === "/.well-known/oauth-protected-resource/mcp" ||
       url.pathname === "/stocks" ||
       url.pathname.startsWith("/stocks/") ||
       url.pathname === "/agent" ||

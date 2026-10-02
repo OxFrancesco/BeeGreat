@@ -14,7 +14,32 @@ The chain is fixed to Base mainnet (`8453`). Reads run immediately. Every state-
 
 Chat replies show token amounts, minimum received amounts, recipients, and confirmation controls in plain language. Raw JSON is hidden by default. Send `b/verbose` or `/verbose` to see the latest technical result for your own conversation, and `b/verbose 2` for the next page. This does not create a new quote or transaction, or enable verbose output for future replies. Network fees are marked unavailable when the service has no complete smart-wallet fee estimate.
 
-## What the agent can do
+## MCP
+
+The remote MCP endpoint is `/mcp` on the Pecu web app. It uses the official
+`@modelcontextprotocol/server` 2.2 SDK and the `2026-07-28` stateless protocol.
+Older clients use the same catalog through the SDK's stateless compatibility
+handler. Requests do not create MCP sessions.
+
+The server exposes 190 tools from the shared chat catalog, including
+`run_tools`. The two research-agent submission hooks remain private to their
+research runs. Clerk OAuth resolves the same account, sender and wallet as the
+web app. Reads require `pecu:read`; actions require `pecu:write`. An MCP token
+must be issued for `https://pecu.app/mcp`, and each request checks its validity
+and revocation through the existing Clerk backend.
+
+Transaction tools save previews in a dedicated thread for each MCP client.
+Review and confirm those previews in the signed-in Pecu app. MCP always disables
+automatic execution for its calls and cannot enable YOLO or approve automation
+allowances. Use a UUID `Idempotency-Key` header when retrying the same call.
+Reusing that UUID with different arguments fails.
+
+See [account connection setup](docs/mcp-auth-setup.md) before deployment.
+`bun run verify:mcp` checks modern and legacy HTTP clients, authentication,
+catalog parity and the persisted backend preview flow. Its external services are
+fixtures; it does not prove a production OAuth flow or move funds.
+
+## Chat tools
 
 OpenCode receives two wallet tools, three deposit tools, twenty `nansen_*` analytics tools, one typed tool per Aero SDK action, nine generic EVM tools, 26 Safe tools, and no shell, filesystem, browser, coding, MCP, subagent, or arbitrary-network tools:
 
