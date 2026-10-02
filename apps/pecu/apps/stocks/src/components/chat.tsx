@@ -195,9 +195,9 @@ export function Chat({
                       <span role="status">
                         {account.pending
                           ? "Pecu is answering…"
-                          : "Waiting for Pecu…"}
+                          : message.runState === "retrying" ? "Recovering your request…" : message.runState === "running" ? "Pecu is working. You can leave this chat." : message.runState === "failed" ? "Pecu could not finish. Resume to try again." : "Waiting for Pecu…"}
                       </span>
-                      {!account.pending ? (
+                      {!account.pending && message.runState !== "running" && message.runState !== "retrying" ? (
                         <Button
                           variant="link"
                           disabled={account.pending || account.syncing}

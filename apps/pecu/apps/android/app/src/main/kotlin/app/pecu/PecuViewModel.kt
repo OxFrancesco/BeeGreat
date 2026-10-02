@@ -84,6 +84,17 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
 
   init {
     viewModelScope.launch {
+      combine(_auth, _chat) { auth, chat -> auth.signedIn && chat.pending == null &&
+        (chat.retry?.let { retry -> chat.account?.messages?.none { it.id.endsWith(":" + retry.requestId) } != false } == true ||
+          chat.account?.messages?.any { (it.reply == null && it.runState != "failed") || it.runState == "running" || it.runState == "retrying" || it.reply?.preview?.state == "executing" } == true)
+      }.distinctUntilChanged().collectLatest { recovering ->
+        if (recovering) while (isActive) {
+          delay(3_000)
+          if (loadJob?.isActive != true) reload()
+        }
+      }
+    }
+    viewModelScope.launch {
       (sessions ?: combine(Clerk.isInitialized, Clerk.sessionFlow, Clerk.userFlow) { initialized, session, user ->
         SessionIdentity(user?.id.takeIf { session != null }, initialized, user?.firstName ?: user?.username ?: "Account", user?.imageUrl)
       }).collect { session ->
@@ -177,12 +188,12 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
     }
   }
 
-  fun automationAction(code: String, kind: String, maxUsd: Double? = null) {
+  fun automationAction(code: String, kind: String, maxUsd: Double? = null, scopes: List<String>? = null, days: Int? = null) {
     if (_automations.value.busy != null) return
     viewModelScope.launch {
       _automations.update { it.copy(busy = "$code:$kind", error = null, message = null) }
       try {
-        val result = automationsApi.automationAction(code, kind, maxUsd)
+        val result = automationsApi.automationAction(code, kind, maxUsd, scopes, days)
         val tasks = _automations.value.tasks.orEmpty().let { list -> if (kind == "cancel") list.filterNot { it.code == code } else list.map { if (it.code == code) result.task else it } }
         device?.scheduleReminders(localReminders(tasks, System.currentTimeMillis()))
         _automations.update { it.copy(tasks = tasks, message = result.message) }
@@ -258,7 +269,7 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
           restoredThreads.remove(id)
           remember(id, result)
           val recovered = saved.get<String>("retry")?.let { runCatching { wireJson.decodeFromString<TurnRequest>(it) }.getOrNull() }?.takeIf { it.threadId == id }
-          val finished = recovered != null && result.messages.any { it.id.endsWith(":" + recovered.requestId) && it.reply != null }
+          val finished = recovered != null && result.messages.any { it.id.endsWith(":" + recovered.requestId) && it.reply != null && it.runState != "running" && it.runState != "retrying" }
           if (finished) saved["retry"] = null
           _chat.update { it.copy(account = result, loading = false, syncing = false, retry = if (finished) null else recovered ?: it.retry) }
         }
@@ -446,6 +457,6 @@ class PecuViewModel(private val saved: SavedStateHandle, private val historyDisk
   }
   private fun failure(error: Exception) {
     if (error is CancellationException) throw error
-    _chat.update { it.copy(error = if (error is PecuException) error.message else "The connection to Pecu dropped. Check for a reply, or retry the same request.") }
+    _chat.update { it.copy(error = if (error is PecuException) error.message else "Disconnected. Pecu continues accepted work; reconnecting to check the result.") }
   }
 }

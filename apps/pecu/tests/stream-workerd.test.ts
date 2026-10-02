@@ -9,7 +9,7 @@ test("paragraphs stream incrementally through a Durable Object stub and a servic
   listener.stop(true);
   const wrangler = fileURLToPath(new URL("./bin/wrangler.js", import.meta.resolve("wrangler/package.json")));
   const child = Bun.spawn({
-    cmd: ["node", wrangler, "dev", "--config", "tests/fixtures/wrangler.stream-workerd.jsonc", "--local", "--ip", "127.0.0.1", "--port", String(port), "--show-interactive-dev-session=false"],
+    cmd: ["node", wrangler, "dev", "--config", "tests/fixtures/wrangler.stream-workerd.jsonc", "--local", "--persist-to", `/tmp/pecu-durability-${process.pid}-${Date.now()}`, "--ip", "127.0.0.1", "--port", String(port), "--show-interactive-dev-session=false"],
     env: { ...process.env, WRANGLER_SEND_METRICS: "false", WRANGLER_WRITE_LOGS: "false", WRANGLER_REGISTRY_PATH: `/tmp/pecu-stream-test-${process.pid}` },
     stdout: "pipe",
     stderr: "pipe",
@@ -61,6 +61,26 @@ test("paragraphs stream incrementally through a Durable Object stub and a servic
       finished = z.object({ finished: z.boolean() }).parse(await (await fetch(`http://127.0.0.1:${port}/finished`)).json()).finished;
     }
     expect(finished).toBe(true);
+
+    const accepted = await fetch(`http://127.0.0.1:${port}/durable-turn`);
+    const reader = accepted.body!.getReader();
+    await reader.read();
+    await reader.cancel();
+    try { await fetch(`http://127.0.0.1:${port}/durable-abort`); } catch {}
+    const stateSchema = z.object({ effects: z.number(), messages: z.array(z.object({ runState: z.string().optional(), reply: z.object({ text: z.string() }).nullable() })) });
+    let recovered: z.infer<typeof stateSchema> | undefined;
+    for (const deadline = Date.now() + 5000; Date.now() < deadline;) {
+      recovered = stateSchema.parse(await (await fetch(`http://127.0.0.1:${port}/durable-state`)).json());
+      if (recovered.messages[0]?.runState === "complete") break;
+      await Bun.sleep(100);
+    }
+    expect(recovered?.effects).toBe(1);
+    expect(recovered?.messages[0]).toMatchObject({ runState: "complete", reply: { text: "Finished the accepted request." } });
+    const duplicate = await fetch(`http://127.0.0.1:${port}/durable-turn`);
+    await duplicate.text();
+    const replayed = stateSchema.parse(await (await fetch(`http://127.0.0.1:${port}/durable-state`)).json());
+    expect(replayed.effects).toBe(1);
+    expect(replayed.messages).toHaveLength(1);
   } catch (error) {
     child.kill();
     await child.exited;

@@ -33,7 +33,7 @@ A run that wants to trade needs your approval twice over before it executes on i
 
 An allowance says what the automation may do and how much it may move per run. `trade` covers swaps, stock trades and index rebalances. `liquidity` covers Aerodrome deposits, withdrawals, staking, unstaking and claims. Transfers, approvals, contract calls, Aave, Safes and vote locks are never covered. Allowances last 30 days by default and at most 90.
 
-Pecu measures each transaction from the exact calls it will sign and prices the tokens with a live quote. If a transaction is outside the allowance, above the limit, or cannot be measured, Pecu stops and sends you the preview instead. One run can chain up to four transactions, for example unstake, withdraw, re-deposit and stake, each only after the previous one is confirmed on Base.
+Pecu measures each transaction from the exact calls it will sign and prices the tokens with a live quote. If a transaction is outside the allowance, above the limit, or cannot be measured, Pecu stops and sends you the preview instead. One run can chain up to 16 transactions, for example unstake, withdraw, re-deposit and stake, each only after the previous one is confirmed on Base.
 
 When YOLO is off or there is no allowance, the run prepares a normal preview and your phone shows `confirm the transaction`. Previews still expire, so an old one needs a new run.
 
@@ -63,3 +63,13 @@ You can have up to 20 automations. Deleting a web thread deletes the automations
 ## Notifications
 
 Every run that has something to say appears in its chat. The Android app also shows a notification, and tapping it opens that chat. Reminders with a fixed time are also scheduled on the phone itself, so they appear on time even when the push arrives late. Allow notifications from the Automations screen on Android 13 and later.
+
+## Approval and recovery
+
+The Automations screen shows whether a run is working, waiting for approval, confirming a transaction, finished or stopped. Its saved steps show what happened before a stop. A prepared preview is not counted as a finished run.
+
+For a run without an allowance, choose the allowed actions, a USD limit per run and a validity of 1 to 90 days in Automations, then select **Approve**. Nothing is approved by turning on YOLO alone. A preview already waiting still needs its own confirmation. Use **Revoke allowance** to stop future unattended transactions.
+
+Once Pecu accepts a request, closing the app or losing the connection does not cancel it. Reopen the chat to read the saved result. The server recovers interrupted requests and checks submitted transactions before continuing. If the phone disconnects before the request reaches Pecu, reconnect and resume the same request.
+
+An automation resumes its remaining work after you confirm a waiting step. It keeps the same run and cumulative allowance across recovery. An expired, cancelled or failed step stops that run; prepare a new preview with **Run now**. Pausing prevents further steps until you resume. External failures can still stop work, and linked-wallet signatures still require you.

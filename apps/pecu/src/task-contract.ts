@@ -19,7 +19,7 @@ export const maxGrantUsdPerRun = 10_000;
 export const maxGrantDays = 90;
 export const defaultGrantDays = 30;
 /** Transactions one automated run may execute in sequence, e.g. unstake, withdraw, re-deposit, stake. */
-export const maxRunSteps = 4;
+export const maxRunSteps = 16;
 
 export function validTimeZone(value: string): boolean {
   try {
@@ -131,6 +131,21 @@ export function grantActive(grant: Grant | null, now: number): grant is Grant & 
 export const grantViewSchema = grantSchema.extend({ active: z.boolean() });
 export type GrantView = z.infer<typeof grantViewSchema>;
 
+export const taskCheckpointSchema = z.object({
+  turn: z.number().int().nonnegative(),
+  intents: z.array(z.string()),
+  codes: z.record(z.string(), z.string()),
+  spentUsd: z.number().nonnegative(),
+  waiting: z.object({ intentId: z.string(), reason: z.string(), code: z.string() }).optional(),
+});
+export type TaskCheckpoint = z.infer<typeof taskCheckpointSchema>;
+export const taskRunViewSchema = z.object({
+  state: z.enum(["running", "retrying", "awaiting_approval", "confirming", "done", "failed"]),
+  summary: z.string().nullable(),
+  steps: z.array(z.object({ title: z.string(), state: z.string() })),
+});
+export type TaskRunView = z.infer<typeof taskRunViewSchema>;
+
 export const taskViewSchema = z.object({
   code: taskCodeSchema,
   title: z.string(),
@@ -143,6 +158,7 @@ export const taskViewSchema = z.object({
   lastRunAt: z.number().nullable(),
   lastOutcome: z.string().nullable(),
   runCount: z.number().int().nonnegative(),
+  run: taskRunViewSchema.nullable().optional(),
   channel: z.enum(["x", "web"]),
   /** Web thread id. Null for the original web conversation and for X chats. */
   threadId: z.string().nullable(),
@@ -160,6 +176,7 @@ export const taskActionSchema = z.strictObject({
   kind: z.enum(taskActionKinds),
   maxUsd: z.number().positive().max(maxGrantUsdPerRun).optional(),
   scopes: z.array(grantScopeSchema).min(1).max(grantScopes.length).optional(),
+  days: z.number().int().min(1).max(maxGrantDays).optional(),
 });
 export type TaskAction = z.infer<typeof taskActionSchema>;
 export const taskActionResultSchema = z.object({ task: taskViewSchema, message: z.string() });

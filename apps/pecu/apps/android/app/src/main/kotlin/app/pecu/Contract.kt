@@ -16,17 +16,19 @@ val wireJson = Json { ignoreUnknownKeys = true; explicitNulls = false }
   val signer: String? = null, val threadId: String? = null, val thread: Thread? = null,
   val messages: List<Message> = emptyList(), val olderCursor: Cursor? = null, val newerCursor: Cursor? = null,
 )
-@Serializable data class Message(val id: String, val text: String, val createdAt: Long, val canRetry: Boolean = false, val reply: Reply? = null, val origin: MessageOrigin? = null)
+@Serializable data class Message(val id: String, val text: String, val createdAt: Long, val canRetry: Boolean = false, val reply: Reply? = null, val origin: MessageOrigin? = null, val runState: String? = null)
 /** Set when an automation wrote the message; `text` is then its title, not something the user typed. */
 @Serializable data class MessageOrigin(val kind: String, val code: String, val title: String, val mode: String)
 @Serializable data class Grant(
   val scopes: List<String>, val maxUsdPerRun: Double, val days: Int, val state: String,
   val approvedAt: Long? = null, val expiresAt: Long? = null, val active: Boolean = false,
 )
+@Serializable data class AutomationStep(val title: String, val state: String)
+@Serializable data class AutomationRun(val state: String, val summary: String? = null, val steps: List<AutomationStep> = emptyList())
 @Serializable data class Automation(
   val code: String, val title: String, val mode: String, val instruction: String, val trigger: JsonObject, val schedule: String,
   val state: String, val nextRunAt: Long? = null, val lastRunAt: Long? = null, val lastOutcome: String? = null, val runCount: Int = 0,
-  val channel: String, val threadId: String? = null, val grant: Grant? = null, val yolo: Boolean = false, val createdAt: Long,
+  val channel: String, val threadId: String? = null, val grant: Grant? = null, val yolo: Boolean = false, val createdAt: Long, val run: AutomationRun? = null,
 ) {
   val triggerKind: String get() = (trigger["kind"] as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
 }

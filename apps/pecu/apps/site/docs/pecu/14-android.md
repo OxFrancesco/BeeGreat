@@ -89,3 +89,5 @@ has not changed and YOLO is off. Linked-wallet signing still uses Pecu web.
 ## Thread loading (0.1.8)
 
 Recent conversations warm in the background and render from a bounded local cache. Private, account-scoped snapshots restore messages after restart while fresh history loads. Signing out or switching accounts clears the previous account snapshot. Sending and transaction controls wait for fresh state; saved history is readable during that refresh. Histories expire after 24 hours, with at most 12 retained within a 4 MiB payload budget. First-time uncached conversations still need the network. History decoding and disk work run off the main thread.
+
+Version 0.1.9 reconnects to accepted work automatically and shows automation progress, waiting steps and allowance setup even when no allowance was requested in chat. Closing the app does not cancel accepted server work.

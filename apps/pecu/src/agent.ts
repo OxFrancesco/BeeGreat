@@ -38,7 +38,7 @@ import type { RequestClassifier, RequestRoute } from "./request-classifier";
 import { turnTraceIdentity, turnTrace } from "./turn-trace";
 import type { ParagraphSink } from "./web-stream";
 import { analyticsText, type PnlSnapshot } from "./analytics-contract";
-import { grantActive, maxRunSteps, type Grant, type TaskMode } from "./task-contract";
+import { grantActive, maxRunSteps, type Grant, type TaskCheckpoint, type TaskMode } from "./task-contract";
 import { grantDecision, type Pricer } from "./task-grant";
 import type { TaskControl } from "./task-control";
 import { ResearchError, type ResearchCommand, type ResearchControl, type ResearchOrigin } from "./research/control";
@@ -155,6 +155,9 @@ export type TaskRunContext = {
   /** Intents this run created, in order. */
   readonly intents: string[];
   spentUsd: number;
+  codes: Record<string, string>;
+  save?: () => void;
+  authorization?: () => Grant | null;
   /** The first proposal that could not execute unattended; the run stops there. */
   waiting?: { intentId: string; reason: string; code: string };
   /** The conversation's inference runtime was busy, so the run should be retried. */
@@ -254,11 +257,13 @@ export class PecuAgent {
    * The returned context says which proposals it created and whether any is
    * waiting for the user.
    */
-  async runTask(message: VerifiedMessage, context: Pick<TaskRunContext, "taskCode" | "mode" | "grant">): Promise<{ reply?: string; run: TaskRunContext }> {
-    const run: TaskRunContext = { ...context, intents: [], spentUsd: 0, busy: false };
+  async runTask(message: VerifiedMessage, context: Pick<TaskRunContext, "taskCode" | "mode" | "grant">, checkpoint?: TaskCheckpoint, save?: (value: TaskCheckpoint) => void, authorization?: () => Grant | null): Promise<{ reply?: string; run: TaskRunContext }> {
+    const run: TaskRunContext = { ...context, intents: checkpoint?.intents ?? [], codes: checkpoint?.codes ?? {}, spentUsd: checkpoint?.spentUsd ?? 0, waiting: checkpoint?.waiting, busy: false, authorization };
+    run.save = () => save?.({ turn: checkpoint?.turn ?? 0, intents: run.intents, codes: run.codes, spentUsd: run.spentUsd, ...(run.waiting ? { waiting: run.waiting } : {}) });
+    run.save();
     this.taskRuns.set(message.eventId, run);
     try {
-      const reply = await this.handle(message);
+      const reply = await this.handle(message, true);
       if (reply === undefined) run.busy = true;
       return { reply, run };
     } finally {
@@ -315,7 +320,10 @@ export class PecuAgent {
     } catch (error) {
       failed = true;
       const run = this.taskRuns.get(message.eventId);
-      if (run && busyReply.test(errorMessage(error))) run.busy = true;
+      if (busyReply.test(errorMessage(error))) {
+        if (run) run.busy = true;
+        return undefined;
+      }
       const reply = chatError(error);
       this.store.completeEvent(message.eventId, reply);
       log("warn", "command_failed", { eventId: message.eventId, senderId: message.senderId, error: errorMessage(error) });
@@ -1085,19 +1093,28 @@ export class PecuAgent {
 
     if (run) {
       run.intents.push(source);
+      run.codes[source] = code;
+      run.waiting = { intentId: id, reason: "Checking this transaction before proceeding", code };
+      run.save?.();
+      const grant = run.authorization ? run.authorization() : run.grant;
       const decision = await grantDecision({
-        intent, calls, grant: run.grant, linked: Boolean(linked), spentUsd: run.spentUsd, now: Date.now(), price: this.pricer(wallet),
+        intent, calls, grant, linked: Boolean(linked), spentUsd: run.spentUsd, now: Date.now(), price: this.pricer(wallet),
         yolo: this.store.yoloEnabled(message.senderId, message.conversationId), executionEnabled: this.config.enableMainnetExecution,
       });
-      if (decision.execute) {
+      const unchanged = (!run.authorization || JSON.stringify(run.authorization()) === JSON.stringify(grant)) && this.store.yoloEnabled(message.senderId, message.conversationId);
+      if (decision.execute && unchanged) {
         run.spentUsd += decision.usd;
+        run.waiting = undefined;
+        run.save?.();
         return `${shown}\n\nExecuted within this automation's allowance.\n${await this.confirm(message, await digest(code))}\nCheck this request: /confirm ${code}`;
       }
-      run.waiting = { intentId: id, reason: decision.reason, code };
+      const reason = decision.execute ? "The automation permission changed before submission. Confirm this preview to proceed." : decision.reason;
+      run.waiting = { intentId: id, reason, code };
+      run.save?.();
       const execution = linked && this.config.enableMainnetExecution
         ? `Needs your approval: confirm in this preview to sign with your wallet.\nCancel: /cancel ${code}\nExpires in ${minutes} minutes.`
         : this.config.enableMainnetExecution
-        ? `Needs your approval: ${decision.reason}\nReply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${minutes} minutes.`
+        ? `Needs your approval: ${reason}\nReply to this message with "confirm" to proceed or "cancel" to cancel.\nYou can also send /confirm ${code} or /cancel ${code}.\nExpires in ${minutes} minutes.`
         : `Transactions are currently disabled. Nothing has been sent.\nCancel: /cancel ${code}`;
       return `${shown}\n\n${execution}`;
     }

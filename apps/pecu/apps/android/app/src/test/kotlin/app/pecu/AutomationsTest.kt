@@ -82,19 +82,35 @@ class AutomationsTest {
   @Test fun `sheet lists automations and approves the edited limit`() {
     val actions = mutableListOf<Triple<String, String, Double?>>()
     compose.setContent { PecuTheme { Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-      AutomationsContent(AutomationsUi(tasks = fixture.tasks.tasks, alerts = fixture.notifications.notifications), notificationsOn = false, onAllowNotifications = {}, onAct = { code, kind, usd -> actions += Triple(code, kind, usd) }, onOpenThread = {})
+      AutomationsContent(AutomationsUi(tasks = fixture.tasks.tasks, alerts = fixture.notifications.notifications), notificationsOn = false, onAllowNotifications = {}, onAct = { code, kind, usd, _, _ -> actions += Triple(code, kind, usd) }, onOpenThread = {})
     } } }
     compose.onNodeWithText("Weekly index rebalance").assertIsDisplayed()
     compose.onNodeWithText("Asks to execute trades up to $25 per run.").assertIsDisplayed()
     compose.onNodeWithText("Allow notifications to hear about reminders and trades waiting for you.").assertIsDisplayed()
     save("automations-sheet")
     compose.onNodeWithText("25").performTextReplacement("40")
-    compose.onNodeWithText("Approve").performClick()
+    compose.onNodeWithText("Approve").performScrollTo().performClick()
     assertEquals(Triple("ABC234", "allow", 40.0), actions.single())
     compose.onAllNodesWithText("Delete")[0].performScrollTo().performClick()
     compose.onNodeWithText("Delete Weekly index rebalance?").assertIsDisplayed()
     compose.onNodeWithText("Keep").performClick()
     assertEquals(1, actions.size)
+  }
+
+  @Test fun `missing allowance exposes explicit scopes and preserves approval state`() {
+    val original = fixture.tasks.tasks.first().copy(grant = null, run = AutomationRun("awaiting_approval", "Fees and conversion remain.", listOf(AutomationStep("Claim emissions", "pending"))))
+    var submitted: List<String>? = null
+    compose.setContent { PecuTheme { Surface(Modifier.fillMaxSize()) {
+      AutomationsContent(AutomationsUi(tasks = listOf(original)), true, {}, { _, _, _, scopes, _ -> submitted = scopes }, {})
+    } } }
+    compose.onNodeWithText("Waiting for approval").assertIsDisplayed()
+    compose.onNodeWithText("Approve").performScrollTo().assertIsNotEnabled()
+    compose.onAllNodes(isToggleable())[0].performScrollTo().performClick()
+    compose.onAllNodes(isToggleable())[1].performScrollTo().performClick()
+    compose.onNodeWithText("USD per run").performScrollTo().performTextInput("25")
+    save("automation-missing-allowance")
+    compose.onNodeWithText("Approve").performScrollTo().performClick()
+    assertEquals(listOf("liquidity", "trade"), submitted)
   }
 
   @Test fun `an automation message shows its title instead of a user bubble`() {

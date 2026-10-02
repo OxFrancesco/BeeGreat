@@ -423,7 +423,7 @@ button.pecu-automation-title:hover { color: var(--accent-foreground); }
 .pecu-automation-allowance.is-pending { background: var(--accent); color: var(--accent-foreground); box-shadow: none; }
 .pecu-automation-approve { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
 .pecu-automation-approve label { display: grid; gap: 4px; font-size: 12px; color: var(--muted-foreground); }
-.pecu-automation-approve input { width: 120px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: var(--clay-radius-control); background: var(--background); box-shadow: var(--clay-shadow-inset); color: var(--foreground); font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+.pecu-automation-approve input:not([type="checkbox"]) { width: 120px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: var(--clay-radius-control); background: var(--background); box-shadow: var(--clay-shadow-inset); color: var(--foreground); font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
 .pecu-automation-approve input:focus-visible { outline: 2px solid var(--accent-foreground); outline-offset: 2px; }
 .pecu-automation-approve input[aria-invalid="true"] { outline: 2px solid var(--destructive); }
 .pecu-automation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0 -8px -4px; }
@@ -509,3 +509,7 @@ button.pecu-automation-title:hover { color: var(--accent-foreground); }
 .pecu-portfolio-popover .pecu-portfolio-add { margin-top: 12px; }
 .pecu-portfolio-popover p { margin-top: 12px; font-size: 13px; }
 .pecu-portfolio-actions button, .pecu-portfolio-popover button { min-width: 44px; min-height: 44px; }
+
+.pecu-automation-approve fieldset { flex-basis: 100%; border: 0; padding: 0; display: grid; gap: 6px; }
+.pecu-automation-approve fieldset label { display: flex; align-items: center; gap: 8px; min-height: 36px; color: var(--foreground); }
+.pecu-automation-approve input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent-foreground); }

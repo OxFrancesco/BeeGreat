@@ -195,7 +195,7 @@ private val commands = listOf("/wallet", "/balance", "/stocks", "/quote", "/swap
         val reply = message.reply
         if (reply == null) {
           if (streaming) LiveReplyView(model, avatar = false)
-          else { Text("Waiting for Pecu…", color = MaterialTheme.colorScheme.onSurfaceVariant); TextButton(onClick = { model.resume(message) }, enabled = !busy) { Text("Resume response") } }
+          else { Text(when (message.runState) { "running" -> "Pecu is working. You can leave this chat."; "retrying" -> "Recovering your request…"; "failed" -> "Pecu could not finish. Resume to try again."; else -> "Waiting for Pecu…" }, color = MaterialTheme.colorScheme.onSurfaceVariant); if (message.runState != "running" && message.runState != "retrying") TextButton(onClick = { model.resume(message) }, enabled = !busy) { Text("Resume response") } }
         } else {
           val legacy = remember(reply.text, reply.preview, reply.question, reply.positions) { if (reply.preview == null && reply.question == null && reply.positions == null) legacyPositions(reply.text) else null }
           val stocks = remember(reply, message.createdAt) { reply.holdings?.presentation() ?: if (reply.preview == null && reply.question == null) legacyStockHoldings(reply.text, message.createdAt) else null }

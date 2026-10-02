@@ -1,8 +1,9 @@
+import type { PecuStore } from "./state";
 import { z } from "zod";
 import type { VerifiedMessage } from "./domain";
 import {
-  grantActive, grantFromInput, grantInputSchema, maxActiveTasks, taskCodeSchema, taskModeSchema, triggerFromInput, triggerInputSchema,
-  type GrantScope, type TaskAction, type TaskView,
+  grantActive, grantFromInput, grantInputSchema, maxActiveTasks, maxRunSteps, taskCodeSchema, taskModeSchema, triggerFromInput, triggerInputSchema,
+  type GrantScope, type TaskAction, type TaskRunView, type TaskView,
 } from "./task-contract";
 import { describeTime, describeTrigger, nextOccurrence } from "./task-schedule";
 import { threadOf, type TaskRecord, type TaskStore } from "./tasks";
@@ -43,13 +44,28 @@ export type TaskChange = Readonly<{ task: TaskView; message: string }>;
 export class TaskControl {
   constructor(
     private readonly store: TaskStore,
-    private readonly chat: Readonly<{ yoloEnabled(senderId: string, conversationId: string): boolean }>,
+    private readonly chat: Readonly<{ yoloEnabled(senderId: string, conversationId: string): boolean; intentForSource?: PecuStore["intentForSource"] }>,
     private readonly clock: () => number = Date.now,
   ) {}
 
   view(task: TaskRecord): TaskView {
     const now = this.clock();
+    const run = this.store.latestRun(task.id);
+    const checkpoint = run ? this.store.checkpoint(run.id) : undefined;
+    const sources = checkpoint?.intents ?? (run ? Array.from({ length: maxRunSteps }, (_, index) => `task:${run.id}:${run.attempt}${index ? `#${index + 1}` : ""}`) : []);
+    const steps = sources.flatMap(source => {
+      const intent = this.chat.intentForSource?.(source);
+      return intent ? [{ title: intent.preview.split("\n")[0]!, state: intent.state === "pending" && intent.expiresAt <= now ? "expired" : intent.state }] : [];
+    });
+    let currentRun: TaskRunView | null = run ? { state: run.state === "deferred" ? "retrying" : run.state === "quiet" ? "done" : run.state, summary: run.result, steps } : null;
+    if (currentRun && !checkpoint && steps.length) {
+      const last = steps.at(-1)!;
+      if (["expired", "cancelled", "failed"].includes(last.state)) currentRun = { ...currentRun, state: "failed", summary: `Transaction ${last.state}. This run did not finish. Run again to prepare current previews.` };
+      else if (last.state === "pending") currentRun = { ...currentRun, state: "awaiting_approval", summary: "Waiting for transaction approval. The remaining work needs a new run after this older preview." };
+      else if (last.state === "executing") currentRun = { ...currentRun, state: "confirming" };
+    }
     return {
+      run: currentRun,
       code: task.code, title: task.title, mode: task.mode, instruction: task.instruction, trigger: task.trigger,
       schedule: describeTrigger(task.trigger), state: task.state, nextRunAt: task.nextRunAt, lastRunAt: task.lastRunAt,
       lastOutcome: task.lastOutcome, runCount: task.runCount, channel: isWebConversation(task.conversationId) ? "web" : "x",
@@ -96,16 +112,21 @@ export class TaskControl {
       }
       case "cancel":
         return done(this.store.update(task.id, { state: "cancelled", nextRunAt: null, grant: task.grant ? { ...task.grant, state: "revoked" } : null }, now), `Deleted ${task.title}.`);
-      case "run":
+      case "run": {
+        const running = this.store.latestRun(task.id);
+        if (running && ["running", "deferred", "awaiting_approval", "confirming"].includes(running.state)) throw new TaskError("This automation already has an unfinished run. Open its chat to check or confirm the saved transaction.");
         if (task.state !== "active" && task.state !== "paused") throw new TaskError(`${task.title} has finished.`);
         return done(this.store.update(task.id, { state: "active", nextRunAt: now }, now), `${task.title} runs within a minute.`);
+      }
       case "allow": {
         if (actor !== "user") throw new TaskError("Only you can approve a spending allowance.");
-        if (!task.grant) throw new TaskError(`${task.title} has no spending allowance to approve. Ask Pecu to add one.`);
+        if (task.mode !== "run") throw new TaskError("Only run automations can have an allowance.");
+        if (!task.grant && (!action.scopes?.length || action.maxUsd === undefined)) throw new TaskError("Choose the allowed actions and a spending limit before approving.");
         if (task.state === "completed") throw new TaskError(`${task.title} has finished.`);
-        const scopes = action.scopes ?? task.grant.scopes;
-        const maxUsdPerRun = action.maxUsd ?? task.grant.maxUsdPerRun;
-        const grant = { ...task.grant, scopes, maxUsdPerRun, state: "approved" as const, approvedAt: now, expiresAt: now + task.grant.days * 86_400_000 };
+        const scopes = action.scopes ?? task.grant!.scopes;
+        const maxUsdPerRun = action.maxUsd ?? task.grant!.maxUsdPerRun;
+        const days = action.days ?? task.grant?.days ?? 30;
+        const grant = { scopes, maxUsdPerRun, days, state: "approved" as const, approvedAt: now, expiresAt: now + days * 86_400_000 };
         const yolo = this.chat.yoloEnabled(task.senderId, task.conversationId);
         return done(this.store.update(task.id, { grant }, now),
           `Approved: ${task.title} may execute ${scopeText(scopes)} up to $${maxUsdPerRun} per run until ${describeTime(grant.expiresAt)}.${yolo ? "" : " YOLO is off in its chat, so each transaction still waits for your confirmation."}`);
@@ -163,7 +184,7 @@ export class TaskControl {
         code: task.code, title: task.title, mode: task.mode, state: task.state, schedule: view.schedule,
         next_run: task.state === "active" && task.nextRunAt && task.trigger.kind !== "price" ? new Date(task.nextRunAt).toISOString() : null,
         instruction: task.instruction, allowance: view.grant ? this.grantLine(view) : null,
-        chat: task.conversationId === conversationId ? "this chat" : "another chat", last_outcome: task.lastOutcome,
+        chat: task.conversationId === conversationId ? "this chat" : "another chat", last_outcome: view.run?.summary ?? task.lastOutcome, run: view.run,
       };
     }));
   }
@@ -187,6 +208,7 @@ export class TaskControl {
     return tasks.map((task) => [
       `${task.code} · ${task.title} · ${task.state === "paused" ? "paused" : task.schedule}`,
       ...(task.state === "active" && task.nextRunAt && task.trigger.kind !== "price" ? [`Next: ${describeTime(task.nextRunAt)}`] : []),
+      ...(task.run?.summary ? [task.run.summary] : []),
       ...(task.grant ? [this.grantLine(task)] : []),
     ].join("\n")).join("\n\n") + "\n\nManage: /tasks pause CODE, /tasks resume CODE, /tasks cancel CODE, /tasks run CODE, /tasks allow CODE [USD], /tasks revoke CODE";
   }

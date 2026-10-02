@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { WebSql } from "./web";
-import { grantSchema, triggerSchema, type Grant, type NotificationKind, type NotificationView, type TaskMode, type TaskState, type Trigger } from "./task-contract";
+import { taskCheckpointSchema, type TaskCheckpoint, grantSchema, triggerSchema, type Grant, type NotificationKind, type NotificationView, type TaskMode, type TaskState, type Trigger } from "./task-contract";
 import { isWebConversation } from "./web-identity";
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -26,7 +26,7 @@ export type TaskRecord = Readonly<{
   updatedAt: number;
 }>;
 
-export type RunState = "running" | "done" | "quiet" | "failed" | "deferred";
+export type RunState = "running" | "done" | "quiet" | "failed" | "deferred" | "awaiting_approval" | "confirming";
 export type TaskRun = Readonly<{ id: string; taskId: string; scheduledFor: number; attempt: number; state: RunState; retryAt: number | null; result: string | null }>;
 
 type TaskRow = {
@@ -39,7 +39,7 @@ type NotificationRow = { id: string; sender_id: string; task_code: string | null
 
 const modeSchema = z.enum(["remind", "run", "heartbeat"]);
 const stateSchema = z.enum(["active", "paused", "completed", "cancelled"]);
-const runStateSchema = z.enum(["running", "done", "quiet", "failed", "deferred"]);
+const runStateSchema = z.enum(["running", "done", "quiet", "failed", "deferred", "awaiting_approval", "confirming"]);
 const kindSchema = z.enum(["reminder", "alert", "approval", "executed", "failed"]);
 
 function taskFromRow(row: TaskRow): TaskRecord {
@@ -64,6 +64,7 @@ export function threadOf(conversationId: string): string | null {
 
 export class TaskStore {
   constructor(private readonly sql: WebSql) {
+    sql.exec("CREATE TABLE IF NOT EXISTS pecu_task_checkpoints (run_id TEXT PRIMARY KEY, data TEXT NOT NULL)");
     sql.exec(`CREATE TABLE IF NOT EXISTS basedbot_tasks (
       id TEXT PRIMARY KEY, code TEXT NOT NULL, sender_id TEXT NOT NULL, conversation_id TEXT NOT NULL, encoded_event TEXT NOT NULL,
       title TEXT NOT NULL, mode TEXT NOT NULL, instruction TEXT NOT NULL, trigger_json TEXT NOT NULL, state TEXT NOT NULL,
@@ -81,6 +82,24 @@ export class TaskStore {
     sql.exec(`CREATE TABLE IF NOT EXISTS basedbot_push_devices (
       token TEXT PRIMARY KEY, sender_id TEXT NOT NULL, platform TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`);
     sql.exec("CREATE INDEX IF NOT EXISTS basedbot_push_devices_sender ON basedbot_push_devices(sender_id)");
+  }
+
+  checkpoint(id: string): TaskCheckpoint | undefined {
+    const row = this.sql.exec<{ data: string }>("SELECT data FROM pecu_task_checkpoints WHERE run_id=?", id).toArray()[0];
+    return row ? taskCheckpointSchema.parse(JSON.parse(row.data)) : undefined;
+  }
+
+  saveCheckpoint(id: string, checkpoint: TaskCheckpoint): void {
+    this.sql.exec("INSERT INTO pecu_task_checkpoints(run_id,data) VALUES(?,?) ON CONFLICT(run_id) DO UPDATE SET data=excluded.data", id, JSON.stringify(checkpoint));
+  }
+
+  latestRun(taskId: string): TaskRun | undefined {
+    const row = this.sql.exec<{ id: string }>("SELECT id FROM basedbot_task_runs WHERE task_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1", taskId).toArray()[0];
+    return row ? this.run(row.id) : undefined;
+  }
+
+  waitingRuns(): TaskRun[] {
+    return this.sql.exec<RunRow>("SELECT id,task_id,scheduled_for,attempt,state,retry_at,result FROM basedbot_task_runs WHERE state IN ('awaiting_approval','confirming') ORDER BY created_at").toArray().map(runFromRow);
   }
 
   create(input: Omit<TaskRecord, "id" | "code" | "state" | "lastRunAt" | "lastOutcome" | "runCount" | "updatedAt">): TaskRecord {
@@ -131,7 +150,7 @@ export class TaskStore {
   }
 
   due(now: number, limit = 10): TaskRecord[] {
-    return this.sql.exec<TaskRow>("SELECT * FROM basedbot_tasks WHERE state='active' AND next_run_at IS NOT NULL AND next_run_at<=? ORDER BY next_run_at LIMIT ?", now, limit).toArray().map(taskFromRow);
+    return this.sql.exec<TaskRow>("SELECT * FROM basedbot_tasks WHERE state='active' AND NOT EXISTS (SELECT 1 FROM basedbot_task_runs r WHERE r.task_id=basedbot_tasks.id AND r.state IN ('running','deferred','awaiting_approval','confirming')) AND next_run_at IS NOT NULL AND next_run_at<=? ORDER BY next_run_at LIMIT ?", now, limit).toArray().map(taskFromRow);
   }
 
   /** Cancel every live task of a conversation, for example when its web thread is deleted. */
@@ -143,7 +162,9 @@ export class TaskStore {
   claimRun(taskId: string, scheduledFor: number, now = Date.now()): TaskRun | undefined {
     const id = crypto.randomUUID();
     this.sql.exec("INSERT OR IGNORE INTO basedbot_task_runs(id,task_id,scheduled_for,state,created_at,started_at) VALUES(?,?,?,?,?,?)", id, taskId, scheduledFor, "running", now, now);
-    return this.run(id);
+    const run = this.run(id);
+    if (run) this.saveCheckpoint(id, { turn: 0, intents: [], codes: {}, spentUsd: 0 });
+    return run;
   }
 
   run(id: string): TaskRun | undefined {
@@ -169,7 +190,7 @@ export class TaskStore {
     return this.sql.exec<RunRow>("SELECT id,task_id,scheduled_for,attempt,state,retry_at,result FROM basedbot_task_runs WHERE state='deferred' AND retry_at<=? ORDER BY retry_at LIMIT ?", now, limit).toArray().map(runFromRow);
   }
 
-  /** Runs left `running` by an evicted object; the sweep settles them as failed instead of silently re-running. */
+  /** Recover only through the same run identity and its saved transaction checkpoint. */
   staleRuns(before: number): TaskRun[] {
     return this.sql.exec<RunRow>("SELECT id,task_id,scheduled_for,attempt,state,retry_at,result FROM basedbot_task_runs WHERE state='running' AND started_at<?", before).toArray().map(runFromRow);
   }

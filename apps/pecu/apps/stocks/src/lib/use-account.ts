@@ -563,7 +563,7 @@ export function useAccount(signedIn: boolean, threadId: string | null = null, ow
       !signedIn ||
       current.pending ||
       current.state?.newerCursor ||
-      !current.state?.messages.some((message) => !message.reply)
+      !current.state?.messages.some((message) => (!message.reply && message.runState !== "failed") || message.runState === "running" || message.runState === "retrying" || message.reply?.preview?.state === "executing")
     )
       return;
     const timer = setInterval(() => {

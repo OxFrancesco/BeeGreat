@@ -1,3 +1,4 @@
+import { TurnQueue } from "./turn-queue";
 import { positionSummary } from "./position-contract";
 import { type Portfolio, portfolioBalanceSchema, portfolioQuerySchema } from "./portfolio-contract";
 import { needsChatGptConnection } from "./inference-recovery";
@@ -46,6 +47,7 @@ type Scope = z.infer<typeof webScopeSchema>;
 type Turn = z.infer<typeof webTurnSchema>;
 export class WebAgent {
   private readonly history: WebHistory;
+  private readonly queue: TurnQueue;
   private readonly active = new Set<string>();
   private readonly steering = new Set<string>();
   private readonly pnlReads = new Map<string, Promise<PnlSnapshot>>();
@@ -71,6 +73,7 @@ export class WebAgent {
       `CREATE TABLE IF NOT EXISTS basedbot_web_pnl (wallet TEXT NOT NULL, days INTEGER NOT NULL, snapshot TEXT NOT NULL, PRIMARY KEY(wallet, days))`,
     );
     this.history = new WebHistory(sql);
+    this.queue = new TurnQueue(sql);
   }
   /** The agent treats each thread owner as its own conversation. */
   private owner(scope: Scope) {
@@ -116,6 +119,7 @@ export class WebAgent {
     }
     const message: WebMessage = {
       id: row.id,
+      runState: this.queue.state(row.id),
       text: row.text,
       createdAt: row.created_at,
       reply,
@@ -154,6 +158,7 @@ export class WebAgent {
       throw new Error(
         "Check the submitted transaction before deleting this thread.",
       );
+    this.queue.deleteConversation(owner);
     this.sql.exec("DELETE FROM basedbot_web_turns WHERE owner=?", owner);
   }
   state(scope: Scope, paged = false): WebState {
@@ -274,11 +279,11 @@ export class WebAgent {
   }
   /** Whether a turn is currently running in this thread, so a caller can refuse before opening a stream. */
   busy(scope: Scope): boolean {
-    return this.active.has(this.owner(scope));
+    return this.active.has(this.owner(scope)) || this.queue.hasPending(this.owner(scope));
   }
   /** Hold a thread for an automated run. Returns the release, or undefined when a turn is already running there. */
   lock(conversationId: string): (() => void) | undefined {
-    if (this.active.has(conversationId)) return undefined;
+    if (this.active.has(conversationId) || this.queue.hasPending(conversationId)) return undefined;
     this.active.add(conversationId);
     return () => this.active.delete(conversationId);
   }
@@ -358,6 +363,15 @@ export class WebAgent {
     } finally { this.steering.delete(eventId); }
   }
 
+  async resumePending(): Promise<void> {
+    for (const { id, request } of this.queue.pending()) {
+      if (this.active.has(this.owner(request))) continue;
+      try { await this.handle(request); } catch {
+        if (this.queue.state(id) === "running") this.queue.fail(id);
+      }
+    }
+  }
+
   async handle(input: Turn, progress?: ParagraphSink) {
     if (input.steerOf) return this.steer(input);
     const { senderId, requestId, text } = input;
@@ -375,7 +389,7 @@ export class WebAgent {
       if (this.store.yoloEnabled(senderId, conversationId)) throw new Error("Turn off YOLO before reviewing this transfer.");
     }
     const eventId = `${conversationId}:${requestId}`;
-    if (this.active.has(conversationId)) return { status: "busy" as const };
+    if (this.active.has(conversationId) || this.queue.hasPending(conversationId, eventId)) return { status: "busy" as const };
     this.active.add(conversationId);
     try {
       const existing = this.sql
@@ -402,7 +416,7 @@ export class WebAgent {
         const last = this.state(input).messages.at(-1);
         if (last?.id !== input.answerTo || !last.reply?.question?.options.includes(text)) throw new Error("This choice is no longer available. Answer the latest question in this thread.");
       }
-      if (existing?.reply) return { status: "complete" as const };
+      if (existing?.reply && !["running", "retrying", "failed"].includes(this.queue.state(eventId) ?? "")) return { status: "complete" as const };
       this.sql.exec(
         "INSERT OR IGNORE INTO basedbot_web_turns(id,owner,text,created_at) VALUES(?,?,?,?)",
         eventId,
@@ -410,6 +424,7 @@ export class WebAgent {
         text,
         Date.now(),
       );
+      this.queue.start(eventId, input);
       const retryContext = this.sql.exec<{ context: string }>("SELECT context FROM basedbot_web_retries WHERE id=?", eventId).toArray()[0]?.context;
       let replyTarget = eventId;
       const snapshots = new Map<string, string>();
@@ -436,7 +451,7 @@ export class WebAgent {
         true,
         sink,
       );
-      if (!reply) return { status: "busy" as const };
+      if (!reply) { this.queue.retry(eventId); return { status: "busy" as const }; }
       const holdings = this.store.stockSnapshot(eventId);
       const response: z.infer<typeof webReplySchema> = await this.replyRecord(eventId, reply, this.store.intentForSource(eventId));
       if (replyTarget !== eventId) response.steerOf = requestId;
@@ -453,7 +468,11 @@ export class WebAgent {
           holdings.observedAt,
         );
       }
+      this.queue.complete(eventId);
       return { status: "complete" as const };
+    } catch (error) {
+      this.queue.retry(eventId);
+      throw error;
     } finally {
       this.active.delete(conversationId);
     }

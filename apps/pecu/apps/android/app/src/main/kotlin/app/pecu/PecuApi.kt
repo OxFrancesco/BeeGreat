@@ -44,8 +44,8 @@ class PecuApi(
   suspend fun inference(): Inference = wireJson.decodeFromString(get("inference"))
   suspend fun connect(connect: Boolean): Inference = wireJson.decodeFromString(post(if (connect) "inference-connect" else "inference-disconnect", buildJsonObject {}))
   suspend fun automations(): AutomationList = wireJson.decodeFromString(get("tasks"))
-  suspend fun automationAction(code: String, kind: String, maxUsd: Double? = null): AutomationActionResult =
-    wireJson.decodeFromString(post("task-action", buildJsonObject { put("code", code); put("kind", kind); maxUsd?.let { put("maxUsd", it) } }))
+  suspend fun automationAction(code: String, kind: String, maxUsd: Double? = null, scopes: List<String>? = null, days: Int? = null): AutomationActionResult =
+    wireJson.decodeFromString(post("task-action", buildJsonObject { put("code", code); put("kind", kind); maxUsd?.let { put("maxUsd", it) }; scopes?.let { put("scopes", JsonArray(it.map(::JsonPrimitive))) }; days?.let { put("days", it) } }))
   suspend fun notifications(): NotificationList = wireJson.decodeFromString(get("notifications"))
   suspend fun researches(): ResearchList = wireJson.decodeFromString(get("researches"))
   suspend fun research(code: String): Research = wireJson.decodeFromString(get("research", listOf("code" to code)))

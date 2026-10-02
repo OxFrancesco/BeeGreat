@@ -43,7 +43,7 @@ private fun usd(value: Double) = if (value % 1.0 == 0.0) value.toLong().toString
 
 /** One plain sentence about what the automation may execute without asking; mirrors the web allowance line. */
 fun allowanceText(task: Automation): String? {
-  val grant = task.grant ?: return null
+  val grant = task.grant ?: return if (task.mode == "run") "Transactions wait for your approval. YOLO alone does not authorize an automation." else null
   val limit = "${scopes(grant)} up to $${usd(grant.maxUsdPerRun)} per run"
   return when {
     grant.state == "requested" -> "Asks to execute $limit."
@@ -53,14 +53,14 @@ fun allowanceText(task: Automation): String? {
   }
 }
 
-typealias AutomationAct = (code: String, kind: String, maxUsd: Double?) -> Unit
+typealias AutomationAct = (code: String, kind: String, maxUsd: Double?, scopes: List<String>?, days: Int?) -> Unit
 
 @Composable fun AutomationsSheet(model: PecuViewModel, onOpenThread: (String?) -> Unit) {
   val state by model.automations.collectAsStateWithLifecycle()
   val context = LocalContext.current
   var allowed by remember { mutableStateOf(notificationsAllowed(context)) }
   val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed = it }
-  LaunchedEffect(Unit) { model.loadAutomations() }
+  LaunchedEffect(Unit) { while (true) { model.loadAutomations(); kotlinx.coroutines.delay(5_000) } }
   AutomationsContent(state, allowed || Build.VERSION.SDK_INT < 33, { permission.launch(Manifest.permission.POST_NOTIFICATIONS) }, model::automationAction, onOpenThread)
 }
 
@@ -98,9 +98,13 @@ typealias AutomationAct = (code: String, kind: String, maxUsd: Double?) -> Unit
 @Composable private fun AutomationCard(task: Automation, busy: String?, onAct: AutomationAct, onOpenThread: (String?) -> Unit) {
   val pending = busy?.startsWith("${task.code}:") == true
   val grant = task.grant
-  val needsApproval = grant != null && (grant.state != "approved" || !grant.active) && task.state != "completed"
+  val needsApproval = task.mode == "run" && (grant == null || grant.state != "approved" || !grant.active) && task.state != "completed"
   var limit by remember(task.code, grant?.maxUsdPerRun) { mutableStateOf(grant?.maxUsdPerRun?.let(::usd).orEmpty()) }
+  var selectedScopes by remember(task.code) { mutableStateOf(grant?.scopes.orEmpty()) }
+  var days by remember(task.code) { mutableStateOf((grant?.days ?: 30).toString()) }
+  val duration = days.toIntOrNull()?.takeIf { it in 1..90 }
   var deleting by remember { mutableStateOf(false) }
+  val unfinished = task.run?.state in listOf("running", "retrying", "awaiting_approval", "confirming")
   val cap = limit.toDoubleOrNull()?.takeIf { it > 0 && it <= 10_000 }
   // Amber text is too light on white; the theme's links use brown there.
   val actions = ButtonDefaults.textButtonColors(contentColor = if (isSystemInDarkTheme()) Amber else Brown)
@@ -109,27 +113,42 @@ typealias AutomationAct = (code: String, kind: String, maxUsd: Double?) -> Unit
       Text(task.title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.clickable(enabled = task.channel == "web") { onOpenThread(task.threadId) })
       Text(automationMeta(task), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
       Text(task.instruction, fontSize = 14.sp, lineHeight = 21.sp)
+      task.run?.let { run ->
+        Text(when (run.state) { "running" -> "Running"; "retrying" -> "Recovering"; "awaiting_approval" -> "Waiting for approval"; "confirming" -> "Confirming transaction"; "done" -> "Finished"; else -> "Stopped" }, fontSize = 13.sp)
+        run.steps.forEach { Text("${it.title} · ${it.state}", fontSize = 13.sp) }
+        run.summary?.let { Text(it, fontSize = 13.sp) }
+      } ?: task.lastOutcome?.let { Text(it, fontSize = 13.sp) }
       allowanceText(task)?.let { text ->
         Surface(shape = RoundedCornerShape(12.dp), color = if (needsApproval) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant) {
           Text(text, Modifier.padding(horizontal = 12.dp, vertical = 8.dp), fontSize = 13.sp, color = if (needsApproval) Brown else MaterialTheme.colorScheme.onSurface)
         }
       }
-      if (needsApproval) Row(verticalAlignment = androidx.compose.ui.Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+      if (needsApproval) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Allow unattended actions", fontSize = 13.sp)
+        listOf("liquidity", "trade").forEach { scope ->
+          Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Checkbox(scope in selectedScopes, { checked -> selectedScopes = if (checked) selectedScopes + scope else selectedScopes - scope }, enabled = !pending)
+            Text(if (scope == "trade") "Swap rewards and other trades" else "Claim rewards and change liquidity", fontSize = 13.sp)
+          }
+        }
+        OutlinedTextField(days, { days = it.take(2) }, label = { Text("Valid for days (1–90)") }, singleLine = true, isError = duration == null, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+        Row(verticalAlignment = androidx.compose.ui.Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         OutlinedTextField(limit, { limit = it.take(8) }, Modifier.width(150.dp), label = { Text("USD per run") }, singleLine = true,
           isError = cap == null, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = Mono))
-        Button(onClick = { onAct(task.code, "allow", cap) }, enabled = !pending && cap != null, modifier = Modifier.heightIn(min = 48.dp)) { Text("Approve") }
+        Button(onClick = { onAct(task.code, "allow", cap, selectedScopes, duration) }, enabled = !pending && cap != null && selectedScopes.isNotEmpty() && duration != null, modifier = Modifier.heightIn(min = 48.dp)) { Text("Approve") }
+      }
       }
       FlowRow(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        if (task.state == "active") TextButton(onClick = { onAct(task.code, "pause", null) }, enabled = !pending, colors = actions) { Text("Pause") }
-        if (task.state == "paused") TextButton(onClick = { onAct(task.code, "resume", null) }, enabled = !pending, colors = actions) { Text("Resume") }
-        if (task.state != "completed" && task.triggerKind != "price") TextButton(onClick = { onAct(task.code, "run", null) }, enabled = !pending, colors = actions) { Text("Run now") }
-        if (grant?.state == "approved" && grant.active) TextButton(onClick = { onAct(task.code, "revoke", null) }, enabled = !pending, colors = actions) { Text("Revoke allowance") }
+        if (task.state == "active") TextButton(onClick = { onAct(task.code, "pause", null, null, null) }, enabled = !pending, colors = actions) { Text("Pause") }
+        if (task.state == "paused") TextButton(onClick = { onAct(task.code, "resume", null, null, null) }, enabled = !pending, colors = actions) { Text("Resume") }
+        if (task.state != "completed" && task.triggerKind != "price") TextButton(onClick = { onAct(task.code, "run", null, null, null) }, enabled = !pending && !unfinished, colors = actions) { Text("Run now") }
+        if (grant?.state == "approved" && grant.active) TextButton(onClick = { onAct(task.code, "revoke", null, null, null) }, enabled = !pending, colors = actions) { Text("Revoke allowance") }
         TextButton(onClick = { deleting = true }, enabled = !pending, colors = actions) { Text("Delete") }
       }
     }
   }
   if (deleting) AlertDialog(onDismissRequest = { deleting = false }, title = { Text("Delete ${task.title}?") },
     text = { Text("It stops running and its allowance is revoked. Transactions already confirmed stay on Base.") },
-    confirmButton = { TextButton(onClick = { deleting = false; onAct(task.code, "cancel", null) }) { Text("Delete") } },
+    confirmButton = { TextButton(onClick = { deleting = false; onAct(task.code, "cancel", null, null, null) }) { Text("Delete") } },
     dismissButton = { TextButton(onClick = { deleting = false }) { Text("Keep") } })
 }

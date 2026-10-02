@@ -112,6 +112,7 @@ export const webMessageSchema = z.object({
   text: z.string(),
   createdAt: z.number(),
   canRetry: z.boolean().optional(),
+  runState: z.enum(["running", "retrying", "complete", "failed"]).optional(),
   /** Present when an automation wrote this message; `text` is then the automation title, not something the user typed. */
   origin: messageOriginSchema.optional(),
   reply: webReplySchema.nullable(),

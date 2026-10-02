@@ -245,7 +245,8 @@ describe("proactive runner", () => {
     f.advance(60 * 60_000);
     await f.runner.sweep();
     expect(f.approved).toEqual([]);
-    expect(f.pushed[1]?.body).toContain("above the $10 allowance per run");
+    expect(f.pushed[1]?.body).toContain("preview expired");
+    expect(f.pushed[2]?.body).toContain("above the $10 allowance per run");
   });
 
   test("a run chains steps within one allowance and stops at the first step that needs the user", async () => {
@@ -332,4 +333,36 @@ describe("proactive runner", () => {
     expect(await tools.taskUpdate({ code, action: "delete" })).toContain("Deleted AERO reminder");
     expect(await tools.taskList()).toBe("The user has no automations.");
   });
+});
+
+test("approval resumes the saved automation after a runner restart without resetting its allowance", async () => {
+  let turns = 0;
+  const f = fixture({ basket: stockPlan(10_000_000n), respond: async (message, capabilities) => {
+    turns++;
+    if (turns === 1) {
+      await capabilities.stockTrades([{ side: "buy", stock: "NVDAc", amount: "10" }]);
+      await capabilities.stockTrades([{ side: "buy", stock: "NVDAc", amount: "10" }]);
+    } else expect(message.text).toContain("Total allowance already used this run: $20");
+    return capabilities.stockTrades([{ side: "buy", stock: "NVDAc", amount: "10" }]);
+  } });
+  const task = f.create({ title: "Four purchases", mode: "run", instruction: "Buy $10 of NVDAc four times", trigger: { kind: "once", in_minutes: 1 } });
+  expect(() => f.control.act(identity.senderId, { code: task.code, kind: "allow" }, "user")).toThrow("Choose the allowed actions");
+  f.control.act(identity.senderId, { code: task.code, kind: "allow", scopes: ["trade"], maxUsd: 25, days: 7 }, "user");
+  f.store.setYolo(identity.senderId, conversation, true);
+  f.advance(60_000);
+  await f.runner.sweep();
+  expect(f.control.list(identity.senderId)[0]).toMatchObject({ state: "active", runCount: 0, run: { state: "awaiting_approval" } });
+  expect(f.approved).toHaveLength(4);
+  const code = f.messages().at(-1)!.reply!.preview!.code;
+  await f.agent.handle({ eventId: crypto.randomUUID(), senderId: identity.senderId, conversationId: conversation, encodedEvent: "", text: `/confirm ${code}` });
+  expect(f.approved).toHaveLength(6);
+  const resumed = new ProactiveRunner({ tasks: f.tasks, agent: f.agent, chat: f.store, web: f.web, clock: f.now });
+  await resumed.sweep();
+  expect(turns).toBe(2);
+  expect(f.approved).toHaveLength(6);
+  expect(f.messages().at(-1)!.reply!.text).toContain("above the $25 allowance per run");
+  expect(f.control.list(identity.senderId)[0]?.run?.steps).toHaveLength(4);
+  await resumed.sweep();
+  expect(turns).toBe(2);
+  expect(f.approved).toHaveLength(6);
 });

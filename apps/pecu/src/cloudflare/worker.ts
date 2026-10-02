@@ -235,6 +235,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       try { await this.agent?.relayPendingDeposits(); }
       catch (error) { log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) }); }
       await this.linked?.execution.sweep();
+      this.ctx.waitUntil(this.resumeWork());
       if (this.research) this.ctx.waitUntil(this.research.runner.sweep());
       if (this.config.xchatPollingEnabled) {
         try { await this.ensureRealtimeSetup(); }
@@ -399,7 +400,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         return json(await this.setupRealtime(webhookUrl));
       }
       if (url.pathname === "/internal/cron" && request.method === "POST") {
-        if (this.automation) this.ctx.waitUntil(this.automation.runner.sweep());
+        this.ctx.waitUntil(this.resumeWork());
         if (this.research) this.ctx.waitUntil(this.research.runner.sweep());
         const lastPollAt = await this.ctx.storage.get<number>(lastSuccessfulPollKey);
         const interval = await this.realtimeReady() ? realtimeFallbackPollMs : this.config.pollIntervalMs;
@@ -522,6 +523,11 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     return response;
   }
 
+  private async resumeWork(): Promise<void> {
+    await this.agent?.resumeExecuting();
+    await Promise.all([this.webAgent?.resumePending(), this.automation?.runner.sweep()]);
+  }
+
   override async alarm(): Promise<void> {
     await this.ready;
     log("info", "xchat_alarm_started");
@@ -547,7 +553,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
         log("error", "deposit_relay_sweep_failed", { error: errorMessage(error) });
       }
       await this.linked?.execution.sweep();
-      if (this.automation) this.ctx.waitUntil(this.automation.runner.sweep());
+      this.ctx.waitUntil(this.resumeWork());
       if (this.research) this.ctx.waitUntil(this.research.runner.sweep());
       this.nextAlarmDelayMs = realtimeReady ? realtimeFallbackPollMs : this.config.pollIntervalMs;
     } catch (error) {

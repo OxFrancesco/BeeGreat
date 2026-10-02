@@ -23,7 +23,7 @@ const scopeText = (scopes: readonly string[]) => scopes.map((scope) => scope ===
 /** One plain sentence about what the automation may execute without asking. */
 export function allowanceText(task: TaskView): string | null {
   const grant = task.grant;
-  if (!grant) return null;
+  if (!grant) return task.mode === "run" ? "Transactions wait for your approval. YOLO alone does not authorize an automation." : null;
   const limit = `${scopeText(grant.scopes)} up to $${grant.maxUsdPerRun} per run`;
   if (grant.state === "requested") return `Asks to execute ${limit}.`;
   if (grant.state === "revoked") return "Allowance revoked. Transactions wait for your confirmation.";
@@ -49,7 +49,7 @@ export function useAutomations(open: boolean) {
       loading.current = false;
     }
   }, []);
-  useEffect(() => { if (open) void load(); }, [open, load]);
+  useEffect(() => { if (!open) return; void load(); const timer = setInterval(() => void load(), 5000); return () => clearInterval(timer); }, [open, load]);
   const act = useCallback(async (action: TaskAction) => {
     setBusy(`${action.code}:${action.kind}`);
     setError(null);

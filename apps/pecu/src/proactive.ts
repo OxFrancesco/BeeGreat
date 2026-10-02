@@ -2,13 +2,13 @@ import type { PecuAgent, TaskRunContext } from "./agent";
 import type { VerifiedMessage } from "./domain";
 import { log } from "./logger";
 import type { PecuStore } from "./state";
-import { grantActive, type MessageOrigin, type NotificationKind } from "./task-contract";
+import { grantActive, maxRunSteps, type TaskCheckpoint, type MessageOrigin, type NotificationKind } from "./task-contract";
 import { describeTrigger, nextOccurrence } from "./task-schedule";
 import { threadOf, type TaskRecord, type TaskRun, type TaskStore } from "./tasks";
 import { isWebConversation } from "./web-identity";
 
 /** A run left `running` this long was interrupted by an eviction or deploy. */
-const staleRunMs = 15 * 60_000;
+const staleRunMs = 60_000;
 const retryDelayMs = 60_000;
 const maxAttempts = 10;
 const concurrency = 4;
@@ -51,12 +51,13 @@ function firstLine(text: string, limit = 180): string {
 export function taskPrompt(task: TaskRecord, now: number): string {
   const grant = task.grant;
   const unattended = grantActive(grant, now)
-    ? `Transactions inside this automation's allowance (${grant.scopes.join(" and ")}, up to $${grant.maxUsdPerRun} per run) execute without asking when YOLO is on; anything else returns a preview for the user. You may prepare up to 4 transactions in sequence, each only after the previous one is confirmed on Base. After a preview that needs approval, stop and summarize what is waiting.`
+    ? `The approved allowance is the user's current authorization, including when older instruction text asked for previews. Transactions inside this automation's allowance (${grant.scopes.join(" and ")}, up to $${grant.maxUsdPerRun} per run) execute without asking when YOLO is on; anything else returns a preview for the user. You may prepare up to ${maxRunSteps} transactions in sequence, each only after the previous one is confirmed on Base. After a preview that needs approval, stop and summarize what is waiting.`
     : "Transaction tools return a preview the user confirms later. Prepare at most one, then stop and summarize what is waiting.";
   const lines = [
     `Scheduled run of the user's automation ${task.code} "${task.title}" (${describeTrigger(task.trigger)}). The user set this up earlier and is not watching; your reply is delivered to this chat and as a phone notification, so lead with the outcome in one or two sentences.`,
     `When the request says when to stop or change (for example "until I hold 100 AERO" or "then check hourly instead"), and that point is reached, call task_update on ${task.code} to delete, pause or edit it, or task_create for the follow-up, and say so. Otherwise leave automations unchanged.`,
     `The user's request: ${task.instruction}`,
+    "Complete every part of the request across all relevant positions and reward types. A prepared preview is not a completed transaction. Name any remaining, unavailable or uneconomical steps explicitly; never describe partial completion as finished.",
     task.mode === "heartbeat"
       ? `This is a heartbeat check. Treat the request as a checklist and use read tools. Do not repeat older requests. If nothing needs the user's attention, reply exactly ${heartbeatOk} and nothing else.`
       : unattended,
@@ -84,10 +85,53 @@ export class ProactiveRunner {
     const { tasks } = this.deps;
     for (const run of tasks.staleRuns(now - staleRunMs)) {
       if (this.running.has(run.id)) continue;
-      tasks.finishRun(run.id, "failed", "Interrupted before it finished", now);
-      log("warn", "task_run_interrupted", { runId: run.id });
+      const checkpoint = tasks.checkpoint(run.id);
+      if (checkpoint?.intents.length) {
+        tasks.finishRun(run.id, "confirming", "Recovering saved transaction state", now);
+      } else if (checkpoint) {
+        tasks.deferRun(run.id, now);
+      } else {
+        tasks.finishRun(run.id, "failed", "Interrupted before durable recovery was available. Check the transaction history before running again.", now);
+      }
     }
     const work: Array<() => Promise<void>> = [];
+    for (const run of tasks.waitingRuns()) {
+      const task = tasks.byId(run.taskId);
+      if (!task || task.state === "cancelled") {
+        tasks.finishRun(run.id, "failed", "Automation was deleted; no further steps will run", now);
+        continue;
+      }
+      if (task.state === "paused") continue;
+      const checkpoint = tasks.checkpoint(run.id);
+      const source = checkpoint?.intents.at(-1);
+      const intent = source ? this.deps.chat.intentForSource(source) : undefined;
+      if (!checkpoint || !intent) {
+        tasks.finishRun(run.id, "failed", "The saved transaction is unavailable; no further steps were prepared", now);
+        continue;
+      }
+      if (intent.state === "executing") continue;
+      if (intent.state === "pending" && intent.expiresAt > now) {
+        if (run.state !== "awaiting_approval") {
+          const code = checkpoint.codes[source!];
+          if (code) {
+            const reply = `${intent.preview}\n\nWaiting for your approval. Confirm: /confirm ${code}\nCancel: /cancel ${code}`;
+            await this.deliver(task, run, `task:${run.id}:turn:${checkpoint.turn}`, { kind: "task", code: task.code, title: task.title, mode: task.mode }, reply);
+            await this.notify(task, run, "approval", `${task.title}: confirm the transaction`, "Recovered the saved preview. Open the chat to approve or cancel it.");
+          }
+        }
+        tasks.finishRun(run.id, "awaiting_approval", "Waiting for transaction approval", now);
+        continue;
+      }
+      if (intent.state !== "succeeded") {
+        const summary = intent.state === "pending" || intent.state === "expired" ? "Transaction preview expired. Nothing further was submitted. Run again to prepare a current preview." : `Transaction ${intent.state}. No further steps were prepared.`;
+        tasks.finishRun(run.id, "failed", summary, now);
+        tasks.update(task.id, { lastOutcome: summary }, now);
+        await this.notify(task, run, "failed", `${task.title}: stopped`, summary);
+        continue;
+      }
+      tasks.saveCheckpoint(run.id, { ...checkpoint, turn: checkpoint.turn + 1, waiting: undefined });
+      tasks.deferRun(run.id, now);
+    }
     for (const run of tasks.retryable(now)) {
       const task = tasks.byId(run.taskId);
       if (!task || task.state === "cancelled" || task.state === "paused") {
@@ -133,12 +177,14 @@ export class ProactiveRunner {
         tasks.update(task.id, { nextRunAt: nextOccurrence(trigger, now), lastOutcome: `Checked at $${price < 1 ? price.toPrecision(4) : price.toFixed(2)}` }, now);
         return undefined;
       }
+      const run = tasks.claimRun(task.id, now, now);
       tasks.update(task.id, { nextRunAt: null }, now);
-      return tasks.claimRun(task.id, now, now);
+      return run;
     }
     const scheduledFor = task.nextRunAt ?? now;
+    const run = tasks.claimRun(task.id, scheduledFor, now);
     tasks.update(task.id, { nextRunAt: nextOccurrence(task.trigger, Math.max(now, scheduledFor)) }, now);
-    return tasks.claimRun(task.id, scheduledFor, now);
+    return run;
   }
 
   private async execute(task: TaskRecord, run: TaskRun): Promise<void> {
@@ -147,6 +193,14 @@ export class ProactiveRunner {
     try {
       const outcome = await this.perform(task, run);
       if (outcome === "deferred") return;
+      const checkpoint = tasks.checkpoint(run.id);
+      const last = checkpoint?.intents.at(-1);
+      const intent = last ? this.deps.chat.intentForSource(last) : undefined;
+      if (outcome.kind === "approval" || intent?.state === "executing") {
+        tasks.finishRun(run.id, intent?.state === "executing" ? "confirming" : "awaiting_approval", outcome.summary, this.clock());
+        tasks.update(task.id, { lastOutcome: outcome.summary }, this.clock());
+        return;
+      }
       const now = this.clock();
       tasks.finishRun(run.id, outcome.kind === "quiet" ? "quiet" : outcome.kind === "failed" ? "failed" : "done", outcome.summary, now);
       const current = tasks.byId(task.id) ?? task;
@@ -165,8 +219,11 @@ export class ProactiveRunner {
   }
 
   private async perform(task: TaskRecord, run: TaskRun): Promise<Outcome | "deferred"> {
+    const { tasks } = this.deps;
     const origin: MessageOrigin = { kind: "task", code: task.code, title: task.title, mode: task.mode };
-    const eventId = `task:${run.id}:${run.attempt}`;
+    const checkpoint: TaskCheckpoint = tasks.checkpoint(run.id) ?? { turn: 0, intents: [], codes: {}, spentUsd: 0 };
+    tasks.saveCheckpoint(run.id, checkpoint);
+    const eventId = `task:${run.id}:turn:${checkpoint.turn}`;
     if (task.mode === "remind") {
       const text = `Reminder: ${task.instruction}`;
       await this.deliver(task, run, eventId, origin, text);
@@ -178,8 +235,8 @@ export class ProactiveRunner {
     if (!release) return this.defer(task, run, "Thread busy");
     let result: { reply?: string; run: TaskRunContext };
     try {
-      const message: VerifiedMessage = { eventId, senderId: task.senderId, conversationId: task.conversationId, encodedEvent: task.encodedEvent, text: taskPrompt(task, this.clock()) };
-      result = await this.deps.agent.runTask(message, { taskCode: task.code, mode: task.mode, grant: task.grant });
+      const message: VerifiedMessage = { eventId, senderId: task.senderId, conversationId: task.conversationId, encodedEvent: task.encodedEvent, text: `${taskPrompt(task, this.clock())}${checkpoint.intents.length ? `\n\nContinue this same run after its confirmed steps. These saved steps are authoritative; do not repeat them: ${checkpoint.intents.map(source => { const intent = this.deps.chat.intentForSource(source); return `${intent?.preview ?? source}: ${intent?.state ?? "unknown"}`; }).join("; ")}. Total allowance already used this run: $${checkpoint.spentUsd}. Finish the remaining parts of the original request, or explain why they cannot be completed.` : ""}` };
+      result = await this.deps.agent.runTask(message, { taskCode: task.code, mode: task.mode, grant: task.grant }, checkpoint, value => tasks.saveCheckpoint(run.id, value), () => { const current = tasks.byId(task.id); return current?.state === "active" ? current.grant : null; });
       if (result.run.busy || result.reply === undefined) return this.defer(task, run, "Pecu was busy");
       if (task.mode === "heartbeat" && !result.run.intents.length && quietHeartbeat(result.reply)) {
         return { kind: "quiet", summary: "Nothing needed attention" };

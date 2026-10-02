@@ -651,12 +651,12 @@ export class OpenCodeHarness implements AgentHarness {
     const skillSession: SkillSession = { family: mode !== undefined && mode !== "mixed" && mode !== "response" ? mode.family : undefined, carried: await this.storage.get<string[]>(`skills:session:${sessionId}`) };
     this.skillSessions.set(sessionId, skillSession);
     try {
-      let assistant = await this.turn(sessionId, text, metadata, progress);
+      let assistant = await this.turn(sessionId, text, metadata, progress, route);
       if (assistant.error && route === "chatgpt" && this.fallbackConfigured && assistant.error.type.startsWith("provider.")) {
         log("info", "inference_fallback", { eventId: message.eventId, reason: assistant.error.type, status: assistant.error.status });
         const retryModel = mode && !(mode !== "mixed" && mode !== "response" && mode.kind === "fallback") ? fallbackModels.small : fallbackModels.default;
         await this.client.sessions.switchModel({ sessionID: sessionId, model: retryModel });
-        assistant = await this.turn(sessionId, text, metadata, progress);
+        assistant = await this.turn(sessionId, text, metadata, progress, "fallback");
       }
       if (assistant.error) {
         const limit = await this.usageLimit();
@@ -680,7 +680,7 @@ export class OpenCodeHarness implements AgentHarness {
     }
   }
 
-  private async turn(sessionId: string, text: string, metadata: { eventId: string; senderId: string; conversationId: string }, progress?: ParagraphSink) {
+  private async turn(sessionId: string, text: string, metadata: { eventId: string; senderId: string; conversationId: string }, progress?: ParagraphSink, admission = "primary") {
     // Finish the previous cursor before admitting another turn on this runtime.
     await this.analyticsPending;
     let startedAt = Date.now();
@@ -711,7 +711,7 @@ export class OpenCodeHarness implements AgentHarness {
     const targets = new Map<string, string>();
     const observer = await this.observeText(sessionId, progress ?? (() => {}), schedule, metadata.eventId, targets);
     try {
-      const inbox = await this.client.sessions.prompt({ sessionID: sessionId, text, metadata });
+      const inbox = await this.client.sessions.prompt({ id: `msg_${await digest(`${sessionId}:${metadata.eventId}:${admission}`)}`, sessionID: sessionId, text, metadata });
       startedAt = inbox.timeCreated;
       const active = { sessionId, pending: new Set<Promise<void>>(), revision: 0, targets };
       this.steering.set(metadata.eventId, active);

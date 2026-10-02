@@ -123,3 +123,5 @@ Version 0.1.3 renders stock allocations as a native dotted graph by default, wit
 Graph/List controls in chat and the wallet profile. Complete historical stock
 replies also render as graphs without a backend update. Their original timestamp
 and amounts are preserved; no address or newer balance is inferred from text.
+
+Version 0.1.9 adds server-owned request recovery, polling after a dropped stream, saved automation progress, and explicit allowance scopes, limits and expiry for previously unconfigured automations. The installed app must be updated to receive these controls.
