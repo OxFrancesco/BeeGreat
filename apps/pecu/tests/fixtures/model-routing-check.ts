@@ -1,3 +1,4 @@
+import { codeModeName } from "../../src/cloudflare/code-mode";
 import { baseTools, skillForTool } from "../../src/agent-skills";
 import { curatedChain, researchToolNames } from "../../src/research/agents";
 import { unusedCapabilities } from "./agent-services";
@@ -6,6 +7,7 @@ import { expect, mock } from "bun:test";
 import { Store } from "../../src/store";
 import { z } from "zod";
 
+const scriptTools = (system: { text: string }[]) => [...system.map(part => part.text).join("\n").matchAll(/^tools\.(\w+)\(input:/gm)].map(match => match[1]);
 const created: string[] = [];
 const switched: { sessionID: string; model: { providerID: string; id: string; variant: string } }[] = [];
 const prompts: string[] = [];
@@ -57,7 +59,7 @@ const client = {
       streamReady?.();
       const event = { sessionID: input.sessionID, system: [{ type: "text", text: "Runtime instructions" }], tools: Object.fromEntries(registered) };
       await hooks.get("context")!(event);
-      toolCatalogs.push(Object.keys(event.tools));
+      toolCatalogs.push([...Object.keys(event.tools).filter(name => name !== codeModeName), ...scriptTools(event.system)]);
       return { timeCreated: 1 };
     },
     wait: async () => { onWait?.(); await streamDone; },
@@ -131,7 +133,7 @@ try {
   const inventory = JSON.parse(inventoryText);
   expect(inventory.modelTools.map((tool: { name: string }) => tool.name)).toEqual([...registered.keys()].sort());
   for (const name of registered.keys()) {
-    if (!baseTools.has(name) && !researchToolNames.some((tool) => tool === name)) expect(skillForTool(name), name).toBeDefined();
+    if (name !== codeModeName && !baseTools.has(name) && !researchToolNames.some((tool) => tool === name)) expect(skillForTool(name), name).toBeDefined();
   }
   await expect(harness.research({ key: "research:run:social:1", code: "ABC234", role: "social", chain: curatedChain("base")!, prompt: "p", senderId: "sender" })).rejects.toThrow("OpenRouter key");
   const toolReply = {tool:"polymarket_search",status:"completed",result:{content:JSON.stringify({data:{private:"not telemetry"},presentation:{source_bytes:155870,partial:false}})}};
@@ -148,27 +150,30 @@ try {
   await hooks.get("context")!(scoped);
   expect(scoped.system).toHaveLength(2);
   expect(scoped.system[0].text).toBe("Runtime instructions");
-  expect(Object.keys(scoped.tools)).toEqual(["polymarket_search","polymarket_midpoint","ask_user","load_skills","wallet_balances"]);
+  expect(Object.keys(scoped.tools)).toEqual(["ask_user","load_skills"]);
+  expect(scriptTools(scoped.system)).toContain("polymarket_search");
+  expect(scriptTools(scoped.system)).not.toContain("evm_transfer");
   await registered.get("load_skills")!.execute({names:["wallet"]}, {sessionID:"catalog"});
   await registered.get("load_skills")!.execute({names:["polymarket-data"]}, {sessionID:"catalog"});
   const expanded=catalog(); await hooks.get("context")!(expanded);
-  expect(expanded.tools).toHaveProperty("evm_transfer");
+  expect(scriptTools(expanded.system)).toContain("evm_transfer");
   expect(expanded.system.map(part => part.text).join("\n")).toContain("Wallet reads and transactions");
-  expect(expanded.tools).toHaveProperty("polymarket_positions");
-  expect(expanded.tools).not.toHaveProperty("nansen_token_flows");
+  expect(scriptTools(expanded.system)).toContain("polymarket_positions");
+  expect(scriptTools(expanded.system)).not.toContain("nansen_token_flows");
   store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"next-turn",text:"Check Polymarket odds"});
   const isolated=catalog(); isolated.system=expanded.system; await hooks.get("context")!(isolated);
   expect(isolated.system.map(part => part.text).join("\n")).not.toContain("Wallet reads and transactions");
-  expect(isolated.tools).not.toHaveProperty("evm_transfer");
+  expect(scriptTools(isolated.system)).not.toContain("evm_transfer");
   store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"wallet-turn",text:"Check my wallet"});
   const wallet=catalog(); await hooks.get("context")!(wallet);
-  expect(Object.keys(wallet.tools)).toEqual(["ask_user","load_skills","wallet_balances"]);
+  expect(Object.keys(wallet.tools)).toEqual(["ask_user","load_skills"]);
+  expect(scriptTools(wallet.system)).toContain("wallet_balances");
   expect(wallet.system).toHaveLength(2);
   expect(wallet.system[1].text).not.toContain("Wallet reads and transactions");
   store.saveAgentTurn("catalog", {...message,conversationId:"catalog-chat",eventId:"send-turn",text:"Send 1 USDC to 0x1111111111111111111111111111111111111111"});
   const send=catalog(); await hooks.get("context")!(send);
-  expect(send.tools).toHaveProperty("evm_transfer");
-  expect(send.tools).not.toHaveProperty("polymarket_search");
+  expect(scriptTools(send.system)).toContain("evm_transfer");
+  expect(scriptTools(send.system)).not.toContain("polymarket_search");
   bound = false;
   await expect(hooks.get("context")!(catalog())).rejects.toThrow("no longer bound");
   bound = true;

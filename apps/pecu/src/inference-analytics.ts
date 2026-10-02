@@ -1,3 +1,4 @@
+import { codeModeCallsSchema } from "./progress";
 import type { OpenCodeWorkerd } from "@opencode-ai/sdk/workerd";
 import { z } from "zod";
 import { analyticsIdentity } from "./analytics-config";
@@ -159,7 +160,7 @@ export async function toolEvents(entries: readonly InferenceLogEntry[], turn: Pa
       $ai_parent_id: await analyticsIdentity(JSON.stringify(["span", turn.senderId, entry.data.assistantMessageID])),
       $ai_span_name: name, tool_name: name,
       $ai_latency: Math.max(0, (entry.created - call.created) / 1000),
-      $ai_is_error: entry.type === "session.tool.failed",
+      $ai_is_error: entry.type === "session.tool.failed" || metadata?.pecu_code_error === true,
     };
     if (returned !== undefined) {
       event.returned_output_bytes = new TextEncoder().encode(returned).length;
@@ -168,6 +169,22 @@ export async function toolEvents(entries: readonly InferenceLogEntry[], turn: Pa
     }
     if (outputBytes !== undefined) event.output_bytes = outputBytes;
     if (sourceBytes !== undefined) event.source_output_bytes = sourceBytes;
+    const nested = codeModeCallsSchema.safeParse(metadata?.pecu_calls);
+    if (nested.success) {
+      for (const [index, child] of nested.data.entries()) {
+        if (child.endedAt === undefined) continue;
+        const childEvent: ToolAnalyticsEvent = {
+          event: "$ai_span", timestamp: child.endedAt, started_at: child.startedAt, ended_at: child.endedAt,
+          $ai_trace_id: trace, $ai_session_id: session,
+          $ai_span_id: await analyticsIdentity(JSON.stringify(["nested-tool", turn.senderId, entry.data.id, index])),
+          $ai_parent_id: event.$ai_span_id, $ai_span_name: child.name, tool_name: child.name,
+          $ai_latency: Math.max(0, (child.endedAt - child.startedAt) / 1000),
+          $ai_is_error: child.status === "error",
+        };
+        if (child.outputBytes !== undefined) childEvent.output_bytes = child.outputBytes;
+        events.push(childEvent);
+      }
+    }
     events.push(event);
   }
   return events;

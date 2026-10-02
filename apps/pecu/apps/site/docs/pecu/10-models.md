@@ -15,6 +15,16 @@ Pecu's AI replies run on OpenAI models. Commands and the plain-words shortcuts n
 
 The [request classifier](#request-classifier) section explains the routing.
 
+## Tool execution
+
+For AI requests, Pecu can combine tool calls and calculations in a confined JavaScript program. This is called Code Mode. It applies to simple lookups as well as larger comparisons, and works with both inference providers. You do not need to write code or turn it on.
+
+The program can use only the tools available for the current task. It cannot read files, access credentials or make network requests directly. Transaction tools still create the same previews and follow your existing confirmation and YOLO settings. A program error does not undo an action that already completed.
+
+Questions, skill loading, the liquidity preview and research submissions stay separate because they control the turn. Explicit commands still use their existing handlers without AI.
+
+Code Mode can reduce model work when processing many data points. It does not make every request faster.
+
 ## Your ChatGPT connection
 
 Each account connects its own ChatGPT subscription. X Chat and the web app share the connection for your X account. A web account signed in without X has its own.

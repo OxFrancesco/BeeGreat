@@ -1,3 +1,4 @@
+import { codeModeName } from "../src/cloudflare/code-mode";
 import { requestParameters } from "@beegreat/sugar";
 import { SUGAR_ACTIONS, isSugarTxAction } from "@beegreat/sugar/contracts";
 import { aeroTools } from "../src/cloudflare/aero-tools";
@@ -14,7 +15,7 @@ const root = new URL("../", import.meta.url);
 const domain = await Bun.file(new URL("src/domain.ts", root)).text();
 const commands = new Set([...[...domain.matchAll(/\bverb === "([^"]+)"/g)].map(match => `/${match[1]}`), "@research"]);
 const harness = await Bun.file(new URL("src/cloudflare/opencode.ts", root)).text();
-const inlineTools = new Set([...harness.matchAll(/draft\.add\(\{\s*name: "([^"]+)"/g)].map(match => match[1]));
+const inlineTools = new Set([...harness.matchAll(/(?:draft\.add|register)\(\{\s*name: "([^"]+)"/g)].map(match => match[1]));
 
 const writes = new Set<string>([
   ...EVM_TX_ACTIONS.map(action => action.startsWith("safe_") ? action : `evm_${action}`),
@@ -22,7 +23,7 @@ const writes = new Set<string>([
   "aero_stock_trades", "aero_liquidity",
 ]);
 const modelTools = [...new Set([
-  ...inlineTools, ...aeroTools.map(tool => tool.name), ...evmTools.map(tool => tool.name),
+  codeModeName, ...inlineTools, ...aeroTools.map(tool => tool.name), ...evmTools.map(tool => tool.name),
   ...polymarketEndpointNames.map(name => `polymarket_${name}`), ...nansenEndpointNames.map(name => `nansen_${name}`),
   ...twitterEndpointNames.map(name => `twitter_${name}`), ...chainDataEndpointNames.map(name => `chain_${name}`),
 ])].sort();

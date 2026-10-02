@@ -34,16 +34,9 @@ export class ReplyStream {
 
   finish(message: { id: string; content: readonly { type: string; text?: string }[] }) {
     if (this.stopped) return;
-    if (this.progress.live) {
-      message.content.forEach((part, ordinal) => {
-        if (part.type === "text" && part.text !== undefined) this.part(`${message.id}:${ordinal}`).text = part.text;
-      });
-      this.flush();
-    } else {
-      message.content.forEach((part, ordinal) => {
-        if (part.type === "text" && part.text !== undefined) this.end(`${message.id}:${ordinal}`, part.text);
-      });
-    }
+    // Stream ordinals count text parts; persisted content can also contain reasoning and tools.
+    const text = message.content.flatMap(part => part.type === "text" && part.text !== undefined ? [part.text] : []);
+    text.forEach((value, ordinal) => this.end(`${message.id}:${ordinal}`, value));
     this.stop();
   }
 

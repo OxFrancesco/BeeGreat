@@ -1,3 +1,4 @@
+import { PecuCodeMode, codeModeName, directTools } from "./code-mode";
 import { digest } from "../plan-digest";
 import { jsonValueSchema, jsonObjectSchema } from "../json-contract";
 import { polymarketEndpoints, polymarketEndpointNames } from "../integrations/polymarket/catalog.generated";
@@ -21,7 +22,7 @@ import type { HarnessStateStore } from "../state";
 import { log } from "../logger";
 import { isUsageLimitError, parseUsageLimit, usageLimitActive, UsageLimitError, type UsageLimit } from "../usage-limit";
 import type { ParagraphSink } from "../web-stream";
-import { toolLabel, type TurnStage } from "../progress";
+import { toolLabel, codeModeCallsSchema, type TurnStage } from "../progress";
 import { ReplyStream } from "../reply-stream";
 import type { ToolFamily } from "../tool-families";
 
@@ -147,6 +148,16 @@ export class OpenCodeHarness implements AgentHarness {
     const explanationSessions = new Set<string>();
     const skillSessions = new Map<string, SkillSession>();
     const researchSessions = new Map<string, ResearchSession>();
+    const codeMode = new PecuCodeMode();
+    const visible = (sessionId: string, name: string) => {
+      if (explanationSessions.has(sessionId)) return false;
+      const research = researchSessions.get(sessionId);
+      if (research) return researchToolVisible(research.role, name);
+      const turn = store.agentTurn(sessionId);
+      if (!turn || !skillSessions.has(sessionId)) return false;
+      resolveCapabilities(turn);
+      return toolVisible(name, skillSessions.get(sessionId)?.active ?? []);
+    };
     const pendingRequests = new WeakMap<Request, string>();
     const service = <K extends keyof HarnessServices>(name: K): NonNullable<HarnessServices[K]> => {
       const value = services?.[name];
@@ -182,8 +193,8 @@ export class OpenCodeHarness implements AgentHarness {
         await context.session.hook("context", async (event) => {
           const research = researchSessions.get(event.sessionID);
           if (research) {
-            event.tools = Object.fromEntries(Object.entries(event.tools).filter(([name]) => researchToolVisible(research.role, name)));
-            event.system = [{ type: "text", text: researchInstructions(research.role, research.chain) }];
+            event.tools = Object.fromEntries(Object.entries(event.tools).filter(([name]) => (name === codeModeName || (directTools.has(name) && researchToolVisible(research.role, name)))));
+            event.system = [{ type: "text", text: researchInstructions(research.role, research.chain) + "\n" + codeMode.instructions(name => visible(event.sessionID, name)) }];
             return;
           }
           const turn = store.agentTurn(event.sessionID);
@@ -197,8 +208,8 @@ export class OpenCodeHarness implements AgentHarness {
           const session = skillSessions.get(event.sessionID);
           const active = selectSkills({ text: turn.text, family: session?.family, carried: session?.carried, loaded: await storage.get<string[]>(`skills:turn:${turn.eventId}`) });
           if (session) session.active = active;
-          event.tools = Object.fromEntries(Object.entries(event.tools).filter(([name]) => toolVisible(name, active)));
-          event.system = [...system, { type: "text", text: taskInstructions(active) }];
+          event.tools = Object.fromEntries(Object.entries(event.tools).filter(([name]) => name === codeModeName || (directTools.has(name) && toolVisible(name, active))));
+          event.system = [...system, { type: "text", text: taskInstructions(active) + "\n" + codeMode.instructions(name => toolVisible(name, active)) }];
         });
         await context.session.hook("http.request", async (event) => {
           if (event.agent !== "basedbot" || !timings) return;
@@ -257,7 +268,11 @@ export class OpenCodeHarness implements AgentHarness {
             return resolveCapabilities(turn);
           };
 
-          draft.add({
+          const register = <Input extends z.ZodType>(tool: Parameters<typeof codeMode.register<Input>>[0]) => {
+            codeMode.register(tool);
+            draft.add({ ...tool, execute: (input, toolContext) => tool.execute(tool.input.parse(input), toolContext) });
+          };
+          register({
             name: "load_skills",
             options: { codemode: false },
             description: "Load task skills marked not loaded in the skill list. Their tools and instructions appear on the next step. Does not approve or execute anything.",
@@ -271,18 +286,18 @@ export class OpenCodeHarness implements AgentHarness {
               return { content: `Loaded ${names.join(", ")}. Their tools and instructions are available on the next step. All transaction confirmation rules still apply.` };
             },
           });
-          draft.add({
+          register({
             name: "ask_user",
             options: { codemode: false },
             description: "Present a concrete recommendation for acceptance or ask for a genuinely missing choice. Retrieve discoverable facts first. Include the full recommendation and rationale in question, because this replaces the final chat reply. Stop this turn and wait for their next message; this never approves a transaction.",
             input: z.object({ question: z.string().trim().min(1).max(1500), options: z.array(z.string().trim().min(1).max(150)).max(6).optional() }),
             execute: async ({ question, options }, toolContext) => ({ content: await capabilities(toolContext.sessionID).askUser(question, options) }),
           });
-          draft.add({ name: "aave_skill", options: { codemode: false }, description: "Load one of the five official Aave workflows before using Aave tools.", input: z.object({ name: z.enum(aaveSkillNames) }), execute: async ({ name }) => ({ content: aaveSkill(name) }) });
-          draft.add({ name: "aave_schema", options: { codemode: false }, description: "List available Aave tools or get the exact argument schema for one tool.", input: z.object({ name: z.string().optional() }), execute: async ({ name }) => ({ content: JSON.stringify(aaveSchema(name)) }) });
-          draft.add({ name: "aave_call", options: { codemode: false }, description: "Call an Aave read, simulation, or prepare_action. Load a skill and schema first. Wallet signing uses the verified sender and Base only.", input: z.object({ name: z.string(), arguments: jsonObjectSchema }), execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).aaveCall(input.name, input.arguments) }) });
-          draft.add({ name: "polymarket_research", options: { codemode: false }, description: "Research public Polymarket odds, history, order books, and positions through Exa. Omit query to check the latest research. Never places bets.", input: z.object({ query: z.string().min(1).max(2000).optional() }), execute: async ({ query }, toolContext) => ({ content: await capabilities(toolContext.sessionID).polymarketResearch(query) }) });
-          draft.add({
+          register({ name: "aave_skill", options: { codemode: false }, description: "Load one of the five official Aave workflows before using Aave tools.", input: z.object({ name: z.enum(aaveSkillNames) }), execute: async ({ name }) => ({ content: aaveSkill(name) }) });
+          register({ name: "aave_schema", options: { codemode: false }, description: "List available Aave tools or get the exact argument schema for one tool.", input: z.object({ name: z.string().optional() }), execute: async ({ name }) => ({ content: JSON.stringify(aaveSchema(name)) }) });
+          register({ name: "aave_call", options: { codemode: false }, description: "Call an Aave read, simulation, or prepare_action. Load a skill and schema first. Wallet signing uses the verified sender and Base only.", input: z.object({ name: z.string(), arguments: jsonObjectSchema }), execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).aaveCall(input.name, input.arguments) }) });
+          register({ name: "polymarket_research", options: { codemode: false }, description: "Research public Polymarket odds, history, order books, and positions through Exa. Omit query to check the latest research. Never places bets.", input: z.object({ query: z.string().min(1).max(2000).optional() }), execute: async ({ query }, toolContext) => ({ content: await capabilities(toolContext.sessionID).polymarketResearch(query) }) });
+          register({
             name: "wallet_address",
             options: { codemode: false },
             description: "Get the verified X sender's Base smart-wallet address.",
@@ -291,7 +306,7 @@ export class OpenCodeHarness implements AgentHarness {
               content: await capabilities(toolContext.sessionID).walletAddress(),
             }),
           });
-          draft.add({
+          register({
             name: "wallet_balances",
             options: { codemode: false },
             description: "Get balances for the verified X sender's Base smart wallet.",
@@ -300,7 +315,7 @@ export class OpenCodeHarness implements AgentHarness {
               content: await capabilities(toolContext.sessionID).walletBalances(),
             }),
           });
-          draft.add({
+          register({
             name: "deposit_instructions",
             options: { codemode: false },
             description: "Get the user's Whop funding page, bank transfer details, and crypto deposit addresses for adding money to their Pecu wallet. Omit amount unless the user named one in USD.",
@@ -309,7 +324,7 @@ export class OpenCodeHarness implements AgentHarness {
               content: await capabilities(toolContext.sessionID).depositInstructions(amount),
             }),
           });
-          draft.add({
+          register({
             name: "deposit_setup",
             options: { codemode: false },
             description: "Create the user's Whop funding account with the email they provided. Only call after the user gave an email.",
@@ -318,7 +333,7 @@ export class OpenCodeHarness implements AgentHarness {
               content: await capabilities(toolContext.sessionID).depositSetup(email),
             }),
           });
-          draft.add({
+          register({
             name: "deposit_status",
             options: { codemode: false },
             description: "List the user's recent deposits and whether the USDC was sent.",
@@ -329,7 +344,7 @@ export class OpenCodeHarness implements AgentHarness {
           });
           for (const name of polymarketEndpointNames) {
             const endpoint = polymarketEndpoints[name];
-            draft.add({
+            register({
               name: `polymarket_${name}`,
               options: { codemode: false },
               description: endpoint.description,
@@ -339,7 +354,7 @@ export class OpenCodeHarness implements AgentHarness {
           }
           for (const name of nansenEndpointNames) {
             const entry = nansenEndpoints[name];
-            draft.add({
+            register({
               name: `nansen_${name}`,
               options: { codemode: false },
               description: entry.description,
@@ -355,7 +370,7 @@ export class OpenCodeHarness implements AgentHarness {
           }
           for (const name of twitterEndpointNames) {
             const endpoint = twitterEndpoints[name];
-            draft.add({
+            register({
               name: `twitter_${name}`,
               options: { codemode: false },
               description: endpoint.description,
@@ -365,7 +380,7 @@ export class OpenCodeHarness implements AgentHarness {
           }
           for (const name of chainDataEndpointNames) {
             const endpoint = chainDataEndpoints[name];
-            draft.add({
+            register({
               name: `chain_${name}`,
               options: { codemode: false },
               description: endpoint.description,
@@ -379,20 +394,20 @@ export class OpenCodeHarness implements AgentHarness {
             research.submission = payload;
             return { content: "Submitted. Reply with one short line." };
           };
-          draft.add({ name: "research_findings", options: { codemode: false }, description: "Submit this specialist's structured findings. Call once, at the end.", input: findingsSchema, execute: async (input, toolContext) => submit(toolContext.sessionID, jsonValueSchema.parse(input)) });
-          draft.add({ name: "research_report", options: { codemode: false }, description: "Submit the finished causal report. Call once.", input: reportSchema, execute: async (input, toolContext) => submit(toolContext.sessionID, jsonValueSchema.parse(input)) });
-          draft.add({
+          register({ name: "research_findings", options: { codemode: false }, description: "Submit this specialist's structured findings. Call once, at the end.", input: findingsSchema, execute: async (input, toolContext) => submit(toolContext.sessionID, jsonValueSchema.parse(input)) });
+          register({ name: "research_report", options: { codemode: false }, description: "Submit the finished causal report. Call once.", input: reportSchema, execute: async (input, toolContext) => submit(toolContext.sessionID, jsonValueSchema.parse(input)) });
+          register({
             name: "research_start",
             options: { codemode: false },
             description: "Start a research run that explains why a chain moved over a window, with specialist agents and an editor. Takes several minutes and counts toward the user's daily limit. Only when the user asked for research or a deep explanation.",
             input: z.strictObject({ chain: z.string().trim().min(2).max(60).describe("Chain id or name, for example base, ethereum or solana."), window: researchWindowSchema.default("7d") }),
             execute: async ({ chain, window }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchStart(chain, window) }),
           });
-          draft.add({ name: "research_list", options: { codemode: false }, description: "List the user's research runs with code, chain, state, headline and today's remaining runs.", input: z.object({}), execute: async (_input, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchList() }) });
-          draft.add({ name: "research_get", options: { codemode: false }, description: "Read one research run: the full report when finished, otherwise its progress.", input: z.strictObject({ code: researchCodeSchema }), execute: async ({ code }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchGet(code) }) });
-          draft.add({ name: "research_cancel", options: { codemode: false }, description: "Cancel a running research run by its code.", input: z.strictObject({ code: researchCodeSchema }), execute: async ({ code }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchCancel(code) }) });
+          register({ name: "research_list", options: { codemode: false }, description: "List the user's research runs with code, chain, state, headline and today's remaining runs.", input: z.object({}), execute: async (_input, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchList() }) });
+          register({ name: "research_get", options: { codemode: false }, description: "Read one research run: the full report when finished, otherwise its progress.", input: z.strictObject({ code: researchCodeSchema }), execute: async ({ code }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchGet(code) }) });
+          register({ name: "research_cancel", options: { codemode: false }, description: "Cancel a running research run by its code.", input: z.strictObject({ code: researchCodeSchema }), execute: async ({ code }, toolContext) => ({ content: await capabilities(toolContext.sessionID).researchCancel(code) }) });
           for (const tool of aeroTools) {
-            draft.add({
+            register({
               name: tool.name,
               options: { codemode: false },
               description: tool.description,
@@ -406,14 +421,14 @@ export class OpenCodeHarness implements AgentHarness {
               },
             });
           }
-          draft.add({
+          register({
             name: "aero_liquidity",
             options: { codemode: false },
             description: "Fund a concentrated-liquidity position from ONE total token budget, including a funding swap, approvals and deposit in one Pecu smart-wallet batch. Use after the user specifies the pool/pair and budget, including half my ETH as fraction bps 5000. Reads live balances and pool price, computes token amounts, and defaults to a range 20 percent below/above spot. ETH funds WETH pools without a separate wrap. Only ask for budget and pool preference; do not ask users for tick spacing, token split, or initial price. For an existing-pool position, use selection kind discover with token0 and token1 immediately when pair and budget are known; no balance or pool lookup is needed first. Discovery ranks up to eight matching catalog pools by fresh TVL. Use kind pool for an explicit pool address and for explicit price ranges. Reserve kind pair for a specifically requested new pool, using verified token order, supported tick spacing and initial market price. Explicit ranges are token1 per token0. Previews with confirmation; may execute when YOLO is on. Not supported for linked external wallets.",
             input: liquidityRequestSchema,
             execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).liquidity(input), metadata: { pecu_direct_reply: true } }),
           });
-          draft.add({
+          register({
             name: "aero_stock_trades",
             options: { codemode: false },
             description: "Propose several tokenized stock buys and sells as one transaction with one confirmation. Use this whenever one message asks for more than one stock trade, for example $1 of NVDAc and $1 of AAPLc. Base mainnet only. Never executes a transaction.",
@@ -425,21 +440,21 @@ export class OpenCodeHarness implements AgentHarness {
               content: await capabilities(toolContext.sessionID).stockTrades(trades, slippage),
             }),
           });
-          draft.add({
+          register({
             name: "task_create",
             options: { codemode: false },
             description: "Schedule an automation in this chat: a reminder, a recurring or one-time agent run, a heartbeat checklist, or a price alert. Use the user's own words for instruction. Set grant only when the user explicitly asked Pecu to execute transactions without asking; it stays a request until the user approves it. Never executes anything now.",
             input: taskCreateInputSchema,
             execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).taskCreate(input) }),
           });
-          draft.add({
+          register({
             name: "task_list",
             options: { codemode: false },
             description: "List the user's automations with code, title, mode, state, schedule, next run, full instruction, allowance and whether each belongs to this chat. Read it before editing or deleting one the user describes in words.",
             input: z.object({}),
             execute: async (_input, toolContext) => ({ content: await capabilities(toolContext.sessionID).taskList() }),
           });
-          draft.add({
+          register({
             name: "task_update",
             options: { codemode: false },
             description: "Edit, pause, resume, delete or run now an automation by its code. edit takes only the fields that change: title, mode, instruction, trigger, grant, or remove_grant. Changing the instruction, mode or grant sends the allowance back for the user's approval. Cannot approve allowances.",
@@ -447,7 +462,7 @@ export class OpenCodeHarness implements AgentHarness {
             execute: async (input, toolContext) => ({ content: await capabilities(toolContext.sessionID).taskUpdate(input) }),
           });
           for (const tool of evmTools) {
-            draft.add({
+            register({
               name: tool.name,
               options: { codemode: false },
               description: tool.description,
@@ -457,6 +472,18 @@ export class OpenCodeHarness implements AgentHarness {
               }),
             });
           }
+          draft.add({
+            name: codeModeName, options: { codemode: false },
+            description: "Run JavaScript to call the tools in the current catalog, combine results and calculate. Return the result. Tool permissions and transaction confirmations still apply.",
+            input: z.strictObject({ code: z.string().min(1).max(24_000) }),
+            execute: ({ code }, toolContext) => {
+              const turn = store.agentTurn(toolContext.sessionID);
+              const research = researchSessions.get(toolContext.sessionID);
+              return codeMode.execute(code, toolContext, name =>
+                store.agentTurn(toolContext.sessionID)?.eventId === turn?.eventId &&
+                researchSessions.get(toolContext.sessionID) === research && visible(toolContext.sessionID, name));
+            },
+          });
         });
         await context.agent.transform((draft) => {
           draft.default("basedbot");
@@ -497,7 +524,7 @@ export class OpenCodeHarness implements AgentHarness {
         warming: false,
         permissions: [
           { action: "*", resource: "*", effect: "deny" },
-          ...["ask_user", "load_skills", "aave_skill", "aave_schema", "aave_call", "polymarket_research"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
+          ...[codeModeName, "ask_user", "load_skills", "aave_skill", "aave_schema", "aave_call", "polymarket_research"].map((action) => ({ action, resource: "*", effect: "allow" as const })),
           { action: "wallet_address", resource: "*", effect: "allow" },
           { action: "wallet_balances", resource: "*", effect: "allow" },
           { action: "deposit_instructions", resource: "*", effect: "allow" },
@@ -700,7 +727,7 @@ export class OpenCodeHarness implements AgentHarness {
         this.steering.delete(metadata.eventId);
         schedule();
         this.analyticsPending = this.analyticsPending.then(async () => {
-          await this.storage.put(cursorKey, cursor);
+          if (cursor !== undefined) await this.storage.put(cursorKey, cursor);
           this.timings?.clear(sessionId, Date.now());
         });
         if (this.waitUntil) this.waitUntil(this.analyticsPending);
@@ -780,9 +807,13 @@ export class OpenCodeHarness implements AgentHarness {
               void this.client.sessions.interrupt({ sessionID: sessionId, continue: true }).catch(() => log("warn", "preview_stop_failed", {}));
             }
             if (event.type === "session.tool.input.started") names.set(event.data.id, event.data.name);
+            if (event.type === "session.tool.progress" || event.type === "session.tool.success") {
+              const nested = codeModeCallsSchema.safeParse(event.data.metadata?.pecu_calls);
+              if (nested.success) nested.data.forEach((call, index) => stage(`${event.data.id}:${index}`, toolLabel(call.name), call.status));
+            }
             if (event.type === "session.tool.called") stage(event.data.id, toolLabel(names.get(event.data.id) ?? ""));
             if (event.type === "session.tool.success" || event.type === "session.tool.failed") {
-              stage(event.data.id, toolLabel(names.get(event.data.id) ?? ""), event.type === "session.tool.failed" ? "error" : "complete");
+              stage(event.data.id, toolLabel(names.get(event.data.id) ?? ""), (event.type === "session.tool.failed" || event.data.metadata?.pecu_code_error === true) ? "error" : "complete");
               if (!directReply && ![...stages.values()].some(s => s.status === "running")) stage(`model-wait-${++waitIndex}`, "Waiting for model");
             }
             if (event.type === "session.step.started") {

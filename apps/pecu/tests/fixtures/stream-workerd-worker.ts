@@ -15,7 +15,7 @@ export class StreamProbe extends DurableObject<Env> {
         reply.push("m:0", "First");
         await new Promise((resolve) => setTimeout(resolve, 250));
         reply.push("m:0", " sentence.\n\nLast para");
-        reply.finish({ id: "m", content: [{ type: "text", text: "First sentence.\n\nLast paragraph." }] });
+        reply.finish({ id: "m", content: [{ type: "reasoning" }, { type: "text", text: "First sentence.\n\nLast paragraph." }] });
         return { status: "complete" };
       }
       progress("First paragraph.");
