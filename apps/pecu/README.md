@@ -34,8 +34,10 @@ automatic execution for its calls and cannot enable YOLO or approve automation
 allowances. Use a UUID `Idempotency-Key` header when retrying the same call.
 Reusing that UUID with different arguments fails.
 
-The endpoint is deployed, Clerk is configured and a real Codex CIMD login has
-completed. Authenticated catalog and tool reads are still being verified. See
+The endpoint is deployed and Clerk is configured. A real Codex Google sign-in
+and CIMD callback completed consent for both Pecu scopes, discovered the exact
+190-tool catalog and read `wallet_address` through the same backend. The probe
+used no model turns and performed no live write or financial transaction. See
 [account connection setup](docs/mcp-auth-setup.md) for Codex commands. Codex
 discovers the resource from server metadata; omit `--oauth-resource` to avoid
 a duplicate resource parameter in its authorization request.

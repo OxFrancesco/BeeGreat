@@ -26,14 +26,15 @@ Browser session tokens, missing audiences, revoked tokens and unavailable
 accounts fail before tool dispatch. OAuth credentials never reach the agent
 or upstream tool services.
 
-Read tools require `pecu:read`. Action tools require `pecu:write` and challenge
+Read tools require `pecu:read`. Action tools require both `pecu:read` and
+`pecu:write` and challenge
 read-only clients with HTTP 403. `run_tools` is available to read clients, but
 each nested call checks its own scope. The Worker-safe JSON Schema validator
 rejects unknown arguments, including attempted account overrides.
 
-See [Clerk setup](../apps/pecu/docs/mcp-auth-setup.md). Scopes and a permitted
-MCP client must be configured in the existing Clerk instance before a live
-connection can complete. The canonical resource is `https://pecu.app/mcp`.
+See [Clerk setup](../apps/pecu/docs/mcp-auth-setup.md). The existing Clerk
+instance has both Pecu scopes and the permitted Codex CIMD client configured.
+The canonical resource is `https://pecu.app/mcp`.
 
 ## Execution and recovery
 
@@ -73,7 +74,11 @@ the same HTTP transport and schemas with both official client versions.
 The scripts use fixture OAuth verification and external services. They do not
 perform a live OAuth login or send a financial transaction.
 
-The deployment order is the agent backend, Stocks and the site router.
-The canonical URL must match the resource configured in Clerk. Production
-login still needs a complete OAuth flow and a token whose verified audience
-contains that exact endpoint.
+The agent backend, Stocks and site router are deployed. On 2026-10-02, a real
+Codex Google sign-in completed consent for both Pecu scopes and the CIMD
+callback. Codex discovered all 190 tools, exactly matching the shared catalog,
+and called `wallet_address` successfully through the Pecu backend. The
+resource-bound token passed the server's audience, revocation and permission
+checks. The probe used no model turns and requested no transaction. This
+verifies authenticated read access and completed write consent; no live write
+operation or financial transaction was tested.

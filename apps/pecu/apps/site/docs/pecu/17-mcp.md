@@ -39,8 +39,10 @@ and refresh access, sign in again and approve the requested scopes in Clerk:
 codex mcp login pecu --oauth-client-registration cimd --scopes pecu:read,pecu:write,offline_access
 ```
 
-Pecu is deployed, and a real Codex OAuth login has completed. Live tool
-discovery and authenticated reads are still being verified.
+On 2026-10-02, Codex completed Google sign-in and consent for both Pecu
+permissions, discovered all 190 tools and read the wallet address from the
+same Pecu backend. This verified login and read access. No live write operation
+or financial transaction was tested.
 
 The server supports MCP `2026-07-28` and older Streamable HTTP clients.
 Every request carries its own authentication. No session connection is needed
