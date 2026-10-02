@@ -18,6 +18,7 @@ triggers: '\b(swaps?|swapping|quotes?|convert|exchange|aerodrome|velodrome|liqui
 - Full aero_pools listings include spot_price with price_unit; use it rather than a separate quote.
 - A dollar budget can use held USDC; otherwise quote to suggest a funded-token budget.
 - A linked external wallet cannot run this batch; say it needs the Pecu smart wallet and never switch signers silently.
+- Consolidating positions authorizes withdrawing the selected positions and redepositing their resulting tokens into one position in the same pool. Read the current positions and pool, unstake staked positions, withdraw the selected positions, then read the resulting balances and make one deposit. Preserve funds outside that plan. Keep an explicit range; otherwise reuse a shared existing range or the default range 20 percent below and above live spot, and state that choice. With YOLO on, continue through all those steps in the same turn after each verified success. Do not stop merely because one transaction completed. Ask only if a material choice remains unspecified or the accepted plan must change. Verify the resulting positions before claiming consolidation succeeded.
 
 ## Tools
 

@@ -10,10 +10,10 @@ Pecu never sends a transaction straight from your request. It builds the exact t
 
 A preview says what will happen in plain terms. Depending on the action, it shows the amounts, the estimated amount you receive, the minimum you accept, the recipient and any warnings from Aave. It ends with the confirmation controls and the expiry.
 
-When Aave needs a token approval, Pecu prepares that approval separately and limits it to the amount required for the action. The preview shows the spending limit. After approval confirms, ask Pecu to continue the supply or repayment. The approval alone does not perform that action.
+When Aave needs a token approval, Pecu prepares that approval separately and limits it to the amount required for the action. The preview shows the spending limit. The approval alone does not perform that action. With YOLO on, Pecu continues the requested supply or repayment after the approval succeeds.
 
 - Previews currently show `Network fee: not estimated yet.` Pecu does not guess fees.
-- Pecu prepares at most one preview per message. For several unrelated actions, it prepares the first one and the next after you confirm. Several stock trades in one message are the exception and share one basket preview.
+- With YOLO off, Pecu prepares the first transaction and waits for confirmation. With YOLO on, one request can execute several actions in order. Pecu checks each receipt before starting the next action. Several stock trades can share one basket plan.
 - Some previews include token approvals that run before the main action. One confirmation covers every step, in order.
 - In the web app a preview is a card with buttons. In X Chat it is a text message.
 
@@ -96,7 +96,6 @@ YOLO only removes the prompt. Plan validation, the expiry, the saved-plan integr
 Some requests always wait for your confirmation, even with YOLO on:
 
 - A generic contract call, where the AI wrote the call from your description. Its preview says `YOLO is on, but a contract call always needs your confirmation.`
-- A transaction prepared right after you answer one of Pecu's questions.
 - A transaction from an answer you regenerated with Retry in the web app.
 
 ## Clarifying questions
@@ -104,7 +103,7 @@ Some requests always wait for your confirmation, even with YOLO on:
 When a detail would change a transaction, Pecu asks before it builds anything. A question can come with up to six numbered choices.
 
 - In X Chat, reply with your choice. In the web app, press one of the buttons under the question.
-- A choice is never a confirmation. It leads to a new preview, and that preview needs your confirmation even with YOLO on.
+- Accepting a concrete plan authorizes its stated actions. With YOLO on, Pecu executes the accepted plan. With YOLO off, it prepares a preview for confirmation. Choosing a token alone does not authorize an unspecified amount.
 - Reply `cancel` to drop the question. Pecu replies `Cancelled. No new transaction was sent.`
 - A slash command sent while a question is open is not taken as the answer.
 

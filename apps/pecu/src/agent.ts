@@ -1,6 +1,8 @@
 import { readPositionSnapshot } from "./position-contract";
 import { STOCKS } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import { z } from "zod";
+import { isDeepStrictEqual } from "node:util";
+import { messageIntents } from "./message-intents";
 import { jsonFieldsSchema, type JsonInput, type JsonFields } from "./json-contract";
 import { projectPolymarket, polymarketModelOutput, polymarketDiscovery } from "./integrations/polymarket/model-output";
 import { polymarketRead } from "./integrations/polymarket/client";
@@ -167,6 +169,7 @@ export type TaskRunContext = {
 const busyReply = /Pecu is finishing your previous request/;
 
 export class PecuAgent {
+  private readonly clarificationReplies = new Set<string>();
   private readonly pendingPolymarketReads = new Map<string, Promise<string>>();
   private readonly previewOnly = new Set<string>();
   private readonly executing = new Set<string>();
@@ -259,7 +262,11 @@ export class PecuAgent {
    */
   async runTask(message: VerifiedMessage, context: Pick<TaskRunContext, "taskCode" | "mode" | "grant">, checkpoint?: TaskCheckpoint, save?: (value: TaskCheckpoint) => void, authorization?: () => Grant | null): Promise<{ reply?: string; run: TaskRunContext }> {
     const run: TaskRunContext = { ...context, intents: checkpoint?.intents ?? [], codes: checkpoint?.codes ?? {}, spentUsd: checkpoint?.spentUsd ?? 0, waiting: checkpoint?.waiting, busy: false, authorization };
-    run.save = () => save?.({ turn: checkpoint?.turn ?? 0, intents: run.intents, codes: run.codes, spentUsd: run.spentUsd, ...(run.waiting ? { waiting: run.waiting } : {}) });
+    run.save = () => {
+      const value: TaskCheckpoint = { turn: checkpoint?.turn ?? 0, intents: run.intents, codes: run.codes, spentUsd: run.spentUsd };
+      if (run.waiting) value.waiting = run.waiting;
+      save?.(value);
+    };
     run.save();
     this.taskRuns.set(message.eventId, run);
     try {
@@ -306,7 +313,8 @@ export class PecuAgent {
     this.track(message.senderId, { event: "pecu_message_received", channel, ...correlation });
     try {
       const answeringQuestion = message.retryContext === undefined && !message.replyConfirmationCode && !/^(?:b)?\//.test(message.text.trim()) && this.store.answerPendingQuestion(message);
-      if (message.retryContext !== undefined || answeringQuestion) this.previewOnly.add(message.eventId);
+      if (answeringQuestion) this.clarificationReplies.add(message.eventId);
+      if (message.retryContext !== undefined) this.previewOnly.add(message.eventId);
       if (answeringQuestion && /^cancel$/i.test(message.text.trim())) {
         const reply = "Cancelled. No new transaction was sent.";
         this.store.completeEvent(message.eventId, reply);
@@ -338,6 +346,7 @@ export class PecuAgent {
         $ai_span_name: "Pecu request", $ai_latency: (endedAt - startedAt) / 1000, $ai_is_error: failed,
         started_at: startedAt, ended_at: endedAt, first_answer_ms: firstAnswer === undefined ? endedAt - startedAt : firstAnswer - startedAt });
       this.previewOnly.delete(message.eventId);
+      this.clarificationReplies.delete(message.eventId);
     }
   }
 
@@ -376,7 +385,7 @@ export class PecuAgent {
             $ai_trace_id: trace.traceId, $ai_session_id: trace.sessionId, $ai_span_id: `${trace.traceId}_runtime`,
             $ai_span_name: "Runtime ready", $ai_latency: (endedAt - routingStartedAt) / 1000, $ai_is_error: false });
         });
-        const route: RequestRoute = this.previewOnly.has(message.eventId) || taskRun
+        const route: RequestRoute = this.previewOnly.has(message.eventId) || this.clarificationReplies.has(message.eventId) || taskRun
           ? { kind: "fallback" }
           : await this.classifier?.classify(message.text) ?? { kind: "fallback" };
         const routingEnd = Date.now();
@@ -552,7 +561,7 @@ export class PecuAgent {
   }
 
   private askUser(message: VerifiedMessage, question: string, options: readonly string[] = []): string {
-    if (this.store.intentForSource(message.eventId)) throw new Error("A transaction preview already exists. Return its confirmation controls before asking another question.");
+    if (messageIntents(this.store, message.eventId).some(intent => intent.state !== "succeeded")) throw new Error("A transaction preview already exists. Return its confirmation controls before asking another question.");
     const existing = this.questionText(message.eventId);
     if (existing) return existing;
     this.store.saveQuestion(message, { question: question.trim(), options: [...options] });
@@ -562,7 +571,8 @@ export class PecuAgent {
   private questionText(eventId: string): string | undefined {
     const question = this.store.questionForEvent(eventId);
     if (!question) return undefined;
-    return question.question + (question.options.length ? "\n\n" + question.options.map((option, index) => `${index + 1}. ${option}`).join("\n") : "");
+    const completed = messageIntents(this.store, eventId).filter(intent => intent.state === "succeeded").flatMap(intent => intent.result ? [intent.result] : []).join("\n\n");
+    return (completed ? `${completed}\n\n` : "") + question.question + (question.options.length ? "\n\n" + question.options.map((option, index) => `${index + 1}. ${option}`).join("\n") : "");
   }
 
   private requireAnswer(message: VerifiedMessage): void {
@@ -1046,9 +1056,18 @@ export class PecuAgent {
     this.store.enqueueReply(`deposit:${deposit.id}:${deposit.state}:${deposit.holdReason ?? ""}`, account.conversationId, account.encodedEvent, text);
   }
 
-  /** The source event of the next proposal. An automated run numbers its later steps `eventId#2`, `eventId#3`, and so on. */
+  /** Every message numbers later actions only after the preceding action succeeds. */
   private proposalSource(message: VerifiedMessage, run: TaskRunContext | undefined): string {
-    if (!run) return message.eventId;
+    if (!run) {
+      const intents = messageIntents(this.store, message.eventId);
+      const last = intents.at(-1);
+      if (last) {
+        if (last.state !== "succeeded") throw new Error("The previous transaction has not succeeded. Stop here and return its confirmation or recovery controls; no further transaction was prepared.");
+        if (!this.config.enableMainnetExecution || this.previewOnly.has(message.eventId) || !this.store.yoloEnabled(message.senderId, message.conversationId) || this.linkedWallet(message)) throw new Error("Further transactions need your confirmation. Stop here and summarize the completed action.");
+        if (intents.length >= maxRunSteps) throw new Error(`A request can execute at most ${maxRunSteps} transactions. Stop and summarize.`);
+      }
+      return intents.length === 0 ? message.eventId : `${message.eventId}#${intents.length + 1}`;
+    }
     if (run.waiting) throw new Error("A step of this automated run is waiting for the user's approval. Stop and summarize it.");
     if (run.intents.length >= maxRunSteps) throw new Error(`An automated run can execute at most ${maxRunSteps} transactions. Stop and summarize.`);
     const last = run.intents.at(-1);
@@ -1062,12 +1081,17 @@ export class PecuAgent {
     this.requireAnswer(message);
     validateIntentPlan(intent, wallet, calls);
     const run = this.taskRuns.get(message.eventId);
+    const fingerprint = await planDigest(calls);
+    if (!run) {
+      const repeated = messageIntents(this.store, message.eventId).find(previous =>
+        previous.planDigest === fingerprint || (previous.family === intent.family && previous.action === intent.action && isDeepStrictEqual(previous.parameters, intent.parameters)));
+      if (repeated) return repeated.result ?? "This transaction request is already saved for this message. Return its original confirmation or recovery controls; no duplicate request was created.";
+    }
     const source = this.proposalSource(message, run);
     const previous = this.store.intentForSource(source);
     if (previous) return "A transaction request is already saved for this message. Use its original preview to confirm or check it; no second request was created.";
     const code = confirmationCode();
     const expiresAt = Date.now() + this.config.quoteTtlSeconds * 1_000;
-    const fingerprint = await planDigest(calls);
     const id = crypto.randomUUID();
     const selected = this.linkedWallet(message);
     const linked = selected && selected.toLowerCase() === wallet.toLowerCase() ? selected : undefined;

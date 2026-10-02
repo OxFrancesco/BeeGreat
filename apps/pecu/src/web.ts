@@ -6,6 +6,7 @@ import { parseCommand } from "./domain";
 import { aeroReadText, intentTitle } from "./chat";
 import { intentPlan } from "./transaction-plan";
 import { WebHistory, type HistoryRow } from "./web-history";
+import { messageIntents } from "./message-intents";
 import type { MessagePageQuery, ThreadPageQuery } from "./web-contract";
 import { parseAllocations } from "../node_modules/@beegreat/sugar/src/stocks/catalog";
 import { z } from "zod";
@@ -16,7 +17,7 @@ import type { PecuStore } from "./state";
 import { senderKind, webConversation } from "./web-identity";
 import type { ParagraphSink } from "./web-stream";
 import { pnlSnapshotSchema, type PnlSnapshot } from "./analytics-contract";
-import { maxRunSteps, type MessageOrigin } from "./task-contract";
+import type { MessageOrigin } from "./task-contract";
 import type { Intent } from "./state";
 import {
   basketSchema,
@@ -85,16 +86,8 @@ export class WebAgent {
   threadPage(identity: Identity, page: ThreadPageQuery = {}) {
     return this.history.threads(identity, page);
   }
-  /** The intent a message shows: its own, or for an automated run the latest of its numbered steps. */
-  private messageIntent(eventId: string, automated: boolean): Intent | undefined {
-    if (!automated) return this.store.intentForSource(eventId);
-    let latest: Intent | undefined;
-    for (let step = 1; step <= maxRunSteps; step++) {
-      const intent = this.store.intentForSource(step === 1 ? eventId : `${eventId}#${step}`);
-      if (!intent) break;
-      latest = intent;
-    }
-    return latest;
+  private messageIntent(eventId: string): Intent | undefined {
+    return messageIntents(this.store, eventId).at(-1);
   }
   private presentMessage(row: HistoryRow) {
     const stored = row.reply
@@ -103,7 +96,7 @@ export class WebAgent {
     const origin = stored?.origin;
     const reply = stored && !stored.steerPending ? { ...stored, origin: undefined } : null;
     const sourceId = stored?.steerOf ? `${row.id.slice(0, row.id.lastIndexOf(":"))}:${stored.steerOf}` : row.id;
-    const intent = this.messageIntent(sourceId, origin !== undefined);
+    const intent = this.messageIntent(sourceId);
     if (reply?.preview && intent) {
       reply.preview.state =
         intent.state === "pending" && intent.expiresAt < Date.now()
@@ -296,7 +289,7 @@ export class WebAgent {
       origin.title,
       Date.now(),
     );
-    const response = await this.replyRecord(eventId, reply, this.messageIntent(eventId, true));
+    const response = await this.replyRecord(eventId, reply, this.messageIntent(eventId));
     this.sql.exec("UPDATE basedbot_web_turns SET reply=? WHERE id=?", JSON.stringify({ ...response, origin }), eventId);
   }
   private async replyRecord(eventId: string, reply: string, intent: Intent | undefined) {
@@ -453,7 +446,7 @@ export class WebAgent {
       );
       if (!reply) { this.queue.retry(eventId); return { status: "busy" as const }; }
       const holdings = this.store.stockSnapshot(eventId);
-      const response: z.infer<typeof webReplySchema> = await this.replyRecord(eventId, reply, this.store.intentForSource(eventId));
+      const response: z.infer<typeof webReplySchema> = await this.replyRecord(eventId, reply, this.messageIntent(eventId));
       if (replyTarget !== eventId) response.steerOf = requestId;
       this.sql.exec(
         "UPDATE basedbot_web_turns SET reply=? WHERE id=?",

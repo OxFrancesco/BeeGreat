@@ -12,12 +12,15 @@ import { unusedCapabilities } from "./agent-services";
 import { curatedChain } from "../../src/research/agents";
 import { researchRoleSchema } from "../../src/research-contract";
 import { chainFetch, now } from "./chain-data";
+import { actionAgent } from "./action-agent";
+import { WebAgent } from "../../src/web";
 
 const invocation = z.object({ name: z.string(), input: jsonObjectSchema });
 const requestSchema = z.object({
   research: researchRoleSchema.optional(),
   text: z.string(), explanation: z.boolean().default(false),
-  plan: z.array(invocation).optional(), failBalances: z.boolean().default(false),
+  plan: z.array(invocation.nullable()).optional(), failBalances: z.boolean().default(false),
+  actions: z.object({ yolo: z.boolean(), pending: z.boolean().default(false), turns: z.array(z.string()).min(1).max(3) }).optional(),
 });
 type Env = { PROBE: DurableObjectNamespace<CodeModeProbe>; OPENROUTER_API_KEY?: string };
 
@@ -29,7 +32,7 @@ export class CodeModeProbe extends DurableObject<Env> {
     const stages: TurnStage[] = [];
     const analytics: JsonValue[] = [];
     const address = "0x1111111111111111111111111111111111111111";
-    const capabilities: AgentCapabilities = {
+    let capabilities: AgentCapabilities = {
       ...unusedCapabilities,
       walletAddress: async () => { calls.push({ name: "wallet_address" }); return address; },
       walletBalances: async () => {
@@ -50,7 +53,7 @@ export class CodeModeProbe extends DurableObject<Env> {
       if (new URL(outgoing.url).hostname !== "openrouter.ai") throw new Error("Unexpected inference host");
       providerRequests.push(jsonValueSchema.parse(await outgoing.clone().json()));
       if (!input.plan) {
-        if (step++ >= 8) return new Response("Probe model step limit", { status: 400 });
+        if (step++ >= 16) return new Response("Probe model step limit", { status: 400 });
         return fetch(outgoing);
       }
       const next = input.plan[step++];
@@ -70,6 +73,28 @@ export class CodeModeProbe extends DurableObject<Env> {
     const sink: ParagraphSink = Object.assign(() => {}, { stage: (stage: TurnStage) => stages.push(stage) });
     const started = Date.now();
     try {
+      if (input.actions) {
+        const { agent, approvals, reads } = actionAgent(store, { respond: async (message, tools, mode, progress) => {
+          capabilities = tools;
+          return harness.respond(message, tools, mode, progress, false);
+        } }, input.actions.pending);
+        const web = new WebAgent(agent, store, this.ctx.storage.sql);
+        const identity = { userId: "user_actionfixture", senderId: "web-user_actionfixture" };
+        const conversationId = `stocks:${identity.userId}:${identity.senderId}`;
+        store.setYolo(identity.senderId, conversationId, input.actions.yolo);
+        for (const text of input.actions.turns) {
+          const requestId = crypto.randomUUID();
+          const before = approvals.length;
+          await web.handle({ ...identity, requestId, text }, sink);
+          const after = approvals.length;
+          await web.handle({ ...identity, requestId, text }, sink);
+          if (approvals.length !== after) throw new Error("Replayed web turn submitted a duplicate transaction");
+          calls.push({ name: "web_turn", input: { text, submitted: after - before } });
+        }
+        const state = web.state(identity);
+        const text = state.messages.at(-1)?.reply?.text ?? "";
+        return Response.json({ text, state, approvals, reads, calls, elapsedMs: Date.now() - started, stages, analytics, providerRequests, dataRequests: data.urls });
+      }
       if (input.research) {
         const chain = curatedChain("base");
         if (!chain) throw new Error("Missing Base profile");

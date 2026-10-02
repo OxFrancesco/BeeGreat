@@ -3,13 +3,19 @@ import { mkdir, rm } from "node:fs/promises";
 import { z } from "zod";
 import { jsonObjectSchema, type JsonFields } from "../src/json-contract";
 import { stageSchema } from "../src/progress";
+import { webStateSchema } from "../src/web-contract";
 
 const directory = process.argv[2];
 if (!directory) throw new Error("Usage: bun scripts/probe-codemode.ts OUTPUT_DIRECTORY [--live]");
 const live = process.argv.includes("--live");
+const actions = process.argv.includes("--actions");
 await mkdir(directory, { recursive: true });
-const vars = new URL("../tests/fixtures/.dev.vars", import.meta.url);
-if (await Bun.file(vars).exists()) throw new Error("Fixture .dev.vars already exists");
+const runtime = `${directory}/runtime`;
+await mkdir(runtime, { recursive: true });
+const vars = `${runtime}/.dev.vars`;
+const config = await Bun.file(new URL("../tests/fixtures/wrangler.codemode.jsonc", import.meta.url)).json();
+config.main = new URL("../tests/fixtures/codemode-worker.ts", import.meta.url).pathname;
+await Bun.write(`${runtime}/wrangler.jsonc`, JSON.stringify(config));
 if (live) {
   const key = process.env.OPENROUTER_API_KEY ?? /^OPENROUTER_API_KEY=(.*)$/m.exec(await Bun.file(new URL("../.dev.vars", import.meta.url)).text())?.[1]?.trim().replace(/^["']|["']$/g, "");
   if (!key) throw new Error("OpenRouter key missing");
@@ -22,7 +28,7 @@ function reservePort() {
   return port;
 }
 const port = reservePort();
-const worker = Bun.spawn(["bunx", "wrangler", "dev", "--config", "tests/fixtures/wrangler.codemode.jsonc", "--local", "--port", String(port), "--inspector-port", String(reservePort()), "--show-interactive-dev-session=false"], {
+const worker = Bun.spawn(["bunx", "wrangler", "dev", "--config", `${runtime}/wrangler.jsonc`, "--local", "--port", String(port), "--inspector-port", String(reservePort()), "--show-interactive-dev-session=false"], {
   cwd: new URL("../", import.meta.url).pathname,
   env: { ...process.env, WRANGLER_WRITE_LOGS: "false", WRANGLER_SEND_METRICS: "false", WRANGLER_REGISTRY_PATH: `/tmp/pecu-codemode-${process.pid}` },
   stdout: "pipe", stderr: "pipe",
@@ -36,6 +42,7 @@ const responseSchema = z.object({
     tools: z.array(z.object({ function: z.object({ name: z.string() }) })),
     messages: z.array(z.object({ role: z.string(), content: z.string().nullable().optional() }).passthrough()),
   })),
+  state: webStateSchema.optional(), approvals: z.array(z.string()).optional(),
 });
 const rows: { name: string; elapsedMs: number; calls: string[] }[] = [];
 async function run(name: string, input: JsonFields) {
@@ -59,7 +66,24 @@ try {
     await Bun.sleep(250);
   }
   assert(ready, "Workerd did not start");
-  if (live) {
+  if (actions) {
+    const recipient = "0x2222222222222222222222222222222222222222";
+    const text = `Send 1 USDC, then 2 USDC, then 3 USDC to ${recipient}. Complete all three sends.`;
+    const code = `const results=[]; for(const amount of ['1','2','3']) results.push(await tools.evm_transfer({to:'${recipient}',token:'USDC',amount})); return results.join('\\n\\n');`;
+    for (const [name, yolo, pending, expected] of [["actions-yolo", true, false, 3], ["actions-confirmation", false, false, 0], ["actions-pending", true, true, 1]] as const) {
+      const input: JsonFields = { text, actions: { yolo, pending, turns: [text] } };
+      if (!live) input.plan = [script(code)];
+      const result = await run(name, input);
+      assert.equal(result.approvals?.length, expected, `${name}: requested actions did not respect YOLO and receipt status`);
+      assert.equal(result.state?.messages.at(-1)?.canRetry, false, "A message with transaction intents cannot be regenerated");
+    }
+    const question = `I am considering sending 1 USDC, then 2 USDC, then 3 USDC to ${recipient}. Ask me whether to use this exact plan, with choices Use this plan and Cancel. Wait for my choice.`;
+    const input: JsonFields = { text: question, actions: { yolo: true, turns: [question, "Use this plan"] } };
+    if (!live) input.plan = [{ name: "ask_user", input: { question: `Send 1, 2 and 3 USDC to ${recipient}?`, options: ["Use this plan", "Cancel"] } }, null, script(code)];
+    const accepted = await run("actions-accepted-plan", input);
+    assert.equal(accepted.approvals?.length, 3, "Accepting the plan must retain YOLO and finish every action");
+    assert.equal(accepted.state?.yolo, true);
+  } else if (live) {
     const single = await run("live-single", { text: "What is my wallet address? Reply with the address only." });
     assert(single.text.includes("0x1111111111111111111111111111111111111111"));
     assert.deepEqual(single.calls.map(call => call.name), ["wallet_address"]);
