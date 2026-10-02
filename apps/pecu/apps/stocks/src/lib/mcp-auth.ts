@@ -12,6 +12,20 @@ import {
 } from "../../../../src/mcp-auth";
 import { webSenderId } from "../../../../src/web-identity";
 
+async function logClerkVerificationStatus(response: Response): Promise<void> {
+  const codes: string[] = [];
+  try {
+    const errors = z.object({ errors: z.array(z.unknown()) }).safeParse(await response.json());
+    if (errors.success) {
+      for (const input of errors.data.errors.slice(0, 10)) {
+        const error = z.object({ code: z.string().regex(/^[a-z0-9_]{1,64}$/) }).safeParse(input);
+        if (error.success) codes.push(error.data.code);
+      }
+    }
+  } catch {}
+  console.error("Pecu MCP OAuth verification unavailable", { status: response.status, codes });
+}
+
 export function pecuMcpConfig(): McpAuthConfig {
   return mcpAuthConfig(
     import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
@@ -27,17 +41,30 @@ export async function pecuMcpIdentity(request: Request, config: McpAuthConfig): 
     if (!env.CLERK_SECRET_KEY) throw new McpAuthError(503, "Pecu's account connection is unavailable. Try again.");
     const response = await fetch("https://api.clerk.com/oauth_applications/access_tokens/verify", {
       method: "POST",
-      headers: { Authorization: `Bearer ${env.CLERK_SECRET_KEY}`, "Content-Type": "application/json", "Cache-Control": "no-store" },
+      headers: {
+        Authorization: `Bearer ${env.CLERK_SECRET_KEY}`,
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "Clerk-API-Version": "2026-05-12",
+        "User-Agent": "Pecu",
+      },
       body: JSON.stringify({ access_token: bearer }),
       cache: "no-store",
       redirect: "error",
       signal: AbortSignal.timeout(10000),
     });
     if ([400, 404, 422].includes(response.status)) throw new McpAuthError(401, "Your Pecu connection is invalid or has expired. Connect again.");
-    if (!response.ok) throw new McpAuthError(503, "Pecu could not verify your connection. Try again.");
+    if (!response.ok) {
+      await logClerkVerificationStatus(response);
+      throw new McpAuthError(503, "Pecu could not verify your connection. Try again.");
+    }
     verified = jsonValueSchema.parse(await response.json());
   } catch (error) {
     if (error instanceof McpAuthError) throw error;
+    const failure = error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name)
+      ? "timeout"
+      : error instanceof SyntaxError || error instanceof z.ZodError ? "invalid_response" : "request_failed";
+    console.error("Pecu MCP OAuth verification unavailable", { failure });
     throw new McpAuthError(503, "Pecu could not verify your connection. Try again.");
   }
   const authorization = mcpVerifiedClerkAuthorization(verified, config.resource);

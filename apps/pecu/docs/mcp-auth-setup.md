@@ -29,7 +29,7 @@ The Clerk CLI can read the targeted instance's OAuth settings without reading se
 clerk api /instance/oauth_application_settings --app <existing-app-id> --instance <exact-instance-id>
 ```
 
-Confirm `aud_claim_enabled: true`, `pkce_required: true`, `oauth_jwt_access_tokens: false`, `client_id_metadata_documents_advertised: true`, `client_id_metadata_documents_only_allow_pre_registered_clients: true`, and `default_scopes: ["pecu:read"]`. The scope catalog and explicitly admitted client URLs still need to be configured in the Dashboard. Use the exact instance ID whose Frontend API domain matches the discovery issuer.
+Confirm `aud_claim_enabled: true`, `pkce_required: true`, `oauth_jwt_access_tokens: false`, `client_id_metadata_documents_advertised: true`, `client_id_metadata_documents_only_allow_pre_registered_clients: true`, and `default_scopes: ["pecu:read"]`. Use the exact instance ID whose Frontend API domain matches the discovery issuer. These settings, both Pecu scopes and the admitted Codex client are configured in the existing instance.
 
 ## Codex
 
@@ -44,27 +44,29 @@ Codex chooses CIMD when discovery advertises `client_id_metadata_document_suppor
 Add the server and sign in with the existing Pecu account:
 
 ```sh
-codex mcp add pecu --url https://pecu.app/mcp --oauth-resource https://pecu.app/mcp
-codex mcp login pecu
+codex mcp add pecu --url https://pecu.app/mcp --oauth-client-registration cimd
+codex mcp login pecu --oauth-client-registration cimd
 ```
 
-The initial resource metadata advertises `pecu:read`. Request both permissions explicitly when actions are needed:
+`mcp add` can start login immediately. Use `mcp login` for a new consent flow. Codex discovers the resource from Pecu's protected resource metadata. Do not set `oauth_resource` or pass `--oauth-resource` for this connection in Codex 0.159.3. The explicit setting duplicated the automatically discovered `resource` parameter in the live authorization request, and Clerk rejected it with `invalid_target`. Removing the setting produced one resource parameter and completed login.
+
+The initial resource metadata advertises `pecu:read`. Request both Pecu permissions and refresh access explicitly when actions are needed:
 
 ```sh
-codex mcp login pecu --scopes pecu:read,pecu:write
+codex mcp login pecu --oauth-client-registration cimd --scopes pecu:read,pecu:write,offline_access
 ```
 
-The comma-separated flag is supported by Codex CLI 0.159.3. The local Codex reference passes explicit CLI scopes before discovered scopes. This requests permission; Clerk must admit both scopes for this client and the user must consent. Verify the issued grant includes both before claiming write access works. A live Codex login and write grant have not yet been verified.
+On 2026-10-02, Codex CLI 0.159.3 completed a real Google sign-in to the existing Clerk account, displayed consent for both Pecu scopes, completed the CIMD callback and reported successful login. The request included `pecu:read`, `pecu:write` and `offline_access`. Live tool discovery, the access token's verified audience and an authenticated tool read still need verification. Login success alone does not establish tool access.
 
 If CIMD is unavailable, pre-register a public PKCE client in Clerk and pass its ID:
 
 ```sh
-codex mcp add pecu --url https://pecu.app/mcp --oauth-resource https://pecu.app/mcp --oauth-client-id YOUR_CLERK_CLIENT_ID
+codex mcp add pecu --url https://pecu.app/mcp --oauth-client-id YOUR_CLERK_CLIENT_ID
 ```
 
 Register the exact callback printed by Codex. Newly added clients use the stable callback when issuer binding is supported; other configurations can include a server-specific path. A configured client ID skips dynamic registration. See [Codex callbacks](https://learn.chatgpt.com/docs/extend/mcp?surface=cli#oauth-client-registration-and-callbacks).
 
-Production setup remains pending until Clerk advertises CIMD, admits this metadata URL and both scopes, binds tokens to the Pecu resource, and a real callback completes. No user's Codex configuration was changed during implementation.
+The Pecu backend, Stocks/MCP Worker and public site are deployed. Canonical protected resource discovery returns HTTP 200, and unauthenticated MCP requests return HTTP 401 with the OAuth challenge. Clerk configuration and a real Codex login are verified. Authenticated catalog and tool verification remain pending.
 
 ## Worker configuration
 

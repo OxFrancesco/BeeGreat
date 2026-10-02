@@ -24,7 +24,7 @@ handler. Requests do not create MCP sessions.
 The server exposes 190 tools from the shared chat catalog, including
 `run_tools`. The two research-agent submission hooks remain private to their
 research runs. Clerk OAuth resolves the same account, sender and wallet as the
-web app. Reads require `pecu:read`; actions require `pecu:write`. An MCP token
+web app. Reads require `pecu:read`; actions require both `pecu:read` and `pecu:write`. An MCP token
 must be issued for `https://pecu.app/mcp`, and each request checks its validity
 and revocation through the existing Clerk backend.
 
@@ -34,7 +34,11 @@ automatic execution for its calls and cannot enable YOLO or approve automation
 allowances. Use a UUID `Idempotency-Key` header when retrying the same call.
 Reusing that UUID with different arguments fails.
 
-See [account connection setup](docs/mcp-auth-setup.md) before deployment.
+The endpoint is deployed, Clerk is configured and a real Codex CIMD login has
+completed. Authenticated catalog and tool reads are still being verified. See
+[account connection setup](docs/mcp-auth-setup.md) for Codex commands. Codex
+discovers the resource from server metadata; omit `--oauth-resource` to avoid
+a duplicate resource parameter in its authorization request.
 `bun run verify:mcp` checks modern and legacy HTTP clients, authentication,
 catalog parity and the persisted backend preview flow. Its external services are
 fixtures; it does not prove a production OAuth flow or move funds.

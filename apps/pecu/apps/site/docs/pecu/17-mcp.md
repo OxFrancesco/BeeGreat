@@ -20,11 +20,11 @@ one of those tools.
 
 ### Codex
 
-Production OAuth setup is pending. Once available, add Pecu and sign in:
+Add Pecu and sign in:
 
 ```sh
-codex mcp add pecu --url https://pecu.app/mcp --oauth-resource https://pecu.app/mcp
-codex mcp login pecu
+codex mcp add pecu --url https://pecu.app/mcp --oauth-client-registration cimd
+codex mcp login pecu --oauth-client-registration cimd
 ```
 
 Pecu uses Codex's client metadata document for registration. If your connection
@@ -32,14 +32,15 @@ needs a pre-registered client, add `--oauth-client-id YOUR_CLERK_CLIENT_ID` and
 register the exact callback Codex displays. See the
 [Codex OAuth guide](https://learn.chatgpt.com/docs/extend/mcp?surface=cli#oauth-client-registration).
 
-To request action permissions, sign in again with both scopes and approve
-them in Clerk:
+The add command can start login immediately. To request action permissions
+and refresh access, sign in again and approve the requested scopes in Clerk:
 
 ```sh
-codex mcp login pecu --scopes pecu:read,pecu:write
+codex mcp login pecu --oauth-client-registration cimd --scopes pecu:read,pecu:write,offline_access
 ```
 
-This requests access. A live Codex write grant has not yet been verified.
+Pecu is deployed, and a real Codex OAuth login has completed. Live tool
+discovery and authenticated reads are still being verified.
 
 The server supports MCP `2026-07-28` and older Streamable HTTP clients.
 Every request carries its own authentication. No session connection is needed
