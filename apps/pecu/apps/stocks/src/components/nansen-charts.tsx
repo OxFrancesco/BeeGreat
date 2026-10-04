@@ -106,6 +106,6 @@ export function NansenChart({ snapshot, illustrative = false }: { snapshot: Nans
       <p className="text-sm text-muted-foreground">Positive values mean net inflows to the group. Groups may overlap; transfers are not necessarily trades.</p>
     </> : snapshot.kind === "pnl" ? <PnlChart snapshot={snapshot} /> : <PortfolioChart snapshot={snapshot} />}
     {snapshot.partial ? <p role="status" className="text-sm text-muted-foreground">Partial data. Missing values are not counted as zero; returned rows may not cover the full result.</p> : null}
-    <p className="!mb-0 mt-3 text-xs text-muted-foreground"><a href="https://nansen.ai" target="_blank" rel="noreferrer" className="underline">{illustrative ? "Nansen integration" : "Data: Nansen"}</a>{illustrative ? null : <> · Retrieved {new Date(snapshot.observedAt).toLocaleString()}</>}</p>
+    <p className="!mb-0 mt-3 text-xs text-muted-foreground"><a href="https://nansen.ai" target="_blank" rel="noreferrer" className="underline">{illustrative ? "Nansen integration" : "Data: Nansen"}</a>{illustrative ? null : <> · Retrieved {new Date(snapshot.observedAt).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC")}</>}</p>
   </section>;
 }

@@ -1,6 +1,7 @@
 import { readdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createCssVariablesTheme, createHighlighter } from "shiki";
+import { author, breadcrumbs, breadcrumbSchema, jsonLd, type Crumb } from "../seo";
 
 const site = resolve(import.meta.dir, "..");
 
@@ -177,7 +178,7 @@ function checkLinks(pages: Page[]) {
   if (broken.length) throw new Error(`Broken docs links:\n${broken.join("\n")}`);
 }
 
-const footer = `<footer class="docs-footer"><div class="docs-footer-inner"><p><strong>Experimental. Unofficial.</strong> Pecu, Aero and evmSDK are early software built with AI coding agents. Transactions on Base are real, and a wrong amount, address or approval can lose funds for good. Start with reads, keep amounts small and check every preview yourself.</p><p>This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.</p><nav aria-label="Footer"><a href="/">Pecu home</a><a href="/agent">Agent</a><a href="/design">Design</a><a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK">Aero SDK on GitHub ↗</a><a href="https://github.com/OxFrancesco/evmSDK">evmSDK on GitHub ↗</a><a href="mailto:info@pecu.app">info@pecu.app</a></nav></div></footer>`;
+const footer = `<footer class="docs-footer"><div class="docs-footer-inner"><p><strong>Experimental. Unofficial.</strong> Pecu, Aero and evmSDK are early software built with AI coding agents. Transactions on Base are real, and a wrong amount, address or approval can lose funds for good. Start with reads, keep amounts small and check every preview yourself.</p><p>This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.</p><nav aria-label="Footer"><a href="/">Pecu home</a><a href="/agent">Agent</a><a href="/design">Design</a><a href="/about">About Francesco Oddo</a><a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK">Aero SDK on GitHub ↗</a><a href="https://github.com/OxFrancesco/evmSDK">evmSDK on GitHub ↗</a><a href="mailto:info@pecu.app">info@pecu.app</a></nav></div></footer>`;
 
 function productSwitch(current?: ProductId) {
   return `<nav class="product-switch" aria-label="Products">${products
@@ -192,7 +193,7 @@ function header(current: ProductId | undefined, navigation: boolean) {
 const searchDialog = `<dialog id="docs-search" class="docs-search" aria-label="Search docs"><div class="search-field">${icons.search}<label class="sr-only" for="docs-search-input">Search docs</label><input id="docs-search-input" type="search" placeholder="Search docs" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="docs-search-results" aria-autocomplete="list"><button class="icon-button search-close" type="button" aria-label="Close search">${icons.close}</button></div><ul id="docs-search-results" class="search-results" role="listbox" aria-label="Results"></ul><p class="search-empty" role="status" aria-live="polite"></p></dialog><div class="docs-live sr-only" role="status" aria-live="polite"></div>`;
 
 function renderDocument({ title, description, url, body, current, scripts = [] }: { title: string; description: string; url: string; body: string; current?: ProductId; scripts?: string[] }) {
-  return `<!doctype html><html lang="en" class="pecu-theme"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="theme-color" content="#ffffff"><meta name="darkreader-lock"><title>${escape(title)}</title><meta name="description" content="${escape(description)}"><link rel="canonical" href="https://pecu.app${url}"><meta property="og:type" content="website"><meta property="og:url" content="https://pecu.app${url}"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta property="og:image" content="https://pecu.app/pecu-assets/og-reveal.jpg"><meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/pecu-assets/icon-192.png" type="image/png" sizes="192x192"><link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180"><link rel="stylesheet" href="/pecu-assets/style.css"><link rel="stylesheet" href="/pecu-assets/docs.css"><script defer src="/pecu-assets/docs.js"></script>${scripts.map((src) => `<script defer src="${src}"></script>`).join("")}</head><body class="docs-page"><script type="module" src="/pecu-assets/analytics.js"></script><a class="skip-link" href="#content">Skip to content</a>${header(current, body.includes('id="docs-nav"'))}${body}${footer}${searchDialog}</body></html>`;
+  return `<!doctype html><html lang="en" class="pecu-theme"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="theme-color" content="#ffffff"><meta name="darkreader-lock"><title>${escape(title)}</title><meta name="description" content="${escape(description)}"><meta name="author" content="Francesco Oddo">${jsonLd({ "@context": "https://schema.org", "@type": url === "/docs" ? "CollectionPage" : "TechArticle", headline: title, description, url: `https://pecu.app${url}`, author })}<link rel="canonical" href="https://pecu.app${url}"><meta property="og:type" content="website"><meta property="og:url" content="https://pecu.app${url}"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${escape(description)}"><meta property="og:image" content="https://pecu.app/pecu-assets/og-reveal.jpg"><meta name="twitter:card" content="summary_large_image"><link rel="icon" href="/favicon.ico" sizes="48x48"><link rel="icon" href="/pecu-assets/icon-192.png" type="image/png" sizes="192x192"><link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180"><link rel="stylesheet" href="/pecu-assets/style.css"><link rel="stylesheet" href="/pecu-assets/docs.css"><script defer src="/pecu-assets/docs.js"></script>${scripts.map((src) => `<script defer src="${src}"></script>`).join("")}</head><body class="docs-page"><script type="module" src="/pecu-assets/analytics.js"></script><a class="skip-link" href="#content">Skip to content</a>${header(current, body.includes('id="docs-nav"'))}${body}${footer}${searchDialog}</body></html>`;
 }
 
 function sidebar(pages: Page[], current: Page) {
@@ -219,7 +220,9 @@ function pager(previous?: Page, next?: Page) {
 function renderPage(page: Page, siblings: Page[]) {
   const index = siblings.indexOf(page);
   const outline = page.headings.length > 1;
-  const body = `<div class="docs-layout${outline ? "" : " no-outline"}">${sidebar(siblings, page)}<main id="content" class="docs-main" tabindex="-1"><article class="docs-article"><h1>${escape(page.slug === "overview" ? page.product.name : page.title)}</h1><p class="docs-lead">${escape(page.description)}</p>${outline ? `<details class="toc-inline"><summary>On this page${icons.chevron}</summary><nav aria-label="On this page">${toc(page.headings)}</nav></details>` : ""}<div class="prose">${page.html}</div>${pager(siblings[index - 1], siblings[index + 1])}</article></main>${outline ? `<aside class="docs-toc"><nav aria-label="On this page">${toc(page.headings)}</nav></aside>` : ""}</div>`;
+  const crumbs: Crumb[] = [{ name: "Pecu", path: "/" }, { name: "Docs", path: "/docs" }, { name: page.product.name, path: `/docs/${page.product.id}` }];
+  if (page.slug !== "overview") crumbs.push({ name: page.title, path: page.url });
+  const body = `<div class="docs-layout${outline ? "" : " no-outline"}">${sidebar(siblings, page)}<main id="content" class="docs-main" tabindex="-1"><article class="docs-article">${breadcrumbs(crumbs)}${jsonLd(breadcrumbSchema(crumbs))}<h1>${escape(page.slug === "overview" ? page.product.name : page.title)}</h1><p class="docs-lead">${escape(page.description)}</p>${outline ? `<details class="toc-inline"><summary>On this page${icons.chevron}</summary><nav aria-label="On this page">${toc(page.headings)}</nav></details>` : ""}<div class="prose">${page.html}</div>${pager(siblings[index - 1], siblings[index + 1])}</article></main>${outline ? `<aside class="docs-toc"><nav aria-label="On this page">${toc(page.headings)}</nav></aside>` : ""}</div>`;
   const title = page.slug === "overview" ? `${page.product.name} docs | Pecu` : `${page.title} | ${page.product.name} docs`;
   return renderDocument({ title, description: page.description, url: page.url, body, current: page.product.id });
 }
@@ -263,7 +266,7 @@ function renderLanding(pages: Page[]) {
       return `<article class="card bento arriving docs-tile ${tile.className}" style="--i:${i}">${tile.visual}<div class="tile-copy"><h2><a href="/docs/${product.id}">${product.name}</a>${tile.subtitle ? ` <small>${tile.subtitle}</small>` : ""}</h2><p>${tile.text}</p>${links ? `<ul class="tile-links">${links}</ul>` : ""}</div></article>`;
     })
     .join("");
-  const body = `<main id="content" class="docs-landing" tabindex="-1"><h1>Docs</h1><div class="docs-tiles">${cards}</div></main>`;
+  const body = `<main id="content" class="docs-landing" tabindex="-1">${breadcrumbs([{ name: "Pecu", path: "/" }, { name: "Docs", path: "/docs" }])}<h1>Docs</h1><div class="docs-tiles">${cards}</div></main>`;
   return renderDocument({
     title: "Docs | Pecu",
     description: "Guides and references for Pecu, the Aero SDK, CLI and TUI, and evmSDK.",
@@ -275,7 +278,7 @@ function renderLanding(pages: Page[]) {
 
 function renderNotFound() {
   const body = `<main id="content" class="docs-landing docs-missing" tabindex="-1"><h1>Page not found</h1><p>This docs page does not exist or has moved.</p><div class="actions"><a class="button primary" href="/docs">Go to the docs</a><button class="button" type="button" data-open-search>Search docs</button></div></main>`;
-  return renderDocument({ title: "Page not found | Pecu docs", description: "This docs page does not exist.", url: "/docs", body });
+  return renderDocument({ title: "Page not found | Pecu docs", description: "This docs page does not exist.", url: "/docs", body }).replace(/<link rel="canonical"[^>]*>/, "").replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, "");
 }
 
 function searchIndex(pages: Page[]) {

@@ -47,3 +47,6 @@ html, body, #root { min-height: 100%; margin: 0; }
 }
 
 @media (min-width: 600px) and (max-width: 900px) { .showcase-tabs { display: flex; } .showcase-tabs button { padding-inline: 18px; font-size: 14px; } }
+
+.showcase-breadcrumbs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; font-size: 14px; color: var(--muted-foreground); }
+.showcase-breadcrumbs a { min-height: 32px; display: inline-flex; align-items: center; }

@@ -6,12 +6,13 @@
     <meta name="color-scheme" content="light">
     <meta name="theme-color" content="#ffffff">
     <meta name="darkreader-lock">
-    <title>Pecu | Your smart ass on-chain friend</title>
-    <meta name="description" content="Pecu answers on X, keeps a Base smart wallet per verified account, and previews transactions unless you enable YOLO. Built from Aero, evmSDK and Aero Stocks.">
+    <meta name="google-site-verification" content="Q-t3JD4QAUC2Pd4I2qPdO1X56cqQzXr_OwjzujybBnk">
+    <title>Pecu | AI agent for Base wallets, swaps and analytics</title>
+    <meta name="description" content="Use Pecu on X or in your browser to check Base balances, compare swaps and read market data. Review transaction previews before confirming.">
     <link rel="canonical" href="https://pecu.app/">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://pecu.app/">
-    <meta property="og:title" content="Pecu | Your smart ass on-chain friend">
+    <meta property="og:title" content="Pecu | AI agent for Base wallets, swaps and analytics">
     <meta property="og:description" content="Message Pecu on X for balances, swaps, transfers and analytics on Base. Transactions require confirmation unless you enable YOLO.">
     <meta property="og:image" content="https://pecu.app/pecu-assets/og-reveal.jpg">
     <meta property="og:image:width" content="1280">
@@ -19,7 +20,7 @@
     <meta property="og:image:alt" content="A clay snail with a coral shell and a gold coin next to the word Pecu.">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Pecu">
-    <meta name="twitter:description" content="Your smart ass on-chain friend.">
+    <meta name="twitter:description" content="Check balances, compare swaps and read market data on Base.">
     <meta name="twitter:image" content="https://pecu.app/pecu-assets/og-reveal.jpg">
     <link rel="icon" href="/favicon.ico" sizes="48x48">
     <link rel="icon" href="/pecu-assets/icon-192.png" type="image/png" sizes="192x192">
@@ -46,11 +47,11 @@
 
       <header class="hero">
         <div class="stage" aria-hidden="true">
-          <video class="reveal" muted playsinline preload="auto" tabindex="-1" data-webm="/pecu-assets/mascot/pecu-reveal.webm" data-hevc="/pecu-assets/mascot/pecu-reveal.hevc.mp4"></video>
-          <img class="reveal-still" src="/pecu-assets/mascot/pecu-reveal.webp" width="1280" height="720" alt="" hidden>
+          <video class="reveal" muted playsinline preload="none" tabindex="-1" data-webm="/pecu-assets/mascot/pecu-reveal.webm" data-hevc="/pecu-assets/mascot/pecu-reveal.hevc.mp4"></video>
+          <img class="reveal-still" src="/pecu-assets/mascot/pecu-reveal.webp" width="1280" height="720" alt="" fetchpriority="high">
         </div>
         <div class="hero-copy">
-          <h1 class="statement">Your smart ass on-chain friend!</h1>
+          <h1 class="statement">Your AI agent for Base</h1>
           <div class="actions">
             <a class="button primary" href="https://x.com/BeeGreatAI">Message Pecu on X ↗</a>
             <a class="button" href="/agent">Open the agent →</a>
@@ -59,12 +60,12 @@
       </header>
 
       <section class="tools" aria-labelledby="tools">
-        <h2 id="tools">What we are building</h2>
+        <h2 id="tools">Use Pecu</h2>
         <div class="grid">
           <article class="card bento agent" style="--i:0">
             <div class="tile-visual" aria-hidden="true">
               <div class="snail">
-                <img class="snail-still" src="/pecu-assets/mascot/idle.webp" width="960" height="720" alt="">
+                <img class="snail-still" src="/pecu-assets/mascot/idle.webp" width="960" height="720" alt="" loading="lazy" decoding="async">
                 <video class="snail-loop" muted loop playsinline preload="none" data-webm="/pecu-assets/mascot/idle.webm" data-hevc="/pecu-assets/mascot/idle.hevc.mp4"></video>
               </div>
               <div class="chat">
@@ -79,7 +80,8 @@
             </div>
             <div class="tile-copy">
               <h3>Pecu on X</h3>
-              <p>Send a message to <a href="https://x.com/BeeGreatAI">@BeeGreatAI</a>, or sign in with the same X account at <a href="/agent">pecu.app/agent</a>. The first message on X creates your Base smart wallet through Crossmint. Ask for balances, quotes, swaps, transfers, Aave positions, Nansen analytics or Polymarket odds in plain words or with short commands like <code>/swap</code> and <code>/send</code>. Reads answer at once. Anything that moves money comes back as a preview with a six-character code, and only you, from the same conversation, can confirm it. Enabling YOLO skips confirmation for new transaction requests.</p>
+              <p>Message <a href="https://x.com/BeeGreatAI">@BeeGreatAI</a> or use <a href="/agent">Pecu in your browser</a>. Ask for balances, swap quotes, transfers or Aave positions on Base. Pecu previews transactions for you to confirm in the same conversation. <a href="/docs/pecu/confirmations">YOLO mode</a> skips confirmation for new supported requests.</p>
+              <p>Try the <a href="/nansen-showcase">Nansen analytics examples</a> or <a href="/polymarket-showcase">Polymarket examples</a> before asking for a live read.</p>
               <div class="tile-actions">
                 <a class="button primary" href="https://x.com/BeeGreatAI">Message Pecu ↗</a>
                 <a class="button" href="/agent">Open in the browser →</a>
@@ -152,13 +154,20 @@
           </aside>
       </section>
 
+      <section class="faq" aria-labelledby="faq">
+        <h2 id="faq">Questions about Pecu</h2>
+        <details id="faq-what"><summary>What can I do with Pecu?</summary><p>Ask for Base wallet balances, swap quotes, transfers, Aave positions, Nansen analytics and public Polymarket data. Use Pecu in your browser or message @BeeGreatAI on X. <a href="/docs/pecu">Read the Pecu guide</a>.</p></details>
+        <details id="faq-confirm"><summary>Does Pecu move money without confirmation?</summary><p>By default, Pecu prepares a transaction preview that you confirm in the same conversation. YOLO mode skips confirmation for new supported requests. Scheduled transactions need a separate approved allowance. <a href="/docs/pecu/confirmations">Read the confirmation rules</a>.</p></details>
+        <details id="faq-fund"><summary>How do I fund my Pecu wallet?</summary><p>Send /wallet to see your Base wallet address, then /deposit for funding options. Check the network and recipient before sending funds. <a href="/docs/pecu/funding">Read the funding guide</a>.</p></details>
+        <details id="faq-independent"><summary>Is Pecu an official Aerodrome product?</summary><p>No. Pecu, Aero and evmSDK are independent projects by Francesco Oddo. They are not affiliated with or endorsed by Aerodrome Finance or Velodrome Finance. <a href="/about">About the author</a>.</p></details>
+      </section>
       <footer>
         <a href="/docs">Docs</a>
         <a href="/design">Design</a>
         <a href="mailto:info@pecu.app">info@pecu.app</a>
         <a href="https://github.com/OxFrancesco/UNOFFICIAL-Aero-SDK">Aero SDK on GitHub ↗</a>
         <a href="https://github.com/OxFrancesco/evmSDK">evmSDK on GitHub ↗</a>
-        <a href="https://oddofrancesco.com/">Francesco Oddo ↗</a>
+        <a href="/about">About Francesco Oddo</a>
       </footer>
     </main>
   </body>

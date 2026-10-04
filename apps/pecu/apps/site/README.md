@@ -29,3 +29,20 @@ Run `bunx wrangler deploy` from this directory. Its build step regenerates the h
 
 
 This is an independent project and is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, or Mellow Protocol. References to their names and protocols describe compatibility or source attribution only. All trademarks belong to their respective owners. Third-party code remains subject to its applicable licenses.
+
+## Search indexing
+
+The build renders both interactive showcases into their initial HTML, then checks
+public pages for a title, description, canonical URL and one H1. It generates
+`/sitemap.xml` and `/robots.txt` on every build. Private profile and research pages,
+APIs and assets are excluded from the sitemap. Keep the Google verification tag
+in the homepage so the Search Console property remains verified.
+
+`/about` identifies Francesco Oddo and links his portfolio and source repositories.
+FAQ JSON-LD matches the homepage's visible answers. Docs and public subpages have
+breadcrumbs. The gateway collapses legacy aliases and slash/index variants into
+one redirect and adds metadata to the existing server-rendered Agent and Stocks.
+
+The site uses licensed WOFF2 font subsets, WebP raster artwork and delayed mascot
+and Aero scene loading. See `docs/59-pecu-search.md` at the repository root for scope
+and verification notes. Build output in `public/` is generated, not edited by hand.

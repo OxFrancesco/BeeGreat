@@ -39,9 +39,15 @@ if (reduceMotion.matches || !revealSource) {
   showStill();
 } else {
   reveal.addEventListener('error', showStill);
-  reveal.src = revealSource;
-  const attempt = reveal.play();
-  if (attempt) attempt.catch(showStill);
+  reveal.addEventListener('playing', () => { still.hidden = true; });
+  const startReveal = () => {
+    if (reduceMotion.matches || document.hidden) return;
+    reveal.src = revealSource;
+    reveal.play()?.catch(showStill);
+  };
+  // Keep the poster visible and let the initial document finish first.
+  if (document.readyState === 'complete') startReveal();
+  else window.addEventListener('load', startReveal, { once: true });
 }
 
 // Idle snail on the agent tile. The poster stays until frames flow.
@@ -54,7 +60,7 @@ const syncPlayback = () => {
   if (reduceMotion.matches || document.hidden) {
     reveal.pause();
     if (reduceMotion.matches) showStill();
-  } else if (revealSource && !reveal.ended && !stage.classList.contains('is-still')) {
+  } else if (reveal.getAttribute('src') && !reveal.ended && !stage.classList.contains('is-still')) {
     reveal.play()?.catch(showStill);
   }
   if (!loop || !loopSource) return;

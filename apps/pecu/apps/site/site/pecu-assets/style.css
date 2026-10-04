@@ -154,7 +154,6 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
 
 /* Arrival: tiles rise in with a stagger; each diagram has one motion of its own. */
 @media (prefers-reduced-motion: no-preference) {
-  .motion-ready .bento:not(.arriving) { opacity: 0; }
   .bento.arriving { animation: tile-arrive var(--tile) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * var(--stagger)); }
   .bento.arriving .bubble { animation: bubble-pop 420ms var(--ease-out) both; }
   .bento.arriving .bubble.you { animation-delay: calc(var(--i, 0) * var(--stagger) + 260ms); }
@@ -255,3 +254,15 @@ footer a { display: inline-flex; min-height: 44px; align-items: center; font-siz
   .topbar { flex-wrap: wrap; }
   .topbar nav { width: 100%; justify-content: space-between; gap: 8px; }
 }
+
+.breadcrumbs { display: block; margin-bottom: 20px; }
+.breadcrumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; list-style: none; padding: 0; margin: 0; font-size: 14px; }
+.breadcrumbs li + li::before { content: "/"; margin-right: 8px; color: var(--muted-foreground); }
+.breadcrumbs a { min-height: 32px; font-size: inherit; }
+.breadcrumbs [aria-current] { color: var(--muted-foreground); }
+.faq { margin: 48px 0; }
+.faq details { border-top: 1px solid var(--border); padding: 20px 0; }
+.faq summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; }
+.faq p { max-width: 76ch; margin: 12px 0 0; }
+.author-page { max-width: 76ch; margin: 48px auto 64px; }
+.author-page h1 { font-size: clamp(32px, 5vw, 48px); line-height: 1.15; margin: 0 0 24px; }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createRoot } from "react-dom/client";
+import { hydrateRoot } from "react-dom/client";
 import { Copy, Check, ArrowRight } from "lucide-react";
 import { Button } from "../src/components/ui/button";
 import { AnalyticsCard } from "../src/components/analytics-card";
@@ -12,7 +12,7 @@ import "./style.css";
 const collection = polymarketShowcaseSchema.parse(source);
 const savedOn = new Date(collection.collectedAt).toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
 
-function Showcase() {
+export function Showcase() {
   const [section, setSection] = useState<(typeof polymarketSections)[number]["id"]>("odds");
   const [chosen, setChosen] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -29,6 +29,7 @@ function Showcase() {
     <a className="showcase-skip" href="#examples">Skip to examples</a>
     <header className="showcase-header"><a className="showcase-wordmark" href="/" aria-label="Pecu home">pecu</a><Button asChild className="pecu-button pecu-button-primary showcase-open"><a href="/agent">Open Pecu <ArrowRight aria-hidden="true" /></a></Button></header>
     <main>
+      <nav className="showcase-breadcrumbs" aria-label="Breadcrumb"><a href="/">Pecu</a><span aria-hidden="true">/</span><span aria-current="page">Polymarket showcase</span></nav>
       <h1>Polymarket showcase</h1>
       <p className="showcase-intro">Explore market odds, order books and the traders behind them. Examples use public Polymarket data saved on {savedOn}. Copy a prompt to get the live version from Pecu.</p>
       <div className="showcase-tabs pm-showcase-tabs" role="group" aria-label="Choose analysis">{polymarketSections.map((view) => <Button variant="ghost" key={view.id} type="button" aria-pressed={section === view.id} onClick={() => { setSection(view.id); choose(""); }}>{view.label}</Button>)}</div>
@@ -50,5 +51,5 @@ function Showcase() {
     </main>
   </div>;
 }
-const root = document.getElementById("root");
-if (root) createRoot(root).render(<Showcase />);
+const root = typeof document === "undefined" ? null : document.getElementById("root");
+if (root) hydrateRoot(root, <Showcase />);

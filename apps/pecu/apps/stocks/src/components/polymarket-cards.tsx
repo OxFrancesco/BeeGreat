@@ -29,7 +29,7 @@ const profileUrl = (wallet: string) => `https://polymarket.com/profile/${encodeU
 
 function timeLabels(points: readonly { t: number }[]) {
   const first = points[0]?.t ?? 0, last = points.at(-1)?.t ?? 0;
-  const format = new Intl.DateTimeFormat("en-US", last - first < 2 * 86_400 ? { hour: "2-digit", minute: "2-digit" } : { month: "short", day: "numeric" });
+  const format = new Intl.DateTimeFormat("en-US", last - first < 2 * 86_400 ? { hour: "2-digit", minute: "2-digit", timeZone: "UTC" } : { month: "short", day: "numeric", timeZone: "UTC" });
   return points.map((point) => format.format(new Date(point.t * 1000)));
 }
 
@@ -39,7 +39,7 @@ function Shell({ title, meta, snapshot, illustrative, children }: { title: strin
     <p className="!mt-1 text-sm text-muted-foreground">{illustrative ? "Illustrative data" : meta}</p>
     {children}
     {snapshot.partial ? <p role="status" className="text-sm text-muted-foreground">More results are available. This shows one page.</p> : null}
-    <p className="!mb-0 mt-3 text-xs text-muted-foreground"><a href="https://polymarket.com" target="_blank" rel="noreferrer" className="underline">{illustrative ? "Polymarket integration" : "Data: Polymarket"}</a>{illustrative ? null : <> · Retrieved {new Date(snapshot.observedAt).toLocaleString()}</>}</p>
+    <p className="!mb-0 mt-3 text-xs text-muted-foreground"><a href="https://polymarket.com" target="_blank" rel="noreferrer" className="underline">{illustrative ? "Polymarket integration" : "Data: Polymarket"}</a>{illustrative ? null : <> · Retrieved {new Date(snapshot.observedAt).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC")}</>}</p>
   </section>;
 }
 
@@ -62,7 +62,7 @@ function Expandable<T>({ rows, limit, children }: { rows: readonly T[]; limit: n
 }
 
 function Odds({ snapshot, illustrative }: { snapshot: Of<"pm_odds">; illustrative: boolean }) {
-  const ends = snapshot.endDate ? new Date(snapshot.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+  const ends = snapshot.endDate ? new Date(snapshot.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }) : null;
   return <Shell title={snapshot.title} meta={["Market-implied odds", ends ? `ends ${ends}` : null].filter(Boolean).join(" · ")} snapshot={snapshot} illustrative={illustrative}>
     {snapshot.rows.length ? <Expandable rows={snapshot.rows} limit={8}>{(row, index) => <li key={`${row.label}:${index}`} className="!m-0 py-2"><OddsBar label={row.label} probability={row.probability} /></li>}</Expandable> : <p className="text-sm text-muted-foreground">No open outcomes returned.</p>}
     <dl className="mt-3 grid grid-cols-2 gap-2 text-sm"><dt className="text-muted-foreground">24h volume</dt><dd className="text-right font-mono tabular-nums">{analyticsCompactUsd(snapshot.volume24hUsd)}</dd><dt className="text-muted-foreground">Liquidity</dt><dd className="text-right font-mono tabular-nums">{analyticsCompactUsd(snapshot.liquidityUsd)}</dd></dl>
