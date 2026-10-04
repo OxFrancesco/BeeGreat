@@ -77,7 +77,14 @@ for (const [path, file] of pages) {
   }
   if (["/", "/about"].includes(path) || path.startsWith("/docs")) metadata += '<link rel="preload" href="/pecu-assets/fonts/inter.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/pecu-assets/fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>';
   html = html.replace("</head>", metadata + "</head>");
-  if (path === "/design") html = html.replace('src="/pecu-assets/mascot/idle.webp" alt=', 'src="/pecu-assets/mascot/idle.webp" width="960" height="720" alt=');
+  if (path === "/design") {
+    html = html.replaceAll('src="/pecu-assets/icon-192.png"', 'src="/pecu-assets/icon-192.webp"');
+    html = html.replace(/<img\b[^>]*>/g, (image) => {
+      if (/\bwidth=/.test(image) && /\bheight=/.test(image)) return image;
+      const size = image.includes("mascot/idle.webp") ? [960, 720] : image.includes("mascot/pecu-reveal.webp") ? [1280, 720] : image.includes("icon-192.webp") ? [192, 192] : null;
+      return size ? image.replace("<img", `<img width="${size[0]}" height="${size[1]}"`) : image;
+    });
+  }
   await Bun.write(file, html);
 }
 

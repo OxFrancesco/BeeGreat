@@ -1,1 +1,2 @@
 .breadcrumbs{display:block;margin:12px 0 20px}.breadcrumbs ol{display:flex;flex-wrap:wrap;align-items:center;gap:8px;list-style:none;padding:0;margin:0;font-size:14px}.breadcrumbs li+li::before{content:"/";margin-right:8px;opacity:.6}.breadcrumbs a{min-height:32px;font-size:inherit;display:inline-flex;align-items:center}.breadcrumbs [aria-current]{opacity:.75}
+.scene-controls{min-height:76px}.scene-controls[hidden]{display:block;visibility:hidden}

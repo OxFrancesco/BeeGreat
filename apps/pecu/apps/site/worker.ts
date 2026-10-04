@@ -48,11 +48,36 @@ function appMetadata(response: Response, path: string) {
   const description = "View tokenized stock holdings on Base, preview buys and sells, and save a basket with target weights using your Pecu wallet.";
   return new HTMLRewriter()
     .on('link[rel="canonical"]', { element(element) { element.remove(); } })
+    .on('link[rel="stylesheet"]', { element(element) {
+      const href = element.getAttribute("href");
+      if (!href?.startsWith("/assets/")) return;
+      const url = new URL(href, origin);
+      url.searchParams.set("pecu-fonts", "1");
+      element.setAttribute("href", url.pathname + url.search);
+    } })
+    .on("img", { element(element) {
+      if (element.getAttribute("src")?.startsWith("/assets/idle-")) {
+        element.setAttribute("width", "960");
+        element.setAttribute("height", "720");
+      }
+    } })
     .on('meta[name="description"]', { element(element) { if (path === "/stocks") element.remove(); } })
     .on("head", { element(element) {
       element.append(`<link rel="canonical" href="${origin}${path}">${path === "/stocks" ? `<meta name="description" content="${description}">` : ""}`, { html: true });
     } })
     .transform(response);
+}
+
+async function appFonts(response: Response): Promise<Response> {
+  if (!response.ok || !response.headers.get("Content-Type")?.includes("text/css")) return response;
+  const css = (await response.text())
+    .replace(/url\([^)]*inter-[^)]*\.ttf\)format\([^)]+\)/g, 'url("/pecu-assets/fonts/inter.woff2")format("woff2")')
+    .replace(/url\([^)]*jetbrains-mono-[^)]*\.ttf\)format\([^)]+\)/g, 'url("/pecu-assets/fonts/jetbrains-mono.woff2")format("woff2")')
+    .replaceAll("font-display:swap", "font-display:optional");
+  const headers = new Headers(response.headers);
+  headers.delete("Content-Length");
+  headers.delete("ETag");
+  return new Response(css, { status: response.status, headers });
 }
 
 export default {
@@ -106,6 +131,7 @@ export default {
       url.pathname.startsWith("/assets/")
     ) {
       const response = await env.STOCKS.fetch(request);
+      if (url.pathname.startsWith("/assets/") && url.pathname.endsWith(".css")) return appFonts(response);
       return ["/agent", "/stocks"].includes(url.pathname) ? appMetadata(response, url.pathname) : response;
     }
     const basePath = url.pathname === "/evmsdk" || url.pathname.startsWith("/evmsdk/") ? "/evmsdk" : cliPath;

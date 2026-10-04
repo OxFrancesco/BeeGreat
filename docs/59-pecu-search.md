@@ -26,7 +26,10 @@ and source repositories; it does not invent credentials or endorsements.
 The homepage shows its WebP poster before starting the mascot video after load.
 The Aero scene module also waits for load. Content stays visible before arrival
 animations. Reserved media dimensions and optional WOFF2 font loading avoid late
-font swaps. The build combines the homepage's small CSS imports. Raster Aero
+font swaps. The build combines the homepage's small CSS imports. The gateway also rewrites
+the app stylesheet to use the same WOFF2 files, with a versioned stylesheet URL
+so browsers do not reuse the old fonts. Aero controls reserve their height before
+the 3D scene loads. Raster Aero
 artwork and its video poster use WebP on pecu.app; SVGs and social previews keep
 their appropriate formats. Decorative images keep empty alt text.
 
