@@ -1,5 +1,5 @@
 import posthog, { type PostHogConfig } from "posthog-js";
-import { analyticsIdentity, analyticsPath, posthogHost, posthogProjectToken } from "./analytics-config";
+import { analyticsIdentity, analyticsPage, posthogHost, posthogProjectToken } from "./analytics-config";
 
 const safeProperties = new Set([
   "token", "distinct_id", "$device_id", "$session_id", "$window_id", "$lib", "$lib_version",
@@ -32,8 +32,10 @@ export const analyticsOptions = {
     if (!event) return null;
     if (!["$pageview", "$identify", "pecu_navigation_clicked", "pecu_turn_performance"].includes(event.event)) return null;
     event.properties = Object.fromEntries(Object.entries(event.properties).filter(([key]) => safeProperties.has(key)));
-    event.properties.$pathname = analyticsPath(window.location.pathname);
-    event.properties.$current_url = `https://pecu.app${event.properties.$pathname}`;
+    const page = analyticsPage(window.location.pathname);
+    event.properties.$pathname = page.path;
+    event.properties.$current_url = `https://pecu.app${page.path}`;
+    event.properties.surface = page.surface;
     event.properties.product = "pecu";
     event.properties.environment = "production";
     event.properties.$geoip_disable = true;
@@ -72,10 +74,10 @@ export function initAnalytics(): boolean {
 
 export function trackPage(path: string): void {
   if (!initAnalytics()) return;
-  const page = analyticsPath(path);
-  if (lastPage === page) return;
-  lastPage = page;
-  posthog.capture("$pageview", { surface: page === "/" ? "site" : "app" });
+  const page = analyticsPage(path);
+  if (lastPage === page.path) return;
+  lastPage = page.path;
+  posthog.capture("$pageview", { surface: page.surface });
 }
 
 export type AnalyticsDestination = "agent" | "stocks" | "aero_cli" | "aero_docs" | "x_chat" | "evm_sdk";

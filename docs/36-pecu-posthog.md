@@ -4,7 +4,7 @@ Pecu uses PostHog project 278624 in the EU region. The unused Default project wa
 
 | Event | Trigger | Properties |
 | --- | --- | --- |
-| `$pageview` | Landing page load or web route change | Normalized route, site/app |
+| `$pageview` | Public page load or web route change | Public documentation path or redacted app route; site/docs/app/other |
 | `pecu_navigation_clicked` | Landing links to agent, X Chat, Stocks, Aero CLI/docs, or evmSDK | Fixed destination name |
 | `$identify` | Signed-in web account | Hashed sender ID, anonymous ID |
 | `pecu_message_received` | Shared agent claims a new message | web/x channel |
@@ -22,11 +22,33 @@ The Worker uses `POSTHOG_ENABLED=true` in its production Wrangler configuration 
 
 ## Coverage
 
-The landing site and Stocks/Agent web root share browser tracking. The shared Pecu agent handler covers web and X Chat, including direct commands and model requests regardless of inference provider. Bee mobile, Android, CLI, iMessage, voice, and Hive are separate products and are not instrumented by this change. No EVM or Aero SDK code, wire contracts, transaction execution behavior, or persistent wallet identifiers changed.
+The landing site, documentation, public showcases, SDK landing pages at pecu.app, and Stocks/Agent web root share browser tracking. Public pages use `surface=site`, documentation uses `docs`, and Stocks, Agent, Profile, and Researches use `app`. Unknown routes use `other`. SDK tracking is injected by the Pecu gateway, not into the standalone SDK sites.
+
+Known documentation pages retain their full public path, such as `/docs/pecu/security`. The allowlist is generated from the documentation filenames by `scripts/build-analytics-pages.ts` before either browser build. Both browser typechecks reject a stale allowlist. Unknown documentation suffixes fall back to their product root; private app routes still collapse to `/agent`, `/profile`, `/stocks`, or `/researches`. Queries and fragments remain excluded. Historical events retain their old buckets and surface labels; compare detailed page reports from the October 6, 2026 release onward.
+
+The shared Pecu agent handler covers web and X Chat, including direct commands and model requests regardless of inference provider. Bee mobile, Android, CLI, iMessage, voice, and Hive are separate products and are not instrumented by this change. No EVM or Aero SDK code, wire contracts, transaction execution behavior, or persistent wallet identifiers changed.
 
 Verify the bundled browser SDK with `bun run --cwd apps/pecu/apps/stocks verify:analytics`. This check uses Happy DOM with mocked transport and disables bot filtering only in that test.
 
-Deploy the Pecu Worker, Stocks web app, and landing site together. The Aero, EVM, and Codex container workers do not need a deployment for this change.
+For browser path coverage, bundle `apps/pecu/apps/stocks/scripts/verify-page-reporting.browser.ts`
+with Bun's browser target and IIFE format, then evaluate it in an isolated
+`pecu.app` tab. Read `globalThis.pecuPageReportingResult`. It exercises every public
+docs path, site and private app routes, deduplication, and query/fragment redaction.
+The harness returns `null` after the real `before_send` sanitizer to discard every
+event before transport and uses a separate consent prefix.
+
+An initial October 6 verification run accidentally ingested 68 pageviews at
+05:08:24 UTC under distinct ID `01a10f9c-eb41-7bfa-aea4-3d9aaa66492a`.
+Every saved Pecu dashboard insight excludes that ID. Raw event queries must also
+exclude it; the historical events were not deleted or rewritten.
+
+Deploy the Pecu Worker, Stocks web app, and landing site together when changing shared event capture. The October 6 page-reporting change only requires the Stocks web app and landing site. The Aero, EVM, and Codex container workers do not need a deployment for browser-only changes.
+
+## Search visibility
+
+Use [Search Console performance](https://search.google.com/search-console/performance/search-analytics?resource_id=https%3A%2F%2Fpecu.app%2F) for Google impressions, clicks, and queries, and [Page indexing](https://search.google.com/search-console/index?resource_id=https%3A%2F%2Fpecu.app%2F) for indexed-page counts and exclusions. PostHog measures recorded visits after arrival. Compare the same dates and canonical page paths in both tools; their totals measure different things and need not match. Referrer and campaign capture remain disabled.
+
+On October 6, 2026, the authenticated [Sitemaps report](https://search.google.com/search-console/sitemaps?resource_id=https%3A%2F%2Fpecu.app%2F) showed `Success`, 63 discovered pages, and a last read of October 4. Both performance and page indexing still showed `Processing data, please check again in a day or so`. These are pending reports, not zero clicks or zero indexed pages. Once available, compare consecutive complete seven-day periods and record the top queries/pages, clicks, impressions, click-through rate, and indexing exclusions alongside PostHog site/docs/app visits.
 
 References: [Cloudflare Workers integration](https://posthog.com/docs/libraries/cloudflare-workers), [browser configuration](https://posthog.com/docs/libraries/js/config), [property redaction](https://posthog.com/tutorials/web-redact-properties).
 

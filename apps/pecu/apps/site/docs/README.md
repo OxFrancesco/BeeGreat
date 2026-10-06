@@ -80,3 +80,8 @@ wallet owner strings.
 
 Run `bun run --cwd apps/pecu/apps/site build` after editing to regenerate the
 pages.
+
+Site and Stocks builds also regenerate `apps/pecu/src/analytics-pages.generated.json`
+from these filenames so analytics can retain known public page paths. Commit the
+generated file when adding, renaming or removing a page. Both typechecks reject
+a stale list.

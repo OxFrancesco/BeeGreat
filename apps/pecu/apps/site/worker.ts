@@ -141,7 +141,7 @@ export default {
     }
     url.pathname = url.pathname === "/favicon.svg" ? "/favicon.svg" : url.pathname.slice(basePath.length) || "/";
     const service = basePath === "/evmsdk" ? env.EVM : env.CLI;
-    const response = await service.fetch(new Request(url, request));
+    let response = await service.fetch(new Request(url, request));
     if (response.status >= 300 && response.status < 400 && response.headers.has("Location")) {
       const headers = new Headers(response.headers);
       headers.set("Location", localLink(headers.get("Location")!, basePath));
@@ -162,9 +162,17 @@ export default {
           },
         });
       if (url.pathname === "/" && response.ok) {
+        const headers = new Headers(response.headers);
+        const policy = headers.get("Content-Security-Policy");
+        if (policy && !policy.includes("https://eu.i.posthog.com")) {
+          headers.set("Content-Security-Policy", /(?:^|;)\s*connect-src\b/.test(policy)
+            ? policy.replace(/connect-src([^;]*)/, "connect-src$1 https://eu.i.posthog.com")
+            : `${policy}; connect-src 'self' https://eu.i.posthog.com`);
+        }
+        response = new Response(response.body, { status: response.status, statusText: response.statusText, headers });
         rewriter
           .on('link[rel="canonical"]', { element(element) { element.remove(); } })
-          .on("head", { element(element) { element.append(`<link rel="canonical" href="${origin}${basePath}">${jsonLd(breadcrumbSchema(crumbs))}<link rel="stylesheet" href="/pecu-assets/breadcrumbs.css">`, { html: true }); } })
+          .on("head", { element(element) { element.append(`<link rel="canonical" href="${origin}${basePath}">${jsonLd(breadcrumbSchema(crumbs))}<link rel="stylesheet" href="/pecu-assets/breadcrumbs.css"><script type="module" src="/pecu-assets/analytics.js"></script>`, { html: true }); } })
           .on(".topbar", { element(element) { element.after(breadcrumbs(crumbs), { html: true }); } })
           .on('script[src$="/scene.js"]', { element(element) {
             element.setAttribute("src", "/pecu-assets/sdk-scene.js");

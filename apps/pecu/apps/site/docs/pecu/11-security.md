@@ -113,7 +113,7 @@ Previews for a linked wallet are built for that address and marked with it when 
 | Polymarket | Public read requests |
 | Exa | Your question, when you start Polymarket research |
 | Whop | Your email and your deposits |
-| PostHog | Usage events with a hashed account ID, without message text, replies, emails, wallet addresses, amounts or codes |
+| PostHog | Public page paths, redacted app routes and usage events with a hashed account ID, without message text, replies, emails, wallet addresses, amounts or codes |
 
 ## Known gaps in live testing
 

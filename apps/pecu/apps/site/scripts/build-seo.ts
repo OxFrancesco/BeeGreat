@@ -61,6 +61,9 @@ for (const [path, file] of pages) {
   if (!title || !description) throw new Error(`${path}: missing title or description`);
   if ((html.match(/<h1(?:\s|>)/g) ?? []).length !== 1) throw new Error(`${path}: needs one rendered H1`);
   if (/noindex/i.test(html)) throw new Error(`${path}: unexpected noindex`);
+  if (!html.includes('src="/pecu-assets/analytics.js"')) {
+    html = html.replace("</head>", '<script type="module" src="/pecu-assets/analytics.js"></script></head>');
+  }
   html = html.replace(/<link rel="canonical"[^>]*>/g, "");
   let metadata = `<link rel="canonical" href="${canonical}">`;
   if (!html.includes('name="author"')) metadata += '<meta name="author" content="Francesco Oddo">';

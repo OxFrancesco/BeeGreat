@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun ../../scripts/check-design.ts && bun scripts/build-docs.ts",
+    "build": "bun ../../scripts/build-analytics-pages.ts && bun ../../scripts/check-design.ts && bun scripts/build-docs.ts",
     "build:check": "wrangler deploy --dry-run --outdir dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "bun ../../scripts/build-analytics-pages.ts --check && tsc --noEmit"
   },
   "devDependencies": {
     "@types/react": "19.2.14",

@@ -6,10 +6,10 @@
     "dev": "bun run catalog && vite --host 127.0.0.1 --port 5198",
     "build": "bun scripts/check-build-env.ts && bun ../../scripts/check-design.ts && bun run lint:design && bun run catalog && vite build",
     "build:preview": "bun run build --mode preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun ../../scripts/build-analytics-pages.ts --check && tsc --noEmit",
     "verify:analytics": "bun scripts/verify-analytics.ts",
     "deploy": "bun run build && wrangler deploy",
-    "catalog": "bun scripts/sync-catalog.ts",
+    "catalog": "bun ../../scripts/build-analytics-pages.ts && bun scripts/sync-catalog.ts",
     "lint:design": "oxlint -c .oxlintrc.json src showcase polymarket-showcase",
     "build:showcase": "vite build --config showcase/vite.config.ts",
     "build:polymarket-showcase": "vite build --config polymarket-showcase/vite.config.ts"
