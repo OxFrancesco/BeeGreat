@@ -1,7 +1,10 @@
 import { z } from "zod";
 import type { CatalogSource } from "./aero-cache";
-import type { CatalogKind } from "./catalog-refresh";
+import { catalogKinds, type CatalogKind } from "./catalog-refresh";
 const snapshotSchema = z.object({ expiresAt: z.number(), value: z.unknown() });
+const tickSchema = z.object({ status: z.enum(["refreshed", "fresh", "idle", "deferred"]) });
+
+export type CatalogTick = { kind: CatalogKind; status: z.output<typeof tickSchema>["status"] | "failed" };
 
 export function catalogSource(namespace: DurableObjectNamespace): CatalogSource {
   return async kind => {
@@ -11,13 +14,18 @@ export function catalogSource(namespace: DurableObjectNamespace): CatalogSource 
   };
 }
 
-export async function refreshCatalogs(env: AeroEnv, scheduledTime: number): Promise<void> {
-  const kinds: CatalogKind[] = ["pools", "swap-topology"];
-  if (Math.floor(scheduledTime / 60_000) % 5 === 0) kinds.push("tokens");
+/** One keep-warm tick per kind, in sequence to stay under the provider's RPS limit. A failed kind never blocks the others. */
+export async function refreshCatalogs(env: AeroEnv): Promise<CatalogTick[]> {
   const stub = env.AERO_REFRESH.get(env.AERO_REFRESH.idFromName("base-catalog-v1"));
-  for (const kind of kinds) {
-    const response = await stub.fetch(`https://catalog.internal/${kind}`, { method: "POST" });
-    if (!response.ok) throw new Error(`Failed to refresh ${kind}`);
-    await response.body?.cancel();
+  const ticks: CatalogTick[] = [];
+  for (const kind of catalogKinds) {
+    try {
+      const response = await stub.fetch(`https://catalog.internal/${kind}`, { method: "POST" });
+      const tick = tickSchema.safeParse(await response.json().catch(() => undefined));
+      ticks.push({ kind, status: response.ok && tick.success ? tick.data.status : "failed" });
+    } catch {
+      ticks.push({ kind, status: "failed" });
+    }
   }
+  return ticks;
 }

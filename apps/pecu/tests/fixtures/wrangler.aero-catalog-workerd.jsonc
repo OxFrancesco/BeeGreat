@@ -1,0 +1,10 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "pecu-aero-catalog-workerd-test",
+  "main": "aero-catalog-workerd-worker.ts",
+  "compatibility_date": "2026-08-29",
+  "compatibility_flags": ["nodejs_compat"],
+  "r2_buckets": [{ "binding": "AERO_CATALOG", "bucket_name": "pecu-aero-catalog-test" }],
+  "durable_objects": { "bindings": [{ "name": "AERO_REFRESH", "class_name": "AeroCatalog" }] },
+  "migrations": [{ "tag": "catalog-v1", "new_sqlite_classes": ["AeroCatalog"] }]
+}

@@ -85,8 +85,9 @@ async function dispatch(request: AeroRequest, env: AeroEnv, observe: SugarRpcObs
 }
 
 export default {
-  async scheduled(controller: ScheduledController, env: AeroEnv): Promise<void> {
-    await refreshCatalogs(env, controller.scheduledTime);
+  async scheduled(_controller: ScheduledController, env: AeroEnv): Promise<void> {
+    const failed = (await refreshCatalogs(env)).filter(tick => tick.status === "failed").map(tick => tick.kind);
+    if (failed.length) throw new Error(`Failed to refresh ${failed.join(", ")}`);
   },
   async fetch(request: Request, env: AeroEnv): Promise<Response> {
     if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });

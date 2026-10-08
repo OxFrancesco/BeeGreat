@@ -18,7 +18,7 @@ This budget flow supports concentrated liquidity funded with one of the pair's t
 
 The default range is 20% below and above the observed pool price, adjustable on request. Fees stop outside the range and token exposure changes. Unspent tokens remain in your wallet. Pecu leaves native ETH available for fees, but does not estimate the network fee. If balances or market data are unavailable, it explains the missing data before preparing a plan.
 
-Token symbols resolve through the full on-chain catalog. A unique listed match takes priority; ambiguous matches require a contract address. ETH means native ETH and WETH means Base's wrapped ETH. Public token and pool catalogs refresh in the background. Balances, pool reserves, prices, allowances and transaction quotes are read live.
+Token symbols resolve through the full on-chain catalog. A unique listed match takes priority; ambiguous matches require a contract address. ETH means native ETH and WETH means Base's wrapped ETH. Public token and pool catalogs refresh in the background while Pecu is in use. After a quiet period, the first request that needs them can take several extra seconds while they load. Balances, pool reserves, prices, allowances and transaction quotes are read live.
 
 ## Flag syntax
 
