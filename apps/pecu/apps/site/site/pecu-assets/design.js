@@ -104,3 +104,15 @@ document
       "Sample received. This composer is not connected to Pecu.";
     document.querySelector("#sample-message").value = "";
   });
+const sampleWaitlist = document.querySelector("#sample-waitlist");
+sampleWaitlist.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const status = sampleWaitlist.querySelector(".waitlist-status");
+  const email = sampleWaitlist.elements.namedItem("email");
+  const consent = sampleWaitlist.elements.namedItem("consent");
+  const ready = email.value.trim() && email.checkValidity() && consent.checked;
+  status.dataset.state = ready ? "success" : "error";
+  status.textContent = ready
+    ? "Sample only. Nothing was saved."
+    : "Enter an email address and tick the box.";
+});

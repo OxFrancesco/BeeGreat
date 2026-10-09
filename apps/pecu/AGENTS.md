@@ -208,6 +208,10 @@ Nansen analytics is read-only. `NANSEN_API_KEY` is a Cloudflare secret, never in
 
 `twitter_*` tools cover every twitterapi.io read endpoint (`src/integrations/twitter.ts`). Keep each endpoint's upstream parameter names, stop pagination on `has_next_page`, and keep responses compact. `TWITTERAPI_IO_KEY` is a Cloudflare secret, never in code, logs or reports. Write endpoints need account cookies and a proxy; they are not wired and must not be added without a confirmation design.
 
+## Waitlist
+
+The homepage waitlist (`src/waitlist.ts`, `apps/site/site/pecu-assets/waitlist.js`) stores only a normalized email, the consent version and the first-join time in `pecu_waitlist`. New and repeat addresses get the same reply; keep it that way so the form never reveals who signed up. Never log addresses or request bodies, never store client IPs, and never add a public list, count or endpoint. Owner access is `bun run waitlist list|csv|remove` behind `ADMIN_TOKEN`. The feature sends no email; launch emails need explicit approval. It is not a token sale and must not offer token or reward mechanics. See `docs/60-pecu-waitlist.md` at the monorepo root.
+
 ## Pecu visual consistency
 
 Pecu and Pecu Agent share `theme/amber-minimal.json`, generated `theme/theme.css`,

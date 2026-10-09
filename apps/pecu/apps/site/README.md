@@ -5,6 +5,7 @@
 | Path | Destination |
 | --- | --- |
 | `/` | Pecu homepage |
+| `POST /waitlist` | Same-origin waitlist signup, forwarded to the `basedbot` `WaitlistGateway` entrypoint. `GET /waitlist` redirects to `/#waitlist`. See `docs/60-pecu-waitlist.md` at the repository root |
 | `/un-aerosdk` | Existing `aero-cli-site` landing page |
 | `/docs` | Docs landing page with the three products |
 | `/docs/pecu`, `/docs/aero`, `/docs/evm` and `/docs/<product>/<page>` | Docs pages built from `docs/` |

@@ -97,6 +97,16 @@ actions use card surfaces and the small clay shadow. Quiet actions have no
 shadow. Disabled and loading states must stay readable and prevent duplicate
 submission. Inputs keep labels and visible focus treatment.
 
+The homepage waitlist is one card between the tools and the FAQ: heading and one
+sentence on the left, the form on the right, stacked below 900px. The email
+field is a recessed 48px input with the clay focus halo; Join is the amber
+action, full width below 540px. The consent checkbox sits in a 44px label row.
+One status line under the form carries errors in destructive-tinted text and
+the result in accent text, so the card does not grow on submit. Submission
+disables Join; success disables the form and rises in 200ms on the entrance
+curve, with no motion under reduced motion. Only the field named by the message
+is marked invalid.
+
 Assistant replies flow on the page beside the snail. User messages use amber
 bubbles with dark text. The composer is a raised clay surface. Copy actions
 report success only after the clipboard write resolves and remain usable on

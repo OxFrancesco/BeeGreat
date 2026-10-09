@@ -26,6 +26,7 @@ import { aeroWorkerExecutor } from "./aero-client";
 import { evmWorkerExecutor } from "./evm-client";
 import { WebAgent } from "../web";
 import { PecuCards } from "../cards";
+import { PecuWaitlist, waitlistJoinSchema, waitlistRemoveSchema } from "../waitlist";
 import { cardViewerSchema } from "../cards-contract";
 import { webIdentitySchema, webStateRequestSchema, webHistoryRequestSchema, webThreadsRequestSchema, webTurnSchema, webThreadDeleteSchema, webPnlRequestSchema, basketSchema } from "../web-contract";
 import { profileActionRequestSchema, profileSafeRequestSchema } from "../safe-profile-contract";
@@ -98,6 +99,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
   private readonly config: WorkerConfig;
   private readonly store: DurableStore;
   private readonly cards: PecuCards;
+  private readonly waitlist: PecuWaitlist;
   private agent?: PecuAgent;
   private webAgent?: WebAgent;
   private safeProfile?: SafeProfile;
@@ -118,6 +120,7 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     this.nextAlarmDelayMs = this.config.pollIntervalMs;
     this.store = new DurableStore(ctx.storage);
     this.cards = new PecuCards(ctx.storage.sql);
+    this.waitlist = new PecuWaitlist(ctx.storage.sql);
     this.ready = ctx.blockConcurrencyWhile(async () => {
       this.store.initialize();
       await this.restoreXOAuthState();
@@ -255,6 +258,22 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
       if (["/internal/web/cards", "/internal/web/cards-claim"].includes(url.pathname) && request.method === "POST") {
         const viewer = cardViewerSchema.parse(await request.json());
         return json(url.pathname.endsWith("-claim") ? this.cards.claim(viewer) : this.cards.collection(viewer));
+      }
+      if (url.pathname === "/internal/waitlist/join" && request.method === "POST") {
+        if (!this.waitlist.allow(request.headers.get("X-Pecu-Client") || "unknown")) return json({ error: "Too many attempts from this network. Try again in a few minutes." }, 429);
+        const input = waitlistJoinSchema.safeParse(await request.json().catch(() => null));
+        if (!input.success) {
+          const field = input.error.issues.some((issue) => issue.path[0] === "email") ? "email" : "consent";
+          return json({ field, error: field === "email" ? "Enter a full email address, like name@example.com." : "Tick the box so Pecu can email you about the launch." }, 400);
+        }
+        this.waitlist.join(input.data);
+        return json({ ok: true });
+      }
+      if (url.pathname === "/internal/waitlist" && request.method === "GET") return json({ signups: this.waitlist.list() });
+      if (url.pathname === "/internal/waitlist/remove" && request.method === "POST") {
+        const input = waitlistRemoveSchema.safeParse(await request.json().catch(() => null));
+        if (!input.success) return json({ error: "Enter a valid email address." }, 400);
+        return json({ status: this.waitlist.remove(input.data) ? "removed" : "missing" });
       }
       if (url.pathname === "/internal/cards/backfill" && request.method === "POST") {
         const viewers = cardViewerSchema.array().max(100).parse(await request.json());
@@ -831,6 +850,17 @@ export class StocksGateway extends WorkerEntrypoint<Cloudflare.Env> {
   }
 }
 
+export class WaitlistGateway extends WorkerEntrypoint<Cloudflare.Env> {
+  override async fetch(request: Request): Promise<Response> {
+    if (request.method !== "POST" || new URL(request.url).pathname !== "/waitlist") return json({error:"not found"},404);
+    const body = await request.text();
+    if (body.length > 1024) return json({error:"Request too large"},413);
+    return durableObject(this.env).fetch(new Request("https://pecu.internal/internal/waitlist/join", {
+      method:"POST",headers:{ "Content-Type": "application/json", "X-Pecu-Client": request.headers.get("X-Pecu-Client") ?? "" },body,
+    }));
+  }
+}
+
 export default {
   async fetch(request: Request, env: Cloudflare.Env, _ctx: ExecutionContext): Promise<Response> {
     const config = loadWorkerConfig(env);
@@ -902,6 +932,8 @@ export default {
     }
     const internalPath = url.pathname
       .replace(/^\/admin\/cards\/backfill$/, "/internal/cards/backfill")
+      .replace(/^\/admin\/waitlist$/, "/internal/waitlist")
+      .replace(/^\/admin\/waitlist\/remove$/, "/internal/waitlist/remove")
       .replace(/^\/admin\/opencode\/login\/status\//, "/internal/auth/status/")
       .replace(/^\/admin\/opencode\/login$/, "/internal/auth/start")
       .replace(/^\/admin\/opencode\/status$/, "/internal/auth/status")

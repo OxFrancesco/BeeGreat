@@ -492,3 +492,6 @@
     white-space: nowrap;
   }
 }
+.design-page .waitlist-form {
+  max-width: 560px;
+}

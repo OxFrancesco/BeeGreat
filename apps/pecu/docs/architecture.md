@@ -77,6 +77,10 @@ An eligible deposit creates a `deposit`-family intent with `sourceEventId` `depo
 
 `GET /admin/deposits` returns the treasury address, its USDC balance, and the 50 most recent deposits. `POST /admin/deposits/{id}/relay` retries a held deposit with only the two caps bypassed; every other check still applies.
 
+## Waitlist
+
+The pecu.app homepage form posts to the `pecu-app` gateway, which forwards same-origin JSON to the `WaitlistGateway` entrypoint. The Durable Object stores normalized addresses in `pecu_waitlist` (`src/waitlist.ts`) and answers new and repeat addresses identically. `GET /admin/waitlist` lists signups and `POST /admin/waitlist/remove` deletes one; `bun run waitlist` wraps both. See `docs/60-pecu-waitlist.md` at the monorepo root.
+
 ## Nansen analytics
 
 `src/integrations/nansen.ts` holds a curated catalog of twenty read-only Nansen endpoints covering token god mode (information, flow intelligence, flows, who-bought-sold, transfers, DEX trades, OHLCV, screener), wallet profiler (balances, transactions, PnL, counterparties, related wallets), and prediction markets (market and event screeners, order book, trades, top holders, PnL, address summary). Each catalog entry owns its path, description, zod input, request-body builder, and summarizer. `per_page` is capped at 25 so chat replies stay short. Every reply ends with `Data: Nansen (nansen.ai)` and the raw response goes to `b/verbose` through `saveDetails`.

@@ -77,6 +77,7 @@ describe("docs routes on pecu.app", () => {
     CLI: unavailable,
     EVM: unavailable,
     STOCKS: unavailable,
+    WAITLIST: unavailable,
   };
   const get = (path: string) => gateway.fetch(new Request(`https://pecu.app${path}`), env);
 

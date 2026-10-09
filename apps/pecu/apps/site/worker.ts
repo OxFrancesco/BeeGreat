@@ -5,6 +5,23 @@ interface Env {
   EVM: Pick<Fetcher, "fetch">;
   STOCKS: Pick<Fetcher, "fetch">;
   ASSETS: Pick<Fetcher, "fetch">;
+  WAITLIST: Pick<Fetcher, "fetch">;
+}
+
+async function waitlist(request: Request, url: URL, env: Env): Promise<Response> {
+  const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
+  if (["GET", "HEAD"].includes(request.method)) return Response.redirect(new URL("/#waitlist", url), 302);
+  if (request.method !== "POST") return Response.json({ error: "method not allowed" }, { status: 405, headers: { ...headers, Allow: "GET, HEAD, POST" } });
+  if (request.headers.get("Origin") !== url.origin || !request.headers.get("Content-Type")?.startsWith("application/json")) {
+    return Response.json({ error: "Submit the form on pecu.app." }, { status: 403, headers });
+  }
+  const body = await request.text();
+  if (body.length > 1024) return Response.json({ error: "Request too large" }, { status: 413, headers });
+  return env.WAITLIST.fetch(new Request("https://pecu.internal/waitlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Pecu-Client": request.headers.get("CF-Connecting-IP") ?? "" },
+    body,
+  }));
 }
 
 const cliPath = "/un-aerosdk";
@@ -91,6 +108,7 @@ export default {
       if (url.hostname === "pecu.app") url.protocol = "https:";
       return Response.redirect(url, 308);
     }
+    if (url.pathname === "/waitlist") return waitlist(request, url, env);
     if (["/robots.txt", "/sitemap.xml"].includes(url.pathname)) return env.ASSETS.fetch(request);
     if (url.pathname === "/about") {
       url.pathname = "/about/index.html";

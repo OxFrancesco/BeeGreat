@@ -10,7 +10,8 @@
   "services": [
     { "binding": "CLI", "service": "aero-cli-site" },
     { "binding": "EVM", "service": "evm-sdk-site" },
-    { "binding": "STOCKS", "service": "aero-stocks" }
+    { "binding": "STOCKS", "service": "aero-stocks" },
+    { "binding": "WAITLIST", "service": "basedbot", "entrypoint": "WaitlistGateway" }
   ],
   "build": { "command": "bun run build" }
 }

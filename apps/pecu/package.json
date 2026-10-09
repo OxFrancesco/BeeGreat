@@ -11,6 +11,7 @@
     "xchat:setup": "bun scripts/xchat-setup.ts",
     "aero": "sugar-ts",
     "doctor": "bun src/doctor.ts",
+    "waitlist": "bun scripts/waitlist.ts",
     "build": "bun run skills:check && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --dry-run --outdir dist/cloudflare && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.aero.jsonc --dry-run --outdir dist/aero && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.codex.jsonc --dry-run --containers-rollout=none --outdir dist/codex && WRANGLER_WRITE_LOGS=false bunx wrangler deploy --config wrangler.evm.jsonc --dry-run --containers-rollout=none --outdir dist/evm",
     "typecheck": "bun run skills:check && tsc --noEmit",
     "test": "bun test ./tests/*.test.ts",

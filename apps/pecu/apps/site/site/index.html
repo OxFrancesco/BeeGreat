@@ -29,6 +29,7 @@
     <link rel="stylesheet" href="/pecu-assets/style.css">
     <script defer src="/pecu-assets/bento.js"></script>
     <script defer src="/pecu-assets/aero-mark.js"></script>
+    <script defer src="/pecu-assets/waitlist.js"></script>
   </head>
   <body>
     <script type="module" src="/pecu-assets/analytics.js"></script>
@@ -152,6 +153,25 @@
             <p>Pecu and the tools under it are early software built with AI coding agents. Transactions on Base are real, and a wrong amount, address or approval can lose funds for good. Start with reads, keep small amounts, and check every preview yourself.</p>
             <p>Pecu is an independent project. It is not affiliated with, endorsed by, sponsored by, or maintained by Aerodrome Finance, Velodrome Finance, Dromos Labs, Mellow Protocol, Crossmint, Aave, Nansen or Polymarket. Protocol names describe compatibility only. All trademarks belong to their owners.</p>
           </aside>
+      </section>
+
+      <section class="card waitlist" id="waitlist" aria-labelledby="waitlist-title">
+        <div class="waitlist-copy">
+          <h2 id="waitlist-title">Join the waitlist</h2>
+          <p>Pecu's public launch is planned for late October 2026. Leave your email and you'll get a note when it launches.</p>
+        </div>
+        <form class="waitlist-form" action="/waitlist" method="post" novalidate>
+          <label for="waitlist-email">Email</label>
+          <div class="waitlist-row">
+            <input id="waitlist-email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" maxlength="254" required aria-describedby="waitlist-status">
+            <button class="button primary" type="submit">Join</button>
+          </div>
+          <label class="waitlist-consent">
+            <input name="consent" type="checkbox" required>
+            <span>Email me about Pecu's launch. To be removed, write to <a href="mailto:info@pecu.app">info@pecu.app</a>.</span>
+          </label>
+          <p class="waitlist-status" id="waitlist-status" role="status" aria-live="polite"></p>
+        </form>
       </section>
 
       <section class="faq" aria-labelledby="faq">
