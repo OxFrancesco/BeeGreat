@@ -57,6 +57,7 @@ const lastSuccessfulPollKey = "basedbot-last-successful-poll";
 const lastActivityAtKey = "basedbot-last-activity-at";
 const realtimeSetupKey = "basedbot-realtime-setup";
 const realtimeFallbackPollMs = 60_000;
+const peerConversationKey = (botUserId: string, peerUserId: string) => `basedbot-peer-conversation:${botUserId}:${peerUserId}`;
 const realtimeSetupRecheckMs = 24 * 60 * 60 * 1_000;
 
 type StoredXOAuthState = Readonly<{
@@ -724,6 +725,10 @@ export class PecuDurableObject extends DurableObject<Cloudflare.Env> {
     this.transport = new XChatTransport(api, chat, botUserId, this.config, this.store, this.agent, {
       get: () => this.ctx.storage.get<ConversationDiscovery>("basedbot-conversation-discovery"),
       put: (value) => this.ctx.storage.put("basedbot-conversation-discovery", value),
+    }, {
+      get: (bot, peer) => this.ctx.storage.get<string>(peerConversationKey(bot, peer)),
+      put: (bot, peer, conversationId) => this.ctx.storage.put(peerConversationKey(bot, peer), conversationId),
+      delete: async (bot, peer) => { await this.ctx.storage.delete(peerConversationKey(bot, peer)); },
     });
     return this.transport;
   }

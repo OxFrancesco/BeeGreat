@@ -65,6 +65,25 @@ so full-story verification is partial. The independent service checks returned
 all five pools. Browser response latency and per-request server traces were not
 measured, and no end-to-end chat speedup is claimed. No funds moved.
 
+## Quota exhaustion, October 2026
+
+Pool catalog refreshes on `basedbot-aero` succeeded until 6 October 2026, 05:25 UTC,
+then every refresh failed in about 1.1 seconds with the same deployed version. That
+duration matches the Sugar SDK's first `count` read failing four times with retry delays
+of 150, 300 and 600 ms. A local Workerd run against a mock RPC returning Chainstack's
+HTTP 429 quota response reproduced it: 4 requests, 1,103 ms, 503.
+
+The September 26 release added a one-minute cron that forced pool and swap-topology
+scans every minute and tokens every five. One scan is 99 `eth_call` requests, so the
+cron used about 314,000 requests a day. The Developer plan includes 3,000,000 request
+units a month. At that rate the quota lasts about 9.5 days; the cron had run 9.4 days
+when refreshes stopped. This is strong evidence of quota exhaustion, not proof: the
+secret and the Chainstack dashboard were not inspected.
+
+The catalog now refreshes only after recent demand and backs off after failures (see
+`44-pecu-performance.md`). Its failure log carries the provider's status and message,
+so the first failure after deployment states the actual cause.
+
 ## Scope and rollback
 
 All Pecu channels using the shared Aero service receive the same provider change.

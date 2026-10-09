@@ -53,6 +53,19 @@ export type ConversationDiscoveryStore = {
   put(value: ConversationDiscovery): Promise<void>;
 };
 
+/** Verified peer conversation IDs, keyed by the authenticated bot account so another account never reuses them. */
+export type PeerConversationStore = {
+  get(botUserId: string, peerUserId: string): Promise<string | undefined>;
+  put(botUserId: string, peerUserId: string, conversationId: string): Promise<void>;
+  delete(botUserId: string, peerUserId: string): Promise<void>;
+};
+
+/** A one-to-one X Chat conversation ID names exactly its two participants. */
+function isDirectConversation(conversationId: string, botUserId: string, peerUserId: string): boolean {
+  const parts = comparableConversation(conversationId).split("-");
+  return botUserId !== peerUserId && parts.length === 2 && parts.includes(botUserId) && parts.includes(peerUserId);
+}
+
 export type ChatTransportApi = Pick<XApi, "conversationId" | "conversations" | "publicKeys" | "events" | "send">;
 export type ChatTransportCrypto = Pick<ChatWithJuicebox, "decryptEvents" | "setSigningKeys" | "encryptReply">;
 const sendPayloadSchema = z.object({
@@ -74,6 +87,7 @@ export class XChatTransport {
     private readonly store: TransportStateStore,
     private readonly agent: Pick<PecuAgent, "handle">,
     private readonly discoveryStore?: ConversationDiscoveryStore,
+    private readonly peerConversations?: PeerConversationStore,
   ) {}
 
   async run(): Promise<never> {
@@ -86,15 +100,11 @@ export class XChatTransport {
   }
 
   async poll(): Promise<void> {
-    const conversations = new Set(await this.discoverConversations());
+    const discovered = await this.discoverConversations();
+    const conversations = new Set(discovered);
     for (const peerUserId of this.config.chatPeerUserIds) {
       try {
-        let conversationId = this.resolvedPeerConversations.get(peerUserId);
-        if (!conversationId) {
-          conversationId = await this.api.conversationId(peerUserId);
-          this.resolvedPeerConversations.set(peerUserId, conversationId);
-        }
-        conversations.add(conversationId);
+        conversations.add(await this.peerConversation(peerUserId, discovered));
       } catch (error) {
         log("warn", "peer_conversation_lookup_failed", { peerUserId, error: errorMessage(error) });
         if (error instanceof ApiError && (error.status === 429 || error.status === 401)) throw error;
@@ -104,10 +114,31 @@ export class XChatTransport {
       try { await this.pollConversation(conversationId); }
       catch (error) {
         log("warn", "conversation_poll_failed", { conversationId, error: errorMessage(error) });
+        if (error instanceof ApiError && (error.status === 403 || error.status === 404)) await this.forgetConversation(conversationId);
         throw error;
       }
     }
     await this.drainOutbox();
+  }
+
+  /** Memory, then the persisted mapping, then a discovered ID naming both users; X is asked only when all miss. */
+  private async peerConversation(peerUserId: string, discovered: readonly string[] = []): Promise<string> {
+    const known = this.resolvedPeerConversations.get(peerUserId);
+    if (known) return known;
+    const direct = (id: string | undefined): id is string => id !== undefined && isDirectConversation(id, this.botUserId, peerUserId);
+    const stored = await this.peerConversations?.get(this.botUserId, peerUserId);
+    const conversationId = direct(stored) ? stored : discovered.find(direct) ?? await this.api.conversationId(peerUserId);
+    if (conversationId !== stored && direct(conversationId)) await this.peerConversations?.put(this.botUserId, peerUserId, conversationId);
+    this.resolvedPeerConversations.set(peerUserId, conversationId);
+    return conversationId;
+  }
+
+  private async forgetConversation(conversationId: string): Promise<void> {
+    for (const [peerUserId, id] of this.resolvedPeerConversations) {
+      if (comparableConversation(id) !== comparableConversation(conversationId)) continue;
+      this.resolvedPeerConversations.delete(peerUserId);
+      await this.peerConversations?.delete(this.botUserId, peerUserId);
+    }
   }
 
   private async discoverConversations(): Promise<readonly string[]> {
@@ -137,7 +168,7 @@ export class XChatTransport {
     log("info", "activity_received", { eventType: activity.eventType, hasEncodedEvent: Boolean(activity.encodedEvent), hasKeyChangeEvent: Boolean(activity.keyChangeEvent) });
     let conversationId = activity.conversationId;
     if (!conversationId && activity.senderId && activity.senderId !== this.botUserId) {
-      conversationId = await this.api.conversationId(activity.senderId);
+      conversationId = await this.peerConversation(activity.senderId, this.discovery?.ids);
     }
     if (!conversationId) return false;
     if (activity.encodedEvent && activity.senderId) {
